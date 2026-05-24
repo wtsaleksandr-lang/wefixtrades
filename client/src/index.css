@@ -3133,3 +3133,298 @@ select:focus {
 .qq-fade-scroll-row::-webkit-scrollbar {
   display: none;                        /* Chrome / Safari / new Edge */
 }
+
+/* ────────────────────────────────────────────────────────────────────
+ * WFT mobile-app preview (admin /admin/mobile-preview).
+ *
+ * Mirror of the wefixtrades-softphone screens. The preview supports a
+ * day/night toggle persisted to localStorage (key: wft_mobile_preview_theme),
+ * with brand-blue accents that read in both themes.
+ *
+ * Every token below is scoped to .wft-mob-preview[data-theme="…"] so the
+ * hardcoded-color guard accepts the literals (Rule 3 — guarded by a
+ * data-theme block). Brand blue is HSL 222 100% 59% (the same --primary
+ * used everywhere else); we re-declare it inside the shell so the preview
+ * stays vivid regardless of the host page's theme.
+ * ─────────────────────────────────────────────────────────────────── */
+[data-theme="light"].wft-mob-preview,
+[data-theme="light"] .wft-mob-preview {
+  --wft-mp-bg: #F4F5F7;
+  --wft-mp-surface: #FFFFFF;
+  --wft-mp-surface-soft: #F9FAFB;
+  --wft-mp-text: #0F172A;
+  --wft-mp-text-muted: #64748B;
+  --wft-mp-border: #E5E7EB;
+  --wft-mp-border-strong: #D1D5DB;
+
+  --wft-mp-primary: #0D3CFC;
+  --wft-mp-primary-soft: rgba(13, 60, 252, 0.10);
+  --wft-mp-primary-ink: #FFFFFF;
+  --wft-mp-on-primary-muted: rgba(255, 255, 255, 0.80);
+
+  --wft-mp-success: #16A34A;
+  --wft-mp-success-soft: rgba(22, 163, 74, 0.10);
+  --wft-mp-success-ink: #14532D;
+
+  --wft-mp-danger: #DC2626;
+  --wft-mp-danger-soft: rgba(220, 38, 38, 0.10);
+  --wft-mp-danger-ink: #7F1D1D;
+
+  --wft-mp-warn: #D97706;
+  --wft-mp-warn-soft: rgba(217, 119, 6, 0.12);
+  --wft-mp-warn-ink: #92400E;
+
+  --wft-mp-night: #1E293B;
+  --wft-mp-night-soft: rgba(30, 41, 59, 0.08);
+  --wft-mp-night-ink: #F8FAFC;
+
+  --wft-mp-tabbar-bg: #FFFFFF;
+  --wft-mp-tabbar-border: #E5E7EB;
+  --wft-mp-shadow-fab: 0 8px 20px rgba(13, 60, 252, 0.28);
+  --wft-mp-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+[data-theme="dark"].wft-mob-preview,
+[data-theme="dark"] .wft-mob-preview {
+  --wft-mp-bg: #0B1220;
+  --wft-mp-surface: #111A2E;
+  --wft-mp-surface-soft: #0F172A;
+  --wft-mp-text: #F1F5F9;
+  --wft-mp-text-muted: #94A3B8;
+  --wft-mp-border: #1F2A44;
+  --wft-mp-border-strong: #334155;
+
+  --wft-mp-primary: #3B82F6;
+  --wft-mp-primary-soft: rgba(59, 130, 246, 0.18);
+  --wft-mp-primary-ink: #FFFFFF;
+  --wft-mp-on-primary-muted: rgba(255, 255, 255, 0.78);
+
+  --wft-mp-success: #22C55E;
+  --wft-mp-success-soft: rgba(34, 197, 94, 0.18);
+  --wft-mp-success-ink: #BBF7D0;
+
+  --wft-mp-danger: #F87171;
+  --wft-mp-danger-soft: rgba(248, 113, 113, 0.18);
+  --wft-mp-danger-ink: #FECACA;
+
+  --wft-mp-warn: #FBBF24;
+  --wft-mp-warn-soft: rgba(251, 191, 36, 0.18);
+  --wft-mp-warn-ink: #FDE68A;
+
+  --wft-mp-night: #0F172A;
+  --wft-mp-night-soft: rgba(148, 163, 184, 0.12);
+  --wft-mp-night-ink: #E2E8F0;
+
+  --wft-mp-tabbar-bg: #0F172A;
+  --wft-mp-tabbar-border: #1F2A44;
+  --wft-mp-shadow-fab: 0 8px 20px rgba(0, 0, 0, 0.55);
+  --wft-mp-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.40);
+}
+
+/* Base surfaces */
+.wft-mob-preview {
+  background: var(--wft-mp-bg);
+  color: var(--wft-mp-text);
+}
+.wft-mob-preview .wft-mp-surface         { background: var(--wft-mp-surface); }
+.wft-mob-preview .wft-mp-surface-soft    { background: var(--wft-mp-surface-soft); }
+.wft-mob-preview .wft-mp-text            { color: var(--wft-mp-text); }
+.wft-mob-preview .wft-mp-text-muted      { color: var(--wft-mp-text-muted); }
+.wft-mob-preview .wft-mp-border          { border-color: var(--wft-mp-border); }
+.wft-mob-preview .wft-mp-border-strong   { border-color: var(--wft-mp-border-strong); }
+
+/* Brand-blue surfaces (cards / buttons / accents) */
+.wft-mob-preview .wft-mp-primary-bg      { background: var(--wft-mp-primary); color: var(--wft-mp-primary-ink); }
+.wft-mob-preview .wft-mp-primary-tint    { background: var(--wft-mp-primary-soft); color: var(--wft-mp-primary); }
+.wft-mob-preview .wft-mp-primary-ink     { color: var(--wft-mp-primary); }
+.wft-mob-preview .wft-mp-primary-border  { border-color: var(--wft-mp-primary); }
+
+/* Card */
+.wft-mob-preview .wft-mp-card {
+  background: var(--wft-mp-surface);
+  border: 1px solid var(--wft-mp-border);
+  border-radius: 14px;
+  box-shadow: var(--wft-mp-shadow-card);
+}
+.wft-mob-preview .wft-mp-card--selected {
+  border-color: var(--wft-mp-primary);
+  border-width: 2px;
+}
+
+/* Inputs */
+.wft-mob-preview .wft-mp-input {
+  background: var(--wft-mp-surface);
+  border: 1px solid var(--wft-mp-border);
+  color: var(--wft-mp-text);
+}
+.wft-mob-preview .wft-mp-input::placeholder { color: var(--wft-mp-text-muted); }
+.wft-mob-preview .wft-mp-input:focus {
+  border-color: var(--wft-mp-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--wft-mp-primary-soft);
+}
+
+/* Buttons */
+.wft-mob-preview .wft-mp-btn-primary {
+  background: var(--wft-mp-primary);
+  color: var(--wft-mp-primary-ink);
+  border: 1px solid var(--wft-mp-primary);
+}
+.wft-mob-preview .wft-mp-btn-outline {
+  background: transparent;
+  color: var(--wft-mp-primary);
+  border: 1px solid var(--wft-mp-primary);
+}
+.wft-mob-preview .wft-mp-btn-danger {
+  background: var(--wft-mp-danger);
+  color: var(--wft-mp-primary-ink);
+  border: 1px solid var(--wft-mp-danger);
+}
+.wft-mob-preview .wft-mp-btn-ghost {
+  background: var(--wft-mp-surface);
+  color: var(--wft-mp-text);
+  border: 1px solid var(--wft-mp-border);
+}
+
+/* Duty mode cards. Active variants saturate the surface; inactive variants
+ * use the soft tint with the left-border accent. */
+.wft-mob-preview .wft-mp-mode-card {
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+.wft-mob-preview .wft-mp-mode-available {
+  background: var(--wft-mp-success-soft);
+  border-color: var(--wft-mp-border);
+  border-left-color: var(--wft-mp-success);
+}
+.wft-mob-preview .wft-mp-mode-available.is-active {
+  background: var(--wft-mp-success);
+  border-color: var(--wft-mp-success);
+  color: var(--wft-mp-night-ink);
+}
+.wft-mob-preview .wft-mp-mode-on_the_job {
+  background: var(--wft-mp-primary-soft);
+  border-color: var(--wft-mp-border);
+  border-left-color: var(--wft-mp-primary);
+}
+.wft-mob-preview .wft-mp-mode-on_the_job.is-active {
+  background: var(--wft-mp-primary);
+  border-color: var(--wft-mp-primary);
+  color: var(--wft-mp-primary-ink);
+}
+.wft-mob-preview .wft-mp-mode-after_hours {
+  background: var(--wft-mp-night-soft);
+  border-color: var(--wft-mp-border);
+  border-left-color: var(--wft-mp-night);
+}
+.wft-mob-preview .wft-mp-mode-after_hours.is-active {
+  background: var(--wft-mp-night);
+  border-color: var(--wft-mp-night);
+  color: var(--wft-mp-night-ink);
+}
+/* Inside an active mode card, the muted/title/description copy switches
+ * to the inverse text token so it reads on the saturated background. */
+.wft-mob-preview .wft-mp-mode-card.is-active .wft-mp-text,
+.wft-mob-preview .wft-mp-mode-card.is-active .wft-mp-text-muted {
+  color: inherit;
+  opacity: 0.92;
+}
+
+/* Status badge variants */
+.wft-mob-preview .wft-mp-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wft-mob-preview .wft-mp-badge-primary { background: var(--wft-mp-primary-soft); color: var(--wft-mp-primary); }
+.wft-mob-preview .wft-mp-badge-success { background: var(--wft-mp-success-soft); color: var(--wft-mp-success-ink); }
+.wft-mob-preview .wft-mp-badge-danger  { background: var(--wft-mp-danger-soft);  color: var(--wft-mp-danger-ink); }
+.wft-mob-preview .wft-mp-badge-neutral { background: var(--wft-mp-surface-soft); color: var(--wft-mp-text-muted); border: 1px solid var(--wft-mp-border); }
+.wft-mob-preview .wft-mp-badge-warn    { background: var(--wft-mp-warn-soft);    color: var(--wft-mp-warn-ink); }
+/* High-contrast badge for use inside an active mode card (inverted surface). */
+.wft-mob-preview .wft-mp-mode-card.is-active .wft-mp-badge-current {
+  background: rgba(255, 255, 255, 0.18);
+  color: inherit;
+}
+
+/* Bottom tab bar (premium, 5 tabs + centered FAB) */
+.wft-mob-preview .wft-mp-tabbar {
+  background: var(--wft-mp-tabbar-bg);
+  border-top: 1px solid var(--wft-mp-tabbar-border);
+}
+.wft-mob-preview .wft-mp-tab {
+  color: var(--wft-mp-text-muted);
+  transition: color 140ms ease, background-color 140ms ease, transform 80ms ease;
+}
+.wft-mob-preview .wft-mp-tab.is-active {
+  color: var(--wft-mp-primary);
+}
+.wft-mob-preview .wft-mp-tab:active {
+  transform: scale(0.95);
+  background-color: var(--wft-mp-surface-soft);
+}
+.wft-mob-preview .wft-mp-tab-indicator {
+  width: 24px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--wft-mp-primary);
+}
+
+/* Duty FAB — raised round button centered on the tab bar. Status-colored
+ * ring matches the current duty mode. */
+.wft-mob-preview .wft-mp-fab {
+  background: var(--wft-mp-surface);
+  color: var(--wft-mp-text);
+  border: 2px solid var(--wft-mp-border-strong);
+  box-shadow: var(--wft-mp-shadow-fab);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.wft-mob-preview .wft-mp-fab:active {
+  transform: translate(-50%, -52%) scale(0.96);
+}
+.wft-mob-preview .wft-mp-fab-available  { border-color: var(--wft-mp-success); }
+.wft-mob-preview .wft-mp-fab-on_the_job { border-color: var(--wft-mp-primary); }
+.wft-mob-preview .wft-mp-fab-after_hours { border-color: var(--wft-mp-night); }
+.wft-mob-preview .wft-mp-fab.is-active.wft-mp-fab-available {
+  background: var(--wft-mp-success); color: var(--wft-mp-night-ink);
+}
+.wft-mob-preview .wft-mp-fab.is-active.wft-mp-fab-on_the_job {
+  background: var(--wft-mp-primary); color: var(--wft-mp-primary-ink);
+}
+.wft-mob-preview .wft-mp-fab.is-active.wft-mp-fab-after_hours {
+  background: var(--wft-mp-night); color: var(--wft-mp-night-ink);
+}
+
+/* Theme-toggle pill (top-right of every preview header) */
+.wft-mob-preview .wft-mp-theme-toggle {
+  background: var(--wft-mp-surface-soft);
+  color: var(--wft-mp-text-muted);
+  border: 1px solid var(--wft-mp-border);
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.wft-mob-preview .wft-mp-theme-toggle:hover {
+  color: var(--wft-mp-primary);
+  border-color: var(--wft-mp-primary);
+}
+
+/* Demo banner inside Calls / Messages */
+.wft-mob-preview .wft-mp-demo-banner {
+  background: var(--wft-mp-warn-soft);
+  border: 1px solid var(--wft-mp-warn);
+  color: var(--wft-mp-warn-ink);
+}
+
+/* Bubble (Ask thread) */
+.wft-mob-preview .wft-mp-bubble-assistant {
+  background: var(--wft-mp-surface);
+  border: 1px solid var(--wft-mp-border);
+  color: var(--wft-mp-text);
+}
+.wft-mob-preview .wft-mp-bubble-user {
+  background: var(--wft-mp-primary);
+  color: var(--wft-mp-primary-ink);
+}
+
