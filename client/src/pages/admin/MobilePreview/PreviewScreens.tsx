@@ -27,6 +27,11 @@ import {
   Sparkles,
   MessageCircle,
   Settings2,
+  Camera,
+  Mic,
+  Play,
+  ArrowDownLeft,
+  ArrowUpRight,
   type LucideIcon,
 } from "lucide-react";
 
@@ -791,7 +796,9 @@ export function MessagesScreen({ state, theme = "light", onToggleTheme = () => {
                   <Card key={m.id}>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[14px]" aria-hidden>{isInbound ? "📥" : "📤"}</span>
+                        {isInbound
+                          ? <ArrowDownLeft className="w-4 h-4 shrink-0 wft-mp-text-muted" strokeWidth={1.75} aria-hidden />
+                          : <ArrowUpRight className="w-4 h-4 shrink-0 wft-mp-text-muted" strokeWidth={1.75} aria-hidden />}
                         <H2>{formatPhone(peer)}</H2>
                       </div>
                       {m.isAi && !isInbound && <Badge>AI</Badge>}
@@ -1019,9 +1026,9 @@ export function AskScreen({ theme = "light", onToggleTheme = () => {} }: { theme
             type="button"
             onClick={() => { /* mocked attach */ }}
             aria-label="Attach photo"
-            className="wft-mp-btn-ghost w-8 h-8 rounded-full text-[14px] active:opacity-80 transition-opacity"
+            className="wft-mp-btn-ghost w-8 h-8 rounded-full inline-flex items-center justify-center active:opacity-80 transition-opacity"
           >
-            📷
+            <Camera className="w-4 h-4" strokeWidth={1.75} aria-hidden />
           </button>
           <input
             type="text"
@@ -1035,9 +1042,9 @@ export function AskScreen({ theme = "light", onToggleTheme = () => {} }: { theme
             type="button"
             onClick={() => { /* mocked mic */ }}
             aria-label="Record voice note"
-            className="wft-mp-btn-ghost w-8 h-8 rounded-full text-[14px] active:opacity-80 transition-opacity"
+            className="wft-mp-btn-ghost w-8 h-8 rounded-full inline-flex items-center justify-center active:opacity-80 transition-opacity"
           >
-            🎤
+            <Mic className="w-4 h-4" strokeWidth={1.75} aria-hidden />
           </button>
         </div>
       </Section>
@@ -1119,9 +1126,9 @@ export function VoicemailScreen({ theme = "light", onToggleTheme = () => {}, onB
                   type="button"
                   onClick={() => { /* mocked playback */ }}
                   aria-label="Play voicemail"
-                  className="wft-mp-btn-primary w-8 h-8 rounded-full text-[14px] flex items-center justify-center shrink-0 active:opacity-80 transition-opacity"
+                  className="wft-mp-btn-primary w-8 h-8 rounded-full flex items-center justify-center shrink-0 active:opacity-80 transition-opacity"
                 >
-                  ▶
+                  <Play className="w-3.5 h-3.5 ml-0.5" strokeWidth={1.75} fill="currentColor" aria-hidden />
                 </button>
               </div>
             </Card>
