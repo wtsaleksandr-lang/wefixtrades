@@ -5,7 +5,7 @@ import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import CalculatorLauncher from "@/components/quote-widget/CalculatorLauncher";
 import { mkt, colors } from "@/theme/tokens";
 import { useFaqSchema } from "@/lib/useFaqSchema";
-import { usePageMeta } from "@/lib/usePageMeta";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import TrustStrip from "@/components/marketing/TrustStrip";
@@ -81,14 +81,7 @@ function buildDemoCalculator(): CalculatorData {
 /* ─── Page Component ─── */
 
 export default function QuoteCalculatorDemo() {
-  usePageMeta({
-    title: "See QuoteQuick in Action — Live Demo | WeFixTrades",
-    description:
-      "The actual QuoteQuick calculator your customers will use. No signup needed — try the real widget with sample junk-removal pricing.",
-    // Tools-consolidation: relocated from /tools/quote-demo to live under
-    // the QuoteQuick product family. Old route 301s to this one.
-    canonicalPath: "/products/quickquotepro/demo",
-  });
+  // Title + meta tags handled by <PageMeta> below.
 
   const breadcrumbs = useMemo(
     () => [
@@ -121,6 +114,12 @@ export default function QuoteCalculatorDemo() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="See QuoteQuick in action — live demo"
+        description="The actual QuoteQuick calculator your customers will use. No signup needed — try the real widget with sample junk-removal pricing."
+        canonical="/products/quickquotepro/demo"
+        keywords={["quotequick demo", "quote calculator demo"]}
+      />
       <style>{`
         .demo-cta-wrap {
           transition: border-color 0.3s ease, box-shadow 0.3s ease;

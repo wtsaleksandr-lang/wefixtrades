@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import voiceAssistantIcon from "@assets/voice-assistant-icon_1772080241394.webp";
@@ -20,9 +21,7 @@ import {
 } from "@/config/pricing";
 
 export default function ServicesPage() {
-  useEffect(() => {
-    document.title = "Growth Services — WeFixTrades";
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   const [formData, setFormData] = useState({ name: "", email: "", service: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
@@ -318,6 +317,12 @@ export default function ServicesPage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Growth services for trade businesses"
+        description="QuoteQuick calculators, 24/7 TradeLine AI, MapGuard local SEO, RankFlow, ReputationShield — pick the services that move the needle for your trade business."
+        canonical="/services"
+        keywords={["trades growth services", "local seo for trades", "ai for trades"]}
+      />
       <V7PageShell>
       <div data-testid="services-page">
         <V7Hero

@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useVapiCall } from "@/hooks/useVapiCall";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import VoiceVisualizer, { HeroSoundBars } from "@/components/marketing/VoiceVisualizer";
 import { Send, Bot, User, Mic, PhoneOff, Phone, MessageSquare, ArrowRight, Loader2, ChevronDown, Check } from "lucide-react";
@@ -483,12 +484,16 @@ function PricingCards() {
 export default function DemoPage() {
   const [mode, setMode] = useState<"chat" | "voice">("chat");
 
-  useEffect(() => {
-    document.title = "Try the Demo — WeFixTrades";
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Try the demo — see WeFixTrades answer a live customer"
+        description="Talk or chat with our AI receptionist in your browser. Watch it qualify a lead, generate an instant quote, and book the job — exactly how it would for your trade business."
+        canonical="/demo"
+        keywords={["ai receptionist demo", "trades ai demo", "instant quote demo"]}
+      />
       <div data-theme="light" data-testid="demo-page">
 
         {/* ═══ HERO — minimal, animation retained ═══ */}

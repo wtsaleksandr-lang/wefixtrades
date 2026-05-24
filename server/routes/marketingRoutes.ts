@@ -8,74 +8,13 @@ import { createLogger } from "../lib/logger";
 
 const log = createLogger("Marketing");
 
-const BASE_URL = "https://wefixtrades.com";
-
-// Tools-consolidation (2026-05-23): the /tools/* surface collapsed to a
-// single Free Audit (the audit hosts the GBP rank-grid in a Rank Grid tab).
-// Quote Demo + Build-with-AI relocated under the QuoteQuick product family.
-// Missed Call Calculator deleted entirely. Per-trade landing pages removed
-// from the sitemap with the calculator/snapshot pages.
-const MARKETING_ROUTES = [
-  "/", "/products", "/pricing", "/services", "/bundles",
-  "/templates", "/demo", "/docs", "/contact", "/privacy", "/terms",
-  "/features/instant-quotes", "/features/booking", "/features/ai-employee",
-  "/features/sms", "/features/calculator-engine",
-  "/docs/embed", "/docs/domain", "/docs/booking", "/docs/ai",
-  "/docs/webhooks", "/docs/troubleshooting",
-  "/products/quickquotepro", "/products/tradeline",
-  "/products/mapguard", "/products/rankflow",
-  "/products/webcare", "/products/sitelaunch", "/products/socialsync",
-  "/products/reputationshield",
-  "/tools/free-audit",
-  // BI-1 — anonymous AI demo upload page (priority 0.8 — same as other tool pages).
-  "/products/quickquotepro/demo",
-  "/products/quickquotepro/build-with-ai",
-];
+// SEO Wave A — robots.txt + sitemap.xml moved out to dedicated modules:
+//   server/routes/robotsRoutes.ts   (canonical robots directives)
+//   server/routes/sitemapRoutes.ts  (curated + product-slug-driven sitemap)
+// Both are registered in server/routes/index.ts. This file now only
+// owns the contact form + exit-survey landing.
 
 export function registerMarketingRoutes(app: Express): void {
-  app.get("/robots.txt", (_req, res) => {
-    res.type("text/plain").send(
-      [
-        "User-agent: *",
-        "Allow: /",
-        "Disallow: /api/",
-        "Disallow: /Dashboard",
-        "Disallow: /dashboard",
-        "Disallow: /EditCalculator",
-        "Disallow: /edit-calculator",
-        "Disallow: /Wizard",
-        "Disallow: /wizard",
-        "Disallow: /Leads",
-        "Disallow: /leads",
-        "Disallow: /Calculator",
-        "Disallow: /calculator",
-        `Sitemap: ${BASE_URL}/sitemap.xml`,
-        "",
-      ].join("\n"),
-    );
-  });
-
-  app.get("/sitemap.xml", (_req, res) => {
-    const now = new Date().toISOString().split("T")[0];
-    // BI-1 — Build-with-AI is pinned to 0.8 (per spec). Free Audit keeps
-    // the 0.9 prominence as the surviving /tools/ surface.
-    const urls = MARKETING_ROUTES.map(
-      (r) =>
-        `  <url><loc>${BASE_URL}${r}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq><priority>${
-          r === "/"
-            ? "1.0"
-            : r === "/products/quickquotepro/build-with-ai"
-              ? "0.8"
-              : r === "/tools/free-audit"
-                ? "0.9"
-                : "0.8"
-        }</priority></url>`
-    ).join("\n");
-    res.type("application/xml").send(
-      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`
-    );
-  });
-
   const contactSchema = z.object({
     name: z.string().min(1),
     email: z.string().email(),

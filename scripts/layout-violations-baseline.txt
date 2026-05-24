@@ -51,11 +51,11 @@ client/src/components/wizard/elfsight/StyleTab.tsx:4521:24	rule-c	size={13}
 client/src/components/wizard/elfsight/StyleTab.tsx:4617:25	rule-c	size={10}
 client/src/components/wizard/elfsight/TemplateGallery.tsx:812:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:188:17	rule-c	size={11}
-client/src/pages/Blog.tsx:236:19	rule-c	size={120}
-client/src/pages/Blog.tsx:354:17	rule-c	size={84}
-client/src/pages/CaseStudies.tsx:489:24	rule-c	size={48}
-client/src/pages/CaseStudies.tsx:499:19	rule-c	size={56}
-client/src/pages/CaseStudies.tsx:635:22	rule-c	size={80}
+client/src/pages/Blog.tsx:237:19	rule-c	size={120}
+client/src/pages/Blog.tsx:355:17	rule-c	size={84}
+client/src/pages/CaseStudies.tsx:490:24	rule-c	size={48}
+client/src/pages/CaseStudies.tsx:500:19	rule-c	size={56}
+client/src/pages/CaseStudies.tsx:636:22	rule-c	size={80}
 client/src/pages/OnboardingForm.tsx:117:14	rule-c	square w-12 h-12
 client/src/pages/OnboardingForm.tsx:295:24	rule-c	square w-10 h-10
 client/src/pages/OnboardingForm.tsx:312:5	rule-b	<div> contains 3 cues

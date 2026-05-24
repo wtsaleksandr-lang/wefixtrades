@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import {
   ArrowRight, ArrowLeft, Search,
@@ -584,7 +585,7 @@ export default function BlogPage() {
   const [openArticle, setOpenArticle] = useState<number | null>(null);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
-  useEffect(() => { document.title = "Blog — WeFixTrades"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
   useEffect(() => { window.scrollTo({ top: 0, behavior: "auto" }); }, [openArticle]);
 
   const categories = useMemo(() => {
@@ -608,6 +609,12 @@ export default function BlogPage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title={activePost ? `${activePost.title} — WeFixTrades blog` : "Blog — playbooks and case studies for trades"}
+        description={activePost ? activePost.summary : "Playbooks, breakdowns, and case studies for plumbers, electricians, HVAC, roofers, and other trade businesses growing with WeFixTrades."}
+        canonical="/blog"
+        ogType={activePost ? "article" : "website"}
+      />
       <V7PageShell>
         {activePost ? (
           /* ─ Article detail ─ */

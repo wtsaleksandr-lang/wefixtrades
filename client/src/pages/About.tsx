@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { Target, Users, Zap, Shield, Hammer, Clock } from "lucide-react";
 import { V7Hero, V7Section, V7Container, V7PageShell, V7SectionHeading, V7FinalCta } from "@/components/marketing/v7";
@@ -19,10 +19,15 @@ const HOW_WE_WORK = [
 ];
 
 export default function AboutPage() {
-  useEffect(() => { document.title = "About — WeFixTrades"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="About WeFixTrades"
+        description="WeFixTrades is the growth team trades businesses can't afford to hire — and shouldn't need to. Built for the jobsite, done-for-you, focused on outcomes."
+        canonical="/about"
+      />
       <V7PageShell>
         <V7Hero
           productName="About WeFixTrades"

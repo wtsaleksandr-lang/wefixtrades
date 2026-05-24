@@ -5,6 +5,8 @@ import auditRouter from "../auditRoutes";
 import { registerAuthRoutes } from "./authRoutes";
 import { registerMarketingRoutes } from "./marketingRoutes";
 import { registerMarketingWaitlistRoutes } from "./marketingWaitlistRoutes";
+import { registerSitemapRoutes } from "./sitemapRoutes";
+import { registerRobotsRoutes } from "./robotsRoutes";
 import { registerAiRoutes } from "./aiRoutes";
 import { registerCalculatorRoutes } from "./calculatorRoutes";
 import { registerLeadRoutes } from "./leadRoutes";
@@ -126,6 +128,9 @@ export async function registerRoutes(
   registerAuthRoutes(app);
   registerMarketingRoutes(app);
   registerMarketingWaitlistRoutes(app);
+  // SEO Wave A — public sitemap.xml + robots.txt.
+  registerSitemapRoutes(app);
+  registerRobotsRoutes(app);
   registerUnsubscribeRoutes(app);
   registerAiRoutes(app);
   registerCalculatorRoutes(app);

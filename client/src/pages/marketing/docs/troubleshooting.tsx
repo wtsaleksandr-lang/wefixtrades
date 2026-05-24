@@ -1,11 +1,17 @@
-import { useEffect } from "react";
 import DocsLayout, { InfoBox, DocH2, DocH3, Checklist, Accordion } from "@/components/marketing/DocsLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function DocsTroubleshooting() {
-  useEffect(() => { document.title = "Troubleshooting — QuoteQuick™ Docs"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
+    <>
+    <PageMeta
+      title="Troubleshooting — QuoteQuick docs"
+      description="Common QuoteQuick problems and fixes: embed render issues, custom-domain DNS, Stripe deposit failures, AI handoff edge cases, and webhook delivery debugging."
+      canonical="/docs/troubleshooting"
+    />
     <DocsLayout
       activeSlug="troubleshooting"
       title="Troubleshooting"
@@ -151,5 +157,6 @@ export default function DocsTroubleshooting() {
       </InfoBox>
 
     </DocsLayout>
+    </>
   );
 }

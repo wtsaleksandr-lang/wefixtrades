@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { Check, ArrowRight, Phone, Wrench, Zap, Home, Sparkles, Fan, Trees, Bug, Warehouse, KeyRound, PaintBucket, Hammer, Building2 } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { IconBadge } from "@/components/IconBadge";
@@ -370,28 +371,17 @@ export default function SolutionPage() {
 
   useScrollReveal();
 
-  useEffect(() => {
-    if (solution) {
-      document.title = `Solutions for ${solution.trade} | WeFixTrades`;
-      const metaDesc = document.querySelector('meta[name="description"]');
-      const content = solution.subheadline;
-      if (metaDesc) {
-        metaDesc.setAttribute("content", content);
-      } else {
-        const meta = document.createElement("meta");
-        meta.name = "description";
-        meta.content = content;
-        document.head.appendChild(meta);
-      }
-    }
-  }, [solution]);
-
   if (!solution) return <NotFound />;
 
   const HeroIcon = solution.heroIcon;
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title={`Solutions for ${solution.trade}`}
+        description={solution.subheadline}
+        canonical={`/solutions/${solution.slug}`}
+      />
       <V7PageShell>
       <div data-testid={`solution-page-${solution.slug}`}>
         <V7Hero

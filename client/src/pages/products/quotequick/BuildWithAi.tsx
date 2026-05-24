@@ -24,8 +24,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors } from "@/theme/tokens";
-import { usePageMeta } from "@/lib/usePageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { UploadCloud, Sparkles, Clock, ShieldCheck, AlertTriangle } from "lucide-react";
 
@@ -57,12 +57,7 @@ const SAMPLE_PAIRS: SamplePair[] = [
 ];
 
 export default function BuildWithAi() {
-  usePageMeta({
-    title: "Build a Calculator from a Photo — Free AI Demo | WeFixTrades",
-    description:
-      "Upload a photo of any quote or invoice and watch AI build a working quote calculator in seconds. Free, no signup, no credit card.",
-    canonicalPath: "/products/quickquotepro/build-with-ai",
-  });
+  // Title + meta tags handled by <PageMeta> below.
 
   const breadcrumbs = useMemo(
     () => [
@@ -160,6 +155,12 @@ export default function BuildWithAi() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Build a quote calculator from a photo — free AI demo"
+        description="Upload a photo of any quote or invoice and watch AI build a working quote calculator in seconds. Free, no signup, no credit card."
+        canonical="/products/quickquotepro/build-with-ai"
+        keywords={["build calculator from photo", "ai quote builder", "image to calculator"]}
+      />
       <section
         style={{
           background: mkt.bg,

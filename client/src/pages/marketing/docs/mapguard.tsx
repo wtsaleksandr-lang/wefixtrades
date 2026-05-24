@@ -1,11 +1,17 @@
-import { useEffect } from "react";
 import DocsLayout, { Step, Accordion, InfoBox, DocH2, DocH3, Checklist } from "@/components/marketing/DocsLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function DocsMapguard() {
-  useEffect(() => { document.title = "MapGuard — WeFixTrades Docs"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
+    <>
+    <PageMeta
+      title="MapGuard — WeFixTrades docs"
+      description="How MapGuard monitors your Google Business Profile for unauthorized edits, suspensions, and ranking drops — and the alerts you'll receive."
+      canonical="/docs/mapguard"
+    />
     <DocsLayout
       activeSlug="mapguard"
       title="MapGuard Guide"
@@ -209,5 +215,6 @@ export default function DocsMapguard() {
         we'll get back to you within one business day.
       </InfoBox>
     </DocsLayout>
+    </>
   );
 }

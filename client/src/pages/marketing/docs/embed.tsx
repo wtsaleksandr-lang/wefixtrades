@@ -1,12 +1,18 @@
-import { useEffect } from "react";
 import DocsLayout, { Step, CodeBlock, Accordion, InfoBox, DocH2, DocH3, Checklist } from "@/components/marketing/DocsLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { HOSTING_DOMAIN } from "@shared/slugUtils";
 
 export default function DocsEmbed() {
-  useEffect(() => { document.title = "Embed Guide — QuoteQuick™ Docs"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
+    <>
+    <PageMeta
+      title="Embed guide — QuoteQuick docs"
+      description="Embed a QuoteQuick quote calculator on any website: WordPress, Squarespace, Wix, Webflow, plain HTML, and React. Step-by-step snippets with copy buttons."
+      canonical="/docs/embed"
+    />
     <DocsLayout
       activeSlug="embed"
       title="Embed Guide"
@@ -145,5 +151,6 @@ export default function DocsEmbed() {
       ]} />
 
     </DocsLayout>
+    </>
   );
 }

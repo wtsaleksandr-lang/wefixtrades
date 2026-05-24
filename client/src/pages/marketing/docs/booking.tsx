@@ -1,11 +1,17 @@
-import { useEffect } from "react";
 import DocsLayout, { Step, InfoBox, DocH2, DocH3, Checklist, Accordion } from "@/components/marketing/DocsLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function DocsBooking() {
-  useEffect(() => { document.title = "Booking + Deposits — QuoteQuick™ Docs"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
+    <>
+    <PageMeta
+      title="Booking + deposits — QuoteQuick docs"
+      description="Convert quotes into paid bookings: enable Stripe deposits, configure availability, and collect upfront payments through your QuoteQuick calculator."
+      canonical="/docs/booking"
+    />
     <DocsLayout
       activeSlug="booking"
       title="Booking + Deposits"
@@ -109,5 +115,6 @@ export default function DocsBooking() {
       </Accordion>
 
     </DocsLayout>
+    </>
   );
 }

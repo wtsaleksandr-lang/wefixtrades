@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Check, Minus, ChevronDown, ArrowRight, Play } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { PRODUCTS, YEARLY_DISCOUNT_PCT, getYearlyPrice, getYearlyMonthlyEquivalent, mergeProductsWithDb, type Product, type DbProductOverride } from "@/config/pricing";
 import { fetchFxRate, getFallbackRate, convert, formatMoney } from "@/lib/fx";
@@ -153,9 +154,7 @@ export default function PricingPage() {
     [dbOverrides],
   );
 
-  useEffect(() => {
-    document.title = "Pricing — WeFixTrades | Services & Tools For Every Trades Business";
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   useEffect(() => {
     fetchFxRate().then((rate) => {
@@ -168,6 +167,12 @@ export default function PricingPage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Pricing — services and tools for every trade business"
+        description="Transparent monthly pricing for WeFixTrades calculators, AI receptionist, Google Maps SEO, and reputation tools. Mix-and-match by category or pick a launch bundle."
+        canonical="/pricing"
+        keywords={["wefixtrades pricing", "trades software pricing", "quote calculator pricing"]}
+      />
       <div data-testid="pricing-page" style={{ overflowX: "hidden" }}>
 
         <section

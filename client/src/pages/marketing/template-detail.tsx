@@ -19,7 +19,7 @@ import { ArrowRight, ChevronLeft, Check } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import { mkt } from "@/theme/tokens";
-import { usePageMeta } from "@/lib/usePageMeta";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import {
   getTemplatePreset,
@@ -113,12 +113,6 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
   const cat = getCategoryStyle(template.category);
   const Icon = getQuoteQuickIcon(template.defaultIcon);
 
-  usePageMeta({
-    title: `${template.name} Calculator Template — QuoteQuick by WeFixTrades`,
-    description: `${template.description} Free-to-use calculator template — try the live widget, then customize in our setup wizard.`,
-    canonicalPath: `/templates/${template.id}`,
-  });
-
   useTemplateJsonLd(template);
 
   const breadcrumbs = useMemo(
@@ -151,6 +145,11 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title={`${template.name} calculator template`}
+        description={`${template.description} Free-to-use calculator template — try the live widget, then customize in our setup wizard.`}
+        canonical={`/templates/${template.id}`}
+      />
       <div data-theme="dark" style={{ background: mkt.bg }}>
         {/* Hero / Intro */}
         <div

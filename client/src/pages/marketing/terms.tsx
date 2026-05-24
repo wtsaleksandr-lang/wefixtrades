@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { V7Hero, V7Section, V7Container, V7PageShell } from "@/components/marketing/v7";
 
@@ -29,12 +30,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 const EFFECTIVE = "April 23, 2026";
 
 export default function TermsPage() {
-  useEffect(() => {
-    document.title = "Terms of Service — WeFixTrades";
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Terms of service"
+        description="The terms governing your use of WeFixTrades products and services."
+        canonical="/terms"
+      />
       <V7PageShell>
         <V7Hero
           productName="Legal"

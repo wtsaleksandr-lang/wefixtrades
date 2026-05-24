@@ -1,5 +1,6 @@
 import { MessageSquare, RefreshCcw, UserCheck, Shield, Clock } from "lucide-react";
 import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
 /* ── Mockup ──────────────────────────────────── */
@@ -133,5 +134,15 @@ const config: FeaturePageConfig = {
 };
 
 export default function SmsPage() {
-  return <FeaturePage config={config} />;
+  return (
+    <>
+      <PageMeta
+        title="SMS + WhatsApp follow-ups — win jobs automatically"
+        description="Automated SMS and WhatsApp follow-ups that nurture leads, recover quotes, and lock in bookings — without you ever typing a message."
+        canonical="/features/sms"
+        keywords={["sms follow-up for trades", "whatsapp lead nurture"]}
+      />
+      <FeaturePage config={config} />
+    </>
+  );
 }

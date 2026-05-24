@@ -1,5 +1,6 @@
 import { Settings2, Layers, Bot, Code2, RefreshCcw } from "lucide-react";
 import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
 /* ── Mockup ──────────────────────────────────── */
@@ -152,5 +153,15 @@ const config: FeaturePageConfig = {
 };
 
 export default function CalculatorEnginePage() {
-  return <FeaturePage config={config} />;
+  return (
+    <>
+      <PageMeta
+        title="Calculator engine — 10 pricing types, AI-validated"
+        description="Area-based, hourly, tiered, multi-step — the WeFixTrades calculator engine handles ten pricing types out of the box, with AI validation and live customer-side preview."
+        canonical="/features/calculator-engine"
+        keywords={["quote calculator engine", "pricing engine for trades"]}
+      />
+      <FeaturePage config={config} />
+    </>
+  );
 }
