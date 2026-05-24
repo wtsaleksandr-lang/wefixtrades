@@ -655,6 +655,104 @@ export interface IStorage {
   }>;
 }
 
+/**
+ * Sprint 8-18: every ContentFlow queue platform. claimNextJob /
+ * recoverStaleClaims look up the per-platform config from
+ * CONTENT_JOB_PLATFORMS, so adding a new channel = adding one
+ * entry to the map (no new SQL).
+ */
+export type ContentJobPlatform =
+  | "wordpress"
+  | "gbp"
+  | "facebook"
+  | "instagram"
+  | "gbp_post"
+  | "email"
+  | "linkedin"
+  | "pinterest"
+  | "youtube";
+
+type ContentJobPlatformConfig = {
+  /** metadata jsonb key carrying this channel's queue lifecycle */
+  metadataKey: string;
+  /** which content_drafts column scopes the queue (rankflow/reputationshield use
+   * `surface`; social channels use `target_platform`) */
+  filterColumn: "surface" | "target_platform";
+  filterValue: string;
+  /** allowed `kind` values for this channel */
+  kinds: string[];
+  /** metadata field that signals a successful publish — eligibility
+   * excludes rows already carrying it. WP=post_id, GBP review reply=posted_at,
+   * social default=remote_post_id, email=message_id, youtube=youtube_url. */
+  successField: string;
+};
+
+const CONTENT_JOB_PLATFORMS: Record<ContentJobPlatform, ContentJobPlatformConfig> = {
+  wordpress: {
+    metadataKey: "wordpress",
+    filterColumn: "surface",
+    filterValue: "rankflow",
+    kinds: ["article"],
+    successField: "post_id",
+  },
+  gbp: {
+    metadataKey: "gbp",
+    filterColumn: "surface",
+    filterValue: "reputationshield",
+    kinds: ["review_reply"],
+    successField: "posted_at",
+  },
+  facebook: {
+    metadataKey: "facebook",
+    filterColumn: "target_platform",
+    filterValue: "facebook",
+    kinds: ["social_post", "carousel_post"],
+    successField: "remote_post_id",
+  },
+  instagram: {
+    metadataKey: "instagram",
+    filterColumn: "target_platform",
+    filterValue: "instagram",
+    kinds: ["social_post", "carousel_post"],
+    successField: "remote_post_id",
+  },
+  gbp_post: {
+    metadataKey: "gbp_post",
+    filterColumn: "target_platform",
+    filterValue: "google_business",
+    kinds: ["google_post", "social_post"],
+    successField: "remote_post_id",
+  },
+  email: {
+    metadataKey: "email",
+    filterColumn: "target_platform",
+    filterValue: "email",
+    kinds: ["email_post"],
+    successField: "message_id",
+  },
+  linkedin: {
+    metadataKey: "linkedin",
+    filterColumn: "target_platform",
+    filterValue: "linkedin",
+    kinds: ["social_post", "carousel_post"],
+    successField: "remote_post_id",
+  },
+  pinterest: {
+    metadataKey: "pinterest",
+    filterColumn: "target_platform",
+    filterValue: "pinterest",
+    kinds: ["social_post", "carousel_post"],
+    successField: "remote_post_id",
+  },
+  youtube: {
+    metadataKey: "youtube",
+    filterColumn: "target_platform",
+    filterValue: "youtube",
+    kinds: ["video"],
+    successField: "youtube_url",
+  },
+};
+
 export class DatabaseStorage implements IStorage {
   async createCalculator(data: InsertCalculator): Promise<Calculator> {
     const [calc] = await db.insert(calculators).values(data).returning();
@@ -4387,102 +4485,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
-   * Sprint 8: atomic claim. Picks the next eligible draft, marks it
-   * `publishing` + stamps `locked_at`/`locked_by`, all in a single
-   * row-locked statement. SKIP LOCKED so concurrent workers never
-   * pick the same row.
-   *
-   * Eligibility:
-   *   - status='approved', kind='article', surface='rankflow'
-   *   - metadata.wordpress.queue_status='queued'
-   *   - scheduled_for IS NULL or elapsed
-   *   - post_id IS NULL (defence-in-depth — never re-publish)
-   *   - locked_at IS NULL OR older than the stale threshold (10 min)
-   *     so a crashed worker's claim auto-recovers.
-   *
-   * Returns the claimed row (now in `publishing` state) or null if
-   * the queue is empty or every eligible row is locked by another
-   * worker.
-   */
-  async claimNextWordpressJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
-    const now = opts.now ?? new Date();
-    const staleMs = opts.staleLockMs ?? 10 * 60_000;
-    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
-    const result: any = await db.execute(sql`
-      UPDATE content_drafts
-      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
-            'wordpress',
-            COALESCE(metadata->'wordpress', '{}'::jsonb) || jsonb_build_object(
-              'queue_status', 'publishing',
-              'locked_at',    ${now.toISOString()}::text,
-              'locked_by',    ${workerId}::text,
-              'last_attempt_at', ${now.toISOString()}::text
-            )
-          ),
-          updated_at = NOW()
-      WHERE id = (
-        SELECT id FROM content_drafts
-        WHERE status = 'approved'
-          AND kind = 'article'
-          AND surface = 'rankflow'
-          AND metadata->'wordpress'->>'queue_status' = 'queued'
-          AND (metadata->'wordpress'->>'scheduled_for' IS NULL
-               OR (metadata->'wordpress'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
-          AND metadata->'wordpress'->>'post_id' IS NULL
-          AND (metadata->'wordpress'->>'locked_at' IS NULL
-               OR (metadata->'wordpress'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
-          /* Sprint 14: calendar gating */
-          AND (metadata->'calendar'->>'paused' IS NULL OR metadata->'calendar'->>'paused' != 'true')
-          AND (metadata->'calendar'->>'scheduled_for' IS NULL
-               OR (metadata->'calendar'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
-        ORDER BY (metadata->'wordpress'->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
-        LIMIT 1
-        FOR UPDATE SKIP LOCKED
-      )
-      RETURNING *
-    `);
-    const rows: ContentDraft[] = (result?.rows ?? result) as ContentDraft[];
-    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-  }
-
-  /**
-   * Sprint 8: recover claims abandoned by a crashed worker. Returns
-   * `publishing` rows whose `locked_at` is older than the stale
-   * threshold back to `queued` so the next tick can re-claim. Bumps
-   * attempts (so genuinely-broken jobs still hit the dead-letter
-   * ceiling). Idempotent — safe to call every tick.
-   */
-  async recoverStaleWordpressClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
-    const now = opts.now ?? new Date();
-    const staleMs = opts.staleLockMs ?? 10 * 60_000;
-    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
-    const result: any = await db.execute(sql`
-      UPDATE content_drafts
-      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
-            'wordpress',
-            COALESCE(metadata->'wordpress', '{}'::jsonb) || jsonb_build_object(
-              'queue_status', 'queued',
-              'locked_at',  NULL::text,
-              'locked_by',  NULL::text,
-              'attempts',   COALESCE((metadata->'wordpress'->>'attempts')::int, 0) + 1,
-              'last_error', 'recovered from stale lock'
-            )
-          ),
-          updated_at = NOW()
-      WHERE status = 'approved'
-        AND kind = 'article'
-        AND surface = 'rankflow'
-        AND metadata->'wordpress'->>'queue_status' = 'publishing'
-        AND metadata->'wordpress'->>'locked_at' IS NOT NULL
-        AND (metadata->'wordpress'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
-      RETURNING id
-    `);
-    const rows: any[] = (result?.rows ?? result) as any[];
-    return Array.isArray(rows) ? rows.length : 0;
-  }
-
-  /**
-   * Sprint 9: idempotency lookup for review-reply drafts. One draft
+   * Sprint 8: idempotency lookup for review-reply drafts. One draft
    * per (clientId, externalReviewId). The external id lives in
    * metadata.gbp.external_review_id (no new column).
    */
@@ -4499,92 +4502,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
-   * Sprint 9: atomic claim for GBP review-reply jobs. Mirrors
-   * claimNextWordpressJob but filters on kind='review_reply' /
-   * surface='reputationshield' and uses the metadata.gbp.* path.
-   * SKIP LOCKED is per-row, so the GBP and WP queues drain
-   * independently and never block each other.
+   * Sprint 8-18: unified atomic claim across every ContentFlow channel.
+   * One config map, one SQL shape — Wordpress / GBP review-reply / 7
+   * social channels (facebook, instagram, gbp_post, email, linkedin,
+   * pinterest, youtube) all flow through claimNextJob / recoverStaleClaims.
    *
-   * Eligibility:
-   *   - status='approved', kind='review_reply', surface='reputationshield'
-   *   - metadata.gbp.queue_status='queued'
+   * Eligibility (per platform):
+   *   - status='approved'
+   *   - kind matches the platform's allowed kind(s)
+   *   - the platform's filter column (surface or target_platform) matches
+   *   - metadata.<key>.queue_status='queued'
    *   - scheduled_for IS NULL or elapsed
-   *   - posted_at IS NULL (defence-in-depth — never re-post)
+   *   - the platform's success marker (post_id / posted_at / remote_post_id /
+   *     message_id / youtube_url) IS NULL — defence-in-depth, never re-publish
    *   - locked_at IS NULL OR older than the stale threshold (10 min)
+   *     so a crashed worker's claim auto-recovers
+   *   - calendar.paused != 'true' AND calendar.scheduled_for elapsed (Sprint 14)
+   *
+   * SKIP LOCKED is per-row so all channels drain concurrently without
+   * blocking each other.
    */
-  async claimNextGbpJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
-    const now = opts.now ?? new Date();
-    const staleMs = opts.staleLockMs ?? 10 * 60_000;
-    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
-    const result: any = await db.execute(sql`
-      UPDATE content_drafts
-      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
-            'gbp',
-            COALESCE(metadata->'gbp', '{}'::jsonb) || jsonb_build_object(
-              'queue_status', 'publishing',
-              'locked_at',    ${now.toISOString()}::text,
-              'locked_by',    ${workerId}::text,
-              'last_attempt_at', ${now.toISOString()}::text
-            )
-          ),
-          updated_at = NOW()
-      WHERE id = (
-        SELECT id FROM content_drafts
-        WHERE status = 'approved'
-          AND kind = 'review_reply'
-          AND surface = 'reputationshield'
-          AND metadata->'gbp'->>'queue_status' = 'queued'
-          AND (metadata->'gbp'->>'scheduled_for' IS NULL
-               OR (metadata->'gbp'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
-          AND metadata->'gbp'->>'posted_at' IS NULL
-          AND (metadata->'gbp'->>'locked_at' IS NULL
-               OR (metadata->'gbp'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
-          /* Sprint 14: calendar gating */
-          AND (metadata->'calendar'->>'paused' IS NULL OR metadata->'calendar'->>'paused' != 'true')
-          AND (metadata->'calendar'->>'scheduled_for' IS NULL
-               OR (metadata->'calendar'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
-        ORDER BY (metadata->'gbp'->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
-        LIMIT 1
-        FOR UPDATE SKIP LOCKED
-      )
-      RETURNING *
-    `);
-    const rows: ContentDraft[] = (result?.rows ?? result) as ContentDraft[];
-    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-  }
-
-  /**
-   * Sprint 10: shared internal helper that builds the per-channel
-   * atomic claim. All 3 social adapters (facebook, instagram,
-   * gbp_post) plus future channels share this implementation —
-   * mirrors the Sprint 9 surgical-method approach but consolidates
-   * the SQL into one shape so we don't proliferate near-identical
-   * methods. Each public method below is a thin wrapper.
-   */
-  private async _claimNextSocialJob(
-    metadataKey: "facebook" | "instagram" | "gbp_post" | "email" | "linkedin" | "pinterest" | "youtube",
-    targetPlatform: string,
+  async claimNextJob(
+    platform: ContentJobPlatform,
     workerId: string,
-    opts: { now?: Date; staleLockMs?: number; kindFilter?: string[]; successField?: string } = {},
+    opts: { now?: Date; staleLockMs?: number } = {},
   ): Promise<ContentDraft | null> {
+    const cfg = CONTENT_JOB_PLATFORMS[platform];
     const now = opts.now ?? new Date();
     const staleMs = opts.staleLockMs ?? 10 * 60_000;
     const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
-    /* Default: social_post + carousel_post for fb/ig, google_post for gbp_post.
-     * Caller passes explicit kindFilter for clarity. Sprint 13: email
-     * uses 'email_post' kind + 'message_id' as the don't-republish marker. */
-    const kinds = opts.kindFilter ?? ["social_post"];
-    const kindList = sql.raw(kinds.map((k) => `'${k.replace(/'/g, "''")}'`).join(","));
-    /* successField is the metadata key that signals a successful publish
-     * (set by the adapter on success). Eligibility excludes any row
-     * already carrying it. Defaults to remote_post_id for social
-     * platforms; email overrides to message_id. */
-    const successField = opts.successField || "remote_post_id";
+    const kindList = sql.raw(cfg.kinds.map((k) => `'${k.replace(/'/g, "''")}'`).join(","));
+    const filterColumnSql = sql.raw(cfg.filterColumn);
     const result: any = await db.execute(sql`
       UPDATE content_drafts
       SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
-            ${metadataKey}::text,
-            COALESCE(metadata->${metadataKey}::text, '{}'::jsonb) || jsonb_build_object(
+            ${cfg.metadataKey}::text,
+            COALESCE(metadata->${cfg.metadataKey}::text, '{}'::jsonb) || jsonb_build_object(
               'queue_status', 'publishing',
               'locked_at',    ${now.toISOString()}::text,
               'locked_by',    ${workerId}::text,
@@ -4596,18 +4549,18 @@ export class DatabaseStorage implements IStorage {
         SELECT id FROM content_drafts
         WHERE status = 'approved'
           AND kind IN (${kindList})
-          AND target_platform = ${targetPlatform}
-          AND metadata->${metadataKey}::text->>'queue_status' = 'queued'
-          AND (metadata->${metadataKey}::text->>'scheduled_for' IS NULL
-               OR (metadata->${metadataKey}::text->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
-          AND metadata->${metadataKey}::text->>${successField} IS NULL
-          AND (metadata->${metadataKey}::text->>'locked_at' IS NULL
-               OR (metadata->${metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
+          AND ${filterColumnSql} = ${cfg.filterValue}
+          AND metadata->${cfg.metadataKey}::text->>'queue_status' = 'queued'
+          AND (metadata->${cfg.metadataKey}::text->>'scheduled_for' IS NULL
+               OR (metadata->${cfg.metadataKey}::text->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
+          AND metadata->${cfg.metadataKey}::text->>${cfg.successField} IS NULL
+          AND (metadata->${cfg.metadataKey}::text->>'locked_at' IS NULL
+               OR (metadata->${cfg.metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz)
           /* Sprint 14: calendar gating */
           AND (metadata->'calendar'->>'paused' IS NULL OR metadata->'calendar'->>'paused' != 'true')
           AND (metadata->'calendar'->>'scheduled_for' IS NULL
                OR (metadata->'calendar'->>'scheduled_for')::timestamptz <= ${now.toISOString()}::timestamptz)
-        ORDER BY (metadata->${metadataKey}::text->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
+        ORDER BY (metadata->${cfg.metadataKey}::text->>'scheduled_for')::timestamptz ASC NULLS FIRST, id ASC
         LIMIT 1
         FOR UPDATE SKIP LOCKED
       )
@@ -4617,136 +4570,42 @@ export class DatabaseStorage implements IStorage {
     return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
   }
 
-  private async _recoverStaleSocialClaims(
-    metadataKey: "facebook" | "instagram" | "gbp_post" | "email" | "linkedin" | "pinterest" | "youtube",
-    targetPlatform: string,
-    opts: { now?: Date; staleLockMs?: number; kindFilter?: string[] } = {},
+  /**
+   * Sprint 8-18: unified stale-claim recovery. Returns `publishing` rows
+   * whose `locked_at` is older than the stale threshold back to `queued`
+   * so the next tick can re-claim. Bumps attempts (so genuinely-broken
+   * jobs still hit the dead-letter ceiling). Idempotent — safe to call
+   * every tick.
+   */
+  async recoverStaleClaims(
+    platform: ContentJobPlatform,
+    opts: { now?: Date; staleLockMs?: number } = {},
   ): Promise<number> {
+    const cfg = CONTENT_JOB_PLATFORMS[platform];
     const now = opts.now ?? new Date();
     const staleMs = opts.staleLockMs ?? 10 * 60_000;
     const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
-    const kinds = opts.kindFilter ?? ["social_post"];
-    const kindList = sql.raw(kinds.map((k) => `'${k.replace(/'/g, "''")}'`).join(","));
+    const kindList = sql.raw(cfg.kinds.map((k) => `'${k.replace(/'/g, "''")}'`).join(","));
+    const filterColumnSql = sql.raw(cfg.filterColumn);
     const result: any = await db.execute(sql`
       UPDATE content_drafts
       SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
-            ${metadataKey}::text,
-            COALESCE(metadata->${metadataKey}::text, '{}'::jsonb) || jsonb_build_object(
+            ${cfg.metadataKey}::text,
+            COALESCE(metadata->${cfg.metadataKey}::text, '{}'::jsonb) || jsonb_build_object(
               'queue_status', 'queued',
               'locked_at',  NULL::text,
               'locked_by',  NULL::text,
-              'attempts',   COALESCE((metadata->${metadataKey}::text->>'attempts')::int, 0) + 1,
+              'attempts',   COALESCE((metadata->${cfg.metadataKey}::text->>'attempts')::int, 0) + 1,
               'last_error', 'recovered from stale lock'
             )
           ),
           updated_at = NOW()
       WHERE status = 'approved'
         AND kind IN (${kindList})
-        AND target_platform = ${targetPlatform}
-        AND metadata->${metadataKey}::text->>'queue_status' = 'publishing'
-        AND metadata->${metadataKey}::text->>'locked_at' IS NOT NULL
-        AND (metadata->${metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
-      RETURNING id
-    `);
-    const rows: any[] = (result?.rows ?? result) as any[];
-    return Array.isArray(rows) ? rows.length : 0;
-  }
-
-  async claimNextFacebookJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
-    return this._claimNextSocialJob("facebook", "facebook", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
-  }
-  async recoverStaleFacebookClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
-    return this._recoverStaleSocialClaims("facebook", "facebook", { ...opts, kindFilter: ["social_post", "carousel_post"] });
-  }
-
-  async claimNextInstagramJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
-    return this._claimNextSocialJob("instagram", "instagram", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
-  }
-  async recoverStaleInstagramClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
-    return this._recoverStaleSocialClaims("instagram", "instagram", { ...opts, kindFilter: ["social_post", "carousel_post"] });
-  }
-
-  async claimNextGbpPostJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
-    return this._claimNextSocialJob("gbp_post", "google_business", workerId, { ...opts, kindFilter: ["google_post", "social_post"] });
-  }
-  async recoverStaleGbpPostClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
-    return this._recoverStaleSocialClaims("gbp_post", "google_business", { ...opts, kindFilter: ["google_post", "social_post"] });
-  }
-
-  /* Sprint 13: email queue. metadata.email.* lifecycle, kind='email_post',
-   * target_platform='email'. Eligibility excludes rows with message_id
-   * already set. */
-  async claimNextEmailJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
-    return this._claimNextSocialJob("email", "email", workerId, {
-      ...opts,
-      kindFilter: ["email_post"],
-      successField: "message_id",
-    });
-  }
-  async recoverStaleEmailClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
-    return this._recoverStaleSocialClaims("email", "email", { ...opts, kindFilter: ["email_post"] });
-  }
-
-  /* Sprint 18: LinkedIn, Pinterest, YouTube queues. Each writes its
-   * own metadata.<channel>.* lifecycle on the same content_drafts row.
-   * LinkedIn + Pinterest are kind='social_post' (with carousel allowed
-   * for completeness); YouTube is kind='video' and uses youtube_url as
-   * the don't-republish marker because the YouTube adapter persists
-   * remote_video_id + youtube_url + posted_at on success (not the
-   * remote_post_id key used by the other social adapters). */
-  async claimNextLinkedinJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
-    return this._claimNextSocialJob("linkedin", "linkedin", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
-  }
-  async recoverStaleLinkedinClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
-    return this._recoverStaleSocialClaims("linkedin", "linkedin", { ...opts, kindFilter: ["social_post", "carousel_post"] });
-  }
-
-  async claimNextPinterestJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
-    return this._claimNextSocialJob("pinterest", "pinterest", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
-  }
-  async recoverStalePinterestClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
-    return this._recoverStaleSocialClaims("pinterest", "pinterest", { ...opts, kindFilter: ["social_post", "carousel_post"] });
-  }
-
-  async claimNextYoutubeJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
-    return this._claimNextSocialJob("youtube", "youtube", workerId, {
-      ...opts,
-      kindFilter: ["video"],
-      successField: "youtube_url",
-    });
-  }
-  async recoverStaleYoutubeClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
-    return this._recoverStaleSocialClaims("youtube", "youtube", { ...opts, kindFilter: ["video"] });
-  }
-
-  /**
-   * Sprint 9: recover GBP claims abandoned by a crashed worker. Same
-   * shape as recoverStaleWordpressClaims, different jsonb path + kind
-   * filter.
-   */
-  async recoverStaleGbpClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
-    const now = opts.now ?? new Date();
-    const staleMs = opts.staleLockMs ?? 10 * 60_000;
-    const staleCutoff = new Date(now.getTime() - staleMs).toISOString();
-    const result: any = await db.execute(sql`
-      UPDATE content_drafts
-      SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
-            'gbp',
-            COALESCE(metadata->'gbp', '{}'::jsonb) || jsonb_build_object(
-              'queue_status', 'queued',
-              'locked_at',  NULL::text,
-              'locked_by',  NULL::text,
-              'attempts',   COALESCE((metadata->'gbp'->>'attempts')::int, 0) + 1,
-              'last_error', 'recovered from stale lock'
-            )
-          ),
-          updated_at = NOW()
-      WHERE status = 'approved'
-        AND kind = 'review_reply'
-        AND surface = 'reputationshield'
-        AND metadata->'gbp'->>'queue_status' = 'publishing'
-        AND metadata->'gbp'->>'locked_at' IS NOT NULL
-        AND (metadata->'gbp'->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
+        AND ${filterColumnSql} = ${cfg.filterValue}
+        AND metadata->${cfg.metadataKey}::text->>'queue_status' = 'publishing'
+        AND metadata->${cfg.metadataKey}::text->>'locked_at' IS NOT NULL
+        AND (metadata->${cfg.metadataKey}::text->>'locked_at')::timestamptz < ${staleCutoff}::timestamptz
       RETURNING id
     `);
     const rows: any[] = (result?.rows ?? result) as any[];
