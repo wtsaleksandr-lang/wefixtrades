@@ -1,7 +1,7 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -457,7 +457,25 @@ export default function ClientsPage() {
                 </TableRow>
               ) : (
                 data?.data.map((client) => (
-                  <TableRow key={client.id} className="cursor-pointer hover:bg-gray-50">
+                  /* Entire row is a clickable surface that navigates to the
+                   * client's profile. Checkbox + Actions cells stop
+                   * propagation so toggling/impersonating doesn't trigger
+                   * navigation. role=button + keyboard (Enter/Space) keeps
+                   * the row accessible for non-mouse users. */
+                  <TableRow
+                    key={client.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open ${client.business_name}`}
+                    onClick={() => navigate(`/admin/crm/clients/${client.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/admin/crm/clients/${client.id}`);
+                      }
+                    }}
+                    className="cursor-pointer transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:bg-gray-50 focus-visible:ring-2 focus-visible:ring-brand-blue/40"
+                  >
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
@@ -468,11 +486,9 @@ export default function ClientsPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Link href={`/admin/crm/clients/${client.id}`}>
-                        <span className="font-medium text-gray-900 hover:text-brand-blue">
-                          {client.business_name}
-                        </span>
-                      </Link>
+                      <span className="font-medium text-gray-900">
+                        {client.business_name}
+                      </span>
                       <p className="text-xs text-gray-500 md:hidden">{client.contact_email}</p>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">

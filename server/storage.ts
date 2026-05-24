@@ -391,6 +391,8 @@ export interface IStorage {
   // Notes
   listInternalNotes(clientId: number): Promise<InternalNote[]>;
   createInternalNote(data: InsertInternalNote): Promise<InternalNote>;
+  updateInternalNote(id: number, updates: Partial<InsertInternalNote>): Promise<InternalNote | undefined>;
+  deleteInternalNote(id: number): Promise<boolean>;
 
   // Activity log
   logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog>;
@@ -2442,6 +2444,28 @@ export class DatabaseStorage implements IStorage {
   async createInternalNote(data: InsertInternalNote): Promise<InternalNote> {
     const [row] = await db.insert(internalNotes).values(data).returning();
     return row;
+  }
+
+  /** Edit a note in place. Only the writable surface (content + pinned)
+   *  may be patched — author_id, client_id, actor_type stay immutable so
+   *  the audit trail of who originally wrote the note is preserved. */
+  async updateInternalNote(id: number, updates: Partial<InsertInternalNote>): Promise<InternalNote | undefined> {
+    const patch: Partial<InsertInternalNote> = {};
+    if (updates.content !== undefined) patch.content = updates.content;
+    if (updates.pinned !== undefined) patch.pinned = updates.pinned;
+    if (Object.keys(patch).length === 0) {
+      const [existing] = await db.select().from(internalNotes).where(eq(internalNotes.id, id));
+      return existing;
+    }
+    const [row] = await db.update(internalNotes).set(patch).where(eq(internalNotes.id, id)).returning();
+    return row;
+  }
+
+  /** Hard-delete a note. Returns true if a row was removed. The current
+   *  schema has no soft-delete column so this is permanent. */
+  async deleteInternalNote(id: number): Promise<boolean> {
+    const rows = await db.delete(internalNotes).where(eq(internalNotes.id, id)).returning();
+    return rows.length > 0;
   }
 
   // ─── Activity Log ───

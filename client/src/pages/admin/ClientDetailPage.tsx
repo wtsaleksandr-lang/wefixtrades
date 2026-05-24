@@ -481,7 +481,19 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
-      toast({ title: "Task updated", description: `Moved to ${status.replace(/_/g, " ")}` });
+      /* Cleaner per-status toast — earlier we'd say "Task updated / Moved
+       * to in_progress" which is jargon-y and double-banner-y. New copy
+       * names the verb the user just performed. */
+      const STATUS_VERB: Record<string, string> = {
+        in_progress: "Started — moved to In Progress",
+        delivered: "Marked complete",
+        waiting: "Marked as waiting",
+        blocked: "Marked as blocked",
+        cancelled: "Cancelled",
+        not_started: "Reopened",
+        submitted: "Marked as submitted",
+      };
+      toast({ title: STATUS_VERB[status] || `Moved to ${status.replace(/_/g, " ")}` });
     },
     onError: (err: Error) => { toast({ title: "Failed to update task", description: err.message, variant: "destructive" }); },
   });
@@ -502,6 +514,40 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/notes`] });
     },
     onError: (err: Error) => { toast({ title: "Failed to add note", description: err.message, variant: "destructive" }); },
+  });
+
+  /* Edit / delete a note. Edit toggles the row into an inline textarea
+   * (no modal — fewer steps for a small text change). Delete confirms
+   * via AlertDialog because it's permanent (no soft-delete column). */
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
+  const [deleteNoteId, setDeleteNoteId] = useState<number | null>(null);
+
+  const updateNote = useMutation({
+    mutationFn: async ({ id, content }: { id: number; content: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/notes/${id}`, { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      setEditingNoteId(null);
+      setEditingNoteText("");
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/notes`] });
+      toast({ title: "Note updated" });
+    },
+    onError: (err: Error) => { toast({ title: "Failed to update note", description: err.message, variant: "destructive" }); },
+  });
+
+  const deleteNote = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/crm/notes/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      setDeleteNoteId(null);
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/notes`] });
+      toast({ title: "Note deleted" });
+    },
+    onError: (err: Error) => { toast({ title: "Failed to delete note", description: err.message, variant: "destructive" }); },
   });
 
   // "View as customer" impersonation — opens a confirm dialog, then
@@ -799,18 +845,39 @@ export default function ClientDetailPage() {
           </div>
         </Card>
 
-        {/* Tabs */}
-        <Tabs defaultValue="services">
-          <TabsList className="w-full grid grid-cols-8">
-            <TabsTrigger value="services">Services</TabsTrigger>
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="reputation">Reputation</TabsTrigger>
-            <TabsTrigger value="mapguard">MapGuard</TabsTrigger>
-            <TabsTrigger value="rankflow">RankFlow</TabsTrigger>
-            <TabsTrigger value="billing">Billing</TabsTrigger>
-            <TabsTrigger value="notes">Notes</TabsTrigger>
-            <TabsTrigger value="socialsync">SocialSync</TabsTrigger>
-          </TabsList>
+        {/* Tabs — ordered by frequency of use:
+         *   Services / Tasks (always there)
+         *   → per-product tabs (only when the client has that service)
+         *   → Billing / Notes (always there).
+         *
+         * Per-product tabs are gated on the services list rather than
+         * always rendered, so a client with only TradeLine doesn't see
+         * an empty MapGuard tab. This is the fix for the assigned-
+         * product visibility bug — TradeLine in particular used to be
+         * tucked into the Services tab as an inline panel; now it gets
+         * its own tab when the client has a tradeline* service. */}
+        {(() => {
+          const hasTradeline = !!services?.some((s) => s.service_id.startsWith("tradeline"));
+          const hasReputation = !!services?.some((s) => s.service_id.startsWith("reputationshield"));
+          const hasMapguard = !!services?.some((s) => s.service_id.startsWith("mapguard"));
+          const hasRankflow = !!services?.some((s) => s.service_id.startsWith("rankflow"));
+          const hasSocialsync = !!services?.some((s) => s.service_id.startsWith("socialsync"));
+          /* Use flex-wrap so a long row of conditional tabs never overflows
+           * the page. The shared TabsList styling supplies the border and
+           * gap. */
+          return (
+            <Tabs defaultValue="services">
+              <TabsList className="w-full flex flex-wrap justify-start">
+                <TabsTrigger value="services">Services</TabsTrigger>
+                <TabsTrigger value="tasks">Tasks</TabsTrigger>
+                {hasTradeline && <TabsTrigger value="tradeline">TradeLine</TabsTrigger>}
+                {hasReputation && <TabsTrigger value="reputation">Reputation</TabsTrigger>}
+                {hasMapguard && <TabsTrigger value="mapguard">MapGuard</TabsTrigger>}
+                {hasRankflow && <TabsTrigger value="rankflow">RankFlow</TabsTrigger>}
+                {hasSocialsync && <TabsTrigger value="socialsync">SocialSync</TabsTrigger>}
+                <TabsTrigger value="billing">Billing</TabsTrigger>
+                <TabsTrigger value="notes">Notes</TabsTrigger>
+              </TabsList>
 
           {/* ─── Services Tab ─── */}
           <TabsContent value="services" className="mt-4">
@@ -1050,12 +1117,20 @@ export default function ClientDetailPage() {
               </Card>
             )}
 
-            {/* TradeLine panels for any TradeLine services */}
-            {services?.filter(s => s.service_id.startsWith("tradeline")).map(s => (
-              <TradeLineAdminPanel key={`tl-${s.id}`} clientServiceId={s.id} serviceName={s.service_name || s.service_id} />
-            ))}
+            {/* TradeLine panels moved out of Services and into a dedicated
+             *  TradeLine tab — see below. Keeping them here too would
+             *  duplicate the heavy panel render. */}
 
           </TabsContent>
+
+          {/* ─── TradeLine Tab — only when client has a tradeline* service ─── */}
+          {hasTradeline && (
+            <TabsContent value="tradeline" className="mt-4 space-y-3">
+              {services?.filter(s => s.service_id.startsWith("tradeline")).map(s => (
+                <TradeLineAdminPanel key={`tl-${s.id}`} clientServiceId={s.id} serviceName={s.service_name || s.service_id} />
+              ))}
+            </TabsContent>
+          )}
 
           {/* ─── Tasks Tab ─── */}
           <TabsContent value="tasks" className="mt-4 space-y-3">
@@ -1151,14 +1226,18 @@ export default function ClientDetailPage() {
           </TabsContent>
 
           {/* ─── RankFlow Tab ─── */}
-          <TabsContent value="rankflow" className="mt-4">
-            <RankFlowTab clientId={clientId!} />
-          </TabsContent>
+          {hasRankflow && (
+            <TabsContent value="rankflow" className="mt-4">
+              <RankFlowTab clientId={clientId!} />
+            </TabsContent>
+          )}
 
           {/* ─── MapGuard Tab ─── */}
-          <TabsContent value="mapguard" className="mt-4">
-            <MapguardOpsTab clientId={clientId} />
-          </TabsContent>
+          {hasMapguard && (
+            <TabsContent value="mapguard" className="mt-4">
+              <MapguardOpsTab clientId={clientId} />
+            </TabsContent>
+          )}
 
           {/* ─── Billing Tab ─── */}
           <TabsContent value="billing" className="mt-4 space-y-4">
@@ -1245,9 +1324,11 @@ export default function ClientDetailPage() {
           </TabsContent>
 
           {/* ─── Reputation Tab ─── */}
-          <TabsContent value="reputation" className="mt-4">
-            <ReputationOpsPanel clientId={client.id} />
-          </TabsContent>
+          {hasReputation && (
+            <TabsContent value="reputation" className="mt-4">
+              <ReputationOpsPanel clientId={client.id} />
+            </TabsContent>
+          )}
 
           {/* ─── Notes Tab ─── */}
           <TabsContent value="notes" className="mt-4 space-y-3">
@@ -1271,27 +1352,85 @@ export default function ClientDetailPage() {
                 </Button>
               </div>
             </Card>
-            {notes?.map((n) => (
-              <Card key={n.id} className="p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-medium text-gray-500 capitalize">{n.actor_type}</span>
-                  <span className="text-xs text-gray-400">{fmtDate(n.created_at)}</span>
-                  {n.pinned && <Badge variant="outline" className="text-[10px]">Pinned</Badge>}
-                </div>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{n.content}</p>
-              </Card>
-            ))}
+            {notes?.map((n) => {
+              const isEditing = editingNoteId === n.id;
+              return (
+                <Card key={n.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-medium text-gray-500 capitalize">{n.actor_type}</span>
+                      <span className="text-xs text-gray-400">{fmtDate(n.created_at)}</span>
+                      {n.pinned && <Badge variant="outline" className="text-[10px]">Pinned</Badge>}
+                    </div>
+                    {!isEditing && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1.5 text-xs text-gray-500 hover:text-brand-blue"
+                          onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.content); }}
+                        >
+                          <Pencil className="w-3 h-3 mr-1" /> Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1.5 text-xs text-gray-500 hover:text-red-600"
+                          onClick={() => setDeleteNoteId(n.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editingNoteText}
+                        onChange={(e) => setEditingNoteText(e.target.value)}
+                        className="resize-none h-20 text-sm"
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { setEditingNoteId(null); setEditingNoteText(""); }}
+                          disabled={updateNote.isPending}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => updateNote.mutate({ id: n.id, content: editingNoteText.trim() })}
+                          disabled={!editingNoteText.trim() || editingNoteText.trim() === n.content || updateNote.isPending}
+                          className="bg-brand-blue hover:bg-brand-blue-600"
+                        >
+                          {updateNote.isPending ? "Saving…" : "Save"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{n.content}</p>
+                  )}
+                </Card>
+              );
+            })}
             {notes?.length === 0 && (
               <p className="text-sm text-gray-500 text-center py-4">No notes yet.</p>
             )}
           </TabsContent>
 
           {/* ─── SocialSync Tab ─── */}
-          <TabsContent value="socialsync" className="mt-4">
-            <SocialSyncTab clientId={clientId} />
-          </TabsContent>
+          {hasSocialsync && (
+            <TabsContent value="socialsync" className="mt-4">
+              <SocialSyncTab clientId={clientId} />
+            </TabsContent>
+          )}
 
-        </Tabs>
+            </Tabs>
+          );
+        })()}
 
         {/* ─── Video Generation Section ─── */}
         <VideoGenerationSection clientId={clientId} />
@@ -1439,6 +1578,32 @@ export default function ClientDetailPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Note delete confirm — permanent action (no soft-delete in the
+            schema), so a confirm dialog rather than firing on the row
+            button click directly. */}
+        <AlertDialog
+          open={deleteNoteId !== null}
+          onOpenChange={(open) => { if (!open) setDeleteNoteId(null); }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this note?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently removes the note from this client's record. It cannot be recovered.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteNote.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deleteNote.isPending}
+                onClick={() => { if (deleteNoteId !== null) deleteNote.mutate(deleteNoteId); }}
+              >
+                {deleteNote.isPending ? "Deleting…" : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* "View as customer" confirm. Lives at component root so it
             renders above the AdminLayout chrome. */}

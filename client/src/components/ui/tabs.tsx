@@ -5,6 +5,11 @@ import { cn } from "@/lib/utils"
 
 const Tabs = TabsPrimitive.Root
 
+/**
+ * TabsList — outer wrapper for tab triggers. Subtle bottom border anchors
+ * the row visually and makes the active-tab underline read clearly without
+ * the heavy "pill in a muted strip" look the original Shadcn default had.
+ */
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
@@ -12,7 +17,7 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+      "inline-flex h-10 items-center justify-center gap-1 border-b border-gray-200 text-muted-foreground",
       className
     )}
     {...props}
@@ -20,6 +25,12 @@ const TabsList = React.forwardRef<
 ))
 TabsList.displayName = TabsPrimitive.List.displayName
 
+/**
+ * TabsTrigger — neutral inactive, subtle border + tint on hover, prominent
+ * brand-blue 2px underline + bolder text on active. 150ms transition for
+ * smooth state changes. Negative bottom margin overlaps the TabsList's
+ * border so the active underline sits flush.
+ */
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
@@ -27,7 +38,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+      "relative -mb-px inline-flex items-center justify-center whitespace-nowrap rounded-t-md border-b-2 border-transparent px-3 py-1.5 text-sm font-medium text-gray-600 ring-offset-background transition-[color,background-color,border-color,font-weight] duration-150 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-brand-blue data-[state=active]:text-brand-blue data-[state=active]:font-semibold",
       className
     )}
     {...props}

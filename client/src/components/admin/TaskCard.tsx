@@ -137,6 +137,15 @@ function getPrimaryAction(status: string): { label: string; nextStatus: string }
   }
 }
 
+/* Per-action tooltip copy. Surfaced on ~800ms hover so we don't pollute
+ * fast-moving navigation but a user pausing to read gets help text. */
+const ACTION_TOOLTIPS: Record<string, string> = {
+  "Start": "Move this task to In Progress.",
+  "Done": "Mark this task complete.",
+  "Follow up": "Resume work — moves Waiting back to In Progress.",
+  "Resolve": "Unblock — moves Blocked back to In Progress.",
+};
+
 const ACTION_STYLES: Record<string, string> = {
   "Start": "border-2 border-brand-blue text-brand-blue bg-white hover:bg-[#EEF3FF] font-semibold",
   "Done": "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-semibold",
@@ -249,41 +258,63 @@ export function TaskCard({
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {canProcess && (
-              <Button
-                size="sm"
-                variant="outline"
-                className={`h-7 px-2.5 text-xs ${
-                  autoType === "auto"
-                    ? "border-blue-200 text-blue-700 hover:bg-blue-50"
-                    : "border-purple-200 text-purple-700 hover:bg-purple-50"
-                }`}
-                disabled={processing || isRunning}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleProcess();
-                }}
-              >
-                {processing || isRunning ? (
-                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                ) : (
-                  <Zap className="w-3 h-3 mr-1" />
-                )}
-                {autoType === "auto" ? "Process" : "Assist"}
-              </Button>
-            )}
-            {action && (
-              <Button
-                size="sm"
-                className={`h-7 px-3 text-xs ${ACTION_STYLES[action.label] || "bg-gray-600 text-white"}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  onStatusChange(task.id, action.nextStatus);
-                }}
-              >
-                {action.label}
-              </Button>
-            )}
+            {/* Tooltips on every action button — 800ms open delay so they
+             *  surface on intentional hover but don't flash during a
+             *  quick scan. Process/Assist help text explains the AI
+             *  semantics (full run vs. suggestion). */}
+            <TooltipProvider delayDuration={800}>
+              {canProcess && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={`h-7 px-2.5 text-xs ${
+                        autoType === "auto"
+                          ? "border-blue-200 text-blue-700 hover:bg-blue-50"
+                          : "border-purple-200 text-purple-700 hover:bg-purple-50"
+                      }`}
+                      disabled={processing || isRunning}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleProcess();
+                      }}
+                    >
+                      {processing || isRunning ? (
+                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                      ) : (
+                        <Zap className="w-3 h-3 mr-1" />
+                      )}
+                      {autoType === "auto" ? "Process" : "Assist"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs max-w-[220px]">
+                    {autoType === "auto"
+                      ? "Run AI on this task — completes the work for you (uses credits)."
+                      : "Get AI suggestions for this task — does not change its status."}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {action && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      className={`h-7 px-3 text-xs ${ACTION_STYLES[action.label] || "bg-gray-600 text-white"}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onStatusChange(task.id, action.nextStatus);
+                      }}
+                    >
+                      {action.label}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs max-w-[200px]">
+                    {ACTION_TOOLTIPS[action.label] || `Move task to ${action.nextStatus.replace(/_/g, " ")}.`}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </TooltipProvider>
           </div>
         </div>
 

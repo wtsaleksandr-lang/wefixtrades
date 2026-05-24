@@ -1504,6 +1504,34 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /* PATCH/DELETE — admin-only edit + remove. The note id is the canonical
+   * identifier; we don't scope by client_id in the URL because note ids
+   * are unique. Returns 404 on miss so the FE can drop stale rows from
+   * the list. */
+  app.patch("/api/admin/crm/notes/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(String(req.params.id) as string);
+      if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid note id" });
+      const updated = await storage.updateInternalNote(id, req.body);
+      if (!updated) return res.status(404).json({ error: "Note not found" });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to update note" });
+    }
+  });
+
+  app.delete("/api/admin/crm/notes/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(String(req.params.id) as string);
+      if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid note id" });
+      const ok = await storage.deleteInternalNote(id);
+      if (!ok) return res.status(404).json({ error: "Note not found" });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to delete note" });
+    }
+  });
+
   /* ═══════════════════════════════════════════
      Activity Log
      ═══════════════════════════════════════════ */
