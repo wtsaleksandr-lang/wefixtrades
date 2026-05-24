@@ -34,6 +34,7 @@ import Stripe from "stripe";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { isTwilioConfigured, getTwilioClient } from "../twilioClient";
+import { getSites as bingGetSites, getQuota as bingGetQuota } from "../lib/seo/bingClient";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Healthz");
@@ -175,6 +176,42 @@ async function checkGoogleMaps(): Promise<ProbeOutcome> {
   return { ok: true, status: "ok", detail: "key present (probe is non-invasive)" };
 }
 
+async function checkBing(): Promise<ProbeOutcome> {
+  if (!process.env.BING_WEBMASTER_API_KEY) {
+    return { ok: false, status: "degraded", detail: "BING_WEBMASTER_API_KEY not set" };
+  }
+  // Cheap auth probe + quota readout. Both must succeed within the
+  // per-probe 2s timeout. Sequential is fine — each call is sub-second.
+  const sites = await bingGetSites();
+  if (!Array.isArray(sites) || sites.length === 0) {
+    return { ok: false, status: "degraded", detail: "no sites returned" };
+  }
+  // Optional quota read — if it fails, we still treat the probe as OK since
+  // GetUserSites already proved auth works.
+  let dailyRemaining: number | null = null;
+  try {
+    const q = await bingGetQuota();
+    dailyRemaining = q.DailyQuota;
+  } catch {
+    // ignore — quota is informational
+  }
+  if (dailyRemaining != null && dailyRemaining < 10) {
+    return {
+      ok: false,
+      status: "degraded",
+      detail: `daily quota nearly exhausted (${dailyRemaining}/100)`,
+      daily_remaining: dailyRemaining,
+      sites: sites.length,
+    };
+  }
+  return {
+    ok: true,
+    status: "ok",
+    sites: sites.length,
+    ...(dailyRemaining != null ? { daily_remaining: dailyRemaining } : {}),
+  };
+}
+
 async function checkRedis(): Promise<ProbeOutcome> {
   if (!process.env.REDIS_URL) {
     return { ok: true, status: "skipped", detail: "REDIS_URL not set" };
@@ -197,13 +234,14 @@ function aggregate(checks: Record<string, CheckResult>): "ok" | "degraded" | "do
 }
 
 async function buildHealthz(): Promise<{ body: HealthzResponse; http: number }> {
-  const [dbR, dbTablesR, dopplerR, stripeR, twilioR, mapsR, redisR] = await Promise.all([
+  const [dbR, dbTablesR, dopplerR, stripeR, twilioR, mapsR, bingR, redisR] = await Promise.all([
     probe("db", checkDb),
     probe("db_tables", checkDbTables),
     probe("doppler", checkDoppler),
     probe("stripe", checkStripe),
     probe("twilio", checkTwilio),
     probe("google_maps", checkGoogleMaps),
+    probe("bing", checkBing),
     probe("redis", checkRedis),
   ]);
 
@@ -214,6 +252,7 @@ async function buildHealthz(): Promise<{ body: HealthzResponse; http: number }> 
     stripe: stripeR,
     twilio: twilioR,
     google_maps: mapsR,
+    bing: bingR,
     redis: redisR,
   };
 

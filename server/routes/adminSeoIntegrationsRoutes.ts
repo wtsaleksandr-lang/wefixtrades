@@ -36,7 +36,17 @@ import {
   persistInitialTokens,
 } from "../lib/seo/googleOauth";
 import { getToken, deleteToken, type Provider } from "../lib/seo/oauthTokenStore";
-import { validateApiKey as validateBingKey } from "../lib/seo/bingClient";
+import {
+  validateApiKey as validateBingKey,
+  submitUrl as bingSubmitUrl,
+  submitUrls as bingSubmitUrls,
+  getQuota as bingGetQuota,
+  getSitemaps as bingGetSitemaps,
+  submitSitemap as bingSubmitSitemap,
+  getUrlInfo as bingGetUrlInfo,
+  BING_SITE_URL,
+} from "../lib/seo/bingClient";
+import { runBingIndexingTick } from "../cron/seoIndexing";
 import { upsertToken } from "../lib/seo/oauthTokenStore";
 import { createPropertyAndStream, listProperties as listGa4Properties } from "../lib/seo/ga4Client";
 import { generateListingDraft, isApiAvailable as gbpIsApiAvailable } from "../lib/seo/gbpClient";
@@ -278,6 +288,130 @@ export function registerAdminSeoIntegrationsRoutes(app: Express): void {
       next_steps: draft.manual_steps,
       api_available: await gbpIsApiAvailable().catch(() => false),
     });
+  });
+
+  // ─── Bing Webmaster automation ─────────────────────────────────
+  // The API key for these endpoints is read from BING_WEBMASTER_API_KEY
+  // (Doppler-injected) inside the client; the older oauth_tokens flow is
+  // preserved above for back-compat. Each handler is admin-only and
+  // returns a tidy JSON body.
+
+  const bingSubmitUrlSchema = z.object({
+    url: z.string().url().max(2048),
+  });
+  app.post("/api/admin/seo/bing/submit-url", requireAdmin, async (req: Request, res: Response) => {
+    const parsed = bingSubmitUrlSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "invalid_input", details: parsed.error.flatten() });
+    }
+    try {
+      await bingSubmitUrl(parsed.data.url);
+      await db.insert(seoIndexingHistory).values({
+        url: parsed.data.url,
+        action: "index-requested",
+        source: "bing",
+        status: "submitted",
+        details: { siteUrl: BING_SITE_URL, channel: "admin" },
+      });
+      res.json({ submitted: true, url: parsed.data.url });
+    } catch (err) {
+      log.error("Bing submit-url failed", { err: err instanceof Error ? err.message : "unknown" });
+      res.status(502).json({ error: "bing_submit_failed", message: err instanceof Error ? err.message : "unknown" });
+    }
+  });
+
+  const bingSubmitBatchSchema = z.object({
+    urls: z.array(z.string().url().max(2048)).min(1).max(100),
+  });
+  app.post("/api/admin/seo/bing/submit-batch", requireAdmin, async (req: Request, res: Response) => {
+    const parsed = bingSubmitBatchSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "invalid_input", details: parsed.error.flatten() });
+    }
+    try {
+      await bingSubmitUrls(parsed.data.urls);
+      await db.insert(seoIndexingHistory).values(
+        parsed.data.urls.map((u) => ({
+          url: u,
+          action: "index-requested" as const,
+          source: "bing" as const,
+          status: "submitted" as const,
+          details: { siteUrl: BING_SITE_URL, channel: "admin-batch" } as Record<string, unknown>,
+        })),
+      );
+      res.json({ submitted: parsed.data.urls.length });
+    } catch (err) {
+      log.error("Bing submit-batch failed", { err: err instanceof Error ? err.message : "unknown" });
+      res.status(502).json({ error: "bing_batch_failed", message: err instanceof Error ? err.message : "unknown" });
+    }
+  });
+
+  const bingUrlInfoSchema = z.object({ url: z.string().url().max(2048) });
+  app.get("/api/admin/seo/bing/url-info", requireAdmin, async (req: Request, res: Response) => {
+    const parsed = bingUrlInfoSchema.safeParse({ url: req.query.url });
+    if (!parsed.success) {
+      return res.status(400).json({ error: "invalid_input", details: parsed.error.flatten() });
+    }
+    try {
+      const info = await bingGetUrlInfo(parsed.data.url);
+      res.json({ url: parsed.data.url, info });
+    } catch (err) {
+      log.error("Bing url-info failed", { err: err instanceof Error ? err.message : "unknown" });
+      res.status(502).json({ error: "bing_url_info_failed", message: err instanceof Error ? err.message : "unknown" });
+    }
+  });
+
+  app.get("/api/admin/seo/bing/quota", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const q = await bingGetQuota();
+      res.json({ daily: q.DailyQuota, monthly: q.MonthlyQuota });
+    } catch (err) {
+      log.error("Bing quota fetch failed", { err: err instanceof Error ? err.message : "unknown" });
+      res.status(502).json({ error: "bing_quota_failed", message: err instanceof Error ? err.message : "unknown" });
+    }
+  });
+
+  app.get("/api/admin/seo/bing/sitemaps", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const sitemaps = await bingGetSitemaps();
+      res.json({ sitemaps });
+    } catch (err) {
+      log.error("Bing get-sitemaps failed", { err: err instanceof Error ? err.message : "unknown" });
+      res.status(502).json({ error: "bing_sitemaps_failed", message: err instanceof Error ? err.message : "unknown" });
+    }
+  });
+
+  const bingSitemapSchema = z.object({ sitemapUrl: z.string().url().max(2048) });
+  app.post("/api/admin/seo/bing/sitemap", requireAdmin, async (req: Request, res: Response) => {
+    const parsed = bingSitemapSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "invalid_input", details: parsed.error.flatten() });
+    }
+    try {
+      await bingSubmitSitemap(parsed.data.sitemapUrl);
+      await db.insert(seoIndexingHistory).values({
+        url: parsed.data.sitemapUrl,
+        action: "sitemap-submitted",
+        source: "bing",
+        status: "ok",
+        details: { siteUrl: BING_SITE_URL, channel: "admin" },
+      });
+      res.json({ submitted: true, sitemapUrl: parsed.data.sitemapUrl });
+    } catch (err) {
+      log.error("Bing submit-sitemap failed", { err: err instanceof Error ? err.message : "unknown" });
+      res.status(502).json({ error: "bing_sitemap_failed", message: err instanceof Error ? err.message : "unknown" });
+    }
+  });
+
+  // Manual cron trigger — admin can fire one pass without waiting for :17 */6h.
+  app.post("/api/admin/seo/bing/run-cron", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await runBingIndexingTick();
+      res.json(result);
+    } catch (err) {
+      log.error("Bing cron manual trigger failed", { err: err instanceof Error ? err.message : "unknown" });
+      res.status(500).json({ error: "bing_cron_failed", message: err instanceof Error ? err.message : "unknown" });
+    }
   });
 
   // ─── Disconnect ────────────────────────────────────────────────

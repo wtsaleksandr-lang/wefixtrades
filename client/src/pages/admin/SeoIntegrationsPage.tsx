@@ -61,12 +61,290 @@ interface StatusResponse {
   recent_history: IndexingHistoryRow[];
 }
 
+interface BingQuotaResponse {
+  daily: number;
+  monthly: number;
+}
+
+interface BingSitemapsResponse {
+  sitemaps: Array<{ Url?: string; Status?: string; LastCrawledDate?: string }>;
+}
+
+interface BingUrlInfoResponse {
+  url: string;
+  info: {
+    Url?: string;
+    DocumentDownloaded?: boolean;
+    HttpStatus?: number;
+    LastCrawledDate?: string;
+    DiscoveryDate?: string;
+    AnchorCount?: number;
+    TotalChildUrlCount?: number;
+  };
+}
+
 function HelpCue({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-1.5 text-xs text-slate-500">
       <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
       <span>{children}</span>
     </div>
+  );
+}
+
+/**
+ * Bing Webmaster automation card. Lives under the four-card grid and surfaces
+ * the env-key-backed automation: live quota, sitemap status, single-URL submit,
+ * URL status lookup, and a filtered view of the last 20 Bing rows from
+ * seo_indexing_history. All Bing calls go through the admin endpoints in
+ * server/routes/adminSeoIntegrationsRoutes.ts.
+ */
+function BingAutomationCard() {
+  const [submitUrl, setSubmitUrl] = useState("");
+  const [inspectUrl, setInspectUrl] = useState("");
+  const [inspectResult, setInspectResult] = useState<BingUrlInfoResponse | null>(null);
+  const [submitMessage, setSubmitMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const qc = useQueryClient();
+
+  const quotaQuery = useQuery<BingQuotaResponse>({
+    queryKey: ["/api/admin/seo/bing/quota"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/seo/bing/quota", { credentials: "include" });
+      if (!res.ok) throw new Error(`quota ${res.status}`);
+      return res.json();
+    },
+    refetchInterval: 60_000,
+  });
+
+  const sitemapsQuery = useQuery<BingSitemapsResponse>({
+    queryKey: ["/api/admin/seo/bing/sitemaps"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/seo/bing/sitemaps", { credentials: "include" });
+      if (!res.ok) throw new Error(`sitemaps ${res.status}`);
+      return res.json();
+    },
+    refetchInterval: 5 * 60_000,
+  });
+
+  const historyQuery = useQuery<{ recent_history: IndexingHistoryRow[] }>({
+    queryKey: ["/api/admin/integrations/status"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/integrations/status", { credentials: "include" });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      return res.json();
+    },
+    refetchInterval: 30_000,
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      setSubmitMessage(null);
+      const res = await fetch("/api/admin/seo/bing/submit-url", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: submitUrl.trim() }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message ?? `submit ${res.status}`);
+      return body;
+    },
+    onSuccess: () => {
+      setSubmitMessage({ kind: "ok", text: `Submitted ${submitUrl.trim()} to Bing.` });
+      setSubmitUrl("");
+      qc.invalidateQueries({ queryKey: ["/api/admin/seo/bing/quota"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/integrations/status"] });
+    },
+    onError: (err: Error) => setSubmitMessage({ kind: "error", text: err.message }),
+  });
+
+  const inspectMutation = useMutation({
+    mutationFn: async () => {
+      const u = inspectUrl.trim();
+      const res = await fetch(`/api/admin/seo/bing/url-info?url=${encodeURIComponent(u)}`, {
+        credentials: "include",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message ?? `inspect ${res.status}`);
+      return body as BingUrlInfoResponse;
+    },
+    onSuccess: (data) => setInspectResult(data),
+    onError: (err: Error) =>
+      setInspectResult({
+        url: inspectUrl.trim(),
+        info: { Url: `error: ${err.message}` },
+      }),
+  });
+
+  const sitemapRegistered = (sitemapsQuery.data?.sitemaps ?? []).some((s) => {
+    const url = String(s?.Url ?? "").trim().toLowerCase();
+    return url === "https://wefixtrades.com/sitemap.xml";
+  });
+
+  const bingHistory = (historyQuery.data?.recent_history ?? [])
+    .filter((row) => row.source === "bing")
+    .slice(0, 20);
+
+  return (
+    <Card className="border border-slate-200">
+      <CardContent className="p-4 space-y-3">
+        <HelpCue>
+          Bing automation runs unattended. Sitemap auto-registers on deploy; new URLs auto-submit
+          every 6 hours; this panel is for ad-hoc submissions and indexing checks.
+        </HelpCue>
+        <div className="flex items-start gap-3">
+          <Globe className="w-8 h-8 text-teal-600 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-slate-900">Bing Webmaster automation</h3>
+            <p className="text-sm text-slate-600">
+              Submit URLs, inspect index status, and see what the cron has shipped.
+            </p>
+          </div>
+        </div>
+
+        {/* Quota + sitemap status */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="text-xs text-slate-500">Daily quota remaining</div>
+            <div className="font-semibold text-slate-900">
+              {quotaQuery.isLoading
+                ? "…"
+                : quotaQuery.data
+                  ? quotaQuery.data.daily.toLocaleString()
+                  : "—"}
+            </div>
+          </div>
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="text-xs text-slate-500">Monthly quota remaining</div>
+            <div className="font-semibold text-slate-900">
+              {quotaQuery.isLoading
+                ? "…"
+                : quotaQuery.data
+                  ? quotaQuery.data.monthly.toLocaleString()
+                  : "—"}
+            </div>
+          </div>
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="text-xs text-slate-500">Sitemap</div>
+            <div className="font-semibold text-slate-900 flex items-center gap-1">
+              {sitemapsQuery.isLoading ? (
+                "…"
+              ) : sitemapRegistered ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Registered
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Not registered
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Submit URL */}
+        <div data-cue-allowed-multiple className="space-y-1">
+          <HelpCue>One URL per click. Counts 1 against the daily 100 quota.</HelpCue>
+          <Label htmlFor="bing-submit-url" className="text-xs text-slate-700">
+            Submit URL to Bing
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              id="bing-submit-url"
+              type="url"
+              value={submitUrl}
+              onChange={(e) => setSubmitUrl(e.target.value)}
+              placeholder="https://wefixtrades.com/path"
+              data-testid="bing-submit-url"
+            />
+            <Button
+              size="sm"
+              onClick={() => submitMutation.mutate()}
+              disabled={!submitUrl.trim() || submitMutation.isPending}
+              data-testid="bing-submit-url-go"
+            >
+              Submit
+            </Button>
+          </div>
+          {submitMessage && (
+            <p
+              className={`text-xs ${
+                submitMessage.kind === "ok" ? "text-emerald-700" : "text-red-700"
+              }`}
+            >
+              {submitMessage.text}
+            </p>
+          )}
+        </div>
+
+        {/* Inspect URL */}
+        <div data-cue-allowed-multiple className="space-y-1">
+          <HelpCue>Shows last crawl date, index discovery, anchor count, HTTP status.</HelpCue>
+          <Label htmlFor="bing-inspect-url" className="text-xs text-slate-700">
+            Check URL status in Bing
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              id="bing-inspect-url"
+              type="url"
+              value={inspectUrl}
+              onChange={(e) => setInspectUrl(e.target.value)}
+              placeholder="https://wefixtrades.com/path"
+              data-testid="bing-inspect-url"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => inspectMutation.mutate()}
+              disabled={!inspectUrl.trim() || inspectMutation.isPending}
+              data-testid="bing-inspect-url-go"
+            >
+              Check
+            </Button>
+          </div>
+          {inspectResult && (
+            <pre className="mt-1 p-2 bg-slate-50 border border-slate-200 rounded text-[11px] overflow-auto">
+              {JSON.stringify(inspectResult.info, null, 2)}
+            </pre>
+          )}
+        </div>
+
+        {/* Recent Bing activity */}
+        <div className="space-y-1">
+          <h4 className="text-sm font-semibold text-slate-900">Recent Bing activity</h4>
+          {historyQuery.isLoading && <p className="text-xs text-slate-500">Loading…</p>}
+          {!historyQuery.isLoading && bingHistory.length === 0 && (
+            <p className="text-xs text-slate-500">No Bing activity yet.</p>
+          )}
+          {!historyQuery.isLoading && bingHistory.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-slate-600">
+                  <tr>
+                    <th className="text-left p-1.5">When</th>
+                    <th className="text-left p-1.5">Action</th>
+                    <th className="text-left p-1.5">URL</th>
+                    <th className="text-left p-1.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bingHistory.map((row) => (
+                    <tr key={row.id} className="border-t border-slate-100">
+                      <td className="p-1.5 text-slate-700">
+                        {new Date(row.performed_at).toLocaleString()}
+                      </td>
+                      <td className="p-1.5 text-slate-700">{row.action}</td>
+                      <td className="p-1.5 text-slate-600 truncate max-w-xs">{row.url}</td>
+                      <td className="p-1.5 text-slate-700">{row.status ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -441,6 +719,8 @@ export default function SeoIntegrationsPage() {
             </CardContent>
           </Card>
         </div>
+
+        <BingAutomationCard />
 
         {/* DNS readiness */}
         <Card className="border border-slate-200">
