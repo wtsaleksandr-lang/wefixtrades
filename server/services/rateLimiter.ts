@@ -173,3 +173,36 @@ export const outboundScrapeRateLimiter = new RateLimiter(
   5,
   60 * 60_000,
 );
+
+/**
+ * PR #724 P1 — public lead-submission endpoint (POST /api/leads).
+ *
+ * Two layers, both keyed unauthenticated (this is a fully public endpoint):
+ *   - `leadsSubmissionRateLimiter`  → per-IP × per-calculator, 20 / hour.
+ *     Bounds a single bot pounding one calculator while still letting
+ *     a contractor's whole office submit a few legit quotes in a row.
+ *   - `leadsIpRateLimiter`          → per-IP only, 60 / hour across all
+ *     calculators. Catches a bot rotating through many calculator_ids
+ *     from the same IP, which the per-calc limiter alone would miss.
+ *
+ * Both must pass for the request to proceed. Window is fixed
+ * (not sliding) — exact accuracy isn't needed for spam control.
+ */
+export const leadsSubmissionRateLimiter = new RateLimiter(
+  defaultStore,
+  20,
+  60 * 60_000,
+);
+
+export const leadsIpRateLimiter = new RateLimiter(
+  defaultStore,
+  60,
+  60 * 60_000,
+);
+
+/**
+ * Window length (ms) used to compute the `Retry-After` header when
+ * the leads limiter rejects. Exported so the route can stay in sync
+ * with the constants above without re-deriving them.
+ */
+export const LEADS_RATE_LIMIT_WINDOW_MS = 60 * 60_000;
