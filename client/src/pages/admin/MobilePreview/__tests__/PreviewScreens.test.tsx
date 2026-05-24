@@ -105,9 +105,7 @@ test('VoicemailScreen renders at least 3 list items', () => {
 });
 
 test('VoicemailScreen renders Back button when onBack is provided', () => {
-  const html = renderToStaticMarkup(
-    React.createElement(VoicemailScreen, { onBack: () => {} }),
-  );
+  const html = renderToStaticMarkup(<VoicemailScreen onBack={() => {}} />);
   assert.ok(html.includes('data-testid="voicemail-back"'), 'expected Back button testid');
 });
 
