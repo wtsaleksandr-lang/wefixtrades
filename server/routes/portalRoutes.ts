@@ -29,8 +29,6 @@ import {
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter, portalReviewRateLimiter } from "../services/rateLimiter";
 import { sendTicketCreatedEmail, sendAdminNewTicketAlert } from "../lib/supportTicketEmails";
-import { sendBillingPortalLinkEmail } from "../lib/billingPortalEmail";
-import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import Stripe from "stripe";
 
 import {
@@ -94,6 +92,7 @@ import { createLogger } from "../lib/logger";
 import { saveFile, deleteFile } from "../services/fileStorage";
 import { registerPortalQuotequickRoutes } from "./portal/quotequick";
 import { registerPortalReputationRoutes } from "./portal/reputation";
+import { registerPortalBillingRoutes } from "./portal/billing";
 
 const log = createLogger("Portal");
 
@@ -132,6 +131,7 @@ export function registerPortalRoutes(app: Express) {
   // Adding new ones here keeps routes/index.ts unchanged.
   registerPortalQuotequickRoutes(app);
   registerPortalReputationRoutes(app);
+  registerPortalBillingRoutes(app);
 
   /**
    * GET /api/portal/overview
@@ -435,132 +435,6 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       log.error("Portal adflow reports error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load reports" });
-    }
-  });
-
-  /**
-   * GET /api/portal/billing
-   * All payments/invoices for the authenticated client.
-   */
-  app.get("/api/portal/billing", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      // All payments with service name
-      const payments = await db
-        .select({
-          id: clientPayments.id,
-          type: clientPayments.type,
-          amount_cents: clientPayments.amount_cents,
-          status: clientPayments.status,
-          description: clientPayments.description,
-          service_name: serviceCatalog.name,
-          period_start: clientPayments.period_start,
-          period_end: clientPayments.period_end,
-          due_at: clientPayments.due_at,
-          paid_at: clientPayments.paid_at,
-          created_at: clientPayments.created_at,
-        })
-        .from(clientPayments)
-        .leftJoin(clientServices, eq(clientPayments.client_service_id, clientServices.id))
-        .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
-        .where(eq(clientPayments.client_id, clientId))
-        .orderBy(desc(clientPayments.created_at));
-
-      // Summary aggregates
-      const [summary] = await db
-        .select({
-          total_paid: sql<number>`coalesce(sum(case when ${clientPayments.status} = 'paid' then ${clientPayments.amount_cents} else 0 end), 0)::int`,
-          total_pending: sql<number>`coalesce(sum(case when ${clientPayments.status} = 'pending' then ${clientPayments.amount_cents} else 0 end), 0)::int`,
-        })
-        .from(clientPayments)
-        .where(eq(clientPayments.client_id, clientId));
-
-      // Next due payment
-      const [nextDue] = await db
-        .select({
-          due_at: clientPayments.due_at,
-          amount_cents: clientPayments.amount_cents,
-        })
-        .from(clientPayments)
-        .where(and(eq(clientPayments.client_id, clientId), eq(clientPayments.status, "pending")))
-        .orderBy(clientPayments.due_at)
-        .limit(1);
-
-      res.json({
-        payments,
-        summary: {
-          total_paid_cents: summary?.total_paid ?? 0,
-          total_pending_cents: summary?.total_pending ?? 0,
-          next_due_at: nextDue?.due_at ?? null,
-          next_due_amount_cents: nextDue?.amount_cents ?? null,
-        },
-      });
-    } catch (err) {
-      log.error("Portal billing error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to load billing" });
-    }
-  });
-
-  /**
-   * POST /api/portal/billing/send-link
-   * Generate a billing portal URL and email it to the authenticated client.
-   */
-  app.post("/api/portal/billing/send-link", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
-      if (!client) return res.status(404).json({ error: "Client not found" });
-      if (!client.contact_email) return res.status(400).json({ error: "No email address on file" });
-      if (!client.stripe_customer_id) return res.status(400).json({ error: "No billing account linked" });
-
-      const portalUrl = buildBillingPortalUrl({ stripeCustomerId: client.stripe_customer_id });
-      const sent = await sendBillingPortalLinkEmail(client.contact_email, { businessName: client.business_name, portalUrl });
-
-      if (!sent) return res.status(500).json({ error: "Failed to send billing portal email" });
-      res.json({ success: true, message: "Billing portal link sent to your email" });
-    } catch (err) {
-      log.error("Portal billing send-link error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to send billing link" });
-    }
-  });
-
-  /**
-   * POST /api/portal/billing/portal-session
-   * Create a Stripe billing portal session and return the URL directly.
-   * Client opens this in a new tab to manage payment methods, invoices, cancel, etc.
-   */
-  app.post("/api/portal/billing/portal-session", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
-      if (!client) return res.status(404).json({ error: "Client not found" });
-      if (!client.stripe_customer_id) {
-        return res.status(400).json({ error: "No billing account linked to your account" });
-      }
-
-      const stripeKey = process.env.STRIPE_SECRET_KEY;
-      if (!stripeKey) {
-        return res.status(503).json({ error: "Billing is not configured" });
-      }
-
-      const stripe = new Stripe(stripeKey, { apiVersion: "2025-01-27.acacia" as any });
-      const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
-
-      const session = await stripe.billingPortal.sessions.create({
-        customer: client.stripe_customer_id,
-        return_url: `${baseUrl}/portal/billing`,
-      });
-
-      res.json({ url: session.url });
-    } catch (err: any) {
-      log.error("Portal billing portal-session error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to create billing portal session" });
     }
   });
 
