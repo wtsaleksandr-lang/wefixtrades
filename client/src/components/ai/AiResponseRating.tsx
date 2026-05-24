@@ -188,7 +188,7 @@ export default function AiResponseRating({
             placeholder="Optional — what was wrong? (feeds the KB)"
             rows={2}
             maxLength={2000}
-            className="w-full text-xs rounded-md border border-gray-200 bg-white px-2 py-1.5 text-gray-700 placeholder:text-gray-400 focus:border-brand-blue-400 focus:outline-none focus:ring-1 focus:ring-brand-blue-200"
+            className="w-full text-xs rounded-md border border-gray-200 bg-card px-2 py-1.5 text-gray-700 placeholder:text-gray-400 focus:border-brand-blue-400 focus:outline-none focus:ring-1 focus:ring-brand-blue-200"
             data-testid={`ai-rating-comment-${responseId}`}
           />
           <div className="flex items-center gap-1.5">
@@ -212,7 +212,7 @@ export default function AiResponseRating({
                 setShowCommentBox(false);
                 setComment("");
               }}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-card px-2 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
               data-testid={`ai-rating-comment-cancel-${responseId}`}
             >
               <X className="w-3 h-3" />

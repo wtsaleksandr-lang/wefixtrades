@@ -298,7 +298,7 @@ export function TitleInFieldSelect({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           data-testid={testid}
-          className="w-full px-3 pt-5 pb-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors"
+          className="w-full px-3 pt-5 pb-1.5 text-sm border border-gray-200 rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors"
         >
           {children}
         </select>

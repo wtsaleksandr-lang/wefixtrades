@@ -112,6 +112,11 @@ client/src/pages/portal/PortalCalculatorAnalytics.tsx
 # (SchemaGenerator.tsx is NOT exempt — it wires useCopilotForm for address/price fields.)
 client/src/pages/portal/FreeTools/index.tsx
 
+# Shared input/cue primitives module under pages/ — re-exported by the
+# real form pages (CallbackForm, SchemaGenerator, etc.) which wire
+# useCopilotForm themselves. No fillable form lives directly here.
+client/src/pages/portal/FreeTools/_shared.tsx
+
 # ── Invoice Phase A: read-only PDF preview renderers (props in, JSX out — no
 #    user-fillable inputs live on these. The editable form lives in
 #    InvoiceDetailPage.tsx, which DOES wire useCopilotForm). ──
