@@ -11,8 +11,8 @@
  *      (project IDs visible on Replit's hosted Neon URLs for the prd database)
  *
  * Used as a prefix guard in the npm scripts:
- *   "db:push:dev":     "node scripts/check-not-prod.mjs && drizzle-kit push --config=drizzle.config.dev.ts",
- *   "db:generate:dev": "node scripts/check-not-prod.mjs && drizzle-kit generate --config=drizzle.config.dev.ts"
+ *   "db:push:dev":     "node scripts/check-not-prod.mjs && drizzle-kit push --config=scripts/db/drizzle.config.dev.ts",
+ *   "db:generate:dev": "node scripts/check-not-prod.mjs && drizzle-kit generate --config=scripts/db/drizzle.config.dev.ts"
  *
  * Exit codes:
  *   0 — non-production environment (safe to proceed)

@@ -35,8 +35,9 @@
  *     history (no _journal.json is committed).
  *
  * Requires: DATABASE_URL must be set for drizzle-kit to load
- * drizzle.config.dev.ts. The value is never read — generate works fully
- * offline — but the config file's top-level `throw` insists on it.
+ * scripts/db/drizzle.config.dev.ts. The value is never read — generate
+ * works fully offline — but the config file's top-level `throw` insists
+ * on it.
  *
  * Wire in: `npm run check:schema-drift` and the CI workflow.
  */
@@ -85,8 +86,9 @@ const IGNORED_INDEX_RX = [
 // don't know about them. drizzle-kit push WOULD propose to DROP these
 // if it ran against production — which is precisely why production's
 // real defense is `drizzle-kit` being absent from production
-// node_modules (see scripts/start-prod.sh guards) and the renamed
-// drizzle.config.dev.ts.
+// node_modules (see scripts/start-prod.sh guards) and the
+// drizzle config living at scripts/db/drizzle.config.dev.ts (not at
+// the repo root where Replit's `drizzle.config*` detector would find it).
 //
 // These are explicitly allowlisted here so the parity check passes
 // in CI while the items remain visible as a backlog. A small follow-
@@ -313,14 +315,23 @@ if (backlogHits.length > 0) {
 // ──────────────────────────────────────────────────────────────────
 
 // drizzle-kit's `generate` errors if --config is combined with other
-// CLI options. We read drizzle.config.dev.ts (the prod config was
-// intentionally renamed) for `dialect:` + the `schema:` array literal
-// so this stays in sync.
-const drizzleConfigPath = existsSync("drizzle.config.dev.ts")
-  ? "drizzle.config.dev.ts"
-  : "drizzle.config.ts"; // back-compat if someone re-creates it
-if (!existsSync(drizzleConfigPath)) {
-  console.error("[check-schema-drift] drizzle config not found (drizzle.config.dev.ts / drizzle.config.ts).");
+// CLI options. We read scripts/db/drizzle.config.dev.ts (the canonical
+// location after the config was moved out of the repo root to defeat
+// Replit's `drizzle.config*` detector) for `dialect:` + the `schema:`
+// array literal so this stays in sync. Legacy root-level filenames are
+// kept as fallbacks only so a half-applied revert doesn't silently skip
+// the drift check — the `check-no-prod-drizzle-config` guard still fails
+// the build if either ever reappears at the root.
+const DRIZZLE_CONFIG_CANDIDATES = [
+  "scripts/db/drizzle.config.dev.ts",
+  "drizzle.config.dev.ts",
+  "drizzle.config.ts",
+];
+const drizzleConfigPath = DRIZZLE_CONFIG_CANDIDATES.find((p) => existsSync(p));
+if (!drizzleConfigPath) {
+  console.error(
+    `[check-schema-drift] drizzle config not found (looked for ${DRIZZLE_CONFIG_CANDIDATES.join(", ")}).`,
+  );
   process.exit(1);
 }
 const drizzleConfigSrc = readFileSync(drizzleConfigPath, "utf-8");
