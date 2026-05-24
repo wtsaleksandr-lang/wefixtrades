@@ -2747,7 +2747,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         inputHash: result.definition?.inputHash,
       });
     } catch (err: any) {
-      log.error("[admin-crm] TradeLine build-assistant unexpected error:", err.message, err.stack);
+      log.error("[admin-crm] TradeLine build-assistant unexpected error:", { message: err.message, stack: err.stack });
       return sendError(500, "UNEXPECTED", err.message || "Failed to build assistant.", {
         hint: "Unexpected server error. Captured to Sentry — admin will investigate.",
         cause: err,
