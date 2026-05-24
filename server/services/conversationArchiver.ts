@@ -148,6 +148,11 @@ Rules:
       system: "Return ONLY valid JSON. No markdown, no backticks, no explanation.",
       messages: [{ role: "user", content: classifyPrompt }],
       maxTokens: 300,
+      // audit/ai 2026-05-24: attribute archiver classification to the
+      // inbound_classifier surface — same intent (categorize a piece of
+      // text) and same low-cost Haiku profile. Pre-fix the call was
+      // ungated + missing from ai_usage_logs.
+      surface: "inbound_classifier",
     });
 
     // Parse JSON from response
