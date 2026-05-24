@@ -24,6 +24,7 @@ import {
   Sun,
   Voicemail as VoicemailGlyph,
   Phone,
+  PhoneCall,
   Sparkles,
   MessageCircle,
   Settings2,
@@ -32,6 +33,21 @@ import {
   Play,
   ArrowDownLeft,
   ArrowUpRight,
+  Circle,
+  Delete,
+  X,
+  ChevronRight,
+  User,
+  Bell,
+  Mic2,
+  Palette,
+  Languages,
+  Clock,
+  HelpCircle,
+  Shield,
+  FileText,
+  Info,
+  LogOut,
   type LucideIcon,
 } from "lucide-react";
 
@@ -557,15 +573,25 @@ export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, 
                   const peer = isInbound ? c.fromNumber : c.toNumber;
                   const missed = isMissedCall(c);
                   const handling = callHandlingLabel(c);
-                  const dirGlyph = missed ? "✗" : isInbound ? "↓" : "↑";
+                  const DirIcon = missed ? X : isInbound ? ArrowDownLeft : ArrowUpRight;
                   const dirAria = missed ? "Missed" : isInbound ? "Incoming" : "Outgoing";
+                  // Convert outer row from <button> to <div role=button> so the inner
+                  // "Call back" pill can remain a real <button> without nesting (HTML
+                  // disallows nested interactive controls — fix #5).
                   return (
-                    <button
+                    <div
                       key={c.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => { /* mocked: open call detail */ }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          /* mocked: open call detail */
+                        }
+                      }}
                       data-testid={`call-row-${c.id}`}
-                      className="wft-mp-card w-full text-left p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
+                      className="wft-mp-card w-full text-left p-3 flex items-center gap-3 active:opacity-80 transition-opacity cursor-pointer"
                       style={missed ? { borderLeft: "4px solid var(--wft-mp-danger)" } : undefined}
                     >
                       {/* Avatar / initials */}
@@ -582,13 +608,12 @@ export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, 
                       {/* Middle: name + meta */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span
-                            className="text-[11px] leading-none"
+                          <DirIcon
+                            className="w-3.5 h-3.5 shrink-0"
                             style={missed ? { color: "var(--wft-mp-danger)" } : { color: "var(--wft-mp-text-muted)" }}
+                            strokeWidth={2}
                             aria-label={dirAria}
-                          >
-                            {dirGlyph}
-                          </span>
+                          />
                           <span className={`wft-mp-text text-[15px] truncate ${missed ? "font-bold" : "font-semibold"}`}>
                             {formatPhone(peer)}
                           </span>
@@ -602,12 +627,11 @@ export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, 
                         </div>
                       </div>
 
-                      {/* Right: call-back pill — span+role=button so it is a
-                          valid child of the outer <button> and can stop
-                          propagation when the user only wants to dial back. */}
-                      <span
-                        role="button"
-                        tabIndex={0}
+                      {/* Right: real <button> Call back pill. Now that the outer row
+                          is a div, this can be a button safely. Stops propagation so
+                          tapping "Call back" doesn't also open the call detail. */}
+                      <button
+                        type="button"
                         aria-label="Call back"
                         onClick={(e) => { e.stopPropagation(); /* mocked tap-to-call */ }}
                         onKeyDown={(e) => {
@@ -617,9 +641,9 @@ export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, 
                         }}
                         className="wft-mp-btn-outline shrink-0 inline-flex items-center gap-1 text-[12px] font-semibold rounded-full px-3 py-1.5 active:opacity-80 transition-opacity"
                       >
-                        <span aria-hidden>📞</span> Call back
-                      </span>
-                    </button>
+                        <PhoneCall className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden /> Call back
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -656,18 +680,7 @@ export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, 
         className="wft-mp-btn-primary absolute right-4 bottom-4 w-[56px] h-[56px] rounded-full flex items-center justify-center active:opacity-80 transition-opacity z-20"
         style={{ boxShadow: "var(--wft-mp-shadow-fab)" }}
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <rect x="4" y="3" width="16" height="18" rx="2" />
-          <circle cx="8" cy="7" r="0.6" fill="currentColor" />
-          <circle cx="12" cy="7" r="0.6" fill="currentColor" />
-          <circle cx="16" cy="7" r="0.6" fill="currentColor" />
-          <circle cx="8" cy="11" r="0.6" fill="currentColor" />
-          <circle cx="12" cy="11" r="0.6" fill="currentColor" />
-          <circle cx="16" cy="11" r="0.6" fill="currentColor" />
-          <circle cx="8" cy="15" r="0.6" fill="currentColor" />
-          <circle cx="12" cy="15" r="0.6" fill="currentColor" />
-          <circle cx="16" cy="15" r="0.6" fill="currentColor" />
-        </svg>
+        <PhoneCall className="w-6 h-6" strokeWidth={2} aria-hidden />
         <span className="sr-only">+ New call</span>
       </button>
 
@@ -695,9 +708,9 @@ export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, 
                 type="button"
                 onClick={closeDialer}
                 aria-label="Close keypad"
-                className="wft-mp-btn-ghost w-8 h-8 rounded-full flex items-center justify-center text-[18px] active:opacity-80 transition-opacity"
+                className="wft-mp-btn-ghost w-8 h-8 rounded-full flex items-center justify-center active:opacity-80 transition-opacity"
               >
-                ✕
+                <X className="w-4 h-4" strokeWidth={2} aria-hidden />
               </button>
             </div>
 
@@ -715,9 +728,9 @@ export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, 
                 onClick={() => setDialerInput((s) => s.slice(0, -1))}
                 disabled={!dialerInput}
                 aria-label="Backspace"
-                className="wft-mp-btn-ghost w-[48px] h-[48px] rounded-[10px] text-[18px] active:opacity-80 transition-opacity disabled:opacity-40 flex items-center justify-center"
+                className="wft-mp-btn-ghost w-[48px] h-[48px] rounded-[10px] active:opacity-80 transition-opacity disabled:opacity-40 flex items-center justify-center"
               >
-                ⌫
+                <Delete className="w-5 h-5" strokeWidth={1.75} aria-hidden />
               </button>
             </div>
 
@@ -745,7 +758,7 @@ export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, 
                 data-testid="keypad-call"
                 className="wft-mp-btn-primary w-full h-12 rounded-[10px] text-[16px] font-semibold disabled:opacity-40 active:opacity-80 transition-opacity flex items-center justify-center gap-2"
               >
-                <span aria-hidden>📞</span> Call
+                <PhoneCall className="w-4 h-4" strokeWidth={2} aria-hidden /> Call
               </button>
             </div>
           </div>
@@ -914,33 +927,129 @@ export function DutyScreen({ currentMode, onSelect, theme = "light", onToggleThe
 
 /* ─── Settings ─── */
 
+/* iOS-style grouped settings list. Each "group" is a Card containing rows
+ * separated by a 1px theme-aware divider. Rows render: leading icon (lucide)
+ * → label → chevron-right. Destructive Sign-out row uses the danger token.
+ * Visual structure matches native iOS Settings while every color comes from
+ * the wft-mp brand tokens (no native-iOS grey). Replaces the old 2/5 layout
+ * that was one card + 2 sign-out buttons. */
+
+interface SettingsRow {
+  icon: LucideIcon;
+  label: string;
+  destructive?: boolean;
+  onClick?: () => void;
+}
+
+interface SettingsGroup {
+  header?: string;
+  rows: SettingsRow[];
+}
+
+function SettingsRowItem({ row, isLast }: { row: SettingsRow; isLast: boolean }) {
+  const Icon = row.icon;
+  const isDestructive = row.destructive === true;
+  return (
+    <button
+      type="button"
+      onClick={row.onClick}
+      className="w-full flex items-center gap-3 px-4 py-3 text-left active:opacity-70 transition-opacity"
+      style={!isLast ? { borderBottom: "1px solid var(--wft-mp-border)" } : undefined}
+    >
+      <span
+        className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+        style={isDestructive
+          ? { background: "var(--wft-mp-danger-soft)", color: "var(--wft-mp-danger)" }
+          : { background: "var(--wft-mp-primary-soft)", color: "var(--wft-mp-primary)" }}
+        aria-hidden
+      >
+        <Icon className="w-4 h-4" strokeWidth={1.75} aria-hidden />
+      </span>
+      <span
+        className={`flex-1 text-[15px] ${isDestructive ? "font-semibold" : "wft-mp-text font-medium"}`}
+        style={isDestructive ? { color: "var(--wft-mp-danger)" } : undefined}
+      >
+        {row.label}
+      </span>
+      {!isDestructive && (
+        <ChevronRight className="w-4 h-4 shrink-0 wft-mp-text-muted" strokeWidth={1.75} aria-hidden />
+      )}
+    </button>
+  );
+}
+
+function SettingsGroupCard({ group }: { group: SettingsGroup }) {
+  return (
+    <div className="space-y-1.5">
+      {group.header && (
+        <p className="px-1 wft-mp-text-muted text-[11px] font-semibold uppercase tracking-wider">
+          {group.header}
+        </p>
+      )}
+      <div className="wft-mp-card overflow-hidden p-0">
+        {group.rows.map((r, i) => (
+          <SettingsRowItem key={r.label} row={r} isLast={i === group.rows.length - 1} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function SettingsScreen({ onSignOut, theme = "light", onToggleTheme = () => {} }: { onSignOut: () => void; theme?: Theme; onToggleTheme?: () => void }) {
+  const groups: SettingsGroup[] = [
+    {
+      header: "Account",
+      rows: [
+        { icon: User, label: "Profile" },
+        { icon: Bell, label: "Notifications" },
+        { icon: Mic2, label: "Voice settings" },
+      ],
+    },
+    {
+      header: "Preferences",
+      rows: [
+        { icon: Palette, label: "Theme", onClick: onToggleTheme },
+        { icon: Languages, label: "Language" },
+        { icon: Clock, label: "Working hours" },
+      ],
+    },
+    {
+      header: "About",
+      rows: [
+        { icon: HelpCircle, label: "Help" },
+        { icon: Shield, label: "Privacy" },
+        { icon: FileText, label: "Terms" },
+        { icon: Info, label: "Version 1.0.0" },
+      ],
+    },
+    {
+      rows: [
+        { icon: LogOut, label: "Sign out", destructive: true, onClick: onSignOut },
+      ],
+    },
+  ];
+
   return (
     <ScreenContainer>
       <ScreenHeader theme={theme} onToggleTheme={onToggleTheme} caption="Account" title="Settings" />
       <Section>
+        {/* Identity card sits above the grouped list — iOS pattern. */}
         <Card>
-          <div className="flex items-center gap-3 mb-2">
-            <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8" />
-            <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <img src="/brand/icon.svg" alt="WeFixTrades" className="w-10 h-10" />
+            <div className="min-w-0 flex-1">
               <H2>Demo User</H2>
               <Body muted>you@wefixtrades.com</Body>
+              <Body muted>Demo Plumbing &amp; Drains</Body>
             </div>
-          </div>
-          <div className="mt-2">
-            <Caption>Business</Caption>
-            <Body>Demo Plumbing & Drains</Body>
           </div>
         </Card>
       </Section>
-      <Section>
-        <Button variant="outline" onClick={onSignOut}>Sign out</Button>
-        <div className="h-2" />
-        <Button variant="danger" onClick={onSignOut}>Sign out everywhere</Button>
-      </Section>
-      <Section>
-        <Body muted>Manage billing, change your password, and update your business profile from the WeFixTrades web dashboard.</Body>
-      </Section>
+      <div className="px-5 pb-6 space-y-5">
+        {groups.map((g, i) => (
+          <SettingsGroupCard key={g.header ?? `g-${i}`} group={g} />
+        ))}
+      </div>
     </ScreenContainer>
   );
 }
@@ -1155,10 +1264,14 @@ const SIDE_TABS: Array<{ key: Exclude<TabKey, "duty">; label: string; Icon: Luci
   { key: "settings", label: "Settings", Icon: Settings2 },
 ];
 
-const DUTY_GLYPH: Record<DutyMode, string> = {
-  available: "🟢",
-  on_the_job: "🔵",
-  after_hours: "🌙",
+// Duty FAB glyphs: lucide icons (Circle filled for available/on-the-job,
+// Moon for after-hours). Colors come from the per-mode tokens defined in
+// index.css under .wft-mp-fab-{mode}. Using `currentColor` keeps the icon
+// in sync with whatever the FAB CSS sets — no hex literals here.
+const DUTY_ICONS: Record<DutyMode, { Icon: LucideIcon; fill: boolean }> = {
+  available: { Icon: Circle, fill: true },
+  on_the_job: { Icon: Circle, fill: true },
+  after_hours: { Icon: Moon, fill: false },
 };
 
 interface TabBarProps {
@@ -1187,17 +1300,37 @@ export function TabBar({ active, onChange, dutyMode = "available", safeAreaBotto
       {right.map((t) => (
         <TabButton key={t.key} tab={t} active={active === t.key} onClick={() => onChange(t.key)} />
       ))}
-      <button
-        type="button"
-        onClick={() => onChange("duty")}
-        data-testid="tabbar-duty-fab"
-        aria-label={`Duty mode (current: ${dutyMode.replace(/_/g, " ")})`}
-        className={`wft-mp-fab wft-mp-fab-${dutyMode} ${isDutyActive ? "is-active" : ""} absolute left-1/2 -translate-x-1/2 w-[64px] h-[64px] rounded-full flex flex-col items-center justify-center gap-0.5`}
-        style={{ top: `-18px` }}
-      >
-        <span className="text-[22px] leading-none" aria-hidden>{DUTY_GLYPH[dutyMode]}</span>
-        <span className="text-[9px] font-bold uppercase tracking-wider">Duty</span>
-      </button>
+      {(() => {
+        const { Icon: DutyIcon, fill } = DUTY_ICONS[dutyMode];
+        // When the FAB is active, .wft-mp-fab.is-active.wft-mp-fab-{mode} sets
+        // both background + foreground via CSS, so `currentColor` is correct.
+        // When inactive, only the border is colored — explicitly tint the icon
+        // to match the per-mode semantic token so the glyph is meaningful.
+        const inactiveIconColor =
+          dutyMode === "available" ? "var(--wft-mp-success)" :
+          dutyMode === "on_the_job" ? "var(--wft-mp-primary)" :
+          "var(--wft-mp-night)";
+        const iconStyle = isDutyActive ? undefined : { color: inactiveIconColor };
+        return (
+          <button
+            type="button"
+            onClick={() => onChange("duty")}
+            data-testid="tabbar-duty-fab"
+            aria-label={`Duty mode (current: ${dutyMode.replace(/_/g, " ")})`}
+            className={`wft-mp-fab wft-mp-fab-${dutyMode} ${isDutyActive ? "is-active" : ""} absolute left-1/2 -translate-x-1/2 w-[64px] h-[64px] rounded-full flex flex-col items-center justify-center gap-0.5`}
+            style={{ top: `-18px` }}
+          >
+            <DutyIcon
+              className="w-5 h-5"
+              strokeWidth={1.75}
+              fill={fill ? "currentColor" : "none"}
+              style={iconStyle}
+              aria-hidden
+            />
+            <span className="text-[9px] font-bold uppercase tracking-wider">Duty</span>
+          </button>
+        );
+      })()}
     </div>
   );
 }
@@ -1230,7 +1363,16 @@ function TabButton({ tab, active, onClick }: { tab: { key: Exclude<TabKey, "duty
       >
         {tab.label}
       </span>
-      {active && <span className="wft-mp-tab-indicator" aria-hidden />}
+      {/* Active-tab dot: bumped from 4×2 to 6×3 + explicit brand-primary fill
+          (inline so it stays vivid in dark mode without touching index.css).
+          Token --wft-mp-primary is brand-blue in light + brighter blue in dark. */}
+      {active && (
+        <span
+          className="wft-mp-tab-indicator"
+          aria-hidden
+          style={{ width: "6px", height: "3px", background: "var(--wft-mp-primary)" }}
+        />
+      )}
     </button>
   );
 }

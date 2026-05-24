@@ -12,6 +12,7 @@
  */
 
 import { type ReactNode } from "react";
+import { Signal, Wifi, BatteryMedium } from "lucide-react";
 
 const IPHONE_WIDTH = 380;
 const IPHONE_HEIGHT = 800;
@@ -41,14 +42,13 @@ function IPhoneFrame({ children }: { children: ReactNode }) {
       <div className="relative w-full h-full rounded-[36px] overflow-hidden wft-mp-surface-soft">
         {/* Dynamic Island */}
         <div className="absolute top-2 left-1/2 -translate-x-1/2 w-[120px] h-[32px] bg-black rounded-full z-50" />
-        {/* Status bar */}
-        <div className="absolute top-0 left-0 right-0 h-[46px] flex items-center justify-between px-7 text-[11px] font-semibold z-40 pt-3 wft-mp-text">
+        {/* Status bar — clock on left, lucide Signal/Wifi/Battery on right. */}
+        <div className="absolute top-0 left-0 right-0 h-[46px] flex items-center justify-between px-7 text-[10px] font-semibold z-40 pt-3 wft-mp-text">
           <span>9:41</span>
-          <span className="absolute left-1/2 -translate-x-1/2 invisible">spacer</span>
           <span className="flex items-center gap-1">
-            <span className="opacity-90">●●●●</span>
-            <span className="opacity-70">5G</span>
-            <span className="ml-1">▮▮</span>
+            <Signal className="w-3 h-3" strokeWidth={2} aria-label="Signal: 4 bars" />
+            <Wifi className="w-3 h-3" strokeWidth={2} aria-label="Wi-Fi" />
+            <BatteryMedium className="w-4 h-4" strokeWidth={1.75} aria-label="Battery" />
           </span>
         </div>
         {/* Content */}
@@ -72,12 +72,13 @@ function AndroidFrame({ children }: { children: ReactNode }) {
       <div className="relative w-full h-full rounded-[20px] overflow-hidden wft-mp-surface-soft">
         {/* Punch-hole camera */}
         <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-black rounded-full z-50" />
-        {/* Status bar */}
-        <div className="absolute top-0 left-0 right-0 h-[32px] flex items-center justify-between px-5 text-[11px] font-medium z-40 pt-1.5 wft-mp-text">
+        {/* Status bar — clock on left, lucide Signal/Wifi/Battery on right. */}
+        <div className="absolute top-0 left-0 right-0 h-[32px] flex items-center justify-between px-5 text-[10px] font-medium z-40 pt-1.5 wft-mp-text">
           <span>9:41</span>
           <span className="flex items-center gap-1.5">
-            <span className="opacity-80">5G</span>
-            <span>▮▮</span>
+            <Signal className="w-3 h-3" strokeWidth={2} aria-label="Signal: 4 bars" />
+            <Wifi className="w-3 h-3" strokeWidth={2} aria-label="Wi-Fi" />
+            <BatteryMedium className="w-4 h-4" strokeWidth={1.75} aria-label="Battery" />
           </span>
         </div>
         {/* Content */}
