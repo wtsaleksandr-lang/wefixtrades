@@ -686,7 +686,8 @@ const ASK_MESSAGES: AskMessageStub[] = [
   },
 ];
 
-export function AskScreen({ theme = "light", onToggleTheme = () => {} }: { theme?: Theme; onToggleTheme?: () => void } = {}) {
+export function AskScreen(props: { theme?: Theme; onToggleTheme?: () => void }) {
+  const { theme = "light", onToggleTheme = () => {} } = props;
   const [draft, setDraft] = useState("");
   return (
     <ScreenContainer>
@@ -806,7 +807,8 @@ interface VoicemailScreenProps {
   onBack?: () => void;
 }
 
-export function VoicemailScreen({ theme = "light", onToggleTheme = () => {}, onBack }: VoicemailScreenProps = {}) {
+export function VoicemailScreen(props: VoicemailScreenProps) {
+  const { theme = "light", onToggleTheme = () => {}, onBack } = props;
   return (
     <ScreenContainer>
       <ScreenHeader

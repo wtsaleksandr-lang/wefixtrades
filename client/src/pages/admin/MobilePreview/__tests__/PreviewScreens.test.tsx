@@ -80,26 +80,26 @@ test('TabBar FAB ring color reflects current duty mode', () => {
 /* ─── AskScreen ────────────────────────────────────────────────── */
 
 test('AskScreen renders an input element (compose bar)', () => {
-  const html = renderToStaticMarkup(React.createElement(AskScreen));
+  const html = renderToStaticMarkup(React.createElement(AskScreen, {}));
   assert.ok(/<input\b/.test(html), 'expected an <input> in AskScreen');
 });
 
 test('AskScreen renders the suggestion chips', () => {
-  const html = renderToStaticMarkup(React.createElement(AskScreen));
+  const html = renderToStaticMarkup(React.createElement(AskScreen, {}));
   assert.ok(html.includes('Summarize last call'), 'expected suggestion chip "Summarize last call"');
   assert.ok(html.includes('Draft a follow-up'), 'expected suggestion chip "Draft a follow-up"');
   assert.ok(html.includes('Find unpaid jobs'), 'expected suggestion chip "Find unpaid jobs"');
 });
 
 test('AskScreen renders the theme toggle in the header', () => {
-  const html = renderToStaticMarkup(React.createElement(AskScreen));
+  const html = renderToStaticMarkup(React.createElement(AskScreen, {}));
   assert.ok(html.includes('data-testid="mobile-preview-theme-toggle"'), 'expected theme toggle in AskScreen header');
 });
 
 /* ─── VoicemailScreen ──────────────────────────────────────────── */
 
 test('VoicemailScreen renders at least 3 list items', () => {
-  const html = renderToStaticMarkup(React.createElement(VoicemailScreen));
+  const html = renderToStaticMarkup(React.createElement(VoicemailScreen, {}));
   const callerMatches = html.match(/Sarah · Plumbing lead|Marcus · ETA question|Unknown · 555-0188/g);
   assert.ok(callerMatches && callerMatches.length >= 3, `expected >=3 voicemail rows, got: ${callerMatches?.length ?? 0}`);
 });
