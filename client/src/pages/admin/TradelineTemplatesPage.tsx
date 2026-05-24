@@ -11,6 +11,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { ProductSettingsMenu } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -168,6 +169,7 @@ export default function TradelineTemplatesPage() {
               <Plus className="w-3.5 h-3.5 mr-1" />
               Create template
             </Button>
+            <ProductSettingsMenu productId="tradeline" productName="TradeLine" />
           </div>
         </div>
 
