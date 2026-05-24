@@ -24,6 +24,11 @@ import { db } from "../../db";
 import { clients, leads, auditLog } from "@shared/schema";
 import { getQuota as bingGetQuota, getSitemaps as bingGetSitemaps } from "../seo/bingClient";
 import { getFreshAccessToken } from "../seo/googleOauth";
+import {
+  isGa4DataApiConfigured,
+  getSessionsAndPageviews,
+  getTopPages,
+} from "../analytics/ga4DataClient";
 import { runHealthzCheck } from "../../routes/healthz";
 import { createLogger } from "../logger";
 
@@ -256,83 +261,46 @@ function parseBingDate(raw: string | undefined): string | null {
 // ─── GA4 ────────────────────────────────────────────────────────────────
 
 async function fetchGa4(yesterday: DayWindow, prior: DayWindow): Promise<Ga4Section | Unavailable> {
-  const propertyId = process.env.GA4_PROPERTY_ID; // "properties/123456789" or "123456789"
-  if (!propertyId) {
-    return { available: false, reason: "GA4_PROPERTY_ID not set" };
+  // Property ID defaults to the WeFixTrades property the service account
+  // (`wefixtrades@acx-audiobooks.iam.gserviceaccount.com`) has Editor on.
+  // Override via `GA4_PROPERTY_ID` Doppler var if a different property is
+  // needed (e.g. staging).
+  const rawPropertyId = process.env.GA4_PROPERTY_ID ?? "537753613";
+  const propertyId = rawPropertyId.startsWith("properties/")
+    ? rawPropertyId.slice("properties/".length)
+    : rawPropertyId;
+
+  if (!isGa4DataApiConfigured()) {
+    return {
+      available: false,
+      reason: "GA4 service account not configured (GOOGLE_APPLICATION_CREDENTIALS_JSON)",
+    };
   }
-  let accessToken: string;
-  try {
-    accessToken = await getFreshAccessToken("google");
-  } catch {
-    return { available: false, reason: "Google OAuth not connected" };
-  }
-  const property = propertyId.startsWith("properties/") ? propertyId : `properties/${propertyId}`;
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: accessToken });
-  const data = google.analyticsdata({ version: "v1beta", auth });
 
   try {
-    const [sessionsReport, topPagesReport, conversionsReport] = await Promise.all([
-      data.properties.runReport({
-        property,
-        requestBody: {
-          dateRanges: [
-            { startDate: yesterday.label, endDate: yesterday.label, name: "y" },
-            { startDate: prior.label, endDate: prior.label, name: "p" },
-          ],
-          metrics: [{ name: "sessions" }],
-        },
-      }),
-      data.properties.runReport({
-        property,
-        requestBody: {
-          dateRanges: [{ startDate: yesterday.label, endDate: yesterday.label }],
-          dimensions: [{ name: "pagePath" }],
-          metrics: [{ name: "sessions" }],
-          orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-          limit: "5",
-        },
-      }),
-      data.properties.runReport({
-        property,
-        requestBody: {
-          dateRanges: [{ startDate: yesterday.label, endDate: yesterday.label }],
-          dimensions: [{ name: "eventName" }],
-          metrics: [{ name: "eventCount" }],
-          dimensionFilter: {
-            filter: {
-              fieldName: "eventName",
-              inListFilter: {
-                values: ["quote_completed", "audit_completed", "purchase_completed"],
-              },
-            },
-          },
-        },
-      }),
+    // Sessions + top pages come from the shared SA-backed helpers.
+    // Conversion events still need a custom report (filtered by eventName),
+    // so we build a JWT-authed analyticsdata client inline using the same
+    // Doppler-injected SA key.
+    const [yMetrics, pMetrics, topPagesRaw, conversionsReport] = await Promise.all([
+      getSessionsAndPageviews({ propertyId, daysBack: 1 }),
+      getSessionsAndPageviews({ propertyId, daysBack: 2 }).then((agg) =>
+        // daysBack:2 returns yesterday+prior summed; subtract yesterday to isolate prior
+        agg,
+      ),
+      getTopPages({ propertyId, daysBack: 1, limit: 5 }),
+      runConversionsReport(propertyId, yesterday),
     ]);
 
-    const sRows = sessionsReport.data.rows ?? [];
-    let sessionsYesterday = 0;
-    let sessionsPrior = 0;
-    for (const r of sRows) {
-      const range = r.dimensionValues?.[0]?.value;
-      const v = Number(r.metricValues?.[0]?.value ?? 0);
-      if (range === "y") sessionsYesterday = v;
-      else if (range === "p") sessionsPrior = v;
-    }
+    const sessionsYesterday = yMetrics.sessions;
+    // Prior-day = (2-day total) - (yesterday). Clamped to 0 to avoid negatives
+    // from race conditions in GA's incomplete-day data.
+    const sessionsPrior = Math.max(0, pMetrics.sessions - yMetrics.sessions);
 
-    const topPages: Ga4PageRow[] = (topPagesReport.data.rows ?? []).slice(0, 5).map((r) => ({
-      path: r.dimensionValues?.[0]?.value ?? "",
-      sessions: Number(r.metricValues?.[0]?.value ?? 0),
+    const topPages: Ga4PageRow[] = topPagesRaw.slice(0, 5).map((r) => ({
+      path: r.path,
+      sessions: r.views,
     }));
-
-    const conv = { quote_completed: 0, audit_completed: 0, purchase_completed: 0 };
-    for (const r of conversionsReport.data.rows ?? []) {
-      const name = r.dimensionValues?.[0]?.value as keyof typeof conv | undefined;
-      if (name && name in conv) {
-        conv[name] = Number(r.metricValues?.[0]?.value ?? 0);
-      }
-    }
 
     const deltaPct =
       sessionsPrior > 0
@@ -345,12 +313,72 @@ async function fetchGa4(yesterday: DayWindow, prior: DayWindow): Promise<Ga4Sect
       sessionsPrior,
       sessionsDeltaPct: deltaPct,
       topPages,
-      conversions: conv,
+      conversions: conversionsReport,
     };
   } catch (err) {
     log.warn("GA4 fetch failed", { err: err instanceof Error ? err.message : String(err) });
     return { available: false, reason: "GA4 API error (see logs)" };
   }
+}
+
+/**
+ * Run the conversion-events report directly via the SA-authed
+ * analyticsdata client. We replicate the JWT-auth path from
+ * `ga4DataClient.ts` so we can issue a filtered report that the public
+ * helpers don't expose, without widening that module's surface for one
+ * caller.
+ */
+async function runConversionsReport(
+  propertyId: string,
+  yesterday: DayWindow,
+): Promise<Ga4Section["conversions"]> {
+  const conv: Ga4Section["conversions"] = {
+    quote_completed: 0,
+    audit_completed: 0,
+    purchase_completed: 0,
+  };
+
+  const raw = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  if (!raw) return conv;
+  let parsed: { client_email?: string; private_key?: string };
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return conv;
+  }
+  if (!parsed.client_email || !parsed.private_key) return conv;
+
+  const auth = new google.auth.JWT({
+    email: parsed.client_email,
+    key: parsed.private_key.replace(/\\n/g, "\n"),
+    scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
+  });
+  const data = google.analyticsdata({ version: "v1beta", auth });
+
+  const report = await data.properties.runReport({
+    property: `properties/${propertyId}`,
+    requestBody: {
+      dateRanges: [{ startDate: yesterday.label, endDate: yesterday.label }],
+      dimensions: [{ name: "eventName" }],
+      metrics: [{ name: "eventCount" }],
+      dimensionFilter: {
+        filter: {
+          fieldName: "eventName",
+          inListFilter: {
+            values: ["quote_completed", "audit_completed", "purchase_completed"],
+          },
+        },
+      },
+    },
+  });
+
+  for (const r of report.data.rows ?? []) {
+    const name = r.dimensionValues?.[0]?.value as keyof typeof conv | undefined;
+    if (name && name in conv) {
+      conv[name] = Number(r.metricValues?.[0]?.value ?? 0);
+    }
+  }
+  return conv;
 }
 
 // ─── healthz ────────────────────────────────────────────────────────────
