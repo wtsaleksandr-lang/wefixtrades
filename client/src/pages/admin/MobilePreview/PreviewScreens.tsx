@@ -1,21 +1,30 @@
 /**
  * Web-native mirror of the wefixtrades-softphone screens.
  *
- * Visual parity with the actual RN screens (same layout, copy, palette).
- * NOT the same code — these are plain React + Tailwind, while the real
- * mobile app uses RN's StyleSheet + components. Manual sync needed when
- * either side changes.
+ * Visual parity with the actual RN screens (same layout, copy). The visual
+ * polish wave introduced:
+ *   - Brand-blue primary on every CTA + selected/active outline.
+ *   - Per-mode colors on the Duty screen status cards (green / blue / dark
+ *     grey for available / on_the_job / after_hours).
+ *   - Day / night theme toggle on every screen header. The host wraps these
+ *     screens in `.wft-mob-preview[data-theme="…"]` so every semantic token
+ *     (background, surface, text, primary, success, danger, warn, night)
+ *     flips with the toggle.
+ *   - Premium five-tab bar with a centered FAB for the Duty control.
+ *     Voicemail moved to a sub-screen reachable from Calls + Messages.
  *
- * Lives inside an iPhone / Android phone frame on the admin preview
- * page. Mocked state — no real backend calls.
+ * All colors come from CSS variables defined under
+ * `.wft-mob-preview[data-theme="…"]` in client/src/index.css. Literal hex
+ * values are NOT used here so the hardcoded-color guard stays green.
  */
 
 import React, { type ReactNode, useState } from "react";
+import { Moon, Sun, Voicemail as VoicemailGlyph } from "lucide-react";
 
 /* ─── Shared primitives (tiny re-implementations of mobile primitives) ─── */
 
 function ScreenContainer({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col h-full overflow-y-auto bg-[#F9FAFB]">{children}</div>;
+  return <div className="flex flex-col h-full overflow-y-auto wft-mp-surface-soft">{children}</div>;
 }
 
 function Section({ children }: { children: ReactNode }) {
@@ -23,56 +32,109 @@ function Section({ children }: { children: ReactNode }) {
 }
 
 function Caption({ children }: { children: ReactNode }) {
-  return <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{children}</p>;
+  return <p className="wft-mp-text-muted text-[11px] font-semibold uppercase tracking-wider">{children}</p>;
 }
 
 function H1({ children }: { children: ReactNode }) {
-  return <h1 className="text-[26px] font-bold text-gray-900 tracking-tight leading-tight">{children}</h1>;
+  return <h1 className="wft-mp-text text-[26px] font-bold tracking-tight leading-tight">{children}</h1>;
 }
 
 function H2({ children }: { children: ReactNode }) {
-  return <h2 className="text-[17px] font-semibold text-gray-900">{children}</h2>;
+  return <h2 className="wft-mp-text text-[17px] font-semibold">{children}</h2>;
 }
 
 function Body({ children, muted = false }: { children: ReactNode; muted?: boolean }) {
-  return <p className={muted ? "text-[15px] leading-[22px] text-gray-500" : "text-[15px] leading-[22px] text-gray-900"}>{children}</p>;
+  return <p className={`text-[15px] leading-[22px] ${muted ? "wft-mp-text-muted" : "wft-mp-text"}`}>{children}</p>;
 }
 
 function Card({ children, selected = false }: { children: ReactNode; selected?: boolean }) {
   return (
-    <div data-theme="light" className={`bg-white rounded-xl border p-4 ${selected ? "border-indigo-500 border-2" : "border-gray-200"}`}>{children}</div>
+    <div className={`wft-mp-card p-4 ${selected ? "wft-mp-card--selected" : ""}`}>{children}</div>
   );
 }
 
-function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "primary" | "success" }) {
-  const styles = tone === "success" ? "bg-emerald-100 text-emerald-800" : "bg-indigo-100 text-indigo-700";
-  return <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${styles}`}>{children}</span>;
+function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "primary" | "success" | "neutral" }) {
+  const cls =
+    tone === "success" ? "wft-mp-badge-success" :
+    tone === "neutral" ? "wft-mp-badge-neutral" :
+    "wft-mp-badge-primary";
+  return <span className={`wft-mp-badge ${cls}`}>{children}</span>;
 }
 
 function Button({ onClick, children, variant = "primary" }: { onClick: () => void; children: ReactNode; variant?: "primary" | "outline" | "danger" }) {
-  const styles =
-    variant === "outline" ? "border border-indigo-600 text-indigo-600 bg-white" :
-    variant === "danger" ? "bg-red-600 text-white" :
-    "bg-indigo-600 text-white";
+  const cls =
+    variant === "outline" ? "wft-mp-btn-outline" :
+    variant === "danger" ? "wft-mp-btn-danger" :
+    "wft-mp-btn-primary";
   return (
     <button
       onClick={onClick}
-      className={`h-12 rounded-[10px] px-4 text-[16px] font-semibold ${styles} active:opacity-80 transition-opacity w-full`}
+      className={`h-12 rounded-[10px] px-4 text-[16px] font-semibold active:opacity-80 transition-opacity w-full ${cls}`}
     >
       {children}
     </button>
   );
 }
 
+/* ─── Theme toggle (shared header control) ───────────────────────────── */
+
+export type Theme = "light" | "dark";
+
+export function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
+  const Icon = theme === "dark" ? Sun : Moon;
+  const label = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={label}
+      data-testid="mobile-preview-theme-toggle"
+      className="wft-mp-theme-toggle inline-flex items-center justify-center w-8 h-8 rounded-full"
+    >
+      <Icon className="w-4 h-4" aria-hidden />
+    </button>
+  );
+}
+
+interface HeaderProps {
+  theme: Theme;
+  onToggleTheme: () => void;
+  caption?: string;
+  title: string;
+  subtitle?: string;
+  leadingIcon?: ReactNode;
+}
+
+function ScreenHeader({ theme, onToggleTheme, caption, title, subtitle, leadingIcon }: HeaderProps) {
+  return (
+    <Section>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex items-center gap-3">
+          {leadingIcon}
+          <div className="min-w-0">
+            {caption && <Caption>{caption}</Caption>}
+            <H1>{title}</H1>
+          </div>
+        </div>
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+      </div>
+      {subtitle && <Body muted>{subtitle}</Body>}
+    </Section>
+  );
+}
+
 /* ─── Login screen ─── */
 
-export function LoginScreen({ onSignIn }: { onSignIn: () => void }) {
+export function LoginScreen({ onSignIn, theme, onToggleTheme }: { onSignIn: () => void; theme: Theme; onToggleTheme: () => void }) {
   const [email, setEmail] = useState("you@wefixtrades.com");
   const [password, setPassword] = useState("••••••••");
   return (
     <ScreenContainer>
       <Section>
-        <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8 mb-1" />
+        <div className="flex items-start justify-between gap-3">
+          <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8 mb-1" />
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        </div>
         <H1>Welcome back</H1>
         <Body muted>Sign in with your WeFixTrades credentials.</Body>
       </Section>
@@ -83,7 +145,7 @@ export function LoginScreen({ onSignIn }: { onSignIn: () => void }) {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full h-12 px-3 rounded-[10px] border border-gray-200 bg-white text-[16px] text-gray-900 focus:outline-none focus:border-indigo-500"
+            className="wft-mp-input w-full h-12 px-3 rounded-[10px] text-[16px]"
           />
         </div>
         <div className="space-y-1.5">
@@ -92,7 +154,7 @@ export function LoginScreen({ onSignIn }: { onSignIn: () => void }) {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full h-12 px-3 rounded-[10px] border border-gray-200 bg-white text-[16px] text-gray-900 focus:outline-none focus:border-indigo-500"
+            className="wft-mp-input w-full h-12 px-3 rounded-[10px] text-[16px]"
           />
         </div>
         <Button onClick={onSignIn}>Sign in</Button>
@@ -245,23 +307,18 @@ function formatDuration(sec: number | null): string {
 function CallStatusBadge({ status, direction }: { status: string; direction: string }) {
   const isMissed = direction === "inbound" && (status === "no-answer" || status === "busy" || status === "failed");
   const isAnswered = status === "completed" || status === "in-progress";
-  const tone = isAnswered ? "success" : isMissed ? "danger" : "neutral";
-  const styles =
-    tone === "success" ? "bg-emerald-100 text-emerald-800" :
-    tone === "danger" ? "bg-red-100 text-red-700" :
-    "bg-gray-100 text-gray-700";
-  return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${styles}`}>
-      {status.replace(/-/g, " ")}
-    </span>
-  );
+  const cls =
+    isAnswered ? "wft-mp-badge-success" :
+    isMissed ? "wft-mp-badge-danger" :
+    "wft-mp-badge-neutral";
+  return <span className={`wft-mp-badge ${cls}`}>{status.replace(/-/g, " ")}</span>;
 }
 
 function SampleBanner() {
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-      <p className="text-[11px] font-semibold text-amber-800">Demo data</p>
-      <p className="text-[11px] text-amber-700 leading-tight">
+    <div className="wft-mp-demo-banner rounded-lg px-3 py-2">
+      <p className="text-[11px] font-semibold">Demo data</p>
+      <p className="text-[11px] leading-tight opacity-90">
         No live activity in the database yet. Showing sample rows so you can preview the layout.
       </p>
     </div>
@@ -272,9 +329,9 @@ function LoadingList({ rows = 3 }: { rows?: number }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="h-3 w-1/3 bg-gray-200 rounded animate-pulse mb-2" />
-          <div className="h-3 w-2/3 bg-gray-100 rounded animate-pulse" />
+        <div key={i} className="wft-mp-card p-4">
+          <div className="h-3 w-1/3 wft-mp-surface-soft rounded animate-pulse mb-2" />
+          <div className="h-3 w-2/3 wft-mp-surface-soft rounded animate-pulse" />
         </div>
       ))}
     </div>
@@ -292,7 +349,14 @@ function ErrorState({ message }: { message: string }) {
   );
 }
 
-export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
+interface CallsScreenProps {
+  state?: ActivityState<PreviewCall>;
+  theme?: Theme;
+  onToggleTheme?: () => void;
+  onOpenVoicemail?: () => void;
+}
+
+export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, onOpenVoicemail }: CallsScreenProps) {
   const isLoading = state?.isLoading ?? false;
   const isError = state?.isError ?? false;
   const realItems = state?.items ?? [];
@@ -305,11 +369,13 @@ export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
 
   return (
     <ScreenContainer>
-      <Section>
-        <Caption>Recent</Caption>
-        <H1>Calls</H1>
-        <Body muted>Most recent calls handled by your TradeLine number.</Body>
-      </Section>
+      <ScreenHeader
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        caption="Recent"
+        title="Calls"
+        subtitle="Most recent calls handled by your TradeLine number."
+      />
       <Section>
         {isLoading ? (
           <LoadingList rows={3} />
@@ -340,7 +406,7 @@ export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
                       <button
                         type="button"
                         onClick={() => { /* mocked tap-to-call */ }}
-                        className="text-[12px] font-semibold border border-indigo-600 text-indigo-600 bg-white rounded-md px-3 py-1.5 active:opacity-80 transition-opacity"
+                        className="wft-mp-btn-outline text-[12px] font-semibold rounded-md px-3 py-1.5 active:opacity-80 transition-opacity"
                       >
                         <span aria-hidden>📞</span> Call back
                       </button>
@@ -356,11 +422,22 @@ export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
         <Button variant="outline" onClick={() => setDialerOpen((v) => !v)}>
           {dialerOpen ? "Close dialer" : "+ New call"}
         </Button>
+        {onOpenVoicemail && (
+          <button
+            type="button"
+            onClick={onOpenVoicemail}
+            data-testid="open-voicemail-from-calls"
+            className="wft-mp-btn-ghost mt-1 w-full h-11 rounded-[10px] px-4 text-[14px] font-semibold inline-flex items-center justify-center gap-2 active:opacity-80 transition-opacity"
+          >
+            <VoicemailGlyph className="w-4 h-4" aria-hidden />
+            Voicemail inbox
+          </button>
+        )}
         {dialerOpen && (
           <Card>
             <Caption>Dialer</Caption>
-            <div className="mt-1.5 mb-3 text-[20px] font-semibold text-gray-900 min-h-[28px]" data-testid="dialer-input">
-              {dialerInput || <span className="text-gray-400">Enter a number</span>}
+            <div className="wft-mp-text mt-1.5 mb-3 text-[20px] font-semibold min-h-[28px]" data-testid="dialer-input">
+              {dialerInput || <span className="wft-mp-text-muted">Enter a number</span>}
             </div>
             <div className="grid grid-cols-3 gap-2">
               {dialerKeys.map((k) => (
@@ -368,7 +445,7 @@ export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
                   key={k}
                   type="button"
                   onClick={() => setDialerInput((s) => s + k)}
-                  className="h-12 rounded-md border border-gray-200 bg-white text-[18px] font-semibold text-gray-900 active:opacity-80 transition-opacity"
+                  className="wft-mp-btn-ghost h-12 rounded-md text-[18px] font-semibold active:opacity-80 transition-opacity"
                 >
                   {k}
                 </button>
@@ -378,7 +455,7 @@ export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
               <button
                 type="button"
                 onClick={() => setDialerInput("")}
-                className="h-12 rounded-md border border-gray-200 bg-white text-[14px] font-semibold text-gray-700 active:opacity-80 transition-opacity"
+                className="wft-mp-btn-ghost h-12 rounded-md text-[14px] font-semibold active:opacity-80 transition-opacity"
               >
                 Clear
               </button>
@@ -386,7 +463,7 @@ export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
                 type="button"
                 onClick={() => { /* mocked place-call */ }}
                 disabled={!dialerInput}
-                className="h-12 rounded-md bg-indigo-600 text-white text-[14px] font-semibold disabled:opacity-40 active:opacity-80 transition-opacity"
+                className="wft-mp-btn-primary h-12 rounded-md text-[14px] font-semibold disabled:opacity-40 active:opacity-80 transition-opacity"
               >
                 <span aria-hidden>📞</span> Call
               </button>
@@ -398,7 +475,14 @@ export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
   );
 }
 
-export function MessagesScreen({ state }: { state?: ActivityState<PreviewMessage> }) {
+interface MessagesScreenProps {
+  state?: ActivityState<PreviewMessage>;
+  theme?: Theme;
+  onToggleTheme?: () => void;
+  onOpenVoicemail?: () => void;
+}
+
+export function MessagesScreen({ state, theme = "light", onToggleTheme = () => {}, onOpenVoicemail }: MessagesScreenProps) {
   const isLoading = state?.isLoading ?? false;
   const isError = state?.isError ?? false;
   const realItems = state?.items ?? [];
@@ -409,11 +493,13 @@ export function MessagesScreen({ state }: { state?: ActivityState<PreviewMessage
 
   return (
     <ScreenContainer>
-      <Section>
-        <Caption>Threads</Caption>
-        <H1>Messages</H1>
-        <Body muted>Most recent SMS exchanges through your TradeLine number.</Body>
-      </Section>
+      <ScreenHeader
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        caption="Threads"
+        title="Messages"
+        subtitle="Most recent SMS exchanges through your TradeLine number."
+      />
       <Section>
         {isLoading ? (
           <LoadingList rows={3} />
@@ -456,17 +542,28 @@ export function MessagesScreen({ state }: { state?: ActivityState<PreviewMessage
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Type a reply…"
             aria-label="Message compose"
-            className="flex-1 h-12 px-3 rounded-[10px] border border-gray-200 bg-white text-[16px] text-gray-900 focus:outline-none focus:border-indigo-500"
+            className="wft-mp-input flex-1 h-12 px-3 rounded-[10px] text-[16px]"
           />
           <button
             type="button"
             onClick={() => { /* mocked send */ setDraft(""); }}
             disabled={!draft.trim()}
-            className="h-12 px-4 rounded-[10px] bg-indigo-600 text-white text-[14px] font-semibold disabled:opacity-40 active:opacity-80 transition-opacity"
+            className="wft-mp-btn-primary h-12 px-4 rounded-[10px] text-[14px] font-semibold disabled:opacity-40 active:opacity-80 transition-opacity"
           >
             Send
           </button>
         </div>
+        {onOpenVoicemail && (
+          <button
+            type="button"
+            onClick={onOpenVoicemail}
+            data-testid="open-voicemail-from-messages"
+            className="wft-mp-btn-ghost w-full h-11 rounded-[10px] px-4 text-[14px] font-semibold inline-flex items-center justify-center gap-2 active:opacity-80 transition-opacity"
+          >
+            <VoicemailGlyph className="w-4 h-4" aria-hidden />
+            Voicemail inbox
+          </button>
+        )}
       </Section>
     </ScreenContainer>
   );
@@ -482,23 +579,39 @@ const MODES: Array<{ key: DutyMode; title: string; description: string }> = [
   { key: "after_hours", title: "After hours", description: "Same routing as 'on the job', tracked separately for scheduling." },
 ];
 
-export function DutyScreen({ currentMode, onSelect }: { currentMode: DutyMode; onSelect: (m: DutyMode) => void }) {
+interface DutyScreenProps {
+  currentMode: DutyMode;
+  onSelect: (m: DutyMode) => void;
+  theme?: Theme;
+  onToggleTheme?: () => void;
+}
+
+export function DutyScreen({ currentMode, onSelect, theme = "light", onToggleTheme = () => {} }: DutyScreenProps) {
   return (
     <ScreenContainer>
-      <Section>
-        <Caption>Your status</Caption>
-        <H1>Duty mode</H1>
-        <Body muted>Pick how incoming calls route right now.</Body>
-      </Section>
+      <ScreenHeader
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        caption="Your status"
+        title="Duty mode"
+        subtitle="Pick how incoming calls route right now."
+      />
       <Section>
         <div className="space-y-3">
           {MODES.map((m) => {
             const selected = m.key === currentMode;
             return (
-              <Card key={m.key} selected={selected}>
+              <div
+                key={m.key}
+                className={`wft-mp-card wft-mp-mode-card wft-mp-mode-${m.key} ${selected ? "is-active" : ""} p-4`}
+                data-mode={m.key}
+                data-active={selected ? "true" : "false"}
+              >
                 <div className="flex items-center justify-between mb-1">
                   <H2>{m.title}</H2>
-                  {selected && <Badge>Current</Badge>}
+                  {selected && (
+                    <span className="wft-mp-badge wft-mp-badge-current">Current</span>
+                  )}
                 </div>
                 <Body muted>{m.description}</Body>
                 {!selected && (
@@ -508,7 +621,7 @@ export function DutyScreen({ currentMode, onSelect }: { currentMode: DutyMode; o
                     </Button>
                   </div>
                 )}
-              </Card>
+              </div>
             );
           })}
         </div>
@@ -519,13 +632,10 @@ export function DutyScreen({ currentMode, onSelect }: { currentMode: DutyMode; o
 
 /* ─── Settings ─── */
 
-export function SettingsScreen({ onSignOut }: { onSignOut: () => void }) {
+export function SettingsScreen({ onSignOut, theme = "light", onToggleTheme = () => {} }: { onSignOut: () => void; theme?: Theme; onToggleTheme?: () => void }) {
   return (
     <ScreenContainer>
-      <Section>
-        <Caption>Account</Caption>
-        <H1>Settings</H1>
-      </Section>
+      <ScreenHeader theme={theme} onToggleTheme={onToggleTheme} caption="Account" title="Settings" />
       <Section>
         <Card>
           <div className="flex items-center gap-3 mb-2">
@@ -576,20 +686,18 @@ const ASK_MESSAGES: AskMessageStub[] = [
   },
 ];
 
-export function AskScreen() {
+export function AskScreen({ theme = "light", onToggleTheme = () => {} }: { theme?: Theme; onToggleTheme?: () => void } = {}) {
   const [draft, setDraft] = useState("");
   return (
     <ScreenContainer>
-      <Section>
-        <div className="flex items-center gap-3">
-          <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8" />
-          <div className="min-w-0">
-            <Caption>Assistant</Caption>
-            <H1>Ask</H1>
-          </div>
-        </div>
-        <Body muted>Same context as your WeFixTrades dashboard. Mocked here.</Body>
-      </Section>
+      <ScreenHeader
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        caption="Assistant"
+        title="Ask"
+        subtitle="Same context as your WeFixTrades dashboard. Mocked here."
+        leadingIcon={<img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8" />}
+      />
       <Section>
         <Caption>Try</Caption>
         <div className="flex flex-wrap gap-2">
@@ -598,7 +706,7 @@ export function AskScreen() {
               key={s}
               type="button"
               onClick={() => setDraft(s)}
-              className="text-[13px] font-medium border border-gray-200 bg-white text-gray-900 rounded-full px-3 py-1.5 active:opacity-80 transition-opacity"
+              className="wft-mp-btn-ghost text-[13px] font-medium rounded-full px-3 py-1.5 active:opacity-80 transition-opacity"
             >
               {s}
             </button>
@@ -612,15 +720,15 @@ export function AskScreen() {
             return (
               <div key={m.id} className={`flex ${isUser ? "justify-end" : "justify-start"} gap-2 items-start`}>
                 {!isUser && (
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0" aria-hidden>
+                  <div className="wft-mp-primary-tint w-8 h-8 rounded-full flex items-center justify-center shrink-0" aria-hidden>
                     <span className="text-[14px]">✨</span>
                   </div>
                 )}
                 <div
                   className={`max-w-[80%] px-3 py-2 rounded-2xl ${
                     isUser
-                      ? "bg-indigo-600 text-white rounded-br-sm"
-                      : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
+                      ? "wft-mp-bubble-user rounded-br-sm"
+                      : "wft-mp-bubble-assistant rounded-bl-sm"
                   }`}
                 >
                   <p className="text-[15px] leading-[22px]">{m.text}</p>
@@ -636,7 +744,7 @@ export function AskScreen() {
             type="button"
             onClick={() => { /* mocked attach */ }}
             aria-label="Attach photo"
-            className="w-8 h-8 rounded-full border border-gray-200 bg-white text-[14px] active:opacity-80 transition-opacity"
+            className="wft-mp-btn-ghost w-8 h-8 rounded-full text-[14px] active:opacity-80 transition-opacity"
           >
             📷
           </button>
@@ -646,13 +754,13 @@ export function AskScreen() {
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Ask about a customer, a job, an estimate…"
             aria-label="Ask the assistant"
-            className="flex-1 h-11 px-3 rounded-full border border-gray-200 bg-white text-[15px] text-gray-900 focus:outline-none focus:border-indigo-500"
+            className="wft-mp-input flex-1 h-11 px-3 rounded-full text-[15px]"
           />
           <button
             type="button"
             onClick={() => { /* mocked mic */ }}
             aria-label="Record voice note"
-            className="w-8 h-8 rounded-full border border-gray-200 bg-white text-[14px] active:opacity-80 transition-opacity"
+            className="wft-mp-btn-ghost w-8 h-8 rounded-full text-[14px] active:opacity-80 transition-opacity"
           >
             🎤
           </button>
@@ -662,7 +770,7 @@ export function AskScreen() {
   );
 }
 
-/* ─── Voicemail screen ─── */
+/* ─── Voicemail screen (sub-screen reachable from Calls or Messages) ─── */
 
 interface VoicemailStub {
   id: number;
@@ -692,14 +800,34 @@ const SAMPLE_VOICEMAILS: VoicemailStub[] = [
   },
 ];
 
-export function VoicemailScreen() {
+interface VoicemailScreenProps {
+  theme?: Theme;
+  onToggleTheme?: () => void;
+  onBack?: () => void;
+}
+
+export function VoicemailScreen({ theme = "light", onToggleTheme = () => {}, onBack }: VoicemailScreenProps = {}) {
   return (
     <ScreenContainer>
-      <Section>
-        <Caption>Inbox</Caption>
-        <H1>Voicemail</H1>
-        <Body muted>Customers who left a message while you were busy.</Body>
-      </Section>
+      <ScreenHeader
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        caption="Inbox"
+        title="Voicemail"
+        subtitle="Customers who left a message while you were busy."
+      />
+      {onBack && (
+        <Section>
+          <button
+            type="button"
+            onClick={onBack}
+            data-testid="voicemail-back"
+            className="wft-mp-btn-ghost w-full h-11 rounded-[10px] px-4 text-[14px] font-semibold active:opacity-80 transition-opacity"
+          >
+            ← Back
+          </button>
+        </Section>
+      )}
       <Section>
         <div className="space-y-3">
           {SAMPLE_VOICEMAILS.map((vm) => (
@@ -716,7 +844,7 @@ export function VoicemailScreen() {
                   type="button"
                   onClick={() => { /* mocked playback */ }}
                   aria-label="Play voicemail"
-                  className="w-8 h-8 rounded-full bg-indigo-600 text-white text-[14px] flex items-center justify-center shrink-0 active:opacity-80 transition-opacity"
+                  className="wft-mp-btn-primary w-8 h-8 rounded-full text-[14px] flex items-center justify-center shrink-0 active:opacity-80 transition-opacity"
                 >
                   ▶
                 </button>
@@ -729,39 +857,76 @@ export function VoicemailScreen() {
   );
 }
 
-/* ─── Bottom tab bar ─── */
+/* ─── Bottom tab bar — 5 tabs + centered Duty FAB ───────────────────── */
 
-export type TabKey = "calls" | "ask" | "voicemail" | "messages" | "duty" | "settings";
+export type TabKey = "calls" | "ask" | "duty" | "messages" | "settings";
 
-const TABS: Array<{ key: TabKey; label: string; glyph: string }> = [
-  { key: "calls", label: "Calls", glyph: "📞" },
-  { key: "ask", label: "Ask", glyph: "✨" },
-  { key: "voicemail", label: "Voicemail", glyph: "📨" },
-  { key: "messages", label: "Messages", glyph: "💬" },
-  { key: "duty", label: "Duty", glyph: "🟢" },
-  { key: "settings", label: "Settings", glyph: "⚙" },
+const SIDE_TABS: Array<{ key: Exclude<TabKey, "duty">; label: string; activeGlyph: string; restGlyph: string }> = [
+  { key: "calls",    label: "Calls",    activeGlyph: "📞", restGlyph: "📞" },
+  { key: "ask",      label: "Ask",      activeGlyph: "✨", restGlyph: "✦" },
+  { key: "messages", label: "Messages", activeGlyph: "💬", restGlyph: "💭" },
+  { key: "settings", label: "Settings", activeGlyph: "⚙",  restGlyph: "⚙" },
 ];
 
-export function TabBar({ active, onChange }: { active: TabKey; onChange: (k: TabKey) => void }) {
+const DUTY_GLYPH: Record<DutyMode, string> = {
+  available: "🟢",
+  on_the_job: "🔵",
+  after_hours: "🌙",
+};
+
+interface TabBarProps {
+  active: TabKey;
+  onChange: (k: TabKey) => void;
+  dutyMode?: DutyMode;
+  /** iOS home-indicator inset reservation (px). Defaults to 24 to match
+   * the modern iPhone bottom safe area. */
+  safeAreaBottom?: number;
+}
+
+export function TabBar({ active, onChange, dutyMode = "available", safeAreaBottom = 24 }: TabBarProps) {
+  const isDutyActive = active === "duty";
+  const left = SIDE_TABS.slice(0, 2);
+  const right = SIDE_TABS.slice(2);
   return (
-    <div className="absolute bottom-0 left-0 right-0 h-[60px] bg-white border-t border-gray-200 flex items-stretch">
-      {TABS.map((t) => {
-        const isActive = t.key === active;
-        return (
-          <button
-            key={t.key}
-            onClick={() => onChange(t.key)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 ${
-              isActive
-                ? "text-indigo-600 bg-indigo-50"
-                : "text-gray-500"
-            }`}
-          >
-            <span className="text-[18px] leading-[20px]">{t.glyph}</span>
-            <span className="text-[10px] font-semibold">{t.label}</span>
-          </button>
-        );
-      })}
+    <div
+      className="wft-mp-tabbar absolute bottom-0 left-0 right-0 flex items-stretch"
+      style={{ height: `${64 + safeAreaBottom}px`, paddingBottom: `${safeAreaBottom}px` }}
+    >
+      {left.map((t) => (
+        <TabButton key={t.key} tab={t} active={active === t.key} onClick={() => onChange(t.key)} />
+      ))}
+      {/* Centered spacer where the FAB sits */}
+      <div className="w-[72px] flex-shrink-0" aria-hidden />
+      {right.map((t) => (
+        <TabButton key={t.key} tab={t} active={active === t.key} onClick={() => onChange(t.key)} />
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange("duty")}
+        data-testid="tabbar-duty-fab"
+        aria-label={`Duty mode (current: ${dutyMode.replace(/_/g, " ")})`}
+        className={`wft-mp-fab wft-mp-fab-${dutyMode} ${isDutyActive ? "is-active" : ""} absolute left-1/2 -translate-x-1/2 w-[64px] h-[64px] rounded-full flex flex-col items-center justify-center gap-0.5`}
+        style={{ top: `-18px` }}
+      >
+        <span className="text-[22px] leading-none" aria-hidden>{DUTY_GLYPH[dutyMode]}</span>
+        <span className="text-[9px] font-bold uppercase tracking-wider">Duty</span>
+      </button>
     </div>
+  );
+}
+
+function TabButton({ tab, active, onClick }: { tab: { key: Exclude<TabKey, "duty">; label: string; activeGlyph: string; restGlyph: string }; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={`tabbar-${tab.key}`}
+      aria-pressed={active}
+      className={`wft-mp-tab flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] ${active ? "is-active" : ""}`}
+    >
+      <span className="text-[20px] leading-[20px]" aria-hidden>{active ? tab.activeGlyph : tab.restGlyph}</span>
+      <span className={`text-[11px] ${active ? "font-bold" : "font-medium"}`}>{tab.label}</span>
+      {active && <span className="wft-mp-tab-indicator" aria-hidden />}
+    </button>
   );
 }

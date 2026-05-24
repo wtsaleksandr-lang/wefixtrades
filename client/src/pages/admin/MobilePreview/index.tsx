@@ -16,9 +16,16 @@
  * Wave W-AW-2 wired the Calls + Messages tabs to real data (was
  * placeholders before). Empty/error states fall back to clearly-marked
  * sample rows so the preview frame stays useful for screenshots.
+ *
+ * Polish wave (mobile-preview-redesign):
+ *   - The preview now lives inside a `.wft-mob-preview[data-theme]` shell
+ *     so the on-device sun/moon toggle flips every screen between light
+ *     and dark theming. Choice persists in localStorage.
+ *   - Tab bar trimmed to 5 entries with a centered Duty FAB. Voicemail
+ *     moved to a sub-screen reachable from Calls + Messages.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Monitor, RotateCcw, RefreshCw } from "lucide-react";
@@ -38,6 +45,7 @@ import {
   type TabKey,
   type PreviewCall,
   type PreviewMessage,
+  type Theme,
 } from "./PreviewScreens";
 
 type AuthStatus = "anonymous" | "authenticated";
@@ -49,12 +57,39 @@ interface ActivityResponse {
 }
 
 const ACTIVITY_REFETCH_MS = 30_000;
+const THEME_STORAGE_KEY = "wft_mobile_preview_theme";
+
+function readPersistedTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === "dark" || stored === "light") return stored;
+  } catch {
+    // localStorage can throw in sandboxed iframes — fall back silently.
+  }
+  return "light";
+}
 
 export default function MobilePreviewPage() {
   const [variant, setVariant] = useState<"iphone" | "android">("iphone");
   const [auth, setAuth] = useState<AuthStatus>("anonymous");
   const [activeTab, setActiveTab] = useState<TabKey>("duty");
   const [dutyMode, setDutyMode] = useState<DutyMode>("available");
+  const [theme, setTheme] = useState<Theme>(() => readPersistedTheme());
+  // Voicemail is a sub-screen reachable from Calls + Messages. We track its
+  // open state separately so the active tab stays visually consistent.
+  const [voicemailOpen, setVoicemailOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // Safe to ignore — see readPersistedTheme.
+    }
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
 
   const activity = useQuery<ActivityResponse>({
     queryKey: ["/api/admin/mobile-preview/activity"],
@@ -67,11 +102,22 @@ export default function MobilePreviewPage() {
     setAuth("anonymous");
     setActiveTab("duty");
     setDutyMode("available");
+    setVoicemailOpen(false);
   }
 
   function renderScreen() {
     if (auth === "anonymous") {
-      return <LoginScreen onSignIn={() => setAuth("authenticated")} />;
+      return <LoginScreen onSignIn={() => setAuth("authenticated")} theme={theme} onToggleTheme={toggleTheme} />;
+    }
+    if (voicemailOpen) {
+      return (
+        <div className="relative h-full">
+          <div className="absolute inset-0 pb-[88px]">
+            <VoicemailScreen theme={theme} onToggleTheme={toggleTheme} onBack={() => setVoicemailOpen(false)} />
+          </div>
+          <TabBar active={activeTab} onChange={(k) => { setVoicemailOpen(false); setActiveTab(k); }} dutyMode={dutyMode} />
+        </div>
+      );
     }
     const callsState = {
       isLoading: activity.isLoading,
@@ -84,16 +130,16 @@ export default function MobilePreviewPage() {
       items: activity.data?.messages ?? [],
     };
     const tabScreen =
-      activeTab === "calls" ? <CallsScreen state={callsState} /> :
-      activeTab === "ask" ? <AskScreen /> :
-      activeTab === "voicemail" ? <VoicemailScreen /> :
-      activeTab === "messages" ? <MessagesScreen state={messagesState} /> :
-      activeTab === "duty" ? <DutyScreen currentMode={dutyMode} onSelect={setDutyMode} /> :
-      <SettingsScreen onSignOut={() => setAuth("anonymous")} />;
+      activeTab === "calls" ? <CallsScreen state={callsState} theme={theme} onToggleTheme={toggleTheme} onOpenVoicemail={() => setVoicemailOpen(true)} /> :
+      activeTab === "ask" ? <AskScreen theme={theme} onToggleTheme={toggleTheme} /> :
+      activeTab === "messages" ? <MessagesScreen state={messagesState} theme={theme} onToggleTheme={toggleTheme} onOpenVoicemail={() => setVoicemailOpen(true)} /> :
+      activeTab === "duty" ? <DutyScreen currentMode={dutyMode} onSelect={setDutyMode} theme={theme} onToggleTheme={toggleTheme} /> :
+      <SettingsScreen onSignOut={() => setAuth("anonymous")} theme={theme} onToggleTheme={toggleTheme} />;
     return (
       <div className="relative h-full">
-        <div className="absolute inset-0 pb-[60px]">{tabScreen}</div>
-        <TabBar active={activeTab} onChange={setActiveTab} />
+        {/* The tab bar reserves 88px (64px chrome + 24px iOS bottom inset). */}
+        <div className="absolute inset-0 pb-[88px]">{tabScreen}</div>
+        <TabBar active={activeTab} onChange={setActiveTab} dutyMode={dutyMode} />
       </div>
     );
   }
@@ -106,7 +152,7 @@ export default function MobilePreviewPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -170,7 +216,8 @@ export default function MobilePreviewPage() {
           )}
           <div className="text-xs text-gray-500 ml-2 flex items-center gap-2">
             <span>
-              Status: <span className="font-semibold text-gray-700">{auth === "authenticated" ? `signed in (${activeTab})` : "logged out"}</span>
+              Status: <span className="font-semibold text-gray-700">{auth === "authenticated" ? `signed in (${voicemailOpen ? "voicemail" : activeTab})` : "logged out"}</span>
+              <span className="ml-1.5">· theme: {theme}</span>
             </span>
             {showRefresh && dataUpdatedAt && (
               <span>· Updated {dataUpdatedAt} {hasRealData ? "(live)" : "(no live data)"}</span>
@@ -178,9 +225,16 @@ export default function MobilePreviewPage() {
           </div>
         </div>
 
-        {/* Phone frame + screen */}
+        {/* Phone frame + screen.
+         *
+         * The .wft-mob-preview wrapper carries the live theme. Every preview
+         * screen inside uses semantic tokens (wft-mp-*) defined under
+         * .wft-mob-preview[data-theme="…"] in client/src/index.css, so light /
+         * dark mode flips with this attribute. */}
         <div className="flex flex-col items-center justify-start py-6">
-          <PhoneFrame variant={variant}>{renderScreen()}</PhoneFrame>
+          <div className="wft-mob-preview" data-theme={theme} data-testid="mobile-preview-shell">
+            <PhoneFrame variant={variant}>{renderScreen()}</PhoneFrame>
+          </div>
         </div>
 
         {/* Notes */}
@@ -188,13 +242,15 @@ export default function MobilePreviewPage() {
           <h3 className="text-sm font-semibold text-gray-900 mb-2">What this preview covers</h3>
           <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
             <li>Login → tab navigator transition (click "Sign in")</li>
-            <li>Six-tab parity with the softphone RN app: Calls, Ask, Voicemail, Messages, Duty, Settings</li>
-            <li>Duty mode toggle with all three states (available / on_the_job / after_hours)</li>
+            <li>Five-tab bottom bar (Calls, Ask, Duty FAB, Messages, Settings) with the Duty control raised as a centered FAB</li>
+            <li>Voicemail reachable as a sub-screen from Calls or Messages (low volume for AI-handled calls)</li>
+            <li>Duty mode toggle with all three states (available / on_the_job / after_hours) — per-mode green / blue / dark-grey color treatment on the cards</li>
+            <li>Day / night theme toggle in every screen header (sun + moon icon top-right) — persists in localStorage</li>
             <li>Calls + Messages tabs show the 5 most recent rows from <code>mobile_call_records</code> and <code>sms_messages</code> (auto-refresh every 30s, manual refresh button)</li>
             <li>Calls tab includes per-row "Call back" buttons and a "+ New call" dialer launcher with number pad</li>
             <li>Messages tab includes a bottom compose bar (input + Send)</li>
             <li>Ask tab shows assistant header, suggestion chips, sample thread, and a composer with mic/camera glyphs</li>
-            <li>Voicemail tab lists callers with duration + transcript preview + play button</li>
+            <li>Voicemail sub-screen lists callers with duration + transcript preview + play button</li>
             <li>Settings → sign-out flow (returns to login)</li>
             <li>iPhone Dynamic Island + home indicator, Android punch-hole + nav bar</li>
           </ul>

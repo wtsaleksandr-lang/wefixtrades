@@ -5,14 +5,18 @@
  *
  * Phase 5 from the original spec: lets Alex (and investors) click
  * through the softphone UI without an actual device or simulator.
+ *
+ * The screen area inherits its background from the active mobile-preview
+ * theme via the .wft-mob-preview shell (wired in index.tsx). The bezel
+ * (gray-900/800) stays constant — that's the physical device.
  */
 
 import { type ReactNode } from "react";
 
 const IPHONE_WIDTH = 380;
-const IPHONE_HEIGHT = 780;
+const IPHONE_HEIGHT = 800;
 const ANDROID_WIDTH = 380;
-const ANDROID_HEIGHT = 780;
+const ANDROID_HEIGHT = 800;
 
 interface FrameProps {
   variant: "iphone" | "android";
@@ -33,12 +37,12 @@ function IPhoneFrame({ children }: { children: ReactNode }) {
     >
       {/* Outer ring highlight */}
       <div className="absolute inset-0 rounded-[44px] ring-1 ring-gray-700/40 pointer-events-none" />
-      {/* Screen */}
-      <div className="relative w-full h-full rounded-[36px] overflow-hidden bg-[#F9FAFB]">
+      {/* Screen — inherits bg from the .wft-mob-preview theme shell */}
+      <div className="relative w-full h-full rounded-[36px] overflow-hidden wft-mp-surface-soft">
         {/* Dynamic Island */}
         <div className="absolute top-2 left-1/2 -translate-x-1/2 w-[120px] h-[32px] bg-black rounded-full z-50" />
         {/* Status bar */}
-        <div className="absolute top-0 left-0 right-0 h-[46px] flex items-center justify-between px-7 text-[11px] font-semibold text-gray-900 z-40 pt-3">
+        <div className="absolute top-0 left-0 right-0 h-[46px] flex items-center justify-between px-7 text-[11px] font-semibold z-40 pt-3 wft-mp-text">
           <span>9:41</span>
           <span className="absolute left-1/2 -translate-x-1/2 invisible">spacer</span>
           <span className="flex items-center gap-1">
@@ -65,11 +69,11 @@ function AndroidFrame({ children }: { children: ReactNode }) {
       style={{ width: ANDROID_WIDTH, height: ANDROID_HEIGHT }}
     >
       <div className="absolute inset-0 rounded-[28px] ring-1 ring-gray-600/40 pointer-events-none" />
-      <div className="relative w-full h-full rounded-[20px] overflow-hidden bg-[#F9FAFB]">
+      <div className="relative w-full h-full rounded-[20px] overflow-hidden wft-mp-surface-soft">
         {/* Punch-hole camera */}
         <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-black rounded-full z-50" />
         {/* Status bar */}
-        <div className="absolute top-0 left-0 right-0 h-[32px] flex items-center justify-between px-5 text-[11px] font-medium text-gray-900 z-40 pt-1.5">
+        <div className="absolute top-0 left-0 right-0 h-[32px] flex items-center justify-between px-5 text-[11px] font-medium z-40 pt-1.5 wft-mp-text">
           <span>9:41</span>
           <span className="flex items-center gap-1.5">
             <span className="opacity-80">5G</span>
@@ -81,7 +85,7 @@ function AndroidFrame({ children }: { children: ReactNode }) {
           {children}
         </div>
         {/* Soft nav bar */}
-        <div className="absolute bottom-0 left-0 right-0 h-[20px] bg-white flex items-center justify-center gap-12 z-50 border-t border-gray-200">
+        <div className="absolute bottom-0 left-0 right-0 h-[20px] wft-mp-surface flex items-center justify-center gap-12 z-50 border-t wft-mp-border">
           <div className="w-[14px] h-[14px] border border-gray-500 rounded-sm rotate-45" />
           <div className="w-[14px] h-[14px] rounded-full bg-gray-500" />
           <div className="w-[18px] h-[2px] bg-gray-500" />
