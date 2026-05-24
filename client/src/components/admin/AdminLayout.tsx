@@ -47,6 +47,8 @@ import {
   Eye,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -955,6 +957,7 @@ export default function AdminLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const breadcrumbItems = useBreadcrumbs();
 
   /* Mobile-only "Admin works best on desktop" banner. The admin surface
    * is intentionally desktop-first (dense tables, multi-column forms,
@@ -1289,6 +1292,9 @@ export default function AdminLayout({
           tabIndex={-1}
         >
           <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+            {breadcrumbItems.length > 0 && (
+              <Breadcrumbs items={breadcrumbItems} className="mb-4" />
+            )}
             {children}
           </div>
         </main>
