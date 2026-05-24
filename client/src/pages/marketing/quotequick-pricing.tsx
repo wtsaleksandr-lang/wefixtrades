@@ -312,7 +312,7 @@ export default function QuoteQuickPricing() {
               <Feature text="Online booking + deposits" highlight />
               <Feature text="AI quote assistant" highlight />
               <Feature text="Webhook / CRM (Zapier, Stripe, HubSpot)" />
-              <Feature text="Coupon codes + promotions" />
+              <Feature text="Promo code support at checkout" />
               <Feature text="5,000 leads/month" />
             </div>
           </div>
