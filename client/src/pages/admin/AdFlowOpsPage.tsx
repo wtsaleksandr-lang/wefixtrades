@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -6,9 +6,12 @@ import { AdminProductPageShell, type ProductStats } from "@/components/admin/Adm
 import { Card } from "@/components/ui/card";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertTriangle, CheckCircle2, ChevronRight, Eye, RotateCcw, X, Pause, Play } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, AlertTriangle, CheckCircle2, ChevronRight, Eye, RotateCcw, X, Pause, Play, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import type { AdflowEngineConfig, EngineConfig } from "@shared/engineConfig";
+import { emptyAdflowEngineConfig } from "@shared/engineConfig";
 
 const PRODUCT_ID = "adflow";
 
@@ -26,7 +29,7 @@ interface AdFlowServiceRow {
 }
 
 interface ProductRecord {
-  live: { id: string; name: string; is_active: boolean; hidden: boolean } | null;
+  live: { id: string; name: string; is_active: boolean; hidden: boolean; engine_config: EngineConfig | null } | null;
 }
 
 function formatDate(dateStr: string | null): string {
@@ -230,6 +233,9 @@ export default function AdFlowOpsPage() {
         </div>
       )}
 
+      {/* 0047 — AdFlow product-namespaced engine config */}
+      <AdflowSettingsCard productId={PRODUCT_ID} initial={live?.engine_config ?? null} />
+
       {/* Service list */}
       {isLoading ? (
         <div className="flex items-center justify-center h-32">
@@ -375,5 +381,146 @@ export default function AdFlowOpsPage() {
         onToggleHidden={(next) => hiddenToggle.mutate(next)}
       />
     </AdminLayout>
+  );
+}
+
+/* ── AdflowSettingsCard ────────────────────────────────────────────
+ * AdFlow-specific engine config namespaced under engine_config.adflow.
+ * Posts to the same PATCH /api/admin/services/:id/engine-config route
+ * as ProductDetailPage; the generic card scrubs the .adflow key on its
+ * own writes so the two surfaces don't fight.
+ */
+function AdflowSettingsCard({ productId, initial }: { productId: string; initial: EngineConfig | null }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const base = useMemo<AdflowEngineConfig>(
+    () => ({ ...emptyAdflowEngineConfig(), ...((initial?.adflow ?? {}) as AdflowEngineConfig) }),
+    [initial],
+  );
+  const [form, setForm] = useState<AdflowEngineConfig>(base);
+  useEffect(() => { setForm(base); }, [base]);
+
+  const dirty = JSON.stringify(form) !== JSON.stringify(base);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      // PATCH merges server-side, so sending only { adflow } leaves the
+      // generic keys intact.
+      const res = await fetch(`/api/admin/services/${productId}/engine-config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ adflow: form }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to save AdFlow settings");
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products", productId] });
+      toast({ title: "AdFlow settings saved" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Couldn't save AdFlow settings", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const dollars = ((form.spend_cap_per_client_per_week_cents ?? 0) / 100).toFixed(2);
+
+  return (
+    <Card className="p-5 space-y-4" data-testid="adflow-settings-card">
+      <div className="flex items-center gap-2">
+        <Settings className="w-4 h-4 text-brand-blue" />
+        <h2 className="text-sm font-semibold text-gray-900">AdFlow settings</h2>
+      </div>
+      <p className="text-[11px] text-gray-500 -mt-2">
+        Product-level defaults applied to every AdFlow client. Saves immediately.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="block text-[11px] font-medium text-gray-600 mb-1">Default audience</span>
+          <select
+            className="h-9 w-full px-2 text-sm border border-gray-200 rounded-md bg-white"
+            value={form.default_audience ?? "all"}
+            onChange={(e) => setForm({ ...form, default_audience: e.target.value as AdflowEngineConfig["default_audience"] })}
+            data-testid="adflow-default-audience"
+          >
+            <option value="all">All clients</option>
+            <option value="active_only">Active only</option>
+            <option value="new_leads_only">New leads only</option>
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="block text-[11px] font-medium text-gray-600 mb-1">Spend cap per client per week</span>
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-sm text-gray-500 pointer-events-none">$</span>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={dollars}
+              onChange={(e) => {
+                const cleaned = e.target.value.replace(/[$,\s]/g, "");
+                const n = Number(cleaned);
+                if (!Number.isFinite(n) || n < 0) return;
+                setForm({ ...form, spend_cap_per_client_per_week_cents: Math.round(n * 100) });
+              }}
+              className="pl-6 tabular-nums"
+              data-testid="adflow-spend-cap"
+            />
+          </div>
+        </label>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="block text-[11px] font-medium text-gray-600 mb-1">Auto-pause on low conversion</span>
+          <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.auto_pause_low_conversion ?? false}
+              onChange={(e) => setForm({ ...form, auto_pause_low_conversion: e.target.checked })}
+              className="h-4 w-4"
+              data-testid="adflow-auto-pause"
+            />
+            Pause an AdFlow client when conversion drops below threshold
+          </label>
+        </label>
+
+        <label className="block">
+          <span className="block text-[11px] font-medium text-gray-600 mb-1">Threshold (% conversion)</span>
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            step="0.1"
+            value={form.auto_pause_threshold_pct ?? 1.0}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (!Number.isFinite(n)) return;
+              setForm({ ...form, auto_pause_threshold_pct: Math.max(0, Math.min(100, n)) });
+            }}
+            disabled={!(form.auto_pause_low_conversion ?? false)}
+            className="max-w-[160px] tabular-nums"
+            data-testid="adflow-threshold-pct"
+          />
+        </label>
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          onClick={() => save.mutate()}
+          disabled={!dirty || save.isPending}
+          className="bg-brand-blue hover:bg-brand-blue-600"
+          data-testid="adflow-save-button"
+        >
+          {save.isPending ? "Saving..." : "Save AdFlow settings"}
+        </Button>
+        {!dirty && <span className="text-xs text-gray-400">No changes</span>}
+        {dirty && <span className="text-xs text-gray-500">Unsaved changes</span>}
+      </div>
+    </Card>
   );
 }

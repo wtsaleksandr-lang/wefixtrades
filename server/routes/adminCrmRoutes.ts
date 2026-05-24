@@ -6,6 +6,7 @@ import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { tiersSchema } from "@shared/tiers";
 import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
 import { automationConfigSchema } from "@shared/automationConfig";
+import { engineConfigSchema } from "@shared/engineConfig";
 import { z } from "zod";
 
 const featuresSchema = z.array(z.string().min(1).max(400)).max(40);
@@ -241,6 +242,45 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[products visibility PATCH] Error:", err.message);
       res.status(500).json({ error: "Failed to update visibility" });
+    }
+  });
+
+  // PATCH /api/admin/services/:id/engine-config — write per-product engine
+  // config (delivery toggles, AI auto-handle, SLA, product-namespaced extras
+  // like AdFlow audience/cap). Direct write — no draft flow — because these
+  // are operational levers, not customer-facing copy. Merges into the existing
+  // jsonb so partial updates are safe. 0047 added the column.
+  app.patch("/api/admin/services/:id/engine-config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = String(req.params.id);
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+
+      const parsed = engineConfigSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid engine_config", details: parsed.error.flatten() });
+      }
+
+      const merged = { ...((live as any).engine_config ?? {}), ...parsed.data };
+      const updated = await storage.updateServiceCatalog(svcId, { engine_config: merged } as any);
+      if (!updated) return res.status(404).json({ error: "Product not found" });
+
+      const u = req.user as any;
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: "product.engine_config_updated",
+        entity_type: "service_catalog",
+        entity_id: null,
+        summary: `Updated engine config for "${updated.name}" (${Object.keys(parsed.data).join(", ") || "no fields"})`,
+        metadata: { service_id: svcId, fields: Object.keys(parsed.data) },
+      });
+
+      res.json({ id: updated.id, engine_config: (updated as any).engine_config, updated_at: updated.updated_at });
+    } catch (err: any) {
+      log.error("[products engine-config PATCH] Error:", err.message);
+      res.status(500).json({ error: "Failed to update engine config" });
     }
   });
 
