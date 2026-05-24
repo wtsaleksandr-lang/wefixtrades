@@ -113,6 +113,7 @@ import { registerAuditMarketSizerRoutes } from "./auditMarketSizerRoutes";
 import { registerAuditTrustInspectorRoutes } from "./auditTrustInspectorRoutes";
 import { registerApiV1Routes } from "./apiV1";
 import { registerAdminSeoIntegrationsRoutes } from "./adminSeoIntegrationsRoutes";
+import { registerRumIngestRoutes } from "./rumIngestRoutes";
 import { registerHealthzRoute } from "./healthz";
 
 export async function registerRoutes(
@@ -240,6 +241,8 @@ export async function registerRoutes(
   registerAuditTrustInspectorRoutes(app);
   registerApiV1Routes(app);
   registerAdminSeoIntegrationsRoutes(app);
+  // SEO Wave D — public RUM ingest (Core Web Vitals from real users).
+  registerRumIngestRoutes(app);
 
   return httpServer;
 }
