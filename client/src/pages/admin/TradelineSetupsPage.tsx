@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { ProductSettingsMenu } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -119,15 +120,18 @@ export default function TradelineSetupsPage() {
               Customer phone-number setup wizards (new / forward / port).
             </p>
           </div>
-          <a
-            href="/portal/tradeline/setup"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            Open customer view in new tab
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="/portal/tradeline/setup"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Open customer view in new tab
+            </a>
+            <ProductSettingsMenu productId="tradeline" productName="TradeLine" />
+          </div>
         </div>
 
         {/* Stats strip */}

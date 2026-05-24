@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { ProductSettingsMenu } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -195,9 +196,12 @@ export default function TradelineVoicesPage() {
               Manage the ElevenLabs voice catalog, monthly minute budgets, and per-client overrides.
             </p>
           </div>
-          <Button onClick={() => { setCreating(true); setEditing({ id: "", elevenlabs_voice_id: "", display_name: "", description: "", gender: "", accent: "us-en", tags: [], sample_audio_url: "", status: "active" }); }} data-testid="button-add-voice">
-            <Plus className="w-4 h-4 mr-1" /> Add voice
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => { setCreating(true); setEditing({ id: "", elevenlabs_voice_id: "", display_name: "", description: "", gender: "", accent: "us-en", tags: [], sample_audio_url: "", status: "active" }); }} data-testid="button-add-voice">
+              <Plus className="w-4 h-4 mr-1" /> Add voice
+            </Button>
+            <ProductSettingsMenu productId="tradeline" productName="TradeLine" />
+          </div>
         </div>
 
         {/* Usage chart */}

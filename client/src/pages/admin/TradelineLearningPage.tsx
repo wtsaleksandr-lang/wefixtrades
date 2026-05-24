@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { ProductSettingsMenu } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,13 +94,16 @@ export default function TradelineLearningPage() {
   return (
     <AdminLayout>
       <div data-theme="light" className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Learning pipeline</h1>
-          <p className="text-sm text-gray-600 mt-1 max-w-2xl">
-            Improve niche AI templates over time. Trigger Researcher AI scans manually,
-            or wait for the background learning loop (v1.5) to surface candidates
-            extracted from real conversations.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Learning pipeline</h1>
+            <p className="text-sm text-gray-600 mt-1 max-w-2xl">
+              Improve niche AI templates over time. Trigger Researcher AI scans manually,
+              or wait for the background learning loop (v1.5) to surface candidates
+              extracted from real conversations.
+            </p>
+          </div>
+          <ProductSettingsMenu productId="tradeline" productName="TradeLine" />
         </div>
 
         {/* Training budget */}

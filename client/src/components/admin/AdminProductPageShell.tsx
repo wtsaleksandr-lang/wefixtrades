@@ -24,11 +24,126 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as Sentry from '@sentry/react';
 import { Link } from 'wouter';
-import { ExternalLink, Eye, EyeOff, Info, Pencil, AlertTriangle } from 'lucide-react';
+import { ExternalLink, Eye, EyeOff, Home, Info, Pencil, Settings, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Stack, Cluster, HelpCueRow } from '@/components/primitives';
 import AnimatedNumber from '@/components/AnimatedNumber';
+
+/**
+ * Map of productId → { home (admin homepage), pricing (public marketing) }.
+ * Centralised here so every sub-page resolves links from the same source.
+ * Add new products as their admin shells come online.
+ */
+const PRODUCT_LINKS: Record<string, { home: string; pricing: string | null }> = {
+  tradeline: { home: '/admin/crm/tradeline-ops', pricing: '/products/tradeline' },
+  quotequick: { home: '/admin/crm/quotequick', pricing: '/products/quickquotepro' },
+};
+
+export interface ProductSettingsMenuProps {
+  /** Canonical product id, e.g. "tradeline" or "quotequick". */
+  productId: string;
+  /** Human label shown in the menu header, e.g. "TradeLine". */
+  productName: string;
+  /** Optional override for the catalog editor link. Defaults to `/admin/products/:id`. */
+  editHref?: string;
+  /** Optional override for the product admin homepage link. */
+  homeHref?: string;
+  /** Optional override for the public pricing page link. Pass `null` to hide that item. */
+  pricingHref?: string | null;
+  /** Compact label-less trigger (icon only). Defaults to false. */
+  iconOnly?: boolean;
+}
+
+/**
+ * <ProductSettingsMenu> — top-right Settings dropdown shared by the product
+ * homepage shell AND every product sub-page (voices, templates, setups,
+ * learning, trades, etc.). One affordance, one menu, every surface.
+ *
+ * Brand tokens only — no hex, no bright fills (Rule 4).
+ */
+export function ProductSettingsMenu({
+  productId,
+  productName,
+  editHref,
+  homeHref,
+  pricingHref,
+  iconOnly = false,
+}: ProductSettingsMenuProps) {
+  const defaults = PRODUCT_LINKS[productId] ?? { home: undefined, pricing: null };
+  const resolvedEdit = editHref ?? `/admin/products/${productId}`;
+  const resolvedHome = homeHref ?? defaults.home;
+  const resolvedPricing = pricingHref === undefined ? defaults.pricing : pricingHref;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={
+          iconOnly
+            ? 'inline-flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
+            : 'inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-sm font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
+        }
+        aria-label={`${productName} settings`}
+        title={`${productName} settings`}
+        data-testid="product-settings-trigger"
+        data-product-id={productId}
+      >
+        <Settings size={iconOnly ? 16 : 14} />
+        {!iconOnly && <span>Settings</span>}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56" data-testid="product-settings-menu">
+        <DropdownMenuLabel className="text-xs text-muted-foreground">
+          {productName}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link
+            href={resolvedEdit}
+            className="flex items-center gap-2 cursor-pointer"
+            data-testid="product-settings-edit"
+          >
+            <Pencil size={14} className="text-muted-foreground" />
+            <span>Edit product</span>
+          </Link>
+        </DropdownMenuItem>
+        {resolvedHome && (
+          <DropdownMenuItem asChild>
+            <Link
+              href={resolvedHome}
+              className="flex items-center gap-2 cursor-pointer"
+              data-testid="product-settings-home"
+            >
+              <Home size={14} className="text-muted-foreground" />
+              <span>Open product home</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {resolvedPricing && (
+          <DropdownMenuItem asChild>
+            <a
+              href={resolvedPricing}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 cursor-pointer"
+              data-testid="product-settings-pricing"
+            >
+              <ExternalLink size={14} className="text-muted-foreground" />
+              <span>View on /pricing</span>
+            </a>
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export interface ProductStats {
   mrr_cents: number;
@@ -230,14 +345,11 @@ export function AdminProductPageShell({
             <p className="text-sm text-muted-foreground mt-1">Per-product controls + live KPIs.</p>
           </div>
           <Cluster gap="loose" align="center">
-            <Link
-              href={editHref}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              data-testid="product-shell-edit-link"
-            >
-              <Pencil size={14} />
-              Edit product
-            </Link>
+            <ProductSettingsMenu
+              productId={productId}
+              productName={productName}
+              editHref={editHref}
+            />
             <label className="inline-flex items-center gap-2 text-sm cursor-pointer" data-testid="product-shell-active-toggle-label">
               <span className="text-muted-foreground">Active</span>
               <Switch

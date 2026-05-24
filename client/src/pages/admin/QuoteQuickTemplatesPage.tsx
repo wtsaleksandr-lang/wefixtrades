@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { ProductSettingsMenu } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -130,6 +131,7 @@ export default function QuoteQuickTemplatesPage() {
             <Button size="sm" onClick={() => setNewOpen(true)} data-testid="new-template">
               <Plus className="w-3.5 h-3.5 mr-1" /> New template
             </Button>
+            <ProductSettingsMenu productId="quotequick" productName="QuoteQuick" />
           </div>
         </div>
 
