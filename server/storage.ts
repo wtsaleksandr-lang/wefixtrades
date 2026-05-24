@@ -117,6 +117,8 @@ type User, type InsertUser,
   type ProductDraft, type InsertProductDraft,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
+import * as leadsImpl from "./storage/leads";
+import * as billingImpl from "./storage/billing";
 import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
 import { createLogger } from "./lib/logger";
 import { kickoffMapguardService } from "./services/mapguardTaskEngine";
@@ -836,39 +838,12 @@ export class DatabaseStorage implements IStorage {
     await db.update(calculators).set({ total_views: sql`${calculators.total_views} + 1` }).where(eq(calculators.id, id));
   }
 
-  async createLead(data: InsertLead): Promise<Lead> {
-    const [lead] = await db.insert(leads).values(data).returning();
-    return lead;
-  }
-
-  async getLeadsByCalculatorId(calculatorId: number): Promise<Lead[]> {
-    return db.select().from(leads).where(eq(leads.calculator_id, calculatorId)).orderBy(desc(leads.created_date));
-  }
-
-  async searchLeads(calculatorId: number, query: string): Promise<Lead[]> {
-    const pattern = `%${query}%`;
-    return db.select().from(leads).where(
-      and(
-        eq(leads.calculator_id, calculatorId),
-        or(
-          ilike(leads.name, pattern),
-          ilike(leads.email, pattern),
-          ilike(leads.phone, pattern),
-        )
-      )
-    ).orderBy(desc(leads.created_date));
-  }
-
-  async deleteLead(id: number, calculatorId: number): Promise<void> {
-    await db.delete(leads).where(and(eq(leads.id, id), eq(leads.calculator_id, calculatorId)));
-  }
-
-  async getLeadCountSince(calculatorId: number, since: Date): Promise<number> {
-    const [result] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(leads)
-      .where(and(eq(leads.calculator_id, calculatorId), gte(leads.created_date, since)));
-    return result?.count || 0;
-  }
+  // ─── Lead methods (impl in ./storage/leads.ts) ───
+  createLead(data: InsertLead): Promise<Lead> { return leadsImpl.createLead(data); }
+  getLeadsByCalculatorId(calculatorId: number): Promise<Lead[]> { return leadsImpl.getLeadsByCalculatorId(calculatorId); }
+  searchLeads(calculatorId: number, query: string): Promise<Lead[]> { return leadsImpl.searchLeads(calculatorId, query); }
+  deleteLead(id: number, calculatorId: number): Promise<void> { return leadsImpl.deleteLead(id, calculatorId); }
+  getLeadCountSince(calculatorId: number, since: Date): Promise<number> { return leadsImpl.getLeadCountSince(calculatorId, since); }
 
   async trackEvent(data: InsertAnalyticsEvent): Promise<AnalyticsEvent> {
     const [event] = await db.insert(analyticsEvents).values(data).returning();
@@ -986,28 +961,7 @@ export class DatabaseStorage implements IStorage {
    * Returns a continuous series (days with no leads are filled with 0) so the
    * admin trend chart has no gaps.
    */
-  async getQuoteQuickLeadTrend(days: number): Promise<Array<{ date: string; count: number }>> {
-    const span = Math.max(1, Math.min(days, 365));
-    const cutoff = new Date(Date.now() - (span - 1) * 86400000);
-    cutoff.setHours(0, 0, 0, 0);
-
-    const rows = await db.select({
-      day: sql<string>`to_char(date_trunc('day', ${leads.created_date}), 'YYYY-MM-DD')`,
-      count: sql<number>`count(*)::int`,
-    })
-      .from(leads)
-      .where(gte(leads.created_date, cutoff))
-      .groupBy(sql`date_trunc('day', ${leads.created_date})`);
-
-    const byDay = new Map(rows.map((r) => [r.day, r.count]));
-    const series: Array<{ date: string; count: number }> = [];
-    for (let i = 0; i < span; i++) {
-      const d = new Date(cutoff.getTime() + i * 86400000);
-      const key = d.toISOString().slice(0, 10);
-      series.push({ date: key, count: byDay.get(key) ?? 0 });
-    }
-    return series;
-  }
+  getQuoteQuickLeadTrend(days: number): Promise<Array<{ date: string; count: number }>> { return leadsImpl.getQuoteQuickLeadTrend(days); }
 
   async findCalculatorByStripeSubscriptionId(subscriptionId: string): Promise<Calculator | undefined> {
     const [calc] = await db.select().from(calculators)
@@ -1016,13 +970,7 @@ export class DatabaseStorage implements IStorage {
     return calc;
   }
 
-  async markLeadReplied(leadId: number): Promise<Lead | undefined> {
-    const [lead] = await db.update(leads)
-      .set({ replied_at: new Date() })
-      .where(eq(leads.id, leadId))
-      .returning();
-    return lead;
-  }
+  markLeadReplied(leadId: number): Promise<Lead | undefined> { return leadsImpl.markLeadReplied(leadId); }
 
   async upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary> {
     const existing = await this.getAnalyticsSummary(data.calculator_id);
@@ -1099,20 +1047,9 @@ export class DatabaseStorage implements IStorage {
     await db.update(jobLogs).set(updates).where(eq(jobLogs.id, id));
   }
 
-  async getLeadById(id: number): Promise<Lead | undefined> {
-    const [lead] = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
-    return lead;
-  }
-
-  async updateLeadStatus(id: number, status: string): Promise<Lead | undefined> {
-    const [lead] = await db.update(leads).set({ status }).where(eq(leads.id, id)).returning();
-    return lead;
-  }
-
-  async updateLead(id: number, updates: Record<string, any>): Promise<Lead | undefined> {
-    const [lead] = await db.update(leads).set(updates).where(eq(leads.id, id)).returning();
-    return lead;
-  }
+  getLeadById(id: number): Promise<Lead | undefined> { return leadsImpl.getLeadById(id); }
+  updateLeadStatus(id: number, status: string): Promise<Lead | undefined> { return leadsImpl.updateLeadStatus(id, status); }
+  updateLead(id: number, updates: Record<string, any>): Promise<Lead | undefined> { return leadsImpl.updateLead(id, updates); }
 
   async enqueueNotification(data: InsertNotificationQueue): Promise<NotificationQueue> {
     const [notif] = await db.insert(notificationQueue).values(data).returning();
@@ -1491,12 +1428,7 @@ export class DatabaseStorage implements IStorage {
     return threads;
   }
 
-  async updateLeadAiPaused(leadId: number, calculatorId: number, paused: boolean): Promise<void> {
-    await db
-      .update(leads)
-      .set({ ai_paused: paused })
-      .where(and(eq(leads.id, leadId), eq(leads.calculator_id, calculatorId)));
-  }
+  updateLeadAiPaused(leadId: number, calculatorId: number, paused: boolean): Promise<void> { return leadsImpl.updateLeadAiPaused(leadId, calculatorId, paused); }
 
   async incrementCouponUsage(calculatorId: number, couponCode: string): Promise<void> {
     const calc = await this.getCalculatorById(calculatorId);
@@ -1640,15 +1572,8 @@ export class DatabaseStorage implements IStorage {
     await db.update(auditFollowupEmails).set(updates).where(eq(auditFollowupEmails.id, id));
   }
 
-  async createMissedCallLead(data: InsertMissedCallLead): Promise<MissedCallLead> {
-    const [row] = await db.insert(missedCallLeads).values(data).returning();
-    return row;
-  }
-
-  async createDemoQuoteLead(data: InsertDemoQuoteLead): Promise<DemoQuoteLead> {
-    const [row] = await db.insert(demoQuoteLeads).values(data).returning();
-    return row;
-  }
+  createMissedCallLead(data: InsertMissedCallLead): Promise<MissedCallLead> { return leadsImpl.createMissedCallLead(data); }
+  createDemoQuoteLead(data: InsertDemoQuoteLead): Promise<DemoQuoteLead> { return leadsImpl.createDemoQuoteLead(data); }
 
   // ═══════════════════════════════════════════════
   // Admin CRM Methods
@@ -2492,35 +2417,9 @@ export class DatabaseStorage implements IStorage {
     return row?.total ?? 0;
   }
 
-  // ─── Payments ───
-  async listClientPayments(clientId: number): Promise<ClientPayment[]> {
-    return db.select().from(clientPayments).where(eq(clientPayments.client_id, clientId)).orderBy(desc(clientPayments.created_at));
-  }
-
-  async listAllPayments(opts: { status?: string; limit?: number; offset?: number } = {}): Promise<(ClientPayment & { client_name?: string })[]> {
-    const { status, limit = 50, offset = 0 } = opts;
-    const conditions = [];
-    if (status) conditions.push(eq(clientPayments.status, status));
-    const where = conditions.length ? and(...conditions) : undefined;
-    return db.select({
-      id: clientPayments.id, client_id: clientPayments.client_id,
-      client_service_id: clientPayments.client_service_id, order_id: clientPayments.order_id,
-      type: clientPayments.type, amount_cents: clientPayments.amount_cents,
-      status: clientPayments.status, description: clientPayments.description,
-      stripe_invoice_id: clientPayments.stripe_invoice_id,
-      stripe_payment_intent_id: clientPayments.stripe_payment_intent_id,
-      period_start: clientPayments.period_start, period_end: clientPayments.period_end,
-      due_at: clientPayments.due_at, paid_at: clientPayments.paid_at,
-      actor_type: clientPayments.actor_type, metadata: clientPayments.metadata,
-      created_at: clientPayments.created_at, updated_at: clientPayments.updated_at,
-      client_name: clients.business_name,
-    })
-    .from(clientPayments)
-    .leftJoin(clients, eq(clientPayments.client_id, clients.id))
-    .where(where)
-    .orderBy(desc(clientPayments.created_at))
-    .limit(limit).offset(offset) as any;
-  }
+  // ─── Payments (impl in ./storage/billing.ts) ───
+  listClientPayments(clientId: number): Promise<ClientPayment[]> { return billingImpl.listClientPayments(clientId); }
+  listAllPayments(opts: { status?: string; limit?: number; offset?: number } = {}): Promise<(ClientPayment & { client_name?: string })[]> { return billingImpl.listAllPayments(opts); }
 
   async getActiveClientCountByService(): Promise<{ service_id: string; count: number }[]> {
     return db.select({
@@ -2532,30 +2431,10 @@ export class DatabaseStorage implements IStorage {
     .groupBy(clientServices.service_id);
   }
 
-  async createClientPayment(data: InsertClientPayment): Promise<ClientPayment> {
-    const [row] = await db.insert(clientPayments).values(data).returning();
-    return row;
-  }
-
-  async updateClientPayment(id: number, updates: Partial<InsertClientPayment>): Promise<ClientPayment | undefined> {
-    const [row] = await db.update(clientPayments).set({ ...updates, updated_at: new Date() }).where(eq(clientPayments.id, id)).returning();
-    return row;
-  }
-
-  async getUnpaidTotal(): Promise<number> {
-    const [row] = await db.select({ total: sql<number>`coalesce(sum(amount_cents), 0)::int` }).from(clientPayments)
-      .where(and(eq(clientPayments.type, "invoice"), eq(clientPayments.status, "pending")));
-    return row?.total ?? 0;
-  }
-
-  async getMonthlyRevenue(): Promise<number> {
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
-    const [row] = await db.select({ total: sql<number>`coalesce(sum(amount_cents), 0)::int` }).from(clientPayments)
-      .where(and(eq(clientPayments.status, "paid"), gte(clientPayments.paid_at, monthStart)));
-    return row?.total ?? 0;
-  }
+  createClientPayment(data: InsertClientPayment): Promise<ClientPayment> { return billingImpl.createClientPayment(data); }
+  updateClientPayment(id: number, updates: Partial<InsertClientPayment>): Promise<ClientPayment | undefined> { return billingImpl.updateClientPayment(id, updates); }
+  getUnpaidTotal(): Promise<number> { return billingImpl.getUnpaidTotal(); }
+  getMonthlyRevenue(): Promise<number> { return billingImpl.getMonthlyRevenue(); }
 
   // ─── Notes ───
   async listInternalNotes(clientId: number): Promise<InternalNote[]> {
@@ -2722,12 +2601,7 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async findPaymentByStripeSession(sessionId: string): Promise<ClientPayment | undefined> {
-    const [row] = await db.select().from(clientPayments)
-      .where(eq(clientPayments.stripe_payment_intent_id, sessionId))
-      .limit(1);
-    return row;
-  }
+  findPaymentByStripeSession(sessionId: string): Promise<ClientPayment | undefined> { return billingImpl.findPaymentByStripeSession(sessionId); }
 
   async getOnboardingByToken(token: string): Promise<{
     submission: OnboardingSubmission;
@@ -2756,16 +2630,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async findPendingPaymentForClientService(clientServiceId: number): Promise<ClientPayment | undefined> {
-    const [row] = await db.select().from(clientPayments)
-      .where(and(
-        eq(clientPayments.client_service_id, clientServiceId),
-        eq(clientPayments.status, "pending"),
-      ))
-      .orderBy(desc(clientPayments.created_at))
-      .limit(1);
-    return row;
-  }
+  findPendingPaymentForClientService(clientServiceId: number): Promise<ClientPayment | undefined> { return billingImpl.findPendingPaymentForClientService(clientServiceId); }
 
   async getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined> {
     const [row] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
@@ -4303,27 +4168,10 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Sales Leads ───
 
-  async createSalesLead(data: InsertSalesLead): Promise<SalesLead> {
-    const [row] = await db.insert(salesLeads).values(data).returning();
-    return row;
-  }
-
-  async listSalesLeads(status?: string): Promise<SalesLead[]> {
-    const conditions = [];
-    if (status) conditions.push(eq(salesLeads.status, status));
-    const where = conditions.length ? and(...conditions) : undefined;
-    return db.select().from(salesLeads).where(where).orderBy(desc(salesLeads.updated_at));
-  }
-
-  async updateSalesLead(id: number, updates: Partial<InsertSalesLead>): Promise<SalesLead | undefined> {
-    const [row] = await db.update(salesLeads).set({ ...updates, updated_at: new Date() }).where(eq(salesLeads.id, id)).returning();
-    return row;
-  }
-
-  async getSalesLeadById(id: number): Promise<SalesLead | undefined> {
-    const [row] = await db.select().from(salesLeads).where(eq(salesLeads.id, id)).limit(1);
-    return row;
-  }
+  createSalesLead(data: InsertSalesLead): Promise<SalesLead> { return leadsImpl.createSalesLead(data); }
+  listSalesLeads(status?: string): Promise<SalesLead[]> { return leadsImpl.listSalesLeads(status); }
+  updateSalesLead(id: number, updates: Partial<InsertSalesLead>): Promise<SalesLead | undefined> { return leadsImpl.updateSalesLead(id, updates); }
+  getSalesLeadById(id: number): Promise<SalesLead | undefined> { return leadsImpl.getSalesLeadById(id); }
 
   // ─── ContentFlow: Drafts ───
 
