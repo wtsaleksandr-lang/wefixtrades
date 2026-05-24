@@ -50,3 +50,4 @@ export * from "./calculatorAnalytics";
 export * from "./retentionOverrides";
 export * from "./contacts";
 export * from "./seoIntegrations";
+export * from "./rumSamples";
