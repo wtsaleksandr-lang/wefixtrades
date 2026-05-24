@@ -73,9 +73,18 @@ jobs:
           path: audit-report/
           retention-days: 14
 
+  # SEO Wave C — Lighthouse CI with hard-fail thresholds.
+  # Asserts performance / accessibility / best-practices / SEO category scores
+  # on every critical marketing route, on both mobile and desktop form
+  # factors. See lighthouserc.cjs and
+  # docs/operations/seo-wave-c-lighthouse-thresholds.md.
   lighthouse:
-    name: Lighthouse (informational)
+    name: Lighthouse (${{ matrix.form_factor }}) — hard-fail
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        form_factor: [mobile, desktop]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -91,10 +100,15 @@ jobs:
             curl -sf http://localhost:5000/ >/dev/null && break
             sleep 2
           done
-      - name: Lighthouse
+      - name: Lighthouse CI (assert thresholds)
         uses: treosh/lighthouse-ci-action@v12
-        continue-on-error: true
         with:
-          urls: http://localhost:5000/wizard
+          # URLs, runs, thresholds, and form-factor preset all come from
+          # lighthouserc.cjs. The config reads LHCI_FORM_FACTOR to pick
+          # mobile vs desktop and apply the matching perf threshold.
+          configPath: ./lighthouserc.cjs
           uploadArtifacts: true
           temporaryPublicStorage: true
+        env:
+          LHCI_BASE_URL: http://localhost:5000
+          LHCI_FORM_FACTOR: ${{ matrix.form_factor }}
