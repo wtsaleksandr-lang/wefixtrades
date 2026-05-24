@@ -1,10 +1,48 @@
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import AIChatBubble from '@/components/ai/AIChatBubble';
 import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
+import { PageMeta } from '@/components/seo/PageMeta';
 import { Loader2, SearchX } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { hostedSlugFromHost } from '@shared/slugUtils';
+
+/**
+ * Best-effort detection of the embedding parent's origin so we never
+ * leak resize messages with `'*'`. Falls back to our own origin (safer
+ * than wildcard — if it doesn't match, the browser drops the message
+ * silently instead of broadcasting payload to any window).
+ *
+ * Order of preference:
+ *   1. `window.location.ancestorOrigins[0]` — exact ancestor origin
+ *      (Chromium/Safari only, not exposed in Firefox).
+ *   2. `document.referrer` origin — present on first navigation into
+ *      the iframe; survives same-document SPA pushes too.
+ *   3. `window.location.origin` — non-leaking fallback.
+ */
+function resolveParentOrigin(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const ancestors = (window.location as any).ancestorOrigins as
+      | DOMStringList
+      | undefined;
+    if (ancestors && ancestors.length > 0) {
+      const first = ancestors[0];
+      if (first && first !== 'null') return first;
+    }
+  } catch {
+    /* ancestorOrigins not available — fall through */
+  }
+  try {
+    if (document.referrer) {
+      const refOrigin = new URL(document.referrer).origin;
+      if (refOrigin && refOrigin !== 'null') return refOrigin;
+    }
+  } catch {
+    /* referrer not parseable — fall through */
+  }
+  return window.location.origin;
+}
 
 // Legacy CalculatorWidget is no longer rendered. QuoteWidget (v2) is the
 // sole implementation. The legacy file remains in the repo untouched for
@@ -33,18 +71,38 @@ export default function Calculator() {
 
   useEmbedFonts(isEmbed);
 
-  // Auto-resize: post height to parent for iframe embeds
+  // Memoised so the ResizeObserver effect doesn't re-resolve on every
+  // render. Origin is captured once at mount — the embedding parent
+  // can't change without re-loading the iframe.
+  const parentOrigin = useMemo(
+    () => (isEmbed ? resolveParentOrigin() : ''),
+    [isEmbed]
+  );
+
+  // Auto-resize: post height to parent for iframe embeds. Targets the
+  // resolved parent origin (NOT `'*'`) so the payload never leaks to a
+  // window that re-parented the iframe mid-session.
   useEffect(() => {
     if (!isEmbed || !slug) return;
+    const targetOrigin = parentOrigin || window.location.origin;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const height = Math.ceil(entry.contentRect.height);
-        window.parent.postMessage({ type: 'quotequick-resize', slug, height }, '*');
+        try {
+          window.parent.postMessage(
+            { type: 'quotequick-resize', slug, height },
+            targetOrigin
+          );
+        } catch {
+          /* Cross-origin throw shouldn't happen with a string target,
+             but swallow defensively so a single bad post doesn't kill
+             the observer. */
+        }
       }
     });
     observer.observe(document.body);
     return () => observer.disconnect();
-  }, [isEmbed, slug]);
+  }, [isEmbed, slug, parentOrigin]);
 
   const { data: calculator, isLoading, error } = useQuery<any>({
     queryKey: ['/api/calculators/lookup', { slug, preview: previewToken }],
@@ -67,37 +125,55 @@ export default function Calculator() {
     enabled: !!slug,
   });
 
+  // SEO: when rendered inside a host page iframe (`?embed=true`),
+  // tell crawlers to skip this URL — the host page is the canonical
+  // surface, and indexing the bare /calculator iframe URL splits
+  // ranking signals and surfaces an unbranded result in SERPs.
+  const embedNoIndexMeta = isEmbed ? (
+    <PageMeta
+      title="Quote calculator"
+      description="Embedded quote calculator."
+      noIndex
+    />
+  ) : null;
+
   if (!slug) {
     if (!isEmbed) window.location.href = '/Wizard';
-    return null;
+    return embedNoIndexMeta;
   }
 
   if (isLoading) {
     return (
-      <div data-theme="light" className={isEmbed ? 'flex items-center justify-center py-16' : 'min-h-screen flex items-center justify-center bg-slate-50'}>
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-      </div>
+      <>
+        {embedNoIndexMeta}
+        <div data-theme="light" className={isEmbed ? 'flex items-center justify-center py-16' : 'min-h-screen flex items-center justify-center bg-slate-50'}>
+          <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        </div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <div className={isEmbed ? 'flex items-center justify-center px-4 py-12' : 'min-h-screen flex items-center justify-center px-4 bg-slate-50'}>
-        <div className="text-center">
-          <SearchX className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-          <p className="text-slate-500 text-sm" data-testid="text-error-message">{(error as Error).message}</p>
-          {!isEmbed && (
-            <a
-              href="/Wizard"
-              className="inline-block mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-              style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)' }}
-              data-testid="link-create-calculator"
-            >
-              Create a Calculator
-            </a>
-          )}
+      <>
+        {embedNoIndexMeta}
+        <div className={isEmbed ? 'flex items-center justify-center px-4 py-12' : 'min-h-screen flex items-center justify-center px-4 bg-slate-50'}>
+          <div className="text-center">
+            <SearchX className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+            <p className="text-slate-500 text-sm" data-testid="text-error-message">{(error as Error).message}</p>
+            {!isEmbed && (
+              <a
+                href="/Wizard"
+                className="inline-block mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+                style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)' }}
+                data-testid="link-create-calculator"
+              >
+                Create a Calculator
+              </a>
+            )}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -162,6 +238,7 @@ export default function Calculator() {
   if (isEmbed) {
     return (
       <div>
+        {embedNoIndexMeta}
         {widget}
       </div>
     );

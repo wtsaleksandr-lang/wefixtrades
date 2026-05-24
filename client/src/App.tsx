@@ -1,4 +1,5 @@
 import { Switch, Route, Redirect } from "wouter";
+import { lazy, Suspense } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,9 +7,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CopilotFormProvider } from "@/context/CopilotFormContext";
 import { ImpersonateBanner } from "@/components/admin/ImpersonateBanner";
 import NotFound from "@/pages/not-found";
-import Wizard from "@/pages/wizard";
-import WizardLegacy from "@/pages/wizard-legacy";
-import Calculator from "@/pages/calculator";
+/**
+ * Embed-y / iframe-loaded routes are code-split so the host page's iframe
+ * (or rarely-visited tool surface) pulls only its own chunk instead of the
+ * full 1.5-3 MB SPA bundle. Audit PR #724 flagged the embedded calculator
+ * shipping the whole admin/portal tree as a P0 perf issue.
+ */
+const Wizard = lazy(() => import("@/pages/wizard"));
+const WizardLegacy = lazy(() => import("@/pages/wizard-legacy"));
+const Calculator = lazy(() => import("@/pages/calculator"));
+const FreeAudit = lazy(() => import("@/pages/marketing/FreeAudit"));
 import EditCalculator from "@/pages/edit-calculator";
 import LeadsPage from "@/pages/leads";
 import Dashboard from "@/pages/dashboard";
@@ -45,7 +53,7 @@ import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
 // AJ-7 — API developer docs
 import ApiDocsPage from "@/pages/marketing/ApiDocsPage";
 import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
-import FreeAudit from "@/pages/marketing/FreeAudit";
+// FreeAudit lazy-loaded at top of file (embed-y / rarely visited).
 // Tools-consolidation: Missed Call Calculator deleted entirely; MapSnapshot
 // folded into FreeAudit "Rank Grid" tab; tools-hub deleted; Quote Demo +
 // Build-with-AI relocated under the QuoteQuick product family. Legacy
@@ -218,8 +226,41 @@ function RootRoute() {
   return hostedSlugFromHost() ? <Calculator /> : <MarketingHome />;
 }
 
+/**
+ * Suspense fallback for lazy-loaded routes (Wizard, Calculator, FreeAudit).
+ * Plain centered spinner — embed iframes auto-size to body, so this
+ * keeps the host page from collapsing to zero-height while the chunk
+ * downloads.
+ */
+function RouteFallback() {
+  return (
+    <div
+      style={{
+        minHeight: "200px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "32px",
+      }}
+    >
+      <div
+        style={{
+          width: "24px",
+          height: "24px",
+          border: "2px solid rgba(100, 116, 139, 0.25)",
+          borderTopColor: "rgb(100, 116, 139)",
+          borderRadius: "50%",
+          animation: "qq-spin 0.8s linear infinite",
+        }}
+      />
+      <style>{`@keyframes qq-spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 function Router() {
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Switch>
       <Route path="/" component={RootRoute} />
 
@@ -474,6 +515,7 @@ function Router() {
       <Route path="/Dashboard">{() => <Redirect to="/dashboard" />}</Route>
       <Route component={NotFound} />
     </Switch>
+    </Suspense>
   );
 }
 
