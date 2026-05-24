@@ -159,6 +159,7 @@ function ChatPanel() {
           data-testid="demo-chat-send"
           onClick={handleSend}
           disabled={sendMutation.isPending || !inputValue.trim()}
+          aria-label="Send message"
           style={{
             padding: "10px 16px", borderRadius: 10,
             background: inputValue.trim() ? mkt.accent : mkt.surfaceAlt,
@@ -167,7 +168,7 @@ function ChatPanel() {
             display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600,
           }}
         >
-          <Send size={16} />
+          <Send size={16} aria-hidden="true" />
         </button>
       </div>
     </div>

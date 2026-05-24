@@ -433,10 +433,23 @@ export default function MarketingLayout({ children, hideSiteChat = false }: { ch
         background: mkt.bg,
       }}
     >
-      <AnnouncementBanner />
-      <MarketingNav />
+      {/* Skip-to-content — sr-only until focused. Lets keyboard users
+          jump past the announcement banner + nav straight to the page
+          body. WCAG 2.4.1 (Bypass Blocks). Matches AdminLayout pattern. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-brand-blue focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+      {/* <header role=banner> wraps the global chrome so screen readers
+          land in a real banner landmark (axe + WCAG 1.3.1). */}
+      <header>
+        <AnnouncementBanner />
+        <MarketingNav />
+      </header>
       <div style={{ height: 24, flexShrink: 0 }} />
-      <main style={{ flex: 1 }}>{children}</main>
+      <main id="main-content" tabIndex={-1} style={{ flex: 1 }}>{children}</main>
       <MarketingFooter />
       <MarketingStickyBar />
       {!hideSiteChat && (
