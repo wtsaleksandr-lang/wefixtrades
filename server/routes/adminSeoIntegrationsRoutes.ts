@@ -49,7 +49,14 @@ import {
 import { runBingIndexingTick } from "../cron/seoIndexing";
 import { upsertToken } from "../lib/seo/oauthTokenStore";
 import { createPropertyAndStream, listProperties as listGa4Properties } from "../lib/seo/ga4Client";
-import { generateListingDraft, isApiAvailable as gbpIsApiAvailable } from "../lib/seo/gbpClient";
+import {
+  generateListingDraft,
+  isApiAvailable as gbpIsApiAvailable,
+  isGbpSaConfigured,
+  getGbpSaEmail,
+  probeGbpSaAccess,
+  type GbpSaProbe,
+} from "../lib/seo/gbpClient";
 import { isCloudflareConfigured } from "../lib/seo/cloudflareDns";
 import {
   getSessionsAndPageviews,
@@ -127,6 +134,10 @@ export function registerAdminSeoIntegrationsRoutes(app: Express): void {
         .limit(20);
 
       const gbpApiAvailable = await gbpIsApiAvailable().catch(() => false);
+      const gbpSaConfigured = isGbpSaConfigured();
+      const gbpSaProbe: GbpSaProbe | null = gbpSaConfigured
+        ? await probeGbpSaAccess().catch(() => "error" as GbpSaProbe)
+        : null;
 
       res.json({
         google,
@@ -137,6 +148,11 @@ export function registerAdminSeoIntegrationsRoutes(app: Express): void {
           configured: Boolean(process.env.GA4_MEASUREMENT_ID),
         },
         gbp_api_available: gbpApiAvailable,
+        gbp_sa: {
+          configured: gbpSaConfigured,
+          email: gbpSaConfigured ? getGbpSaEmail() : null,
+          probe: gbpSaProbe,
+        },
         google_oauth_configured: isGoogleOauthConfigured(),
         cloudflare_configured: isCloudflareConfigured(),
         recent_history: recentHistory,
