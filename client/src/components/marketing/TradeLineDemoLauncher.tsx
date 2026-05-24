@@ -36,6 +36,7 @@ const GREETING: Msg = {
 export default function TradeLineDemoLauncher() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("chat");
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Restore open state once on mount
   useEffect(() => {
@@ -43,6 +44,19 @@ export default function TradeLineDemoLauncher() {
       if (sessionStorage.getItem(STORAGE_KEY) === "1") setOpen(true);
     } catch { /* ignore */ }
   }, []);
+
+  // A11Y — toggle the `inert` HTML attribute on the collapsed panel so the
+  // entire subtree (chat input, send, voice orb, end-call button) is
+  // removed from the focus order while hidden. Pairs with aria-hidden
+  // for assistive-tech and prevents axe `aria-hidden-focus` flags from
+  // any focusable child. `inert` lives outside the React TS DOM-attr
+  // list in 18.3, so set it imperatively via ref.
+  useEffect(() => {
+    const node = panelRef.current;
+    if (!node) return;
+    if (open) node.removeAttribute("inert");
+    else node.setAttribute("inert", "");
+  }, [open]);
 
   useEffect(() => {
     try {
@@ -65,12 +79,19 @@ export default function TradeLineDemoLauncher() {
       <style>{LAUNCHER_CSS}</style>
 
       {/* Collapsible panel — header + body. Bar lives outside this so it
-          stays visible at its natural height even when collapsed. */}
-      <div className="tldl-panel" aria-hidden={!open}>
+          stays visible at its natural height even when collapsed.
+          A11Y — when collapsed (`!open`), the panel is aria-hidden AND
+          the `inert` attribute is toggled via the effect above so every
+          focusable descendant (tabs, close, chat input, send, voice
+          controls) is removed from the focus + interaction tree. Inner
+          buttons also carry tabIndex={open ? 0 : -1} as a belt-and-
+          suspenders fallback for browsers without inert support. */}
+      <div ref={panelRef} className="tldl-panel" aria-hidden={!open}>
         <div className="tldl-header">
           <div className="tldl-tabs">
             <button
               type="button"
+              tabIndex={open ? 0 : -1}
               className={`tldl-tab ${tab === "chat" ? "active" : ""}`}
               onClick={() => setTab("chat")}
               data-testid="tldl-tab-chat"
@@ -79,6 +100,7 @@ export default function TradeLineDemoLauncher() {
             </button>
             <button
               type="button"
+              tabIndex={open ? 0 : -1}
               className={`tldl-tab ${tab === "voice" ? "active" : ""}`}
               onClick={() => setTab("voice")}
               data-testid="tldl-tab-voice"
@@ -88,6 +110,7 @@ export default function TradeLineDemoLauncher() {
           </div>
           <button
             type="button"
+            tabIndex={open ? 0 : -1}
             className="tldl-close"
             onClick={() => setOpen(false)}
             aria-label="Close demo"
@@ -122,40 +145,31 @@ export default function TradeLineDemoLauncher() {
                 : "Tap the mic in the panel to start a voice call")
             : "Try the live TradeLine demo — chat or call"}
         </span>
+        {/* A11Y — these icon affordances are decorative within the
+            outer role="button" bar (the whole bar opens the demo to the
+            chat tab on click/Enter). They previously carried role="button"
+            + tabIndex, which triggered axe `nested-interactive`. They now
+            stay visual-only: aria-hidden, no role, no tabIndex. The onClick
+            still routes mouse users to the voice/chat tab as a convenience
+            shortcut. Keyboard users open via the bar and pick a tab inside. */}
         <span
           className="tldl-bar-icon"
-          role="button"
-          tabIndex={0}
-          aria-label="Open voice demo"
+          aria-hidden
           onClick={(e) => {
             e.stopPropagation();
             setOpen(true);
             setTab("voice");
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault(); e.stopPropagation();
-              setOpen(true); setTab("voice");
-            }
           }}
         >
           <Mic size={16} />
         </span>
         <span
           className="tldl-bar-icon tldl-bar-icon-send"
-          role="button"
-          tabIndex={0}
-          aria-label="Open chat demo"
+          aria-hidden
           onClick={(e) => {
             e.stopPropagation();
             setOpen(true);
             setTab("chat");
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault(); e.stopPropagation();
-              setOpen(true); setTab("chat");
-            }
           }}
         >
           <Send size={16} />

@@ -171,8 +171,31 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
         {slug === "quickquotepro" && <QuickQuoteLandingLiveDemo />}
         {slug === "mapguard" && <MapGuardLandingTeaser />}
 
-        {/* NUMBERED CARDS */}
-        <section style={{ padding: "20px 24px 80px" }}>
+        {/* NUMBERED CARDS
+            A11Y — NumberedCard renders its title as <h3>, but the page's
+            previous heading is the hero <h1>, which makes axe flag
+            `heading-order` for the h1 → h3 skip. We introduce a
+            visually-hidden <h2> that labels the numbered-cards section
+            for screen readers + the document outline, without changing
+            the visual design. Naming is generic ("What {product} does")
+            so it works for every product slug rendered by this page. */}
+        <section style={{ padding: "20px 24px 80px", position: "relative" }} aria-labelledby="product-features-heading">
+          <h2
+            id="product-features-heading"
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: "hidden",
+              clip: "rect(0,0,0,0)",
+              whiteSpace: "nowrap",
+              border: 0,
+            }}
+          >
+            What {cfg.name} does
+          </h2>
           <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 24 }}>
             {sections.map((s, i) => (
               <Reveal key={s.number} delay={i * 0.05}>
