@@ -332,6 +332,69 @@ export function registerAdminOpsRoutes(app: Express): void {
     { name: "Upsell Emails", job_name: "upsell_emails", schedule: "0 10 * * *", interval_minutes: 1440 },
     { name: "WebCare Maintenance", job_name: "webcare_monthly_maintenance", schedule: "0 3 1 * *", interval_minutes: 43200 },
     { name: "Data Retention", job_name: "data_retention", schedule: "30 2 * * 0", interval_minutes: 10080 },
+
+    /* PR #701 cron audit catch-up: 32 jobs that ship in scheduler.ts
+       but were missing from the worker registry. Kept grouped by
+       category-adjacent neighbours above where possible; appended here
+       to avoid shuffling the original ordering. interval_minutes is the
+       cron period; the dashboard derives stale-threshold = 2x. */
+
+    /* QuoteQuick / calculator lifecycle */
+    { name: "QuoteQuick Slug Release", job_name: "quotequick_slug_release", schedule: "30 4 * * *", interval_minutes: 1440 },
+    { name: "Calculator Analytics Rollup", job_name: "calculator_analytics_rollup", schedule: "0 3 * * *", interval_minutes: 1440 },
+    { name: "Embed Broken Detection", job_name: "embed_broken_detection", schedule: "0 6 * * *", interval_minutes: 1440 },
+
+    /* Billing / invoicing */
+    { name: "Invoice Overdue Flip", job_name: "invoice_overdue_flip", schedule: "30 2 * * *", interval_minutes: 1440 },
+    { name: "Trial Pro Expiry", job_name: "trial_pro_expiry", schedule: "0 4 * * *", interval_minutes: 1440 },
+
+    /* TradeLine */
+    { name: "TradeLine Bill Retention", job_name: "tradeline_bill_retention", schedule: "30 3 * * *", interval_minutes: 1440 },
+    { name: "TradeLine Provision Retry", job_name: "tradeline_provision_retry", schedule: "17 * * * *", interval_minutes: 60 },
+    { name: "TradeLine Mode Sync", job_name: "tradeline_mode_sync", schedule: "*/5 * * * *", interval_minutes: 5 },
+    { name: "TradeLine Retry", job_name: "tradeline_retry", schedule: "*/15 * * * *", interval_minutes: 15 },
+
+    /* MapGuard GBP automation */
+    { name: "MapGuard Post Fan-out", job_name: "mapguard_post_fanout", schedule: "0 3 1 * *", interval_minutes: 43200 },
+    { name: "MapGuard Post Drainer", job_name: "mapguard_post_drain", schedule: "30 14 * * *", interval_minutes: 1440 },
+    { name: "MapGuard Review Responder", job_name: "mapguard_review_responder", schedule: "0 8 * * *", interval_minutes: 1440 },
+
+    /* AdFlow */
+    { name: "AdFlow Monthly Reports", job_name: "adflow_monthly_reports", schedule: "0 13 2 * *", interval_minutes: 43200 },
+    { name: "AdFlow Metrics Check", job_name: "adflow_metrics_check", schedule: "0 8 * * *", interval_minutes: 1440 },
+
+    /* ContentFlow */
+    { name: "ContentFlow Generation", job_name: "contentflow_generation", schedule: "30 8 * * *", interval_minutes: 1440 },
+    { name: "ContentFlow Setup Reminder", job_name: "contentflow_setup_reminder", schedule: "23 * * * *", interval_minutes: 60 },
+
+    /* Reputation / reviews */
+    { name: "Reply Post Queue Drain", job_name: "reply_post_queue_drain", schedule: "*/2 * * * *", interval_minutes: 2 },
+    { name: "Competitor Snapshots", job_name: "competitor_snapshots", schedule: "30 4 * * *", interval_minutes: 1440 },
+    { name: "Reputation Token Refresh", job_name: "reputation_token_refresh", schedule: "15 3 * * *", interval_minutes: 1440 },
+    { name: "Reputation Connect Nudge", job_name: "reputation_connect_nudge", schedule: "0 16 * * *", interval_minutes: 1440 },
+
+    /* Google Business Profile (GBP) */
+    { name: "GBP Daily Post", job_name: "gbp_daily_post", schedule: "47 13 * * *", interval_minutes: 1440 },
+    { name: "GBP Review Monitor", job_name: "gbp_review_monitor", schedule: "23 * * * *", interval_minutes: 60 },
+    { name: "GBP Hours Sync", job_name: "gbp_hours_sync", schedule: "37 5 * * *", interval_minutes: 1440 },
+
+    /* SEO / monitoring */
+    { name: "Daily Monitoring Digest", job_name: "daily_monitoring_digest", schedule: "13 8 * * *", interval_minutes: 1440 },
+    { name: "Bing URL Indexing", job_name: "bing_indexing", schedule: "17 */6 * * *", interval_minutes: 360 },
+
+    /* AI / learning */
+    { name: "Business Operator", job_name: "business_operator", schedule: "15 * * * *", interval_minutes: 60 },
+    { name: "AI Budget Alerts", job_name: "ai_budget_alerts", schedule: "19 */2 * * *", interval_minutes: 120 },
+    { name: "Learning Candidate Sweep", job_name: "learning_candidate_sweep", schedule: "41 4 * * *", interval_minutes: 1440 },
+
+    /* Files / retention */
+    { name: "Shared Files Retention Sweep", job_name: "shared_files_retention_sweep", schedule: "15 4 * * *", interval_minutes: 1440 },
+
+    /* Engine / queues (no runJob() wrapper in scheduler — surface for
+       visibility; "never_run" until they emit a job_log entry). */
+    { name: "Email Queue", job_name: "email_queue", schedule: "* * * * *", interval_minutes: 1 },
+    { name: "Routing Engine", job_name: "routing_engine", schedule: "*/5 * * * *", interval_minutes: 5 },
+    { name: "API Webhook Delivery", job_name: "api_webhook_delivery", schedule: "*/30 * * * * *", interval_minutes: 1 },
   ];
 
   /**
@@ -443,6 +506,48 @@ export function registerAdminOpsRoutes(app: Express): void {
     contentflow_image_retention:  () => import("../jobs/imageRetentionWorker").then(m => m.processImageRetention),
     contentflow_performance:      () => import("../jobs/performanceWorker").then(m => m.processPerformanceQueue),
     data_retention:               () => import("../jobs/retentionWorker").then(m => m.processRetention),
+
+    /* PR #701 catch-up: Run-Now wiring for the 22 newly-registered
+       jobs that are idempotent and safe for ad-hoc admin trigger.
+       Skipped intentionally (see PR body): mapguard_post_fanout,
+       mapguard_review_responder, adflow_monthly_reports,
+       contentflow_generation, email_queue, routing_engine,
+       api_webhook_delivery, business_operator, gbp_daily_post —
+       all are either stateful/one-shot or carry cost-spike risk. */
+
+    quotequick_slug_release:      () => import("../services/quotequickSlugLifecycle").then(m => m.releaseStaleSlugs),
+    calculator_analytics_rollup:  () => import("../jobs/calculatorAnalyticsRollupWorker").then(m => m.runCalculatorAnalyticsRollup),
+    embed_broken_detection:       () => import("../jobs/embedBrokenDetector").then(m => m.processEmbedBrokenDetection),
+
+    invoice_overdue_flip:         () => import("../jobs/invoiceOverdueWorker").then(m => m.processInvoiceOverdue),
+    trial_pro_expiry:             () => import("../jobs/trialProExpiryWorker").then(m => m.processProTrialExpiry),
+
+    tradeline_bill_retention:     () => import("../jobs/tradelineBillRetentionWorker").then(m => m.processBillRetention),
+    tradeline_provision_retry:    () => import("../jobs/tradelineProvisionRetryWorker").then(m => m.processTradelineProvisionRetry),
+    tradeline_mode_sync:          () => import("../jobs/tradelineModeWorker").then(m => m.processTradeLineModeSync),
+    tradeline_retry:              () => import("../jobs/tradelineRetryWorker").then(m => m.processTradeLineRetries),
+
+    mapguard_post_drain:          () => import("../jobs/mapguardPostDrainer").then(m => m.processMapguardPostDrain),
+
+    adflow_metrics_check:         () => import("../jobs/adflowMetricsCheckWorker").then(m => m.checkAdflowMissingMetrics),
+
+    contentflow_setup_reminder:   () => import("../jobs/contentflowReminderWorker").then(m => m.processContentFlowReminders),
+
+    reply_post_queue_drain:       () => import("../jobs/replyPostQueueWorker").then(m => m.drainReplyPostQueue),
+    competitor_snapshots:         () => import("../jobs/competitorSnapshotWorker").then(m => m.runCompetitorSnapshots),
+    reputation_token_refresh:     () => import("../jobs/reputationTokenRefreshWorker").then(m => m.runReputationTokenRefresh),
+    reputation_connect_nudge:     () => import("../jobs/reputationConnectNudgeWorker").then(m => m.processReputationConnectNudges),
+
+    gbp_review_monitor:           () => import("../cron/gbpAutomation").then(m => m.runReviewMonitorTick),
+    gbp_hours_sync:               () => import("../cron/gbpAutomation").then(m => m.runHoursSyncTick),
+
+    daily_monitoring_digest:      () => import("../cron/dailyDigest").then(m => m.runDailyDigest),
+    bing_indexing:                () => import("../cron/seoIndexing").then(m => m.runBingIndexingTick),
+
+    ai_budget_alerts:             () => import("../cron/aiBudgetAlerts").then(m => m.runAiBudgetAlerts),
+    learning_candidate_sweep:     () => import("../cron/learningCandidateSweep").then(m => m.runLearningCandidateSweep),
+
+    shared_files_retention_sweep: () => import("../jobs/sharedFilesRetentionSweepWorker").then(m => m.runSharedFilesRetentionSweep),
   };
 
   /**
