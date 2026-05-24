@@ -1,11 +1,17 @@
-import { useEffect } from "react";
 import DocsLayout, { Step, CodeBlock, InfoBox, DocH2, DocH3, Checklist, Accordion } from "@/components/marketing/DocsLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function DocsWebhooks() {
-  useEffect(() => { document.title = "Webhooks — QuoteQuick™ Docs"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
+    <>
+    <PageMeta
+      title="Webhooks — QuoteQuick docs"
+      description="Subscribe to WeFixTrades webhook events: leads captured, bookings confirmed, deposits paid, AI handoffs, and more. Signed payloads with retries."
+      canonical="/docs/webhooks"
+    />
     <DocsLayout
       activeSlug="webhooks"
       title="Webhooks"
@@ -161,5 +167,6 @@ app.post('/qqp-webhook', (req, res) => {
       </InfoBox>
 
     </DocsLayout>
+    </>
   );
 }

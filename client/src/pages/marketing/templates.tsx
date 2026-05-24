@@ -15,6 +15,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { Search, ArrowRight, Sparkles } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt } from "@/theme/tokens";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
@@ -149,22 +150,7 @@ export default function TemplatesPage() {
   );
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    document.title = `${TEMPLATE_PRESETS.length} Calculator Templates — QuoteQuick by WeFixTrades`;
-    const setMeta = (name: string, content: string) => {
-      let el = document.querySelector(`meta[name="${name}"]`);
-      if (!el) {
-        el = document.createElement("meta");
-        (el as HTMLMetaElement).name = name;
-        document.head.appendChild(el);
-      }
-      el.setAttribute("content", content);
-    };
-    setMeta(
-      "description",
-      `${TEMPLATE_PRESETS.length} ready-to-use calculator templates for trades. Pick one, drop in your pricing, and go live in minutes — instant quotes, no signup needed to preview.`,
-    );
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   // Per-family counts (excluding "all")
   const familyCounts = useMemo(() => {
@@ -194,6 +180,12 @@ export default function TemplatesPage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title={`${totalCount} calculator templates for trades`}
+        description={`${totalCount} ready-to-use quote calculator templates. Pick one, drop in your pricing, and go live in minutes — instant quotes, no signup needed to preview.`}
+        canonical="/templates"
+        keywords={["quote calculator templates", "trades calculator templates", "instant quote templates"]}
+      />
       <V7PageShell data-theme="light">
         <V7Hero
           productName={`${totalCount} Templates`}

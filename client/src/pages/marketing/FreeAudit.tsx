@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { trackEvent } from "@/lib/trackEvent";
 import { useFaqSchema } from "@/lib/useFaqSchema";
-import { usePageMeta } from "@/lib/usePageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import TrustStrip from "@/components/marketing/TrustStrip";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -261,11 +261,7 @@ function AuditFaqSection() {
 const AUDIT_BASE = "https://wefixtrades.com";
 
 export default function FreeAudit() {
-  usePageMeta({
-    title: "Free Google Maps & Website Audit | WeFixTrades",
-    description: "Get a free instant audit of your Google Business Profile and website. See your score, competitor analysis, and a fix plan — no signup required.",
-    canonicalPath: "/tools/free-audit",
-  });
+  // Title + meta tags handled by <PageMeta> below.
 
   const auditBreadcrumbs = useMemo(() => [
     { name: "Home", url: `${AUDIT_BASE}/` },
@@ -531,6 +527,12 @@ export default function FreeAudit() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Free Google Maps & website audit"
+        description="Get a free instant audit of your Google Business Profile and website. See your score, competitor analysis, and a fix plan — no signup required."
+        canonical="/tools/free-audit"
+        keywords={["free google business audit", "free website audit", "trades local seo audit"]}
+      />
       <style>{`
         .audit-page {
           min-height: 100vh;

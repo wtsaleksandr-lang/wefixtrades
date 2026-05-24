@@ -1,11 +1,17 @@
-import { useEffect } from "react";
 import DocsLayout, { Step, Accordion, InfoBox, DocH2, DocH3, Checklist } from "@/components/marketing/DocsLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function DocsReputationShield() {
-  useEffect(() => { document.title = "ReputationShield — WeFixTrades Docs"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
+    <>
+    <PageMeta
+      title="ReputationShield — WeFixTrades docs"
+      description="Set up ReputationShield to capture 5-star reviews automatically, route low-rating feedback privately, and respond to reviews with AI-drafted replies."
+      canonical="/docs/reputationshield"
+    />
     <DocsLayout
       activeSlug="reputationshield"
       title="ReputationShield Guide"
@@ -169,5 +175,6 @@ export default function DocsReputationShield() {
         we'll get back to you within one business day.
       </InfoBox>
     </DocsLayout>
+    </>
   );
 }

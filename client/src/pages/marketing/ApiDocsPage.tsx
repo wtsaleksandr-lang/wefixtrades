@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Copy, Check, ChevronRight, Code, Key, Gauge, AlertCircle, Webhook, Tag, Package, FileText, LifeBuoy, Rocket, Terminal, BookOpen, ExternalLink, type LucideIcon } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { usePageMeta } from "@/lib/usePageMeta";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors } from "@/theme/tokens";
 
 /* ═══════════════════════════════════════════════════
@@ -64,12 +64,7 @@ const NAV: NavSection[] = [
 const ALL_IDS: string[] = NAV.flatMap((n) => [n.id, ...(n.subs?.map((s) => s.id) ?? [])]);
 
 export default function ApiDocsPage() {
-  usePageMeta({
-    title: "WeFixTrades API · Documentation",
-    description:
-      "REST API for embedding quote calculators, capturing leads, and integrating WeFixTrades products into your stack.",
-    canonicalPath: "/docs/api",
-  });
+  // Title + meta tags handled by <PageMeta> below.
 
   const [active, setActive] = useState<string>("introduction");
   const observer = useRef<IntersectionObserver | null>(null);
@@ -100,6 +95,12 @@ export default function ApiDocsPage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="API documentation — embed WeFixTrades in your stack"
+        description="REST API reference for WeFixTrades — embed quote calculators, capture leads, manage bookings, and integrate every product into your stack."
+        canonical="/docs/api"
+        keywords={["wefixtrades api", "quote calculator api", "trades software api"]}
+      />
       <div data-theme="dark" data-testid="api-docs-page" style={{ background: C.bg }}>
         {/* Page header */}
         <ApiHeader />

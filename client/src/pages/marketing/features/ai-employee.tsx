@@ -1,5 +1,6 @@
 import { Bot, MessageSquare, Zap, Users, PhoneCall } from "lucide-react";
 import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
 /* ── Mockup ──────────────────────────────────── */
@@ -152,5 +153,15 @@ const config: FeaturePageConfig = {
 };
 
 export default function AiEmployeePage() {
-  return <FeaturePage config={config} />;
+  return (
+    <>
+      <PageMeta
+        title="AI Employee — 24/7 lead handling for trades"
+        description="An AI receptionist that answers chats and calls 24/7, qualifies leads, generates instant estimates, books jobs, and hands off to you when it matters."
+        canonical="/features/ai-employee"
+        keywords={["ai receptionist for trades", "24/7 lead handling", "ai for plumbers"]}
+      />
+      <FeaturePage config={config} />
+    </>
+  );
 }

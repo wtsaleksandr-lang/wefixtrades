@@ -19,9 +19,10 @@ import { Link } from "wouter";
 import { ArrowRight, Phone, MessageSquare, Calendar, Star, Clock, Sparkles, Check, ChevronDown, Rocket } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { getProductBySlug } from "@/config/products";
-import { usePageMeta } from "@/lib/usePageMeta";
+import { productSchema, faqSchema } from "@/lib/seo/jsonLd";
 import {
   NumberedCard,
   BadgePill,
@@ -112,17 +113,22 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
 export default function EffortelProductPage({ slug }: { slug: string }) {
   const cfg = getProductBySlug(slug);
 
-  // Per-page SEO — apply the product's own title/description/canonical from
-  // config/products.ts so every product page ships its own <head> meta
-  // instead of the generic site title. Called before any early return to
-  // keep hook order stable; falls back to neutral copy when slug is unknown.
-  usePageMeta({
-    title: cfg?.seoTitle ?? "Product — WeFixTrades",
-    description: cfg?.seoDescription ?? "",
-    canonicalPath: `/products/${slug}`,
-  });
-
+  // Per-page SEO — handled by <PageMeta> below; configured from
+  // config/products.ts so every product page ships its own <head>
+  // meta + Product JSON-LD instead of the generic site title.
   if (!cfg) return <NotFound />;
+
+  const productJsonLd = productSchema({
+    name: cfg.name,
+    slug: cfg.slug,
+    description: cfg.seoDescription,
+  });
+  const productFaqJsonLd = cfg.faq && cfg.faq.length > 0
+    ? faqSchema(cfg.faq.map((f) => ({ question: f.q, answer: f.a })))
+    : null;
+  const pageJsonLd = productFaqJsonLd
+    ? [productJsonLd, productFaqJsonLd]
+    : productJsonLd;
 
   const sections: ProductMockupSection[] = PRODUCT_MOCKUPS[slug] ?? PRODUCT_MOCKUPS.__default;
   const hook = HERO_HOOKS[slug];
@@ -144,6 +150,13 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
 
   return (
     <MarketingLayout hideSiteChat={isTradeLine}>
+      <PageMeta
+        title={cfg.seoTitle}
+        description={cfg.seoDescription}
+        canonical={`/products/${slug}`}
+        ogType="product"
+        jsonLd={pageJsonLd}
+      />
       {/* CONTRAST-2 — EffortelProductPage is a marketing dark-hero page. */}
       <div data-theme="dark" style={{ background: mkt.bg, color: mkt.onDark, fontFamily: SANS }}>
 

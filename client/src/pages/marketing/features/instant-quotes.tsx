@@ -1,5 +1,6 @@
 import { Zap, Clock, TrendingUp, Code2, Shield } from "lucide-react";
 import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
 /* ── Mockup ──────────────────────────────────── */
@@ -147,5 +148,15 @@ const config: FeaturePageConfig = {
 };
 
 export default function InstantQuotesPage() {
-  return <FeaturePage config={config} />;
+  return (
+    <>
+      <PageMeta
+        title="Instant quotes — convert visitors before they bounce"
+        description="Show real-time prices on your website with an embeddable quote calculator. No back-and-forth, no lost leads — visitors get a number in seconds and book the job."
+        canonical="/features/instant-quotes"
+        keywords={["instant quote calculator", "embeddable quote tool"]}
+      />
+      <FeaturePage config={config} />
+    </>
+  );
 }

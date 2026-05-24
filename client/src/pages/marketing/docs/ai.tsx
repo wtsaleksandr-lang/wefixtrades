@@ -1,11 +1,17 @@
-import { useEffect } from "react";
 import DocsLayout, { Step, InfoBox, DocH2, DocH3, Checklist, Accordion } from "@/components/marketing/DocsLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function DocsAi() {
-  useEffect(() => { document.title = "AI Employee — QuoteQuick™ Docs"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
+    <>
+    <PageMeta
+      title="AI Employee — QuoteQuick docs"
+      description="How the WeFixTrades AI receptionist handles chats and calls 24/7 — qualification, instant estimates, booking, and follow-up automations."
+      canonical="/docs/ai"
+    />
     <DocsLayout
       activeSlug="ai"
       title="AI Employee"
@@ -123,5 +129,6 @@ export default function DocsAi() {
       </InfoBox>
 
     </DocsLayout>
+    </>
   );
 }

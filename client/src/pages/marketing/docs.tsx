@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Search, Zap, Globe, Calendar, Bot, Code, AlertCircle, Webhook, ArrowRight, BookOpen, MessageSquare, Shield, Star } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { V7PageShell } from "@/components/marketing/v7";
 import { Reveal, TILE, MONO } from "@/components/effortel-blocks";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
@@ -94,7 +95,7 @@ export default function DocsPage() {
   useScrollReveal();
   const [search, setSearch] = useState("");
 
-  useEffect(() => { document.title = "Docs — QuoteQuick™"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   const filtered = GUIDES.filter((g) =>
     search === "" ||
@@ -104,6 +105,12 @@ export default function DocsPage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Docs — embed, integrate, and ship with WeFixTrades"
+        description="Step-by-step guides for embedding QuoteQuick calculators, wiring TradeLine AI, connecting domains, enabling deposits + booking, and using the WeFixTrades API."
+        canonical="/docs"
+        keywords={["wefixtrades docs", "quotequick docs", "embed quote calculator"]}
+      />
       <V7PageShell>
       <div data-testid="docs-hub" style={{ overflowX: "hidden" }}>
 

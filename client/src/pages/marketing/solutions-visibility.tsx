@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import mapguardIcon from "@assets/mapguard-icon_1772080241423.webp";
@@ -220,12 +221,16 @@ const S = {
 };
 
 export default function SolutionsVisibility() {
-  useEffect(() => {
-    document.title = "Visibility Solutions — WeFixTrades";
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Visibility solutions — get found, trusted, and booked"
+        description="Local SEO, Google Maps presence, reputation management, and social syndication add-ons that put your trade business in front of customers ready to book."
+        canonical="/solutions/visibility"
+        keywords={["trades local seo", "google maps for trades", "trades reputation management"]}
+      />
       <V7PageShell>
       <div data-testid="solutions-visibility-page">
         <V7Hero

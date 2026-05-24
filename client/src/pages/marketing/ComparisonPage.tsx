@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useParams, Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, shadows } from "@/theme/tokens";
 import { getComparisonBySlug, type ComparisonData } from "@/config/comparisons";
@@ -179,25 +180,15 @@ export default function ComparisonPage() {
 
   useScrollReveal();
 
-  useEffect(() => {
-    if (data) {
-      document.title = data.seoTitle;
-      const metaDesc = document.querySelector('meta[name="description"]');
-      if (metaDesc) {
-        metaDesc.setAttribute("content", data.seoDescription);
-      } else {
-        const m = document.createElement("meta");
-        m.name = "description";
-        m.content = data.seoDescription;
-        document.head.appendChild(m);
-      }
-    }
-  }, [data]);
-
   if (!data) return <NotFound />;
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title={data.seoTitle}
+        description={data.seoDescription}
+        canonical={`/compare/${data.slug}`}
+      />
       <div data-theme="dark" style={{ overflowX: "hidden" }}>
 
         {/* ═══════════════════════════════════

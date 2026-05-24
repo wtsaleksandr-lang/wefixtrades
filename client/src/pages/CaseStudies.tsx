@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import {
   ArrowRight, ArrowLeft, MapPin,
@@ -710,12 +711,15 @@ function StudyCard({ study }: { study: Study }) {
 /* ─── Page ───────────────────────────────────────────────────── */
 
 export default function CaseStudiesPage() {
-  useEffect(() => {
-    document.title = "Case Studies — WeFixTrades";
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Case studies — real trade businesses growing with WeFixTrades"
+        description="Plumbers, electricians, HVAC, roofers, and more — how real trade businesses recovered missed calls, sped up quotes, and ranked higher with WeFixTrades."
+        canonical="/case-studies"
+      />
       <V7PageShell>
         {/* ── Compact hero: left-aligned tabs + headline ─── */}
         <section style={{

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Check, ChevronDown, ArrowRight, Zap, Clock, Users, Shield, MessageSquare, X } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, colors } from "@/theme/tokens";
 import { trackEvent } from "@/lib/trackEvent";
@@ -130,6 +131,12 @@ export default function QuoteQuickPricing() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="QuoteQuick pricing — free quote calculator, $29/mo Pro"
+        description="QuoteQuick pricing for trades: Free for unlimited quotes, Pro at $29/mo for booking + deposits, Business for multi-location teams. No credit card required to start."
+        canonical="/pricing/quotequick"
+        keywords={["quotequick pricing", "quote calculator pricing"]}
+      />
       <V7PageShell data-theme="light">
         <V7Hero
           productName="QuoteQuick Pricing"

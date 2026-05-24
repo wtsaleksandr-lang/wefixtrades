@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, X, Star, Shield, Zap, DollarSign, ChevronDown } from "lucide-react";
@@ -34,16 +35,16 @@ const COMPARISON_ROWS: { feature: string; us: boolean | string; them: boolean | 
 ];
 
 export default function CompareNiceJob() {
-  useEffect(() => {
-    document.title = "ReputationShield vs NiceJob — Review Management for Trades | WeFixTrades";
-    const metaDesc = document.querySelector('meta[name="description"]');
-    const content = "Compare ReputationShield vs NiceJob for trades businesses. AI response drafting, Google posting, private feedback shield, and transparent pricing from $79/mo. No contracts.";
-    if (metaDesc) { metaDesc.setAttribute("content", content); }
-    else { const m = document.createElement("meta"); m.name = "description"; m.content = content; document.head.appendChild(m); }
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="ReputationShield vs NiceJob — review management for trades"
+        description="Compare ReputationShield vs NiceJob for trades businesses. AI response drafting, Google posting, private feedback shield, and transparent pricing from $79/mo. No contracts."
+        canonical="/compare/reputationshield-vs-nicejob"
+        keywords={["nicejob alternative", "review management for trades"]}
+      />
       <div data-theme="light" style={{ maxWidth: 880, margin: "0 auto", padding: "60px 20px 80px" }}>
         {/* Hero */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>

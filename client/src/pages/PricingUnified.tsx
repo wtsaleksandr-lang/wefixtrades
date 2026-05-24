@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "r
 import { Check, ChevronDown, Zap, Shield, Eye, Globe, Wrench, ArrowRight, Info, X, TrendingUp, Target } from "lucide-react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, shadows, typography } from "@/theme/tokens";
 import {
@@ -1444,10 +1445,15 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
     products: mergedProducts.filter(p => p.category === cat),
   })).filter(g => g.products.length > 0);
 
-  useEffect(() => { document.title = "Pricing — WeFixTrades"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Pricing — simple, transparent, built for trades"
+        description="Mix-and-match pricing for WeFixTrades calculators, AI, SEO, and reputation tools. No contracts. Cancel any month. You own everything you build with us."
+        canonical="/pricing"
+      />
       <V7PageShell>
         <V7Hero
           productName="Pricing"

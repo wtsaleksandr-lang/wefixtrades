@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { Link } from "wouter";
 import gsap from "gsap";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
+import { organizationSchema, websiteSchema } from "@/lib/seo/jsonLd";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 // WorkflowDemo removed in round 8 — covered by AutomationDiagram.
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
@@ -588,9 +590,7 @@ export default function HomePage() {
     return !!(canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl"));
   });
 
-  useEffect(() => {
-    document.title = "WeFixTrades — Trades Businesses Get 3x More Leads";
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   // Hero entrance stagger — Effortel style
   useEffect(() => {
@@ -614,6 +614,22 @@ export default function HomePage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Quote calculators + AI receptionist for trades"
+        description="WeFixTrades gives plumbers, electricians, HVAC, roofers, and trade contractors embeddable quote calculators, 24/7 AI lead handling, Google Maps SEO, and reputation tools — get 3x more leads from the work you already do."
+        canonical="/"
+        ogType="website"
+        keywords={[
+          "trades software",
+          "quote calculator",
+          "plumber crm",
+          "hvac software",
+          "electrician software",
+          "ai receptionist",
+          "google maps seo",
+        ]}
+        jsonLd={[organizationSchema(), websiteSchema()]}
+      />
       <style>{RESPONSIVE_CSS}</style>
 
       {/* Outer page background behind hero shell — kept dark slate so the

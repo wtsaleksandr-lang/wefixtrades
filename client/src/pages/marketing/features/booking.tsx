@@ -1,5 +1,6 @@
 import { Calendar, DollarSign, Bell, Ban, ArrowRight } from "lucide-react";
 import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
 /* ── Mockup ──────────────────────────────────── */
@@ -164,5 +165,15 @@ const config: FeaturePageConfig = {
 };
 
 export default function BookingPage() {
-  return <FeaturePage config={config} />;
+  return (
+    <>
+      <PageMeta
+        title="Booking + deposits — stop losing jobs to no-shows"
+        description="Let customers pick a time slot, pay a deposit, and confirm the booking right from your quote calculator. Cuts no-shows and locks in revenue before the truck rolls."
+        canonical="/features/booking"
+        keywords={["online booking for trades", "deposit collection", "no-show prevention"]}
+      />
+      <FeaturePage config={config} />
+    </>
+  );
 }

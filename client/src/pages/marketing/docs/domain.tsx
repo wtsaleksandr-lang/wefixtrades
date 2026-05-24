@@ -1,11 +1,17 @@
-import { useEffect } from "react";
 import DocsLayout, { Step, CodeBlock, Accordion, InfoBox, DocH2, DocH3, Checklist } from "@/components/marketing/DocsLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function DocsDomain() {
-  useEffect(() => { document.title = "Custom Domain — QuoteQuick™ Docs"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
+    <>
+    <PageMeta
+      title="Custom domain — QuoteQuick docs"
+      description="Point your own domain at your QuoteQuick calculator: DNS records, SSL, redirect handling, and subdomain best practices."
+      canonical="/docs/domain"
+    />
     <DocsLayout
       activeSlug="domain"
       title="Custom Domain"
@@ -102,5 +108,6 @@ TTL:   3600 (or "Auto")`} />
       </InfoBox>
 
     </DocsLayout>
+    </>
   );
 }

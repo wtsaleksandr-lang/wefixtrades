@@ -25,7 +25,7 @@ import { Link, useLocation } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import { mkt, colors } from "@/theme/tokens";
-import { usePageMeta } from "@/lib/usePageMeta";
+import { PageMeta } from "@/components/seo/PageMeta";
 import {
   buildCalculatorFromDemoTemplate,
   type DemoImageTemplate,
@@ -53,12 +53,7 @@ function readFromStorage(sessionId: string): DemoState | null {
 }
 
 export default function BuildWithAiPreview() {
-  usePageMeta({
-    title: "Your AI-Generated Calculator — Preview | WeFixTrades",
-    description:
-      "Preview the calculator AI just built from your invoice. Sign up free to save and customize it.",
-    canonicalPath: "/products/quickquotepro/build-with-ai/preview",
-  });
+  // Title + meta tags handled by <PageMeta> below.
 
   const [, navigate] = useLocation();
   const sessionId = useMemo(() => {
@@ -126,6 +121,12 @@ export default function BuildWithAiPreview() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Your AI-generated calculator — preview"
+        description="Preview the calculator AI just built from your invoice. Sign up free to save and customize it."
+        canonical="/products/quickquotepro/build-with-ai/preview"
+        noIndex
+      />
       <section
         style={{
           background: mkt.bg,

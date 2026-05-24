@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { Mail, Clock, LayoutDashboard, Phone } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -7,7 +8,7 @@ import { mkt, radius } from "@/theme/tokens";
 import { V7Hero, V7Section, V7PageShell } from "@/components/marketing/v7";
 
 export default function ContactPage() {
-  useEffect(() => { document.title = "Contact — WeFixTrades"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   const [form, setForm] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -56,6 +57,12 @@ export default function ContactPage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Contact WeFixTrades — talk to a human about your trade business"
+        description="Reach the WeFixTrades team. We answer pricing, onboarding, integration, and partnership questions for plumbers, electricians, HVAC, roofers, and more — usually within one business day."
+        canonical="/contact"
+        keywords={["contact wefixtrades", "trades software support"]}
+      />
       <V7PageShell data-theme="light">
         <V7Hero
           productName="Contact"

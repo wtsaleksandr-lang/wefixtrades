@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { BookOpen, FileText, Video, Headphones, ArrowUpRight } from "lucide-react";
 import { V7Hero, V7Section, V7Container, V7PageShell, V7FinalCta } from "@/components/marketing/v7";
@@ -193,10 +194,15 @@ function ResourceCard({ cat, i }: { cat: ResourceCategory; i: number }) {
 }
 
 export default function ResourcesPage() {
-  useEffect(() => { document.title = "Resources — WeFixTrades"; }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Resources — guides and answers for trades"
+        description="Guides, tutorials, and answers for trades operators using WeFixTrades. Built for people who learn faster than they read."
+        canonical="/resources"
+      />
       <V7PageShell>
         <V7Hero
           productName="Resources"

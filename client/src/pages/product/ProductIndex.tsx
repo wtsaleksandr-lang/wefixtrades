@@ -5,6 +5,7 @@ import {
   Globe, Shield, Megaphone, Calendar, PenTool,
 } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { V7Hero, V7Section, V7Container, V7PageShell, V7SectionHeading, V7FinalCta } from "@/components/marketing/v7";
 import { Reveal, MONO, TILE } from "@/components/effortel-blocks";
@@ -211,16 +212,16 @@ function ProductGroup({
 }
 
 export default function ProductIndex() {
-  useEffect(() => {
-    document.title = "Products — WeFixTrades | 12 Tools for Trades Businesses";
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) {
-      metaDesc.setAttribute("content", "All 12 WeFixTrades products: instant quotes, 24/7 answering, Google Maps optimization, websites, ads, booking, reviews, and more.");
-    }
-  }, []);
+  // Title + meta tags handled by <PageMeta> below.
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Products — 12 tools for trade businesses"
+        description="All 12 WeFixTrades products: instant quote calculators, 24/7 AI answering, Google Maps optimization, websites, ads, online booking, review tools, and more."
+        canonical="/products"
+        keywords={["wefixtrades products", "trades software suite"]}
+      />
       <V7PageShell>
         <V7Hero
           productName="All Products"
