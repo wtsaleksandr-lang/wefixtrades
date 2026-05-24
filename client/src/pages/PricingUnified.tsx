@@ -1458,7 +1458,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
         <V7Hero
           productName="Pricing"
           eyebrow="Pick what you need. Cancel any month."
-          headline={<>Simple, transparent pricing.<br/><span style={{ color: mkt.accent }}>Built for trades.</span></>}
+          headline={<>One job pays for the system.<br/><span style={{ color: mkt.accent }}>Pick what you need — cancel any month.</span></>}
           sub="No contracts. No setup gotchas. You own everything you build with us."
         />
       <div style={{ paddingBottom: 80 }}>

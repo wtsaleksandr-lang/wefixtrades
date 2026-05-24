@@ -345,10 +345,10 @@ export default function ServicesPage() {
       <V7PageShell>
       <div data-testid="services-page">
         <V7Hero
-          productName="Done-For-You Services"
+          productName="Growth Services"
           eyebrow="You handle the trade. We handle the rest."
-          headline={<>Growth services<br/><span style={{ color: mkt.accent }}>delivered, not DIY.</span></>}
-          sub="We install, configure, and operate every tool for you. Real humans you can reach, fixed monthly fees."
+          headline={<>Real humans,<br/><span style={{ color: mkt.accent }}>not a dashboard.</span></>}
+          sub="We install, configure, and operate every tool for you. Reach a real person, fixed monthly fees, cancel any month."
         />
 
         <div style={s.servicesSection}>

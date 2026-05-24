@@ -308,7 +308,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
   {
     slug: "socialsync",
     name: "SocialSync\u2122",
-    shortTagline: "Done-For-You Social Media Posting",
+    shortTagline: "Stay on customers' feeds without thinking about it",
     seoTitle: "SocialSync\u2122 \u2014 Social Media Posting for Trades | WeFixTrades",
     seoDescription: "Stay active online without doing it yourself. We create and post content across Facebook, Instagram, and Google \u2014 so you stay visible and trusted.",
     category: "growth",
@@ -404,7 +404,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
   {
     slug: "rankflow",
     name: "RankFlow\u2122",
-    shortTagline: "Done-for-You Local SEO",
+    shortTagline: "Climb Google's local results — every month, on a schedule",
     seoTitle: "RankFlow\u2122 — Done-for-You Local SEO for Trades | WeFixTrades",
     seoDescription: "Done-for-you local SEO for trades businesses. We handle keyword targeting, page optimization, local listings, and monthly progress reporting so you can focus on jobs.",
     category: "growth",

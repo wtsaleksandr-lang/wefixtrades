@@ -961,7 +961,7 @@ export function MapSnapshotShell({
           textAlign: "center",
         }}
       >
-        Used by 2,400+ trade businesses to fix their Google Maps ranking
+        ★★★★★ Built for plumbers, electricians, HVAC, roofers, and cleaners
       </div>
 
       <div style={{ padding: "24px 20px 100px" }}>
