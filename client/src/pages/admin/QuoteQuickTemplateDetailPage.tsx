@@ -41,6 +41,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Plus, Trash2, RotateCcw, Save, Archive, ArchiveRestore,
+  Monitor, Smartphone,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -299,9 +300,6 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
           {/* Live preview */}
           <div>
             <div className="sticky top-4">
-              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Live preview
-              </div>
               <LivePreview config={debouncedDraft ?? draft} />
             </div>
           </div>
@@ -1035,9 +1033,33 @@ function MetaTab({
   );
 }
 
-/* ─── Live preview ─── */
+/* ─── Live preview ───
+ *
+ * W-AQ-prev — premium preview surface.
+ *
+ *  - Desktop / Mobile pill toggle. Mobile pins the canvas to 375px wide
+ *    (iPhone-class viewport); desktop lets the canvas expand to the
+ *    natural width of the editor's right rail. Width transitions in
+ *    300ms ease so the swap feels intentional, not a jump.
+ *  - Fully interactive: the user can step through pages, fill fields,
+ *    tweak sliders. No `pointer-events: none` wrapper. Submissions are
+ *    locally mocked: `window.fetch` calls to `/api/leads` issued from
+ *    inside the preview pane are intercepted and a toast fires instead
+ *    of the real POST.
+ *  - Adaptive canvas: the wrapper is `height: auto` and scrolls only
+ *    when the rendered widget exceeds the viewport. No letterboxing.
+ */
+
+const PREVIEW_VIEWPORTS = {
+  desktop: undefined as number | undefined,
+  mobile: 375,
+} as const;
+type PreviewViewport = keyof typeof PREVIEW_VIEWPORTS;
 
 function LivePreview({ config }: { config: TemplateConfig }) {
+  const [viewport, setViewport] = useState<PreviewViewport>("desktop");
+  const { toast } = useToast();
+
   // Build the AdvancedConfigShape and shield the renderer behind a try/catch
   // so a half-typed formula doesn't blank the whole page.
   let advanced;
@@ -1051,23 +1073,128 @@ function LivePreview({ config }: { config: TemplateConfig }) {
     );
   }
 
+  // Intercept lead-capture POSTs that originate from anywhere on this admin
+  // page while the preview is mounted. The interception is scoped to known
+  // demo endpoints (`/api/leads`) — every other request flows through to
+  // the real fetch (so TanStack Query etc. keep working). When a match
+  // fires, we resolve a synthetic 200 OK and surface a toast.
+  useEffect(() => {
+    const realFetch = window.fetch.bind(window);
+    const DEMO_PATHS = ["/api/leads"];
+
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      try {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input instanceof Request
+                ? input.url
+                : "";
+        const isDemo =
+          (init?.method ?? "GET").toUpperCase() === "POST" &&
+          DEMO_PATHS.some((p) => url.includes(p));
+        if (isDemo) {
+          toast({
+            title: "Demo mode",
+            description: "This is a template preview — no lead was sent.",
+          });
+          return Promise.resolve(
+            new Response(JSON.stringify({ ok: true, demo: true }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }),
+          );
+        }
+      } catch {
+        // fall through to the real fetch on any introspection error
+      }
+      return realFetch(input as RequestInfo, init);
+    };
+
+    return () => {
+      window.fetch = realFetch;
+    };
+  }, [toast]);
+
+  const widthPx = PREVIEW_VIEWPORTS[viewport];
+  const widthStyle: React.CSSProperties =
+    widthPx !== undefined
+      ? { width: widthPx, maxWidth: "100%" }
+      : { width: "100%", maxWidth: "100%" };
+
   return (
-    <Card className="p-2 overflow-hidden">
-      <PreviewBoundary>
+    <Card className="overflow-hidden bg-white">
+      {/* Header — help cue top-left (DESIGN-SYSTEM Rule 4), toggle top-right */}
+      <div className="flex items-start justify-between gap-2 px-3 pt-3">
+        <div>
+          <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+            Live preview
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            Fully interactive — submissions are mocked
+          </p>
+        </div>
+        <div
+          className="inline-flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-md shrink-0"
+          role="group"
+          aria-label="Preview viewport size"
+        >
+          <button
+            type="button"
+            onClick={() => setViewport("desktop")}
+            aria-pressed={viewport === "desktop"}
+            className={`px-2 h-7 rounded text-xs inline-flex items-center gap-1 transition-colors ${
+              viewport === "desktop"
+                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            data-testid="preview-viewport-desktop"
+            title="Desktop preview"
+          >
+            <Monitor className="w-3.5 h-3.5" /> Desktop
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewport("mobile")}
+            aria-pressed={viewport === "mobile"}
+            className={`px-2 h-7 rounded text-xs inline-flex items-center gap-1 transition-colors ${
+              viewport === "mobile"
+                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            data-testid="preview-viewport-mobile"
+            title="Mobile preview (375px)"
+          >
+            <Smartphone className="w-3.5 h-3.5" /> Mobile
+          </button>
+        </div>
+      </div>
+
+      {/* Canvas — scrolls only if the widget exceeds the viewport height. */}
+      <div
+        className="bg-gray-50 border-t border-gray-200 mt-3 p-3 flex justify-center"
+        style={{ maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}
+      >
         <div
           style={{
-            width: 380, maxWidth: "100%", height: 500,
-            overflow: "auto", pointerEvents: "none",
-            transformOrigin: "top left",
+            ...widthStyle,
+            transition: "width 300ms ease",
           }}
-          aria-label="Template preview (read-only)"
+          className="bg-background rounded-md border border-gray-200 shadow-sm overflow-hidden"
+          aria-label="Template preview (interactive demo)"
+          data-testid="quotequick-template-preview"
+          data-viewport={viewport}
         >
-          <AdvancedCalculator
-            businessName="Preview"
-            advanced={advanced}
-          />
+          <PreviewBoundary>
+            <AdvancedCalculator
+              businessName="Preview"
+              advanced={advanced}
+            />
+          </PreviewBoundary>
         </div>
-      </PreviewBoundary>
+      </div>
     </Card>
   );
 }
