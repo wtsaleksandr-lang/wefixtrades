@@ -151,7 +151,7 @@ export default function PortalTradelineKnowledgePage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-indigo-600" /> Knowledge Base
+              <BookOpen className="w-6 h-6 text-brand-blue" /> Knowledge Base
             </h1>
             <p className="text-sm text-gray-600 mt-1">
               Anything you add here is read by your AI receptionist on every call and chat.
@@ -205,10 +205,10 @@ export default function PortalTradelineKnowledgePage() {
                       <div className="text-sm text-gray-700 mt-1 whitespace-pre-wrap line-clamp-3">{entry.content}</div>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <Button size="icon" variant="ghost" disabled={idx === 0} onClick={() => move(entry.id, -1)}>
+                      <Button size="icon" variant="ghost" disabled={idx === 0} onClick={() => move(entry.id, -1)} aria-label={`Move ${entry.title} up`}>
                         <ArrowUp className="w-4 h-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" disabled={idx === grouped[k].length - 1} onClick={() => move(entry.id, 1)}>
+                      <Button size="icon" variant="ghost" disabled={idx === grouped[k].length - 1} onClick={() => move(entry.id, 1)} aria-label={`Move ${entry.title} down`}>
                         <ArrowDown className="w-4 h-4" />
                       </Button>
                     </div>
@@ -217,7 +217,7 @@ export default function PortalTradelineKnowledgePage() {
                     <Button size="sm" variant="outline" onClick={() => { setEditing(entry); setCreating(false); }}>
                       Edit
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => archiveMut.mutate(entry.id)}>
+                    <Button size="sm" variant="ghost" onClick={() => archiveMut.mutate(entry.id)} aria-label={`Archive ${entry.title}`}>
                       <Trash2 className="w-3 h-3 mr-1" /> Archive
                     </Button>
                   </div>
@@ -284,7 +284,7 @@ export default function PortalTradelineKnowledgePage() {
               </div>
             )}
             <DialogFooter>
-              <Button variant="ghost" onClick={() => { setEditing(null); setCreating(false); }}><X className="w-4 h-4 mr-1" /> Cancel</Button>
+              <Button variant="ghost" onClick={() => { setEditing(null); setCreating(false); }} aria-label="Cancel and close dialog"><X className="w-4 h-4 mr-1" /> Cancel</Button>
               <Button onClick={() => editing && saveMut.mutate(editing)} disabled={saveMut.isPending}>
                 <Save className="w-4 h-4 mr-1" /> Save
               </Button>
