@@ -45,6 +45,7 @@ import { initScheduler } from "./jobs/scheduler";
 import { pool } from "./db";
 import { setupPassport, impersonationMiddleware } from "./auth";
 import { createLogger } from "./lib/logger";
+import { requestId } from "./middleware/requestId";
 
 const logger = createLogger("Server");
 
@@ -165,6 +166,23 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+/* ─── Global request-id correlation ───
+ *
+ * PR #730 audit follow-up: requestId was previously only mounted on
+ * /api/v1/* via server/routes/apiV1/index.ts. Promote it site-wide so
+ * EVERY route (admin, portal, embed, marketing, error responses) gets
+ * an X-Request-Id header and `req.requestId` is always populated for
+ * the error-envelope sanitizer below to surface in 5xx responses.
+ *
+ * Mounted before everything else (security headers, body parsers,
+ * session, request logger) so an id exists for every downstream log
+ * line and error path — including failures inside body parsing.
+ * The apiV1 router still mounts the same middleware idempotently;
+ * the second call is a no-op because we honor inbound X-Request-Id
+ * (which we just set ourselves).
+ */
+app.use(requestId);
 
 /* ─── Security headers (helmet) ───
  *
@@ -554,17 +572,79 @@ app.use((req, res, next) => {
     Sentry.setupExpressErrorHandler(app);
   }
 
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  /* ─── Error envelope (PR #730 audit fix) ───
+   *
+   * Prior behavior leaked `err.message` raw in production responses —
+   * a real leak vector for DB constraint names, file paths, and stack
+   * fragments. Now:
+   *   - prod: generic message + stable `error_code` categorical
+   *   - dev:  raw `err.message` preserved for debugging
+   *   - always: `requestId` echoed in the body AND the X-Request-Id
+   *     response header (re-set defensively in case earlier middleware
+   *     dropped it) so support can correlate with Sentry.
+   *
+   * `error_code` is derived from the error's status / explicit `.code`
+   * so clients can branch on it without parsing prose. Keep this list
+   * coarse — it's a stable contract surface.
+   */
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const isProd = process.env.NODE_ENV === "production";
 
-    logger.error("Internal Server Error", { error: String(err) });
+    // requestId is guaranteed by the global mount near the top of this
+    // file, but synthesize a fallback so a misconfigured deploy can't
+    // ever produce a 5xx without a correlation handle.
+    const rid =
+      (req as any).requestId ||
+      `req_err_${Date.now().toString(36)}`;
+
+    const errorCode: string =
+      typeof err?.code === "string" && err.code.length > 0
+        ? err.code
+        : status >= 500
+        ? "internal_error"
+        : status === 404
+        ? "not_found"
+        : status === 403
+        ? "forbidden"
+        : status === 401
+        ? "unauthorized"
+        : status === 429
+        ? "rate_limited"
+        : status >= 400
+        ? "bad_request"
+        : "error";
+
+    // Log the raw error server-side regardless of env — Sentry + our
+    // logs are where the diagnostic detail lives; the wire body is not.
+    logger.error("Request failed", {
+      requestId: rid,
+      status,
+      errorCode,
+      error: String(err),
+      stack: err?.stack,
+    });
 
     if (res.headersSent) {
       return next(err);
     }
 
-    return res.status(status).json({ message });
+    // Defensive: ensure the header is present even if a downstream
+    // handler stripped it before erroring.
+    if (!res.getHeader("X-Request-Id")) {
+      res.setHeader("X-Request-Id", rid);
+    }
+
+    const safeMessage =
+      isProd && status >= 500
+        ? "An unexpected error occurred. Please try again or contact support."
+        : err.message || "Internal Server Error";
+
+    return res.status(status).json({
+      message: safeMessage,
+      error_code: errorCode,
+      request_id: rid,
+    });
   });
 
   /* Server-side admin convenience redirect.

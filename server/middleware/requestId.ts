@@ -24,6 +24,17 @@ declare global {
 const ID_PATTERN = /^[A-Za-z0-9_-]{8,80}$/;
 
 export function requestId(req: Request, res: Response, next: NextFunction): void {
+  // Idempotent: if a prior mount of this same middleware already tagged
+  // the request, keep the existing id so the apiV1 router's local mount
+  // (kept for backward compatibility) doesn't clobber the global one
+  // and break customer-quoted ids mid-stack. PR #730 audit follow-up.
+  if (req.requestId) {
+    if (!res.getHeader("X-Request-Id")) {
+      res.setHeader("X-Request-Id", req.requestId);
+    }
+    return next();
+  }
+
   const inbound = req.get("x-request-id");
   let id: string;
   if (inbound && ID_PATTERN.test(inbound)) {
