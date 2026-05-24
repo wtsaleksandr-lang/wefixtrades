@@ -1,4 +1,5 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, json, boolean, uuid, index, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, date, jsonb, json, boolean, uuid, index, uniqueIndex, numeric } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -64,15 +65,30 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
  * Every "view as customer" session is logged here. Active sessions have
  * ended_at IS NULL; the session middleware enforces a 60-minute cap from
  * started_at. Used by the banner + the cross-cutting audit log reader. */
-export const adminImpersonations = pgTable("admin_impersonations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  admin_user_id: integer("admin_user_id").notNull().references(() => users.id),
-  target_user_id: integer("target_user_id").notNull().references(() => users.id),
-  started_at: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
-  ended_at: timestamp("ended_at", { withTimezone: true }),
-  admin_ip: text("admin_ip"),
-  reason: text("reason"),
-});
+export const adminImpersonations = pgTable(
+  "admin_impersonations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Migration 0039 uses ON DELETE RESTRICT — match it so drizzle-kit push
+    // doesn't propose to drop+recreate the FK constraint with NO ACTION.
+    admin_user_id: integer("admin_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    target_user_id: integer("target_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    started_at: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    ended_at: timestamp("ended_at", { withTimezone: true }),
+    admin_ip: text("admin_ip"),
+    reason: text("reason"),
+  },
+  (t) => ({
+    // Names + shape must match migrations/0039_admin_impersonations.sql.
+    // Without these declarations drizzle-kit push proposes DROP INDEX for
+    // indexes the migration created but the schema doesn't know about.
+    adminIdx: index("admin_impersonations_admin_idx").on(t.admin_user_id),
+    targetIdx: index("admin_impersonations_target_idx").on(t.target_user_id),
+    activeIdx: index("admin_impersonations_active_idx")
+      .on(t.ended_at)
+      .where(sql`${t.ended_at} IS NULL`),
+  }),
+);
 export type AdminImpersonation = typeof adminImpersonations.$inferSelect;
 
 /* ─── Calculators ─── */
@@ -935,40 +951,49 @@ export type BookflowAppointment = typeof bookflowAppointments.$inferSelect;
  * pay_link_token is a unique token for the public /pay/:token page.
  *
  * ─────────────────────────────────────────────────────────────────── */
-export const bookflowInvoices = pgTable("bookflow_invoices", {
-  id: serial("id").primaryKey(),
-  client_id: integer("client_id").notNull(),
-  appointment_id: integer("appointment_id"),
-  customer_name: text("customer_name").notNull(),
-  customer_email: text("customer_email"),
-  customer_phone: text("customer_phone"),
-  line_items: jsonb("line_items").notNull(), // [{ description, quantity, unit_price_cents }]
-  subtotal_cents: integer("subtotal_cents").notNull(),
-  tax_cents: integer("tax_cents").default(0),
-  total_cents: integer("total_cents").notNull(),
-  status: text("status").default("draft"),
-  // "draft" | "sent" | "viewed" | "paid" | "overdue" | "cancelled"
-  due_date: timestamp("due_date"),
-  paid_at: timestamp("paid_at"),
-  payment_method: text("payment_method"),
-  // "stripe" | "cash" | "check" | "other"
-  stripe_payment_intent_id: text("stripe_payment_intent_id"),
-  invoice_number: text("invoice_number"),
-  notes: text("notes"),
-  pay_link_token: text("pay_link_token").unique(),
-  metadata: jsonb("metadata"),
-  // 0042 — invoice template + currency (label-only) + issue_date + linked contact.
-  currency: text("currency").notNull().default("USD"),
-  issue_date: timestamp("issue_date", { mode: "date" }),
-  template_slug: text("template_slug"),
-  // contact_id is a UUID FK to contacts(id) — surfaced as text() so this file
-  // can stay free of the contacts import (drizzle treats text() and uuid()
-  // identically at the column level for FK purposes; the migration installs
-  // the actual UUID + ON DELETE SET NULL constraint).
-  contact_id: text("contact_id"),
-  created_at: timestamp("created_at").defaultNow(),
-  updated_at: timestamp("updated_at").defaultNow(),
-});
+export const bookflowInvoices = pgTable(
+  "bookflow_invoices",
+  {
+    id: serial("id").primaryKey(),
+    client_id: integer("client_id").notNull(),
+    appointment_id: integer("appointment_id"),
+    customer_name: text("customer_name").notNull(),
+    customer_email: text("customer_email"),
+    customer_phone: text("customer_phone"),
+    line_items: jsonb("line_items").notNull(), // [{ description, quantity, unit_price_cents }]
+    subtotal_cents: integer("subtotal_cents").notNull(),
+    tax_cents: integer("tax_cents").default(0),
+    total_cents: integer("total_cents").notNull(),
+    status: text("status").default("draft"),
+    // "draft" | "sent" | "viewed" | "paid" | "overdue" | "cancelled"
+    due_date: timestamp("due_date"),
+    paid_at: timestamp("paid_at"),
+    payment_method: text("payment_method"),
+    // "stripe" | "cash" | "check" | "other"
+    stripe_payment_intent_id: text("stripe_payment_intent_id"),
+    invoice_number: text("invoice_number"),
+    notes: text("notes"),
+    pay_link_token: text("pay_link_token").unique(),
+    metadata: jsonb("metadata"),
+    // 0042 — invoice template + currency (label-only) + issue_date + linked contact.
+    currency: text("currency").notNull().default("USD"),
+    // Migration declares this as DATE (not TIMESTAMP). Using `date()` column
+    // type is required so drizzle-kit push doesn't propose ALTER COLUMN TYPE.
+    issue_date: date("issue_date"),
+    template_slug: text("template_slug"),
+    // contact_id is a UUID FK to contacts(id). Migration creates as UUID with
+    // REFERENCES contacts(id) ON DELETE SET NULL. Using `uuid()` to match the
+    // physical column type so drizzle-kit push doesn't propose to alter it.
+    contact_id: uuid("contact_id"),
+    created_at: timestamp("created_at").defaultNow(),
+    updated_at: timestamp("updated_at").defaultNow(),
+  },
+  (t) => ({
+    // Must match migrations/0042_invoice_templates_and_contacts_billing.sql:
+    //   CREATE INDEX bookflow_invoices_contact_idx ON bookflow_invoices(contact_id).
+    contactIdx: index("bookflow_invoices_contact_idx").on(t.contact_id),
+  }),
+);
 
 export const insertBookflowInvoiceSchema = createInsertSchema(bookflowInvoices).omit({
   id: true, created_at: true, updated_at: true,
@@ -990,21 +1015,32 @@ export type BookflowInvoice = typeof bookflowInvoices.$inferSelect;
  * Renderers consume the object so adding a Phase-B builtin is mostly JSON,
  * not new TSX files.
  * ─────────────────────────────────────────────────────────────────── */
-export const invoiceTemplates = pgTable("invoice_templates", {
-  // UUID stored as text() to keep this file free of the uuid() import dance —
-  // the migration creates the column as UUID + gen_random_uuid().
-  id: text("id").primaryKey(),
-  // NULL for builtins (shared across all clients); NOT NULL for custom rows
-  // owned by one client.
-  client_id: integer("client_id"),
-  // "builtin" | "custom"
-  kind: text("kind").notNull(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull(),
-  layout_config: jsonb("layout_config").notNull().default({}),
-  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const invoiceTemplates = pgTable(
+  "invoice_templates",
+  {
+    // Migration creates the column as UUID DEFAULT gen_random_uuid() — match
+    // that exactly so drizzle-kit push doesn't propose ALTER COLUMN TYPE.
+    id: uuid("id").primaryKey().defaultRandom(),
+    // NULL for builtins (shared across all clients); NOT NULL for custom rows
+    // owned by one client.
+    client_id: integer("client_id"),
+    // "builtin" | "custom"
+    kind: text("kind").notNull(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    layout_config: jsonb("layout_config").notNull().default({}),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Names + shape must match migrations/0042_invoice_templates_and_contacts_billing.sql.
+    clientIdx: index("invoice_templates_client_idx").on(t.client_id),
+    // Slug is globally unique for builtins only — partial unique index.
+    builtinSlugIdx: uniqueIndex("invoice_templates_builtin_slug_idx")
+      .on(t.slug)
+      .where(sql`${t.client_id} IS NULL`),
+  }),
+);
 export type InvoiceTemplate = typeof invoiceTemplates.$inferSelect;
 export const insertInvoiceTemplateSchema = createInsertSchema(invoiceTemplates).omit({
   id: true, created_at: true, updated_at: true,
