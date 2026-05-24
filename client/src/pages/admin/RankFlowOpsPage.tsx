@@ -5,12 +5,14 @@ import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { AdminProductPageShell, type ProductStats } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Users, AlertTriangle, DollarSign, XCircle, TrendingDown, ShieldCheck,
-  Package, ChevronRight,
+  Package, ChevronRight, RotateCw,
 } from "lucide-react";
 
 const PRODUCT_ID = "rankflow";
@@ -147,7 +149,7 @@ export default function RankFlowOpsPage() {
     },
   });
 
-  const { data, isLoading } = useQuery<OpsOverview>({
+  const { data, isLoading, isError, refetch } = useQuery<OpsOverview>({
     queryKey: ["/api/rankflow/ops/overview"],
     queryFn: async () => {
       const res = await fetch("/api/rankflow/ops/overview", { credentials: "include" });
@@ -203,8 +205,42 @@ export default function RankFlowOpsPage() {
       )}
 
       {/* ─── Client List ─── */}
-      {isLoading ? (
-        <Card className="p-8 text-center text-sm text-gray-400">Loading...</Card>
+      {isError ? (
+        <Card className="p-6 border-red-200 bg-red-50/50">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Couldn't load RankFlow overview</p>
+              <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry
+            </Button>
+          </div>
+        </Card>
+      ) : isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                  <div className="flex gap-4">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </div>
+                <Skeleton className="h-4 w-4 rounded" />
+              </div>
+            </Card>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <Card className="p-8 text-center text-sm text-gray-400">No clients match this filter.</Card>
       ) : (

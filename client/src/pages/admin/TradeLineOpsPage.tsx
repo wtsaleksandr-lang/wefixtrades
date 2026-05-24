@@ -6,8 +6,9 @@ import { AdminProductPageShell, type ProductStats } from "@/components/admin/Adm
 import AppetizeEmbed from "@/components/admin/AppetizeEmbed";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
-import { Loader2, AlertTriangle, Phone, RefreshCw, XCircle, ChevronDown } from "lucide-react";
+import { Loader2, AlertTriangle, Phone, RefreshCw, XCircle, ChevronDown, RotateCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import AiResponseRating from "@/components/ai/AiResponseRating";
@@ -28,9 +29,36 @@ function AssistantStatusBadge({ status }: { status: string }) { const s: Record<
 
 function CallsTab() {
   const [expandedCallId, setExpandedCallId] = useState<number | null>(null);
-  const { data: callsData, isLoading } = useQuery<{ calls: CallRow[]; total: number }>({ queryKey: ["/api/admin/crm/tradeline/calls"], queryFn: async () => { const res = await fetch("/api/admin/crm/tradeline/calls?limit=50", { credentials: "include" }); if (!res.ok) throw new Error("Failed"); return res.json(); } });
+  const { data: callsData, isLoading, isError, refetch } = useQuery<{ calls: CallRow[]; total: number }>({ queryKey: ["/api/admin/crm/tradeline/calls"], queryFn: async () => { const res = await fetch("/api/admin/crm/tradeline/calls?limit=50", { credentials: "include" }); if (!res.ok) throw new Error("Failed"); return res.json(); } });
   const { data: callDetail } = useQuery<{ call: CallRow }>({ queryKey: ["/api/admin/crm/tradeline/calls", expandedCallId], queryFn: async () => { const res = await fetch(`/api/admin/crm/tradeline/calls/${expandedCallId}`, { credentials: "include" }); if (!res.ok) throw new Error("Failed"); return res.json(); }, enabled: !!expandedCallId });
-  if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+  if (isError) return (
+    <Card className="p-6 border-red-200 bg-red-50/50">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-red-800">Couldn't load TradeLine calls</p>
+          <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()}><RotateCw className="w-3.5 h-3.5 mr-1.5" />Retry</Button>
+      </div>
+    </Card>
+  );
+  if (isLoading) return (
+    <Card className="overflow-hidden">
+      <div className="divide-y divide-gray-100">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="px-4 py-3 grid grid-cols-6 gap-2 items-center">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
   const calls = callsData?.calls ?? [];
   if (!calls.length) return <Card className="p-12 text-center"><Phone className="w-10 h-10 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No TradeLine calls recorded yet.</p></Card>;
   return (
@@ -41,7 +69,7 @@ function CallsTab() {
 function FleetTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: fleet, isLoading } = useQuery<FleetRow[]>({ queryKey: ["/api/admin/crm/tradeline/fleet"], queryFn: async () => { const res = await fetch("/api/admin/crm/tradeline/fleet", { credentials: "include" }); if (!res.ok) throw new Error("Failed"); return res.json(); } });
+  const { data: fleet, isLoading, isError, refetch } = useQuery<FleetRow[]>({ queryKey: ["/api/admin/crm/tradeline/fleet"], queryFn: async () => { const res = await fetch("/api/admin/crm/tradeline/fleet", { credentials: "include" }); if (!res.ok) throw new Error("Failed"); return res.json(); } });
   const rebuildMutation = useMutation({
     mutationFn: async (csId: number) => {
       // fetch directly so we can read the structured error envelope from the server.
@@ -85,7 +113,35 @@ function FleetTab() {
         <StatCard label="Disabled" value={<span className="font-mono">{disabledCount}</span>} />
       </StatCardGrid>
       <div className="flex items-center justify-end gap-2 text-sm text-gray-500"><Phone className="w-4 h-4"/><span>{fleet?.length??0} services</span></div>
-      {isLoading&&<div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400"/></div>}
+      {isError && (
+        <Card className="p-6 border-red-200 bg-red-50/50">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Couldn't load TradeLine fleet</p>
+              <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()}><RotateCw className="w-3.5 h-3.5 mr-1.5" />Retry</Button>
+          </div>
+        </Card>
+      )}
+      {isLoading && (
+        <Card className="overflow-hidden">
+          <div className="divide-y divide-gray-100">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="px-4 py-3 grid grid-cols-7 gap-2 items-center">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-12 ml-auto" />
+                <Skeleton className="h-7 w-16 ml-auto" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
       {failedItems.length>0&&(<Card className="border-red-200 bg-red-50/50 p-4"><div className="flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-red-600"/><h2 className="text-sm font-semibold text-red-800">Attention Required ({failedItems.length})</h2></div><div className="space-y-2">{failedItems.map(row=>(<div key={row.clientServiceId} className="flex items-center justify-between bg-white border border-red-100 rounded-lg px-4 py-3"><div className="flex items-center gap-3"><span className="font-medium text-sm text-gray-900">{row.businessName}</span><AssistantStatusBadge status={row.assistantStatus}/>{row.failedCalls24h>0&&<span className="text-xs text-red-600 font-medium">{row.failedCalls24h} failed call{row.failedCalls24h>1?"s":""} (24h)</span>}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={()=>rebuildMutation.mutate(row.clientServiceId)} disabled={rebuildMutation.isPending}><RefreshCw className="w-3.5 h-3.5 mr-1"/>Rebuild</Button><Button variant="destructive" size="sm" onClick={()=>disableMutation.mutate(row.clientServiceId)} disabled={disableMutation.isPending}><XCircle className="w-3.5 h-3.5 mr-1"/>Disable</Button></div></div>))}</div></Card>)}
       {!isLoading&&activeItems.length>0&&(<Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-gray-50/80"><th className="text-left px-4 py-3 font-medium text-gray-600">Client</th><th className="text-left px-4 py-3 font-medium text-gray-600">Variant</th><th className="text-left px-4 py-3 font-medium text-gray-600">Mode</th><th className="text-left px-4 py-3 font-medium text-gray-600">Assistant</th><th className="text-left px-4 py-3 font-medium text-gray-600">Last Call</th><th className="text-right px-4 py-3 font-medium text-gray-600">Minutes</th><th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th></tr></thead><tbody className="divide-y divide-gray-100">{activeItems.map(row=>(<tr key={row.clientServiceId} className="hover:bg-gray-50/50"><td className="px-4 py-3 font-medium text-gray-900">{row.businessName}</td><td className="px-4 py-3"><VariantBadge variant={row.variant}/></td><td className="px-4 py-3"><ModeBadge mode={row.mode}/></td><td className="px-4 py-3"><AssistantStatusBadge status={row.assistantStatus}/></td><td className="px-4 py-3 text-gray-500">{relativeTime(row.lastCallAt)}</td><td className="px-4 py-3 text-right text-gray-700 font-mono">{row.periodMinutes}</td><td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" onClick={()=>rebuildMutation.mutate(row.clientServiceId)} disabled={rebuildMutation.isPending} title="Rebuild"><RefreshCw className="w-3.5 h-3.5"/></Button><Button variant="ghost" size="sm" onClick={()=>disableMutation.mutate(row.clientServiceId)} disabled={disableMutation.isPending} title="Disable" className="text-red-500 hover:text-red-700 hover:bg-red-50"><XCircle className="w-3.5 h-3.5"/></Button></div></td></tr>))}</tbody></table></div></Card>)}
       {!isLoading&&(!fleet||fleet.length===0)&&<Card className="p-12 text-center"><Phone className="w-10 h-10 text-gray-300 mx-auto mb-3"/><p className="text-gray-500">No TradeLine services found.</p></Card>}

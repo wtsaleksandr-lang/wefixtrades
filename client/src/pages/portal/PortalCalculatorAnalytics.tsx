@@ -15,6 +15,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import PortalLayout from '@/components/portal/PortalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, RotateCw } from 'lucide-react';
 
 interface DailyPoint {
   date: string;
@@ -154,7 +157,7 @@ export default function PortalCalculatorAnalytics() {
   const calculatorId = params?.id;
   usePageTitle('Calculator Analytics');
 
-  const { data, isLoading, isError, error } = useQuery<AnalyticsResponse>({
+  const { data, isLoading, isError, error, refetch } = useQuery<AnalyticsResponse>({
     queryKey: ['portal-calc-analytics', calculatorId],
     queryFn: async () => {
       const res = await fetch(`/api/portal/calculators/${calculatorId}/analytics?days=30`, {
@@ -190,9 +193,62 @@ export default function PortalCalculatorAnalytics() {
         </div>
 
         {isLoading && (
-          <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>
-            Loading analytics…
-          </div>
+          <>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 16,
+                marginBottom: 24,
+              }}
+            >
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    background: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 12,
+                    padding: '18px 20px',
+                  }}
+                >
+                  <Skeleton className="h-3 w-16 mb-2" />
+                  <Skeleton className="h-7 w-24 mb-2" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              ))}
+            </div>
+            <div
+              style={{
+                background: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: 12,
+                padding: 20,
+                marginBottom: 24,
+              }}
+            >
+              <Skeleton className="h-4 w-40 mb-3" />
+              <Skeleton className="h-48 w-full" />
+            </div>
+            <div
+              style={{
+                background: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: 12,
+                padding: 20,
+              }}
+            >
+              <Skeleton className="h-4 w-40 mb-3" />
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex justify-between">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-12" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         )}
 
         {isError && (
@@ -202,11 +258,22 @@ export default function PortalCalculatorAnalytics() {
               background: '#fef2f2',
               border: '1px solid #fecaca',
               borderRadius: 8,
-              color: '#7f1d1d',
-              fontSize: 14,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12,
             }}
           >
-            Could not load analytics: {(error as Error)?.message ?? 'unknown error'}
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Couldn't load calculator analytics</p>
+              <p className="text-xs text-red-700 mt-1">
+                {(error as Error)?.message ?? 'Check your connection and try again.'}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry
+            </Button>
           </div>
         )}
 
