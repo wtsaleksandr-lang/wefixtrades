@@ -1,12 +1,24 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { z } from "zod";
+import * as Sentry from "@sentry/node";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
 import { buildHostedUrl } from "@shared/slugUtils";
 import { createLogger } from "../lib/logger";
 import { emitApiWebhookEvent } from "../services/apiWebhookDispatcher";
+import {
+  leadsSubmissionRateLimiter,
+  leadsIpRateLimiter,
+  LEADS_RATE_LIMIT_WINDOW_MS,
+} from "../services/rateLimiter";
 
 const log = createLogger("Leads");
+
+function getClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
+    || req.ip
+    || "unknown";
+}
 
 const createLeadBody = z.object({
   calculator_id: z.number().int().positive(),
@@ -26,13 +38,32 @@ const createLeadBody = z.object({
   utm_source: z.string().nullable().optional(),
   utm_medium: z.string().nullable().optional(),
   utm_campaign: z.string().nullable().optional(),
+  // Honeypot — bots tend to fill every visible field; humans never see this
+  // (rendered off-screen with tabIndex={-1}). Server rejects silently when
+  // non-empty. Loose schema so a string OR null OR omitted all work.
+  company_site: z.string().nullable().optional(),
 });
 
 const leadsQuery = z.object({ token: z.string().min(1) });
 
-// Simple in-memory dedup: calculator_id + email/phone → last submit timestamp
+/**
+ * Simple in-memory dedup: calculator_id + email/phone → last submit timestamp.
+ *
+ * MULTI-POD GAP (PR #724 P1): this Map is per-process. A multi-pod deploy
+ * lets a duplicate submission slip through if it lands on a different pod
+ * than the first. Today we run single-pod on Replit, but if/when we scale
+ * out the dedup MUST move to Redis (24h TTL via SET NX EX), gated on
+ * `process.env.REDIS_URL`. The `rateLimiter.ts` module already documents
+ * the same Redis migration pattern.
+ *
+ * Until then, we emit a Sentry warning the first time a single pod's dedup
+ * map crosses 100 live entries — that's the early signal that traffic has
+ * scaled past what an in-memory Map can safely cover.
+ */
 const recentSubmissions = new Map<string, number>();
 const DEDUP_WINDOW_MS = 10_000; // 10 seconds
+const DEDUP_MAP_WARN_THRESHOLD = 100;
+let dedupWarnEmitted = false;
 
 function isDuplicateSubmission(calculatorId: number, email: string | null, phone: string | null): boolean {
   const key = `${calculatorId}:${email || ''}:${phone || ''}`;
@@ -40,6 +71,22 @@ function isDuplicateSubmission(calculatorId: number, email: string | null, phone
   const last = recentSubmissions.get(key);
   if (last && now - last < DEDUP_WINDOW_MS) return true;
   recentSubmissions.set(key, now);
+
+  // Early-warning signal: in-memory dedup is reaching scale where multi-pod
+  // gap becomes a real concern. Fire once per process to avoid noise.
+  if (!dedupWarnEmitted && recentSubmissions.size > DEDUP_MAP_WARN_THRESHOLD) {
+    dedupWarnEmitted = true;
+    try {
+      Sentry.captureMessage(
+        `[leads] in-memory dedup Map exceeded ${DEDUP_MAP_WARN_THRESHOLD} entries — multi-pod deploy would bypass dedup. Migrate to Redis (set REDIS_URL).`,
+        "warning",
+      );
+    } catch {
+      // Sentry not initialised in some test envs — fall back to logger
+      log.warn(`[leads] dedup Map size=${recentSubmissions.size} crossed warn threshold`);
+    }
+  }
+
   // Prune old entries periodically
   if (recentSubmissions.size > 5000) {
     for (const [k, v] of recentSubmissions) {
@@ -205,6 +252,33 @@ export function registerLeadRoutes(app: Express): void {
       const parsed = createLeadBody.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+      }
+
+      // ── Honeypot ──────────────────────────────────────────────────────────
+      // Bots tend to fill every field; legit users never see `company_site`.
+      // Return 200 with a success-looking shape so the bot doesn't learn the
+      // trap exists, but skip every side-effect (no DB write, no follow-ups,
+      // no analytics, no webhook). Note this happens BEFORE the rate-limit
+      // checks so honeypot hits don't even count toward the limiter buckets.
+      const honeypot = (parsed.data.company_site || '').trim();
+      if (honeypot) {
+        log.warn(`[leads] honeypot triggered ip=${getClientIp(req)} calc=${parsed.data.calculator_id} len=${honeypot.length}`);
+        return res.json({ success: true, lead: { id: 0 } });
+      }
+
+      // ── Rate limit ────────────────────────────────────────────────────────
+      // Two layers: per-IP + per-calculator (20/hr) AND per-IP overall
+      // (60/hr) to catch a bot rotating calculator_ids from one source.
+      const clientIp = getClientIp(req);
+      const calcKey = `leads:${clientIp}:${parsed.data.calculator_id}`;
+      const ipKey = `leads:ip:${clientIp}`;
+      const calcOk = await leadsSubmissionRateLimiter.check(calcKey);
+      const ipOk = await leadsIpRateLimiter.check(ipKey);
+      if (!calcOk || !ipOk) {
+        res.setHeader("Retry-After", String(Math.ceil(LEADS_RATE_LIMIT_WINDOW_MS / 1000)));
+        return res.status(429).json({
+          error: "Too many submissions from this source. Please try again later.",
+        });
       }
 
       // Sanitize: trim strings
