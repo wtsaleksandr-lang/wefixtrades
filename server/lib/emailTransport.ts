@@ -5,6 +5,28 @@ import { createLogger } from "./logger";
 
 const log = createLogger("EmailTransport");
 
+/**
+ * Marker URL fragment that buildLegalFooter() emits when called with
+ * `marketing: true` (the unsubscribe link). If the rendered HTML contains
+ * this fragment we know the message is marketing-class and must carry the
+ * RFC 8058 List-Unsubscribe + One-Click POST headers — Gmail / Yahoo /
+ * Apple require these on bulk mail since Feb 2024 or the message is
+ * flagged as spam.
+ */
+const UNSUBSCRIBE_URL_FRAGMENT = "/api/unsubscribe/";
+
+/**
+ * Extracts the absolute unsubscribe URL embedded in the email footer (if
+ * any). Returns null for transactional mail that doesn't carry one.
+ */
+function extractUnsubscribeUrl(html: string | undefined): string | null {
+  if (!html) return null;
+  // Look for href="https://.../api/unsubscribe/<token>"
+  const re = /href="(https?:\/\/[^"]+\/api\/unsubscribe\/[^"]+)"/i;
+  const match = html.match(re);
+  return match ? match[1] : null;
+}
+
 let cached: Transporter | null = null;
 
 /**
@@ -87,13 +109,32 @@ export function getEmailTransporter(): Transporter | null {
         ? injectTracking(mailOpts.html, { emailId, baseUrl })
         : mailOpts.html;
 
+      /* ── List-Unsubscribe auto-injection (RFC 8058 + Gmail/Yahoo 2024) ──
+         If the rendered HTML carries a /api/unsubscribe/<token> link (which
+         buildLegalFooter() emits when `marketing: true`), promote it to the
+         List-Unsubscribe + List-Unsubscribe-Post headers so mailbox providers
+         render their native one-click unsubscribe UI and don't mark us as
+         spam. Transactional mail without that footer link skips this.
+         Callers may also opt-in explicitly by setting a header beginning
+         with the URL fragment. Existing headers are not overridden. */
+      const callerHeaders = (mailOpts.headers || {}) as Record<string, string>;
+      const headers: Record<string, string> = {
+        ...callerHeaders,
+        "X-WeFixTrades-Email-Id": emailId,
+      };
+      if (!headers["List-Unsubscribe"] && trackedHtml && typeof trackedHtml === "string"
+          && trackedHtml.includes(UNSUBSCRIBE_URL_FRAGMENT)) {
+        const unsubUrl = extractUnsubscribeUrl(trackedHtml);
+        if (unsubUrl) {
+          headers["List-Unsubscribe"] = `<${unsubUrl}>`;
+          headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+        }
+      }
+
       const enrichedOpts = {
         ...mailOpts,
         html: trackedHtml,
-        headers: {
-          ...(mailOpts.headers || {}),
-          "X-WeFixTrades-Email-Id": emailId,
-        },
+        headers,
       };
 
       log.info(`[email-tracking] sent email_id=${emailId} to=${mailOpts.to}`);
