@@ -2,7 +2,9 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Loader2, ChevronRight, MessageSquare } from "lucide-react";
+import { ChevronRight, MessageSquare, AlertTriangle, RotateCw } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import ListSearchAndFilters from "@/components/admin/ListSearchAndFilters";
 import { useListUrlState } from "@/components/admin/useListUrlState";
 
@@ -133,7 +135,7 @@ export default function SupportInboxPage() {
     },
   });
 
-  const { data: ticketData, isLoading } = useQuery<{ tickets: TicketRow[] }>({
+  const { data: ticketData, isLoading, isError, refetch } = useQuery<{ tickets: TicketRow[] }>({
     queryKey: ["/api/admin/crm/support/tickets", statusFilter, priorityFilter, categoryFilter, search],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -231,10 +233,34 @@ export default function SupportInboxPage() {
         />
 
         {/* Ticket list */}
+        {isError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Couldn't load support tickets</p>
+              <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry
+            </Button>
+          </div>
+        )}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+            <div className="divide-y divide-gray-50">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="px-5 py-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-1/3" />
+                      <Skeleton className="h-3 w-3/4" />
+                    </div>
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : tickets.length === 0 ? (
             <div className="text-center py-16">

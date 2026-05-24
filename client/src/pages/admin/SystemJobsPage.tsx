@@ -2,8 +2,9 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { Fragment, useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
-  Loader2,
   Search,
   ChevronDown,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   XCircle,
   Activity,
   Timer,
+  RotateCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -154,6 +156,7 @@ export default function SystemJobsPage() {
   const {
     data: jobsData,
     isLoading: jobsLoading,
+    isError: jobsError,
     refetch: refetchJobs,
   } = useQuery<JobListResponse>({
     queryKey: ["/api/admin/system/jobs", jobName, status, fromDate, toDate, offset],
@@ -324,11 +327,35 @@ export default function SystemJobsPage() {
           </div>
         </div>
 
+        {/* Error */}
+        {jobsError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Couldn't load job logs</p>
+              <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetchJobs()}>
+              <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Table */}
         <div className="bg-white rounded-lg border overflow-hidden">
           {jobsLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <div className="divide-y divide-gray-100">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="px-4 py-3 flex items-center gap-4">
+                  <Skeleton className="h-3.5 w-3.5 rounded" />
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-3 w-14" />
+                  <Skeleton className="h-3 w-48 ml-auto" />
+                </div>
+              ))}
             </div>
           ) : (
             <>

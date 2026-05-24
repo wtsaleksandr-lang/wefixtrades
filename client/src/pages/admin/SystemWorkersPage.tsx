@@ -2,6 +2,8 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   Loader2,
   RefreshCw,
@@ -15,6 +17,7 @@ import {
   Activity,
   Zap,
   Server,
+  RotateCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -269,6 +272,7 @@ export default function SystemWorkersPage() {
   const {
     data: workersData,
     isLoading,
+    isError,
     refetch,
   } = useQuery<WorkersResponse>({
     queryKey: ["/api/admin/system/workers"],
@@ -376,10 +380,43 @@ export default function SystemWorkersPage() {
           </div>
         )}
 
+        {/* Error */}
+        {isError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Couldn't load worker status</p>
+              <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Worker grid */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-lg border p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="w-2.5 h-2.5 rounded-full" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+                <div className="flex items-center gap-2 pt-3 border-t">
+                  <Skeleton className="h-6 w-20 rounded" />
+                  <Skeleton className="h-6 w-16 rounded ml-auto" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

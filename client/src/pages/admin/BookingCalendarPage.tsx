@@ -4,7 +4,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Link as LinkIcon, Loader2, Plus, Trash2, RefreshCw, ExternalLink, ChevronDown, Info } from "lucide-react";
+import { CalendarDays, Link as LinkIcon, Loader2, Plus, Trash2, RefreshCw, ExternalLink, ChevronDown, Info, AlertTriangle, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -96,8 +96,8 @@ export default function BookingCalendarPage() {
   const qc = useQueryClient(); const { toast } = useToast(); const [connectOpen, setConnectOpen] = useState(false);
   /** Connection pending disconnection — drives the shared <ConfirmDialog>. */
   const [pendingDisconnect, setPendingDisconnect] = useState<CalendarConnection | null>(null);
-  const { data: conns, isLoading: cl } = useQuery<CalendarConnection[]>({ queryKey: ["/api/admin/booking/connections"], queryFn: async () => { const r = await apiRequest("GET", "/api/admin/booking/connections"); const d = await r.json(); return d.connections; } });
-  const { data: bk, isLoading: bl } = useQuery<{ data: BookingRow[]; total: number }>({ queryKey: ["/api/admin/booking/recent"] });
+  const { data: conns, isLoading: cl, isError: cErr, refetch: cRefetch } = useQuery<CalendarConnection[]>({ queryKey: ["/api/admin/booking/connections"], queryFn: async () => { const r = await apiRequest("GET", "/api/admin/booking/connections"); const d = await r.json(); return d.connections; } });
+  const { data: bk, isLoading: bl, isError: bErr, refetch: bRefetch } = useQuery<{ data: BookingRow[]; total: number }>({ queryKey: ["/api/admin/booking/recent"] });
   const testM = useMutation({ mutationFn: async (id: number) => { const r = await apiRequest("POST", `/api/admin/booking/connections/${id}/test`); return r.json(); }, onSuccess: (d: any) => { toast({ title: "Works", description: `${d.slots?.length || 0} slots` }); }, onError: () => { toast({ title: "Test failed", variant: "destructive" }); } });
   const delM = useMutation({ mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/admin/booking/connections/${id}`); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: "Disconnected" }); } });
   const acceptingM = useMutation({ mutationFn: async ({ id, metadata, accepting }: { id: number; metadata: Record<string, any> | null | undefined; accepting: boolean }) => { await apiRequest("PATCH", `/api/admin/booking/connections/${id}`, { metadata: { ...(metadata || {}), accepting_bookings: accepting } }); }, onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: v.accepting ? "Accepting bookings" : "Bookings paused" }); }, onError: () => { toast({ title: "Update failed", variant: "destructive" }); } });
@@ -110,7 +110,19 @@ export default function BookingCalendarPage() {
           <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="connections">Connections</TabsTrigger><TabsTrigger value="hours">Working Hours</TabsTrigger><TabsTrigger value="bookings">Bookings</TabsTrigger></TabsList>
           <TabsContent value="connections" className="space-y-4">
             <div className="flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">Calendar Connections</h2><Button size="sm" onClick={() => setConnectOpen(true)} className="bg-brand-blue hover:bg-brand-blue-600 gap-1.5"><Plus className="w-3.5 h-3.5" />Connect</Button></div>
-            {cl ? <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => (
+            {cErr ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-800">Couldn't load calendar connections</p>
+                  <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => cRefetch()}>
+                  <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+                  Retry
+                </Button>
+              </div>
+            ) : cl ? <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
                 <div className="flex items-center gap-3">
                   <Skeleton className="w-8 h-8 rounded-lg" />
@@ -143,7 +155,26 @@ export default function BookingCalendarPage() {
           <TabsContent value="hours" className="space-y-4"><h2 className="text-base font-semibold text-gray-900">Working Hours</h2><HoursEditor /></TabsContent>
           <TabsContent value="bookings" className="space-y-4">
             <h2 className="text-base font-semibold text-gray-900">Recent Bookings</h2>
-            {bl ? <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+            {bErr ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-800">Couldn't load recent bookings</p>
+                  <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => bRefetch()}>
+                  <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+                  Retry
+                </Button>
+              </div>
+            ) : bl ? <div className="rounded-xl border border-gray-200 overflow-hidden"><div className="divide-y divide-gray-100">{Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="px-4 py-3 flex items-center gap-4">
+                  <Skeleton className="h-9 w-16" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24 hidden sm:block" />
+                  <Skeleton className="h-5 w-20 rounded-full ml-auto" />
+                </div>
+              ))}</div></div>
             : !bk?.data?.length ? <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center"><CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-3" /><p className="text-sm text-gray-600">No bookings yet</p></div>
             : <div className="rounded-xl border border-gray-200 overflow-hidden"><table className="w-full text-sm"><thead><tr className="bg-gray-50 border-b"><th className="text-left px-4 py-3 font-medium text-gray-500">Date</th><th className="text-left px-4 py-3 font-medium text-gray-500">Customer</th><th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Phone</th><th className="text-left px-4 py-3 font-medium text-gray-500">Status</th></tr></thead>
               <tbody className="divide-y divide-gray-100">{bk.data.map((b) => (

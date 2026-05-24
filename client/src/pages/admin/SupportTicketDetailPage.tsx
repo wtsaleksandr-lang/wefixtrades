@@ -2,7 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Loader2, ArrowLeft, Send, Eye, EyeOff } from "lucide-react";
+import { Loader2, ArrowLeft, Send, Eye, EyeOff, AlertTriangle, RotateCw } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
 /* ─── Types ─── */
@@ -95,7 +97,7 @@ export default function SupportTicketDetailPage() {
   const endRef = useRef<HTMLDivElement>(null);
 
   // Fetch ticket + messages
-  const { data, isLoading } = useQuery<{ ticket: TicketDetail; messages: TicketMessage[] }>({
+  const { data, isLoading, isError, refetch } = useQuery<{ ticket: TicketDetail; messages: TicketMessage[] }>({
     queryKey: ["/api/admin/crm/support/tickets", ticketId],
     queryFn: async () => {
       const res = await fetch(`/api/admin/crm/support/tickets/${ticketId}`, { credentials: "include" });
@@ -191,9 +193,44 @@ export default function SupportTicketDetailPage() {
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Tickets
         </Link>
 
+        {isError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 mb-4">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Couldn't load this ticket</p>
+              <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry
+            </Button>
+          </div>
+        )}
+
         {isLoading && (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 space-y-2">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="space-y-1.5">
+                    <Skeleton className="h-12 w-full rounded-lg" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-9 w-full rounded-lg" />
+                <Skeleton className="h-9 w-full rounded-lg" />
+                <Skeleton className="h-9 w-full rounded-lg" />
+              </div>
+            </div>
           </div>
         )}
 

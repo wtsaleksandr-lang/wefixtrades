@@ -27,7 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ShieldAlert, Check, X, Power } from "lucide-react";
+import { ShieldAlert, Check, X, Power, AlertTriangle, RotateCw } from "lucide-react";
 import AiResponseRating from "@/components/ai/AiResponseRating";
 
 const UNLOCK_THRESHOLD = 3;
@@ -98,7 +98,7 @@ export default function AdminAiActivityPage() {
   const [statusFilter, setStatusFilter] = useState<string>("");
 
   const listKey = ["/api/admin/ai-activity", statusFilter];
-  const { data, isLoading } = useQuery<ListResponse>({
+  const { data, isLoading, isError, refetch } = useQuery<ListResponse>({
     queryKey: listKey,
     queryFn: async () => {
       const qs = statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : "";
@@ -212,6 +212,22 @@ export default function AdminAiActivityPage() {
           </Card>
         )}
 
+        {isError && (
+          <Card className="p-4 border-red-200 bg-red-50/50">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800">Couldn't load AI activity</p>
+                <p className="text-xs text-red-700 mt-1">Check your connection and try again.</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RotateCw className="w-3.5 h-3.5 mr-1.5" />
+                Retry
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* Budget meter */}
         <Card className="p-4 space-y-2" data-testid="card-budget">
           <div className="flex items-baseline justify-between">
@@ -282,7 +298,13 @@ export default function AdminAiActivityPage() {
         {/* Pending review */}
         <Card className="p-4 space-y-3" data-testid="card-pending">
           <h2 className="text-lg font-medium">Pending review ({pending.length})</h2>
-          {isLoading && <Skeleton className="h-16" />}
+          {isLoading && (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full rounded" />
+              ))}
+            </div>
+          )}
           {!isLoading && pending.length === 0 && (
             <p className="text-sm text-muted-foreground">No pending actions — the AI is idle.</p>
           )}
