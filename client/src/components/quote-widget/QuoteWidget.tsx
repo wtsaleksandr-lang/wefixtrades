@@ -2,6 +2,7 @@ import { useMemo, useEffect, useRef, Component, type ReactNode } from 'react';
 import { ChevronLeft, ArrowRight, AlertTriangle } from 'lucide-react';
 import WeFixTradesBadge from '@/components/hosted-page/WeFixTradesBadge';
 import { trackEvent } from '@/lib/trackEvent';
+import { ga4Event } from '@/lib/ga4';
 import { validatePricingConfig, CALL_FOR_QUOTE_FALLBACK } from '@shared/pricingConfig';
 import { getTemplateById } from '@shared/templateLibrary';
 import { buildWidgetFlow, type FlowBuilderSettings } from '@shared/widgetFlowBuilder';
@@ -157,6 +158,24 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
       trackEvent("demo_started", { trade: (calculator.slug || "").replace("demo-", "") });
     }
   }, [calculator.id, calculator.slug]);
+
+  // ─── GA4: quote_started ───
+  // Fires once per widget mount for any real (non-preview) calculator —
+  // matches "first interaction" semantically because the widget only
+  // mounts when the user reaches the public calculator page or opens
+  // the embed iframe. Preview (id < 0) and demo (id === 0) are excluded
+  // so test plays don't pollute production funnel numbers.
+  const gaQuoteStartedRef = useRef(false);
+  useEffect(() => {
+    if (gaQuoteStartedRef.current) return;
+    if (!calculator?.id || calculator.id <= 0) return;
+    gaQuoteStartedRef.current = true;
+    ga4Event('quote_started', {
+      calculator_id: calculator.id,
+      calculator_slug: calculator.slug ?? null,
+      embed: isEmbed ? 1 : 0,
+    });
+  }, [calculator?.id, calculator?.slug, isEmbed]);
 
   // Advanced (custom-built) calculator — bypasses the pricing-family flow.
   const advancedConfig = ((calculator.calculator_settings || {}) as any).advanced;

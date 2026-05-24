@@ -348,6 +348,172 @@ function BingAutomationCard() {
   );
 }
 
+/**
+ * Live GA4 card — pulls last-7-day sessions, page views, new users, and
+ * top 5 pages from the Data API (service-account auth, see
+ * server/lib/analytics/ga4DataClient.ts). Refetches every 5 minutes —
+ * GA's reporting pipeline is hours behind real-time anyway so polling
+ * faster than that doesn't buy anything.
+ *
+ * When `configured === false` (no GA4_MEASUREMENT_ID in env) the card
+ * shows a setup hint. When the Data API endpoint 503s (service account
+ * not in Doppler yet) the card shows that explicitly and still surfaces
+ * the "Open GA4" jump link so the operator can navigate manually.
+ */
+interface Ga4SummaryResponse {
+  propertyId: string;
+  measurement_id: string | null;
+  sessions7d: number;
+  pageviews7d: number;
+  newUsers7d: number;
+  topPages: Array<{ path: string; views: number }>;
+  generatedAt: string;
+}
+
+function Ga4Card({
+  configured,
+  measurementId,
+}: {
+  configured: boolean;
+  measurementId: string | null;
+}) {
+  const summary = useQuery<Ga4SummaryResponse>({
+    queryKey: ["/api/admin/seo/ga4/summary"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/seo/ga4/summary", { credentials: "include" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message ?? body.error ?? `ga4 ${res.status}`);
+      }
+      return res.json();
+    },
+    enabled: configured,
+    refetchInterval: 5 * 60_000,
+    retry: 1,
+  });
+
+  const propertyLabel = measurementId ? `wefixtrades-prd (${measurementId})` : "wefixtrades-prd";
+  const connected = configured && summary.isSuccess;
+
+  return (
+    <Card className="border border-slate-200">
+      <CardContent className="p-4 space-y-2">
+        <HelpCue>
+          Last 7 days, served by the GA4 Data API via the WeFixTrades service account.
+          GA's pipeline is hours behind real-time — numbers settle within a day.
+        </HelpCue>
+        <div className="flex items-start gap-3">
+          <TrendingUp className="w-8 h-8 text-orange-600 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-slate-900">Google Analytics 4</h3>
+            <p className="text-sm text-slate-600">
+              Track sessions, conversions, and quote-widget engagement.
+            </p>
+            {connected ? (
+              <p className="text-xs text-emerald-700 mt-1 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Connected — {propertyLabel}
+              </p>
+            ) : configured ? (
+              <p className="text-xs text-amber-700 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Measurement ID set, live summary unavailable
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500 mt-1">
+                Add <code className="font-mono">GA4_MEASUREMENT_ID</code> to Doppler to enable.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Live metrics */}
+        {configured && (
+          <div className="grid grid-cols-3 gap-2 text-sm pt-1">
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="text-xs text-slate-500">Sessions (7d)</div>
+              <div className="font-semibold text-slate-900" data-testid="ga4-sessions-7d">
+                {summary.isLoading
+                  ? "…"
+                  : summary.isError
+                    ? "—"
+                    : summary.data?.sessions7d.toLocaleString() ?? "0"}
+              </div>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="text-xs text-slate-500">Page views (7d)</div>
+              <div className="font-semibold text-slate-900" data-testid="ga4-pageviews-7d">
+                {summary.isLoading
+                  ? "…"
+                  : summary.isError
+                    ? "—"
+                    : summary.data?.pageviews7d.toLocaleString() ?? "0"}
+              </div>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="text-xs text-slate-500">New users (7d)</div>
+              <div className="font-semibold text-slate-900" data-testid="ga4-new-users-7d">
+                {summary.isLoading
+                  ? "…"
+                  : summary.isError
+                    ? "—"
+                    : summary.data?.newUsers7d.toLocaleString() ?? "0"}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Top pages */}
+        {connected && (summary.data?.topPages?.length ?? 0) > 0 && (
+          <div className="pt-1">
+            <h4 className="text-xs font-semibold text-slate-700 mb-1">Top pages (7d)</h4>
+            <ul className="text-xs text-slate-700 space-y-0.5">
+              {summary.data!.topPages.map((p) => (
+                <li key={p.path} className="flex items-center justify-between gap-2">
+                  <span className="truncate max-w-[18rem]">{p.path || "(unset)"}</span>
+                  <span className="font-medium text-slate-900">{p.views.toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Inline error surface — only when there's a config gap */}
+        {configured && summary.isError && (
+          <p className="text-xs text-amber-700">
+            {summary.error instanceof Error ? summary.error.message : "GA4 summary unavailable"}
+          </p>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              window.open("https://analytics.google.com", "_blank", "noopener,noreferrer")
+            }
+            data-testid="open-ga4"
+          >
+            Open GA4 <ExternalLink className="w-3 h-3 ml-1" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              window.open(
+                "https://analytics.google.com/analytics/web/#/p537753613/admin/streams/table/",
+                "_blank",
+                "noopener,noreferrer",
+              )
+            }
+            data-testid="ga4-configuration"
+          >
+            Configuration <ExternalLink className="w-3 h-3 ml-1" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SeoIntegrationsPage() {
   usePageTitle("SEO Integrations");
   const qc = useQueryClient();
@@ -621,47 +787,7 @@ export default function SeoIntegrationsPage() {
           </Card>
 
           {/* GA4 */}
-          <Card className="border border-slate-200">
-            <CardContent className="p-4 space-y-2">
-              <HelpCue>
-                After Google connect, GA4 setup auto-creates the property or wires an existing
-                Measurement ID into every page.
-              </HelpCue>
-              <div className="flex items-start gap-3">
-                <TrendingUp className="w-8 h-8 text-orange-600 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-slate-900">Google Analytics 4</h3>
-                  <p className="text-sm text-slate-600">
-                    Track sessions, conversions, and quote-widget engagement.
-                  </p>
-                  {data?.ga4.configured && data.ga4.measurement_id && (
-                    <p className="text-xs text-emerald-700 mt-1 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Measurement ID: {data.ga4.measurement_id}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!data?.google.connected}
-                  onClick={() => {
-                    // For v1: open Google Analytics in a new tab. Programmatic
-                    // creation is wired server-side via POST /api/admin/integrations/ga4/setup;
-                    // a follow-on PR adds the form UI.
-                    window.open("https://analytics.google.com", "_blank", "noopener,noreferrer");
-                  }}
-                  data-testid="open-ga4"
-                >
-                  Open GA4 <ExternalLink className="w-3 h-3 ml-1" />
-                </Button>
-              </div>
-              {!data?.google.connected && (
-                <p className="text-xs text-slate-500">Connect Google first to enable GA4 setup.</p>
-              )}
-            </CardContent>
-          </Card>
+          <Ga4Card configured={Boolean(data?.ga4.configured)} measurementId={data?.ga4.measurement_id ?? null} />
 
           {/* GBP */}
           <Card className="border border-slate-200">

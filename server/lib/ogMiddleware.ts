@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import { createLogger } from "./logger";
+import { addGtagToHtml } from "./gtagMiddleware";
 
 const log = createLogger("OGMiddleware");
 
@@ -95,6 +96,8 @@ export function ogTagMiddleware(getHtml: () => Promise<string>) {
       // Replace existing <title> if present, or inject before </head>
       html = html.replace(/<title>[^<]*<\/title>/, "");
       html = html.replace("</head>", `    ${metaTags}\n  </head>`);
+      // Pick up gtag too so the audit-report share link is tracked.
+      html = addGtagToHtml(html);
 
       return res.status(200).set({ "Content-Type": "text/html" }).send(html);
     } catch (err) {

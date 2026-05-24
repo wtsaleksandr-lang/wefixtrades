@@ -1,8 +1,10 @@
+import { useEffect, useRef } from 'react';
 import { CheckCircle2, ArrowRight, Search, CircleCheck } from 'lucide-react';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle } from '../designTokens';
 import NextStepSuggestions from '@/components/marketing/NextStepSuggestions';
 import { trackEvent } from '@/lib/trackEvent';
+import { ga4Event } from '@/lib/ga4';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface ConfirmationStepProps {
@@ -20,6 +22,22 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
   const leadSubmitted = state.lead.submitted;
   const bookingConfirmed = state.booking.confirmed;
   const bookingData = state.booking.data;
+
+  // ─── GA4: quote_completed ───
+  // The Confirmation step is the only success terminus of the widget flow,
+  // so mounting it == quote delivered. Demo + preview calcs are excluded so
+  // the funnel reflects real customers only.
+  const gaQuoteCompletedRef = useRef(false);
+  useEffect(() => {
+    if (gaQuoteCompletedRef.current) return;
+    if (isDemo || (config.calculator.id ?? 0) <= 0) return;
+    gaQuoteCompletedRef.current = true;
+    ga4Event('quote_completed', {
+      calculator_id: config.calculator.id,
+      calculator_slug: config.calculator.slug ?? null,
+      booking_confirmed: bookingConfirmed ? 1 : 0,
+    });
+  }, [isDemo, config.calculator.id, config.calculator.slug, bookingConfirmed]);
 
   return (
     <div data-theme="light" style={{ textAlign: 'center', padding: '8px 0' }}>

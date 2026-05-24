@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
 import { ogTagMiddleware } from "./lib/ogMiddleware";
+import { gtagMiddleware, addGtagToHtml } from "./lib/gtagMiddleware";
 
 const viteLogger = createLogger();
 
@@ -39,36 +40,30 @@ export async function setupVite(server: Server, app: Express) {
     "client",
     "index.html",
   );
-  app.use(
-    ogTagMiddleware(async () => {
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-      return await vite.transformIndexHtml("/", template);
-    })
-  );
+  const renderShell = async (url: string) => {
+    let template = await fs.promises.readFile(clientTemplate, "utf-8");
+    template = template.replace(
+      `src="/src/main.tsx"`,
+      `src="/src/main.tsx?v=${nanoid()}"`,
+    );
+    return await vite.transformIndexHtml(url, template);
+  };
+
+  app.use(ogTagMiddleware(() => renderShell("/")));
+
+  // gtag head injection — no-op in dev (NODE_ENV !== 'production') so this
+  // is structurally inert here, but registering it keeps dev and prod
+  // pipelines mirror-image. Lives ahead of the SPA catch-all.
+  app.use(gtagMiddleware(() => renderShell("/")));
 
   app.use("/{*path}", async (req, res, next) => {
     const url = req.originalUrl;
 
     try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html",
-      );
-
-      // always reload the index.html file from disk incase it changes
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      const page = await renderShell(url);
+      // addGtagToHtml is a no-op outside production / without GA4 configured,
+      // so dev keeps the unmodified shell.
+      res.status(200).set({ "Content-Type": "text/html" }).end(addGtagToHtml(page));
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);

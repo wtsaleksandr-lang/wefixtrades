@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -9,6 +9,7 @@ import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import { ga4Event } from "@/lib/ga4";
 
 export default function SignupPage() {
   const [businessName, setBusinessName] = useState("");
@@ -18,6 +19,21 @@ export default function SignupPage() {
   const [phone, setPhone] = useState("");
   const [, navigate] = useLocation();
   usePageTitle("Create Free Account");
+
+  // ─── GA4: signup_started ───
+  // Fires once on page mount; we count "page reached" as the funnel-top
+  // signal. A second event would fire on first form-field interaction —
+  // the page-mount signal is plenty for measuring drop-off from /pricing
+  // → /signup → portal handoff.
+  const gaSignupStartedRef = useRef(false);
+  useEffect(() => {
+    if (gaSignupStartedRef.current) return;
+    gaSignupStartedRef.current = true;
+    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    ga4Event("signup_started", {
+      source: params?.get("source") ?? null,
+    });
+  }, []);
 
   /* BI-1 — anonymous AI demo handoff. When the visitor signs up after the
    * /tools/build-with-ai/preview gate, the URL is shaped as

@@ -15,6 +15,7 @@
     "check:migrations": "node scripts/check-migrations-safe.mjs",
     "check:migration-safety": "node scripts/check-migration-safety.mjs",
     "check:no-db-push-in-prod": "node scripts/check-no-db-push-in-prod.mjs",
+    "check:no-mp-secret-in-client": "node scripts/check-no-mp-secret-in-client.mjs",
     "check:schema-drift": "node scripts/check-schema-drift.mjs",
     "check:database-url": "node scripts/check-database-url.mjs",
     "smoke:quick": "tsx script/smoke.ts",
