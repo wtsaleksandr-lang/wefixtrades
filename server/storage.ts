@@ -35,9 +35,6 @@ type User, type InsertUser,
   suppliers, fulfillmentTasks, onboardingSubmissions, onboardingTemplates,
   clientPayments, internalNotes, adminActivityLog,
   serviceTaskTemplates,
-  // TradeLine
-  tradelineUsage, tradelineCallLog, tradelineModeLog,
-  tradelineConfigSchema,
   type Client, type InsertClient,
   type ClientService, type InsertClientService,
   type ServiceCatalogRow, type InsertServiceCatalog,
@@ -71,10 +68,11 @@ type User, type InsertUser,
   reviewRequestSuppression, reviewResponseEdits,
   googleBusinessLocations,
   type GoogleLocation, type InsertGoogleLocation,
+  // TradeLine types (table objects + Insert types moved with impl to ./storage/tradeline.ts)
   type TradelineConfig,
-  type TradelineUsage, type InsertTradelineUsage,
+  type TradelineUsage,
   type TradelineCallLog, type InsertTradelineCallLog,
-  type TradelineModeLog, type InsertTradelineModeLog,
+  type TradelineModeLog,
   socialsyncProfiles, socialsyncTopics, socialsyncPosts,
   socialsyncPublishQueue, socialsyncActivityLogs, socialsyncPlatformConnections,
   type SocialSyncProfile, type InsertSocialSyncProfile,
@@ -122,31 +120,18 @@ import * as billingImpl from "./storage/billing";
 import * as socialsyncImpl from "./storage/socialsync";
 import * as reviewsImpl from "./storage/reviews";
 import * as calendarImpl from "./storage/calendar";
+import * as usersImpl from "./storage/users";
+import * as clientsImpl from "./storage/clients";
+import * as productsImpl from "./storage/products";
+import * as tradelineImpl from "./storage/tradeline";
 import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
 import { createLogger } from "./lib/logger";
 import { kickoffMapguardService } from "./services/mapguardTaskEngine";
-import { extractPlaceId } from "@shared/utils/googlePlaceId";
 import { fireSetupCompletionUpsell } from "./services/mapguardUpsell";
 
-/**
- * Normalise a client write that may set google_place_id from a pasted
- * Google Maps URL. Mutates a shallow copy and never throws.
- *  - Clean ChIJ id → kept verbatim
- *  - Maps URL with `place_id:` param or data-segment hex pair → cleaned
- *  - Short / CID / unrecognised URLs → kept as-is so the value isn't
- *    silently dropped; downstream API calls will surface the error.
- */
-function sanitizeClientPlaceId<T extends { google_place_id?: string | null }>(data: T): T {
-  if (!data || typeof data.google_place_id !== "string") return data;
-  const { placeId, reason } = extractPlaceId(data.google_place_id);
-  if (placeId && placeId !== data.google_place_id) {
-    return { ...data, google_place_id: placeId };
-  }
-  if (!placeId && reason && reason !== "already_clean" && reason !== "empty") {
-    log.warn(`[storage] google_place_id appears malformed (reason=${reason}); storing as-provided`);
-  }
-  return data;
-}
+import type { ProductStats } from "./storage/products";
+// Re-export ProductStats so external consumers can still `import { ProductStats } from "../storage"`.
+export type { ProductStats };
 
 const log = createLogger("Storage");
 
@@ -203,19 +188,6 @@ export interface WebCareOpsRow {
   content_automation: { last_published_at: string | null; published_this_month: number } | null;
   /** Last downtime alert sent (4h cooldown marker from health worker). */
   last_downtime_alert_at: string | null;
-}
-
-/* Q-shell: per-product KPI rollup returned by getProductStats(). Drives the
-   4-card KPI strip on <AdminProductPageShell>. Aggregations come from
-   client_services rows filtered by service_id. churn_rate_30d is
-   cancellations / (active + cancellations) over the last 30 days. */
-export interface ProductStats {
-  mrr_cents: number;
-  active_subs: number;
-  paused_subs: number;
-  cancelled_30d: number;
-  new_subs_30d: number;
-  churn_rate_30d: number;
 }
 
 export interface IStorage {
@@ -1460,40 +1432,14 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  /* ─── User methods ─── */
-  async createUser(data: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(data).returning();
-    return user;
-  }
-
-  async getUserById(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
-    return user;
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    return user;
-  }
-
-  async getUserByGoogleSub(googleSub: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.google_sub, googleSub)).limit(1);
-    return user;
-  }
-
-  async updateUser(id: number, updates: Partial<Pick<InsertUser, 'name' | 'email' | 'role'>>): Promise<User | undefined> {
-    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
-    return user;
-  }
-
-  async listUsers(limit = 50, offset = 0): Promise<User[]> {
-    return db.select().from(users).orderBy(desc(users.created_at)).limit(limit).offset(offset);
-  }
-
-  async getUserCount(): Promise<number> {
-    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(users);
-    return row?.total ?? 0;
-  }
+  /* ─── User methods (impl in ./storage/users.ts) ─── */
+  createUser(data: InsertUser): Promise<User> { return usersImpl.createUser(data); }
+  getUserById(id: number): Promise<User | undefined> { return usersImpl.getUserById(id); }
+  getUserByEmail(email: string): Promise<User | undefined> { return usersImpl.getUserByEmail(email); }
+  getUserByGoogleSub(googleSub: string): Promise<User | undefined> { return usersImpl.getUserByGoogleSub(googleSub); }
+  updateUser(id: number, updates: Partial<Pick<InsertUser, 'name' | 'email' | 'role'>>): Promise<User | undefined> { return usersImpl.updateUser(id, updates); }
+  listUsers(limit = 50, offset = 0): Promise<User[]> { return usersImpl.listUsers(limit, offset); }
+  getUserCount(): Promise<number> { return usersImpl.getUserCount(); }
 
   /**
    * Ensure the client has a portal login. If one already exists, returns it.
@@ -1582,181 +1528,24 @@ export class DatabaseStorage implements IStorage {
   // Admin CRM Methods
   // ═══════════════════════════════════════════════
 
-  // ─── Clients ───
-  async listClients(opts: { search?: string; status?: string; limit?: number; offset?: number } = {}): Promise<Client[]> {
-    const { search, status, limit = 50, offset = 0 } = opts;
-    const conditions = [];
-    if (status) conditions.push(eq(clients.status, status));
-    if (search) {
-      conditions.push(or(
-        ilike(clients.business_name, `%${search}%`),
-        ilike(clients.contact_name, `%${search}%`),
-        ilike(clients.contact_email, `%${search}%`),
-      ));
-    }
-    const where = conditions.length ? and(...conditions) : undefined;
-    return db.select().from(clients).where(where).orderBy(desc(clients.created_at)).limit(limit).offset(offset);
-  }
+  // ─── Clients (impl in ./storage/clients.ts) ───
+  listClients(opts: { search?: string; status?: string; limit?: number; offset?: number } = {}): Promise<Client[]> { return clientsImpl.listClients(opts); }
+  getClientById(id: number): Promise<Client | undefined> { return clientsImpl.getClientById(id); }
+  createClient(data: InsertClient): Promise<Client> { return clientsImpl.createClient(data); }
+  updateClient(id: number, updates: Partial<InsertClient>): Promise<Client | undefined> { return clientsImpl.updateClient(id, updates); }
+  getClientCount(status?: string): Promise<number> { return clientsImpl.getClientCount(status); }
 
-  async getClientById(id: number): Promise<Client | undefined> {
-    const [row] = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
-    return row;
-  }
+  // ─── Service Catalog (impl in ./storage/products.ts) ───
+  listServiceCatalog(): Promise<ServiceCatalogRow[]> { return productsImpl.listServiceCatalog(); }
+  upsertServiceCatalog(data: InsertServiceCatalog): Promise<ServiceCatalogRow> { return productsImpl.upsertServiceCatalog(data); }
+  updateServiceCatalog(id: string, updates: Partial<InsertServiceCatalog>): Promise<ServiceCatalogRow | undefined> { return productsImpl.updateServiceCatalog(id, updates); }
+  listServicesWithClientCounts(): Promise<(ServiceCatalogRow & { active_client_count: number })[]> { return productsImpl.listServicesWithClientCounts(); }
+  getProductStats(serviceId: string): Promise<ProductStats> { return productsImpl.getProductStats(serviceId); }
 
-  async createClient(data: InsertClient): Promise<Client> {
-    const sanitized = sanitizeClientPlaceId(data);
-    const [row] = await db.insert(clients).values(sanitized).returning();
-    return row;
-  }
-
-  async updateClient(id: number, updates: Partial<InsertClient>): Promise<Client | undefined> {
-    const sanitized = sanitizeClientPlaceId(updates);
-    const [row] = await db.update(clients).set({ ...sanitized, updated_at: new Date() }).where(eq(clients.id, id)).returning();
-    return row;
-  }
-
-  async getClientCount(status?: string): Promise<number> {
-    const where = status ? eq(clients.status, status) : undefined;
-    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(clients).where(where);
-    return row?.total ?? 0;
-  }
-
-  // ─── Service Catalog ───
-  async listServiceCatalog(): Promise<ServiceCatalogRow[]> {
-    return db.select().from(serviceCatalog).orderBy(serviceCatalog.sort_order);
-  }
-
-  async upsertServiceCatalog(data: InsertServiceCatalog): Promise<ServiceCatalogRow> {
-    const [row] = await db.insert(serviceCatalog).values(data)
-      .onConflictDoUpdate({ target: serviceCatalog.id, set: { ...data, updated_at: new Date() } })
-      .returning();
-    return row;
-  }
-
-  async updateServiceCatalog(id: string, updates: Partial<InsertServiceCatalog>): Promise<ServiceCatalogRow | undefined> {
-    const [row] = await db.update(serviceCatalog)
-      .set({ ...updates, updated_at: new Date() })
-      .where(eq(serviceCatalog.id, id))
-      .returning();
-    return row;
-  }
-
-  async listServicesWithClientCounts(): Promise<(ServiceCatalogRow & { active_client_count: number })[]> {
-    const rows = await db.select({
-      id: serviceCatalog.id,
-      name: serviceCatalog.name,
-      tagline: serviceCatalog.tagline,
-      description: serviceCatalog.description,
-      category: serviceCatalog.category,
-      default_price: serviceCatalog.default_price,
-      billing_period: serviceCatalog.billing_period,
-      delivery_pattern: serviceCatalog.delivery_pattern,
-      is_active: serviceCatalog.is_active,
-      hidden: serviceCatalog.hidden,
-      stripe_product_id: serviceCatalog.stripe_product_id,
-      stripe_price_id: serviceCatalog.stripe_price_id,
-      stripe_yearly_price_id: serviceCatalog.stripe_yearly_price_id,
-      cost_amount: serviceCatalog.cost_amount,
-      cost_type: serviceCatalog.cost_type,
-      sort_order: serviceCatalog.sort_order,
-      created_at: serviceCatalog.created_at,
-      updated_at: serviceCatalog.updated_at,
-      active_client_count: sql<number>`count(case when ${clientServices.status} = 'active' then 1 end)::int`,
-    })
-    .from(serviceCatalog)
-    .leftJoin(clientServices, eq(serviceCatalog.id, clientServices.service_id))
-    .groupBy(serviceCatalog.id)
-    .orderBy(serviceCatalog.sort_order);
-    return rows as any;
-  }
-
-  /* Q-shell: per-product KPI rollup. Aggregated from client_services where
-     service_id matches. enabled=false rows are excluded from MRR / active
-     counts so admins toggling a single subscription off don't inflate
-     paused. churn_rate_30d denominator is active + cancelled_30d to avoid
-     division-by-zero and produce a meaningful "of customers who could have
-     churned, this many did" ratio. */
-  async getProductStats(serviceId: string): Promise<ProductStats> {
-    /* Regression-fix (PR fix/admin-stats-cards-loading): service_catalog rows
-       are seeded at tier granularity (e.g. "adflow-starter", "adflow-growth",
-       "adflow-pro") — there is no bare "adflow" row. The shell pages pass the
-       product-family id ("adflow", "contentflow", etc.). Aggregate over any
-       client_services row whose service_id equals the bare id OR starts with
-       `${id}-`. LIKE-escape the bare id so a future product literal like
-       "ad_flow" wouldn't blow up. */
-    const escaped = serviceId.replace(/[%_\\]/g, "\\$&");
-    const prefixPattern = `${escaped}-%`;
-    const result = await db.execute(sql`
-      SELECT
-        COALESCE(SUM(price_cents) FILTER (WHERE status != 'cancelled' AND enabled), 0) AS mrr_cents,
-        COUNT(*) FILTER (WHERE status = 'active' AND enabled) AS active_subs,
-        COUNT(*) FILTER (WHERE status = 'paused' AND enabled) AS paused_subs,
-        COUNT(*) FILTER (WHERE cancelled_at IS NOT NULL AND cancelled_at > NOW() - INTERVAL '30 days') AS cancelled_30d,
-        COUNT(*) FILTER (WHERE started_at IS NOT NULL AND started_at > NOW() - INTERVAL '30 days') AS new_subs_30d
-      FROM client_services
-      WHERE service_id = ${serviceId}
-         OR service_id LIKE ${prefixPattern} ESCAPE '\\'
-    `);
-    const row: any = (result as any).rows?.[0] ?? {};
-    const mrr_cents = Number(row.mrr_cents ?? 0);
-    const active_subs = Number(row.active_subs ?? 0);
-    const paused_subs = Number(row.paused_subs ?? 0);
-    const cancelled_30d = Number(row.cancelled_30d ?? 0);
-    const new_subs_30d = Number(row.new_subs_30d ?? 0);
-    const denom = active_subs + cancelled_30d;
-    const churn_rate_30d = denom > 0 ? cancelled_30d / denom : 0;
-    return { mrr_cents, active_subs, paused_subs, cancelled_30d, new_subs_30d, churn_rate_30d };
-  }
-
-  // ─── Product Drafts (Q28) ───
-
-  async getLatestProductDraft(serviceId: string): Promise<ProductDraft | undefined> {
-    const [row] = await db.select().from(productDrafts)
-      .where(eq(productDrafts.service_id, serviceId))
-      .orderBy(desc(productDrafts.created_at))
-      .limit(1);
-    return row;
-  }
-
-  async upsertProductDraft(data: Omit<InsertProductDraft, "status">): Promise<ProductDraft> {
-    // If there's an existing draft (status='draft'), update it. Otherwise insert new.
-    // Published or rejected drafts are immutable history — a new draft creates a new row.
-    const existing = await this.getLatestProductDraft(data.service_id);
-    if (existing && existing.status === "draft") {
-      const [row] = await db.update(productDrafts)
-        .set({
-          draft_data: data.draft_data,
-          notes: data.notes ?? null,
-          created_by: data.created_by ?? null,
-          created_by_email: data.created_by_email ?? null,
-          updated_at: new Date(),
-        })
-        .where(eq(productDrafts.id, existing.id))
-        .returning();
-      return row;
-    }
-    const [row] = await db.insert(productDrafts).values({
-      ...data,
-      status: "draft",
-    }).returning();
-    return row;
-  }
-
-  /** Multi-approver workflow: idempotent add of an approver to a draft.
-   *  Returns the updated draft. If the user is already in the approvers
-   *  list, the existing entry is preserved (no duplicate). */
-  async addProductDraftApprover(draftId: number, userId: number, email: string | null): Promise<ProductDraft | undefined> {
-    const [existing] = await db.select().from(productDrafts).where(eq(productDrafts.id, draftId)).limit(1);
-    if (!existing) return undefined;
-    const current = (existing.approvers as Array<{ user_id: number; email: string | null; approved_at: string }> | null) ?? [];
-    if (current.some((a) => a.user_id === userId)) return existing;
-    const next = [...current, { user_id: userId, email, approved_at: new Date().toISOString() }];
-    const [row] = await db.update(productDrafts)
-      .set({ approvers: next, updated_at: new Date() })
-      .where(eq(productDrafts.id, draftId))
-      .returning();
-    return row;
-  }
+  // ─── Product Drafts (Q28) — impl in ./storage/products.ts ───
+  getLatestProductDraft(serviceId: string): Promise<ProductDraft | undefined> { return productsImpl.getLatestProductDraft(serviceId); }
+  upsertProductDraft(data: Omit<InsertProductDraft, "status">): Promise<ProductDraft> { return productsImpl.upsertProductDraft(data); }
+  addProductDraftApprover(draftId: number, userId: number, email: string | null): Promise<ProductDraft | undefined> { return productsImpl.addProductDraftApprover(draftId, userId, email); }
 
   async publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<ServiceCatalogRow> {
     // Atomic-ish: update serviceCatalog with draft values, then mark draft as published.
@@ -1951,13 +1740,7 @@ export class DatabaseStorage implements IStorage {
     return updatedRow;
   }
 
-  async rejectProductDraft(draftId: number, rejectedBy: number | null, reason: string | null): Promise<ProductDraft> {
-    const [row] = await db.update(productDrafts)
-      .set({ status: "rejected", rejected_by: rejectedBy, rejected_at: new Date(), rejection_reason: reason, updated_at: new Date() })
-      .where(eq(productDrafts.id, draftId))
-      .returning();
-    return row;
-  }
+  rejectProductDraft(draftId: number, rejectedBy: number | null, reason: string | null): Promise<ProductDraft> { return productsImpl.rejectProductDraft(draftId, rejectedBy, reason); }
 
   // ─── Client Services ───
   async listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]> {
@@ -2635,10 +2418,7 @@ export class DatabaseStorage implements IStorage {
 
   findPendingPaymentForClientService(clientServiceId: number): Promise<ClientPayment | undefined> { return billingImpl.findPendingPaymentForClientService(clientServiceId); }
 
-  async getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined> {
-    const [row] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
-    return row;
-  }
+  getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined> { return productsImpl.getServiceById(serviceId); }
 
   /**
    * Count non-delivered, non-cancelled tasks for a client service.
@@ -2917,209 +2697,20 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  // ─── TradeLine ───
-
-  async getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined> {
-    const cs = await this.getClientServiceById(clientServiceId);
-    if (!cs) return undefined;
-    const raw = (cs.metadata as Record<string, any>)?.tradeline;
-    if (!raw) return undefined;
-    return tradelineConfigSchema.parse(raw);
-  }
-
-  async updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig> {
-    const cs = await this.getClientServiceById(clientServiceId);
-    const existing = (cs?.metadata as Record<string, any>) ?? {};
-    const current = existing.tradeline
-      ? tradelineConfigSchema.parse(existing.tradeline)
-      : tradelineConfigSchema.parse({});
-
-    // Deep merge: for plain-object sub-keys (channels, website, phoneRouting, etc.)
-    // spread-merge instead of overwriting, so partial updates don't wipe sibling fields.
-    const merged: Record<string, any> = { ...current };
-    for (const [key, value] of Object.entries(partialConfig)) {
-      const cur = (current as Record<string, any>)[key];
-      if (value != null && typeof value === "object" && !Array.isArray(value) && cur && typeof cur === "object" && !Array.isArray(cur)) {
-        merged[key] = { ...cur, ...value };
-      } else {
-        merged[key] = value;
-      }
-    }
-
-    const updated = { ...existing, tradeline: merged };
-    await db.update(clientServices)
-      .set({ metadata: updated, updated_at: new Date() })
-      .where(eq(clientServices.id, clientServiceId));
-    return tradelineConfigSchema.parse(merged);
-  }
-
-  async setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string, reason?: string): Promise<TradelineModeLog> {
-    const config = await this.getTradeLineConfig(clientServiceId) ?? tradelineConfigSchema.parse({});
-    const oldMode = config.currentMode;
-
-    // Update the config
-    await this.updateTradeLineConfig(clientServiceId, { currentMode: newMode as TradelineConfig["currentMode"] });
-
-    // Log the change
-    const [log] = await db.insert(tradelineModeLog).values({
-      client_service_id: clientServiceId,
-      old_mode: oldMode,
-      new_mode: newMode,
-      changed_by: changedBy,
-      reason: reason ?? null,
-    }).returning();
-    return log;
-  }
-
-  async createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null> {
-    // Idempotent: skip if a row with the same vapi_call_id already exists
-    const rows = await db.insert(tradelineCallLog).values(data)
-      .onConflictDoNothing({ target: tradelineCallLog.vapi_call_id })
-      .returning();
-    return rows[0] ?? null;
-  }
-
-  async listTradeLineCalls(clientServiceId: number, limit = 50): Promise<TradelineCallLog[]> {
-    return db.select().from(tradelineCallLog)
-      .where(eq(tradelineCallLog.client_service_id, clientServiceId))
-      .orderBy(desc(tradelineCallLog.created_at))
-      .limit(limit);
-  }
-
-  async getTradeLineCallById(callId: number): Promise<TradelineCallLog | undefined> {
-    const [row] = await db.select().from(tradelineCallLog)
-      .where(eq(tradelineCallLog.id, callId))
-      .limit(1);
-    return row;
-  }
-
-  async listAllTradeLineCalls(filters: { clientId?: number; from?: Date; to?: Date; outcome?: string; limit?: number; offset?: number }): Promise<{ calls: (TradelineCallLog & { business_name: string; client_id: number })[]; total: number }> {
-    const conditions = [];
-    if (filters.clientId) {
-      conditions.push(sql`${tradelineCallLog.client_service_id} IN (SELECT id FROM client_services WHERE client_id = ${filters.clientId})`);
-    }
-    if (filters.from) {
-      conditions.push(gte(tradelineCallLog.created_at, filters.from));
-    }
-    if (filters.to) {
-      conditions.push(sql`${tradelineCallLog.created_at} <= ${filters.to}`);
-    }
-    if (filters.outcome) {
-      conditions.push(eq(tradelineCallLog.outcome, filters.outcome));
-    }
-    conditions.push(sql`${tradelineCallLog.client_service_id} IN (SELECT id FROM client_services WHERE service_id LIKE 'tradeline%')`);
-    const limit = filters.limit ?? 50;
-    const offset = filters.offset ?? 0;
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-    const [countResult] = await db.select({ total: sql<number>`count(*)::int` }).from(tradelineCallLog).where(whereClause);
-    const rows = await db.select({
-      id: tradelineCallLog.id, client_service_id: tradelineCallLog.client_service_id, vapi_call_id: tradelineCallLog.vapi_call_id,
-      direction: tradelineCallLog.direction, caller_number: tradelineCallLog.caller_number, duration_seconds: tradelineCallLog.duration_seconds,
-      outcome: tradelineCallLog.outcome, started_at: tradelineCallLog.started_at, ended_at: tradelineCallLog.ended_at,
-      summary: tradelineCallLog.summary, transcript_json: tradelineCallLog.transcript_json, recording_url: tradelineCallLog.recording_url,
-      created_at: tradelineCallLog.created_at, business_name: clients.business_name, client_id: clients.id,
-    }).from(tradelineCallLog)
-      .innerJoin(clientServices, eq(tradelineCallLog.client_service_id, clientServices.id))
-      .innerJoin(clients, eq(clientServices.client_id, clients.id))
-      .where(whereClause).orderBy(desc(tradelineCallLog.created_at)).limit(limit).offset(offset);
-    return { calls: rows as any, total: countResult?.total ?? 0 };
-  }
-
-  async listTradeLineFleet(): Promise<Array<{ clientServiceId: number; clientId: number; businessName: string; serviceId: string; status: string; variant: string; mode: string; assistantStatus: string; lastCallAt: string | null; periodMinutes: number; failedCalls24h: number }>> {
-    const services = await db.select({ id: clientServices.id, client_id: clientServices.client_id, service_id: clientServices.service_id, status: clientServices.status, metadata: clientServices.metadata, business_name: clients.business_name })
-      .from(clientServices).innerJoin(clients, eq(clientServices.client_id, clients.id)).where(sql`${clientServices.service_id} LIKE 'tradeline%'`).orderBy(clients.business_name);
-    const result = [];
-    for (const svc of services) {
-      const meta = (svc.metadata as Record<string, any>) ?? {};
-      const tradeline = meta?.tradeline ?? {};
-      const [lastCall] = await db.select({ created_at: tradelineCallLog.created_at }).from(tradelineCallLog).where(eq(tradelineCallLog.client_service_id, svc.id)).orderBy(desc(tradelineCallLog.created_at)).limit(1);
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const [failedCount] = await db.select({ count: sql<number>`count(*)::int` }).from(tradelineCallLog).where(and(eq(tradelineCallLog.client_service_id, svc.id), eq(tradelineCallLog.outcome, "failed"), gte(tradelineCallLog.created_at, twentyFourHoursAgo)));
-      const now = new Date();
-      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const [usageRow] = await db.select({ voice_minutes_used: tradelineUsage.voice_minutes_used }).from(tradelineUsage).where(and(eq(tradelineUsage.client_service_id, svc.id), eq(tradelineUsage.period_start, periodStart))).limit(1);
-      result.push({ clientServiceId: svc.id, clientId: svc.client_id, businessName: svc.business_name, serviceId: svc.service_id, status: svc.status, variant: tradeline.variant || "complete", mode: tradeline.currentMode || "available", assistantStatus: tradeline.assistant?.status || "not_built", lastCallAt: lastCall?.created_at?.toISOString() ?? null, periodMinutes: usageRow?.voice_minutes_used ?? 0, failedCalls24h: failedCount?.count ?? 0 });
-    }
-    return result;
-  }
-
-
-  async upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage> {
-    // Try to find existing usage row for this period
-    const [existing] = await db.select().from(tradelineUsage)
-      .where(and(
-        eq(tradelineUsage.client_service_id, clientServiceId),
-        eq(tradelineUsage.period_start, periodStart),
-      ))
-      .limit(1);
-
-    if (existing) {
-      const [updated] = await db.update(tradelineUsage)
-        .set({ updated_at: new Date() })
-        .where(eq(tradelineUsage.id, existing.id))
-        .returning();
-      return updated;
-    }
-
-    const [row] = await db.insert(tradelineUsage).values({
-      client_service_id: clientServiceId,
-      period_start: periodStart,
-      period_end: periodEnd,
-    }).returning();
-    return row;
-  }
-
-  async getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined> {
-    if (periodStart) {
-      const [row] = await db.select().from(tradelineUsage)
-        .where(and(
-          eq(tradelineUsage.client_service_id, clientServiceId),
-          eq(tradelineUsage.period_start, periodStart),
-        ))
-        .limit(1);
-      return row;
-    }
-    // Default: most recent period
-    const [row] = await db.select().from(tradelineUsage)
-      .where(eq(tradelineUsage.client_service_id, clientServiceId))
-      .orderBy(desc(tradelineUsage.period_start))
-      .limit(1);
-    return row;
-  }
-
-  /* ─── TradeLine Phone-Number Lookups ─── */
-
-  async findClientServiceByVapiPhoneNumberId(vapiPhoneNumberId: string): Promise<number | null> {
-    const rows = await db.select({ id: clientServices.id })
-      .from(clientServices)
-      .where(
-        and(
-          sql`${clientServices.service_id} LIKE 'tradeline%'`,
-          sql`${clientServices.metadata}->'tradeline'->'assistant'->>'vapiPhoneNumberId' = ${vapiPhoneNumberId}`,
-        ),
-      )
-      .limit(1);
-    return rows[0]?.id ?? null;
-  }
-
-  async findClientServiceByPrimaryBusinessNumber(phoneNumber: string): Promise<number | null> {
-    const rows = await db.select({ id: clientServices.id })
-      .from(clientServices)
-      .where(
-        and(
-          sql`${clientServices.service_id} LIKE 'tradeline%'`,
-          sql`${clientServices.metadata}->'tradeline'->'phoneRouting'->>'primaryBusinessNumber' = ${phoneNumber}`,
-        ),
-      )
-      .limit(1);
-    return rows[0]?.id ?? null;
-  }
-
-  async updateTradeLineCallLeadData(callLogId: number, leadData: Record<string, unknown>): Promise<void> {
-    await db.update(tradelineCallLog)
-      .set({ transcript_json: sql`COALESCE(${tradelineCallLog.transcript_json}, '{}'::jsonb) || jsonb_build_object('lead_data', ${JSON.stringify(leadData)}::jsonb)` })
-      .where(eq(tradelineCallLog.id, callLogId));
-  }
+  // ─── TradeLine (impl in ./storage/tradeline.ts) ───
+  getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined> { return tradelineImpl.getTradeLineConfig(clientServiceId); }
+  updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig> { return tradelineImpl.updateTradeLineConfig(clientServiceId, partialConfig); }
+  setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string, reason?: string): Promise<TradelineModeLog> { return tradelineImpl.setTradeLineMode(clientServiceId, newMode, changedBy, reason); }
+  createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null> { return tradelineImpl.createTradeLineCallLog(data); }
+  listTradeLineCalls(clientServiceId: number, limit = 50): Promise<TradelineCallLog[]> { return tradelineImpl.listTradeLineCalls(clientServiceId, limit); }
+  getTradeLineCallById(callId: number): Promise<TradelineCallLog | undefined> { return tradelineImpl.getTradeLineCallById(callId); }
+  listAllTradeLineCalls(filters: { clientId?: number; from?: Date; to?: Date; outcome?: string; limit?: number; offset?: number }): Promise<{ calls: (TradelineCallLog & { business_name: string; client_id: number })[]; total: number }> { return tradelineImpl.listAllTradeLineCalls(filters); }
+  listTradeLineFleet(): Promise<Array<{ clientServiceId: number; clientId: number; businessName: string; serviceId: string; status: string; variant: string; mode: string; assistantStatus: string; lastCallAt: string | null; periodMinutes: number; failedCalls24h: number }>> { return tradelineImpl.listTradeLineFleet(); }
+  upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage> { return tradelineImpl.upsertTradeLineUsage(clientServiceId, periodStart, periodEnd); }
+  getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined> { return tradelineImpl.getTradeLineUsage(clientServiceId, periodStart); }
+  findClientServiceByVapiPhoneNumberId(vapiPhoneNumberId: string): Promise<number | null> { return tradelineImpl.findClientServiceByVapiPhoneNumberId(vapiPhoneNumberId); }
+  findClientServiceByPrimaryBusinessNumber(phoneNumber: string): Promise<number | null> { return tradelineImpl.findClientServiceByPrimaryBusinessNumber(phoneNumber); }
+  updateTradeLineCallLeadData(callLogId: number, leadData: Record<string, unknown>): Promise<void> { return tradelineImpl.updateTradeLineCallLeadData(callLogId, leadData); }
 
   /* ═══════════════════════════════════════════
      RankFlow Vendor Batches
@@ -3298,81 +2889,10 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     return row;
   }
-  async listTradeLineModeChanges(clientServiceId: number, limit = 50): Promise<TradelineModeLog[]> {
-    return db.select().from(tradelineModeLog)
-      .where(eq(tradelineModeLog.client_service_id, clientServiceId))
-      .orderBy(desc(tradelineModeLog.created_at))
-      .limit(limit);
-  }
-
-  async incrementTradeLineUsage(
-    clientServiceId: number,
-    periodStart: Date,
-    periodEnd: Date,
-    increments: { voiceMinutes?: number; calls?: number; sms?: number },
-  ): Promise<TradelineUsage> {
-    // Ensure usage row exists
-    const usage = await this.upsertTradeLineUsage(clientServiceId, periodStart, periodEnd);
-
-    const newVoiceMinutes = (usage.voice_minutes_used ?? 0) + (increments.voiceMinutes ?? 0);
-    const newCalls = (usage.calls_count ?? 0) + (increments.calls ?? 0);
-    const newSms = (usage.sms_count ?? 0) + (increments.sms ?? 0);
-    const includedMinutes = usage.included_minutes ?? 200;
-    const overage = Math.max(0, newVoiceMinutes - includedMinutes);
-
-    const [updated] = await db.update(tradelineUsage)
-      .set({
-        voice_minutes_used: newVoiceMinutes,
-        calls_count: newCalls,
-        sms_count: newSms,
-        overage_minutes: overage,
-        updated_at: new Date(),
-      })
-      .where(eq(tradelineUsage.id, usage.id))
-      .returning();
-
-    return updated;
-  }
-
-  /**
-   * Calculate TradeLine profitability for a client service.
-   * Uses current period usage data + service price.
-   *
-   * Cost rates (internal, not exposed to clients):
-   *   Voice: $0.08/min  (Vapi + ElevenLabs + Deepgram blended)
-   *   SMS:   $0.02/msg  (Twilio outbound)
-   *   AI:    estimated from call count at ~$0.03/call (LLM tokens)
-   */
-  async getTradeLineProfitability(clientServiceId: number): Promise<{
-    revenue: number;
-    voiceCost: number;
-    smsCost: number;
-    aiCost: number;
-    totalCost: number;
-    profit: number;
-    margin: number;
-  }> {
-    const COST_PER_VOICE_MINUTE = 8;   // cents
-    const COST_PER_SMS = 2;            // cents
-    const COST_PER_CALL_AI = 3;        // cents (avg LLM cost per call)
-
-    const cs = await this.getClientServiceById(clientServiceId);
-    const revenue = cs?.price_cents ?? 0;
-
-    const usage = await this.getTradeLineUsage(clientServiceId);
-    if (!usage) {
-      return { revenue, voiceCost: 0, smsCost: 0, aiCost: 0, totalCost: 0, profit: revenue, margin: revenue > 0 ? 100 : 0 };
-    }
-
-    const voiceCost = (usage.voice_minutes_used ?? 0) * COST_PER_VOICE_MINUTE;
-    const smsCost = (usage.sms_count ?? 0) * COST_PER_SMS;
-    const aiCost = (usage.calls_count ?? 0) * COST_PER_CALL_AI;
-    const totalCost = voiceCost + smsCost + aiCost;
-    const profit = revenue - totalCost;
-    const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
-
-      return { revenue, voiceCost, smsCost, aiCost, totalCost, profit, margin };
-  }
+  // ─── TradeLine (continued, impl in ./storage/tradeline.ts) ───
+  listTradeLineModeChanges(clientServiceId: number, limit = 50): Promise<TradelineModeLog[]> { return tradelineImpl.listTradeLineModeChanges(clientServiceId, limit); }
+  incrementTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date, increments: { voiceMinutes?: number; calls?: number; sms?: number }): Promise<TradelineUsage> { return tradelineImpl.incrementTradeLineUsage(clientServiceId, periodStart, periodEnd, increments); }
+  getTradeLineProfitability(clientServiceId: number): Promise<{ revenue: number; voiceCost: number; smsCost: number; aiCost: number; totalCost: number; profit: number; margin: number; }> { return tradelineImpl.getTradeLineProfitability(clientServiceId); }
 
   // ─── SocialSync (impl in ./storage/socialsync.ts) ───
 
