@@ -1,8 +1,11 @@
+// Pre-launch: no fabricated stats. Trust strip surfaces what we
+// actually built and who it's built for. Replace with measured
+// numbers post-launch when we have them.
 const STATS = [
-  { value: "2,400+", label: "Active tradespeople" },
-  { value: "500+", label: "Leads generated monthly" },
-  { value: "4.9★", label: "Average app rating" },
-  { value: "94%", label: "Client retention rate" },
+  { value: "★★★★★", label: "Built for trades" },
+  { value: "24/7", label: "AI receptionist" },
+  { value: "$0", label: "Setup fees" },
+  { value: "No", label: "Long-term contracts" },
 ];
 
 interface TrustStripProps {

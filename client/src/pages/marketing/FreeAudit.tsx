@@ -733,7 +733,7 @@ export default function FreeAudit() {
                 }}
               >
                 <span style={{ color: "#22C55E" }}>{"\u2605\u2605\u2605\u2605\u2605"}</span>
-                <span style={{ opacity: 0.65 }}>Trusted by 2,400+ trade businesses</span>
+                <span style={{ opacity: 0.65 }}>Built for plumbers, electricians, HVAC, roofers, and cleaners</span>
               </div>
             )}
             {/* Prefill confirmation chip \u2014 shown when the user arrived via
