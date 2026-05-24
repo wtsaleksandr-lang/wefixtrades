@@ -523,7 +523,7 @@ function TestimonialCard({ study }: { study: Study }) {
           <div style={{
             marginTop: 6,
             fontFamily: MONO, fontSize: 10,
-            color: mkt.textFaint,
+            color: mkt.onDarkMuted,        // was mkt.textFaint (#5F6F77, fails AA on dark)
             letterSpacing: "0.06em",
             display: "inline-flex", alignItems: "center", gap: 4,
           }}>
@@ -550,17 +550,20 @@ function TestimonialCard({ study }: { study: Study }) {
    line at the bottom. Premium feel, no visual clutter. */
 
 /* Bright cool-grey palette for the "great company" panel — same
-   tonal range as Effortel's reference. */
+   tonal range as Effortel's reference.
+   inkMuted / inkFaint use solid hex (not alpha-on-bg) so contrast holds
+   independent of the underlying surface — fixes WCAG AA contrast nodes
+   flagged on /case-studies in PR #732 audit. */
 const CS_LIGHT = {
   bg:        "#C2D0D6",
   cardBg:    "transparent",          // cards inherit page bg at rest
   cardHover: "#D6DFE3",              // lighten on hover, lifts off page
   cardBorder:"rgba(15,20,24,0.08)",
   ink:       "#0F1418",
-  inkMuted:  "rgba(15,20,24,0.62)",
-  inkFaint:  "rgba(15,20,24,0.42)",
+  inkMuted:  "#3F4549",              // solid; was rgba(15,20,24,0.62) — AA on #C2D0D6
+  inkFaint:  "#4A5258",              // solid; was rgba(15,20,24,0.42) — AA on #C2D0D6
   pillBg:    "rgba(15,20,24,0.04)",
-  pillBorder:"rgba(15,20,24,0.18)",
+  pillBorder:"rgba(15,20,24,0.28)",  // bumped from 0.18 → 0.28 for chip-edge AA
 };
 
 /* Effortel-shaped case-study card.
@@ -786,7 +789,7 @@ export default function CaseStudiesPage() {
         {/* ── Disclosure ─────────────────────────────────── */}
         <section style={{ padding: "16px 16px 0", background: mkt.bg }}>
           <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
-            <p style={{ fontSize: 12, color: mkt.textFaint, lineHeight: 1.6, margin: 0 }}>
+            <p style={{ fontSize: 12, color: mkt.onDarkMuted, lineHeight: 1.6, margin: 0 }}>
               Scenarios above describe pilot customer outcomes. Specific revenue, conversion, and volume
               numbers are reserved for audited case studies, which will replace this page as customers
               sign public testimonial releases. If you want to become a named customer story, reach out.
