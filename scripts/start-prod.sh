@@ -124,6 +124,31 @@ SELF_TEST_URL="http://127.0.0.1:${SELF_TEST_PORT}/api/healthz"
 ) &
 disown 2>/dev/null || true
 
+# Bing Webmaster — post-boot sitemap self-registration.
+#
+# Idempotent. If the sitemap is already on file with Bing, the script logs
+# "already registered" and exits 0. Otherwise it calls SubmitFeed. Runs
+# AFTER the healthz self-test gives the server time to come up so /sitemap.xml
+# is reachable to Bing's crawler the moment we register it. Failures are
+# logged but NEVER block startup — the cron + admin "Submit Sitemap" button
+# are the retry surface.
+BING_REGISTER_SCRIPT="${REPO_ROOT}/scripts/seo/register-sitemap-bing.mjs"
+BING_REGISTER_LOG="${REPO_ROOT}/bing-register.log"
+if [ -f "${BING_REGISTER_SCRIPT}" ]; then
+  (
+    # Wait a bit longer than the healthz self-test so the server is definitely up.
+    sleep 20
+    if [ -z "${BING_WEBMASTER_API_KEY:-}" ]; then
+      echo "[start-prod] bing-register: skipped — BING_WEBMASTER_API_KEY not set" >&2
+      exit 0
+    fi
+    # Soft-fork: stderr to a log file so a stack trace can never escape into
+    # the deploy log and trip a watchdog. Script always exits 0 by design.
+    node "${BING_REGISTER_SCRIPT}" 2>>"${BING_REGISTER_LOG}" || true
+  ) &
+  disown 2>/dev/null || true
+fi
+
 case "${MODE}" in
   "${MODE_DOPPLER_CLI}")
     echo "[start-prod] mode=${MODE} — wrapping with: doppler run -- node ./dist/index.cjs" >&2

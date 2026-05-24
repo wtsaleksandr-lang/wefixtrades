@@ -61,6 +61,7 @@ import { runBusinessOperatorJob } from "./businessOperatorWorker";
 import { runCalculatorAnalyticsRollup } from "./calculatorAnalyticsRollupWorker";
 import { runSharedFilesRetentionSweep } from "./sharedFilesRetentionSweepWorker";
 import { processInvoiceOverdue } from "./invoiceOverdueWorker";
+import { runBingIndexingTick } from "../cron/seoIndexing";
 
 const log = createLogger("Scheduler");
 
@@ -966,6 +967,27 @@ export function initScheduler() {
       log.error("business_operator cron handler error", { error: err.message });
     } finally {
       businessOperatorRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Bing Webmaster URL auto-submission — every 6 hours at :17 past the hour.
+  // Off-minute (17) so it doesn't pile up with other on-the-hour crons. Reads
+  // /sitemap.xml, finds URLs Bing has never seen, batch-submits up to 80 of
+  // them (leaves 20 of the 100/day quota for manual admin submissions).
+  // Idempotent: per-URL history rows in seo_indexing_history prevent re-submit.
+  let bingIndexingRunning = false;
+  cron.schedule("17 */6 * * *", async () => {
+    if (bingIndexingRunning) {
+      log.debug("bing_indexing skipped — previous tick still running");
+      return;
+    }
+    bingIndexingRunning = true;
+    try {
+      await runJob("bing_indexing", runBingIndexingTick);
+    } catch (err: any) {
+      log.error("bing_indexing cron handler error", { error: err.message });
+    } finally {
+      bingIndexingRunning = false;
     }
   }, { timezone: "UTC" });
 }
