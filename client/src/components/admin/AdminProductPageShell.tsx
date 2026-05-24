@@ -21,9 +21,10 @@
  * caller's responsibility (pass an onToggleActive / onToggleHidden that
  * does the optimistic update via react-query).
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import * as Sentry from '@sentry/react';
 import { Link } from 'wouter';
-import { ExternalLink, Eye, EyeOff, Info, Pencil } from 'lucide-react';
+import { ExternalLink, Eye, EyeOff, Info, Pencil, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Stack, Cluster, HelpCueRow } from '@/components/primitives';
@@ -50,6 +51,11 @@ export interface AdminProductPageShellProps {
   isActive: boolean;
   hidden: boolean;
   stats: ProductStats | null;
+  /** If the stats query failed, show an error tile instead of a perpetual
+   *  skeleton (the pre-fix failure mode where a 404/500 left the KPI
+   *  strip blank-looking forever). Pass `query.error` straight from
+   *  react-query — anything truthy triggers the error state. */
+  statsError?: unknown;
   tabs: ProductShellTab[];
   filtersBar?: React.ReactNode;
   /** Optional override for the catalog editor link. Defaults to `/admin/products/:id`. */
@@ -135,12 +141,34 @@ function KpiSkeleton({ label }: { label: string }) {
   );
 }
 
+/* Error tile used when the /stats query failed. Replaces the perpetual
+   skeleton (the regression Alex reported as "blank cards"). Shows an em-dash
+   so the layout doesn't collapse, plus a hint icon explaining the state. */
+function KpiErrorTile({ label }: { label: string }) {
+  return (
+    <Card className="p-4" data-product-shell-kpi-error>
+      <HelpCueRow
+        variant="label"
+        cue={<AlertTriangle size={12} className="text-amber-500" aria-label="Stats failed to load" />}
+        title={label}
+      />
+      <p
+        className="text-2xl font-bold font-mono tabular-nums text-muted-foreground"
+        title="Failed to load — reload the page to retry."
+      >
+        —
+      </p>
+    </Card>
+  );
+}
+
 export function AdminProductPageShell({
   productId,
   productName,
   isActive,
   hidden,
   stats,
+  statsError,
   tabs,
   filtersBar,
   editCopyHref,
@@ -152,6 +180,22 @@ export function AdminProductPageShell({
     ? defaultTabId
     : tabs[0]?.id;
   const [activeTabId, setActiveTabId] = useState<string | undefined>(initialTab);
+
+  /* Sentry capture for the KPI-strip failure mode that produced this PR.
+     Fired once per (productId, error) pair so a stuck error doesn't flood
+     events on every re-render. */
+  const reportedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!statsError) return;
+    const key = `${productId}:${(statsError as any)?.message ?? String(statsError)}`;
+    if (reportedRef.current === key) return;
+    reportedRef.current = key;
+    try {
+      Sentry.captureException(statsError, {
+        tags: { surface: 'admin-product-shell', product_id: productId, kind: 'stats-load-failure' },
+      });
+    } catch { /* Sentry optional in dev */ }
+  }, [statsError, productId]);
   const currentTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
   const editHref = editCopyHref ?? `/admin/products/${productId}`;
 
@@ -225,7 +269,14 @@ export function AdminProductPageShell({
         data-product-shell-section="kpis"
         data-testid="product-shell-kpis"
       >
-        {stats === null ? (
+        {statsError ? (
+          <>
+            <KpiErrorTile label="MRR" />
+            <KpiErrorTile label="Active subs" />
+            <KpiErrorTile label="Δ 30d" />
+            <KpiErrorTile label="Churn 30d" />
+          </>
+        ) : stats === null ? (
           <>
             <KpiSkeleton label="MRR" />
             <KpiSkeleton label="Active subs" />

@@ -192,6 +192,31 @@ test('renders 4 KPI cards with stats present', () => {
   assert.ok(!/Skeleton/.test(html), `expected no skeleton class when stats are present`);
 });
 
+test('renders 4 KPI error tiles when statsError is truthy', () => {
+  // Regression fix: previously a 404/500 left stats=null forever and the
+  // page showed perpetual skeletons (interpreted by Alex as "blank cards").
+  // statsError now switches the strip to a visible em-dash tile.
+  const html = renderToStaticMarkup(
+    React.createElement(AdminProductPageShell, {
+      productId: 'adflow',
+      productName: 'AdFlow',
+      isActive: true,
+      hidden: false,
+      stats: null,
+      statsError: new Error('404 Not Found'),
+      tabs: [overviewTab],
+      onToggleActive: () => {},
+      onToggleHidden: () => {},
+    }),
+  );
+  const errorTileCount = (html.match(/data-product-shell-kpi-error/g) ?? []).length;
+  assert.equal(errorTileCount, 4, `expected 4 error tiles, got ${errorTileCount}`);
+  // Skeleton markers must NOT also render.
+  assert.ok(!html.includes('data-product-shell-kpi-skeleton'), `expected no skeleton when error`);
+  // Em-dash placeholder shows so the strip doesn't visually collapse.
+  assert.ok(html.includes('—'), `expected em-dash placeholder`);
+});
+
 test('renders 4 KPI skeletons when stats=null (loading)', () => {
   const html = renderToStaticMarkup(
     React.createElement(AdminProductPageShell, {
