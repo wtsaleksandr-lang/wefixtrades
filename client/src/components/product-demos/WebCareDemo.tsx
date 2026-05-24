@@ -22,7 +22,7 @@ export default function WebCareDemo() {
       ariaLabel="Animated demo: uptime check dots filling green over the past 4.5 hours, plugin auto-updating, security and SSL check passing."
       maxWidth={420}
     >
-      <DemoHeader icon={<ShieldCheck size={16} />} title="WebCare" subtitle="your-trade.com · 99.99%" status="Healthy" />
+      <DemoHeader icon={<ShieldCheck size={16} />} title="WebCare" subtitle="your-trade.com · Monitored" status="Healthy" />
       <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Uptime dots */}
         <div>
@@ -47,7 +47,7 @@ export default function WebCareDemo() {
 
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <Mini label="Uptime 30d" value="99.99%" color="#10B981" />
+          <Mini label="Checks 30d" value="2,880" color="#10B981" />
           <Mini label="Updates" value="47" color={mkt.accent} />
           <Mini label="Security checks" value="OK" color={mkt.accent} />
         </div>

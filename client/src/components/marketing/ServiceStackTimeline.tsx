@@ -52,8 +52,8 @@ const SERVICES: Service[] = [
     hook: "Plugin and theme updates auto-tested before they go live. Security & SSL checks. 15-minute uptime checks. Monthly health report.",
     href: "/products/webcare",
     icon: ShieldCheck,
-    bullets: ["99.99% uptime tracked", "Security & SSL checks", "Monthly health report"],
-    tile: <KpiTile a={{ value: "99.99%", label: "30-day uptime", color: "mint" }} b={{ value: "47", label: "Updates / mo", color: "cyanSoft" }} c={{ value: "0", label: "Breaks reaching prod", color: "lavender" }} />,
+    bullets: ["Uptime tracked 24/7", "Security & SSL checks", "Monthly health report"],
+    tile: <KpiTile a={{ value: "24/7", label: "Uptime monitoring", color: "mint" }} b={{ value: "15m", label: "Check interval", color: "cyanSoft" }} c={{ value: "< 30s", label: "Alert latency", color: "lavender" }} />,
   },
   {
     number: "03",
