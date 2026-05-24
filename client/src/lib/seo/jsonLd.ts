@@ -135,3 +135,141 @@ export function breadcrumbSchema(items: BreadcrumbItem[]) {
     })),
   };
 }
+
+// Alias to match PR #679 audit naming conventions.
+export const breadcrumbList = breadcrumbSchema;
+
+/* ─── SoftwareApplication ─────────────────────────────────────────
+   schema.org/SoftwareApplication — used on /products/{slug} pages
+   to mark up SaaS products. Google's Rich Result test surfaces the
+   price, rating, and applicationCategory in SERP previews. */
+export interface SoftwareApplicationOffer {
+  price: string | number;
+  priceCurrency?: string;
+  url?: string;
+}
+
+export interface SoftwareApplicationInput {
+  name: string;
+  description: string;
+  applicationCategory?: string;
+  operatingSystem?: string;
+  url?: string;
+  image?: string;
+  offers?: SoftwareApplicationOffer | SoftwareApplicationOffer[];
+}
+
+export function softwareApplication(input: SoftwareApplicationInput) {
+  const base: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: input.name,
+    description: input.description,
+    applicationCategory: input.applicationCategory ?? "BusinessApplication",
+    operatingSystem: input.operatingSystem ?? "Web",
+  };
+  if (input.url) base.url = input.url;
+  if (input.image) base.image = input.image;
+  if (input.offers) {
+    const toOffer = (o: SoftwareApplicationOffer) => ({
+      "@type": "Offer",
+      price: typeof o.price === "number" ? o.price.toString() : o.price,
+      priceCurrency: o.priceCurrency ?? "USD",
+      ...(o.url ? { url: o.url } : {}),
+    });
+    base.offers = Array.isArray(input.offers)
+      ? input.offers.map(toOffer)
+      : toOffer(input.offers);
+  }
+  return base;
+}
+
+/* ─── HowTo ───────────────────────────────────────────────────────
+   schema.org/HowTo — used on /docs/* pages that walk through a
+   step-by-step setup flow (embed, booking, domain, etc.). */
+export interface HowToStepInput {
+  name: string;
+  text: string;
+  url?: string;
+  image?: string;
+}
+
+export interface HowToInput {
+  name: string;
+  description?: string;
+  steps: HowToStepInput[];
+  totalTime?: string;
+  image?: string;
+}
+
+export function howTo(input: HowToInput) {
+  const base: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: input.name,
+    step: input.steps.map((s, idx) => {
+      const step: Record<string, unknown> = {
+        "@type": "HowToStep",
+        position: idx + 1,
+        name: s.name,
+        text: s.text,
+      };
+      if (s.url) step.url = s.url;
+      if (s.image) step.image = s.image;
+      return step;
+    }),
+  };
+  if (input.description) base.description = input.description;
+  if (input.totalTime) base.totalTime = input.totalTime;
+  if (input.image) base.image = input.image;
+  return base;
+}
+
+/* ─── Service ─────────────────────────────────────────────────────
+   schema.org/Service — used on /services hub. */
+export interface ServiceInput {
+  name: string;
+  serviceType?: string;
+  description?: string;
+  areaServed?: string | string[];
+  provider?: { name: string; url?: string };
+  url?: string;
+  offers?: SoftwareApplicationOffer | SoftwareApplicationOffer[];
+}
+
+export function service(input: ServiceInput) {
+  const base: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: input.name,
+  };
+  if (input.serviceType) base.serviceType = input.serviceType;
+  if (input.description) base.description = input.description;
+  if (input.areaServed) base.areaServed = input.areaServed;
+  if (input.url) base.url = input.url;
+  if (input.provider) {
+    base.provider = {
+      "@type": "Organization",
+      name: input.provider.name,
+      ...(input.provider.url ? { url: input.provider.url } : {}),
+    };
+  } else {
+    base.provider = {
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: SITE_URL,
+    };
+  }
+  if (input.offers) {
+    const toOffer = (o: SoftwareApplicationOffer) => ({
+      "@type": "Offer",
+      price: typeof o.price === "number" ? o.price.toString() : o.price,
+      priceCurrency: o.priceCurrency ?? "USD",
+      ...(o.url ? { url: o.url } : {}),
+    });
+    base.offers = Array.isArray(input.offers)
+      ? input.offers.map(toOffer)
+      : toOffer(input.offers);
+  }
+  return base;
+}

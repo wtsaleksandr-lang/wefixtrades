@@ -1,5 +1,7 @@
 import DocsLayout, { Step, CodeBlock, Accordion, InfoBox, DocH2, DocH3, Checklist } from "@/components/marketing/DocsLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
+import { howTo, breadcrumbList } from "@/lib/seo/jsonLd";
+import { SITE_URL } from "@/lib/seo/pageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function DocsDomain() {
@@ -11,6 +13,37 @@ export default function DocsDomain() {
       title="Custom domain — QuoteQuick docs"
       description="Point your own domain at your QuoteQuick calculator: DNS records, SSL, redirect handling, and subdomain best practices."
       canonical="/docs/domain"
+      jsonLd={[
+        // PR #679 audit — HowTo for the 4-step custom-domain setup flow.
+        howTo({
+          name: "Set up a custom subdomain for your QuoteQuick calculator",
+          description:
+            "Serve your hosted calculator under your own branded subdomain with automatic SSL.",
+          steps: [
+            {
+              name: "Open Custom Domain in your Dashboard",
+              text: "Go to Dashboard → Settings → Custom Domain. Enter the subdomain you want to use (e.g. quotes.yourbusiness.com) and click Add Domain to get a CNAME target.",
+            },
+            {
+              name: "Add a CNAME record in your DNS provider",
+              text: "Log into your DNS provider (GoDaddy, Cloudflare, Namecheap, Google Domains, etc.) and add a CNAME for the subdomain pointing to cname.quickquotepro.com.",
+            },
+            {
+              name: "Verify DNS in your Dashboard",
+              text: "Return to Dashboard → Settings → Custom Domain and click Verify DNS. Once DNS propagates we issue an SSL certificate automatically.",
+            },
+            {
+              name: "Confirm you are live",
+              text: "Your calculator is now accessible at your custom subdomain over HTTPS. SSL renews automatically every 90 days — no further action needed.",
+            },
+          ],
+        }),
+        breadcrumbList([
+          { name: "Home", url: `${SITE_URL}/` },
+          { name: "Docs", url: `${SITE_URL}/docs` },
+          { name: "Custom domain", url: `${SITE_URL}/docs/domain` },
+        ]),
+      ]}
     />
     <DocsLayout
       activeSlug="domain"

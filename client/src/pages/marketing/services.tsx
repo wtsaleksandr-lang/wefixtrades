@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
+import { service, breadcrumbList } from "@/lib/seo/jsonLd";
+import { SITE_NAME, SITE_URL } from "@/lib/seo/pageMeta";
 import { OptimizedImage } from "@/components/ui/Picture";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, colors, shadows } from "@/theme/tokens";
@@ -323,6 +325,22 @@ export default function ServicesPage() {
         description="QuoteQuick calculators, 24/7 TradeLine AI, MapGuard local SEO, RankFlow, ReputationShield — pick the services that move the needle for your trade business."
         canonical="/services"
         keywords={["trades growth services", "local seo for trades", "ai for trades"]}
+        jsonLd={[
+          // PR #679 audit — Service JSON-LD for the services hub.
+          service({
+            name: "Growth services for trade businesses",
+            serviceType: "Marketing and operations services for trades",
+            description:
+              "Done-for-you growth stack for plumbers, electricians, HVAC, roofers and other trades: QuoteQuick instant quotes, 24/7 TradeLine AI receptionist, MapGuard local SEO, RankFlow, ReputationShield, SocialSync and more.",
+            areaServed: ["United States", "Canada"],
+            provider: { name: SITE_NAME, url: SITE_URL },
+            url: `${SITE_URL}/services`,
+          }),
+          breadcrumbList([
+            { name: "Home", url: `${SITE_URL}/` },
+            { name: "Services", url: `${SITE_URL}/services` },
+          ]),
+        ]}
       />
       <V7PageShell>
       <div data-testid="services-page">

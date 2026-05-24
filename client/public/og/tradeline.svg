@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B1220"/>
+      <stop offset="100%" stop-color="#111A2E"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="20%" cy="20%" r="70%">
+      <stop offset="0%" stop-color="#0D3CFC" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#0D3CFC" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#0D3CFC" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <!-- Subtle hairline grid for brand consistency with marketing surfaces. -->
+  <g stroke="#5B6479" stroke-opacity="0.08" stroke-width="1">
+    <line x1="0" y1="120" x2="1200" y2="120"/>
+    <line x1="0" y1="510" x2="1200" y2="510"/>
+  </g>
+  <!-- Eyebrow -->
+  <text x="80" y="170" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" fill="#0D3CFC" letter-spacing="6">WEFIXTRADES · PRODUCT</text>
+  <!-- Product name -->
+  <text x="80" y="320" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="96" font-weight="700" fill="#FFFFFF" letter-spacing="-2">24/7 TradeLine</text>
+  <!-- Tagline -->
+  <text x="80" y="400" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#A6B0C2">Never miss a lead. AI answers every call.</text>
+  <!-- Accent bar -->
+  <rect x="80" y="450" width="120" height="6" rx="3" fill="#0D3CFC"/>
+  <!-- Footer wordmark -->
+  <text x="80" y="570" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="26" font-weight="700" fill="#FFFFFF">WeFixTrades<tspan fill="#0D3CFC">.</tspan></text>
+  <text x="1120" y="570" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20" fill="#5B6479" text-anchor="end" letter-spacing="2">wefixtrades.com</text>
+</svg>
