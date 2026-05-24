@@ -33,7 +33,6 @@ import { PRODUCT_MOCKUPS, type ProductMockupSection } from "@/config/product-moc
 import { PRODUCT_TESTIMONIALS } from "@/config/product-testimonials";
 import TradeLineHeroPhone from "@/components/marketing/TradeLineHeroPhone";
 import TradeLineDemoLauncher from "@/components/marketing/TradeLineDemoLauncher";
-import DashedGridBackground from "@/components/marketing/DashedGridBackground";
 import { HorizontalCarousel } from "@/components/marketing/HorizontalCarousel";
 import NotFound from "@/pages/not-found";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
@@ -360,32 +359,9 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
             </Reveal>
           </div>
 
-          {/* RIGHT — premium animated phone.
-              Wrapped in a `mkt.sectionLight` panel with the shared
-              <DashedGridBackground /> overlay so the phone "floats" on the
-              same engineered-grid grey surface used by the NumberedCards
-              below the hero — instead of bleeding into the bare dark page
-              background. data-theme="dark" preserves the contrast guard. */}
-          <div
-            data-theme="dark"
-            className="tlhp-split-phone"
-            style={{
-              position: "relative",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              minWidth: 0,
-              background: mkt.sectionLight,
-              border: `1px solid ${mkt.onDarkBorder}`,
-              borderRadius: 28,
-              padding: "28px 20px",
-              overflow: "hidden",
-            }}
-          >
-            <DashedGridBackground />
-            <div style={{ position: "relative" }}>
-              <TradeLineHeroPhone />
-            </div>
+          {/* RIGHT — premium animated phone */}
+          <div className="tlhp-split-phone" style={{ display: "flex", justifyContent: "center", minWidth: 0 }}>
+            <TradeLineHeroPhone />
           </div>
         </div>
 

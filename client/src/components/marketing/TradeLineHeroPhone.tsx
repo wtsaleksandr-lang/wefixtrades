@@ -715,7 +715,7 @@ const TLHP_CSS = `
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 18px 14px; flex-shrink: 0;
   background: var(--tlhp-paper);
-  border-bottom: 1px solid var(--tlhp-hairline);
+  /* divider is owned by .tlhp-body's border-top — avoid double hairline */
 }
 .tlhp-header-left { display: flex; align-items: center; gap: 10px; color: var(--tlhp-ink); }
 .tlhp-header-right { display: flex; align-items: center; gap: 14px; color: var(--tlhp-ink); }
@@ -735,7 +735,7 @@ const TLHP_CSS = `
   display: flex; align-items: center; gap: 12px;
   padding: 16px 16px 14px; flex-shrink: 0;
   background: var(--tlhp-paper);
-  border-bottom: 1px solid var(--tlhp-hairline);
+  /* divider is owned by .tlhp-body's border-top — avoid double hairline */
 }
 .tlhp-voice-avatar {
   width: 38px; height: 38px; border-radius: 50%;
@@ -788,11 +788,19 @@ const TLHP_CSS = `
   60% { transform: rotate(0deg); }
 }
 
-/* ═══ BODY ═══ */
+/* ═══ BODY ═══
+   Chat-area surface: subtle off-white with a dashed-grid dot overlay so
+   the conversation sits on the same engineered-grid grey feel as the
+   NumberedCards below the hero. The white header above and white footer
+   below frame it, separated by 1px hairlines (border-top/-bottom). */
 .tlhp-body {
   flex: 1; overflow-y: auto;
   padding: 14px 18px 16px;
-  background: var(--tlhp-paper);
+  background:
+    radial-gradient(circle, rgba(22,22,22,0.07) 1px, transparent 1px) 0 0 / 16px 16px,
+    rgba(22,22,22,0.035);
+  border-top: 1px solid var(--tlhp-hairline);
+  border-bottom: 1px solid var(--tlhp-hairline);
   display: flex; flex-direction: column; gap: 12px;
   scroll-behavior: smooth; justify-content: flex-end;
 }
@@ -1003,7 +1011,7 @@ const TLHP_CSS = `
   display: flex; gap: 18px; justify-content: center;
   padding: 12px 14px 18px;
   background: var(--tlhp-paper);
-  border-top: 1px solid var(--tlhp-hairline);
+  /* divider is owned by .tlhp-body's border-bottom — avoid double hairline */
 }
 .tlhp-vc-btn {
   width: 46px; height: 46px; border-radius: 50%;
