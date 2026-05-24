@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Play, Pause, Archive, Pencil, Save, X, Mic2, Loader2, AlertCircle, RotateCw } from "lucide-react";
+import { Plus, Play, Pause, Archive, Pencil, Save, X, Mic2, Loader2, AlertCircle, RotateCw, ShieldCheck, AlertTriangle } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Voice {
@@ -67,6 +67,23 @@ interface UsageRow {
   voice_id: string | null;
   minutes_used: number;
   client_count: number;
+}
+
+interface ProvisioningHealth {
+  dbServicesTotal: number;
+  dbServicesActive: number;
+  dbServicesPending: number;
+  dbServicesWithAssistantId: number;
+  dbServicesFailed: number;
+  dbAssistantSettingsRows: number;
+  vapiAssistantsTotal: number;
+  vapiTradelineAssistants: number;
+  driftCount: number;
+  driftIds: string[];
+  failures: Array<{ id: number; status: string; lastBuildError: string }>;
+  vapiReachable: boolean;
+  vapiError: string | null;
+  generatedAt: string;
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -147,6 +164,15 @@ export default function TradelineVoicesPage() {
     queryFn: () => api("/api/admin/tradeline/voices/usage"),
   });
 
+  /* Read-only side-by-side: DB-side TradeLine provisioning state vs the
+   * live Vapi assistant inventory. Caught zero-live-assistants drift in
+   * PR #698 audit — keep it visible so it can't slip again silently. */
+  const healthQ = useQuery<ProvisioningHealth>({
+    queryKey: ["/api/admin/tradeline/provisioning-health"],
+    queryFn: () => api("/api/admin/tradeline/provisioning-health"),
+    refetchInterval: 60_000,
+  });
+
   const [editing, setEditing] = useState<Voice | null>(null);
   const [creating, setCreating] = useState(false);
   /** Voice pending archival — drives the shared <ConfirmDialog>. */
@@ -203,6 +229,120 @@ export default function TradelineVoicesPage() {
             <ProductSettingsMenu productId="tradeline" productName="TradeLine" />
           </div>
         </div>
+
+        {/* Provisioning health widget — DB-side vs live Vapi inventory. */}
+        <Card className="p-4">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                {healthQ.data && (healthQ.data.driftCount > 0 || healthQ.data.dbServicesFailed > 0 || !healthQ.data.vapiReachable) ? (
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4 text-brand-blue-600" />
+                )}
+                Provisioning health
+              </h2>
+              <p className="text-xs text-gray-500">
+                DB-side TradeLine state vs the live Vapi account. Auto-refreshes every minute.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => healthQ.refetch()}
+              disabled={healthQ.isFetching}
+              data-testid="button-refresh-health"
+            >
+              <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${healthQ.isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+
+          {healthQ.isLoading && <div className="text-sm text-gray-500">Loading provisioning health…</div>}
+          {healthQ.isError && (
+            <div className="text-sm text-red-700">
+              Couldn't load provisioning health: {(healthQ.error as Error | null)?.message ?? "unknown"}
+            </div>
+          )}
+          {healthQ.data && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="rounded border border-gray-200 p-2">
+                  <div className="text-[11px] text-gray-500">DB services (total)</div>
+                  <div className="text-lg font-semibold text-gray-900" data-testid="health-db-total">
+                    {healthQ.data.dbServicesTotal}
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    {healthQ.data.dbServicesActive} active · {healthQ.data.dbServicesPending} pending
+                  </div>
+                </div>
+                <div className="rounded border border-gray-200 p-2">
+                  <div className="text-[11px] text-gray-500">DB with vapi_id</div>
+                  <div className="text-lg font-semibold text-gray-900" data-testid="health-db-with-vapi-id">
+                    {healthQ.data.dbServicesWithAssistantId}
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    settings rows: {healthQ.data.dbAssistantSettingsRows}
+                  </div>
+                </div>
+                <div className="rounded border border-gray-200 p-2">
+                  <div className="text-[11px] text-gray-500">Live Vapi (tradeline)</div>
+                  <div className="text-lg font-semibold text-gray-900" data-testid="health-vapi-tradeline">
+                    {healthQ.data.vapiReachable ? healthQ.data.vapiTradelineAssistants : "—"}
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    of {healthQ.data.vapiReachable ? healthQ.data.vapiAssistantsTotal : "?"} total
+                  </div>
+                </div>
+                <div
+                  className={`rounded border p-2 ${
+                    healthQ.data.driftCount > 0
+                      ? "border-amber-300 bg-amber-50"
+                      : "border-gray-200"
+                  }`}
+                >
+                  <div className="text-[11px] text-gray-500">Drift</div>
+                  <div
+                    className={`text-lg font-semibold ${
+                      healthQ.data.driftCount > 0 ? "text-amber-700" : "text-gray-900"
+                    }`}
+                    data-testid="health-drift-count"
+                  >
+                    {healthQ.data.vapiReachable ? healthQ.data.driftCount : "—"}
+                  </div>
+                  <div className="text-[11px] text-gray-500">DB ids missing live</div>
+                </div>
+              </div>
+
+              {!healthQ.data.vapiReachable && (
+                <div className="text-xs text-red-700" data-testid="health-vapi-unreachable">
+                  Vapi unreachable: {healthQ.data.vapiError ?? "unknown error"}
+                </div>
+              )}
+
+              {healthQ.data.driftCount > 0 && (
+                <div className="text-xs text-amber-800">
+                  Drift IDs: <code className="font-mono">{healthQ.data.driftIds.join(", ")}</code>
+                </div>
+              )}
+
+              {healthQ.data.failures.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-gray-700 hover:text-gray-900">
+                    {healthQ.data.failures.length} failed build{healthQ.data.failures.length === 1 ? "" : "s"} (click to expand)
+                  </summary>
+                  <ul className="mt-2 space-y-1 text-gray-600">
+                    {healthQ.data.failures.map((f) => (
+                      <li key={f.id} className="font-mono">
+                        service #{f.id} · {f.status} · {f.lastBuildError}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+        </Card>
 
         {/* Usage chart */}
         <Card className="p-4">

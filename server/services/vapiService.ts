@@ -735,7 +735,9 @@ export function buildAssistantConfig(): Record<string, any> {
   return {
     assistant: {
       name: "WeFixTrades Sales & Support",
-      model: { provider: "custom-llm", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
+      // `model.model` string is required by Vapi for custom-llm provider —
+      // see fix in upsertVapiAssistant() below.
+      model: { provider: "custom-llm", model: "wefixtrades-brand-v1", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
       voice: { provider: "11labs", voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM" },
       firstMessage: "WeFixTrades, this is Riley — how can I help?",
       endCallMessage: "Thanks for calling WeFixTrades. We'll follow up by email shortly — have a great rest of your day.",
@@ -783,7 +785,9 @@ export function buildTradeLineAssistantConfig(resolved: ResolvedTradeLineClient)
 
   const assistant: Record<string, any> = {
     name: `TradeLine — ${resolved.client.business_name}`,
-    model: { provider: "custom-llm", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
+    // `model.model` string is required by Vapi for custom-llm provider —
+    // see fix in upsertVapiAssistant() below.
+    model: { provider: "custom-llm", model: "wefixtrades-tradeline-v1", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
     voice: { provider: "11labs", voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM" },
     firstMessage: ctx.mode === "after_hours"
       ? `Hi, thanks for calling ${ctx.businessName}! We're closed for the day, but I can help make sure you're looked after.`
@@ -821,13 +825,32 @@ export async function upsertVapiAssistant(
   const rawMeta = (cs?.metadata as Record<string, any>) ?? {};
   const existingId = rawMeta?.tradeline?.assistant?.vapiAssistantId;
 
+  // Vapi `custom-llm` provider requires a `model` string field (forwarded to
+  // our /api/vapi/conversation endpoint as the model identifier). Without it
+  // Vapi rejects the assistant create/update with HTTP 400
+  // `model.model must be a string` — this was the silent-failure root cause
+  // that left zero TradeLine assistants in the live account (see
+  // docs/operations/tradeline-provisioning-health-2026-05-24.md). It also
+  // requires a fully-qualified https URL — relative paths are rejected, so
+  // we hard-fail early when VAPI_SERVER_URL is not set rather than POST a
+  // payload Vapi will refuse.
+  if (!config.serverUrl) {
+    throw new Error(
+      "Vapi assistant creation failed: VAPI_SERVER_URL is not set — required to build a fully-qualified custom-llm URL.",
+    );
+  }
   const payload = {
     name: assistantName,
-    model: { provider: "custom-llm" as const, url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation", messages: [{ role: "system", content: systemPrompt }] },
+    model: {
+      provider: "custom-llm" as const,
+      model: "wefixtrades-tradeline-v1",
+      url: `${config.serverUrl}/api/vapi/conversation`,
+      messages: [{ role: "system", content: systemPrompt }],
+    },
     voice: { provider: (voiceConfig?.provider || "11labs") as "11labs", voiceId: voiceConfig?.voiceId || "21m00Tcm4TlvDq8ikWAM" },
     firstMessage,
     transcriber: { provider: "deepgram" as const, model: "nova-2", language: transcriberLanguage || "en" },
-    serverUrl: config.serverUrl ? `${config.serverUrl}/api/vapi/webhook` : undefined,
+    serverUrl: `${config.serverUrl}/api/vapi/webhook`,
     metadata: { client_service_id: String(clientServiceId), source: "tradeline_template_engine" },
   };
 
