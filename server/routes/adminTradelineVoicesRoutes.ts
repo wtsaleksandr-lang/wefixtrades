@@ -26,6 +26,7 @@ import {
   tradelineVoices,
   tradelineAssistantSettings,
   clients,
+  clientServices,
 } from "@shared/schema";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
@@ -41,6 +42,8 @@ const log = createLogger("AdminTradelineVoices");
 
 const VOICE_BASE = "/api/admin/tradeline/voices";
 const SETTINGS_BASE = "/api/admin/tradeline/settings";
+const HEALTH_PATH = "/api/admin/tradeline/provisioning-health";
+const VAPI_API_BASE = "https://api.vapi.ai";
 
 const tagsSchema = z.array(z.string().max(40)).max(20).optional();
 
@@ -379,4 +382,140 @@ export function registerAdminTradelineVoicesRoutes(app: Express): void {
       }
     },
   );
+
+  /* ─── GET /provisioning-health ─────────────────────────────────────────
+   * Side-by-side diagnostic: DB-side TradeLine provisioning state vs the
+   * live Vapi assistant inventory. Used by the small health widget on the
+   * Tradeline Voices admin page to catch drift / silent provisioning
+   * failures early (e.g. PR #698 audit found zero live TradeLine
+   * assistants while the DB carried four pending services).
+   *
+   * Returns:
+   *   {
+   *     dbServicesTotal,                 // every client_services row where service_id LIKE 'tradeline%'
+   *     dbServicesActive,                // ...AND status = 'active'
+   *     dbServicesPending,               // ...AND status = 'pending'
+   *     dbServicesWithAssistantId,       // ...AND metadata.tradeline.assistant.vapiAssistantId is non-empty
+   *     dbServicesFailed,                // ...AND metadata.tradeline.assistant.status = 'failed'
+   *     dbAssistantSettingsRows,         // SELECT COUNT(*) FROM tradeline_assistant_settings
+   *     vapiAssistantsTotal,             // GET /assistant on Vapi
+   *     vapiTradelineAssistants,         // ...filtered by metadata.source === 'tradeline_template_engine'
+   *     driftCount,                      // DB-side ids absent from Vapi inventory
+   *     driftIds,                        // those DB ids
+   *     failures: [{ id, status, lastBuildError }],
+   *     vapiReachable,                   // boolean — did the GET /assistant succeed
+   *     vapiError,                       // null or the error message
+   *     generatedAt,
+   *   }
+   * Pure read-only — never mutates anything.
+   * ────────────────────────────────────────────────────────────────── */
+  app.get(HEALTH_PATH, requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      // 1. DB-side aggregates.
+      const allTradelineServices = await db
+        .select({
+          id: clientServices.id,
+          client_id: clientServices.client_id,
+          status: clientServices.status,
+          metadata: clientServices.metadata,
+        })
+        .from(clientServices)
+        .where(sql`${clientServices.service_id} LIKE 'tradeline%'`);
+
+      const dbServicesTotal = allTradelineServices.length;
+      let dbServicesActive = 0;
+      let dbServicesPending = 0;
+      let dbServicesWithAssistantId = 0;
+      let dbServicesFailed = 0;
+      const dbAssistantIds = new Set<string>();
+      const failures: Array<{ id: number; status: string; lastBuildError: string }> = [];
+
+      for (const svc of allTradelineServices) {
+        if (svc.status === "active") dbServicesActive++;
+        if (svc.status === "pending") dbServicesPending++;
+        const meta = (svc.metadata as Record<string, any>) ?? {};
+        const a = meta?.tradeline?.assistant ?? {};
+        const vapiId = typeof a.vapiAssistantId === "string" ? a.vapiAssistantId.trim() : "";
+        if (vapiId) {
+          dbServicesWithAssistantId++;
+          dbAssistantIds.add(vapiId);
+        }
+        if (a.status === "failed") {
+          dbServicesFailed++;
+          failures.push({
+            id: svc.id,
+            status: String(a.status ?? ""),
+            lastBuildError: String(a.lastBuildError ?? ""),
+          });
+        }
+      }
+
+      const [settingsCountRow] = await db
+        .select({ n: sql<number>`COUNT(*)::int` })
+        .from(tradelineAssistantSettings);
+      const dbAssistantSettingsRows = Number(settingsCountRow?.n ?? 0);
+
+      // 2. Live Vapi inventory. Fail soft — surface the error to the widget
+      //    instead of 500ing the whole endpoint, so the DB-side numbers are
+      //    still visible if Vapi is briefly unreachable.
+      let vapiReachable = false;
+      let vapiError: string | null = null;
+      const liveVapiIds = new Set<string>();
+      let vapiAssistantsTotal = 0;
+      let vapiTradelineAssistants = 0;
+      const apiKey = process.env.VAPI_API_KEY;
+      if (!apiKey) {
+        vapiError = "VAPI_API_KEY not configured";
+      } else {
+        try {
+          const resp = await fetch(`${VAPI_API_BASE}/assistant?limit=200`, {
+            headers: { Authorization: `Bearer ${apiKey}` },
+          });
+          if (!resp.ok) {
+            vapiError = `Vapi GET /assistant returned ${resp.status}`;
+          } else {
+            const all = (await resp.json()) as Array<Record<string, any>>;
+            vapiReachable = true;
+            vapiAssistantsTotal = Array.isArray(all) ? all.length : 0;
+            for (const a of Array.isArray(all) ? all : []) {
+              if (typeof a?.id === "string") liveVapiIds.add(a.id);
+              if (a?.metadata?.source === "tradeline_template_engine") {
+                vapiTradelineAssistants++;
+              }
+            }
+          }
+        } catch (err: any) {
+          vapiError = `Vapi unreachable: ${err?.message ?? String(err)}`;
+        }
+      }
+
+      // 3. Drift — DB-side assistant ids that don't exist live.
+      const driftIds: string[] = [];
+      if (vapiReachable) {
+        for (const id of dbAssistantIds) {
+          if (!liveVapiIds.has(id)) driftIds.push(id);
+        }
+      }
+
+      res.json({
+        dbServicesTotal,
+        dbServicesActive,
+        dbServicesPending,
+        dbServicesWithAssistantId,
+        dbServicesFailed,
+        dbAssistantSettingsRows,
+        vapiAssistantsTotal,
+        vapiTradelineAssistants,
+        driftCount: driftIds.length,
+        driftIds,
+        failures,
+        vapiReachable,
+        vapiError,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      log.error("provisioning-health failed", { error: err?.message });
+      res.status(500).json({ error: "health_failed", message: err?.message ?? "unknown" });
+    }
+  });
 }
