@@ -10,12 +10,44 @@
          overrides title, description, og:title, og:description, og:image,
          og:url, twitter:title, twitter:description, twitter:image, and
          the <link rel="canonical"> on every route mount. -->
+    <meta name="robots" content="index, follow" />
     <meta property="og:site_name" content="WeFixTrades" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://wefixtrades.com/brand/og-default.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@wefixtrades" />
-    <link rel="canonical" href="https://wefixtrades.com/" />
+    <!-- No static <link rel="canonical">. PageMeta sets the canonical
+         per-route on hydration; emitting a static `/` here makes
+         non-JS-rendering crawlers (Bing's primary index, social-card
+         scrapers, LLM crawlers) treat every URL as a duplicate of the
+         homepage. Better to ship no canonical than a wrong one. -->
+    <!-- Baseline Organization + WebSite JSON-LD so non-JS crawlers can
+         see the brand on any URL even before route-level scripts hydrate.
+         Per-page <PageMeta> can additionally inject Product/FAQ/Breadcrumb
+         schemas via data-jsonld="page" without conflicting with these. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "WeFixTrades",
+        "url": "https://wefixtrades.com",
+        "logo": "https://wefixtrades.com/brand/icon.svg",
+        "sameAs": [],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "Customer Support",
+          "url": "https://wefixtrades.com/contact"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "WeFixTrades",
+        "url": "https://wefixtrades.com"
+      }
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
