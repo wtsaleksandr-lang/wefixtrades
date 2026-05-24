@@ -11,6 +11,14 @@ if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || "development",
+    // Release tagging lets Sentry group regressions per-deploy. Falls
+    // back through the same chain as /api/healthz so the two stay in sync.
+    release:
+      process.env.SENTRY_RELEASE ??
+      process.env.GIT_SHA ??
+      process.env.REPL_DEPLOYMENT_ID ??
+      process.env.SOURCE_VERSION ??
+      undefined,
     tracesSampleRate: 0.1,
   });
 }
@@ -467,7 +475,11 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (!path.startsWith("/api")) return;
 
-    let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+    // Include request id when the requestId middleware has tagged the
+    // request (currently /api/v1/*). Cheap correlation handle for
+    // grep'ing logs against a customer-quoted X-Request-Id.
+    const rid = (req as any).requestId;
+    let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms${rid ? ` rid=${rid}` : ""}`;
 
     if (capturedJsonResponse && process.env.LOG_LEVEL === "debug") {
       if (typeof capturedJsonResponse === "object" && capturedJsonResponse !== null) {
