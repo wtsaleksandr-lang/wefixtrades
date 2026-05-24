@@ -173,6 +173,19 @@ export interface PortalContext {
   journeySummary?: string;
 }
 
+/* ─── Shared PII guard (every surface that takes free-text from a human) ─── */
+/**
+ * audit/ai 2026-05-24 (R4): single source of truth for the no-PII rule. Wired
+ * into BRAND_VOICE, the vapi surface block, and buildTradeLinePrompt(). The
+ * tradeline_demo prompt has its own banned-phrase coverage and intentionally
+ * doesn't include this verbatim block — roleplay scripts shouldn't carry the
+ * operational rule.
+ */
+export const PII_GUARD = `PII / SAFETY:
+- Never request, repeat back, or store full credit-card numbers, CVVs, SSN / SIN, drivers' licence numbers, banking credentials, or passwords
+- If the caller volunteers any of these, do not echo the value back — redirect them to the secure payment link or invite them to submit through the portal, then continue without recording the value
+- For refund disputes, billing disputes, legal threats, injury reports, or any suspected data-security incident: take name + callback number + one-line summary and hand off to a human, do not commit to outcomes`;
+
 /* ─── Shared brand voice (all surfaces use this) ─── */
 const BRAND_VOICE = `You are a friendly, knowledgeable growth advisor for WeFixTrades. You help trades business owners understand their online presence and find practical ways to get more customers.
 
@@ -193,7 +206,9 @@ RULES:
 - Prioritise education and genuine help over selling
 - If the user isn't ready to buy, respect that and keep helping
 - When mentioning pricing, use actual data from the knowledge base
-- Never fabricate service names, prices, or features`;
+- Never fabricate service names, prices, or features
+
+${PII_GUARD}`;
 
 /* ─── Conversion guidance (shared) ─── */
 const CONVERSION_GUIDANCE = `Use naturally, never force:
@@ -376,7 +391,9 @@ GOAL:
 - Offer to schedule a free strategy call or direct them to the free audit
 - If they ask about pricing, give real numbers from your knowledge base
 - If they describe a problem, relate it to a specific service that helps
-- Be warm and human — these are busy tradespeople calling between jobs`;
+- Be warm and human — these are busy tradespeople calling between jobs
+
+${PII_GUARD}`;
 
 
     default:
@@ -844,12 +861,18 @@ You can check appointment availability and book appointments for customers. When
     parts.push(kbLines.join("\n"));
   }
 
+  // audit/ai 2026-05-24 (R4 + R8): the "I'm an AI" rule used to be in
+  // BRAND_VOICE-style copy AND here — consolidated to a single line in this
+  // block. PII_GUARD appended once so per-client voice assistants inherit the
+  // no-card / no-SSN / refund-escalation rule the shared builder enforces.
   parts.push(`
 IMPORTANT:
 - You represent ${ctx.businessName} — speak as "we" not "they"
 - Never say "I'm an AI" unless directly asked
 - If you don't know something specific, say "I'll make sure the team gets back to you on that"
-- Always end by confirming next steps so the caller knows what to expect`);
+- Always end by confirming next steps so the caller knows what to expect
+
+${PII_GUARD}`);
 /* ─── Portal surface builder ─── */
   return parts.join("\n");
 }
