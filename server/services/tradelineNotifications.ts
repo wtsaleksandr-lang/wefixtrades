@@ -8,6 +8,7 @@
 import { createLogger } from "../lib/logger";
 import { isTwilioConfigured, sendSMS, truncateSms } from "../twilioClient";
 import { sendTradeLineCallNotificationEmail } from "../lib/tradelineCallNotificationEmail";
+import { respectPreferences } from "../lib/notificationPreferences";
 import type { TradelineLeadData } from "@shared/schema";
 import type { VapiCallReport } from "./vapiService";
 
@@ -47,10 +48,17 @@ function markOutboundCallerSmsSent(phone: string): void {
  */
 export async function sendTradeLineCallNotifications(params: TradeLineNotificationParams): Promise<void> {
   const {
-    clientServiceId, callLogId, leadData, recordingUrl, report,
+    clientId, clientServiceId, callLogId, leadData, recordingUrl, report,
     smsNumbers, emailAddresses, canSendSmsTo, markSmsSent,
     currentMode, businessName, outboundSmsEnabled,
   } = params;
+
+  // Per-client notification-preference gates. Computed once per call.
+  // Outbound SMS to the caller (end-customer, not a WeFixTrades client) is
+  // NOT gated — that's transactional service information, not a marketing
+  // touchpoint.
+  const smsAllowed = await respectPreferences(clientId, "sms", "leads");
+  const emailAllowed = await respectPreferences(clientId, "email", "leads");
 
   // Build SMS message
   const callerName = leadData.caller_name || "Unknown caller";
@@ -66,7 +74,7 @@ export async function sendTradeLineCallNotifications(params: TradeLineNotificati
   );
 
   // Send SMS to all configured numbers (with rate limiting)
-  if (isTwilioConfigured() && smsNumbers.length > 0) {
+  if (isTwilioConfigured() && smsNumbers.length > 0 && smsAllowed) {
     for (const phone of smsNumbers) {
       if (!canSendSmsTo(phone)) {
         log.debug("SMS rate limited — skipping", { phone, clientServiceId });
@@ -83,7 +91,7 @@ export async function sendTradeLineCallNotifications(params: TradeLineNotificati
   }
 
   // Send email to all configured addresses
-  if (emailAddresses.length > 0) {
+  if (emailAddresses.length > 0 && emailAllowed) {
     for (const email of emailAddresses) {
       try {
         await sendTradeLineCallNotificationEmail(email, {

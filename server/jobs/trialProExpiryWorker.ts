@@ -83,7 +83,7 @@ export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
       const sent = await sendProTrialEndedEmail(row.contact_email, {
         businessName: row.business_name,
         upgradeUrl,
-      });
+      }, row.id);
       if (sent) emailsSent++;
       else emailsFailed++;
     }

@@ -10,6 +10,8 @@ import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { createLogger } from "../lib/logger";
 import { fireAlert } from "./alertService";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
+import { respectPreferences, isTransactionalCategory } from "../lib/notificationPreferences";
+import type { NotificationCategoryKey } from "@shared/schemas/notificationPreferences";
 
 const log = createLogger("EmailQueue");
 
@@ -71,6 +73,32 @@ export async function processEmailQueue(): Promise<{ sent: number; failed: numbe
       });
       log.info(`Email #${item.id} skipped — recipient unsubscribed: ${item.to_email}`);
       continue;
+    }
+
+    /* PR #702: per-client notification-preference enforcement at drain
+     * time. Templates that pass `clientId` + non-transactional `category`
+     * in metadata are gated against `clients.metadata.notification_preferences`.
+     * Transactional categories (password reset, login link, 2FA, …) bypass
+     * the gate. Skips terminate as `skipped_preferences` — no retry, no
+     * bounce. */
+    const itemMeta = (item.metadata as Record<string, unknown> | null) ?? null;
+    const clientId = typeof itemMeta?.clientId === "number" ? (itemMeta.clientId as number) : null;
+    const category = typeof itemMeta?.category === "string" ? (itemMeta.category as string) : null;
+    if (clientId != null && category && !isTransactionalCategory(category)) {
+      const allowed = await respectPreferences(
+        clientId,
+        "email",
+        category as NotificationCategoryKey,
+      );
+      if (!allowed) {
+        await storage.updateEmailQueueItem(item.id, {
+          status: "skipped_preferences",
+          attempts: (item.attempts ?? 0) + 1,
+          last_error: `client #${clientId} disabled email/${category}`,
+        });
+        log.info(`Email #${item.id} skipped — client #${clientId} disabled email/${category}`);
+        continue;
+      }
     }
 
     await storage.updateEmailQueueItem(item.id, { status: "sending" });

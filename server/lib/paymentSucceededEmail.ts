@@ -11,6 +11,7 @@
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
+import { respectPreferences } from "./notificationPreferences";
 import { createLogger } from "./logger";
 
 const log = createLogger("PaymentSucceededEmail");
@@ -32,11 +33,17 @@ function formatCurrency(amount: string, currency: string): string {
 export async function sendPaymentSucceededEmail(
   recipientEmail: string,
   data: PaymentSucceededData,
+  clientId?: number,
 ): Promise<boolean> {
   try {
     const transporter = getEmailTransporter();
     if (!transporter) {
       log.warn("SMTP not configured — skipping payment succeeded email");
+      return false;
+    }
+
+    if (clientId != null && !(await respectPreferences(clientId, "email", "billing"))) {
+      log.info(`[payment-succeeded] Skipped — client #${clientId} disabled billing email`);
       return false;
     }
 

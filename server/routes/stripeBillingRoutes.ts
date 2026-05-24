@@ -781,7 +781,7 @@ async function handleInvoiceSucceeded(invoice: Stripe.Invoice) {
       serviceName,
       nextBillingDate,
       billingPortalUrl: portalUrl,
-    });
+    }, client.id);
 
     if (stripe && invoice.id) {
       await stripe.invoices.update(invoice.id, {

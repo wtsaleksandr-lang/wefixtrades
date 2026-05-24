@@ -19,6 +19,7 @@ import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { respectPreferences } from "./notificationPreferences";
 import { createLogger } from "./logger";
 
 const log = createLogger("CancellationEmail");
@@ -109,6 +110,11 @@ export async function sendCancellationEmail(params: SendParams): Promise<boolean
 
   const [client] = await db.select().from(clients).where(eq(clients.id, cs.client_id)).limit(1);
   if (!client?.contact_email) return false;
+
+  if (!(await respectPreferences(cs.client_id, "email", "billing"))) {
+    log.info(`[cancellation-email] Skipped — client #${cs.client_id} disabled billing email`);
+    return false;
+  }
 
   const [svc] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, cs.service_id)).limit(1);
   const serviceName = svc?.name || cs.service_id;

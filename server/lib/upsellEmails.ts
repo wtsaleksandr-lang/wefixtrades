@@ -8,6 +8,7 @@
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
+import { respectPreferences } from "./notificationPreferences";
 import { createLogger } from "./logger";
 
 const log = createLogger("UpsellEmails");
@@ -23,10 +24,16 @@ function getBaseUrl(): string {
 export async function sendPostSiteLaunchUpsell(
   recipientEmail: string,
   data: { businessName: string; portalUrl: string },
+  clientId?: number,
 ): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
     log.warn("No email transporter — skipping SiteLaunch upsell");
+    return false;
+  }
+
+  if (clientId != null && !(await respectPreferences(clientId, "email", "marketing"))) {
+    log.info(`[upsell-sitelaunch] Skipped — client #${clientId} disabled marketing email`);
     return false;
   }
 
@@ -104,10 +111,16 @@ export async function sendPostSiteLaunchUpsell(
 export async function sendPostWebFixUpsell(
   recipientEmail: string,
   data: { businessName: string; portalUrl: string },
+  clientId?: number,
 ): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
     log.warn("No email transporter — skipping WebFix upsell");
+    return false;
+  }
+
+  if (clientId != null && !(await respectPreferences(clientId, "email", "marketing"))) {
+    log.info(`[upsell-webfix] Skipped — client #${clientId} disabled marketing email`);
     return false;
   }
 

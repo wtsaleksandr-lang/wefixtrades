@@ -15,6 +15,7 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { isEmailUnsubscribed } from "./unsubscribeStorage";
+import { respectPreferences } from "./notificationPreferences";
 import { createLogger } from "./logger";
 
 const log = createLogger("trial-expiry-email");
@@ -74,6 +75,7 @@ function lossRow(text: string): string {
 export async function sendTrialExpiryEmail(
   recipientEmail: string,
   data: TrialExpiryData,
+  clientId?: number,
 ): Promise<boolean> {
   try {
     const transporter = getEmailTransporter();
@@ -84,6 +86,12 @@ export async function sendTrialExpiryEmail(
 
     if (!recipientEmail) {
       log.warn("No recipient email — skipping trial expiry email");
+      return false;
+    }
+
+    // Trial expiry is billing-adjacent — gate against billing preference.
+    if (clientId != null && !(await respectPreferences(clientId, "email", "billing"))) {
+      log.info(`Skipped trial expiry email — client #${clientId} disabled billing email`);
       return false;
     }
 

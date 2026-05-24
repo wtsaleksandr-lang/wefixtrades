@@ -18,6 +18,7 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { isEmailUnsubscribed } from "./unsubscribeStorage";
+import { respectPreferences } from "./notificationPreferences";
 import { createLogger } from "./logger";
 
 const log = createLogger("service-status-change-email");
@@ -36,6 +37,8 @@ export interface ServiceStatusChangeData {
   serviceUrl: string;
   /** Optional URL to the billing page (used by the cancelled state). */
   billingUrl?: string;
+  /** Owning client id — used for the service_updates preferences check. */
+  clientId?: number;
 }
 
 /* Per-state copy table. Keeping it inline (rather than per-state
@@ -84,6 +87,11 @@ export async function sendServiceStatusChangeEmail(data: ServiceStatusChangeData
   const transporter = getEmailTransporter();
   if (!transporter) {
     log.warn("SMTP not configured — service status email NOT sent", { to: data.to, kind: data.kind });
+    return false;
+  }
+
+  if (data.clientId != null && !(await respectPreferences(data.clientId, "email", "service_updates"))) {
+    log.info("client disabled service_updates — skipping service status email", { to: data.to, clientId: data.clientId, kind: data.kind });
     return false;
   }
 

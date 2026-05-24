@@ -43,6 +43,7 @@ export async function processUpsellEmails(): Promise<UpsellResult> {
       cs_service_id: clientServices.service_id,
       cs_metadata: clientServices.metadata,
       cs_completed_at: clientServices.completed_at,
+      client_id: clients.id,
       client_business_name: clients.business_name,
       client_contact_email: clients.contact_email,
     })
@@ -84,12 +85,12 @@ export async function processUpsellEmails(): Promise<UpsellResult> {
         sent = await sendPostSiteLaunchUpsell(row.client_contact_email, {
           businessName: row.client_business_name,
           portalUrl,
-        });
+        }, row.client_id);
       } else {
         sent = await sendPostWebFixUpsell(row.client_contact_email, {
           businessName: row.client_business_name,
           portalUrl,
-        });
+        }, row.client_id);
       }
 
       if (sent) {
