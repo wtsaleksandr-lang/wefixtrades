@@ -9,6 +9,8 @@ import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import MicrosoftSignInButton from "@/components/auth/MicrosoftSignInButton";
+import FacebookSignInButton from "@/components/auth/FacebookSignInButton";
 import { ga4Event } from "@/lib/ga4";
 
 export default function SignupPage() {
@@ -155,7 +157,11 @@ export default function SignupPage() {
 
           {/* Fastest path first — one click, then a single business-name
               prompt. Falls through to the full form below. */}
-          <GoogleSignInButton mode="signup" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <GoogleSignInButton mode="signup" />
+            <MicrosoftSignInButton mode="signup" />
+            <FacebookSignInButton mode="signup" />
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
             <div style={{ flex: 1, height: 1, background: mkt.onDarkBorder }} />
             <span style={{ fontSize: 11, color: mkt.onDarkMuted, letterSpacing: "0.08em" }}>OR</span>
