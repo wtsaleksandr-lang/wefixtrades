@@ -42,6 +42,12 @@ import {
 } from "@/config/portalLabels";
 import ContentFlowDraftDrawer from "@/components/contentflow/ContentFlowDraftDrawer";
 import ContentFlowSettingsPanel from "@/components/contentflow/ContentFlowSettingsPanel";
+import ContentFlowPreviewModal, {
+  previewKindFor,
+  PreviewTypeBadge,
+  PreviewThumb,
+  type PreviewDraft,
+} from "@/components/contentflow/ContentFlowPreviewModal";
 import { HeaderFilterDropdown } from "@/components/datatable/HeaderFilterDropdown";
 
 const PRODUCT_ID = "contentflow";
@@ -263,6 +269,8 @@ export default function ContentFlowQueuePage() {
   const [drawerDraftId, setDrawerDraftId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [previewDraft, setPreviewDraft] = useState<PreviewDraft | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   /* AdminProductPageShell wiring — see QuoteQuickPage pilot (PR #578). */
   const productKey = ["/api/admin/products", PRODUCT_ID] as const;
@@ -487,6 +495,22 @@ export default function ContentFlowQueuePage() {
     setDrawerOpen(true);
   };
 
+  const openPreview = (d: ContentDraftRow) => {
+    setPreviewDraft({
+      id: d.id,
+      kind: d.kind,
+      title: d.title,
+      excerpt: d.excerpt,
+      // The queue endpoint doesn't return body — the post preview falls back
+      // to excerpt; full body lives in the drawer.
+      body: null,
+      target_platform: d.target_platform,
+      metadata: d.metadata,
+      client_name: clientNameById.get(d.client_id) || null,
+    });
+    setPreviewOpen(true);
+  };
+
   /* The search + bulk-action + refresh row lift into the shell's
    * filtersBar so layout stays consistent with the other product pages. */
   const filtersBar = (
@@ -574,6 +598,7 @@ export default function ContentFlowQueuePage() {
                       />
                     </TableHead>
                     <TableHead className={`w-16 ${TD_DIVIDER}`}>ID</TableHead>
+                    <TableHead className={`w-24 ${TD_DIVIDER}`}>Preview</TableHead>
                     <TableHead className={`min-w-[160px] ${TD_DIVIDER}`}>
                       <HeaderFilterDropdown
                         label="Client"
@@ -624,8 +649,8 @@ export default function ContentFlowQueuePage() {
                     <>
                       {[0, 1, 2, 3].map((i) => (
                         <TableRow key={`s-${i}`}>
-                          {Array.from({ length: 9 }).map((_, j) => (
-                            <TableCell key={j} className={j < 8 ? TD_DIVIDER : ""}>
+                          {Array.from({ length: 10 }).map((_, j) => (
+                            <TableCell key={j} className={j < 9 ? TD_DIVIDER : ""}>
                               <Skeleton className="h-4 w-full" />
                             </TableCell>
                           ))}
@@ -636,7 +661,7 @@ export default function ContentFlowQueuePage() {
 
                   {isError && !isLoading && (
                     <TableRow>
-                      <TableCell colSpan={9}>
+                      <TableCell colSpan={10}>
                         <div className="py-8 text-center text-sm text-red-700">
                           Failed to load queue: {(error as any)?.message || "unknown error"}
                         </div>
@@ -646,7 +671,7 @@ export default function ContentFlowQueuePage() {
 
                   {!isLoading && !isError && filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={9}>
+                      <TableCell colSpan={10}>
                         <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
                           <Inbox className="h-8 w-8 opacity-50" />
                           <div>
@@ -683,6 +708,21 @@ export default function ContentFlowQueuePage() {
                           )}
                         </TableCell>
                         <TableCell className={`font-mono text-xs ${TD_DIVIDER}`}>#{d.id}</TableCell>
+                        <TableCell className={TD_DIVIDER} onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1.5">
+                            <PreviewThumb
+                              imageUrl={
+                                d.metadata?.media_plan?.thumbnail_url ||
+                                d.metadata?.media_plan?.image_url ||
+                                d.metadata?.media_plan?.public_image_url ||
+                                null
+                              }
+                              kind={previewKindFor(d)}
+                              onClick={() => openPreview(d)}
+                            />
+                            <PreviewTypeBadge kind={previewKindFor(d)} />
+                          </div>
+                        </TableCell>
                         <TableCell className={TD_DIVIDER}>
                           <div className="text-sm font-medium">
                             {clientNameById.get(d.client_id) || `Client #${d.client_id}`}
@@ -800,6 +840,12 @@ export default function ContentFlowQueuePage() {
             qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
           }
         }}
+      />
+
+      <ContentFlowPreviewModal
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        draft={previewDraft}
       />
     </AdminLayout>
   );
