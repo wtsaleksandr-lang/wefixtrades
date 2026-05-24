@@ -2,9 +2,12 @@ import twilio from "twilio";
 const { validateRequest } = twilio as any;
 import type { Request } from "express";
 import { db } from "./db";
-import { smsMessages, leads } from "@shared/schema";
+import { smsMessages, leads, smsOptOuts } from "@shared/schema";
 import { eq, and, gte, sql, desc } from "drizzle-orm";
 import type { InsertSmsMessage } from "@shared/schema";
+import { createLogger } from "./lib/logger";
+
+const smsLog = createLogger("twilio-sms");
 
 /**
  * Returns the configured Twilio sender phone number.
@@ -35,11 +38,76 @@ export function getTwilioClient() {
   return twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 }
 
+/**
+ * Normalize a raw phone string into E.164 best-effort. We don't have full
+ * country detection here; assume +1 for 10-digit North-American numbers,
+ * preserve a leading + if already present, otherwise return the raw digits
+ * prefixed with +. Used only as the lookup key for opt-out enforcement.
+ */
+function toE164(raw: string): string {
+  if (!raw) return raw;
+  const trimmed = raw.replace(/^whatsapp:/i, "").trim();
+  if (trimmed.startsWith("+")) return trimmed;
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return `+${digits}`;
+}
+
+/**
+ * Is the given phone number on the SMS opt-out list? Lookup is by
+ * E.164-normalized number; opt-outs are global across all outbound flows.
+ */
+export async function isSmsOptedOut(to: string): Promise<boolean> {
+  if (!to) return false;
+  const e164 = toE164(to);
+  try {
+    const [row] = await db
+      .select({ id: smsOptOuts.id })
+      .from(smsOptOuts)
+      .where(eq(smsOptOuts.phone_e164, e164))
+      .limit(1);
+    return !!row;
+  } catch (err: any) {
+    smsLog.warn(`[opt-out] lookup failed for ${e164}: ${err.message}`);
+    return false; // fail-open on read errors — better to send than block valid traffic
+  }
+}
+
+/**
+ * Record an opt-out. Idempotent on phone_e164 (UNIQUE constraint + ON
+ * CONFLICT DO NOTHING). Reasons: 'stop_keyword' | 'manual' | 'hard_bounce'.
+ */
+export async function recordSmsOptOut(
+  to: string,
+  reason: "stop_keyword" | "manual" | "hard_bounce" | string = "manual",
+): Promise<void> {
+  const e164 = toE164(to);
+  if (!e164) return;
+  try {
+    await db
+      .insert(smsOptOuts)
+      .values({ phone_e164: e164, opt_out_reason: reason })
+      .onConflictDoNothing({ target: smsOptOuts.phone_e164 });
+    smsLog.info(`[opt-out] recorded ${e164} (reason=${reason})`);
+  } catch (err: any) {
+    smsLog.error(`[opt-out] insert failed for ${e164}: ${err.message}`);
+  }
+}
+
 export async function sendSMS(
   to: string,
   body: string,
   channel: "sms" | "whatsapp" = "sms"
 ): Promise<string> {
+  // Opt-out enforcement applies to SMS only (WhatsApp uses its own
+  // template/opt-in flow). Throws so callers know the send didn't happen
+  // and can record the skip in their own audit trail.
+  if (channel === "sms" && (await isSmsOptedOut(to))) {
+    smsLog.info(`[opt-out] skipped outbound SMS to ${toE164(to)} — recipient opted out`);
+    throw new Error("sms_recipient_opted_out");
+  }
+
   const client = getTwilioClient();
 
   let from: string;

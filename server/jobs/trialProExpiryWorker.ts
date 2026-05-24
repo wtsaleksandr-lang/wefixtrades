@@ -19,6 +19,8 @@ import { and, eq, lt, sql, isNotNull } from "drizzle-orm";
 import { storage } from "../storage";
 import { sendProTrialEndedEmail } from "../lib/proTrialEndedEmail";
 import { createLogger } from "../lib/logger";
+import { sendSMS } from "../twilioClient";
+import { parseNotificationPreferences } from "@shared/schemas/notificationPreferences";
 
 const log = createLogger("trial-pro-expiry");
 
@@ -27,9 +29,64 @@ export interface TrialProExpiryResult {
   expiredCount: number;
   emailsSent: number;
   emailsFailed: number;
+  trialEndingSmsSent: number;
 }
 
 export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
+  // T-3d trial-ending SMS heads-up. Fires once per trial via a metadata
+  // flag (trial_ending_sms_sent_at). Respects channels.sms +
+  // notification_preferences.categories.billing and the sms_opt_outs
+  // registry (enforced inside sendSMS()). Best-effort; failures don't
+  // block the expiry pass below.
+  let trialEndingSmsSent = 0;
+  try {
+    const upcoming = await db
+      .select({
+        id: clients.id,
+        business_name: clients.business_name,
+        contact_phone: clients.contact_phone,
+        metadata: clients.metadata,
+      })
+      .from(clients)
+      .where(
+        and(
+          eq(clients.trial_pro_features_enabled, true),
+          isNotNull(clients.trial_pro_expires_at),
+          sql`${clients.trial_pro_expires_at} > now()`,
+          sql`${clients.trial_pro_expires_at} <= now() + interval '3 days'`,
+        ),
+      );
+    const upgradeUrl = `${process.env.APP_URL || "https://wefixtrades.com"}/pricing?from=trial-ending`;
+    for (const row of upcoming) {
+      if (!row.contact_phone) continue;
+      const meta = (row.metadata as Record<string, unknown>) ?? {};
+      if (meta.trial_ending_sms_sent_at) continue;
+      const prefs = parseNotificationPreferences(meta);
+      if (!prefs.channels.sms || !prefs.categories.billing) continue;
+      try {
+        await sendSMS(
+          row.contact_phone,
+          `Your WeFixTrades trial ends in 3 days. Upgrade: ${upgradeUrl}`,
+          "sms",
+        );
+        trialEndingSmsSent++;
+        await db
+          .update(clients)
+          .set({
+            metadata: { ...meta, trial_ending_sms_sent_at: new Date().toISOString() },
+            updated_at: new Date(),
+          })
+          .where(eq(clients.id, row.id));
+      } catch (err: any) {
+        if (err?.message !== "sms_recipient_opted_out") {
+          log.warn(`Trial-ending SMS failed for client ${row.id}: ${err.message}`);
+        }
+      }
+    }
+  } catch (err: any) {
+    log.warn(`Trial-ending SMS scan failed: ${err.message}`);
+  }
+
   const expired = await db
     .select({
       id: clients.id,
@@ -46,7 +103,7 @@ export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
     );
 
   if (expired.length === 0) {
-    return { status: "ok", expiredCount: 0, emailsSent: 0, emailsFailed: 0 };
+    return { status: "ok", expiredCount: 0, emailsSent: 0, emailsFailed: 0, trialEndingSmsSent };
   }
 
   log.info(`Found ${expired.length} clients with expired Pro trials`);
@@ -89,6 +146,6 @@ export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
     }
   }
 
-  log.info(`Pro-trial expiry: flipped ${expired.length}, emails sent ${emailsSent}, failed ${emailsFailed}`);
-  return { status: "ok", expiredCount: expired.length, emailsSent, emailsFailed };
+  log.info(`Pro-trial expiry: flipped ${expired.length}, emails sent ${emailsSent}, failed ${emailsFailed}, trial-ending SMS sent ${trialEndingSmsSent}`);
+  return { status: "ok", expiredCount: expired.length, emailsSent, emailsFailed, trialEndingSmsSent };
 }

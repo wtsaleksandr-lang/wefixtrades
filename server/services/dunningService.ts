@@ -36,6 +36,8 @@ import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { respectPreferences } from "../lib/notificationPreferences";
 import { createLogger } from "../lib/logger";
+import { sendSMS } from "../twilioClient";
+import { parseNotificationPreferences } from "@shared/schemas/notificationPreferences";
 
 const log = createLogger("DunningService");
 
@@ -304,7 +306,16 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
 }> {
   // Resolve client (re-attempt match if scheduling happened before client linked)
   let clientId = row.client_id;
-  let client: { id: number; contact_email: string | null; contact_name: string | null; business_name: string | null } | null = null;
+  let client:
+    | {
+        id: number;
+        contact_email: string | null;
+        contact_name: string | null;
+        business_name: string | null;
+        contact_phone: string | null;
+        metadata: unknown;
+      }
+    | null = null;
 
   if (clientId) {
     const [c] = await db.select({
@@ -312,6 +323,8 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
       contact_email: clients.contact_email,
       contact_name: clients.contact_name,
       business_name: clients.business_name,
+      contact_phone: clients.contact_phone,
+      metadata: clients.metadata,
     }).from(clients).where(eq(clients.id, clientId)).limit(1);
     client = c ?? null;
   } else {
@@ -320,6 +333,8 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
       contact_email: clients.contact_email,
       contact_name: clients.contact_name,
       business_name: clients.business_name,
+      contact_phone: clients.contact_phone,
+      metadata: clients.metadata,
     }).from(clients).where(eq(clients.stripe_customer_id, row.stripe_customer_id)).limit(1);
     if (c) {
       client = c;
@@ -445,6 +460,26 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
         details: `Day-7 final warning sent to ${client.contact_email}. Subscription ${row.stripe_subscription_id || "unknown"} may churn.`,
         metadata: { client_id: clientId, stripe_subscription_id: row.stripe_subscription_id, dunning_row_id: row.id },
       }).catch(() => {});
+
+      // Dunning attempt 3+ — switch to SMS for urgency. Respects
+      // notification_preferences.channels.sms + billing category and the
+      // sms_opt_outs registry (enforced inside sendSMS()).
+      (async () => {
+        try {
+          if (!client?.contact_phone) return;
+          const prefs = parseNotificationPreferences(client.metadata);
+          if (!prefs.channels.sms || !prefs.categories.billing) return;
+          await sendSMS(
+            client.contact_phone,
+            "Final notice: your WeFixTrades subscription is past due. Update your card now to avoid pause: https://wefixtrades.com/portal/billing",
+            "sms",
+          );
+        } catch (err: any) {
+          if (err?.message !== "sms_recipient_opted_out") {
+            log.warn(`[dunning] day_7_warning SMS failed: ${err.message}`);
+          }
+        }
+      })();
     }
 
     return { outcome: "sent" };

@@ -10,6 +10,7 @@ import {
   truncateSms,
   verifyTwilioSignature,
   getTwilioFromNumber,
+  recordSmsOptOut,
 } from "../twilioClient";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { getOpenAI } from "../openaiClient";
@@ -80,6 +81,53 @@ export function registerTwilioRoutes(app: Express): void {
       const isWhatsapp = from.startsWith("whatsapp:");
       const channel = isWhatsapp ? "whatsapp" : "sms";
       const cleanFrom = isWhatsapp ? from.replace("whatsapp:", "") : from;
+
+      // ── STOP keyword handling (SMS only; WhatsApp opt-outs are managed in
+      //    Meta's UI). Match the standard CTIA keywords case-insensitively;
+      //    a single-word body that exactly matches one of them flips the
+      //    sender into the sms_opt_outs registry. Subsequent outbound sends
+      //    to this number are blocked by sendSMS()'s opt-out check.
+      //    Reply with the required confirmation per TCPA / CTIA guidance.
+      if (channel === "sms") {
+        const trimmed = body.trim().toUpperCase();
+        const STOP_KEYWORDS = new Set([
+          "STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT",
+        ]);
+        if (STOP_KEYWORDS.has(trimmed)) {
+          await recordSmsOptOut(cleanFrom, "stop_keyword");
+          log.info("[Twilio] inbound STOP keyword — opt-out recorded", { from: cleanFrom });
+          res.set("Content-Type", "text/xml");
+          return res.send(
+            `<Response><Message>You're opted out of WeFixTrades SMS. Reply START to re-subscribe.</Message></Response>`,
+          );
+        }
+        // START / UNSTOP — clear the opt-out row so the sender can opt
+        // back in without a manual admin step.
+        if (trimmed === "START" || trimmed === "UNSTOP" || trimmed === "YES") {
+          try {
+            const { db } = await import("../db");
+            const { smsOptOuts } = await import("@shared/schema");
+            const { eq } = await import("drizzle-orm");
+            // Reuse the same E.164 normalization as the writer
+            const e164 = cleanFrom.startsWith("+")
+              ? cleanFrom
+              : (() => {
+                  const d = cleanFrom.replace(/\D/g, "");
+                  if (d.length === 10) return `+1${d}`;
+                  if (d.length === 11 && d.startsWith("1")) return `+${d}`;
+                  return `+${d}`;
+                })();
+            await db.delete(smsOptOuts).where(eq(smsOptOuts.phone_e164, e164));
+            log.info("[Twilio] inbound START — opt-out cleared", { from: cleanFrom });
+          } catch (err: any) {
+            log.warn("[Twilio] failed to clear opt-out on START", { error: err.message });
+          }
+          res.set("Content-Type", "text/xml");
+          return res.send(
+            `<Response><Message>You're re-subscribed to WeFixTrades SMS. Reply STOP at any time to opt out.</Message></Response>`,
+          );
+        }
+      }
 
       const lead = await matchLeadByPhone(cleanFrom);
       if (!lead) {
