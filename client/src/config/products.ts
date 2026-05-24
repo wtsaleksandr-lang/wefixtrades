@@ -326,9 +326,9 @@ export const PRODUCT_PAGES: ProductPage[] = [
       "Everything handled for you",
     ],
     outcomes: [
-      { title: "More trust", desc: "Customers choose businesses that look active." },
-      { title: "More calls", desc: "Visibility leads to more inbound work." },
-      { title: "Better presence", desc: "Your business looks established and reliable." },
+      { title: "Look active, win the click", desc: "Customers pick the business with recent posts over the one with an empty page from 2023." },
+      { title: "Stay top-of-mind", desc: "Weekly posts keep your name in front of past customers when they need you again." },
+      { title: "Zero hours per week from you", desc: "We handle ideas, copy, scheduling, and posting. You approve in one tap or run on autopilot." },
     ],
     howItWorks: [
       { title: "We learn your business", desc: "Tell us about your services and service area. We take it from there." },
