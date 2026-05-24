@@ -213,6 +213,41 @@ export default function TradeLineHeroPhone() {
       if (phoneRef.current) phoneRef.current.dataset.mode = mode;
     };
 
+    /* ─── Sender labels + simulated timestamps ─── */
+    // Per-scenario "now" cursor (minutes since midnight). Each scenario
+    // picks a fresh starting time so timestamps feel realistic; we then
+    // tick forward by 30–90s for each bubble within the scenario.
+    let tsMinutes = 0;
+    const seedTimeForScenario = (idx: number) => {
+      // Stable, varied starting points: 12:47, 14:18, 09:33, 17:05
+      const seeds = [12 * 60 + 47, 14 * 60 + 18, 9 * 60 + 33, 17 * 60 + 5];
+      tsMinutes = seeds[idx % seeds.length];
+    };
+    const fmtTime = (mins: number) => {
+      const h24 = Math.floor(mins / 60) % 24;
+      const m = Math.floor(mins) % 60;
+      const period = h24 >= 12 ? "PM" : "AM";
+      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+      return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
+    };
+    const tickTime = () => {
+      // Advance 30–90 seconds (0.5–1.5 min). Deterministic-ish via tsMinutes.
+      const step = 0.5 + ((tsMinutes * 7) % 10) / 10; // 0.5–1.5
+      tsMinutes += step;
+    };
+
+    function senderLabel(side: "user" | "ai", text: string) {
+      const lbl = el("div", `tlhp-sender tlhp-sender-${side}`);
+      lbl.textContent = text;
+      return lbl;
+    }
+    function timestampNode(side: "user" | "ai") {
+      tickTime();
+      const ts = el("div", `tlhp-ts tlhp-ts-${side}`);
+      ts.textContent = fmtTime(tsMinutes);
+      return ts;
+    }
+
     function applyContext(s: Scenario) {
       if (funcTextRef.current) funcTextRef.current.textContent = s.funcText;
     }
@@ -238,7 +273,7 @@ export default function TradeLineHeroPhone() {
               <path d="M16 2 L18 12 L28 10 L20 16 L28 22 L18 20 L16 30 L14 20 L4 22 L12 16 L4 10 L14 12 Z"/>
             </svg>
           </span>
-          TradeLine AI <span class="sep">·</span> <span class="sub">Always-on dispatcher</span>
+          TradeLine <span class="sep">·</span> <span class="sub">Always-on dispatcher</span>
         </div>
         <div class="tlhp-card-body">${body}</div>
       `;
@@ -268,9 +303,11 @@ export default function TradeLineHeroPhone() {
       placeholderRef.current.classList.remove("filled");
       placeholderRef.current.textContent = "How can TradeLine help your customers tonight?";
 
+      bodyRef.current.appendChild(senderLabel("user", s.ctx.name));
       const ub = el("div", "tlhp-bubble-user");
       ub.textContent = s.user;
       bodyRef.current.appendChild(ub);
+      bodyRef.current.appendChild(timestampNode("user"));
       scrollDown();
       await wait(700);
       if (cancelled) return;
@@ -285,9 +322,11 @@ export default function TradeLineHeroPhone() {
       if (cancelled) return;
       td.remove();
 
+      bodyRef.current.appendChild(senderLabel("ai", "TradeLine"));
       const card = el("div", "tlhp-card-ai");
       card.innerHTML = aiCardHTML(s.ai);
       bodyRef.current.appendChild(card);
+      bodyRef.current.appendChild(timestampNode("ai"));
       scrollDown();
       await wait(T.chatReadHold);
       if (cancelled) return;
@@ -347,13 +386,24 @@ export default function TradeLineHeroPhone() {
 
       try {
         let prevTurn: HTMLElement | null = null;
+        let prevWho: "caller" | "ai" | null = null;
         for (const turn of s.turns) {
           if (cancelled) break;
           if (prevTurn) freezeWaveform(prevTurn);
+          // Sender label — only when speaker changes (first turn from a
+          // given speaker after the previous one). Per spec: customer label
+          // = caller name, assistant label = "TradeLine" (no "AI" word).
+          if (turn.who !== prevWho) {
+            const side: "user" | "ai" = turn.who === "caller" ? "user" : "ai";
+            const labelText = turn.who === "caller" ? s.callerName : "TradeLine";
+            bodyRef.current.appendChild(senderLabel(side, labelText));
+          }
           const node = makeVoiceTurn(turn.who, turn.text);
           bodyRef.current.appendChild(node);
+          bodyRef.current.appendChild(timestampNode(turn.who === "caller" ? "user" : "ai"));
           scrollDown();
           prevTurn = node;
+          prevWho = turn.who;
           await wait(turn.ms);
           await wait(T.voiceTurnGap);
         }
@@ -380,6 +430,7 @@ export default function TradeLineHeroPhone() {
       idxRef.current = idx;
       setActiveIdx(idx);
       applyContext(s);
+      seedTimeForScenario(idx);
       if (s.mode === "chat") await runChat(s);
       else await runVoice(s);
     }
@@ -666,6 +717,11 @@ const TLHP_CSS = `
      even though CSS variables consume the resolved hex strings. */
   --tlhp-paper: #ffffff;          /* "branded white" — sourced from mkt.onDark family */
   --tlhp-ink: ${mkt.bgBase};      /* "branded black" — #161616 */
+  /* Softer ink for customer bubble text — slate-900 via mkt.onWarm (#0F172A).
+     Adds warmth without competing with header/UI ink. */
+  --tlhp-bubble-ink: ${mkt.onWarm};
+  /* Neutral grey for the customer bubble left-border accent — slate-300. */
+  --tlhp-customer-accent: #cbd5e1;
   --tlhp-ink-soft: #2a2f33;
   --tlhp-ink-muted: rgba(22,22,22,0.62);
   --tlhp-hairline: rgba(22,22,22,0.10);
@@ -829,9 +885,14 @@ const TLHP_CSS = `
   align-self: flex-end; max-width: 84%;
   padding: 11px 15px;
   background: var(--tlhp-paper);
-  color: var(--tlhp-ink);
+  /* Softened from pure ink (#161616) to slate-900 (#0F172A) for warmth.
+     Sourced from mkt.onWarm to stay token-driven. */
+  color: var(--tlhp-bubble-ink);
   font-size: 13.5px; font-weight: 500; line-height: 1.4;
   border: 1px solid var(--tlhp-hairline);
+  /* Soft left-border accent anchors customer messages without competing
+     with the assistant's brand-blue identity. */
+  border-left: 1.5px solid var(--tlhp-customer-accent);
   border-radius: 18px 18px 6px 18px;
   opacity: 0; transform: translateY(16px);
   animation: tlhpBubbleIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
@@ -885,6 +946,40 @@ const TLHP_CSS = `
   30%           { opacity: 1;   transform: translateY(-3px); }
 }
 
+/* ═══ SENDER LABELS + TIMESTAMPS ═══
+   Tiny grey sender label sits above the FIRST bubble from each speaker
+   per turn (chat: always — only one bubble per speaker; voice: only when
+   the speaker changes). A subtle timestamp sits below every bubble. The
+   .tlhp-body uses gap:12px; we pull labels/timestamps in via negative
+   margins so they read as part of the same unit. */
+.tlhp-sender {
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--tlhp-ink-muted);
+  margin-bottom: -8px;   /* pull bubble closer than the row gap */
+  padding: 0 4px;
+  max-width: 92%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0;
+  animation: tlhpSenderIn 0.35s ease forwards;
+}
+.tlhp-sender-user { align-self: flex-end; text-align: right; }
+.tlhp-sender-ai   { align-self: flex-start; text-align: left; }
+@keyframes tlhpSenderIn { to { opacity: 0.7; } }
+
+.tlhp-ts {
+  font-size: 10px; line-height: 1;
+  color: var(--tlhp-ink-muted);
+  margin-top: -6px;     /* pull timestamp closer to its bubble */
+  padding: 0 6px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  animation: tlhpTsIn 0.4s ease forwards;
+}
+.tlhp-ts-user { align-self: flex-end; text-align: right; }
+.tlhp-ts-ai   { align-self: flex-start; text-align: left; }
+@keyframes tlhpTsIn { to { opacity: 0.6; } }
+
 /* ═══ VOICE TRANSCRIPT BUBBLES ═══
    Mirrors the chat variants so both modes feel like one conversation:
    - caller (right) → white bg, ink text
@@ -900,7 +995,8 @@ const TLHP_CSS = `
   align-self: flex-end; flex-direction: row-reverse;
   background: var(--tlhp-paper);
   border: 1px solid var(--tlhp-hairline);
-  color: var(--tlhp-ink);
+  border-left: 1.5px solid var(--tlhp-customer-accent);
+  color: var(--tlhp-bubble-ink);
   border-radius: 16px 16px 4px 16px;
   box-shadow: 0 3px 10px rgba(22,22,22,0.05);
 }
