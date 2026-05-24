@@ -51,3 +51,4 @@ export * from "./retentionOverrides";
 export * from "./contacts";
 export * from "./seoIntegrations";
 export * from "./rumSamples";
+export * from "./gbpAutomation";

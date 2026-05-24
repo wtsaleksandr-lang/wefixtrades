@@ -63,6 +63,11 @@ import { runSharedFilesRetentionSweep } from "./sharedFilesRetentionSweepWorker"
 import { processInvoiceOverdue } from "./invoiceOverdueWorker";
 import { runBingIndexingTick } from "../cron/seoIndexing";
 import { runDailyDigest } from "../cron/dailyDigest";
+import {
+  runDailyPostTick as runGbpDailyPostTick,
+  runReviewMonitorTick as runGbpReviewMonitorTick,
+  runHoursSyncTick as runGbpHoursSyncTick,
+} from "../cron/gbpAutomation";
 
 const log = createLogger("Scheduler");
 
@@ -1004,6 +1009,67 @@ export function initScheduler() {
       log.error("bing_indexing cron handler error", { error: err.message });
     } finally {
       bingIndexingRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // ─── Google Business Profile (GBP) automation ─────────────────────
+  // Three crons that no-op cleanly until Alex connects the GBP OAuth
+  // (a row lands in oauth_tokens for provider='gbp' or provider='google'
+  // with the business.manage scope) and GBP_LOCATION_NAME is set.
+  // See server/cron/gbpAutomation.ts for the per-job docs.
+
+  // 1) Daily auto-post — 13:47 UTC (= 09:47 AM Toronto). Drains
+  //    gbp_post_queue; falls back to a rotating template when empty.
+  let gbpDailyPostRunning = false;
+  cron.schedule("47 13 * * *", async () => {
+    if (gbpDailyPostRunning) {
+      log.debug("gbp_daily_post skipped — previous tick still running");
+      return;
+    }
+    gbpDailyPostRunning = true;
+    try {
+      await runJob("gbp_daily_post", runGbpDailyPostTick);
+    } catch (err: any) {
+      log.error("gbp_daily_post cron handler error", { error: err.message });
+    } finally {
+      gbpDailyPostRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // 2) Hourly review monitoring — every hour at :23. Diffs reviews.list
+  //    against gbp_seen_reviews and logs net-new reviews.
+  let gbpReviewMonitorRunning = false;
+  cron.schedule("23 * * * *", async () => {
+    if (gbpReviewMonitorRunning) {
+      log.debug("gbp_review_monitor skipped — previous tick still running");
+      return;
+    }
+    gbpReviewMonitorRunning = true;
+    try {
+      await runJob("gbp_review_monitor", runGbpReviewMonitorTick);
+    } catch (err: any) {
+      log.error("gbp_review_monitor cron handler error", { error: err.message });
+    } finally {
+      gbpReviewMonitorRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // 3) Daily hours/services sync — 05:37 UTC (= 01:37 AM Toronto).
+  //    Pulls business_hours + special_hours from the primary clients
+  //    row and PATCHes the GBP location.
+  let gbpHoursSyncRunning = false;
+  cron.schedule("37 5 * * *", async () => {
+    if (gbpHoursSyncRunning) {
+      log.debug("gbp_hours_sync skipped — previous tick still running");
+      return;
+    }
+    gbpHoursSyncRunning = true;
+    try {
+      await runJob("gbp_hours_sync", runGbpHoursSyncTick);
+    } catch (err: any) {
+      log.error("gbp_hours_sync cron handler error", { error: err.message });
+    } finally {
+      gbpHoursSyncRunning = false;
     }
   }, { timezone: "UTC" });
 }
