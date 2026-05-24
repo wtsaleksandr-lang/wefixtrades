@@ -19,7 +19,16 @@
  */
 
 import React, { type ReactNode, useState } from "react";
-import { Moon, Sun, Voicemail as VoicemailGlyph } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  Voicemail as VoicemailGlyph,
+  Phone,
+  Sparkles,
+  MessageCircle,
+  Settings2,
+  type LucideIcon,
+} from "lucide-react";
 
 /* ─── Shared primitives (tiny re-implementations of mobile primitives) ─── */
 
@@ -1127,11 +1136,16 @@ export function VoicemailScreen({ theme = "light", onToggleTheme = () => {}, onB
 
 export type TabKey = "calls" | "ask" | "duty" | "messages" | "settings";
 
-const SIDE_TABS: Array<{ key: Exclude<TabKey, "duty">; label: string; activeGlyph: string; restGlyph: string }> = [
-  { key: "calls",    label: "Calls",    activeGlyph: "📞", restGlyph: "📞" },
-  { key: "ask",      label: "Ask",      activeGlyph: "✨", restGlyph: "✦" },
-  { key: "messages", label: "Messages", activeGlyph: "💬", restGlyph: "💭" },
-  { key: "settings", label: "Settings", activeGlyph: "⚙",  restGlyph: "⚙" },
+// Premium minimal tab icons: a small curated set of Lucide glyphs at
+// strokeWidth 1.75 (slightly thinner than default 2.0) reads as more
+// refined and "app-grade" than chunky 2.0 strokes or emoji. Same icon
+// for active + inactive — the differentiation is color + the active dot
+// underneath, not a glyph swap (less visual noise).
+const SIDE_TABS: Array<{ key: Exclude<TabKey, "duty">; label: string; Icon: LucideIcon }> = [
+  { key: "calls",    label: "Calls",    Icon: Phone },
+  { key: "ask",      label: "Ask",      Icon: Sparkles },
+  { key: "messages", label: "Messages", Icon: MessageCircle },
+  { key: "settings", label: "Settings", Icon: Settings2 },
 ];
 
 const DUTY_GLYPH: Record<DutyMode, string> = {
@@ -1181,7 +1195,8 @@ export function TabBar({ active, onChange, dutyMode = "available", safeAreaBotto
   );
 }
 
-function TabButton({ tab, active, onClick }: { tab: { key: Exclude<TabKey, "duty">; label: string; activeGlyph: string; restGlyph: string }; active: boolean; onClick: () => void }) {
+function TabButton({ tab, active, onClick }: { tab: { key: Exclude<TabKey, "duty">; label: string; Icon: LucideIcon }; active: boolean; onClick: () => void }) {
+  const Icon = tab.Icon;
   return (
     <button
       type="button"
@@ -1190,8 +1205,24 @@ function TabButton({ tab, active, onClick }: { tab: { key: Exclude<TabKey, "duty
       aria-pressed={active}
       className={`wft-mp-tab flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] ${active ? "is-active" : ""}`}
     >
-      <span className="text-[20px] leading-[20px]" aria-hidden>{active ? tab.activeGlyph : tab.restGlyph}</span>
-      <span className={`text-[11px] ${active ? "font-bold" : "font-medium"}`}>{tab.label}</span>
+      <Icon
+        width={22}
+        height={22}
+        strokeWidth={1.75}
+        aria-hidden
+        // Same size in both states; active vs inactive is differentiated by
+        // color (wft-mp-tab.is-active flips to --wft-mp-primary) and the
+        // small pill underneath — not by glyph or size jumps.
+      />
+      <span
+        // Label color is driven by .wft-mp-tab / .wft-mp-tab.is-active in
+        // index.css so dark + light themes both render correctly inside
+        // the mobile preview shell — using Tailwind text-foreground here
+        // would bypass the preview theme tokens.
+        className={`text-[10px] uppercase tracking-wide ${active ? "font-medium" : "font-normal"}`}
+      >
+        {tab.label}
+      </span>
       {active && <span className="wft-mp-tab-indicator" aria-hidden />}
     </button>
   );
