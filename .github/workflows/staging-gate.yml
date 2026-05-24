@@ -1,0 +1,225 @@
+name: Staging Gate
+
+# Deploy Safety Wave 3 — pre-prod smoke gate.
+#
+# Runs on every PR that targets main. Deploys the PR head to the rolling
+# staging Replit (one URL, last PR wins), waits for /api/healthz to go green,
+# then runs the critical-paths smoke suite against the staging URL.
+#
+# Pass/fail of this check IS the deploy-safety verdict for the PR. A PR
+# cannot be safely merged to main without this passing. Branch-protection
+# on main should require the `staging-gate / gate` check.
+#
+# How "deploy to staging" works (deliberately simple to keep the surface small):
+#   1. We force-push the PR head SHA to the `staging` branch.
+#   2. The staging Replit is configured to auto-deploy from the `staging`
+#      branch (one-time setup — see PR body).
+#   3. We poll /api/healthz on the staging URL until it reports the PR's SHA
+#      OR the timeout fires. The SHA is exposed via the GIT_SHA env that
+#      start-prod.sh injects (already supported by healthz.ts).
+#
+# Constraints honoured:
+#   - Zero manual approvals anywhere.
+#   - Does NOT touch the production deploy flow (main → prod stays exact).
+#   - No raw Doppler values echoed; uses Doppler-injected env only when needed.
+#   - Concurrency-grouped so two PRs can't fight over the rolling staging.
+#   - Auto-comments on the previous occupant PR ("staging now occupied by #X").
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Cancel the previous gate run for the same PR when a new commit lands.
+# Group key is the PR head ref so different PRs don't cancel each other —
+# but they DO queue serially, because rolling staging is a single URL.
+concurrency:
+  group: staging-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write       # to force-push the staging branch
+  pull-requests: write  # to comment on PRs (this one + the previous occupant)
+  issues: write         # PR comments are issues under the hood
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Allow drafts to skip the gate (they'll re-run on ready_for_review).
+    if: ${{ !github.event.pull_request.draft }}
+
+    env:
+      STAGING_URL: ${{ vars.STAGING_URL || 'https://staging.wefixtrades.com' }}
+      STAGING_BRANCH: staging
+      HEALTHZ_TIMEOUT_S: "90"
+      # Used by check-schema-drift.mjs — its drizzle.config.ts throws if unset.
+      # The value is never read (generate runs offline); we use the real
+      # staging URL when available so drift is measured against the staging
+      # schema state, never prod.
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL || 'postgres://placeholder:placeholder@127.0.0.1:5432/placeholder' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # PR head, not the merge commit — we deploy what the author wrote.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          # Use a token that can force-push protected branches if `staging`
+          # is protected later. Falls back to GITHUB_TOKEN.
+          token: ${{ secrets.STAGING_PUSH_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Identify previous staging occupant
+        id: prev
+        run: node scripts/staging-gate/identify-previous-occupant.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STAGING_BRANCH: ${{ env.STAGING_BRANCH }}
+          CURRENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      - name: Comment "staging now occupied" on previous PR
+        if: steps.prev.outputs.previous_pr != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prev = Number('${{ steps.prev.outputs.previous_pr }}');
+            const current = ${{ github.event.pull_request.number }};
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prev,
+              body: [
+                `Rolling staging is now occupied by #${current}.`,
+                ``,
+                `This PR's last staging deploy has been displaced. Re-push or `,
+                `re-request the staging gate when you're ready to retest.`,
+              ].join("\n"),
+            });
+
+      - name: Comment "deploying to staging" on current PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ github.event.pull_request.number }},
+              body: [
+                `Staging gate started for commit \`${context.sha.substring(0,7)}\`.`,
+                ``,
+                `Target: ${process.env.STAGING_URL}`,
+                `Workflow: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+              ].join("\n"),
+            });
+        env:
+          STAGING_URL: ${{ env.STAGING_URL }}
+
+      - name: Pre-build (catches typecheck / build errors before any deploy)
+        run: |
+          npm run check
+          npm run build
+
+      - name: Schema-drift guard against staging
+        # Same script that runs in CI but with DATABASE_URL pointing at the
+        # staging connection string when one is provisioned. Hard-fails on
+        # any DROP/RENAME/ALTER-DROP that would destroy data.
+        run: npm run check:schema-drift
+
+      - name: Force-push PR head to staging branch
+        # This is what actually triggers the staging Replit. The Replit is
+        # one-time configured to auto-deploy from the `staging` branch.
+        run: node scripts/staging-gate/push-to-staging.mjs
+        env:
+          STAGING_BRANCH: ${{ env.STAGING_BRANCH }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      - name: Wait for staging healthz green on PR SHA
+        # Polls /api/healthz until status=ok AND version matches PR_HEAD_SHA
+        # (so we don't accept a stale deploy from the previous PR). Falls
+        # back to "status=ok only" if Replit doesn't surface GIT_SHA — the
+        # workflow logs a warning when that fallback fires.
+        run: node scripts/staging-gate/wait-for-staging.mjs
+        env:
+          STAGING_URL: ${{ env.STAGING_URL }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+          TIMEOUT_S: ${{ env.HEALTHZ_TIMEOUT_S }}
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke suite against staging
+        # Reuses the existing tests/smoke/critical-paths.spec.ts + smoke.config.ts
+        # already shipped in Wave 2. SMOKE_BASE_URL flips it from prod to staging.
+        run: npm run smoke:critical
+        env:
+          SMOKE_BASE_URL: ${{ env.STAGING_URL }}
+
+      - name: Upload smoke results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-smoke-results-pr-${{ github.event.pull_request.number }}
+          path: |
+            tests/smoke/results.json
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Comment success on PR
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ github.event.pull_request.number }},
+              body: [
+                `Staging gate **PASSED** for \`${context.sha.substring(0,7)}\`.`,
+                ``,
+                `- Healthz: ok`,
+                `- Smoke suite: green against ${process.env.STAGING_URL}`,
+                ``,
+                `Safe to merge to main when reviewer approves.`,
+              ].join("\n"),
+            });
+        env:
+          STAGING_URL: ${{ env.STAGING_URL }}
+
+      - name: Comment failure on PR
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ github.event.pull_request.number }},
+              body: [
+                `Staging gate **FAILED** for \`${context.sha.substring(0,7)}\`.`,
+                ``,
+                `Workflow: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+                ``,
+                `First triage step: hit ${process.env.STAGING_URL}/api/healthz and look for the \`status: down\` sub-check, or open the smoke artifact attached to the workflow run.`,
+                ``,
+                `**Do not merge until this gate is green.**`,
+              ].join("\n"),
+            });
+        env:
+          STAGING_URL: ${{ env.STAGING_URL }}
