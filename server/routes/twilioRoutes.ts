@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import * as Sentry from "@sentry/node";
 import { z } from "zod";
 import { storage } from "../storage";
 import {
@@ -276,6 +277,48 @@ export function registerTwilioRoutes(app: Express): void {
       log.error("[Twilio] Inbound webhook error:", error);
       twimlError("Thanks for reaching out! We'll get back to you soon.");
     }
+  });
+
+  /**
+   * Voice fallback — Twilio hits this if the primary VoiceUrl (Vapi) is
+   * unreachable or returns 5xx. Without it the caller hears the carrier
+   * error tone; with it they get a branded apology + voicemail capture so
+   * we can call back within an hour.
+   *
+   * Wired on the IncomingPhoneNumber via scripts/twilio/patch-fallback-url.mjs.
+   * Twilio retries the primary VoiceUrl once before invoking the fallback,
+   * so every hit here is a real Vapi outage — we surface it to Sentry as
+   * a warning so on-call can see when this path fires.
+   */
+  app.post("/api/twilio/voice-fallback", (req, res) => {
+    const callSid = typeof req.body?.CallSid === "string" ? req.body.CallSid : "(unknown)";
+    const errorCode = typeof req.body?.ErrorCode === "string" ? req.body.ErrorCode : null;
+    const errorUrl = typeof req.body?.ErrorUrl === "string" ? req.body.ErrorUrl : null;
+
+    log.warn("[Twilio] voice-fallback invoked — primary VoiceUrl failed", {
+      callSid,
+      errorCode,
+      errorUrl,
+    });
+
+    try {
+      Sentry.captureMessage("twilio.voice_fallback_invoked", {
+        level: "warning",
+        tags: { component: "twilio", path: "voice-fallback" },
+        extra: { callSid, errorCode, errorUrl },
+      });
+    } catch (sentryErr: any) {
+      log.error("[Twilio] Sentry capture failed in voice-fallback", { err: sentryErr?.message });
+    }
+
+    res.set("Content-Type", "text/xml");
+    res.send(
+      `<Response>` +
+        `<Say voice="Polly.Joanna">Hi, we're experiencing a brief technical issue. Please leave a message after the tone and we'll call you back within one hour.</Say>` +
+        `<Record maxLength="60" playBeep="true" trim="trim-silence"/>` +
+        `<Hangup/>` +
+      `</Response>`,
+    );
   });
 
   app.get("/api/dashboard/messages", async (req, res) => {
