@@ -4,6 +4,7 @@ import {
   Loader2, CheckCircle, Clock, ArrowRight, TrendingUp, FileText,
   MapPin, BarChart3, Sparkles, Globe, Search, ArrowUpRight, Minus,
   PauseCircle, PlayCircle, Link, ExternalLink, ShieldCheck,
+  AlertCircle, RotateCw,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import UpsellCard from "@/components/portal/UpsellCard";
@@ -78,7 +79,7 @@ const TRADE_OPTIONS = [
 export default function PortalRankFlow() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data, isLoading } = useQuery<RankFlowData>({
+  const { data, isLoading, isError, error: rankflowError, refetch, isFetching } = useQuery<RankFlowData>({
     queryKey: ["/api/portal/rankflow"],
     queryFn: async () => {
       const res = await fetch("/api/portal/rankflow", { credentials: "include" });
@@ -112,6 +113,36 @@ export default function PortalRankFlow() {
       <PortalLayout>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-6 h-6 animate-spin text-gray-300" />
+        </div>
+      </PortalLayout>
+    );
+  }
+
+  if (isError) {
+    return (
+      <PortalLayout>
+        <div data-theme="light" className="max-w-md mx-auto mt-16">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-red-800">Couldn't load RankFlow</p>
+                <p className="text-xs text-red-700 mt-1">
+                  {(rankflowError as Error | null)?.message ?? "The server didn't respond as expected."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  disabled={isFetching}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-red-300 rounded-md hover:bg-red-100 disabled:opacity-50 transition-colors"
+                  data-testid="button-retry-rankflow"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+                  Retry
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </PortalLayout>
     );

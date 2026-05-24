@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Play, Pause, Archive, Pencil, Save, X, Mic2, Loader2 } from "lucide-react";
+import { Plus, Play, Pause, Archive, Pencil, Save, X, Mic2, Loader2, AlertCircle, RotateCw } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Voice {
@@ -240,6 +240,30 @@ export default function TradelineVoicesPage() {
         {/* Voice catalog */}
         <div>
           <h2 className="font-semibold text-gray-900 mb-3">Voice catalog</h2>
+          {voices.isError && (
+            <Card className="p-4 bg-red-50 border-red-200 mb-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-red-800">Couldn't load voice catalog</p>
+                  <p className="text-xs text-red-700 mt-1">
+                    {(voices.error as Error | null)?.message ?? "The server didn't respond as expected."}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => voices.refetch()}
+                    disabled={voices.isFetching}
+                    data-testid="button-retry-voices"
+                  >
+                    <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${voices.isFetching ? "animate-spin" : ""}`} />
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
           {voices.isLoading && <div className="text-sm text-gray-500">Loading voices…</div>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {(voices.data?.voices ?? []).map((v) => (

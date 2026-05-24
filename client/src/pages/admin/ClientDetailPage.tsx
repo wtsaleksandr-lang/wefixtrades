@@ -879,8 +879,8 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
-          {/* Quick stats */}
-          <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-100">
+          {/* Quick stats — responsive: stack on mobile, 2-up on tablet, 4-up on desktop. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-100">
             <div>
               <p className="text-xs text-gray-500">Monthly Revenue</p>
               <p className="text-lg font-semibold text-gray-900">{fmt(totalRevenue)}</p>
@@ -1831,7 +1831,7 @@ function CostProfitPanel({ clientId }: { clientId: number }) {
         </div>
       ) : (
         <div className="p-4 space-y-4">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <p className="text-xs text-gray-500">Revenue</p>
               <p className="text-lg font-semibold text-gray-900">{usd(data.revenue_usd)}</p>

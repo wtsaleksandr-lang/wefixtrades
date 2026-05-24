@@ -142,7 +142,7 @@ export default function AdFlowOpsPage() {
     },
   });
 
-  const { data: services, isLoading } = useQuery<AdFlowServiceRow[]>({
+  const { data: services, isLoading, isError, error: servicesError, refetch, isFetching } = useQuery<AdFlowServiceRow[]>({
     queryKey: ["/api/admin/crm/adflow/services"],
     queryFn: async () => {
       const res = await fetch("/api/admin/crm/adflow/services", { credentials: "include" });
@@ -237,7 +237,30 @@ export default function AdFlowOpsPage() {
       <AdflowSettingsCard productId={PRODUCT_ID} initial={live?.engine_config ?? null} />
 
       {/* Service list */}
-      {isLoading ? (
+      {isError ? (
+        <Card className="p-6 bg-red-50 border-red-200">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-red-800">Couldn't load AdFlow services</p>
+              <p className="text-xs text-red-700 mt-1">
+                {(servicesError as Error | null)?.message ?? "The server didn't respond as expected."}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                data-testid="button-retry-adflow"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ) : isLoading ? (
         <div className="flex items-center justify-center h-32">
           <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
         </div>

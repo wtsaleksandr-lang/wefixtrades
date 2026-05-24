@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Download, Tag as TagIcon, Archive, UserCheck } from "lucide-react";
+import { Plus, Download, Tag as TagIcon, Archive, UserCheck, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { csvDownload, todayIso } from "@/lib/csvDownload";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -72,7 +72,7 @@ export default function ClientsPage() {
    * server-side query (single-select). `source` is a client-side
    * overlay applied on the fetched page. */
   const { search: urlSearch, filters: urlFilters, setSearch: setUrlSearch, setFilters: setUrlFilters } =
-    useListUrlState(["status", "source"]);
+    useListUrlState(["status", "source", "sort", "dir"]);
   const search = urlSearch;
   const setSearch = setUrlSearch;
   const statusFilter = urlFilters.status?.[0] ?? "all";
@@ -80,6 +80,26 @@ export default function ClientsPage() {
     const next = { ...urlFilters };
     if (v === "all") delete next.status;
     else next.status = [v];
+    setUrlFilters(next);
+  };
+  /* Sort state — persisted to URL via the same hook so refresh / shared
+   * links restore the operator's column order. Default: most recently
+   * created at the top. */
+  type SortKey = "business_name" | "status" | "trade_type" | "source" | "created_at";
+  const SORT_KEYS: SortKey[] = ["business_name", "status", "trade_type", "source", "created_at"];
+  const rawSort = urlFilters.sort?.[0];
+  const sortKey: SortKey = (SORT_KEYS as string[]).includes(rawSort ?? "")
+    ? (rawSort as SortKey)
+    : "created_at";
+  const sortDir: "asc" | "desc" = urlFilters.dir?.[0] === "asc" ? "asc" : "desc";
+  const toggleSort = (key: SortKey) => {
+    const next = { ...urlFilters };
+    if (sortKey === key) {
+      next.dir = [sortDir === "asc" ? "desc" : "asc"];
+    } else {
+      next.sort = [key];
+      next.dir = ["asc"];
+    }
     setUrlFilters(next);
   };
   const [showAdd, setShowAdd] = useState(false);
@@ -278,9 +298,26 @@ export default function ClientsPage() {
   const sourceFilter = urlFilters.source ?? [];
   const visibleRows = useMemo(() => {
     const rows = data?.data ?? [];
-    if (sourceFilter.length === 0) return rows;
-    return rows.filter((c) => sourceFilter.includes(c.source ?? "unknown"));
-  }, [data?.data, sourceFilter]);
+    const filtered = sourceFilter.length === 0
+      ? rows
+      : rows.filter((c) => sourceFilter.includes(c.source ?? "unknown"));
+    // Stable client-side sort. Comparator coerces nullish to empty
+    // string so unsorted-at-end rather than crashing on null.
+    const dirMul = sortDir === "asc" ? 1 : -1;
+    const sorted = [...filtered].sort((a, b) => {
+      const av = (a[sortKey] ?? "") as string | number;
+      const bv = (b[sortKey] ?? "") as string | number;
+      if (sortKey === "created_at") {
+        return (new Date(av as string).getTime() - new Date(bv as string).getTime()) * dirMul;
+      }
+      const as = String(av).toLowerCase();
+      const bs = String(bv).toLowerCase();
+      if (as < bs) return -1 * dirMul;
+      if (as > bs) return 1 * dirMul;
+      return 0;
+    });
+    return sorted;
+  }, [data?.data, sourceFilter, sortKey, sortDir]);
 
   // Build a count map for source chips off the raw page rows.
   const sourceCounts = useMemo(() => {
@@ -360,10 +397,13 @@ export default function ClientsPage() {
           activeFilters={urlFilters}
           onFiltersChange={(next) => {
             // Status is single-select on the server; trim any extras.
+            // Preserve sort/dir which aren't owned by the chip UI.
             const trimmed = { ...next };
             if (trimmed.status && trimmed.status.length > 1) {
               trimmed.status = [trimmed.status[trimmed.status.length - 1]];
             }
+            if (urlFilters.sort) trimmed.sort = urlFilters.sort;
+            if (urlFilters.dir) trimmed.dir = urlFilters.dir;
             setUrlFilters(trimmed);
           }}
           filterGroups={[
@@ -472,11 +512,22 @@ export default function ClientsPage() {
                     className="cursor-pointer"
                   />
                 </TableHead>
-                <TableHead>Business</TableHead>
+                <TableHead>
+                  <SortableHeader label="Business" sortKey="business_name" activeKey={sortKey} dir={sortDir} onToggle={toggleSort} />
+                </TableHead>
                 <TableHead className="hidden md:table-cell">Contact</TableHead>
-                <TableHead className="hidden lg:table-cell">Trade</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell">Source</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  <SortableHeader label="Trade" sortKey="trade_type" activeKey={sortKey} dir={sortDir} onToggle={toggleSort} />
+                </TableHead>
+                <TableHead>
+                  <SortableHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggleSort} />
+                </TableHead>
+                <TableHead className="hidden md:table-cell">
+                  <SortableHeader label="Source" sortKey="source" activeKey={sortKey} dir={sortDir} onToggle={toggleSort} />
+                </TableHead>
+                <TableHead className="hidden xl:table-cell">
+                  <SortableHeader label="Added" sortKey="created_at" activeKey={sortKey} dir={sortDir} onToggle={toggleSort} />
+                </TableHead>
                 <TableHead className="w-[120px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -490,12 +541,13 @@ export default function ClientsPage() {
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell className="hidden xl:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-7 w-24" /></TableCell>
                   </TableRow>
                 ))
               ) : visibleRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                     {search || sourceFilter.length > 0 || statusFilter !== "all" ? (
                       "No clients match your search or filters."
                     ) : (
@@ -551,6 +603,13 @@ export default function ClientsPage() {
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <span className="text-xs text-gray-500 capitalize">{client.source || "-"}</span>
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell">
+                      <span className="text-xs text-gray-500">
+                        {client.created_at
+                          ? new Date(client.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                          : "-"}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       {/* "View as customer" — only shown when the client
@@ -716,5 +775,35 @@ export default function ClientsPage() {
         </AlertDialog>
       </div>
     </AdminLayout>
+  );
+}
+
+/* Column header that toggles sort direction on click. Active column
+ * shows a directional arrow; inactive columns show a neutral up/down
+ * affordance so the user knows the column is sortable. */
+function SortableHeader<K extends string>({
+  label, sortKey, activeKey, dir, onToggle,
+}: {
+  label: string;
+  sortKey: K;
+  activeKey: K;
+  dir: "asc" | "desc";
+  onToggle: (key: K) => void;
+}) {
+  const active = activeKey === sortKey;
+  const Icon = active ? (dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(sortKey)}
+      aria-label={`Sort by ${label}${active ? ` (${dir})` : ""}`}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      className={`inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wider transition-colors ${
+        active ? "text-gray-900" : "text-gray-500"
+      } hover:text-gray-900`}
+    >
+      {label}
+      <Icon className={`w-3 h-3 ${active ? "" : "opacity-60"}`} />
+    </button>
   );
 }
