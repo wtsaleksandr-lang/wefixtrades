@@ -87,8 +87,15 @@ export const adminAiActions = pgTable(
       .where(sql`${t.status} = 'pending'`),
     // Direction must match migrations/0028_admin_ai_actions.sql:
     //   CREATE INDEX admin_ai_actions_status_idx ON admin_ai_actions (status, created_at DESC).
-    // Without `.desc()` drizzle-kit push would propose drop + recreate.
-    statusIdx: index("admin_ai_actions_status_idx").on(t.status, t.created_at.desc()),
+    // Postgres default for DESC is NULLS FIRST. Drizzle's `.desc()` alone
+    // emits `DESC NULLS LAST`, which does NOT match the live index and
+    // makes drizzle-kit propose drop+recreate on every deploy. The
+    // `.nullsFirst()` chain pins the schema to the same NULL ordering
+    // Postgres chose when the migration ran with bare `DESC`.
+    statusIdx: index("admin_ai_actions_status_idx").on(
+      t.status,
+      t.created_at.desc().nullsFirst(),
+    ),
   }),
 );
 
