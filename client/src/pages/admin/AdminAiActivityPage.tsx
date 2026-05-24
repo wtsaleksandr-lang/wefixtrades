@@ -28,6 +28,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ShieldAlert, Check, X, Power } from "lucide-react";
+import AiResponseRating from "@/components/ai/AiResponseRating";
 
 const UNLOCK_THRESHOLD = 3;
 
@@ -326,6 +327,10 @@ export default function AdminAiActivityPage() {
                     {JSON.stringify(row.proposed_action, null, 2)}
                   </pre>
                 ) : null}
+                <AiResponseRating
+                  responseId={`ai-action-${row.id}`}
+                  surface="business_operator"
+                />
               </Card>
             ))}
           </div>

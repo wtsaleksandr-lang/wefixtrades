@@ -64,6 +64,7 @@ import { processInvoiceOverdue } from "./invoiceOverdueWorker";
 import { runBingIndexingTick } from "../cron/seoIndexing";
 import { runDailyDigest } from "../cron/dailyDigest";
 import { runAiBudgetAlerts } from "../cron/aiBudgetAlerts";
+import { runLearningCandidateSweep } from "../cron/learningCandidateSweep";
 import {
   runDailyPostTick as runGbpDailyPostTick,
   runReviewMonitorTick as runGbpReviewMonitorTick,
@@ -1092,6 +1093,27 @@ export function initScheduler() {
       log.error("ai_budget_alerts cron handler error", { error: err.message });
     } finally {
       aiBudgetAlertsRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Conversation → KB sweep — daily 04:41 UTC (≈ 00:41 Toronto, off-peak).
+  // Scans the last 24h of ai_response_ratings for 👎-with-comment rows
+  // and creates tradeline_learning_candidates(kind='conversation') so
+  // admins can review + promote into the KB. Idempotent via
+  // source_url = "rating:<rating_id>".
+  let learningSweepRunning = false;
+  cron.schedule("41 4 * * *", async () => {
+    if (learningSweepRunning) {
+      log.debug("learning_candidate_sweep skipped — previous tick still running");
+      return;
+    }
+    learningSweepRunning = true;
+    try {
+      await runJob("learning_candidate_sweep", runLearningCandidateSweep);
+    } catch (err: any) {
+      log.error("learning_candidate_sweep cron handler error", { error: err.message });
+    } finally {
+      learningSweepRunning = false;
     }
   }, { timezone: "UTC" });
 }
