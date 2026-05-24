@@ -13,6 +13,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import AiResponseRating from "@/components/ai/AiResponseRating";
 
 interface HistoryResponse {
   messages: Array<{ role: "user" | "assistant"; content: string }>;
@@ -95,7 +96,7 @@ export default function AdminChatHistoryPage() {
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex flex-col gap-1 ${m.role === "user" ? "items-end" : "items-start"}`}
               >
                 <div
                   className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
@@ -106,6 +107,12 @@ export default function AdminChatHistoryPage() {
                 >
                   {m.content}
                 </div>
+                {m.role === "assistant" && (
+                  <AiResponseRating
+                    responseId={`copilot-${data?.updated_at ?? "n"}-${i}`}
+                    surface="business_operator"
+                  />
+                )}
               </div>
             ))}
           </div>

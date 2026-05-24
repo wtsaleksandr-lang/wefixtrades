@@ -104,6 +104,7 @@ import { registerAdminFileRetentionRoutes } from "./adminFileRetentionRoutes";
 import { registerAdminImpersonateRoutes } from "./adminImpersonateRoutes";
 import { registerAdminMobilePreviewRoutes } from "./adminMobilePreviewRoutes";
 import { registerAdminAiActivityRoutes } from "./adminAiActivityRoutes";
+import { registerAdminAiRatingsRoutes } from "./adminAiRatingsRoutes";
 import { registerCalculatorAnalyticsRoutes } from "./calculatorAnalyticsRoutes";
 import { registerMapSnapshotRoutes } from "./mapSnapshotRoutes";
 import { registerAuditSeoChecklistRoutes } from "./auditSeoChecklistRoutes";
@@ -230,6 +231,7 @@ export async function registerRoutes(
   registerAdminImpersonateRoutes(app);
   registerAdminMobilePreviewRoutes(app);
   registerAdminAiActivityRoutes(app);
+  registerAdminAiRatingsRoutes(app);
   registerCalculatorAnalyticsRoutes(app);
   registerMapSnapshotRoutes(app);
   // Free Audit — five new tab tools (#617 follow-on). Each is its own
