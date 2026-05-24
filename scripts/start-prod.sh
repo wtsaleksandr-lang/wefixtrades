@@ -24,26 +24,30 @@
 
 set -euo pipefail
 
-# Layer-C guard for PR fix/replit-disable-drizzle-push-prompt:
-# Refuse to boot production if `drizzle.config.ts` has reappeared at the repo
-# root. Replit's deploy pipeline auto-detects that exact filename and runs
-# the drizzle schema-sync command against prod, which is the source of the
-# destructive-migration approval prompt Alex sees on redeploy. Production
-# applies SQL via server/lib/bootstrapMigrations.ts at boot — the drizzle
-# schema-sync command must never run against the production database. See
+# Layer-C guard for PR fix(deploy): move drizzle.config.dev.ts out of repo root:
+# Refuse to boot production if ANY `drizzle.config*.ts` has reappeared at the
+# repo root. Replit's deploy pipeline auto-detects the `drizzle.config*` glob
+# (NOT just the exact filename `drizzle.config.ts`) and runs the drizzle
+# schema-sync command against prod, which is the source of the destructive-
+# migration approval prompt Alex sees on redeploy. The canonical config
+# location is scripts/db/drizzle.config.dev.ts. Production applies SQL via
+# server/lib/bootstrapMigrations.ts at boot — the drizzle schema-sync command
+# must never run against the production database. See
 # scripts/check-no-prod-drizzle-config.mjs for the full rationale.
 #
 # This guard runs BEFORE the Doppler wrapper resolution so a misconfigured
 # repo fails fast and visibly in the deploy log.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-if [ -f "${REPO_ROOT}/drizzle.config.ts" ]; then
-  echo "[start-prod] FATAL: drizzle.config.ts found at repo root." >&2
-  echo "[start-prod] Replit will auto-run the drizzle schema-sync command against production." >&2
-  echo "[start-prod] Rename to drizzle.config.dev.ts before redeploying." >&2
-  exit 1
-fi
-echo "[start-prod] guard OK — no drizzle.config.ts at repo root (Replit auto-sync disabled)." >&2
+for forbidden in drizzle.config.ts drizzle.config.dev.ts; do
+  if [ -f "${REPO_ROOT}/${forbidden}" ]; then
+    echo "[start-prod] FATAL: ${forbidden} found at repo root." >&2
+    echo "[start-prod] Replit will auto-run the drizzle schema-sync command against production." >&2
+    echo "[start-prod] Move it back to scripts/db/drizzle.config.dev.ts before redeploying." >&2
+    exit 1
+  fi
+done
+echo "[start-prod] guard OK — no drizzle.config*.ts at repo root (Replit auto-sync disabled)." >&2
 
 # Layer-D guard (PR fix/replit-drizzle-push-nuke-from-deps):
 # At runtime in production, drizzle-kit MUST NOT exist in node_modules. If it
