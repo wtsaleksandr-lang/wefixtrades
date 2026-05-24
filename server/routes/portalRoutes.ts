@@ -3694,7 +3694,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const { reputationCompetitors, reputationCompetitorSnapshots, monitoredReviews } = await import("@shared/schema");
       const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
       const { db } = await import("../db");
-      const { and, eq, desc, sql } = await import("drizzle-orm");
+      const { and, eq, inArray, desc, sql } = await import("drizzle-orm");
 
       const svc = await storage.getClientReputationService(clientId);
       const tier = svc ? extractTier(svc.serviceId) : null;
@@ -3724,13 +3724,25 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         .where(eq(reputationCompetitors.client_id, clientId))
         .orderBy(reputationCompetitors.created_at);
 
-      const enriched = await Promise.all(competitors.map(async (c) => {
-        const [latest] = await db.select()
+      // N+1 fix: pull all snapshots for the tracked competitors in one
+      // query ordered by snapshot_date DESC, then pick the first hit per
+      // competitor in JS. Was Promise.all of per-competitor selects.
+      const competitorIds = competitors.map(c => c.id);
+      const latestByCompetitor = new Map<number, typeof reputationCompetitorSnapshots.$inferSelect>();
+      if (competitorIds.length > 0) {
+        const snapshots = await db.select()
           .from(reputationCompetitorSnapshots)
-          .where(eq(reputationCompetitorSnapshots.competitor_id, c.id))
-          .orderBy(desc(reputationCompetitorSnapshots.snapshot_date))
-          .limit(1);
-        return { ...c, latest_snapshot: latest ?? null };
+          .where(inArray(reputationCompetitorSnapshots.competitor_id, competitorIds))
+          .orderBy(desc(reputationCompetitorSnapshots.snapshot_date));
+        for (const s of snapshots) {
+          if (!latestByCompetitor.has(s.competitor_id)) {
+            latestByCompetitor.set(s.competitor_id, s);
+          }
+        }
+      }
+      const enriched = competitors.map(c => ({
+        ...c,
+        latest_snapshot: latestByCompetitor.get(c.id) ?? null,
       }));
 
       res.json({
@@ -3759,7 +3771,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const { reputationCompetitors, reputationCompetitorSnapshots } = await import("@shared/schema");
       const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
       const { db } = await import("../db");
-      const { and, eq, sql } = await import("drizzle-orm");
+      const { and, eq, inArray, sql } = await import("drizzle-orm");
 
       const svc = await storage.getClientReputationService(clientId);
       const tier = svc ? extractTier(svc.serviceId) : null;
@@ -3776,15 +3788,27 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
           eq(reputationCompetitors.enabled, true),
         ));
 
-      const series = await Promise.all(competitors.map(async (c) => {
-        const snapshots = await db.select()
+      // N+1 fix: one snapshots query for all enabled competitors, grouped
+      // in JS. Was Promise.all of per-competitor selects.
+      const competitorIds = competitors.map(c => c.id);
+      const snapshotsByCompetitor = new Map<number, Array<typeof reputationCompetitorSnapshots.$inferSelect>>();
+      if (competitorIds.length > 0) {
+        const allSnapshots = await db.select()
           .from(reputationCompetitorSnapshots)
           .where(and(
-            eq(reputationCompetitorSnapshots.competitor_id, c.id),
+            inArray(reputationCompetitorSnapshots.competitor_id, competitorIds),
             sql`${reputationCompetitorSnapshots.snapshot_date} >= NOW() - (${sql.raw(String(days))} || ' days')::INTERVAL`,
           ))
           .orderBy(reputationCompetitorSnapshots.snapshot_date);
-        return { competitor: c, snapshots };
+        for (const s of allSnapshots) {
+          const arr = snapshotsByCompetitor.get(s.competitor_id);
+          if (arr) arr.push(s);
+          else snapshotsByCompetitor.set(s.competitor_id, [s]);
+        }
+      }
+      const series = competitors.map(c => ({
+        competitor: c,
+        snapshots: snapshotsByCompetitor.get(c.id) ?? [],
       }));
 
       res.json({ tier, hasAccess: true, days, series });
