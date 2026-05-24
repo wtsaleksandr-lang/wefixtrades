@@ -10,9 +10,10 @@
  * Plus a small usage summary chart fed by GET /api/admin/tradeline/voices/usage.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Play, Archive, Pencil, Save, X, Mic2 } from "lucide-react";
+import { Plus, Play, Pause, Archive, Pencil, Save, X, Mic2, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Voice {
@@ -76,6 +77,59 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export default function TradelineVoicesPage() {
   usePageTitle("TradeLine Voices");
   const qc = useQueryClient();
+  const { toast } = useToast();
+
+  /* Single shared <audio> element so clicking Play on a second voice
+   * stops the first. Tracks the slug currently playing + the slug whose
+   * sample is being fetched, so the row can render the right icon. */
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  useEffect(() => () => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+  }, []);
+
+  const handlePreview = async (voiceId: string) => {
+    // Toggle off if user clicks the currently-playing voice.
+    if (playingId === voiceId && audioRef.current) {
+      audioRef.current.pause();
+      setPlayingId(null);
+      return;
+    }
+    // Stop any previous playback before starting a new one.
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setLoadingId(voiceId);
+    try {
+      const r = await fetch(`/api/admin/tradeline/voices/${voiceId}/sample`, {
+        credentials: "include",
+      });
+      if (!r.ok) throw new Error(`status ${r.status}`);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => {
+        setPlayingId((cur) => (cur === voiceId ? null : cur));
+        URL.revokeObjectURL(url);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        setPlayingId((cur) => (cur === voiceId ? null : cur));
+        toast({ title: "Voice preview unavailable", variant: "destructive" });
+      };
+      audioRef.current = audio;
+      await audio.play();
+      setPlayingId(voiceId);
+    } catch {
+      toast({ title: "Voice preview unavailable", variant: "destructive" });
+    } finally {
+      setLoadingId((cur) => (cur === voiceId ? null : cur));
+    }
+  };
 
   const voices = useQuery<{ voices: Voice[] }>({
     queryKey: ["/api/admin/tradeline/voices"],
@@ -200,11 +254,24 @@ export default function TradelineVoicesPage() {
                   {v.tags?.map((t) => <Badge key={t} variant="outline">{t}</Badge>)}
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  {v.sample_audio_url && (
-                    <Button size="sm" variant="outline" onClick={() => new Audio(v.sample_audio_url!).play()}>
-                      <Play className="w-3 h-3 mr-1" /> Play
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handlePreview(v.id)}
+                    disabled={loadingId === v.id}
+                    className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                    aria-label={playingId === v.id ? `Stop preview of ${v.display_name}` : `Play preview of ${v.display_name}`}
+                    data-testid={`button-preview-voice-${v.id}`}
+                  >
+                    {loadingId === v.id ? (
+                      <Loader2 className="w-[18px] h-[18px] mr-1 animate-spin" />
+                    ) : playingId === v.id ? (
+                      <Pause className="w-[18px] h-[18px] mr-1" />
+                    ) : (
+                      <Play className="w-[18px] h-[18px] mr-1" />
+                    )}
+                    {playingId === v.id ? "Stop" : "Play"}
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => { setEditing(v); setCreating(false); }} data-testid={`button-edit-voice-${v.id}`}>
                     <Pencil className="w-3 h-3 mr-1" /> Edit
                   </Button>
