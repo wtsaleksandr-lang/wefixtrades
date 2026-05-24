@@ -62,24 +62,26 @@ export function NumberedCard({
       borderRadius: 28,
       border: `1px solid rgba(255,255,255,0.04)`,
       overflow: "hidden",
-      padding: "48px 32px 60px",
+      padding: "32px 28px 44px",
       fontFamily: SANS,
     }}>
       <DashedGridBackground />
-      {/* Mockup container */}
-      <div style={{ position: "relative", minHeight: 320, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 0 56px" }}>
+      {/* Mockup container — inner spacing tightened (was minHeight 320 +
+          20/56 vertical pad) so each NumberedCard contributes ~80px less to
+          the 12 product-page heights. */}
+      <div style={{ position: "relative", minHeight: 260, display: "flex", alignItems: "center", justifyContent: "center", padding: "12px 0 36px" }}>
         {children}
       </div>
       {/* Title block */}
       <div style={{ position: "relative", maxWidth: 540, margin: align === "center" ? "0 auto" : undefined, textAlign: align }}>
         <h3 style={{
-          fontSize: 32, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.02em",
-          color: mkt.onDark, marginBottom: 16,
+          fontSize: 28, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.02em",
+          color: mkt.onDark, marginBottom: 12,
         }}>
           {title}
         </h3>
         <p style={{
-          fontSize: 16, lineHeight: 1.55, color: mkt.onDarkMuted, marginBottom: cta ? 24 : 0,
+          fontSize: 15, lineHeight: 1.5, color: mkt.onDarkMuted, marginBottom: cta ? 18 : 0,
         }}>
           {description}
         </p>
@@ -96,7 +98,7 @@ export function NumberedCard({
       </div>
       {/* Faded number indicator */}
       <div style={{
-        position: "absolute", left: 32, bottom: 24,
+        position: "absolute", left: 28, bottom: 18,
         fontSize: 14, fontFamily: MONO, fontWeight: 500,
         color: "rgba(255,255,255,0.18)", letterSpacing: "0.1em",
       }}>

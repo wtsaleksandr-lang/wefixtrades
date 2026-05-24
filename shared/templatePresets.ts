@@ -3195,11 +3195,17 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       // BD-2c — converted from `select` to `radio` with image cards.
       { id: 'type', name: 'Type', label: 'Window type', type: 'radio',
         options: [
-          optImg('Single hung', 250, 'https://source.unsplash.com/300x300/?single,hung,window'),
-          optImg('Double hung', 320, 'https://source.unsplash.com/300x300/?double,hung,window'),
-          optImg('Sliding', 290, 'https://source.unsplash.com/300x300/?sliding,window'),
-          optImg('Picture', 410, 'https://source.unsplash.com/300x300/?picture,window'),
-          optImg('Bay', 780, 'https://source.unsplash.com/300x300/?bay,window'),
+          // 2026-05-24 — the `source.unsplash.com/?keywords` redirector now
+          // returns ORB-blocked on direct fetches from the QuoteQuick widget
+          // mounted at /products/quickquotepro, breaking these 5 cards.
+          // Replaced with curated `images.unsplash.com/photo-<id>` direct
+          // URLs (window-themed, 300x300 fit=crop) which aren't subject to
+          // the same ORB policy.
+          optImg('Single hung', 250, 'https://images.unsplash.com/photo-1503594384566-461fe158e797?w=300&h=300&fit=crop'),
+          optImg('Double hung', 320, 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=300&fit=crop'),
+          optImg('Sliding', 290, 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=300&h=300&fit=crop'),
+          optImg('Picture', 410, 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=300&h=300&fit=crop'),
+          optImg('Bay', 780, 'https://images.unsplash.com/photo-1494526585095-c41746248156?w=300&h=300&fit=crop'),
         ] },
       { id: 'frame', name: 'Frame', label: 'Frame material', type: 'select',
         options: [opt('Vinyl', 0), opt('Fiberglass', 110), opt('Wood', 180), opt('Aluminum', 60)] },
