@@ -353,6 +353,7 @@ export function registerAdminOpsRoutes(app: Express): void {
     { name: "TradeLine Provision Retry", job_name: "tradeline_provision_retry", schedule: "17 * * * *", interval_minutes: 60 },
     { name: "TradeLine Mode Sync", job_name: "tradeline_mode_sync", schedule: "*/5 * * * *", interval_minutes: 5 },
     { name: "TradeLine Retry", job_name: "tradeline_retry", schedule: "*/15 * * * *", interval_minutes: 15 },
+    { name: "Vapi Recording Mirror", job_name: "vapi_recording_mirror", schedule: "47 */2 * * *", interval_minutes: 120 },
 
     /* MapGuard GBP automation */
     { name: "MapGuard Post Fan-out", job_name: "mapguard_post_fanout", schedule: "0 3 1 * *", interval_minutes: 43200 },
