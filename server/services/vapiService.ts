@@ -542,6 +542,11 @@ export async function extractLeadFromTranscript(transcript: string): Promise<Tra
       system: LEAD_EXTRACTION_SYSTEM_PROMPT,
       messages: [{ role: "user", content: transcript }],
       maxTokens: 400,
+      // audit/ai 2026-05-24: attribute lead-extraction calls to the
+      // inbound_classifier surface so they are gated, logged to
+      // ai_usage_logs, and counted against a monthly budget cap.
+      // Previously this Anthropic call ran ungated + unlogged.
+      surface: "inbound_classifier",
     });
 
     // Parse JSON from response — handle potential markdown wrapping
