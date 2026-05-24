@@ -16,6 +16,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { motion, useInView, useReducedMotion, animate } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { mkt } from "@/theme/tokens";
+import DashedGridBackground from "@/components/marketing/DashedGridBackground";
 
 export const MONO = "'Et Mono', 'DM Mono', monospace";
 export const SANS = "'Satoshi', Inter, system-ui, sans-serif";
@@ -64,7 +65,7 @@ export function NumberedCard({
       padding: "48px 32px 60px",
       fontFamily: SANS,
     }}>
-      <DottedBackground />
+      <DashedGridBackground />
       {/* Mockup container */}
       <div style={{ position: "relative", minHeight: 320, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 0 56px" }}>
         {children}
@@ -102,17 +103,6 @@ export function NumberedCard({
         {number}
       </div>
     </div>
-  );
-}
-
-function DottedBackground() {
-  return (
-    <div style={{
-      position: "absolute", inset: 0, pointerEvents: "none",
-      backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)`,
-      backgroundSize: "16px 16px",
-      opacity: 0.7,
-    }} />
   );
 }
 
