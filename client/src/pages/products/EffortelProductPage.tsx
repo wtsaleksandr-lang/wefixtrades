@@ -22,7 +22,13 @@ import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { getProductBySlug } from "@/config/products";
-import { productSchema, faqSchema } from "@/lib/seo/jsonLd";
+import {
+  productSchema,
+  faqSchema,
+  softwareApplication,
+  breadcrumbList,
+} from "@/lib/seo/jsonLd";
+import { SITE_URL } from "@/lib/seo/pageMeta";
 import {
   NumberedCard,
   BadgePill,
@@ -118,17 +124,56 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
   // meta + Product JSON-LD instead of the generic site title.
   if (!cfg) return <NotFound />;
 
+  // Derive a numeric "from" price from the lowest plan in the pricing
+  // section — first plan whose price reads as $N(.NN). Used as the
+  // SoftwareApplication offer so SERPs show a starting price.
+  const fromPrice: number | null = (() => {
+    for (const plan of cfg.pricingSection?.plans ?? []) {
+      const match = /\$([\d,]+(?:\.\d+)?)/.exec(plan.price ?? "");
+      if (match) {
+        const n = Number(match[1].replace(/,/g, ""));
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+    }
+    return null;
+  })();
+
+  const productUrl = `${SITE_URL}/products/${cfg.slug}`;
+  const productOgImage = `${SITE_URL}/og/${cfg.slug}.svg`;
+
   const productJsonLd = productSchema({
     name: cfg.name,
     slug: cfg.slug,
     description: cfg.seoDescription,
+    image: productOgImage,
+    ...(fromPrice !== null ? { price: fromPrice } : {}),
   });
   const productFaqJsonLd = cfg.faq && cfg.faq.length > 0
     ? faqSchema(cfg.faq.map((f) => ({ question: f.q, answer: f.a })))
     : null;
-  const pageJsonLd = productFaqJsonLd
-    ? [productJsonLd, productFaqJsonLd]
-    : productJsonLd;
+  // PR #679 audit: SoftwareApplication for all SaaS products + BreadcrumbList
+  // for the Home › Products › <Name> trail on every product page.
+  const softwareApplicationJsonLd = softwareApplication({
+    name: cfg.name,
+    description: cfg.seoDescription,
+    applicationCategory: "BusinessApplication",
+    url: productUrl,
+    image: productOgImage,
+    ...(fromPrice !== null
+      ? { offers: { price: fromPrice, priceCurrency: "USD", url: productUrl } }
+      : {}),
+  });
+  const breadcrumbJsonLd = breadcrumbList([
+    { name: "Home", url: `${SITE_URL}/` },
+    { name: "Products", url: `${SITE_URL}/products` },
+    { name: cfg.name, url: productUrl },
+  ]);
+  const pageJsonLd: object[] = [
+    productJsonLd,
+    softwareApplicationJsonLd,
+    breadcrumbJsonLd,
+    ...(productFaqJsonLd ? [productFaqJsonLd] : []),
+  ];
 
   const sections: ProductMockupSection[] = PRODUCT_MOCKUPS[slug] ?? PRODUCT_MOCKUPS.__default;
   const hook = HERO_HOOKS[slug];
@@ -155,6 +200,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
         description={cfg.seoDescription}
         canonical={`/products/${slug}`}
         ogType="product"
+        ogImage={`/og/${cfg.slug}.svg`}
         jsonLd={pageJsonLd}
       />
       {/* CONTRAST-2 — EffortelProductPage is a marketing dark-hero page. */}

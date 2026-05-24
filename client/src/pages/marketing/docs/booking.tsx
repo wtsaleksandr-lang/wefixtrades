@@ -1,5 +1,7 @@
 import DocsLayout, { Step, InfoBox, DocH2, DocH3, Checklist, Accordion } from "@/components/marketing/DocsLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
+import { howTo, breadcrumbList } from "@/lib/seo/jsonLd";
+import { SITE_URL } from "@/lib/seo/pageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function DocsBooking() {
@@ -11,6 +13,37 @@ export default function DocsBooking() {
       title="Booking + deposits — QuoteQuick docs"
       description="Convert quotes into paid bookings: enable Stripe deposits, configure availability, and collect upfront payments through your QuoteQuick calculator."
       canonical="/docs/booking"
+      jsonLd={[
+        // PR #679 audit — HowTo for the 4-step booking enablement flow.
+        howTo({
+          name: "Enable booking and Stripe deposits in QuoteQuick",
+          description:
+            "Turn estimates into paid bookings by connecting Stripe and configuring availability for your calculator.",
+          steps: [
+            {
+              name: "Open your calculator in the wizard",
+              text: "Go to Dashboard, open your calculator, click Edit, and set the Calculator Type to Estimate + Booking (or Booking Only).",
+            },
+            {
+              name: "Configure your availability",
+              text: "On the Booking Settings tab, set working days, available hours, slot duration, buffer time and max bookings per day.",
+            },
+            {
+              name: "Connect Stripe for deposits",
+              text: "Go to Dashboard → Settings → Payments → Connect Stripe and complete Stripe Express onboarding. Set a deposit amount or percentage per calculator.",
+            },
+            {
+              name: "Publish your calculator",
+              text: "Click Publish. Customers now see a calendar after their estimate and can book + pay in one flow.",
+            },
+          ],
+        }),
+        breadcrumbList([
+          { name: "Home", url: `${SITE_URL}/` },
+          { name: "Docs", url: `${SITE_URL}/docs` },
+          { name: "Booking + deposits", url: `${SITE_URL}/docs/booking` },
+        ]),
+      ]}
     />
     <DocsLayout
       activeSlug="booking"

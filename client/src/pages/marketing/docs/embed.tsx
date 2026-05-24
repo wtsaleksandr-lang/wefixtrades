@@ -1,5 +1,7 @@
 import DocsLayout, { Step, CodeBlock, Accordion, InfoBox, DocH2, DocH3, Checklist } from "@/components/marketing/DocsLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
+import { howTo, breadcrumbList } from "@/lib/seo/jsonLd";
+import { SITE_URL } from "@/lib/seo/pageMeta";
 import { mkt } from "@/theme/tokens";
 import { HOSTING_DOMAIN } from "@shared/slugUtils";
 
@@ -12,6 +14,31 @@ export default function DocsEmbed() {
       title="Embed guide — QuoteQuick docs"
       description="Embed a QuoteQuick quote calculator on any website: WordPress, Squarespace, Wix, Webflow, plain HTML, and React. Step-by-step snippets with copy buttons."
       canonical="/docs/embed"
+      jsonLd={[
+        // PR #679 audit — HowTo for the 2-step embed flow.
+        howTo({
+          name: "Embed a QuoteQuick calculator on your website",
+          description:
+            "Add a QuoteQuick quote calculator to any website in under 5 minutes with one script tag.",
+          steps: [
+            {
+              name: "Copy your embed code",
+              text: "Open your Dashboard, select your calculator and click Deploy. Copy the script snippet shown.",
+              url: `${SITE_URL}/docs/embed`,
+            },
+            {
+              name: "Paste into your website",
+              text: "Paste the code into any page where you want the calculator to appear. The widget loads automatically and resizes to fit.",
+              url: `${SITE_URL}/docs/embed`,
+            },
+          ],
+        }),
+        breadcrumbList([
+          { name: "Home", url: `${SITE_URL}/` },
+          { name: "Docs", url: `${SITE_URL}/docs` },
+          { name: "Embed guide", url: `${SITE_URL}/docs/embed` },
+        ]),
+      ]}
     />
     <DocsLayout
       activeSlug="embed"
