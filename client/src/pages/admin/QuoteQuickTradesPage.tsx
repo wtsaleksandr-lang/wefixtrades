@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { ProductSettingsMenu } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -138,6 +139,7 @@ export default function QuoteQuickTradesPage() {
             >
               <Plus className="w-3.5 h-3.5 mr-1" /> New trade
             </Button>
+            <ProductSettingsMenu productId="quotequick" productName="QuoteQuick" />
           </div>
         </div>
 
