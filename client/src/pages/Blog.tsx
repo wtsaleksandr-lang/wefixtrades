@@ -284,7 +284,8 @@ function BlogCard({ post, onOpen, size = "grid" }: {
             letterSpacing: "0.04em",
             display: "flex", flexDirection: "column", gap: 2,
           }}>
-            <span style={{ opacity: 0.6 }}>{post.readMin} min</span>
+            {/* opacity removed: dropped AA contrast on the muted meta line */}
+            <span>{post.readMin} min</span>
             <span>{post.date}</span>
           </div>
         </div>
@@ -399,7 +400,8 @@ function BlogCard({ post, onOpen, size = "grid" }: {
           letterSpacing: "0.04em",
           display: "flex", flexDirection: "column", gap: 2,
         }}>
-          <span style={{ opacity: 0.6 }}>{post.readMin} min</span>
+          {/* opacity removed: dropped AA contrast on the muted meta line */}
+          <span>{post.readMin} min</span>
           <span>{post.date}</span>
         </div>
       </div>
@@ -483,15 +485,18 @@ function FeaturedSwiper({ posts, onOpen }: {
 
 /* ─── FilterBar — clickable category pills + (clear) ─── */
 
-/* ─── Bright light-grey theme used by the "Stay Ahead" section ─── */
+/* ─── Bright light-grey theme used by the "Stay Ahead" section ───
+   inkMuted / inkFaint use solid hex (not alpha-on-bg) so contrast
+   holds independent of the underlying surface — fixes WCAG AA
+   contrast nodes flagged on /blog in PR #732 audit. */
 const LIGHT = {
   bg:        "#C2D0D6",        // Effortel reference's bright cool grey
   cardBg:    "transparent",    // cards inherit page bg at rest
   cardHover: "#D6DFE3",        // slightly lighter on hover (lifts off page)
   ink:       "#0F1418",        // near-black for headings
-  inkMuted:  "rgba(15,20,24,0.62)",
-  inkFaint:  "rgba(15,20,24,0.42)",
-  pillBorder:"rgba(15,20,24,0.18)",
+  inkMuted:  "#3F4549",        // solid; was rgba(15,20,24,0.62) — AA on #C2D0D6
+  inkFaint:  "#4A5258",        // solid; was rgba(15,20,24,0.42) — AA on #C2D0D6
+  pillBorder:"rgba(15,20,24,0.28)", // bumped from 0.18 → 0.28 for chip-edge AA
   pillBg:    "rgba(15,20,24,0.04)",
   pillHover: "rgba(15,20,24,0.08)",
   searchBg:  "rgba(15,20,24,0.08)",
