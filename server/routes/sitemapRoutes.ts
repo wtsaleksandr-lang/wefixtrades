@@ -29,48 +29,63 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL?.replace(/\/$/, "") || "http
  * Curated list of public marketing routes. Each entry has a `loc`
  * (path) and optional `priority` / `changefreq` overrides. Default
  * priority is 0.6, changefreq weekly.
+ *
+ * `lastmod` is a per-route real signal (ISO yyyy-mm-dd). Crawlers
+ * (especially Google) explicitly devalue sitemaps whose lastmod
+ * "updates today" on every fetch — see
+ * https://developers.google.com/search/blog/2023/06/sitemaps-lastmod-ping.
+ * Bump the per-route value when the page's content materially changes;
+ * leave it alone for nav/style-only edits. The dynamic product pages
+ * share PRODUCT_LASTMOD until per-product copy history is tracked.
  */
 interface StaticRoute {
   loc: string;
+  lastmod: string;
   priority?: string;
   changefreq?: "daily" | "weekly" | "monthly" | "yearly";
 }
 
+// Fallback for any new route that ships before its lastmod is recorded.
+// Keep this at the most recent marketing-content release.
+const DEFAULT_LASTMOD = "2026-05-24";
+
+const PRODUCT_LASTMOD = "2026-05-24";
+
 const STATIC_ROUTES: StaticRoute[] = [
-  { loc: "/", priority: "1.0", changefreq: "weekly" },
-  { loc: "/products", priority: "0.9", changefreq: "weekly" },
-  { loc: "/pricing", priority: "0.9", changefreq: "weekly" },
-  { loc: "/pricing/quotequick", priority: "0.8", changefreq: "weekly" },
-  { loc: "/services", priority: "0.8", changefreq: "weekly" },
-  { loc: "/templates", priority: "0.7", changefreq: "weekly" },
-  { loc: "/demo", priority: "0.7", changefreq: "weekly" },
-  { loc: "/demos", priority: "0.7", changefreq: "weekly" },
-  { loc: "/docs", priority: "0.7", changefreq: "monthly" },
-  { loc: "/docs/embed", priority: "0.6", changefreq: "monthly" },
-  { loc: "/docs/domain", priority: "0.6", changefreq: "monthly" },
-  { loc: "/docs/booking", priority: "0.6", changefreq: "monthly" },
-  { loc: "/docs/ai", priority: "0.6", changefreq: "monthly" },
-  { loc: "/docs/mapguard", priority: "0.6", changefreq: "monthly" },
-  { loc: "/docs/reputationshield", priority: "0.6", changefreq: "monthly" },
-  { loc: "/docs/webhooks", priority: "0.6", changefreq: "monthly" },
-  { loc: "/docs/troubleshooting", priority: "0.6", changefreq: "monthly" },
-  { loc: "/docs/api", priority: "0.6", changefreq: "monthly" },
-  { loc: "/features/instant-quotes", priority: "0.7", changefreq: "monthly" },
-  { loc: "/features/booking", priority: "0.7", changefreq: "monthly" },
-  { loc: "/features/ai-employee", priority: "0.7", changefreq: "monthly" },
-  { loc: "/features/sms", priority: "0.7", changefreq: "monthly" },
-  { loc: "/features/calculator-engine", priority: "0.7", changefreq: "monthly" },
-  { loc: "/solutions/visibility", priority: "0.7", changefreq: "monthly" },
-  { loc: "/tools/free-audit", priority: "0.9", changefreq: "weekly" },
-  { loc: "/products/quickquotepro/demo", priority: "0.8", changefreq: "weekly" },
-  { loc: "/products/quickquotepro/build-with-ai", priority: "0.8", changefreq: "weekly" },
-  { loc: "/about", priority: "0.6", changefreq: "monthly" },
-  { loc: "/blog", priority: "0.7", changefreq: "weekly" },
-  { loc: "/case-studies", priority: "0.7", changefreq: "monthly" },
-  { loc: "/resources", priority: "0.6", changefreq: "monthly" },
-  { loc: "/contact", priority: "0.6", changefreq: "monthly" },
-  { loc: "/privacy", priority: "0.3", changefreq: "yearly" },
-  { loc: "/terms", priority: "0.3", changefreq: "yearly" },
+  { loc: "/", priority: "1.0", changefreq: "weekly", lastmod: "2026-05-24" },
+  { loc: "/products", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-24" },
+  { loc: "/pricing", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-24" },
+  { loc: "/pricing/quotequick", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-24" },
+  { loc: "/services", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
+  { loc: "/templates", priority: "0.7", changefreq: "weekly", lastmod: "2026-05-12" },
+  { loc: "/demo", priority: "0.7", changefreq: "weekly", lastmod: "2026-05-12" },
+  { loc: "/demos", priority: "0.7", changefreq: "weekly", lastmod: "2026-05-12" },
+  { loc: "/docs", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/docs/embed", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/docs/domain", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/docs/booking", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/docs/ai", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/docs/mapguard", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/docs/reputationshield", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/docs/webhooks", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/docs/troubleshooting", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/docs/api", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/features/instant-quotes", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/features/booking", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/features/ai-employee", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/features/sms", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/features/calculator-engine", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/solutions/visibility", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/tools/free-audit", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-24" },
+  { loc: "/products/quickquotepro/demo", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
+  { loc: "/products/quickquotepro/build-with-ai", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
+  { loc: "/about", priority: "0.6", changefreq: "monthly", lastmod: "2026-04-01" },
+  { loc: "/blog", priority: "0.7", changefreq: "weekly", lastmod: "2026-05-12" },
+  { loc: "/case-studies", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/resources", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
+  { loc: "/contact", priority: "0.6", changefreq: "monthly", lastmod: "2026-04-01" },
+  { loc: "/privacy", priority: "0.3", changefreq: "yearly", lastmod: "2026-01-01" },
+  { loc: "/terms", priority: "0.3", changefreq: "yearly", lastmod: "2026-01-01" },
 ];
 
 function escapeXml(value: string): string {
@@ -92,16 +107,15 @@ function urlNode(loc: string, lastmod: string, changefreq: string, priority: str
 }
 
 function buildSitemapXml(): string {
-  const today = new Date().toISOString().split("T")[0];
   const lines: string[] = [];
 
   for (const r of STATIC_ROUTES) {
-    lines.push(urlNode(r.loc, today, r.changefreq ?? "weekly", r.priority ?? "0.6"));
+    lines.push(urlNode(r.loc, r.lastmod ?? DEFAULT_LASTMOD, r.changefreq ?? "weekly", r.priority ?? "0.6"));
   }
 
   // Dynamic: one URL per product slug (uses the EffortelProductPage template).
   for (const product of PRODUCT_PAGES) {
-    lines.push(urlNode(`/products/${product.slug}`, today, "weekly", "0.8"));
+    lines.push(urlNode(`/products/${product.slug}`, PRODUCT_LASTMOD, "weekly", "0.8"));
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
