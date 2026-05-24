@@ -38,6 +38,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import PortalChatWidget, { type PortalChatContext } from "./PortalChatWidget";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { OnboardingProvider } from "@/context/OnboardingContext";
 
 interface NavItem {
@@ -181,6 +183,7 @@ export default function PortalLayout({
   const [copilotOpen, setCopilotOpen] = useState(false);
   const activePrefixes = useActiveServicePrefixes();
   const NAV_ITEMS = buildNavItems(activePrefixes);
+  const breadcrumbItems = useBreadcrumbs();
 
   const handleLogout = async () => {
     try {
@@ -410,6 +413,9 @@ export default function PortalLayout({
               compact ? "px-0 lg:px-8" : "px-4 sm:px-6 lg:px-8"
             )}
           >
+            {breadcrumbItems.length > 0 && !compact && (
+              <Breadcrumbs items={breadcrumbItems} className="mb-4" />
+            )}
             {children}
           </div>
         </main>
