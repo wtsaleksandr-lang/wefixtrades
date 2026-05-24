@@ -1650,6 +1650,15 @@ export class DatabaseStorage implements IStorage {
      division-by-zero and produce a meaningful "of customers who could have
      churned, this many did" ratio. */
   async getProductStats(serviceId: string): Promise<ProductStats> {
+    /* Regression-fix (PR fix/admin-stats-cards-loading): service_catalog rows
+       are seeded at tier granularity (e.g. "adflow-starter", "adflow-growth",
+       "adflow-pro") — there is no bare "adflow" row. The shell pages pass the
+       product-family id ("adflow", "contentflow", etc.). Aggregate over any
+       client_services row whose service_id equals the bare id OR starts with
+       `${id}-`. LIKE-escape the bare id so a future product literal like
+       "ad_flow" wouldn't blow up. */
+    const escaped = serviceId.replace(/[%_\\]/g, "\\$&");
+    const prefixPattern = `${escaped}-%`;
     const result = await db.execute(sql`
       SELECT
         COALESCE(SUM(price_cents) FILTER (WHERE status != 'cancelled' AND enabled), 0) AS mrr_cents,
@@ -1659,6 +1668,7 @@ export class DatabaseStorage implements IStorage {
         COUNT(*) FILTER (WHERE started_at IS NOT NULL AND started_at > NOW() - INTERVAL '30 days') AS new_subs_30d
       FROM client_services
       WHERE service_id = ${serviceId}
+         OR service_id LIKE ${prefixPattern} ESCAPE '\\'
     `);
     const row: any = (result as any).rows?.[0] ?? {};
     const mrr_cents = Number(row.mrr_cents ?? 0);

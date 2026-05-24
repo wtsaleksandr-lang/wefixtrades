@@ -33,6 +33,45 @@ import type { Deliverable } from "@shared/schema";
 
 const log = createLogger("AdminCRM");
 
+/* Regression-fix (PR fix/admin-stats-cards-loading): resolves a product
+   identifier that may be either an exact service_catalog id (tier-level,
+   e.g. "adflow-starter") OR a product-family id used by the per-product
+   admin pages (e.g. "adflow"). service_catalog is seeded only at tier
+   granularity by server/scripts/seed-services.ts, so the bare product id
+   has no row — left as-is, the AdminProductPageShell pages get 404s for
+   both /api/admin/products/:id and /stats and render perpetual skeletons.
+
+   Strategy: if the exact id misses, look for the first tier row whose id
+   starts with `${svcId}-` and synthesize a product-family "live" record
+   from it. The synthesized row carries the product-family id (not the
+   tier id) so the shell's edit-copy link + toggles stay coherent. The
+   is_active / hidden booleans reduce across tiers — product is "active"
+   iff any tier is active; "hidden" iff every tier is hidden — mirroring
+   how customers would experience the family on the public catalog. */
+async function resolveProductRow(svcId: string): Promise<{
+  row: Awaited<ReturnType<typeof storage.getServiceById>>;
+  synthesized: boolean;
+} | null> {
+  const exact = await storage.getServiceById(svcId);
+  if (exact) return { row: exact, synthesized: false };
+  const all = await storage.listServicesWithClientCounts();
+  const tiers = all.filter((r) => r.id.startsWith(`${svcId}-`));
+  if (tiers.length === 0) return null;
+  const first = tiers[0];
+  const anyActive = tiers.some((t) => t.is_active);
+  const allHidden = tiers.every((t) => (t as any).hidden === true);
+  return {
+    row: {
+      ...first,
+      id: svcId,
+      name: first.name.replace(/\s+(Starter|Growth|Pro|Free|Business|Creator|Studio|Agency|Basic|Premium|Setup|Monitor|Complete|Plus).*$/i, "").trim(),
+      is_active: anyActive,
+      hidden: allHidden,
+    } as any,
+    synthesized: true,
+  };
+}
+
 export function registerAdminCrmRoutes(app: Express): void {
 
   /* ═══════════════════════════════════════════
@@ -130,12 +169,17 @@ export function registerAdminCrmRoutes(app: Express): void {
   app.get("/api/admin/products/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const svcId = String(req.params.id);
-      const live = await storage.getServiceById(svcId);
-      if (!live) return res.status(404).json({ error: "Product not found" });
-      const draft = await storage.getLatestProductDraft(svcId);
-      res.json({ live, draft, publish_approval_threshold: publishApprovalThreshold });
+      const resolved = await resolveProductRow(svcId);
+      if (!resolved) return res.status(404).json({ error: "Product not found" });
+      // Drafts are stored per tier-id; only look one up if this is an exact match.
+      const draft = resolved.synthesized ? undefined : await storage.getLatestProductDraft(svcId);
+      res.json({ live: resolved.row, draft, publish_approval_threshold: publishApprovalThreshold });
     } catch (err: any) {
       log.error("[products GET] Error:", err.message);
+      try {
+        const Sentry = await import("@sentry/node");
+        Sentry.captureException(err, { tags: { route: "admin.products.get", product_id: String(req.params.id) } });
+      } catch { /* Sentry optional */ }
       res.status(500).json({ error: "Failed to load product" });
     }
   });
@@ -204,12 +248,20 @@ export function registerAdminCrmRoutes(app: Express): void {
   app.get("/api/admin/products/:id/stats", requireAdmin, async (req: Request, res: Response) => {
     try {
       const svcId = String(req.params.id);
-      const live = await storage.getServiceById(svcId);
-      if (!live) return res.status(404).json({ error: "Product not found" });
+      const resolved = await resolveProductRow(svcId);
+      if (!resolved) return res.status(404).json({ error: "Product not found" });
+      // storage.getProductStats() aggregates across either the exact id OR
+      // tier-prefix matches, so it works for both granularities.
       const stats = await storage.getProductStats(svcId);
       res.json(stats);
     } catch (err: any) {
       log.error("[products stats GET] Error:", err.message);
+      // Sentry capture so a future regression in the KPI aggregation
+      // surfaces in alerting instead of silently re-blanking the cards.
+      try {
+        const Sentry = await import("@sentry/node");
+        Sentry.captureException(err, { tags: { route: "admin.products.stats", product_id: String(req.params.id) } });
+      } catch { /* Sentry optional — log path already covered */ }
       res.status(500).json({ error: "Failed to load product stats" });
     }
   });

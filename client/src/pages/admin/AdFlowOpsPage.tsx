@@ -84,7 +84,7 @@ export default function AdFlowOpsPage() {
   const live = productData?.live ?? null;
 
   const statsKey = ["/api/admin/products", PRODUCT_ID, "stats"] as const;
-  const { data: productStats } = useQuery<ProductStats>({
+  const { data: productStats, error: productStatsError } = useQuery<ProductStats>({
     queryKey: statsKey,
     queryFn: () => apiRequest("GET", `/api/admin/products/${PRODUCT_ID}/stats`).then((r) => r.json()),
   });
@@ -363,6 +363,7 @@ export default function AdFlowOpsPage() {
         isActive={live?.is_active ?? true}
         hidden={live?.hidden ?? false}
         stats={productStats ?? null}
+        statsError={productStatsError}
         tabs={[
           {
             id: "overview",
