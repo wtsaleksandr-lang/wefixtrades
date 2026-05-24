@@ -7,14 +7,19 @@
  *   3. CHAT  · Roofing    — storm-damage estimate
  *   4. VOICE · Electrical — panel-upgrade quote + booking
  *
- * Chat mode: types into input → user bubble → AI typing → AI card with
- * pricing → green BOOKED receipt chip.
- * Voice mode: incoming-call shell with caller avatar + live timer +
- * animated waveform on the active speaker. Turns alternate caller (mic
- * icon, right) and AI (speaker icon, left, cyan accent). Ends with a
- * red call-end pulse + receipt chip.
+ * Chat mode: types into input → user bubble (white/ink) → AI typing → AI
+ * card with pricing (brand-blue/white) → green BOOKED receipt chip.
+ * Voice mode: branded-white incoming-call header with caller avatar + live
+ * timer + active-call icon. Transcript bubbles use the same on-brand
+ * scheme: caller bubbles are white with ink text, AI bubbles are brand
+ * blue with white text. Ends with a red call-end pulse + receipt chip.
  *
- * Tap to pause / resume. IntersectionObserver auto-pauses off-screen.
+ * Interaction:
+ *   • Tap the phone body to pause / resume the active scenario.
+ *   • Click any of the 4 dots beneath the phone to jump straight to that
+ *     scenario. Auto-cycling pauses for ~10s after manual navigation,
+ *     then resumes from the user-chosen index.
+ *   • IntersectionObserver auto-pauses off-screen.
  *
  * All styles scoped under `.tlhp-*`.
  */
@@ -26,6 +31,7 @@ interface BaseScenario {
   funcText: string;
   receipt: string;
   ctx: { name: string; trade: string; window: string };
+  label: string;
 }
 
 interface ChatScenario extends BaseScenario {
@@ -55,6 +61,7 @@ const SCENARIOS: Scenario[] = [
     funcText: "EMERGENCY · PLUMBING · 24/7",
     receipt: "✓ BOOKED · Tech ETA 38 min",
     ctx: { name: "Sarah K.", trade: "Plumbing", window: "Now" },
+    label: "Plumbing emergency · chat",
   },
 
   // 2 — VOICE — HVAC
@@ -72,6 +79,7 @@ const SCENARIOS: Scenario[] = [
     funcText: "QUOTE · HVAC · WEEKEND",
     receipt: "✓ SCHEDULED · Sat 8–10 AM",
     ctx: { name: "Morgan T.", trade: "HVAC", window: "Sat AM" },
+    label: "HVAC weekend booking · voice",
   },
 
   // 3 — CHAT — Roofing
@@ -85,6 +93,7 @@ const SCENARIOS: Scenario[] = [
     funcText: "ESTIMATE · ROOFING · FREE INSPECT",
     receipt: "✓ INSPECTOR · Thu 9 AM hold",
     ctx: { name: "Jay P.", trade: "Roofing", window: "Thu AM" },
+    label: "Roofing storm estimate · chat",
   },
 
   // 4 — VOICE — Electrical
@@ -102,6 +111,7 @@ const SCENARIOS: Scenario[] = [
     funcText: "ESTIMATE · ELECTRICAL · PERMIT",
     receipt: "✓ ASSESSMENT · Wed 2 PM",
     ctx: { name: "Sam R.", trade: "Electrical", window: "Wed PM" },
+    label: "Electrical panel upgrade · voice",
   },
 ];
 
@@ -121,6 +131,10 @@ const T = {
   receiptHold: 1700,
 };
 
+/* After a manual dot click, auto-cycle stays paused for this long with no
+ * further interaction. Spec: ~10s. */
+const MANUAL_PAUSE_MS = 10_000;
+
 export default function TradeLineHeroPhone() {
   const phoneRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -134,17 +148,21 @@ export default function TradeLineHeroPhone() {
   const voiceTimerRef = useRef<HTMLSpanElement>(null);
   const endBtnRef = useRef<HTMLDivElement>(null);
   // Shared
-  const dotsRef = useRef<HTMLDivElement>(null);
   const funcTextRef = useRef<HTMLSpanElement>(null);
-  const ctxNameRef = useRef<HTMLSpanElement>(null);
-  const ctxTradeRef = useRef<HTMLSpanElement>(null);
-  const ctxWindowRef = useRef<HTMLSpanElement>(null);
 
   const [paused, setPaused] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const inViewRef = useRef(true);
-  const resumeRef = useRef<(() => void) | null>(null);
+
+  /* Loop coordination state — refs so the long-running async loop in the
+   * mount effect sees the latest values without re-mounting. */
+  const idxRef = useRef(0);                       // scenario currently animating
+  const nextIdxRef = useRef<number | null>(null); // requested override (from dot click)
+  const manualUntilRef = useRef(0);               // epoch ms: auto-cycle paused until
+  const cancelCurrentRef = useRef<(() => void) | null>(null); // cancels in-flight scenario
+  const resumeRef = useRef<(() => void) | null>(null);        // unblocks wait()
 
   // Pause when off-screen
   useEffect(() => {
@@ -162,11 +180,21 @@ export default function TradeLineHeroPhone() {
 
     const wait = (ms: number) =>
       new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+        const cancelHere = () => finish();
+        // Register so a dot click can short-circuit the current wait.
+        const prevCancel = cancelCurrentRef.current;
+        cancelCurrentRef.current = () => { prevCancel?.(); cancelHere(); };
         setTimeout(async () => {
-          while (!cancelled && (pausedRef.current || !inViewRef.current)) {
+          while (!done && !cancelled && (pausedRef.current || !inViewRef.current)) {
             await new Promise<void>((r) => { resumeRef.current = r; });
           }
-          resolve();
+          finish();
         }, ms);
       });
 
@@ -187,9 +215,6 @@ export default function TradeLineHeroPhone() {
 
     function applyContext(s: Scenario) {
       if (funcTextRef.current) funcTextRef.current.textContent = s.funcText;
-      if (ctxNameRef.current) ctxNameRef.current.textContent = s.ctx.name;
-      if (ctxTradeRef.current) ctxTradeRef.current.textContent = s.ctx.trade;
-      if (ctxWindowRef.current) ctxWindowRef.current.textContent = s.ctx.window;
     }
 
     async function typeInto(target: HTMLElement, text: string, dur: number) {
@@ -352,11 +377,8 @@ export default function TradeLineHeroPhone() {
     /* ─── LOOP ─────────────────────────────────────── */
     async function runScenario(idx: number) {
       const s = SCENARIOS[idx];
-      const dotEls = dotsRef.current?.querySelectorAll(".tlhp-dot") ?? [];
-      dotEls.forEach((d, i) => {
-        if (i === idx) d.classList.add("active");
-        else d.classList.remove("active");
-      });
+      idxRef.current = idx;
+      setActiveIdx(idx);
       applyContext(s);
       if (s.mode === "chat") await runChat(s);
       else await runVoice(s);
@@ -381,12 +403,35 @@ export default function TradeLineHeroPhone() {
 
     (async function loop() {
       clearSkeleton();
+      let i = 0;
       while (!cancelled) {
-        for (let i = 0; i < SCENARIOS.length; i++) {
+        await runScenario(i);
+        if (cancelled) return;
+        await resetBody();
+        if (cancelled) return;
+
+        // Did the user request a jump while we were animating? Honour it.
+        if (nextIdxRef.current !== null) {
+          i = nextIdxRef.current;
+          nextIdxRef.current = null;
+        } else {
+          // If we're still inside the manual-pause window, hold here until
+          // it expires (or the user picks again).
+          while (
+            !cancelled &&
+            Date.now() < manualUntilRef.current &&
+            nextIdxRef.current === null
+          ) {
+            const remaining = Math.max(50, manualUntilRef.current - Date.now());
+            await wait(Math.min(500, remaining));
+          }
           if (cancelled) return;
-          await runScenario(i);
-          if (cancelled) return;
-          await resetBody();
+          if (nextIdxRef.current !== null) {
+            i = nextIdxRef.current;
+            nextIdxRef.current = null;
+          } else {
+            i = (i + 1) % SCENARIOS.length;
+          }
         }
       }
     })();
@@ -397,6 +442,11 @@ export default function TradeLineHeroPhone() {
         const r = resumeRef.current;
         resumeRef.current = null;
         r();
+      }
+      if (cancelCurrentRef.current) {
+        const c = cancelCurrentRef.current;
+        cancelCurrentRef.current = null;
+        c();
       }
     };
   }, []);
@@ -412,6 +462,39 @@ export default function TradeLineHeroPhone() {
 
   const togglePause = () => setPaused((p) => !p);
 
+  /* Dot click: jump to scenario `idx`, cancel the in-flight scenario, and
+   * pause auto-cycling for MANUAL_PAUSE_MS. Re-clicking another dot
+   * refreshes that window so each interaction gets the full ~10s grace. */
+  const handleDotClick = (idx: number) => {
+    if (idx === idxRef.current) {
+      // Same dot — still refresh the manual-pause window.
+      manualUntilRef.current = Date.now() + MANUAL_PAUSE_MS;
+      return;
+    }
+    nextIdxRef.current = idx;
+    manualUntilRef.current = Date.now() + MANUAL_PAUSE_MS;
+    // Cancel current wait so the loop falls through to resetBody() and
+    // picks up the requested index.
+    if (cancelCurrentRef.current) {
+      const c = cancelCurrentRef.current;
+      cancelCurrentRef.current = null;
+      c();
+    }
+  };
+
+  const handleDotKey = (e: React.KeyboardEvent, idx: number) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleDotClick(idx);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      handleDotClick((idx + 1) % SCENARIOS.length);
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      handleDotClick((idx - 1 + SCENARIOS.length) % SCENARIOS.length);
+    }
+  };
+
   return (
     <div data-theme="dark" className="tlhp-wrap">
       <style>{TLHP_CSS}</style>
@@ -425,7 +508,7 @@ export default function TradeLineHeroPhone() {
         tabIndex={0}
         aria-label="TradeLine animated demo. Tap to pause."
       >
-        {/* CHAT HEADER */}
+        {/* CHAT HEADER — branded white per spec */}
         <div className="tlhp-header tlhp-chat-header">
           <div className="tlhp-header-left">
             <div className="tlhp-iconbtn" aria-hidden>
@@ -451,7 +534,7 @@ export default function TradeLineHeroPhone() {
           </div>
         </div>
 
-        {/* VOICE HEADER */}
+        {/* VOICE HEADER — branded white per spec */}
         <div className="tlhp-header tlhp-voice-header">
           <div ref={voiceAvatarRef} className="tlhp-voice-avatar">M</div>
           <div className="tlhp-voice-meta">
@@ -526,60 +609,84 @@ export default function TradeLineHeroPhone() {
         </div>
       </div>
 
-      {/* Caption strip — context flips per scenario */}
-      <div className="tlhp-caption">
-        <div className="tlhp-caption-row">
-          <span className="tlhp-caption-key">Caller</span>
-          <span className="tlhp-caption-val" ref={ctxNameRef}>—</span>
-        </div>
-        <div className="tlhp-caption-row">
-          <span className="tlhp-caption-key">Trade</span>
-          <span className="tlhp-caption-val" ref={ctxTradeRef}>—</span>
-        </div>
-        <div className="tlhp-caption-row">
-          <span className="tlhp-caption-key">Window</span>
-          <span className="tlhp-caption-val" ref={ctxWindowRef}>—</span>
-        </div>
-      </div>
-
+      {/* Scenario indicator strip — currently-running function label */}
       <div className="tlhp-funcrow">
         <span className="tlhp-funcdot" />
         <span className="tlhp-functext" ref={funcTextRef}>—</span>
       </div>
 
-      <div ref={dotsRef} className="tlhp-dots" aria-hidden>
-        <span className="tlhp-dot active" />
-        <span className="tlhp-dot" />
-        <span className="tlhp-dot" />
-        <span className="tlhp-dot" />
+      {/* Interactive dots — click to jump scenarios. Auto-cycle pauses ~10s. */}
+      <div
+        className="tlhp-dots"
+        role="tablist"
+        aria-label="TradeLine demo scenarios"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {SCENARIOS.map((s, i) => (
+          <button
+            key={i}
+            type="button"
+            role="tab"
+            aria-selected={i === activeIdx}
+            aria-label={`Jump to scenario ${i + 1}: ${s.label}`}
+            className={`tlhp-dot${i === activeIdx ? " active" : ""}`}
+            onClick={(e) => { e.stopPropagation(); handleDotClick(i); }}
+            onKeyDown={(e) => handleDotKey(e, i)}
+          >
+            <span className="tlhp-dot-bar" aria-hidden />
+          </button>
+        ))}
+      </div>
+
+      {/* Trust strip — replaces the old Caller/Trade/Window card. Hints
+          the dots are interactive + reinforces the always-on AI value-prop. */}
+      <div className="tlhp-trust" aria-hidden>
+        <span className="tlhp-trust-pulse" />
+        Powered by TradeLine AI <span className="tlhp-trust-sep">·</span>
+        Always-on <span className="tlhp-trust-sep">·</span>
+        <span className="tlhp-trust-hint">Tap a dot to jump scenarios</span>
       </div>
     </div>
   );
 }
 
 const ACCENT = mkt.accent;
+const ACCENT_HOVER = mkt.accentHover;
 const ACCENT_GLOW = "rgba(13,60,252,0.45)";
+const ACCENT_RING = "rgba(13,60,252,0.32)";
 
 const TLHP_CSS = `
 .tlhp-wrap {
   --tlhp-accent: ${ACCENT};
+  --tlhp-accent-hover: ${ACCENT_HOVER};
   --tlhp-accent-glow: ${ACCENT_GLOW};
+  --tlhp-accent-ring: ${ACCENT_RING};
+  /* Branded surface tokens for the on-brand white header + bubbles.
+     Sourced from mkt.* (#0d3cfc / #161616) so all values stay token-driven
+     even though CSS variables consume the resolved hex strings. */
+  --tlhp-paper: #ffffff;          /* "branded white" — sourced from mkt.onDark family */
+  --tlhp-ink: ${mkt.bgBase};      /* "branded black" — #161616 */
+  --tlhp-ink-soft: #2a2f33;
+  --tlhp-ink-muted: rgba(22,22,22,0.62);
+  --tlhp-hairline: rgba(22,22,22,0.10);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
 }
 .tlhp-phone {
   position: relative;
   width: 340px; height: 650px;
-  background: #020917;
+  background: var(--tlhp-paper);
   border: 1.5px solid rgba(255,255,255,0.55);
   border-radius: 30px;
   overflow: hidden;
   display: flex; flex-direction: column;
   cursor: pointer;
-  box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(13,60,252,0.06) inset;
+  box-shadow:
+    0 30px 80px rgba(0,0,0,0.55),
+    0 0 0 1px var(--tlhp-accent-ring) inset;
   user-select: none;
 }
 .tlhp-phone.paused::after {
@@ -587,7 +694,7 @@ const TLHP_CSS = `
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
   font-family: 'DM Mono', monospace; font-size: 10px;
   letter-spacing: 1.5px; text-transform: uppercase;
-  color: #fff; background: rgba(2,9,23,0.85);
+  color: var(--tlhp-paper); background: rgba(22,22,22,0.85);
   border: 1px solid rgba(255,255,255,0.22); padding: 8px 14px;
   border-radius: 999px; pointer-events: none;
   backdrop-filter: blur(4px); z-index: 5;
@@ -603,51 +710,61 @@ const TLHP_CSS = `
   display: none;
 }
 
-/* ═══ CHAT HEADER ═══ */
+/* ═══ CHAT HEADER (white) ═══ */
 .tlhp-chat-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 18px 14px; flex-shrink: 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: var(--tlhp-paper);
+  border-bottom: 1px solid var(--tlhp-hairline);
 }
-.tlhp-header-left { display: flex; align-items: center; gap: 10px; color: #fff; }
-.tlhp-header-right { display: flex; align-items: center; gap: 14px; color: #fff; }
-.tlhp-iconbtn { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: #fff; }
+.tlhp-header-left { display: flex; align-items: center; gap: 10px; color: var(--tlhp-ink); }
+.tlhp-header-right { display: flex; align-items: center; gap: 14px; color: var(--tlhp-ink); }
+.tlhp-iconbtn { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--tlhp-ink); }
 .tlhp-iconbtn svg { width: 18px; height: 18px; }
-.tlhp-logo { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: var(--tlhp-accent); flex-shrink: 0; filter: drop-shadow(0 0 6px var(--tlhp-accent-glow)); }
+.tlhp-logo {
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tlhp-accent); flex-shrink: 0;
+  filter: drop-shadow(0 0 6px var(--tlhp-accent-glow));
+}
 .tlhp-logo svg { width: 100%; height: 100%; }
-.tlhp-brand { font-weight: 700; font-size: 16px; letter-spacing: -0.3px; color: #fff; }
+.tlhp-brand { font-weight: 700; font-size: 16px; letter-spacing: -0.3px; color: var(--tlhp-ink); }
 
-/* ═══ VOICE HEADER ═══ */
+/* ═══ VOICE HEADER (white per spec) ═══ */
 .tlhp-voice-header {
   display: flex; align-items: center; gap: 12px;
   padding: 16px 16px 14px; flex-shrink: 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  background: linear-gradient(180deg, rgba(13,60,252,0.06) 0%, transparent 100%);
+  background: var(--tlhp-paper);
+  border-bottom: 1px solid var(--tlhp-hairline);
 }
 .tlhp-voice-avatar {
   width: 38px; height: 38px; border-radius: 50%;
-  background: var(--tlhp-accent); color: #00131a;
+  background: var(--tlhp-accent); color: var(--tlhp-paper);
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 15px; flex-shrink: 0;
-  box-shadow: 0 0 0 3px rgba(13,60,252,0.18);
+  box-shadow: 0 0 0 3px var(--tlhp-accent-ring);
 }
 .tlhp-voice-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.tlhp-voice-name { font-weight: 600; color: #fff; font-size: 14.5px; letter-spacing: -0.1px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tlhp-voice-name {
+  font-weight: 600; color: var(--tlhp-ink);
+  font-size: 14.5px; letter-spacing: -0.1px; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .tlhp-voice-status {
   display: inline-flex; align-items: center; gap: 6px;
   font-family: 'DM Mono', monospace;
   font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: rgba(255,255,255,0.62);
+  color: var(--tlhp-ink-muted);
   white-space: nowrap;
 }
 .tlhp-voice-pulse {
   width: 7px; height: 7px; border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 8px rgba(74,222,128,0.55);
+  background: #16a34a;
+  box-shadow: 0 0 8px rgba(22,163,74,0.45);
   animation: tlhpPulseGreen 1.5s ease-in-out infinite;
 }
 .tlhp-phone.connecting .tlhp-voice-pulse {
-  background: #facc15; box-shadow: 0 0 8px rgba(250,204,21,0.55);
+  background: #d97706; box-shadow: 0 0 8px rgba(217,119,6,0.45);
   animation-duration: 0.7s;
 }
 @keyframes tlhpPulseGreen {
@@ -658,9 +775,9 @@ const TLHP_CSS = `
   width: 30px; height: 30px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  background: rgba(74,222,128,0.14);
-  border: 1px solid rgba(74,222,128,0.40);
-  color: #4ade80;
+  background: rgba(22,163,74,0.10);
+  border: 1px solid rgba(22,163,74,0.40);
+  color: #16a34a;
   animation: tlhpRing 1.2s ease-in-out infinite;
 }
 .tlhp-voice-incoming svg { width: 14px; height: 14px; }
@@ -675,6 +792,7 @@ const TLHP_CSS = `
 .tlhp-body {
   flex: 1; overflow-y: auto;
   padding: 14px 18px 16px;
+  background: var(--tlhp-paper);
   display: flex; flex-direction: column; gap: 12px;
   scroll-behavior: smooth; justify-content: flex-end;
 }
@@ -684,64 +802,82 @@ const TLHP_CSS = `
 /* ═══ FIRST-PAINT SKELETON (cleared by JS before scenario 1) ═══ */
 .tlhp-skel-user, .tlhp-skel-ai {
   display: flex; flex-direction: column; gap: 6px;
-  padding: 11px 14px; border-radius: 14px;
+  padding: 11px 14px; border-radius: 16px;
 }
 .tlhp-skel-user {
   align-self: flex-end; max-width: 84%;
-  background: rgba(148, 163, 184, 0.18);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: var(--tlhp-accent-ring);
+  border: 1px solid rgba(13,60,252,0.18);
 }
 .tlhp-skel-ai {
   align-self: flex-start; max-width: 92%;
-  background: transparent;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(22,22,22,0.04);
+  border: 1px solid rgba(22,22,22,0.08);
   padding: 12px 14px 14px;
 }
 .tlhp-skel-line {
   height: 10px; border-radius: 6px;
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(22,22,22,0.10);
 }
 
-/* ═══ CHAT BUBBLES ═══ */
+/* ═══ CHAT BUBBLES ═══
+   Spec:
+   - AI agent → blue background, white text
+   - Customer  → white background, ink (branded-black) text
+   Caller bubble = customer in this UI surface (right-aligned). */
 .tlhp-bubble-user {
   align-self: flex-end; max-width: 84%;
-  padding: 11px 14px;
-  background: var(--tlhp-accent); color: #00131a;
-  font-size: 13.5px; font-weight: 500; line-height: 1.4; border-radius: 14px;
+  padding: 11px 15px;
+  background: var(--tlhp-paper);
+  color: var(--tlhp-ink);
+  font-size: 13.5px; font-weight: 500; line-height: 1.4;
+  border: 1px solid var(--tlhp-hairline);
+  border-radius: 18px 18px 6px 18px;
   opacity: 0; transform: translateY(16px);
   animation: tlhpBubbleIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
-  box-shadow: 0 8px 22px rgba(13,60,252,0.18);
+  box-shadow: 0 4px 14px rgba(22,22,22,0.06);
 }
 @keyframes tlhpBubbleIn { to { opacity: 1; transform: translateY(0); } }
 
 .tlhp-card-ai {
   align-self: flex-start; max-width: 92%;
-  padding: 12px 14px 14px; background: transparent;
-  border: 1px solid rgba(255,255,255,0.22); border-radius: 14px;
-  color: #fff;
+  padding: 12px 14px 14px;
+  background: var(--tlhp-accent);
+  color: var(--tlhp-paper);
+  border: 1px solid var(--tlhp-accent-hover);
+  border-radius: 18px 18px 18px 6px;
   opacity: 0; transform: translateY(8px);
   animation: tlhpBubbleIn 0.4s cubic-bezier(0.22,1,0.36,1) forwards;
+  box-shadow: 0 10px 26px rgba(13,60,252,0.25);
 }
 .tlhp-card-head {
   display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-  font-size: 12.5px; font-weight: 600; color: #fff;
+  font-size: 12.5px; font-weight: 600; color: var(--tlhp-paper);
 }
-.tlhp-card-logo { width: 14px; height: 14px; display: flex; color: var(--tlhp-accent); }
+.tlhp-card-logo { width: 14px; height: 14px; display: flex; color: var(--tlhp-paper); }
 .tlhp-card-logo svg { width: 100%; height: 100%; }
-.tlhp-card-head .sub { font-weight: 400; color: rgba(255,255,255,0.72); }
-.tlhp-card-head .sep { color: rgba(255,255,255,0.40); }
-.tlhp-card-body { font-size: 13px; line-height: 1.5; letter-spacing: -0.05px; }
-.tlhp-card-body strong { font-weight: 600; color: var(--tlhp-accent); }
+.tlhp-card-head .sub { font-weight: 400; color: rgba(255,255,255,0.78); }
+.tlhp-card-head .sep { color: rgba(255,255,255,0.45); }
+.tlhp-card-body {
+  font-size: 13px; line-height: 1.5; letter-spacing: -0.05px;
+  color: var(--tlhp-paper);
+}
+.tlhp-card-body strong { font-weight: 700; color: var(--tlhp-paper); }
 
 .tlhp-typing {
   align-self: flex-start; display: inline-flex; gap: 5px;
   padding: 9px 13px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.22);
+  background: var(--tlhp-accent);
+  border: 1px solid var(--tlhp-accent-hover);
   border-radius: 999px;
   opacity: 0; animation: tlhpBubbleIn 0.25s ease forwards;
+  box-shadow: 0 6px 16px rgba(13,60,252,0.20);
 }
-.tlhp-typing span { width: 5px; height: 5px; background: #fff; border-radius: 50%; animation: tlhpTypingBounce 1.2s infinite ease-in-out; }
+.tlhp-typing span {
+  width: 5px; height: 5px;
+  background: var(--tlhp-paper); border-radius: 50%;
+  animation: tlhpTypingBounce 1.2s infinite ease-in-out;
+}
 .tlhp-typing span:nth-child(2) { animation-delay: 0.2s; }
 .tlhp-typing span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes tlhpTypingBounce {
@@ -749,42 +885,49 @@ const TLHP_CSS = `
   30%           { opacity: 1;   transform: translateY(-3px); }
 }
 
-/* ═══ VOICE TRANSCRIPT BUBBLES ═══ */
+/* ═══ VOICE TRANSCRIPT BUBBLES ═══
+   Mirrors the chat variants so both modes feel like one conversation:
+   - caller (right) → white bg, ink text
+   - ai     (left)  → brand-blue bg, white text */
 .tlhp-vt {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 9px 12px; max-width: 90%;
-  font-size: 12.5px; line-height: 1.4; border-radius: 14px;
+  padding: 9px 13px; max-width: 90%;
+  font-size: 12.5px; line-height: 1.4;
   opacity: 0; transform: translateY(8px);
   animation: tlhpBubbleIn 0.35s cubic-bezier(0.22,1,0.36,1) forwards;
 }
 .tlhp-vt.caller {
   align-self: flex-end; flex-direction: row-reverse;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.14);
-  color: #fff;
+  background: var(--tlhp-paper);
+  border: 1px solid var(--tlhp-hairline);
+  color: var(--tlhp-ink);
+  border-radius: 16px 16px 4px 16px;
+  box-shadow: 0 3px 10px rgba(22,22,22,0.05);
 }
 .tlhp-vt.ai {
   align-self: flex-start;
-  background: rgba(13,60,252,0.07);
-  border: 1px solid rgba(13,60,252,0.32);
-  color: #fff;
+  background: var(--tlhp-accent);
+  border: 1px solid var(--tlhp-accent-hover);
+  color: var(--tlhp-paper);
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: 0 6px 16px rgba(13,60,252,0.22);
 }
 .tlhp-vt-icon {
   flex-shrink: 0;
-  width: 24px; height: 24px; border-radius: 50%;
+  width: 22px; height: 22px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .tlhp-vt.caller .tlhp-vt-icon {
-  background: rgba(255,255,255,0.10);
-  border: 1px solid rgba(255,255,255,0.20);
-  color: rgba(255,255,255,0.92);
+  background: rgba(22,22,22,0.06);
+  border: 1px solid rgba(22,22,22,0.12);
+  color: var(--tlhp-ink-soft);
 }
 .tlhp-vt.ai .tlhp-vt-icon {
-  background: rgba(13,60,252,0.18);
-  border: 1px solid rgba(13,60,252,0.45);
-  color: var(--tlhp-accent);
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.40);
+  color: var(--tlhp-paper);
 }
-.tlhp-vt-icon svg { width: 12px; height: 12px; }
+.tlhp-vt-icon svg { width: 11px; height: 11px; }
 .tlhp-vt-text { letter-spacing: -0.05px; }
 
 /* Animated waveform shown next to active speaker */
@@ -794,8 +937,8 @@ const TLHP_CSS = `
   background: currentColor;
   animation: tlhpWave 0.9s ease-in-out infinite;
 }
-.tlhp-vt.caller .tlhp-wave span { background: rgba(255,255,255,0.85); }
-.tlhp-vt.ai     .tlhp-wave span { background: var(--tlhp-accent); }
+.tlhp-vt.caller .tlhp-wave span { background: var(--tlhp-ink-soft); }
+.tlhp-vt.ai     .tlhp-wave span { background: var(--tlhp-paper); }
 .tlhp-wave span:nth-child(1) { height: 40%; animation-delay: 0s; }
 .tlhp-wave span:nth-child(2) { height: 80%; animation-delay: 0.12s; }
 .tlhp-wave span:nth-child(3) { height: 100%; animation-delay: 0.24s; }
@@ -811,42 +954,47 @@ const TLHP_CSS = `
   font-family: 'DM Mono', monospace;
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
   padding: 6px 12px; border-radius: 999px;
-  background: rgba(74, 222, 128, 0.14);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.32);
+  background: rgba(22,163,74,0.10);
+  color: #15803d;
+  border: 1px solid rgba(22,163,74,0.32);
   opacity: 0; animation: tlhpBubbleIn 0.4s ease forwards;
 }
 
-/* ═══ CHAT INPUT ═══ */
+/* ═══ CHAT INPUT (white surface) ═══ */
 .tlhp-input {
   display: flex; align-items: center; gap: 10px;
   margin: 0 14px 14px;
   padding: 10px 6px 10px 16px;
-  border: 1px solid rgba(255,255,255,0.25); border-radius: 999px;
-  transition: border-color 0.4s ease;
+  background: rgba(22,22,22,0.03);
+  border: 1px solid var(--tlhp-hairline); border-radius: 999px;
+  transition: border-color 0.4s ease, background 0.4s ease;
 }
-.tlhp-input.active { border-color: rgba(13,60,252,0.55); }
+.tlhp-input.active {
+  border-color: var(--tlhp-accent);
+  background: rgba(13,60,252,0.04);
+}
 .tlhp-placeholder {
-  flex: 1; font-size: 13.5px; color: rgba(255,255,255,0.40);
+  flex: 1; font-size: 13.5px; color: var(--tlhp-ink-muted);
   min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.tlhp-placeholder.filled { color: #fff; }
+.tlhp-placeholder.filled { color: var(--tlhp-ink); }
 .tlhp-caret {
   display: inline-block; width: 1.5px; height: 14px;
-  background: #fff; margin-left: 1px; vertical-align: middle;
+  background: var(--tlhp-ink); margin-left: 1px; vertical-align: middle;
   animation: tlhpCaretBlink 0.8s infinite;
 }
 @keyframes tlhpCaretBlink { 50% { opacity: 0; } }
 .tlhp-sendbtn {
   width: 28px; height: 28px; border-radius: 50%;
-  background: #fff; display: flex; align-items: center; justify-content: center;
-  color: #000; flex-shrink: 0;
-  transition: transform 0.2s ease, background 0.2s ease;
+  background: var(--tlhp-ink);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tlhp-paper); flex-shrink: 0;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 .tlhp-sendbtn.active {
   transform: scale(1.08);
-  background: var(--tlhp-accent); color: #00131a;
-  box-shadow: 0 0 0 6px rgba(13,60,252,0.18);
+  background: var(--tlhp-accent); color: var(--tlhp-paper);
+  box-shadow: 0 0 0 6px var(--tlhp-accent-ring);
 }
 .tlhp-sendbtn svg { width: 13px; height: 13px; }
 
@@ -854,22 +1002,23 @@ const TLHP_CSS = `
 .tlhp-voice-controls {
   display: flex; gap: 18px; justify-content: center;
   padding: 12px 14px 18px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  background: var(--tlhp-paper);
+  border-top: 1px solid var(--tlhp-hairline);
 }
 .tlhp-vc-btn {
   width: 46px; height: 46px; border-radius: 50%;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(22,22,22,0.04);
+  border: 1px solid var(--tlhp-hairline);
   display: flex; align-items: center; justify-content: center;
-  color: rgba(255,255,255,0.85);
+  color: var(--tlhp-ink-soft);
   transition: transform 0.18s ease, background 0.18s ease;
 }
 .tlhp-vc-btn svg { width: 18px; height: 18px; }
 .tlhp-vc-btn.end {
   background: #ef4444;
   border-color: rgba(239,68,68,0.55);
-  color: #fff;
-  box-shadow: 0 8px 22px rgba(239,68,68,0.35);
+  color: var(--tlhp-paper);
+  box-shadow: 0 8px 22px rgba(239,68,68,0.30);
 }
 .tlhp-vc-btn.end.hangup {
   animation: tlhpHangup 0.5s ease;
@@ -880,30 +1029,13 @@ const TLHP_CSS = `
   100% { transform: scale(1); }
 }
 
-/* ═══ CAPTION + FUNC + DOTS (below phone) ═══ */
-.tlhp-caption {
-  display: grid; grid-template-columns: repeat(3, auto);
-  gap: 22px;
-  padding: 12px 18px; border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.02);
-  font-family: 'DM Mono', monospace;
-}
-.tlhp-caption-row { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.tlhp-caption-key {
-  font-size: 9px; font-weight: 600; letter-spacing: 0.12em;
-  text-transform: uppercase; color: rgba(255,255,255,0.40);
-}
-.tlhp-caption-val {
-  font-size: 12px; font-weight: 600; color: #fff;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;
-}
-
+/* ═══ FUNC ROW + INTERACTIVE DOTS + TRUST STRIP (below phone) ═══ */
 .tlhp-funcrow {
   display: inline-flex; align-items: center; gap: 8px;
   font-family: 'DM Mono', monospace;
   font-size: 10px; font-weight: 600; letter-spacing: 0.18em;
   text-transform: uppercase; color: rgba(255,255,255,0.65);
+  margin-top: 4px;
 }
 .tlhp-funcdot {
   width: 7px; height: 7px; border-radius: 50%;
@@ -916,14 +1048,63 @@ const TLHP_CSS = `
   50%      { transform: scale(0.85); opacity: 0.6; }
 }
 
-.tlhp-dots { display: flex; gap: 8px; }
-.tlhp-dot {
-  width: 22px; height: 3px;
-  background: rgba(255,255,255,0.18);
-  border-radius: 2px;
-  transition: background 0.4s ease;
+.tlhp-dots {
+  display: flex; gap: 6px;
+  padding: 4px;
 }
-.tlhp-dot.active { background: var(--tlhp-accent); }
+.tlhp-dot {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 8px 4px;          /* generous tap target — ≥ 44px diagonal */
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.tlhp-dot:hover .tlhp-dot-bar {
+  background: rgba(255,255,255,0.45);
+  transform: scaleY(1.4);
+}
+.tlhp-dot:focus-visible {
+  outline: none;
+  background: rgba(13,60,252,0.10);
+  box-shadow: 0 0 0 2px var(--tlhp-accent);
+}
+.tlhp-dot-bar {
+  display: block;
+  width: 26px; height: 3px;
+  background: rgba(255,255,255,0.22);
+  border-radius: 2px;
+  transition: background 0.4s ease, width 0.4s ease, transform 0.18s ease;
+}
+.tlhp-dot.active .tlhp-dot-bar {
+  background: var(--tlhp-accent);
+  width: 34px;
+  box-shadow: 0 0 10px var(--tlhp-accent-glow);
+}
+.tlhp-dot.active:hover .tlhp-dot-bar { background: var(--tlhp-accent); }
+
+.tlhp-trust {
+  display: inline-flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; justify-content: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.50);
+  padding: 0 8px;
+  text-align: center;
+  max-width: 320px;
+}
+.tlhp-trust-pulse {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--tlhp-accent);
+  box-shadow: 0 0 8px var(--tlhp-accent-glow);
+  animation: tlhpPulse 2.4s ease-in-out infinite;
+}
+.tlhp-trust-sep { color: rgba(255,255,255,0.25); }
+.tlhp-trust-hint { color: rgba(255,255,255,0.72); }
 
 /* ═══ Responsive ═══ */
 @media (max-width: 420px) {
@@ -934,8 +1115,9 @@ const TLHP_CSS = `
   .tlhp-input { margin: 0 12px 12px; padding: 8px 4px 8px 14px; }
   .tlhp-voice-controls { padding: 10px 12px 14px; gap: 14px; }
   .tlhp-vc-btn { width: 42px; height: 42px; }
-  .tlhp-caption { grid-template-columns: repeat(3, auto); gap: 14px; padding: 10px 14px; }
-  .tlhp-caption-val { max-width: 90px; font-size: 11px; }
+  .tlhp-dot-bar { width: 22px; }
+  .tlhp-dot.active .tlhp-dot-bar { width: 28px; }
+  .tlhp-trust { font-size: 9.5px; max-width: 280px; }
 }
 @media (max-width: 340px) {
   .tlhp-phone { width: 280px; height: 545px; }
