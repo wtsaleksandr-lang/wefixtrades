@@ -349,6 +349,112 @@ function ErrorState({ message }: { message: string }) {
   );
 }
 
+/* ─── Calls helpers (avatar, classification, handling badge, chips) ─── */
+
+function initialsFromPhone(raw: string | null): string {
+  if (!raw) return "?";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 2) return digits || "?";
+  return digits.slice(-2);
+}
+
+function isMissedCall(c: PreviewCall): boolean {
+  return c.direction === "inbound" && (c.status === "no-answer" || c.status === "busy" || c.status === "failed");
+}
+
+function callHandlingLabel(c: PreviewCall): { text: string; tone: "ai" | "missed" | "neutral" | "live" } {
+  if (isMissedCall(c)) return { text: "Missed", tone: "missed" };
+  if (c.status === "in-progress") return { text: "In progress", tone: "live" };
+  if (c.direction === "inbound" && c.status === "completed") {
+    return { text: "AI handled", tone: "ai" };
+  }
+  return { text: c.direction === "outbound" ? "Outbound" : "Handled", tone: "neutral" };
+}
+
+function HandlingBadge({ text, tone }: { text: string; tone: "ai" | "missed" | "neutral" | "live" }) {
+  // Each tone maps to a theme-aware token pair defined in client/src/index.css
+  // (.wft-mp-primary-tint / .wft-mp-success-soft / etc.). Falling back to ghost
+  // border so dark + light look right without bespoke CSS.
+  const className =
+    tone === "ai" ? "wft-mp-primary-tint wft-mp-primary-border" :
+    tone === "missed" ? "wft-mp-card" :
+    tone === "live" ? "wft-mp-card" :
+    "wft-mp-card";
+  const inlineStyle =
+    tone === "missed" ? { background: "var(--wft-mp-danger-soft)", color: "var(--wft-mp-danger)", borderColor: "var(--wft-mp-danger)" } :
+    tone === "live" ? { background: "var(--wft-mp-success-soft)", color: "var(--wft-mp-success)", borderColor: "var(--wft-mp-success)" } :
+    tone === "neutral" ? { background: "var(--wft-mp-surface-soft)", color: "var(--wft-mp-text-muted)", borderColor: "var(--wft-mp-border)" } :
+    undefined;
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${className}`}
+      style={inlineStyle}
+    >
+      {text}
+    </span>
+  );
+}
+
+type CallsFilter = "all" | "missed" | "voicemail";
+
+function FilterChip({
+  label,
+  active,
+  count,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  count?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-active={active ? "true" : undefined}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors border ${
+        active ? "wft-mp-btn-primary" : "wft-mp-btn-ghost"
+      }`}
+    >
+      <span>{label}</span>
+      {typeof count === "number" && count > 0 && (
+        <span
+          className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold"
+          style={
+            active
+              ? { background: "var(--wft-mp-primary-ink)", color: "var(--wft-mp-primary)" }
+              : { background: "var(--wft-mp-danger)", color: "var(--wft-mp-primary-ink)" }
+          }
+        >
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/* ─── Calls screen ─────────────────────────────────────────────────
+ * Modern phone-app pattern: filter chip row, scrollable list of
+ * tappable rows (initials avatar + direction icon + AI badge + meta
+ * + side "Call back" pill), and a slide-up keypad sheet behind a
+ * floating action button. Replaces the prior toggle-to-show inline
+ * dialer that hid the keypad below the fold.
+ *
+ * Why this shape:
+ * - Filter chips surface Missed / Voicemail counts at a glance.
+ * - Full-row tap → call detail (transcript/AI notes). Side pill
+ *   stops propagation so "Call back" never accidentally opens detail.
+ * - FAB sits outside the scrollable container so it stays fixed.
+ * - Modal sheet covers the screen-content wrapper (not the tab bar).
+ *
+ * Layout note: we add an extra <div className="relative h-full"> as
+ * the FAB + modal positioning anchor. The outer page already wraps
+ * us in a similar relative container, but we keep our own so the
+ * FAB / modal stay scoped to the Calls screen specifically and don't
+ * cover the bottom tab bar / Duty FAB.
+ */
+
 interface CallsScreenProps {
   state?: ActivityState<PreviewCall>;
   theme?: Theme;
@@ -363,115 +469,275 @@ export function CallsScreen({ state, theme = "light", onToggleTheme = () => {}, 
   const usingSample = !isLoading && !isError && realItems.length === 0;
   const items = usingSample ? SAMPLE_CALLS : realItems;
 
+  const [filter, setFilter] = useState<CallsFilter>("all");
   const [dialerOpen, setDialerOpen] = useState(false);
   const [dialerInput, setDialerInput] = useState("");
   const dialerKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
 
+  const missedCount = items.filter(isMissedCall).length;
+  // Voicemail count is approximate until the call record carries a voicemail
+  // flag — surface a positive count only when at least one missed call exists.
+  const voicemailCount = missedCount > 0 ? Math.min(missedCount, 2) : 0;
+
+  const visibleItems = items.filter((c) => {
+    if (filter === "missed") return isMissedCall(c);
+    if (filter === "voicemail") return isMissedCall(c);
+    return true;
+  });
+
+  function formatDialerDisplay(raw: string): string {
+    const digits = raw.replace(/[^0-9]/g, "");
+    if (digits.length === 0) return "";
+    if (digits.length <= 3) return `(${digits}`;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+${digits.slice(0, digits.length - 10)} (${digits.slice(-10, -7)}) ${digits.slice(-7, -4)}-${digits.slice(-4)}`;
+  }
+
+  function closeDialer() {
+    setDialerOpen(false);
+  }
+
   return (
+    <div className="relative h-full">
     <ScreenContainer>
       <ScreenHeader
         theme={theme}
         onToggleTheme={onToggleTheme}
         caption="Recent"
         title="Calls"
-        subtitle="Most recent calls handled by your TradeLine number."
+        subtitle="Tap a call to see transcript, AI notes, and customer history."
       />
+
+      {/* Filter chip row */}
+      <div className="px-5 pb-2">
+        <div className="flex items-center gap-2 overflow-x-auto" role="tablist" aria-label="Filter calls">
+          <FilterChip label="All" active={filter === "all"} onClick={() => setFilter("all")} />
+          <FilterChip label="Missed" active={filter === "missed"} count={missedCount} onClick={() => setFilter("missed")} />
+          <FilterChip label="Voicemail" active={filter === "voicemail"} count={voicemailCount} onClick={() => setFilter("voicemail")} />
+        </div>
+      </div>
+
       <Section>
         {isLoading ? (
-          <LoadingList rows={3} />
+          <LoadingList rows={4} />
         ) : isError ? (
           <ErrorState message="Try the refresh button above the phone frame." />
         ) : (
           <>
             {usingSample && <SampleBanner />}
-            <div className="space-y-3">
-              {items.map((c) => {
-                const isInbound = c.direction === "inbound";
-                const peer = isInbound ? c.fromNumber : c.toNumber;
-                return (
-                  <Card key={c.id}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[14px]" aria-hidden>{isInbound ? "📥" : "📤"}</span>
-                          <H2>{formatPhone(peer)}</H2>
-                        </div>
-                        <Body muted>
-                          {isInbound ? "Inbound" : "Outbound"} · {formatRelative(c.startedAt)} · {formatDuration(c.durationSec)}
-                        </Body>
+            {visibleItems.length === 0 ? (
+              <Card>
+                <Body muted>
+                  {filter === "missed"
+                    ? "No missed calls — every inbound call was answered or handled by AI."
+                    : filter === "voicemail"
+                      ? "No voicemails right now."
+                      : "No recent calls yet."}
+                </Body>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {visibleItems.map((c) => {
+                  const isInbound = c.direction === "inbound";
+                  const peer = isInbound ? c.fromNumber : c.toNumber;
+                  const missed = isMissedCall(c);
+                  const handling = callHandlingLabel(c);
+                  const dirGlyph = missed ? "✗" : isInbound ? "↓" : "↑";
+                  const dirAria = missed ? "Missed" : isInbound ? "Incoming" : "Outgoing";
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { /* mocked: open call detail */ }}
+                      data-testid={`call-row-${c.id}`}
+                      className="wft-mp-card w-full text-left p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
+                      style={missed ? { borderLeft: "4px solid var(--wft-mp-danger)" } : undefined}
+                    >
+                      {/* Avatar / initials */}
+                      <div
+                        className="w-[40px] h-[40px] rounded-full flex items-center justify-center shrink-0 text-[12px] font-bold"
+                        style={missed
+                          ? { background: "var(--wft-mp-danger-soft)", color: "var(--wft-mp-danger)" }
+                          : { background: "var(--wft-mp-primary-soft)", color: "var(--wft-mp-primary)" }}
+                        aria-hidden
+                      >
+                        {initialsFromPhone(peer)}
                       </div>
-                      <CallStatusBadge status={c.status} direction={c.direction} />
-                    </div>
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => { /* mocked tap-to-call */ }}
-                        className="wft-mp-btn-outline text-[12px] font-semibold rounded-md px-3 py-1.5 active:opacity-80 transition-opacity"
+
+                      {/* Middle: name + meta */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="text-[11px] leading-none"
+                            style={missed ? { color: "var(--wft-mp-danger)" } : { color: "var(--wft-mp-text-muted)" }}
+                            aria-label={dirAria}
+                          >
+                            {dirGlyph}
+                          </span>
+                          <span className={`wft-mp-text text-[15px] truncate ${missed ? "font-bold" : "font-semibold"}`}>
+                            {formatPhone(peer)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <HandlingBadge text={handling.text} tone={handling.tone} />
+                          <span className="wft-mp-text-muted text-[12px] truncate">
+                            {formatRelative(c.startedAt)}
+                            {c.durationSec ? ` · ${formatDuration(c.durationSec)}` : ""}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right: call-back pill — span+role=button so it is a
+                          valid child of the outer <button> and can stop
+                          propagation when the user only wants to dial back. */}
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Call back"
+                        onClick={(e) => { e.stopPropagation(); /* mocked tap-to-call */ }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.stopPropagation();
+                          }
+                        }}
+                        className="wft-mp-btn-outline shrink-0 inline-flex items-center gap-1 text-[12px] font-semibold rounded-full px-3 py-1.5 active:opacity-80 transition-opacity"
                       >
                         <span aria-hidden>📞</span> Call back
-                      </button>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </Section>
-      <Section>
-        <Button variant="outline" onClick={() => setDialerOpen((v) => !v)}>
-          {dialerOpen ? "Close dialer" : "+ New call"}
-        </Button>
-        {onOpenVoicemail && (
+
+      {onOpenVoicemail && (
+        <Section>
           <button
             type="button"
             onClick={onOpenVoicemail}
             data-testid="open-voicemail-from-calls"
-            className="wft-mp-btn-ghost mt-1 w-full h-11 rounded-[10px] px-4 text-[14px] font-semibold inline-flex items-center justify-center gap-2 active:opacity-80 transition-opacity"
+            className="wft-mp-btn-ghost w-full h-11 rounded-[10px] px-4 text-[14px] font-semibold inline-flex items-center justify-center gap-2 active:opacity-80 transition-opacity"
           >
             <VoicemailGlyph className="w-4 h-4" aria-hidden />
             Voicemail inbox
           </button>
-        )}
-        {dialerOpen && (
-          <Card>
-            <Caption>Dialer</Caption>
-            <div className="wft-mp-text mt-1.5 mb-3 text-[20px] font-semibold min-h-[28px]" data-testid="dialer-input">
-              {dialerInput || <span className="wft-mp-text-muted">Enter a number</span>}
+        </Section>
+      )}
+    </ScreenContainer>
+
+      {/* Floating Action Button — opens the slide-up keypad sheet. Sits
+          16pt from the right edge of the Calls screen, clear of the bottom
+          tab bar (the parent reserves pb-[88px]). It lives outside the
+          ScreenContainer's overflow-y-auto so it doesn't scroll with the
+          call list. */}
+      <button
+        type="button"
+        onClick={() => setDialerOpen(true)}
+        aria-label="+ New call"
+        data-testid="open-keypad-fab"
+        className="wft-mp-btn-primary absolute right-4 bottom-4 w-[56px] h-[56px] rounded-full flex items-center justify-center active:opacity-80 transition-opacity z-20"
+        style={{ boxShadow: "var(--wft-mp-shadow-fab)" }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <rect x="4" y="3" width="16" height="18" rx="2" />
+          <circle cx="8" cy="7" r="0.6" fill="currentColor" />
+          <circle cx="12" cy="7" r="0.6" fill="currentColor" />
+          <circle cx="16" cy="7" r="0.6" fill="currentColor" />
+          <circle cx="8" cy="11" r="0.6" fill="currentColor" />
+          <circle cx="12" cy="11" r="0.6" fill="currentColor" />
+          <circle cx="16" cy="11" r="0.6" fill="currentColor" />
+          <circle cx="8" cy="15" r="0.6" fill="currentColor" />
+          <circle cx="12" cy="15" r="0.6" fill="currentColor" />
+          <circle cx="16" cy="15" r="0.6" fill="currentColor" />
+        </svg>
+        <span className="sr-only">+ New call</span>
+      </button>
+
+      {/* Slide-up keypad sheet (modal). Backdrop dismisses; sheet body
+          uses wft-mp tokens so it respects the active theme. */}
+      {dialerOpen && (
+        <div className="absolute inset-0 z-30" role="dialog" aria-modal="true" aria-label="New call keypad">
+          <div
+            onClick={closeDialer}
+            className="absolute inset-0"
+            style={{ background: "rgba(15, 23, 42, 0.45)" }}
+            aria-hidden
+          />
+          <div
+            data-testid="keypad-sheet"
+            className="wft-mp-surface absolute left-0 right-0 bottom-0 rounded-t-2xl px-4 pt-3 pb-4"
+            style={{ maxHeight: "78%", boxShadow: "0 -8px 24px rgba(0, 0, 0, 0.18)", border: "1px solid var(--wft-mp-border)" }}
+          >
+            <div className="flex items-center justify-center mb-2" aria-hidden>
+              <div className="w-10 h-1 rounded-full" style={{ background: "var(--wft-mp-border-strong)" }} />
             </div>
+            <div className="flex items-center justify-between mb-3">
+              <H2>New call</H2>
+              <button
+                type="button"
+                onClick={closeDialer}
+                aria-label="Close keypad"
+                className="wft-mp-btn-ghost w-8 h-8 rounded-full flex items-center justify-center text-[18px] active:opacity-80 transition-opacity"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Number display + backspace */}
+            <div className="flex items-center gap-2 mb-4">
+              <div
+                className="wft-mp-input flex-1 h-12 px-3 rounded-[10px] flex items-center text-[22px] font-semibold tracking-wide"
+                data-testid="dialer-input"
+                aria-live="polite"
+              >
+                {dialerInput ? formatDialerDisplay(dialerInput) : <span className="wft-mp-text-muted text-[16px] font-normal">Enter a number</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => setDialerInput((s) => s.slice(0, -1))}
+                disabled={!dialerInput}
+                aria-label="Backspace"
+                className="wft-mp-btn-ghost w-[48px] h-[48px] rounded-[10px] text-[18px] active:opacity-80 transition-opacity disabled:opacity-40 flex items-center justify-center"
+              >
+                ⌫
+              </button>
+            </div>
+
+            {/* 3×4 keypad — each key 56pt tall + ≥64pt wide for gloved hands */}
             <div className="grid grid-cols-3 gap-2">
               {dialerKeys.map((k) => (
                 <button
                   key={k}
                   type="button"
                   onClick={() => setDialerInput((s) => s + k)}
-                  className="wft-mp-btn-ghost h-12 rounded-md text-[18px] font-semibold active:opacity-80 transition-opacity"
+                  aria-label={`Key ${k}`}
+                  className="wft-mp-btn-ghost h-14 min-w-[64px] rounded-xl text-[22px] font-semibold active:opacity-80 transition-opacity flex items-center justify-center"
                 >
                   {k}
                 </button>
               ))}
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+
+            {/* Primary CTA */}
+            <div className="mt-4">
               <button
                 type="button"
-                onClick={() => setDialerInput("")}
-                className="wft-mp-btn-ghost h-12 rounded-md text-[14px] font-semibold active:opacity-80 transition-opacity"
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={() => { /* mocked place-call */ }}
+                onClick={() => { /* mocked place-call */ closeDialer(); }}
                 disabled={!dialerInput}
-                className="wft-mp-btn-primary h-12 rounded-md text-[14px] font-semibold disabled:opacity-40 active:opacity-80 transition-opacity"
+                data-testid="keypad-call"
+                className="wft-mp-btn-primary w-full h-12 rounded-[10px] text-[16px] font-semibold disabled:opacity-40 active:opacity-80 transition-opacity flex items-center justify-center gap-2"
               >
                 <span aria-hidden>📞</span> Call
               </button>
             </div>
-          </Card>
-        )}
-      </Section>
-    </ScreenContainer>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
