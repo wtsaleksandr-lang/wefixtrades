@@ -26,7 +26,7 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
           background: ${ACCENT};
           border-radius: 20px;
           border: 1px solid rgba(133,128,123,0.18);
-          padding: 48px 40px 0 40px;
+          padding: 32px 40px 0 40px;
           max-width: 900px;
           margin: 0 auto;
           cursor: pointer;
@@ -68,7 +68,8 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
           background: "transparent",
           position: "relative",
           zIndex: 20,
-          padding: "clamp(48px, 8vw, 80px) clamp(16px, 5vw, 40px)",
+          /* compression: outer padding trimmed (was 48-80). */
+          padding: "clamp(32px, 5vw, 56px) clamp(16px, 5vw, 40px)",
           marginBottom: -60,
         }}
       >

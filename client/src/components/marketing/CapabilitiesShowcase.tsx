@@ -319,7 +319,8 @@ export default function CapabilitiesShowcase() {
       data-testid="capabilities-showcase"
       style={{
         background: "#92a6b0",
-        padding: isMobile ? "64px 16px" : "80px 28px",
+        /* compression: trimmed padding (was 80/64). */
+        padding: isMobile ? "48px 16px" : "56px 28px",
         borderRadius: "28px 28px 0 0",
         marginTop: -28,
         position: "relative",
@@ -394,7 +395,7 @@ export default function CapabilitiesShowcase() {
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* ── heading ───────────────────────────────────────── */}
-        <div style={{ textAlign: "left", marginBottom: 32 }}>
+        <div style={{ textAlign: "left", marginBottom: 20 }}>
           <div style={{
             fontSize: "0.8em",
             letterSpacing: "0.12em",
@@ -431,7 +432,7 @@ export default function CapabilitiesShowcase() {
 
         {/* ── mobile accordion ──────────────────────────────── */}
         {isMobile && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div role="tablist" aria-label="Capability tabs" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {TABS.map((t, i) => {
               const Icon = t.icon;
               const isActive = i === active;
@@ -443,9 +444,14 @@ export default function CapabilitiesShowcase() {
                   overflow: "hidden",
                 }}>
                   {/* button strip */}
+                  {/* aria fix: was role="button" with aria-selected (invalid
+                   * combo per WAI-ARIA — aria-selected is allowed on tab /
+                   * option / gridcell only). Switched to role="tab" since
+                   * this IS a tab strip. */}
                   <div
-                    role="button"
+                    role="tab"
                     aria-selected={isActive}
+                    tabIndex={isActive ? 0 : -1}
                     data-testid={`cs-tab-${t.key}`}
                     onClick={() => startCycle(i)}
                     style={{
@@ -548,6 +554,8 @@ export default function CapabilitiesShowcase() {
 
           {/* buttons row */}
           <div
+            role="tablist"
+            aria-label="Capability tabs"
             className="cs-buttons-wrap"
             style={{
               position: "relative", zIndex: 2,
@@ -563,9 +571,12 @@ export default function CapabilitiesShowcase() {
                   className={`cs-button-outter${isActive ? " cs-active" : ""}`}
                   style={{ flexGrow: isActive ? 2 : 1, flexShrink: 0, flexBasis: 0, minWidth: 0 }}
                 >
+                  {/* aria fix: same as mobile sibling — role="tab" so
+                   * aria-selected is valid (was role="button"). */}
                   <div
-                    role="button"
+                    role="tab"
                     aria-selected={isActive}
+                    tabIndex={isActive ? 0 : -1}
                     data-testid={`cs-tab-${t.key}`}
                     onClick={() => startCycle(i)}
                     style={{

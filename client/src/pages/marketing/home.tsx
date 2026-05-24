@@ -497,12 +497,12 @@ const RESPONSIVE_CSS = `
   .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.20) !important; }
   @media (max-width: 768px) {
-    .hero-section-responsive { padding: 110px 20px 40px !important; }
+    .hero-section-responsive { padding: 96px 20px 28px !important; }
     .hero-subtext { font-size: 16px !important; }
   }
   @media (max-width: 640px) {
-    .hero-section-responsive { padding: 105px 18px 32px !important; }
-    .hero-subtext { margin-bottom: 24px !important; }
+    .hero-section-responsive { padding: 92px 18px 24px !important; }
+    .hero-subtext { margin-bottom: 18px !important; }
     .hero-email-form { flex-direction: column !important; }
     .hero-email-form input { min-width: 0 !important; }
     .hero-stats-strip { gap: 16px !important; }
@@ -656,7 +656,9 @@ export default function HomePage() {
         className="hero-section-responsive"
         style={{
           background: "transparent",
-          padding: "132px 28px 96px",
+          /* compression: hero padding trimmed (was 132/96). Still leaves
+           * ~110px top so the navbar (88px) has air. */
+          padding: "112px 28px 64px",
           marginTop: -8,
           position: "relative",
         }}
@@ -908,7 +910,8 @@ export default function HomePage() {
         data-testid="hero-audit-section"
         style={{
           background: mkt.darkBg,
-          padding: "56px 24px",
+          /* compression: trimmed (was 56). */
+          padding: "36px 24px",
           borderTop: "1px solid rgba(255,255,255,0.06)",
           position: "relative",
           zIndex: 1,
@@ -962,13 +965,13 @@ export default function HomePage() {
       {/* Three product showcase types covering all 12 products — each lazy-
           loaded to keep the initial home.tsx bundle small. Suspense fallback
           heights reserve approximate rendered space to minimise CLS. */}
-      <Suspense fallback={lazyFallback(720)}>
+      <Suspense fallback={lazyFallback(560)}>
         <CapabilitiesShowcase />        {/* 4 money-makers */}
       </Suspense>
-      <Suspense fallback={lazyFallback(640)}>
+      <Suspense fallback={lazyFallback(520)}>
         <StickyStackCards />            {/* 4 growth tools */}
       </Suspense>
-      <Suspense fallback={lazyFallback(640)}>
+      <Suspense fallback={lazyFallback(520)}>
         <ServiceStackTimeline />        {/* 4 done-for-you */}
       </Suspense>
       {/* Removed legacy sections (PillarAnimation, FeatureCards, ServiceCards,
@@ -976,9 +979,16 @@ export default function HomePage() {
           V7 visual cohesion as the user scrolled. AutomationDiagram remains as
           the interactive "How it works" deep-dive. */}
       {hasWebGL && (
-        <Suspense fallback={lazyFallback(560)}>
-          <GlobeSection />
-        </Suspense>
+        /* compression: GlobeSection hidden on mobile (≤768px). Saves
+         * ~600-800px of scroll on phones — the globe is decorative and
+         * the same "results happening now" message is implicit in the
+         * TrustSection stats below. Desktop still gets it. */
+        <div className="home-globe-wrap" style={{ display: "block" }}>
+          <style>{`@media (max-width: 768px) { .home-globe-wrap { display: none !important; } }`}</style>
+          <Suspense fallback={lazyFallback(560)}>
+            <GlobeSection />
+          </Suspense>
+        </div>
       )}
       <SurfaceSection overlap className="py-4">
         <Suspense fallback={lazyFallback(480)}>

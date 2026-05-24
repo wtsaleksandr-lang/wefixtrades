@@ -56,7 +56,8 @@ export default function GlobeSection() {
         className="globe-header"
         style={{
           textAlign: "center",
-          padding: "clamp(48px, 8vw, 100px) clamp(16px, 4vw, 28px) 0",
+          /* compression: top header padding trimmed (was 48-100). */
+          padding: "clamp(36px, 5vw, 64px) clamp(16px, 4vw, 28px) 0",
           maxWidth: 800,
           margin: "0 auto",
           position: "relative",
@@ -145,7 +146,8 @@ export default function GlobeSection() {
         className="globe-cta-section"
         style={{
           textAlign: "center",
-          padding: "32px clamp(16px, 4vw, 28px) clamp(48px, 8vw, 80px)",
+          /* compression: bottom padding trimmed (was 48-80). */
+          padding: "24px clamp(16px, 4vw, 28px) clamp(32px, 5vw, 56px)",
         }}
       >
         <div

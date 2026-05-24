@@ -640,7 +640,8 @@ export default function AutomationDiagram() {
       className="ad-diagram"
       style={{
         background: C.bg,
-        padding: isMobile ? "64px 0" : "96px 0",
+        /* compression: trimmed vertical padding (was 64/96). */
+        padding: isMobile ? "44px 0" : "64px 0",
         position: "relative",
         overflow: "hidden",
         zIndex: 8,

@@ -297,7 +297,10 @@ export default function StickyStackCards() {
       data-testid="sticky-stack-cards"
       style={{
         background: BG,
-        padding: mobile ? "64px 16px" : "96px 28px",
+        /* compression: trimmed vertical padding (was 96/64) so the section
+         * doesn't dominate the scroll. Heading margin + sticky gap also
+         * tightened below — see PR `polish/home-page-compression`. */
+        padding: mobile ? "48px 16px" : "64px 28px",
         borderRadius: "28px 28px 0 0",
         marginTop: -28,
         position: "relative",
@@ -305,14 +308,14 @@ export default function StickyStackCards() {
       }}
     >
       {/* ── heading ────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 720, margin: "0 auto 96px", textAlign: "center" }}>
-        <div style={{ fontSize: 12, letterSpacing: "0.18em", fontWeight: 600, textTransform: "uppercase" as const, color: TEXT_MUTED, marginBottom: 18 }}>
+      <div style={{ maxWidth: 720, margin: "0 auto 48px", textAlign: "center" }}>
+        <div style={{ fontSize: 12, letterSpacing: "0.18em", fontWeight: 600, textTransform: "uppercase" as const, color: TEXT_MUTED, marginBottom: 14 }}>
           {"{ Customer Experience }"}
         </div>
-        <h2 style={{ margin: 0, fontSize: "clamp(30px, 4vw, 50px)", fontWeight: 400, lineHeight: 1.1, letterSpacing: "-0.025em", color: TEXT }}>
+        <h2 style={{ margin: 0, fontSize: "clamp(28px, 3.6vw, 44px)", fontWeight: 400, lineHeight: 1.1, letterSpacing: "-0.025em", color: TEXT }}>
           {SECTION_HEADING}
         </h2>
-        <p style={{ margin: "18px auto 0", maxWidth: 500, fontSize: 17, lineHeight: 1.65, color: TEXT_MUTED }}>
+        <p style={{ margin: "14px auto 0", maxWidth: 500, fontSize: 16, lineHeight: 1.55, color: TEXT_MUTED }}>
           {SECTION_SUBTITLE}
         </p>
       </div>
@@ -324,7 +327,10 @@ export default function StickyStackCards() {
           margin: "0 auto",
           display: "flex",
           flexDirection: "column",
-          gap: mobile ? 32 : 192, // 12em on desktop, compact on mobile
+          /* compression: desktop gap halved from 192 → 96 (sticky cards
+           * still overlap visually via ScrollTrigger, but the dead-scroll
+           * runway is half what it was). Mobile gap from 32 → 24. */
+          gap: mobile ? 24 : 96,
         }}
       >
         {CARDS_DATA.map((card, i) => {
@@ -349,7 +355,7 @@ export default function StickyStackCards() {
                   overflow: "hidden",
                   display: "flex",
                   flexDirection: mobile ? "column" : (card.reversed ? "row-reverse" : "row") as "row" | "row-reverse" | "column",
-                  minHeight: mobile ? "auto" : 420,
+                  minHeight: mobile ? "auto" : 340,
                   boxShadow: "0 4px 32px rgba(34,40,42,0.08)",
                   border: "1px solid rgba(213,225,231,0.6)",
                 }}
@@ -359,7 +365,7 @@ export default function StickyStackCards() {
                   style={{
                     width: mobile ? "100%" : "33.333%",
                     flexShrink: 0,
-                    padding: mobile ? "28px 24px" : "36px 36px 36px 36px",
+                    padding: mobile ? "22px 22px" : "28px 30px",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
@@ -432,7 +438,7 @@ export default function StickyStackCards() {
                     background: "#fff",
                     borderRadius: mobile ? "0 0 22px 22px" : (card.reversed ? "22px 0 0 22px" : "0 22px 22px 0"),
                     overflow: "hidden",
-                    minHeight: mobile ? 280 : 380,
+                    minHeight: mobile ? 220 : 300,
                   }}
                 >
                   {/* Card visual — on-brand React mockup (see MOCKUPS map).
