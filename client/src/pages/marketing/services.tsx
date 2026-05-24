@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
+import { OptimizedImage } from "@/components/ui/Picture";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import voiceAssistantIcon from "@assets/voice-assistant-icon_1772080241394.webp";
@@ -337,7 +338,14 @@ export default function ServicesPage() {
             {services.map(svc => (
               <div key={svc.id} style={s.serviceCard} data-testid={svc.testid}>
                 <div style={s.iconWrap}>
-                  <img src={svc.img} alt={svc.title} style={s.serviceIcon} loading="lazy" />
+                  <OptimizedImage
+                    src={svc.img}
+                    alt={svc.title}
+                    width={48}
+                    height={48}
+                    style={s.serviceIcon}
+                    loading="lazy"
+                  />
                 </div>
                 <h3 style={s.serviceTitle}>{svc.title}</h3>
                 <p style={s.serviceDesc}>{svc.desc}</p>

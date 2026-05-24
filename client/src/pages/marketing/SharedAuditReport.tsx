@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import s from "./FreeAuditReport.module.css";
 import AuditChatWidget from "@/components/AuditChatWidget";
+import { OptimizedImage } from "@/components/ui/Picture";
 import {
   MapPin, Globe, Search, Trophy, Megaphone, Clock,
   Check, X as XIcon, Zap, ExternalLink,
@@ -141,7 +142,14 @@ export default function SharedAuditReport() {
           <div className={s.heroTop}>
             <div className={s.heroLeft}>
               {biz.businessPhotoUrl ? (
-                <img className={s.heroPhoto} src={biz.businessPhotoUrl} alt="" loading="lazy" />
+                <OptimizedImage
+                  className={s.heroPhoto}
+                  src={biz.businessPhotoUrl}
+                  alt=""
+                  width={72}
+                  height={72}
+                  loading="lazy"
+                />
               ) : (
                 <div className={s.heroPhotoPlaceholder}>{(biz.name || "?")[0]}</div>
               )}
@@ -281,7 +289,18 @@ export default function SharedAuditReport() {
                         <td>{i + 1}</td>
                         <td>
                           <div className={s.compName}>
-                            {c.photoUrl ? <img className={s.compPhoto} src={c.photoUrl} alt="" loading="lazy" /> : <div className={s.compPhotoPlaceholder}>{(c.name || "?")[0]}</div>}
+                            {c.photoUrl ? (
+                              <OptimizedImage
+                                className={s.compPhoto}
+                                src={c.photoUrl}
+                                alt=""
+                                width={32}
+                                height={32}
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className={s.compPhotoPlaceholder}>{(c.name || "?")[0]}</div>
+                            )}
                             {c.name}
                           </div>
                         </td>
