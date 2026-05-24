@@ -13,7 +13,7 @@
  * See migrations/0044_seo_integrations.sql.
  */
 
-import { pgTable, uuid, text, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -32,7 +32,9 @@ export const oauthTokens = pgTable(
   },
   (table) => ({
     // Single row per provider — connecting overwrites the prior token.
-    providerIdx: index("oauth_tokens_provider_idx").on(table.provider),
+    // Migration declares this as CREATE UNIQUE INDEX, so use uniqueIndex()
+    // to match — without it drizzle-kit push proposes drop + recreate.
+    providerIdx: uniqueIndex("oauth_tokens_provider_idx").on(table.provider),
   }),
 );
 
@@ -48,7 +50,11 @@ export const seoIndexingHistory = pgTable(
     performed_at: timestamp("performed_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    urlIdx: index("seo_indexing_history_url_idx").on(table.url, table.performed_at),
+    // Direction must match migrations/0044_seo_integrations.sql:
+    //   CREATE INDEX seo_indexing_history_url_idx
+    //     ON seo_indexing_history(url, performed_at DESC).
+    // Without `.desc()` drizzle-kit push proposes drop + recreate.
+    urlIdx: index("seo_indexing_history_url_idx").on(table.url, table.performed_at.desc()),
   }),
 );
 

@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, numeric, index } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -133,16 +133,24 @@ export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Client = typeof clients.$inferSelect;
 
 /* ─── Free-tools batch 1: FAQ + Trust Badges ─── */
-export const clientFaqItems = pgTable("client_faq_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  client_id: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
-  position: integer("position").notNull().default(0),
-  question: text("question").notNull(),
-  answer: text("answer").notNull(),
-  published: boolean("published").notNull().default(true),
-  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const clientFaqItems = pgTable(
+  "client_faq_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    client_id: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    question: text("question").notNull(),
+    answer: text("answer").notNull(),
+    published: boolean("published").notNull().default(true),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Must match migrations/0040_free_tool_widgets.sql:
+    //   CREATE INDEX client_faq_items_client_pos_idx ON client_faq_items(client_id, position).
+    clientPosIdx: index("client_faq_items_client_pos_idx").on(t.client_id, t.position),
+  }),
+);
 export type ClientFaqItem = typeof clientFaqItems.$inferSelect;
 export const insertClientFaqItemSchema = createInsertSchema(clientFaqItems).omit({ id: true, created_at: true, updated_at: true });
 export type InsertClientFaqItem = z.infer<typeof insertClientFaqItemSchema>;
@@ -160,32 +168,50 @@ export type ClientTrustBadges = typeof clientTrustBadges.$inferSelect;
 // Per-client config for the public /r/:slug star-rating gate. ≥threshold
 // routes to one of (google|facebook|yelp); below threshold captures private
 // feedback. Slug is globally unique (the public URL).
-export const reviewLinkConfigs = pgTable("review_link_configs", {
-  client_id: integer("client_id").primaryKey().references(() => clients.id, { onDelete: "cascade" }),
-  slug: text("slug").notNull().unique(),
-  google_url: text("google_url"),
-  facebook_url: text("facebook_url"),
-  yelp_url: text("yelp_url"),
-  threshold: integer("threshold").notNull().default(4),
-  heading: text("heading"),
-  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const reviewLinkConfigs = pgTable(
+  "review_link_configs",
+  {
+    client_id: integer("client_id").primaryKey().references(() => clients.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull().unique(),
+    google_url: text("google_url"),
+    facebook_url: text("facebook_url"),
+    yelp_url: text("yelp_url"),
+    threshold: integer("threshold").notNull().default(4),
+    heading: text("heading"),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Must match migrations/0041_review_funnel_callback.sql:
+    //   CREATE INDEX review_link_slug_idx ON review_link_configs(slug).
+    slugIdx: index("review_link_slug_idx").on(t.slug),
+  }),
+);
 export type ReviewLinkConfig = typeof reviewLinkConfigs.$inferSelect;
 
 // Each visit + each rating click + each feedback submission gets one row.
 // `rating` null = landing event. `routed_to` null = landing (no star yet).
-export const reviewFunnelEvents = pgTable("review_funnel_events", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  client_id: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
-  slug: text("slug").notNull(),
-  rating: integer("rating"),
-  routed_to: text("routed_to"),
-  feedback: text("feedback"),
-  visitor_ip: text("visitor_ip"),
-  user_agent: text("user_agent"),
-  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const reviewFunnelEvents = pgTable(
+  "review_funnel_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    client_id: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    rating: integer("rating"),
+    routed_to: text("routed_to"),
+    feedback: text("feedback"),
+    visitor_ip: text("visitor_ip"),
+    user_agent: text("user_agent"),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Must match migrations/0041_review_funnel_callback.sql:
+    //   CREATE INDEX review_funnel_client_idx ON review_funnel_events(client_id, created_at DESC).
+    //   CREATE INDEX review_funnel_slug_idx ON review_funnel_events(slug, created_at DESC).
+    clientIdx: index("review_funnel_client_idx").on(t.client_id, t.created_at.desc()),
+    slugIdx: index("review_funnel_slug_idx").on(t.slug, t.created_at.desc()),
+  }),
+);
 export type ReviewFunnelEvent = typeof reviewFunnelEvents.$inferSelect;
 
 // Per-client config for the embeddable callback-request form.
@@ -201,18 +227,26 @@ export const callbackWidgetConfigs = pgTable("callback_widget_configs", {
 export type CallbackWidgetConfig = typeof callbackWidgetConfigs.$inferSelect;
 
 // One row per callback submission. status drives the inbox triage UI.
-export const callbackRequests = pgTable("callback_requests", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  client_id: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  phone: text("phone").notNull(),
-  message: text("message"),
-  best_time: text("best_time"),
-  source_url: text("source_url"),
-  visitor_ip: text("visitor_ip"),
-  status: text("status").notNull().default("new"),
-  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const callbackRequests = pgTable(
+  "callback_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    client_id: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    phone: text("phone").notNull(),
+    message: text("message"),
+    best_time: text("best_time"),
+    source_url: text("source_url"),
+    visitor_ip: text("visitor_ip"),
+    status: text("status").notNull().default("new"),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Must match migrations/0041_review_funnel_callback.sql:
+    //   CREATE INDEX callback_requests_client_idx ON callback_requests(client_id, created_at DESC).
+    clientIdx: index("callback_requests_client_idx").on(t.client_id, t.created_at.desc()),
+  }),
+);
 export type CallbackRequest = typeof callbackRequests.$inferSelect;
 
 /* ─── Free-tools batch 3: Service-Area Map ───
