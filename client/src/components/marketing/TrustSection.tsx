@@ -31,7 +31,8 @@ export default function TrustSection() {
         marginTop: -28,
         position: "relative",
         zIndex: 9,
-        padding: "clamp(56px, 8vw, 80px) clamp(20px, 5vw, 80px) clamp(48px, 6vw, 72px)",
+        /* compression: vertical padding trimmed (was 56-80 / 48-72). */
+        padding: "clamp(36px, 5vw, 52px) clamp(20px, 5vw, 80px) clamp(32px, 4vw, 48px)",
       }}
     >
       <div style={{ maxWidth: 980, margin: "0 auto", textAlign: "center" }}>
@@ -42,8 +43,10 @@ export default function TrustSection() {
           fontWeight: 600,
           letterSpacing: "0.12em",
           textTransform: "uppercase",
-          color: "rgba(13,21,20,0.45)",
-          marginBottom: 16,
+          /* contrast fix: was rgba(13,21,20,0.45) ≈ 2.7:1 on #dfe8e6,
+           * failed WCAG AA. Bumped to 0.72 for ~4.7:1. */
+          color: "rgba(13,21,20,0.72)",
+          marginBottom: 12,
         }}>
           [ TRUSTED BY TRADES BUSINESSES ]
         </div>
@@ -62,10 +65,11 @@ export default function TrustSection() {
         </h2>
         <p style={{
           fontSize: 15,
-          lineHeight: 1.55,
-          color: "rgba(13,21,20,0.6)",
+          lineHeight: 1.5,
+          /* contrast fix: 0.6 → 0.72 on cream so AA passes. */
+          color: "rgba(13,21,20,0.72)",
           maxWidth: 560,
-          margin: "0 auto 36px",
+          margin: "0 auto 24px",
         }}>
           We're early — but every number on this page is real, measured, and updated weekly.
         </p>
@@ -75,14 +79,14 @@ export default function TrustSection() {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
           gap: 12,
-          marginBottom: 36,
+          marginBottom: 24,
         }}>
           {STATS.map(({ value, label }, i) => (
             <div key={label} style={{
               background: "rgba(255,255,255,0.7)",
               border: "1px solid rgba(255,255,255,0.85)",
               borderRadius: 18,
-              padding: "22px 18px",
+              padding: "16px 18px",
               textAlign: "center",
             }}>
               <div style={{
@@ -95,7 +99,7 @@ export default function TrustSection() {
               }}>
                 <Ticker value={value} duration={1.5} delay={0.08 * i} />
               </div>
-              <div style={{ fontSize: 12, color: "rgba(13,21,20,0.55)", marginTop: 8, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 12, color: "rgba(13,21,20,0.72)", marginTop: 8, lineHeight: 1.4 }}>
                 {label}
               </div>
             </div>
@@ -108,11 +112,11 @@ export default function TrustSection() {
           maxWidth: 580,
           fontSize: 14,
           lineHeight: 1.5,
-          color: "rgba(13,21,20,0.65)",
+          color: "rgba(13,21,20,0.78)",
           fontStyle: "italic",
         }}>
           "{QUOTE.text}"
-          <footer style={{ marginTop: 8, fontSize: 12, color: "rgba(13,21,20,0.5)", fontStyle: "normal", fontFamily: "monospace", letterSpacing: "0.04em" }}>
+          <footer style={{ marginTop: 8, fontSize: 12, color: "rgba(13,21,20,0.7)", fontStyle: "normal", fontFamily: "monospace", letterSpacing: "0.04em" }}>
             — {QUOTE.author}
           </footer>
         </blockquote>

@@ -105,7 +105,9 @@ export default function ServiceStackTimeline() {
       ref={sectionRef}
       style={{
         background: BG,
-        padding: "clamp(80px, 10vw, 120px) clamp(20px, 5vw, 40px)",
+        /* compression: trimmed padding (was 80-120) and heading margin
+         * (was 80). Panels gap halved (was 40). */
+        padding: "clamp(48px, 6vw, 72px) clamp(20px, 5vw, 40px)",
         fontFamily: SANS,
         position: "relative",
         zIndex: 8,
@@ -115,27 +117,27 @@ export default function ServiceStackTimeline() {
     >
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         {/* Heading */}
-        <div style={{ textAlign: "center", marginBottom: 80 }}>
-          <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: ACCENT, marginBottom: 16 }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: ACCENT, marginBottom: 12 }}>
             [ DONE FOR YOU ]
           </div>
-          <h2 style={{ fontSize: "clamp(32px, 4.5vw, 56px)", fontWeight: 800, lineHeight: 1.05, letterSpacing: "-0.025em", color: INK, marginBottom: 16, maxWidth: 780, margin: "0 auto 16px" }}>
-            You don't need a team.<br />You have one.
+          <h2 style={{ fontSize: "clamp(28px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.05, letterSpacing: "-0.025em", color: INK, marginBottom: 12, maxWidth: 780, margin: "0 auto 12px" }}>
+            You don't need a team. You have one.
           </h2>
-          <p style={{ fontSize: 16, lineHeight: 1.55, color: MUTED, maxWidth: 600, margin: "0 auto" }}>
+          <p style={{ fontSize: 15, lineHeight: 1.5, color: MUTED, maxWidth: 600, margin: "0 auto" }}>
             Four services you'd usually hire four agencies for. Delivered by us — for what one of those agencies would charge.
           </p>
         </div>
 
         {/* Vertical stack */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {SERVICES.map((s, i) => (
             <ServicePanel key={s.number} service={s} index={i} total={SERVICES.length} />
           ))}
         </div>
 
         {/* Footer summary */}
-        <div style={{ marginTop: 64, textAlign: "center" }}>
+        <div style={{ marginTop: 36, textAlign: "center" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: "10px 20px", borderRadius: 999, background: SURFACE, border: `1px solid rgba(34,40,42,0.08)`, fontSize: 13, fontWeight: 500, color: INK }}>
             <Check size={14} color="#10B981" strokeWidth={3} />
             Bundled together: about <strong>1/3</strong> of what 4 agencies would charge.
@@ -185,9 +187,9 @@ function ServicePanel({ service, index }: { service: Service; index: number; tot
         }}
       >
         {/* LEFT — text */}
-        <div style={{ padding: "44px 44px 36px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <div style={{ padding: "28px 32px 24px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12,
                 background: ACCENT, color: SURFACE,
@@ -199,13 +201,13 @@ function ServicePanel({ service, index }: { service: Service; index: number; tot
                 {service.number} · {service.product}
               </div>
             </div>
-            <h3 style={{ fontSize: "clamp(22px, 2.5vw, 30px)", fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.02em", color: INK, marginBottom: 14 }}>
+            <h3 style={{ fontSize: "clamp(20px, 2.2vw, 26px)", fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.02em", color: INK, marginBottom: 10 }}>
               {service.title}
             </h3>
-            <p style={{ fontSize: 15, lineHeight: 1.6, color: MUTED, marginBottom: 20 }}>
+            <p style={{ fontSize: 14, lineHeight: 1.55, color: MUTED, marginBottom: 14 }}>
               {service.hook}
             </p>
-            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 16px", display: "flex", flexDirection: "column", gap: 6 }}>
               {service.bullets.map((b) => (
                 <li key={b} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: INK }}>
                   <Check size={14} color="#10B981" strokeWidth={3} />
@@ -228,7 +230,7 @@ function ServicePanel({ service, index }: { service: Service; index: number; tot
 
         {/* RIGHT — KPI tile */}
         <div style={{
-          padding: "44px 44px 36px",
+          padding: "28px 32px 24px",
           background: BG,
           display: "flex", alignItems: "center",
         }}>
