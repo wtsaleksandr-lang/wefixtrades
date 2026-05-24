@@ -140,22 +140,56 @@ export const HorizontalCarousel = forwardRef<
    * pointerdown on the row captures the cursor and tracks deltaX into
    * scrollLeft. We skip this on coarse pointers (touch) because the
    * native horizontal scroll already handles them — running both leads
-   * to fight-the-user jitter on iOS Safari. */
-  const dragState = useRef<{ active: boolean; startX: number; startScroll: number }>({
+   * to fight-the-user jitter on iOS Safari.
+   *
+   * Fixes (Wave R — Alex couldn't grab+drag reviews):
+   *   1. `user-select: none` while dragging — without it, mousedown on
+   *      card text starts a text-selection drag which steals the
+   *      pointer + cancels our scrollLeft updates the moment the
+   *      cursor crosses into another text node.
+   *   2. `cursor: grabbing` + `scroll-snap-type: none` during drag —
+   *      snap-mandatory fights small deltas mid-drag, so the row
+   *      visually jitters back to the snap point even though we set
+   *      scrollLeft. Suspending snap while dragging makes the drag
+   *      smooth; snap re-engages on release.
+   *   3. DRAG_THRESHOLD before we suppress the trailing click —
+   *      otherwise a user clicking a CTA inside a card never gets the
+   *      click through.
+   *   4. preventDefault inside pointermove — suppresses native image
+   *      drag ghosting on `<img>` children and stops the browser's
+   *      text-selection drag from initiating on the first move.
+   */
+  const DRAG_THRESHOLD = 5; // px before we consider it a drag
+  const dragState = useRef<{
+    active: boolean;
+    moved: boolean;
+    startX: number;
+    startScroll: number;
+    prevSnap: string;
+  }>({
     active: false,
+    moved: false,
     startX: 0,
     startScroll: 0,
+    prevSnap: "",
   });
 
   const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.pointerType !== "mouse") return;
+    // Left button only — right-click / middle-click shouldn't start a drag.
+    if (e.button !== 0) return;
     const el = scrollerRef.current;
     if (!el) return;
     dragState.current = {
       active: true,
+      moved: false,
       startX: e.clientX,
       startScroll: el.scrollLeft,
+      prevSnap: el.style.scrollSnapType,
     };
+    // Suspend snap so deltas-per-move don't fight the snap points.
+    el.style.scrollSnapType = "none";
+    el.style.cursor = "grabbing";
     try {
       el.setPointerCapture(e.pointerId);
     } catch {
@@ -168,19 +202,46 @@ export const HorizontalCarousel = forwardRef<
     const el = scrollerRef.current;
     if (!el) return;
     const dx = e.clientX - dragState.current.startX;
-    el.scrollLeft = dragState.current.startScroll - dx;
+    if (!dragState.current.moved && Math.abs(dx) > DRAG_THRESHOLD) {
+      dragState.current.moved = true;
+    }
+    if (dragState.current.moved) {
+      // Stop the browser's native text-selection / image-drag from
+      // hijacking the pointer once we know this is a scroll gesture.
+      e.preventDefault();
+      el.scrollLeft = dragState.current.startScroll - dx;
+    }
   }, []);
 
   const endDrag = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     if (!dragState.current.active) return;
+    const wasMoved = dragState.current.moved;
     dragState.current.active = false;
     const el = scrollerRef.current;
     if (el) {
+      // Restore snap + cursor.
+      el.style.scrollSnapType = dragState.current.prevSnap || "x mandatory";
+      el.style.cursor = "grab";
       try {
         el.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore — see onPointerDown comment */
       }
+    }
+    // If we actually dragged, suppress the trailing click so links
+    // inside cards don't navigate after a drag-release.
+    if (wasMoved) {
+      const suppress = (clickEvt: Event) => {
+        clickEvt.preventDefault();
+        clickEvt.stopPropagation();
+      };
+      el?.addEventListener("click", suppress, { capture: true, once: true });
+      // Safety net: drop the listener on the next frame if no click
+      // arrives (some browsers don't fire click after pointerup with
+      // capture, leaving the listener armed for the next real click).
+      requestAnimationFrame(() => {
+        el?.removeEventListener("click", suppress, { capture: true } as EventListenerOptions);
+      });
     }
   }, []);
 
@@ -235,6 +296,14 @@ export const HorizontalCarousel = forwardRef<
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
           cursor: "grab",
+          /* Prevent mousedown from initiating native text selection /
+           * image-drag — both kill our pointer-driven scroll loop.
+           * Touch behaviour unchanged: we don't intercept touch pointers,
+           * so the native horizontal scroller still handles swipes and
+           * vertical-page-scroll still works on the row (default
+           * touch-action: auto). */
+          userSelect: "none",
+          WebkitUserSelect: "none",
           ...rowStyle,
         }}
       >
