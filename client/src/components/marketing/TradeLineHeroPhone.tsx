@@ -669,6 +669,11 @@ const TLHP_CSS = `
   --tlhp-ink-soft: #2a2f33;
   --tlhp-ink-muted: rgba(22,22,22,0.62);
   --tlhp-hairline: rgba(22,22,22,0.10);
+  /* Soft canvas + dot grid for the chat scroll area — matches the
+     engineered-grid pattern used on the marketing page below the hero,
+     but tuned for a light surface (dark dots on slate-50). */
+  --tlhp-canvas: #f4f6f8;
+  --tlhp-canvas-dot: rgba(22,22,22,0.07);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -792,7 +797,15 @@ const TLHP_CSS = `
 .tlhp-body {
   flex: 1; overflow-y: auto;
   padding: 14px 18px 16px;
-  background: var(--tlhp-paper);
+  /* Engineered dot-grid on a soft slate canvas — same pattern the page
+     uses around the NumberedCards. Header + input stay white so the
+     bubble surface reads as a discrete chat area, separated by 1px
+     hairlines (border-bottom on header, border-top on input). */
+  background-color: var(--tlhp-canvas);
+  background-image: radial-gradient(circle, var(--tlhp-canvas-dot) 1px, transparent 1px);
+  background-size: 16px 16px;
+  border-top: 1px solid var(--tlhp-hairline);
+  border-bottom: 1px solid var(--tlhp-hairline);
   display: flex; flex-direction: column; gap: 12px;
   scroll-behavior: smooth; justify-content: flex-end;
 }
