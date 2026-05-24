@@ -82,9 +82,11 @@ export default function CalculatorStepper({
           <div
             data-testid="calculator-stepper-bar"
             role="progressbar"
+            aria-label="Quote progress"
             aria-valuemin={1}
             aria-valuemax={totalSteps}
             aria-valuenow={safeCurrent + 1}
+            aria-valuetext={`Step ${safeCurrent + 1} of ${totalSteps}`}
             style={{
               flex: 1, height: 4, borderRadius: 999,
               background: muted, overflow: 'hidden', minWidth: 0,

@@ -179,7 +179,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
             for screen readers + the document outline, without changing
             the visual design. Naming is generic ("What {product} does")
             so it works for every product slug rendered by this page. */}
-        <section style={{ padding: "20px 24px 80px", position: "relative" }} aria-labelledby="product-features-heading">
+        <section style={{ padding: "16px 24px 56px", position: "relative" }} aria-labelledby="product-features-heading">
           <h2
             id="product-features-heading"
             style={{
@@ -196,7 +196,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
           >
             What {cfg.name} does
           </h2>
-          <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
             {sections.map((s, i) => (
               <Reveal key={s.number} delay={i * 0.05}>
                 <NumberedCard number={s.number} title={s.title} description={s.description} cta={s.cta}>
@@ -209,8 +209,11 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
 
         <HowItWorks steps={cfg.howItWorks} />
 
-        {/* CATEGORY PILLS — outcomes summary */}
-        <section style={{ padding: "20px 24px 80px" }}>
+        {/* CATEGORY PILLS — outcomes summary.
+            Hidden on mobile: these duplicate the value props already covered
+            by NumberedCards + HowItWorks above (the four icon pills are pure
+            recap on small screens and account for ~280px of vertical waste). */}
+        <section className="product-outcomes-pills" style={{ padding: "16px 24px 56px" }}>
           <div style={{ maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
             {(cfg.outcomes ?? []).slice(0, 4).map((o, i) => {
               const icons = [Phone, Sparkles, Clock, Star, Calendar, MessageSquare];
@@ -219,6 +222,11 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
               return <BadgePill key={o.title} label={o.title} icon={<Icon size={20} />} iconBg={colors[i % colors.length]} />;
             })}
           </div>
+          <style>{`
+            @media (max-width: 768px) {
+              .product-outcomes-pills { display: none !important; }
+            }
+          `}</style>
         </section>
 
         <Testimonials items={PRODUCT_TESTIMONIALS[slug] ?? []} />
@@ -268,8 +276,16 @@ function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: str
 
   return (
     <>
+      {/* A11Y — axe `aria-hidden-focus`: the previous version set
+       *  `aria-hidden=true` while the inner CTA stayed in the tab order, so
+       *  screen-reader users could land on a focusable element inside a
+       *  hidden subtree. Using the native `inert` attribute (cast — React's
+       *  type defs trail the DOM spec on `inert`) removes both focusability
+       *  and assistive-tech exposure when the bar is offscreen, satisfying
+       *  the rule while preserving the slide-in/out animation. */}
       <div
         className="sticky-mcta"
+        {...(!visible ? ({ inert: "" } as Record<string, string>) : {})}
         aria-hidden={!visible}
         style={{
           position: "fixed", left: 12, right: 12, bottom: 12, zIndex: 60,
@@ -324,7 +340,7 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
       /* Wave AE — bottom padding tightened 60→30 (-50%) so the gap below
          the phone mockup and above the reviews section reads as part of
          the same flow rather than disconnected slabs. */
-      <section style={{ padding: "100px 24px 30px", position: "relative", overflow: "hidden" }}>
+      <section style={{ padding: "72px 24px 24px", position: "relative", overflow: "hidden" }}>
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
           background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.10) 0%, transparent 60%)",
@@ -424,7 +440,7 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
   // Default centered hero for all other products
   const isQQ = slug === "quickquotepro";
   return (
-    <section style={{ padding: "120px 24px 80px", position: "relative", overflow: "hidden" }}>
+    <section style={{ padding: "88px 24px 56px", position: "relative", overflow: "hidden" }}>
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
         background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.08) 0%, transparent 60%)",
@@ -504,10 +520,10 @@ function TrustStrip({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) 
 function HowItWorks({ steps }: { steps?: { title: string; desc: string }[] }) {
   if (!steps?.length) return null;
   return (
-    <section style={{ padding: "80px 24px", background: "rgba(255,255,255,0.02)", borderTop: `1px solid var(--hairline)`, borderBottom: `1px solid var(--hairline)` }}>
+    <section style={{ padding: "56px 24px", background: "rgba(255,255,255,0.02)", borderTop: `1px solid var(--hairline)`, borderBottom: `1px solid var(--hairline)` }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <Reveal>
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
             <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
               How it works
             </h2>
@@ -564,10 +580,10 @@ function Pricing({ pricing, primaryCta, comingSoon }: { pricing?: { plans: any[]
   if (!pricing?.plans?.length) return null;
   const checkoutEnabled = !!pricing.checkoutEnabled && !comingSoon;
   return (
-    <section id="pricing" style={{ padding: "80px 24px" }}>
+    <section id="pricing" style={{ padding: "56px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <Reveal>
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
             <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
               Pick a tier. Cancel any time.
             </h2>
@@ -715,10 +731,10 @@ function Faq({ items }: { items: { q: string; a: string }[] }) {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
   if (!items.length) return null;
   return (
-    <section style={{ padding: "80px 24px", background: "rgba(255,255,255,0.02)", borderTop: `1px solid var(--hairline)`, borderBottom: `1px solid var(--hairline)` }}>
+    <section style={{ padding: "56px 24px", background: "rgba(255,255,255,0.02)", borderTop: `1px solid var(--hairline)`, borderBottom: `1px solid var(--hairline)` }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <Reveal>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
             <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
               FAQ
             </h2>
@@ -778,7 +794,7 @@ const SOURCE_LABEL: Record<string, string> = {
 function Testimonials({ items }: { items: { quote: string; author: string; trade: string; city: string; rating: 5; source?: string }[] }) {
   if (!items.length) return null;
   return (
-    <section style={{ padding: "80px 24px" }}>
+    <section style={{ padding: "56px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         {/* Trustpilot-style review cards — now wrapped in HorizontalCarousel
          * so the row is touch-drag / mouse-drag / wheel scrollable with
@@ -788,6 +804,7 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
          * peek/snap consistently across desktop and mobile. */}
         <HorizontalCarousel
           arrowTheme="dark"
+          ariaLabel="Customer reviews"
           data-testid="product-reviews-carousel"
           heading={
             <Reveal>
@@ -863,11 +880,11 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
    ════════════════════════════════════════════════════════════════ */
 function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
   return (
-    <section style={{ padding: "80px 24px 80px" }}>
+    <section style={{ padding: "56px 24px" }}>
       <div style={{
         maxWidth: 980, margin: "0 auto",
         background: mkt.sectionLight,
-        borderRadius: 28, padding: "56px 32px",
+        borderRadius: 28, padding: "44px 28px",
         position: "relative", overflow: "hidden",
         textAlign: "center",
       }}>

@@ -62,6 +62,10 @@ interface HorizontalCarouselProps {
   style?: CSSProperties;
   /** className passthrough on the wrapper section. */
   className?: string;
+  /** Accessible label for the scrollable region (axe
+   *  `scrollable-region-focusable` requires the focusable scroller to have
+   *  an accessible name). Falls back to "Scrollable content" if omitted. */
+  ariaLabel?: string;
   "data-testid"?: string;
 }
 
@@ -79,6 +83,7 @@ export const HorizontalCarousel = forwardRef<
     rowClassName,
     style,
     className,
+    ariaLabel,
     "data-testid": testId,
   },
   ref,
@@ -277,10 +282,18 @@ export const HorizontalCarousel = forwardRef<
           {heading}
         </div>
       )}
+      {/* A11Y — axe `scrollable-region-focusable`: an element with
+       *  overflow: auto must be reachable by keyboard. We add tabindex=0 +
+       *  role=region + aria-label so screen-reader + keyboard users can
+       *  focus the row and arrow-key through its content the same way
+       *  pointer users drag-scroll it. */}
       <div
         ref={scrollerRef}
         className={`qq-fade-scroll-row${rowClassName ? ` ${rowClassName}` : ""}`}
         data-testid={testId ? `${testId}-row` : undefined}
+        tabIndex={0}
+        role="region"
+        aria-label={ariaLabel ?? "Scrollable content"}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
