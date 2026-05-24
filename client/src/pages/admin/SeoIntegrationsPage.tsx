@@ -50,12 +50,19 @@ interface IndexingHistoryRow {
   performed_at: string;
 }
 
+type GbpSaProbe = "ok" | "quota_zero" | "no_access" | "unconfigured" | "error";
+
 interface StatusResponse {
   google: ProviderStatus;
   bing: ProviderStatus;
   gbp: ProviderStatus;
   ga4: { measurement_id: string | null; configured: boolean };
   gbp_api_available: boolean;
+  gbp_sa: {
+    configured: boolean;
+    email: string | null;
+    probe: GbpSaProbe | null;
+  };
   google_oauth_configured: boolean;
   cloudflare_configured: boolean;
   recent_history: IndexingHistoryRow[];
@@ -797,8 +804,9 @@ export default function SeoIntegrationsPage() {
           <Card className="border border-slate-200">
             <CardContent className="p-4 space-y-2">
               <HelpCue>
-                Google must approve the business.manage scope (3–14 day review) before full
-                automation. Until then, use the prepared draft to seed the listing manually.
+                Preferred path: service-account managed via Google admin. Falls back to
+                operator OAuth (3–14 day Google review of the business.manage scope) if the
+                SA isn't invited. Until verified, the draft seeds the listing manually.
               </HelpCue>
               <div className="flex items-start gap-3">
                 <MapPin className="w-8 h-8 text-rose-600 flex-shrink-0" />
@@ -807,6 +815,33 @@ export default function SeoIntegrationsPage() {
                   <p className="text-sm text-slate-600">
                     Listing creation + verification, then auto-sync hours, weekly posts, review alerts.
                   </p>
+                  {/* Service-account status — surfaces the SA probe outcome so Alex
+                      always knows which of the two manual prereqs (invite SA / quota
+                      bump) is currently the blocker. */}
+                  {data?.gbp_sa?.configured && data.gbp_sa.probe === "ok" && (
+                    <p className="text-xs text-emerald-700 mt-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Connected via service account
+                    </p>
+                  )}
+                  {data?.gbp_sa?.configured && data.gbp_sa.probe === "quota_zero" && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      Service account wired ({data.gbp_sa.email}) — GBP API quota is 0/min.
+                      Request a quota increase in GCP for{" "}
+                      <code className="text-[10px]">mybusinessaccountmanagement.googleapis.com</code>.
+                    </p>
+                  )}
+                  {data?.gbp_sa?.configured && data.gbp_sa.probe === "no_access" && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      Service account wired — invite{" "}
+                      <code className="text-[10px]">{data.gbp_sa.email}</code> as a Manager on
+                      the GBP location (business.google.com → Users → Add user).
+                    </p>
+                  )}
+                  {data?.gbp_sa?.configured && data.gbp_sa.probe === "error" && (
+                    <p className="text-xs text-rose-700 mt-1">
+                      Service account probe failed — check server logs.
+                    </p>
+                  )}
                   {data?.gbp_api_available && (
                     <p className="text-xs text-emerald-700 mt-1 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" /> business.manage scope granted
