@@ -23,7 +23,7 @@
  */
 import React, { useState } from 'react';
 import { Link } from 'wouter';
-import { ExternalLink, Eye, EyeOff, Info } from 'lucide-react';
+import { ExternalLink, Eye, EyeOff, Info, Pencil } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Stack, Cluster, HelpCueRow } from '@/components/primitives';
@@ -168,6 +168,18 @@ export function AdminProductPageShell({
           <div className="min-w-0">
             <Cluster gap="normal" align="center">
               <h1 className="text-2xl font-bold text-foreground truncate">{productName}</h1>
+              {/* Edit-copy access lives right next to the title — pencil icon makes
+                  the affordance obvious. The full button (with label) still ships
+                  in the right cluster for users who haven't internalised the icon. */}
+              <Link
+                href={editHref}
+                className="inline-flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+                aria-label="Edit copy &amp; price"
+                title="Edit copy &amp; price"
+                data-testid="product-shell-edit-icon"
+              >
+                <Pencil size={16} />
+              </Link>
               <StatusPill active={isActive} />
               {hidden && <HiddenChip />}
             </Cluster>
@@ -176,10 +188,10 @@ export function AdminProductPageShell({
           <Cluster gap="loose" align="center">
             <Link
               href={editHref}
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
               data-testid="product-shell-edit-link"
             >
-              <ExternalLink size={14} />
+              <Pencil size={14} />
               Edit copy &amp; price
             </Link>
             <label className="inline-flex items-center gap-2 text-sm cursor-pointer" data-testid="product-shell-active-toggle-label">
