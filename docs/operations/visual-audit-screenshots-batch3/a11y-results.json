@@ -1,0 +1,453 @@
+[
+  {
+    "route": "/about",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/about",
+    "durationMs": 4316,
+    "landmarks": {
+      "header": 0,
+      "nav": 3,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 1,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/about",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/about",
+    "durationMs": 4521,
+    "landmarks": {
+      "header": 0,
+      "nav": 2,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 1,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/contact",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/contact",
+    "durationMs": 4208,
+    "landmarks": {
+      "header": 0,
+      "nav": 3,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 4,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/contact",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/contact",
+    "durationMs": 4230,
+    "landmarks": {
+      "header": 0,
+      "nav": 2,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 4,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/blog",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/blog",
+    "durationMs": 5198,
+    "landmarks": {
+      "header": 0,
+      "nav": 3,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 13,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/blog",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/blog",
+    "durationMs": 4449,
+    "landmarks": {
+      "header": 0,
+      "nav": 2,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 14,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/case-studies",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/case-studies",
+    "durationMs": 5144,
+    "landmarks": {
+      "header": 0,
+      "nav": 3,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 65,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/case-studies",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/case-studies",
+    "durationMs": 5421,
+    "landmarks": {
+      "header": 0,
+      "nav": 2,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 55,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/resources",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/resources",
+    "durationMs": 4222,
+    "landmarks": {
+      "header": 0,
+      "nav": 3,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 0,
+      "bySeverity": {},
+      "rules": []
+    }
+  },
+  {
+    "route": "/resources",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/resources",
+    "durationMs": 4615,
+    "landmarks": {
+      "header": 0,
+      "nav": 2,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 0,
+      "bySeverity": {},
+      "rules": []
+    }
+  },
+  {
+    "route": "/templates",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/templates",
+    "durationMs": 4986,
+    "landmarks": {
+      "header": 0,
+      "nav": 3,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 1,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/templates",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/templates",
+    "durationMs": 4974,
+    "landmarks": {
+      "header": 0,
+      "nav": 2,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 1,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/demo",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/demo",
+    "durationMs": 5740,
+    "landmarks": {
+      "header": 0,
+      "nav": 3,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 3,
+      "bySeverity": {
+        "critical": 1,
+        "serious": 2
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 20,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        },
+        {
+          "id": "button-name",
+          "impact": "critical",
+          "nodes": 1,
+          "help": "Buttons must have discernible text"
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1,
+          "help": "Scrollable region must have keyboard access"
+        }
+      ]
+    },
+    "skipped": true,
+    "skipReason": "critical accessibility violations on demo: button-name\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveLength\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected length: \u001b[32m0\u001b[39m\nReceived length: \u001b[31m1\u001b[39m\nReceived array:  \u001b[31m[{\"help\": \"Buttons must have discernible text\", \"id\": \"button-name\", \"impact\": \"critical\", \"nodes\": 1}]\u001b[39m"
+  },
+  {
+    "route": "/demo",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/demo",
+    "durationMs": 5684,
+    "landmarks": {
+      "header": 0,
+      "nav": 2,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 3,
+      "bySeverity": {
+        "critical": 1,
+        "serious": 2
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 20,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        },
+        {
+          "id": "button-name",
+          "impact": "critical",
+          "nodes": 1,
+          "help": "Buttons must have discernible text"
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1,
+          "help": "Scrollable region must have keyboard access"
+        }
+      ]
+    },
+    "skipped": true,
+    "skipReason": "critical accessibility violations on demo: button-name\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveLength\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected length: \u001b[32m0\u001b[39m\nReceived length: \u001b[31m1\u001b[39m\nReceived array:  \u001b[31m[{\"help\": \"Buttons must have discernible text\", \"id\": \"button-name\", \"impact\": \"critical\", \"nodes\": 1}]\u001b[39m"
+  },
+  {
+    "route": "/docs",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/docs",
+    "durationMs": 4208,
+    "landmarks": {
+      "header": 0,
+      "nav": 3,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 1,
+      "bySeverity": {
+        "serious": 1
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 1,
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  },
+  {
+    "route": "/docs",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/docs",
+    "durationMs": 4377,
+    "landmarks": {
+      "header": 0,
+      "nav": 2,
+      "main": 1,
+      "footer": 1
+    },
+    "firstFocusable": "a[href=/] :: WeFixTrades",
+    "skipLink": false,
+    "axe": {
+      "total": 0,
+      "bySeverity": {},
+      "rules": []
+    }
+  }
+]
