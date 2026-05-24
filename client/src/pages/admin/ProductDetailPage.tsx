@@ -19,10 +19,10 @@
  * - Multi-approver workflow (any admin can publish their own draft today)
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X, Users, Ban, DollarSign } from "lucide-react";
+import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X, Users, Ban, DollarSign, Pencil, ExternalLink } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Card } from "@/components/ui/card";
@@ -107,6 +107,33 @@ function tiersEqual(a: Tier[], b: Tier[]): boolean {
   if (a.length !== b.length) return false;
   // Stable JSON comparison — fine for editor-level dirty tracking
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/* ── Price helpers ──────────────────────────────────────────────────
+ * The API contract is cents (integer). Admins shouldn't have to think
+ * in cents — the field accepts dollars (`1197.00`, `1,197`, `$1,197.00`)
+ * and we round-trip to an integer cents string for the wire payload.
+ */
+function centsToDollarsInput(cents: string): string {
+  if (cents === "" || cents == null) return "";
+  const n = Number(cents);
+  if (!Number.isFinite(n)) return "";
+  // 11970000 cents → "119700.00"; trim trailing zeros via toFixed(2) for tidiness
+  return (n / 100).toFixed(2);
+}
+
+function dollarsInputToCents(raw: string): string {
+  // Strip $, commas, whitespace. Allow empty → empty (null on wire).
+  const cleaned = raw.replace(/[$,\s]/g, "");
+  if (cleaned === "") return "";
+  const n = Number(cleaned);
+  if (!Number.isFinite(n) || n < 0) return "";
+  return String(Math.round(n * 100));
+}
+
+function formatUsd(cents: number | null | undefined): string {
+  if (cents == null) return "—";
+  return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function ProductDetailPage() {
@@ -350,14 +377,9 @@ export default function ProductDetailPage() {
       }}
     >
       {/* CONTRAST-2 — admin pages are light-theme locked. */}
-      <div data-theme="light" className="max-w-2xl space-y-5">
-        <button
-          onClick={() => navigate("/admin/crm/services")}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
-          data-testid="back-to-catalog"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back to catalog
-        </button>
+      <div data-theme="light" className="space-y-4">
+        {/* Smart back nav — honors ?returnTo, else history.back(), else catalog */}
+        <SmartBackNav productName={live?.name ?? svcId} />
 
         {isLoading && (
           <div className="flex items-center justify-center h-32">
@@ -373,15 +395,23 @@ export default function ProductDetailPage() {
 
         {live && (
           <>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">{live.name}</h1>
-                <p className="text-xs text-gray-500 mt-0.5">ID: {live.id}</p>
+            {/* Title row stays full-width so it spans both columns */}
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <h1 className="text-xl font-semibold text-gray-900 truncate">{live.name}</h1>
+                <p className="text-xs text-gray-500 mt-0.5 font-mono">ID: {live.id}</p>
               </div>
-              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wide ${live.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
-                {live.is_active ? "Active" : "Inactive"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wide ${live.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                  {live.is_active ? "Active" : "Inactive"}
+                </span>
+              </div>
             </div>
+
+            {/* Two-column desktop layout: form on the left (8/12), sidebar on the right (4/12).
+                On <lg, sidebar drops below the form. */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              <div className="lg:col-span-8 space-y-4 min-w-0">
 
             {hasPendingDraft && (() => {
               const threshold = data?.publish_approval_threshold ?? 1;
@@ -476,35 +506,53 @@ export default function ProductDetailPage() {
             })()}
 
             <Card className="p-5 space-y-4">
-              <h2 className="text-sm font-semibold text-gray-900">Customer-visible content</h2>
+              <div className="flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-brand-blue" />
+                <h2 className="text-sm font-semibold text-gray-900">Edit copy &amp; price</h2>
+              </div>
               <p className="text-[11px] text-gray-500 -mt-2">
-                Changes here go live on the website, /pricing, and the customer portal once published.
+                Customer-visible content. Changes go live on the website, /pricing, and the customer portal once published.
               </p>
 
-              <Field label="Name" testid="input-name">
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="input-name" />
-              </Field>
-              <Field label="Tagline" testid="input-tagline">
-                <Input value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} data-testid="input-tagline" />
-              </Field>
+              {/* Name + Tagline side-by-side on md+ to use the wider column */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="Name" testid="input-name">
+                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="input-name" />
+                </Field>
+                <Field label="Tagline" testid="input-tagline">
+                  <Input value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} data-testid="input-tagline" />
+                </Field>
+              </div>
+
               <Field label="Description" testid="input-description">
                 <Textarea
-                  rows={4}
+                  rows={5}
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   data-testid="input-description"
                 />
               </Field>
 
-              <div className="grid grid-cols-3 gap-3">
-                <Field label="Price (cents)" testid="input-price">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.default_price_cents}
-                    onChange={(e) => setForm({ ...form, default_price_cents: e.target.value })}
-                    data-testid="input-price"
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Field label="Price">
+                  {/* Dollar-formatted input — API still receives cents. */}
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-sm text-gray-500 pointer-events-none">$</span>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={centsToDollarsInput(form.default_price_cents)}
+                      onChange={(e) => {
+                        // Accept anything the user types; convert to cents string on the way to state.
+                        const cents = dollarsInputToCents(e.target.value);
+                        // Preserve empty so the field can be cleared.
+                        setForm({ ...form, default_price_cents: e.target.value.trim() === "" ? "" : cents });
+                      }}
+                      placeholder="0.00"
+                      className="pl-6 tabular-nums"
+                      data-testid="input-price"
+                    />
+                  </div>
                 </Field>
                 <Field label="Billing">
                   <select
@@ -531,7 +579,13 @@ export default function ProductDetailPage() {
 
             </Card>
 
-            {/* Q28b — Product-level features ("what's included" bullets) */}
+            {/* Q28b — Product-level features ("what's included" bullets).
+                BUG FIX: the previous version called .trim().filter(Boolean) on
+                every keystroke and stored the resulting array as the source of
+                truth. That stripped trailing whitespace mid-edit and dropped
+                empty lines, so typing Enter at the end "did nothing" and the
+                caret kept jumping back. We now use <FeaturesEditor>, which
+                holds the raw textarea string as local state and auto-grows. */}
             <Card className="p-5 space-y-3">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">What's included</h2>
@@ -540,19 +594,12 @@ export default function ProductDetailPage() {
                   One bullet per line. Leave empty to fall back to the hardcoded list.
                 </p>
               </div>
-              <Textarea
-                rows={6}
-                value={form.features.join("\n")}
-                onChange={(e) => setForm({
-                  ...form,
-                  features: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
-                })}
+              <FeaturesEditor
+                features={form.features}
+                onChange={(features) => setForm((f) => ({ ...f, features }))}
                 placeholder={"Mobile-optimised website\nContact form + QuoteQuick embed\nBasic SEO setup\n14-day TradeLine trial"}
-                data-testid="input-features"
+                testid="input-features"
               />
-              <p className="text-[10px] text-gray-400">
-                {form.features.length} bullet{form.features.length === 1 ? "" : "s"} · max 40 lines, 400 chars each
-              </p>
             </Card>
 
             {/* Q28a — Pricing tiers editor */}
@@ -707,12 +754,12 @@ export default function ProductDetailPage() {
                   </div>
 
                   <Field label="Features (one per line)">
-                    <Textarea
-                      rows={4}
-                      value={tier.features.join("\n")}
-                      onChange={(e) => updateTier(idx, { features: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                    <FeaturesEditor
+                      features={tier.features}
+                      onChange={(features) => updateTier(idx, { features })}
                       placeholder={"200 minutes included\nSMS auto-reply\nMissed-call recovery"}
-                      data-testid={`tier-features-${idx}`}
+                      testid={`tier-features-${idx}`}
+                      minRows={3}
                     />
                   </Field>
 
@@ -925,10 +972,153 @@ export default function ProductDetailPage() {
                 and a multi-approver workflow (today any admin can publish their own draft).
               </p>
             </Card>
+              </div>
+
+              {/* ── Sidebar (lg ≥) — sticky context card ─────────────── */}
+              <aside className="lg:col-span-4 space-y-4 lg:sticky lg:top-4 self-start">
+                <Card className="p-4 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Preview</h3>
+                    <p className="text-[11px] text-gray-500 mt-0.5">How this product reads on customer surfaces.</p>
+                  </div>
+                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-1.5">
+                    <p className="text-sm font-semibold text-gray-900 leading-tight">{form.name || live.name}</p>
+                    {form.tagline && (
+                      <p className="text-[12px] text-gray-600 leading-snug">{form.tagline}</p>
+                    )}
+                    <p className="text-lg font-bold text-brand-blue tabular-nums">
+                      {(() => {
+                        const cents = form.default_price_cents.trim() === "" ? null : Number(form.default_price_cents);
+                        return formatUsd(cents);
+                      })()}
+                      <span className="text-[11px] font-normal text-gray-500 ml-1">
+                        {form.billing_period === "monthly" ? "/mo" : " one-time"}
+                      </span>
+                    </p>
+                    {form.features.length > 0 && (
+                      <ul className="text-[11px] text-gray-700 space-y-0.5 pt-1">
+                        {form.features.slice(0, 4).map((b, i) => (
+                          <li key={i} className="flex items-start gap-1">
+                            <Check className="w-3 h-3 text-emerald-600 mt-0.5 shrink-0" />
+                            <span className="truncate">{b}</span>
+                          </li>
+                        ))}
+                        {form.features.length > 4 && (
+                          <li className="text-gray-400 italic">+ {form.features.length - 4} more…</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-4 space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Where this shows</h3>
+                  <ul className="text-[11px] text-gray-600 space-y-1">
+                    <li className="flex items-center gap-1.5">
+                      <ExternalLink className="w-3 h-3 text-gray-400" />
+                      <a href="/pricing" target="_blank" rel="noreferrer" className="hover:text-brand-blue underline">/pricing page</a>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <ExternalLink className="w-3 h-3 text-gray-400" />
+                      <a href="/portal/catalog" target="_blank" rel="noreferrer" className="hover:text-brand-blue underline">Customer portal catalog</a>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <ExternalLink className="w-3 h-3 text-gray-400" />
+                      <a href="/" target="_blank" rel="noreferrer" className="hover:text-brand-blue underline">Marketing / audit recommendations</a>
+                    </li>
+                  </ul>
+                </Card>
+
+                <Card className="p-4 space-y-1.5">
+                  <h3 className="text-sm font-semibold text-gray-900">Last edited</h3>
+                  {hasPendingDraft ? (
+                    <>
+                      <p className="text-[11px] text-gray-600">
+                        Draft by <span className="font-medium">{draft?.created_by_email ?? "—"}</span>
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        {draft?.updated_at ? new Date(draft.updated_at).toLocaleString() : "—"}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-[11px] text-gray-500 italic">No pending draft.</p>
+                  )}
+                </Card>
+              </aside>
+            </div>
           </>
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+/* ── SmartBackNav ──────────────────────────────────────────────────
+ * Breadcrumb + smart back button. Reads `?returnTo=` first, then falls
+ * back to history.back() when there's history, else /admin/crm/services.
+ */
+function SmartBackNav({ productName }: { productName: string }) {
+  const [, navigate] = useLocation();
+  const returnTo = (() => {
+    if (typeof window === "undefined") return null;
+    const sp = new URLSearchParams(window.location.search);
+    const r = sp.get("returnTo");
+    // Allow only same-origin relative paths to avoid open-redirect surface.
+    if (r && r.startsWith("/")) return r;
+    return null;
+  })();
+
+  const handleBack = () => {
+    if (returnTo) {
+      navigate(returnTo);
+    } else if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate("/admin/crm/services");
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <button
+        type="button"
+        onClick={handleBack}
+        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+        data-testid="back-button"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        <span>Back</span>
+      </button>
+      <nav aria-label="Breadcrumb" className="text-xs text-gray-500">
+        <ol className="flex items-center gap-1 flex-wrap">
+          <li>
+            <button
+              type="button"
+              onClick={() => navigate("/admin")}
+              className="hover:text-brand-blue hover:underline"
+              data-testid="breadcrumb-admin"
+            >
+              Admin
+            </button>
+          </li>
+          <li aria-hidden="true" className="text-gray-300">/</li>
+          <li>
+            <button
+              type="button"
+              onClick={() => navigate("/admin/crm/services")}
+              className="hover:text-brand-blue hover:underline"
+              data-testid="breadcrumb-catalog"
+            >
+              Catalog
+            </button>
+          </li>
+          <li aria-hidden="true" className="text-gray-300">/</li>
+          <li className="text-gray-700 font-medium truncate max-w-[200px]" aria-current="page">
+            {productName}
+          </li>
+        </ol>
+      </nav>
+    </div>
   );
 }
 
@@ -938,6 +1128,92 @@ function Field({ label, children, testid }: { label: string; children: React.Rea
       <span className="block text-[11px] font-medium text-gray-600 mb-1">{label}</span>
       {children}
     </label>
+  );
+}
+
+/* ── FeaturesEditor ─────────────────────────────────────────────────
+ * One-bullet-per-line textarea that auto-grows with content and holds
+ * raw text in local state so trailing spaces / blank trailing lines
+ * don't get stripped mid-edit. The parent only sees the cleaned bullet
+ * array (split on \n, trimmed, blanks dropped).
+ *
+ * Caps: 40 lines, 400 chars per line — enforced on input by truncating
+ * over-long lines and refusing to add a 41st line. The previous version
+ * surfaced the same limit only in the helper text.
+ */
+const FEATURE_MAX_LINES = 40;
+const FEATURE_MAX_CHARS_PER_LINE = 400;
+
+function cleanFeatures(raw: string): string[] {
+  return raw.split("\n").map((s) => s.trim()).filter(Boolean);
+}
+
+function normaliseFeatureInput(raw: string): string {
+  const lines = raw.split("\n").slice(0, FEATURE_MAX_LINES);
+  return lines.map((l) => l.slice(0, FEATURE_MAX_CHARS_PER_LINE)).join("\n");
+}
+
+interface FeaturesEditorProps {
+  features: string[];
+  onChange: (next: string[]) => void;
+  placeholder?: string;
+  testid?: string;
+  minRows?: number;
+}
+
+function FeaturesEditor({ features, onChange, placeholder, testid, minRows = 6 }: FeaturesEditorProps) {
+  // Raw textarea string is the source of truth while focused.
+  const [raw, setRaw] = useState<string>(() => features.join("\n"));
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  // Keep raw in sync if the parent rewrites features from outside the editor
+  // (e.g. AI form-fill or initial load) — but skip if the cleaned output
+  // already matches, to avoid clobbering an in-progress edit.
+  useEffect(() => {
+    const incoming = features.join("\n");
+    const currentCleaned = cleanFeatures(raw).join("\n");
+    if (incoming !== currentCleaned) {
+      setRaw(incoming);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [features.join("")]);
+
+  // Auto-grow: set height to scrollHeight after every change.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [raw]);
+
+  const lineCount = raw === "" ? 0 : raw.split("\n").length;
+  const bulletCount = cleanFeatures(raw).length;
+  const atLineCap = lineCount >= FEATURE_MAX_LINES;
+
+  return (
+    <div className="space-y-1">
+      <Textarea
+        ref={ref}
+        rows={minRows}
+        value={raw}
+        onChange={(e) => {
+          const next = normaliseFeatureInput(e.target.value);
+          setRaw(next);
+          onChange(cleanFeatures(next));
+        }}
+        placeholder={placeholder}
+        className="resize-none overflow-hidden"
+        data-testid={testid}
+      />
+      <p className="text-[10px] text-gray-400 flex items-center gap-2">
+        <span>
+          {bulletCount} bullet{bulletCount === 1 ? "" : "s"} · {lineCount}/{FEATURE_MAX_LINES} lines · {FEATURE_MAX_CHARS_PER_LINE} chars/line
+        </span>
+        {atLineCap && (
+          <span className="text-amber-600">Line limit reached</span>
+        )}
+      </p>
+    </div>
   );
 }
 
