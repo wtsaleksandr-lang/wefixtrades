@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CopilotFormProvider } from "@/context/CopilotFormContext";
 import { ImpersonateBanner } from "@/components/admin/ImpersonateBanner";
+import AppErrorBoundary from "@/components/shared/AppErrorBoundary";
 import NotFound from "@/pages/not-found";
 /**
  * Embed-y / iframe-loaded routes are code-split so the host page's iframe
@@ -521,18 +522,20 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <CopilotFormProvider>
-          <Toaster />
-          {/* Global impersonation banner — only renders when an admin
-              has an active "view as customer" session. Sticky top-0
-              so it appears above every route's chrome. */}
-          <ImpersonateBanner />
-          <Router />
-        </CopilotFormProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <CopilotFormProvider>
+            <Toaster />
+            {/* Global impersonation banner — only renders when an admin
+                has an active "view as customer" session. Sticky top-0
+                so it appears above every route's chrome. */}
+            <ImpersonateBanner />
+            <Router />
+          </CopilotFormProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }
 
