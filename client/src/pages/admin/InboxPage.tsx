@@ -1,5 +1,5 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
@@ -8,14 +8,20 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { TaskCard, InboxEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
+import ListSearchAndFilters from "@/components/admin/ListSearchAndFilters";
+import { useListUrlState } from "@/components/admin/useListUrlState";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+const INBOX_FILTER_KEYS = ["priority", "waiting"];
 
 export default function InboxPage() {
   usePageTitle("Inbox");
   const [statusFilter, setStatusFilter] = useState<string>("open");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  // Search + chip filters persist to URL so refresh/back keeps state.
+  const { search, filters, setSearch, setFilters } = useListUrlState(INBOX_FILTER_KEYS);
 
   const { data: tasks, isLoading } = useQuery<TaskItem[]>({
     queryKey: ["/api/admin/crm/fulfillment", { status: statusFilter }],
@@ -70,12 +76,37 @@ export default function InboxPage() {
   const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
   const byPriority = (a: TaskItem, b: TaskItem) => (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2);
 
-  // Group by urgency
-  const blocked = (tasks?.filter((t) => t.status === "blocked") ?? []).sort(byPriority);
-  const overdue = (tasks?.filter((t) => t.status !== "blocked" && isOverdue(t.due_at, t.status)) ?? []).sort(byPriority);
-  const waiting = (tasks?.filter((t) => t.status === "waiting" && !isOverdue(t.due_at, t.status)) ?? []).sort(byPriority);
-  const active = (tasks?.filter((t) => ["not_started", "submitted", "in_progress"].includes(t.status) && !isOverdue(t.due_at, t.status)) ?? []).sort(byPriority);
-  const done = (tasks?.filter((t) => t.status === "delivered") ?? []);
+  // Client-side filter: apply search + chip filters on top of the
+  // server-fetched list. Server already returns up to 100 tasks
+  // matching the status dropdown, so in-memory filtering is bounded.
+  const filteredTasks = useMemo(() => {
+    if (!tasks) return tasks;
+    const q = search.trim().toLowerCase();
+    const priorityFilter = filters.priority ?? [];
+    const waitingFilter = filters.waiting ?? [];
+    return tasks.filter((t) => {
+      if (q) {
+        const hay = [t.title, t.client_name, t.supplier_name, t.service_name]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (priorityFilter.length > 0 && !priorityFilter.includes(t.priority)) return false;
+      if (waitingFilter.length > 0) {
+        const w = t.waiting_on ?? "none";
+        if (!waitingFilter.includes(w)) return false;
+      }
+      return true;
+    });
+  }, [tasks, search, filters]);
+
+  // Group by urgency (using the filtered list)
+  const blocked = (filteredTasks?.filter((t) => t.status === "blocked") ?? []).sort(byPriority);
+  const overdue = (filteredTasks?.filter((t) => t.status !== "blocked" && isOverdue(t.due_at, t.status)) ?? []).sort(byPriority);
+  const waiting = (filteredTasks?.filter((t) => t.status === "waiting" && !isOverdue(t.due_at, t.status)) ?? []).sort(byPriority);
+  const active = (filteredTasks?.filter((t) => ["not_started", "submitted", "in_progress"].includes(t.status) && !isOverdue(t.due_at, t.status)) ?? []).sort(byPriority);
+  const done = (filteredTasks?.filter((t) => t.status === "delivered") ?? []);
 
   const sections = [
     { label: "Blocked", items: blocked, show: blocked.length > 0 },
@@ -124,6 +155,37 @@ export default function InboxPage() {
           </Select>
         </div>
 
+        {/* Search + chip filters (client-side, on the fetched task list) */}
+        <ListSearchAndFilters
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search tasks by title, client, supplier…"
+          activeFilters={filters}
+          onFiltersChange={setFilters}
+          filterGroups={[
+            {
+              id: "priority",
+              label: "Priority",
+              options: [
+                { value: "urgent", label: "Urgent" },
+                { value: "high", label: "High" },
+                { value: "normal", label: "Normal" },
+                { value: "low", label: "Low" },
+              ],
+            },
+            {
+              id: "waiting",
+              label: "Waiting on",
+              options: [
+                { value: "client", label: "Client" },
+                { value: "supplier", label: "Supplier" },
+                { value: "internal", label: "Internal" },
+                { value: "none", label: "Nobody" },
+              ],
+            },
+          ]}
+        />
+
         {/* Priority legend */}
         <div className="flex items-center gap-4 text-[10px] text-gray-400">
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500 shrink-0" /> Urgent</span>
@@ -137,7 +199,7 @@ export default function InboxPage() {
               <Card key={i} className="p-4"><Skeleton className="h-12 w-full" /></Card>
             ))}
           </div>
-        ) : tasks?.length === 0 ? (
+        ) : filteredTasks?.length === 0 ? (
           <InboxEmptyState statusFilter={statusFilter} />
         ) : (
           <div className="space-y-5">

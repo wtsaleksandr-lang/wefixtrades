@@ -10,7 +10,7 @@
  * apply. Linked from the admin sidebar at /admin/crm/audit-leads.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -21,6 +21,10 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ClipboardList, RotateCw, Download, HelpCircle } from "lucide-react";
 import { csvDownload, todayIso } from "@/lib/csvDownload";
+import ListSearchAndFilters from "@/components/admin/ListSearchAndFilters";
+import { useListUrlState } from "@/components/admin/useListUrlState";
+
+const AUDIT_LEADS_FILTER_KEYS = ["intent", "score"];
 
 interface AuditSubmission {
   id: number;
@@ -66,6 +70,7 @@ export default function AuditLeadsPage() {
   usePageTitle("Audit Leads");
 
   const [page, setPage] = useState(0);
+  const { search, filters, setSearch, setFilters } = useListUrlState(AUDIT_LEADS_FILTER_KEYS);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery<AuditSubmissionsResponse>({
     queryKey: ["/api/admin/crm/audit-submissions", { page }],
@@ -79,9 +84,42 @@ export default function AuditLeadsPage() {
     },
   });
 
-  const rows = data?.data ?? [];
+  const rawRows = data?.data ?? [];
   const total = data?.total ?? 0;
   const hasNext = (page + 1) * PAGE_SIZE < total;
+
+  /* Client-side filter overlay. Server returns up to PAGE_SIZE rows for
+   * the current page; we narrow further by free-text search and the
+   * intent / score chip groups. Counts shown on the chip reflect the
+   * raw (pre-search) page rows. */
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const intent = filters.intent ?? [];
+    const score = filters.score ?? [];
+    return rawRows.filter((r) => {
+      if (q) {
+        const hay = [r.business_name, r.email, r.name, r.phone, r.source_tool, r.source_page]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (intent.includes("wants_help") && !r.wants_help) return false;
+      if (intent.includes("no_help") && r.wants_help) return false;
+      if (score.length > 0) {
+        const s = r.local_visibility_score;
+        const bucket =
+          s == null ? "unknown" : s >= 70 ? "good" : s >= 45 ? "fair" : "poor";
+        if (!score.includes(bucket)) return false;
+      }
+      return true;
+    });
+  }, [rawRows, search, filters]);
+
+  const intentCounts = {
+    wants_help: rawRows.filter((r) => r.wants_help).length,
+    no_help: rawRows.filter((r) => !r.wants_help).length,
+  };
 
   const exportCsv = () => {
     if (!rows.length) return;
@@ -133,6 +171,35 @@ export default function AuditLeadsPage() {
           </div>
         </div>
 
+        {/* Search + chip filters (client-side, on this page of leads) */}
+        <ListSearchAndFilters
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search by business, email, name, phone…"
+          activeFilters={filters}
+          onFiltersChange={setFilters}
+          filterGroups={[
+            {
+              id: "intent",
+              label: "Intent",
+              options: [
+                { value: "wants_help", label: "Wants help", count: intentCounts.wants_help },
+                { value: "no_help", label: "No help", count: intentCounts.no_help },
+              ],
+            },
+            {
+              id: "score",
+              label: "Visibility",
+              options: [
+                { value: "good", label: "Good (70+)" },
+                { value: "fair", label: "Fair (45-69)" },
+                { value: "poor", label: "Poor (<45)" },
+                { value: "unknown", label: "Unknown" },
+              ],
+            },
+          ]}
+        />
+
         {isError && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
             Couldn't load audit leads.{" "}
@@ -166,7 +233,9 @@ export default function AuditLeadsPage() {
               ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-10 text-gray-500">
-                    No audit leads captured yet.
+                    {rawRows.length === 0
+                      ? "No audit leads captured yet."
+                      : "No leads match your search or filters."}
                   </TableCell>
                 </TableRow>
               ) : (
