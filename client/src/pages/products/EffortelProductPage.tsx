@@ -36,7 +36,7 @@ import {
   MONO, SANS,
 } from "@/components/effortel-blocks";
 import { PRODUCT_MOCKUPS, type ProductMockupSection } from "@/config/product-mockups";
-import { PRODUCT_TESTIMONIALS } from "@/config/product-testimonials";
+import { getProductTestimonials } from "@/config/product-testimonials";
 import TradeLineHeroPhone from "@/components/marketing/TradeLineHeroPhone";
 import TradeLineDemoLauncher from "@/components/marketing/TradeLineDemoLauncher";
 import { HorizontalCarousel } from "@/components/marketing/HorizontalCarousel";
@@ -275,7 +275,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
           `}</style>
         </section>
 
-        <Testimonials items={PRODUCT_TESTIMONIALS[slug] ?? []} />
+        <Testimonials items={getProductTestimonials(slug)} />
         <Pricing
           pricing={cfg.pricingSection}
           primaryCta={effectiveCfg.primaryCTA}
@@ -837,7 +837,7 @@ const SOURCE_LABEL: Record<string, string> = {
   case_study: "Verified customer",
 };
 
-function Testimonials({ items }: { items: { quote: string; author: string; trade: string; city: string; rating: 5; source?: string }[] }) {
+function Testimonials({ items }: { items: { quote: string; author: string; trade: string; city: string; rating: 5; source?: string; photo?: string }[] }) {
   if (!items.length) return null;
   return (
     <section style={{ padding: "56px 24px" }}>
@@ -896,13 +896,27 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
                 <p style={{ fontSize: 14, lineHeight: 1.55, color: mkt.onDark, margin: 0, flex: 1, letterSpacing: "-0.005em" }}>
                   &ldquo;{t.quote}&rdquo;
                 </p>
-                <div style={{ paddingTop: 12, borderTop: `1px solid var(--hairline)` }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDark, marginBottom: 2 }}>{t.author}</div>
-                  <div style={{ fontSize: 11, color: mkt.onDarkFaint }}>
-                    {t.trade} &middot; {t.city}
-                  </div>
-                  <div style={{ fontSize: 10, color: mkt.onDarkFaint, marginTop: 6, opacity: 0.8 }}>
-                    {SOURCE_LABEL[t.source ?? "internal_pilot"] ?? "Verified customer"}
+                <div style={{ paddingTop: 12, borderTop: `1px solid var(--hairline)`, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  {t.photo && (
+                    <img
+                      src={t.photo}
+                      alt=""
+                      aria-hidden="true"
+                      style={{
+                        width: 36, height: 36, borderRadius: "50%",
+                        objectFit: "cover", flexShrink: 0,
+                        border: `1px solid var(--hairline)`,
+                      }}
+                    />
+                  )}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDark, marginBottom: 2 }}>{t.author}</div>
+                    <div style={{ fontSize: 11, color: mkt.onDarkFaint }}>
+                      {t.trade} &middot; {t.city}
+                    </div>
+                    <div style={{ fontSize: 10, color: mkt.onDarkFaint, marginTop: 6, opacity: 0.8 }}>
+                      {SOURCE_LABEL[t.source ?? "internal_pilot"] ?? "Verified customer"}
+                    </div>
                   </div>
                 </div>
               </div>

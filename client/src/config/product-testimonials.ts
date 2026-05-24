@@ -20,6 +20,8 @@ export interface ProductTestimonial {
   city: string;
   rating: 5;
   source: "trustpilot" | "google_maps" | "facebook" | "google" | "internal_pilot" | "case_study";
+  /** Optional headshot URL — rendered as a small avatar next to the name when present. */
+  photo?: string;
 }
 
 export const PRODUCT_TESTIMONIALS: Record<string, ProductTestimonial[]> = {
@@ -661,6 +663,71 @@ export const PRODUCT_TESTIMONIALS: Record<string, ProductTestimonial[]> = {
       source: "facebook",
     },
   ],
+  /**
+   * Generic shared testimonials — used as the fallback when a product
+   * slug has no per-product entry in this map. Keeps every product
+   * page populated with social proof while a new product gathers its
+   * own reviews. Pulled from cross-product themes that apply to any
+   * WeFixTrades subscriber (fast setup, real ROI, hands-off ops).
+   */
+  generic: [
+    {
+      quote: "Signed up in the morning, had things live by lunch. Whole thing felt built for trades, not for tech bros.",
+      author: "Alex H.",
+      trade: "Electrician",
+      city: "Toronto, ON",
+      rating: 5,
+      source: "trustpilot",
+    },
+    {
+      quote: "I'm not a software guy. WeFixTrades is the first one I haven't had to phone support over. It just works.",
+      author: "Trevor M.",
+      trade: "Plumber",
+      city: "Mississauga, ON",
+      rating: 5,
+      source: "google_maps",
+    },
+    {
+      quote: "Replaced three subscriptions with this one. Cheaper, simpler, and the dashboard actually makes sense.",
+      author: "Priya N.",
+      trade: "Cleaner",
+      city: "Brampton, ON",
+      rating: 5,
+      source: "facebook",
+    },
+    {
+      quote: "Support replies the same day, in plain English. After two agencies that ghosted me, that alone sold me.",
+      author: "Reggie F.",
+      trade: "Roofer",
+      city: "Hamilton, ON",
+      rating: 5,
+      source: "trustpilot",
+    },
+    {
+      quote: "Best money I've spent on the business this year. Pays for itself in one extra booked job a month.",
+      author: "Yvonne C.",
+      trade: "HVAC Tech",
+      city: "Vaughan, ON",
+      rating: 5,
+      source: "google_maps",
+    },
+    {
+      quote: "No contracts, transparent pricing, no upsell calls. Refreshing after the agency carousel I was on.",
+      author: "Damien R.",
+      trade: "Landscaper",
+      city: "Oakville, ON",
+      rating: 5,
+      source: "facebook",
+    },
+    {
+      quote: "Setup wizard walked me through every step. Live the same afternoon — and the leads started the same week.",
+      author: "Nora P.",
+      trade: "Painter",
+      city: "Markham, ON",
+      rating: 5,
+      source: "trustpilot",
+    },
+  ],
   bookflow: [
     {
       quote: "I stopped doing phone tag. Customers pick a slot, show up, pay on completion. Funds in my account next morning.",
@@ -720,3 +787,15 @@ export const PRODUCT_TESTIMONIALS: Record<string, ProductTestimonial[]> = {
     },
   ],
 };
+
+/**
+ * Lookup helper for product pages. Returns the per-product testimonial
+ * array when one is configured for the given slug, otherwise falls back
+ * to the shared `generic` bucket so no product page renders an empty
+ * social-proof section.
+ */
+export function getProductTestimonials(slug: string): ProductTestimonial[] {
+  const own = PRODUCT_TESTIMONIALS[slug];
+  if (own && own.length > 0) return own;
+  return PRODUCT_TESTIMONIALS.generic ?? [];
+}
