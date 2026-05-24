@@ -185,12 +185,12 @@ const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-600",
   ready: "bg-blue-50 text-blue-700",
   queued: "bg-amber-50 text-amber-700",
-  publishing: "bg-purple-50 text-purple-700",
+  publishing: "bg-brand-blue-50 text-brand-blue-700",
   published: "bg-emerald-50 text-emerald-700",
   failed: "bg-red-50 text-red-700",
   cancelled: "bg-gray-100 text-gray-500",
   pending: "bg-amber-50 text-amber-700",
-  locked: "bg-purple-50 text-purple-700",
+  locked: "bg-brand-blue-50 text-brand-blue-700",
   completed: "bg-emerald-50 text-emerald-700",
   not_connected: "bg-gray-100 text-gray-500",
   connected: "bg-emerald-50 text-emerald-700",
@@ -1131,7 +1131,7 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
                         <StatusBadge status={q.status} />
                         <span className="text-xs font-medium text-gray-500 capitalize">{q.platform}</span>
                         <span className="text-xs text-gray-400">Post #{q.post_id}</span>
-                        {q.status === "locked" && <span className="text-xs text-purple-600 font-medium">Publishing...</span>}
+                        {q.status === "locked" && <span className="text-xs text-brand-blue-600 font-medium">Publishing...</span>}
                       </div>
                       {q.status === "failed" && (
                         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => retryQueue.mutate(q.id)}>
@@ -1569,7 +1569,7 @@ const DELIVERY_CONFIG: Record<DeliveryState, { label: string; color: string; bg:
   not_started: { label: "Not Started", color: "text-gray-600", bg: "bg-gray-100" },
   onboarding_complete: { label: "Onboarding Complete", color: "text-blue-700", bg: "bg-blue-50" },
   awaiting_connections: { label: "Awaiting Connections", color: "text-amber-700", bg: "bg-amber-50" },
-  awaiting_review: { label: "Awaiting Admin Review", color: "text-indigo-700", bg: "bg-indigo-50" },
+  awaiting_review: { label: "Awaiting Admin Review", color: "text-brand-blue-700", bg: "bg-brand-blue-50" },
   ready_for_autopilot: { label: "Ready for Autopilot", color: "text-emerald-700", bg: "bg-emerald-50" },
   active: { label: "Active", color: "text-emerald-700", bg: "bg-emerald-50" },
   attention_needed: { label: "Attention Needed", color: "text-red-700", bg: "bg-red-50" },

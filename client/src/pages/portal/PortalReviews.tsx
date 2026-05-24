@@ -747,7 +747,7 @@ export default function PortalReviews() {
                 value={rq.feedbackCaptured}
                 sub={`${rq.routedPositive} happy customers sent to Google`}
                 icon={ShieldCheck}
-                color="bg-violet-500"
+                color="bg-brand-blue-500"
               />
             </div>
 
@@ -769,7 +769,7 @@ export default function PortalReviews() {
                 )}
                 {rq.feedbackCaptured > 0 && (
                   <div className="flex items-center gap-2 text-gray-700">
-                    <ShieldCheck className="w-4 h-4 text-violet-500 shrink-0" />
+                    <ShieldCheck className="w-4 h-4 text-brand-blue-500 shrink-0" />
                     <span><strong>{rq.feedbackCaptured}</strong> issue{rq.feedbackCaptured !== 1 ? "s" : ""} captured privately</span>
                   </div>
                 )}
@@ -877,7 +877,7 @@ export default function PortalReviews() {
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <QrCode className="w-4 h-4 text-violet-500" />
+                <QrCode className="w-4 h-4 text-brand-blue-500" />
                 <p className="text-sm font-medium text-gray-900">QR Review Code</p>
               </div>
               {requestStats && requestStats.qr_scan > 0 && (
@@ -1066,7 +1066,7 @@ export default function PortalReviews() {
                           <span className="text-sm font-medium text-gray-900">{f.customer_name || "Customer"}</span>
                           <span className="text-xs text-gray-400 ml-2">{formatDate(f.completed_at || f.created_at)}</span>
                         </div>
-                        <Badge variant="secondary" className="text-[10px] bg-violet-50 text-violet-600">Private</Badge>
+                        <Badge variant="secondary" className="text-[10px] bg-brand-blue-50 text-brand-blue-600">Private</Badge>
                       </div>
                       <p className="text-sm text-gray-700 whitespace-pre-wrap">{f.internal_feedback}</p>
                       <p className="text-xs text-gray-400 mt-2">Captured privately — not posted publicly.</p>

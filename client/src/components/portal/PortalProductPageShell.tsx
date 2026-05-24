@@ -74,7 +74,7 @@ function PlanTierPill({ tier }: { tier: PortalPlanTier }) {
   // Rule 4 — outline + tinted bg, not bright fill.
   const map: Record<Exclude<PortalPlanTier, null>, string> = {
     free: 'border-slate-300/60 bg-slate-50/60 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300 dark:border-slate-700/50',
-    pro: 'border-indigo-300/60 bg-indigo-50/60 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-700/50',
+    pro: 'border-brand-blue-300/60 bg-brand-blue-50/60 text-brand-blue-700 dark:bg-brand-blue-900/40 dark:text-brand-blue-300 dark:border-brand-blue-700/50',
     business: 'border-emerald-300/60 bg-emerald-50/60 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700/50',
     enterprise: 'border-amber-300/60 bg-amber-50/60 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700/50',
   };

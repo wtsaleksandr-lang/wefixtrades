@@ -96,7 +96,7 @@ export default function ChatWidgetInstallEntry() {
 
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-3">
-            <MessageSquare className="w-5 h-5 text-indigo-600" />
+            <MessageSquare className="w-5 h-5 text-brand-blue-600" />
             <h2 className="font-semibold text-gray-900">What's included</h2>
           </div>
           <ul className="space-y-2 mb-5">

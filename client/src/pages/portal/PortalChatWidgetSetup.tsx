@@ -210,9 +210,9 @@ export default function PortalChatWidgetSetup() {
             Paste this just before <code className="bg-gray-100 px-1 rounded">{"</body>"}</code> on every page where you want chat to appear.
             Works on WordPress, Wix, Squarespace, Shopify, or custom sites.
           </p>
-          <Card className="p-3 bg-indigo-50 border-indigo-200">
+          <Card className="p-3 bg-brand-blue-50 border-brand-blue-200">
             <div className="flex items-start gap-3">
-              <Wrench className="w-4 h-4 text-indigo-600 mt-0.5" />
+              <Wrench className="w-4 h-4 text-brand-blue-600 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-semibold text-gray-900">Want us to install it for you?</p>
                 <p className="text-xs text-gray-700 mt-0.5">Free on Pro, $79 on Starter. We handle the paste, test, and confirm.</p>

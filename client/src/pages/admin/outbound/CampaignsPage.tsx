@@ -188,7 +188,7 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
     queued: "bg-gray-100 text-gray-600",
     sent: "bg-blue-100 text-blue-700",
     opened: "bg-sky-100 text-sky-700",
-    clicked: "bg-indigo-100 text-indigo-700",
+    clicked: "bg-brand-blue-100 text-brand-blue-700",
     replied: "bg-green-100 text-green-700",
     bounced: "bg-red-100 text-red-600",
     unsubscribed: "bg-orange-100 text-orange-700",
@@ -313,7 +313,7 @@ export default function CampaignsPage() {
 
   const PLATFORM_COLORS: Record<string, string> = {
     instantly: "bg-blue-100 text-blue-700",
-    smartlead: "bg-purple-100 text-purple-700",
+    smartlead: "bg-brand-blue-100 text-brand-blue-700",
   };
 
   const STATUS_COLORS: Record<string, string> = {

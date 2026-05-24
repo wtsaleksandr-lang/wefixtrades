@@ -149,7 +149,7 @@ export default function QuoteQuickTemplatesPage() {
               onClick={() => setFilter(id)}
               className={`px-2.5 py-1 rounded-full border transition-colors ${
                 filter === id
-                  ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                  ? "border-brand-blue-400 bg-brand-blue-50 text-brand-blue-700"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
               }`}
               data-testid={`filter-${id}`}
@@ -213,7 +213,7 @@ function TemplateCard({ row, onOpen }: { row: TemplateRow; onOpen: () => void })
 
   return (
     <Card
-      className="p-4 cursor-pointer hover:border-indigo-300 transition-colors flex flex-col gap-3"
+      className="p-4 cursor-pointer hover:border-brand-blue-300 transition-colors flex flex-col gap-3"
       onClick={onOpen}
       data-testid={`template-card-${row.templateId}`}
     >
@@ -235,7 +235,7 @@ function TemplateCard({ row, onOpen }: { row: TemplateRow; onOpen: () => void })
           </Badge>
         )}
         {row.is_user_created && (
-          <Badge variant="outline" className="bg-indigo-50 border-indigo-200 text-indigo-800 text-[10px]">
+          <Badge variant="outline" className="bg-brand-blue-50 border-brand-blue-200 text-brand-blue-800 text-[10px]">
             User-created
           </Badge>
         )}

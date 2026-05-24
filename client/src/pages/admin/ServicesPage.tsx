@@ -25,7 +25,7 @@ interface ServiceStat {
 const CATEGORY_COLORS: Record<string, string> = {
   visibility: "bg-blue-50 text-blue-700",
   leads: "bg-emerald-50 text-emerald-700",
-  reputation: "bg-purple-50 text-purple-700",
+  reputation: "bg-brand-blue-50 text-brand-blue-700",
   automation: "bg-cyan-50 text-cyan-700",
   website: "bg-amber-50 text-amber-700",
 };

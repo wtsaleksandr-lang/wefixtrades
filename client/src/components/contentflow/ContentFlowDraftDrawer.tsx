@@ -543,7 +543,7 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
                   onClick={() => queueMutation.mutate({ scheduled_for: scheduledFor || null })}
                   disabled={busy}
                   variant="outline"
-                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                  className="border-brand-blue-300 text-brand-blue-700 hover:bg-brand-blue-50"
                 >
                   {queueMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                   {scheduledFor ? "Schedule Publish" : "Queue for Publish"}
@@ -567,7 +567,7 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
                   onClick={() => regenerateMutation.mutate()}
                   disabled={busy}
                   variant="outline"
-                  className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                  className="border-brand-blue-300 text-brand-blue-700 hover:bg-brand-blue-50"
                 >
                   {regenerateMutation.isPending
                     ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -645,8 +645,8 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
                   variant="outline"
                   className={
                     queueBadgeLabel === "Published" ? "border-blue-300 text-blue-700"
-                    : queueBadgeLabel === "Publishing" ? "border-indigo-300 text-indigo-700 animate-pulse"
-                    : queueBadgeLabel === "Scheduled" ? "border-violet-300 text-violet-700"
+                    : queueBadgeLabel === "Publishing" ? "border-brand-blue-300 text-brand-blue-700 animate-pulse"
+                    : queueBadgeLabel === "Scheduled" ? "border-brand-blue-300 text-brand-blue-700"
                     : queueBadgeLabel === "Queued" ? "border-emerald-300 text-emerald-700"
                     : "border-red-300 text-red-700"
                   }

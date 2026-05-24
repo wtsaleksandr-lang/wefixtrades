@@ -273,7 +273,7 @@ function TemplateGrid({
       {templates.map((t) => (
         <Card
           key={`${t.kind}:${t.templateId}`}
-          className="relative p-4 cursor-pointer hover:border-indigo-300 transition-colors flex flex-col group"
+          className="relative p-4 cursor-pointer hover:border-brand-blue-300 transition-colors flex flex-col group"
           onClick={() => onOpen(t)}
           data-testid={`template-card-${t.kind}-${t.templateId}`}
         >
@@ -286,7 +286,7 @@ function TemplateGrid({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-gray-500 hover:text-indigo-700"
+              className="h-7 w-7 text-gray-500 hover:text-brand-blue-700"
               onClick={(e) => {
                 e.stopPropagation();
                 onPreview(t);
@@ -301,7 +301,7 @@ function TemplateGrid({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-gray-500 hover:text-indigo-700"
+              className="h-7 w-7 text-gray-500 hover:text-brand-blue-700"
               onClick={(e) => {
                 e.stopPropagation();
                 onDuplicate(t);
@@ -327,7 +327,7 @@ function TemplateGrid({
             </div>
             <div className="flex items-center gap-1">
               {t.isCustom && (
-                <Badge variant="outline" className="bg-indigo-50 border-indigo-200 text-indigo-800 text-[10px]">
+                <Badge variant="outline" className="bg-brand-blue-50 border-brand-blue-200 text-brand-blue-800 text-[10px]">
                   Custom
                 </Badge>
               )}
@@ -666,7 +666,7 @@ function PlayPreviewDialog({ template, onClose }: { template: TemplateSummary; o
                 <div
                   className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-snug ${
                     turn.who === "ai"
-                      ? "bg-indigo-600 text-white rounded-bl-sm"
+                      ? "bg-brand-blue-600 text-white rounded-bl-sm"
                       : "bg-gray-100 text-gray-900 rounded-br-sm"
                   }`}
                 >
@@ -676,7 +676,7 @@ function PlayPreviewDialog({ template, onClose }: { template: TemplateSummary; o
             ))}
             {aiTyping && shown < turns.length && (
               <div className="flex justify-start">
-                <div className="bg-indigo-600 text-white rounded-2xl rounded-bl-sm px-3 py-2 text-xs">
+                <div className="bg-brand-blue-600 text-white rounded-2xl rounded-bl-sm px-3 py-2 text-xs">
                   <span className="inline-flex gap-0.5 items-center" aria-label="AI typing">
                     <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-bounce [animation-delay:-0.3s]" />
                     <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-bounce [animation-delay:-0.15s]" />

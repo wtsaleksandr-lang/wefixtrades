@@ -341,7 +341,7 @@ export default function MapguardDashboard() {
             </div>
           )}
           {metrics.needs_review > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-blue-50 border border-brand-blue-200 text-xs font-medium text-brand-blue-700">
               <Eye className="w-3 h-3" /> {metrics.needs_review} need{metrics.needs_review !== 1 ? "" : "s"} review
             </div>
           )}
@@ -443,7 +443,7 @@ export default function MapguardDashboard() {
                         {c.open_tasks > 0 && <span className="text-xs text-gray-600">{c.open_tasks}</span>}
                         {c.blocked_tasks > 0 && <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-red-50 text-red-600">{c.blocked_tasks} blocked</span>}
                         {c.waiting_supplier_tasks > 0 && <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-50 text-amber-600">{c.waiting_supplier_tasks} waiting</span>}
-                        {c.needs_review_tasks > 0 && <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-purple-50 text-purple-600">{c.needs_review_tasks} review</span>}
+                        {c.needs_review_tasks > 0 && <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-brand-blue-50 text-brand-blue-600">{c.needs_review_tasks} review</span>}
                         {c.upgrade_recommended && <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">Upgrade</span>}
                         {c.open_tasks === 0 && !c.upgrade_recommended && <span className="text-xs text-gray-400">—</span>}
                       </div>

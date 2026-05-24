@@ -110,7 +110,7 @@ const GRADE_COLORS: Record<string, string> = {
 
 /* ─── Activity rotation icons/colors ─── */
 const ACTIVITY_ICONS = [Shield, MapPin, Eye, Star, Activity];
-const ACTIVITY_COLORS = ["bg-brand-blue", "bg-purple-500", "bg-indigo-500", "bg-amber-500", "bg-blue-500"];
+const ACTIVITY_COLORS = ["bg-brand-blue", "bg-brand-blue-500", "bg-brand-blue-500", "bg-amber-500", "bg-blue-500"];
 
 /* ─── Delta Display ─── */
 function Delta({ value, suffix, invert }: { value: number | null; suffix?: string; invert?: boolean }) {
@@ -365,7 +365,7 @@ export default function PortalMapguard() {
                   label="In Map Pack"
                   value={data.current.keywords_in_local_pack != null ? `${data.current.keywords_in_local_pack} keywords` : "—"}
                   delta={data.deltas?.local_pack}
-                  accent="bg-purple-500"
+                  accent="bg-brand-blue-500"
                 />
               </div>
             )}
@@ -546,7 +546,7 @@ export default function PortalMapguard() {
                       <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
                         item.type === "improvement" ? "bg-emerald-400" :
                         item.type === "growth" ? "bg-blue-400" :
-                        item.type === "monitoring" ? "bg-indigo-400" :
+                        item.type === "monitoring" ? "bg-brand-blue-400" :
                         "bg-gray-300"
                       }`} />
                       <div className="min-w-0 flex-1">
@@ -1124,7 +1124,7 @@ const POST_STATUS_DISPLAY: Record<MapguardPostRow["status"], {
   badgeClass: string;
 }> = {
   scheduled: { label: "Scheduled",  icon: Calendar,  badgeClass: "bg-blue-50 text-blue-700 border-blue-200" },
-  drafted:   { label: "Drafted",    icon: FileEdit,  badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  drafted:   { label: "Drafted",    icon: FileEdit,  badgeClass: "bg-brand-blue-50 text-brand-blue-700 border-brand-blue-200" },
   published: { label: "Published",  icon: Send,      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   skipped:   { label: "Skipped",    icon: AlertCircle, badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
   failed:    { label: "Retrying",   icon: AlertCircle, badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },

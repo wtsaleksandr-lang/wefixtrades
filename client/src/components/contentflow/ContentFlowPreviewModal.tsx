@@ -52,7 +52,7 @@ const PLATFORM_CHROME: Record<string, { label: string; icon: React.ReactNode; ac
   pinterest: { label: "Pinterest", icon: <Pin className="h-4 w-4 text-red-600" />, accent: "border-red-200 bg-red-50" },
   youtube: { label: "YouTube", icon: <Youtube className="h-4 w-4 text-red-600" />, accent: "border-red-200 bg-red-50" },
   email: { label: "Email", icon: <Mail className="h-4 w-4 text-gray-600" />, accent: "border-gray-200 bg-gray-50" },
-  website: { label: "Website", icon: <Globe className="h-4 w-4 text-indigo-600" />, accent: "border-indigo-200 bg-indigo-50" },
+  website: { label: "Website", icon: <Globe className="h-4 w-4 text-brand-blue-600" />, accent: "border-brand-blue-200 bg-brand-blue-50" },
 };
 
 function pickImageUrl(meta: any): string | null {
@@ -188,7 +188,7 @@ function PostPreview({
   return (
     <div className="rounded-xl border bg-white shadow-sm">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-sky-500 text-xs font-semibold text-white">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-blue-400 to-sky-500 text-xs font-semibold text-white">
           {initials || "C"}
         </div>
         <div className="min-w-0 flex-1">
@@ -241,7 +241,7 @@ function ArticlePreview({
       {imageUrl ? (
         <img src={imageUrl} alt="" className="h-48 w-full object-cover" loading="lazy" />
       ) : (
-        <div className="flex h-32 w-full items-center justify-center bg-gradient-to-br from-indigo-50 to-sky-50 text-indigo-300">
+        <div className="flex h-32 w-full items-center justify-center bg-gradient-to-br from-brand-blue-50 to-sky-50 text-brand-blue-300">
           <FileText className="h-10 w-10" />
         </div>
       )}
@@ -255,7 +255,7 @@ function ArticlePreview({
         <a
           href="#"
           onClick={(e) => e.preventDefault()}
-          className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="inline-flex items-center gap-1 text-sm font-medium text-brand-blue-600 hover:text-brand-blue-700"
         >
           Read more
           <ExternalLink className="h-3.5 w-3.5" />
@@ -357,8 +357,8 @@ export function PreviewTypeBadge({ kind }: { kind: PreviewKind }) {
 
 const TYPE_BADGE: Record<PreviewKind, { label: string; icon: React.ReactNode; className: string }> = {
   post: { label: "Post", icon: <Megaphone className="h-3 w-3" />, className: "border-sky-200 bg-sky-50 text-sky-700" },
-  article: { label: "Article", icon: <FileText className="h-3 w-3" />, className: "border-indigo-200 bg-indigo-50 text-indigo-700" },
-  image: { label: "Image", icon: <ImageIcon className="h-3 w-3" />, className: "border-violet-200 bg-violet-50 text-violet-700" },
+  article: { label: "Article", icon: <FileText className="h-3 w-3" />, className: "border-brand-blue-200 bg-brand-blue-50 text-brand-blue-700" },
+  image: { label: "Image", icon: <ImageIcon className="h-3 w-3" />, className: "border-brand-blue-200 bg-brand-blue-50 text-brand-blue-700" },
   video: { label: "Video", icon: <VideoIcon className="h-3 w-3" />, className: "border-red-200 bg-red-50 text-red-700" },
 };
 
@@ -386,7 +386,7 @@ export function PreviewThumb({
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="relative inline-block h-8 w-8 overflow-hidden rounded border bg-gray-100 hover:ring-2 hover:ring-indigo-400"
+      className="relative inline-block h-8 w-8 overflow-hidden rounded border bg-gray-100 hover:ring-2 hover:ring-brand-blue-400"
       title="Preview"
       aria-label="Preview"
     >

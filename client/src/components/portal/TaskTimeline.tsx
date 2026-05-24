@@ -23,8 +23,8 @@ function StatusIcon({ status }: { status: string }) {
     case "in_progress":
     case "submitted":
       return (
-        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center ring-2 ring-white">
-          <Clock className="w-3.5 h-3.5 text-indigo-600" />
+        <div className="w-8 h-8 rounded-full bg-brand-blue-100 flex items-center justify-center ring-2 ring-white">
+          <Clock className="w-3.5 h-3.5 text-brand-blue-600" />
         </div>
       );
     case "waiting":
@@ -54,7 +54,7 @@ function StatusBadge({ status, waitingOn }: { status: string; waitingOn: string 
   const styles: Record<string, string> = {
     not_started: "bg-gray-100 text-gray-600",
     submitted: "bg-blue-50 text-blue-700",
-    in_progress: "bg-indigo-50 text-indigo-700",
+    in_progress: "bg-brand-blue-50 text-brand-blue-700",
     waiting: "bg-amber-50 text-amber-700",
     blocked: "bg-red-50 text-red-700",
     delivered: "bg-emerald-50 text-emerald-700",

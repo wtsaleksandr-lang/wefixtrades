@@ -61,7 +61,7 @@ interface PipelineData {
 const STAGES = [
   { key: "positive_reply", label: "Positive Reply", color: "border-amber-400 bg-amber-50", badge: "bg-amber-100 text-amber-700" },
   { key: "booked_call", label: "Booked Call", color: "border-blue-400 bg-blue-50", badge: "bg-blue-100 text-blue-700" },
-  { key: "trial_started", label: "Trial Started", color: "border-purple-400 bg-purple-50", badge: "bg-purple-100 text-purple-700" },
+  { key: "trial_started", label: "Trial Started", color: "border-brand-blue-400 bg-brand-blue-50", badge: "bg-brand-blue-100 text-brand-blue-700" },
   { key: "paid", label: "Paid", color: "border-green-500 bg-green-50", badge: "bg-green-100 text-green-700" },
   { key: "lost", label: "Lost", color: "border-gray-300 bg-gray-50", badge: "bg-gray-100 text-gray-600" },
 ] as const;

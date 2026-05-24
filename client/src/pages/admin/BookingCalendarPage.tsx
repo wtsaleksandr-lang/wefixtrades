@@ -22,7 +22,7 @@ interface BookingRow { id: number; date: string; time: string; customer_name: st
 const PL: Record<string, string> = { google: "Google Calendar", google_calendar: "Google Calendar", calcom: "Cal.com", cal_com: "Cal.com", calendly: "Calendly", manual: "Manual / URL" };
 // Maps the dialog's short platform keys to the backend connection enum.
 const PLATFORM_API: Record<string, string> = { google: "google_calendar", calcom: "cal_com", calendly: "calendly", manual: "manual" };
-const PC: Record<string, string> = { google: "bg-blue-50 text-blue-700 border-blue-200", google_calendar: "bg-blue-50 text-blue-700 border-blue-200", calcom: "bg-violet-50 text-violet-700 border-violet-200", cal_com: "bg-violet-50 text-violet-700 border-violet-200", calendly: "bg-sky-50 text-sky-700 border-sky-200", manual: "bg-gray-50 text-gray-600 border-gray-200" };
+const PC: Record<string, string> = { google: "bg-blue-50 text-blue-700 border-blue-200", google_calendar: "bg-blue-50 text-blue-700 border-blue-200", calcom: "bg-brand-blue-50 text-brand-blue-700 border-brand-blue-200", cal_com: "bg-brand-blue-50 text-brand-blue-700 border-brand-blue-200", calendly: "bg-sky-50 text-sky-700 border-sky-200", manual: "bg-gray-50 text-gray-600 border-gray-200" };
 const SS: Record<string, string> = { connected: "bg-emerald-50 text-emerald-700", disconnected: "bg-gray-100 text-gray-500", error: "bg-red-50 text-red-700", confirmed: "bg-emerald-50 text-emerald-700", pending: "bg-amber-50 text-amber-700", cancelled: "bg-red-50 text-red-600" };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DWH: WorkingHours[] = DAYS.map((d, i) => ({ day: d, enabled: i < 5, start: "09:00", end: "17:00" }));

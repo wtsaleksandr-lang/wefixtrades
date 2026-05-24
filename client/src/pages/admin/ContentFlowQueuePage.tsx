@@ -108,13 +108,13 @@ const SOURCE_META: Record<string, IconMeta> = {
 const KIND_META: Record<string, IconMeta> = {
   social_post: { label: "Social post", icon: <Share2 className="h-3.5 w-3.5 text-sky-600" /> },
   carousel_post: { label: "Carousel post", icon: <Share2 className="h-3.5 w-3.5 text-sky-600" /> },
-  article: { label: "Article", icon: <FileText className="h-3.5 w-3.5 text-indigo-600" /> },
+  article: { label: "Article", icon: <FileText className="h-3.5 w-3.5 text-brand-blue-600" /> },
   caption: { label: "Caption", icon: <MessageSquare className="h-3.5 w-3.5 text-gray-600" /> },
   google_post: { label: "Google post", icon: <Globe className="h-3.5 w-3.5 text-green-600" /> },
   review_reply: { label: "Review reply", icon: <MessageSquare className="h-3.5 w-3.5 text-amber-600" /> },
   video: { label: "Video", icon: <Video className="h-3.5 w-3.5 text-red-600" /> },
   video_script: { label: "Video script", icon: <Video className="h-3.5 w-3.5 text-red-600" /> },
-  infographic: { label: "Infographic", icon: <FileText className="h-3.5 w-3.5 text-violet-600" /> },
+  infographic: { label: "Infographic", icon: <FileText className="h-3.5 w-3.5 text-brand-blue-600" /> },
 };
 
 /* Target platform (where the draft will post). */
@@ -126,7 +126,7 @@ const PLATFORM_META: Record<string, IconMeta> = {
   pinterest: { label: "Pinterest", icon: <Pin className="h-3.5 w-3.5 text-red-600" /> },
   youtube: { label: "YouTube", icon: <Youtube className="h-3.5 w-3.5 text-red-600" /> },
   email: { label: "Email", icon: <Mail className="h-3.5 w-3.5 text-gray-600" /> },
-  website: { label: "Website", icon: <Globe className="h-3.5 w-3.5 text-indigo-600" /> },
+  website: { label: "Website", icon: <Globe className="h-3.5 w-3.5 text-brand-blue-600" /> },
 };
 
 function metaFor(map: Record<string, IconMeta>, key: string): IconMeta {
@@ -138,10 +138,10 @@ function deriveQueueBadge(d: ContentDraftRow): { label: string; className: strin
   const wp = d.metadata?.wordpress;
   if (!wp) return null;
   if (wp.post_url && wp.post_id) return { label: "Published", className: "border-blue-300 text-blue-700" };
-  if (wp.queue_status === "publishing") return { label: "Publishing", className: "border-indigo-300 text-indigo-700" };
+  if (wp.queue_status === "publishing") return { label: "Publishing", className: "border-brand-blue-300 text-brand-blue-700" };
   if (wp.queue_status === "queued") {
     if (wp.scheduled_for && new Date(wp.scheduled_for).getTime() > Date.now()) {
-      return { label: "Scheduled", className: "border-violet-300 text-violet-700" };
+      return { label: "Scheduled", className: "border-brand-blue-300 text-brand-blue-700" };
     }
     return { label: "Queued", className: "border-emerald-300 text-emerald-700" };
   }
@@ -209,7 +209,7 @@ function CreatedHeader({
         <button
           type="button"
           className={`inline-flex items-center gap-1 -mx-1 rounded px-1 py-0.5 transition-colors hover:bg-gray-100 ${
-            active ? "font-semibold text-indigo-700" : ""
+            active ? "font-semibold text-brand-blue-700" : ""
           }`}
         >
           Created
@@ -221,14 +221,14 @@ function CreatedHeader({
         <button
           type="button"
           onClick={() => onSort("desc")}
-          className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${sortDir === "desc" ? "font-medium text-indigo-700" : ""}`}
+          className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${sortDir === "desc" ? "font-medium text-brand-blue-700" : ""}`}
         >
           Newest first
         </button>
         <button
           type="button"
           onClick={() => onSort("asc")}
-          className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${sortDir === "asc" ? "font-medium text-indigo-700" : ""}`}
+          className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${sortDir === "asc" ? "font-medium text-brand-blue-700" : ""}`}
         >
           Oldest first
         </button>
@@ -239,7 +239,7 @@ function CreatedHeader({
               key={v}
               type="button"
               onClick={() => onDateRange(v)}
-              className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${dateRange === v ? "font-medium text-indigo-700" : ""}`}
+              className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${dateRange === v ? "font-medium text-brand-blue-700" : ""}`}
             >
               {label}
             </button>
@@ -527,15 +527,15 @@ export default function ContentFlowQueuePage() {
       </div>
       <div className="flex items-center gap-2">
         {selectedIds.size > 0 && (
-          <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5">
-            <span className="text-xs font-medium text-indigo-900">
+          <div className="flex items-center gap-2 rounded-lg border border-brand-blue-200 bg-brand-blue-50 px-3 py-1.5">
+            <span className="text-xs font-medium text-brand-blue-900">
               {selectedIds.size} selected
             </span>
             <Button
               size="sm"
               onClick={() => bulkQueueMutation.mutate()}
               disabled={bulkQueueMutation.isPending}
-              className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+              className="h-7 text-xs bg-brand-blue-600 hover:bg-brand-blue-700"
               data-testid="bulk-queue-publish-btn"
             >
               {bulkQueueMutation.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
@@ -543,7 +543,7 @@ export default function ContentFlowQueuePage() {
             </Button>
             <button
               onClick={() => setSelectedIds(new Set())}
-              className="text-xs text-indigo-700 hover:underline"
+              className="text-xs text-brand-blue-700 hover:underline"
             >
               Clear
             </button>
@@ -858,7 +858,7 @@ const PLATFORM_CAL_ICONS: Record<string, React.ReactNode> = {
   instagram: <Instagram className="h-3 w-3 text-pink-600" />,
   google_business: <Globe className="h-3 w-3 text-green-600" />,
   email: <Mail className="h-3 w-3 text-gray-600" />,
-  wordpress: <Globe className="h-3 w-3 text-indigo-600" />,
+  wordpress: <Globe className="h-3 w-3 text-brand-blue-600" />,
 };
 
 const STATUS_DOT: Record<string, string> = {

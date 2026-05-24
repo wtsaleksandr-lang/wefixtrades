@@ -289,7 +289,7 @@ function ClientCard({ client: c }: { client: ClientRow }) {
 
             {/* Task alerts */}
             {c.tasks.rejected > 0 && <span className="text-red-600 font-medium">{c.tasks.rejected} rejected</span>}
-            {c.tasks.in_qa > 0 && <span className="text-purple-600">{c.tasks.in_qa} in QA</span>}
+            {c.tasks.in_qa > 0 && <span className="text-brand-blue-600">{c.tasks.in_qa} in QA</span>}
             {c.open_batches > 0 && <span className="text-amber-600">{c.open_batches} batch{c.open_batches > 1 ? "es" : ""}</span>}
           </div>
         </div>

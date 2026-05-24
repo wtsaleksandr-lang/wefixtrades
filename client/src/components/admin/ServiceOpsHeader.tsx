@@ -35,7 +35,7 @@ interface OnboardingInfo {
 const STATUS_COLORS: Record<string, string> = {
   not_started: "bg-gray-100 text-gray-700",
   submitted: "bg-blue-50 text-blue-700",
-  in_progress: "bg-indigo-50 text-indigo-700",
+  in_progress: "bg-brand-blue-50 text-brand-blue-700",
   waiting: "bg-amber-50 text-amber-700",
   blocked: "bg-red-50 text-red-700",
   delivered: "bg-emerald-50 text-emerald-700",
@@ -117,7 +117,7 @@ export default function ServiceOpsHeader({ clientId, serviceFilter, helpCues }: 
           </span>
         )}
         {inProgress.length > 0 && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-brand-blue-50 text-brand-blue-700">
             {inProgress.length} in progress
           </span>
         )}

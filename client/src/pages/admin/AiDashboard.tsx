@@ -14,7 +14,7 @@ import {
 /* ─── Theme (mirrors platformTheme) ─── */
 const c = {
   bg: "#FAFAFA", surface: "#fff", border: "#E5E7EB", borderLight: "#F3F4F6",
-  text: "#111827", muted: "#6B7280", accent: "#6366F1", accentBg: "rgba(99,102,241,0.08)",
+  text: "#111827", muted: "#6B7280", accent: "#0d3cfc", accentBg: "rgba(13,60,252,0.08)",
   green: "#22C55E", red: "#EF4444", amber: "#F59E0B", cyan: "#0d3cfc",
 };
 

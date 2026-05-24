@@ -307,7 +307,7 @@ export default function SocialSyncOpsPage() {
         {filter !== "all" ? (
           <button
             onClick={() => setFilter("all")}
-            className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-200"
+            className="inline-flex items-center gap-1 rounded-full bg-brand-blue-100 px-2.5 py-1 text-xs font-medium text-brand-blue-700 hover:bg-brand-blue-200"
           >
             {FILTER_LABELS[filter] || filter}
             <X className="h-3 w-3" />
@@ -407,7 +407,7 @@ export default function SocialSyncOpsPage() {
             <span><strong className="text-gray-900">{metrics.published_24h}</strong> published 24h</span>
             <span><strong className="text-gray-900">{metrics.published_7d}</strong> published 7d</span>
             {(metrics.clients_in_cooldown || 0) > 0 && (
-              <span className="text-purple-700"><strong>{metrics.clients_in_cooldown}</strong> in cooldown</span>
+              <span className="text-brand-blue-700"><strong>{metrics.clients_in_cooldown}</strong> in cooldown</span>
             )}
             {(metrics.clients_suppressed || 0) > 0 && (
               <span className="text-red-700"><strong>{metrics.clients_suppressed}</strong> suppressed</span>
@@ -455,7 +455,7 @@ export default function SocialSyncOpsPage() {
                             />
                           )}
                           {inCooldown && (
-                            <span className="rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
+                            <span className="rounded bg-brand-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-brand-blue-700">
                               Cooldown
                             </span>
                           )}
@@ -628,7 +628,7 @@ function AlertStat({
       type="button"
       onClick={() => onClick(filterKey)}
       className={`flex flex-col items-start rounded-lg border p-2 text-left transition-all hover:shadow-sm ${dangerClass} ${
-        active ? "ring-2 ring-indigo-400 ring-offset-1" : ""
+        active ? "ring-2 ring-brand-blue-400 ring-offset-1" : ""
       }`}
     >
       <span className={`text-lg font-bold leading-none ${danger ? (tone === "amber" ? "text-amber-700" : "text-red-600") : "text-gray-400"}`}>
@@ -655,7 +655,7 @@ function ApiLinkStat({
       type="button"
       onClick={() => onClick(filterKey)}
       className={`flex flex-col items-center rounded-lg border p-2 transition-all hover:bg-gray-50 ${
-        active ? "border-indigo-300 ring-2 ring-indigo-400 ring-offset-1" : "border-gray-200"
+        active ? "border-brand-blue-300 ring-2 ring-brand-blue-400 ring-offset-1" : "border-gray-200"
       }`}
     >
       <div className="flex items-center gap-1">

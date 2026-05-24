@@ -46,7 +46,7 @@ const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
 
 const TONE_STYLES: Record<string, string> = {
   amber: "bg-amber-50 border-amber-200 text-amber-800",
-  indigo: "bg-indigo-50 border-indigo-200 text-indigo-800",
+  indigo: "bg-brand-blue-50 border-brand-blue-200 text-brand-blue-800",
   blue: "bg-blue-50 border-blue-200 text-blue-800",
   emerald: "bg-emerald-50 border-emerald-200 text-emerald-800",
   gray: "bg-gray-50 border-gray-200 text-gray-700",
@@ -95,7 +95,7 @@ export default function InstallQueuePage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === "all" ? "bg-indigo-600 border-indigo-600 text-white" : "border-gray-200 text-gray-700"}`}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === "all" ? "bg-brand-blue-600 border-brand-blue-600 text-white" : "border-gray-200 text-gray-700"}`}
           >
             All
           </button>
@@ -103,7 +103,7 @@ export default function InstallQueuePage() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === s ? "bg-indigo-600 border-indigo-600 text-white" : "border-gray-200 text-gray-700"}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === s ? "bg-brand-blue-600 border-brand-blue-600 text-white" : "border-gray-200 text-gray-700"}`}
             >
               {STATUS_LABELS[s]?.label ?? s}
             </button>
@@ -152,7 +152,7 @@ export default function InstallQueuePage() {
                       </td>
                       <td className="px-4 py-3 text-xs">
                         {request.website_url ? (
-                          <a href={request.website_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <a href={request.website_url} target="_blank" rel="noopener noreferrer" className="text-brand-blue-600 inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                             {request.website_url} <ExternalLink className="w-3 h-3" />
                           </a>
                         ) : (

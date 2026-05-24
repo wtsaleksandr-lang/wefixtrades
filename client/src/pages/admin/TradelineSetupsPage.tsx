@@ -113,7 +113,7 @@ export default function TradelineSetupsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Phone className="w-6 h-6 text-indigo-600" />
+              <Phone className="w-6 h-6 text-brand-blue-600" />
               TradeLine setups
             </h1>
             <p className="text-sm text-gray-600 mt-0.5">
@@ -125,7 +125,7 @@ export default function TradelineSetupsPage() {
               href="/portal/tradeline/setup"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700"
+              className="inline-flex items-center gap-1.5 text-sm text-brand-blue-600 hover:text-brand-blue-700"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               Open customer view in new tab

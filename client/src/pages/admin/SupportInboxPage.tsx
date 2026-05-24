@@ -66,7 +66,7 @@ const CATEGORY_OPTIONS = [
 
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-amber-50 text-amber-700",
-  in_progress: "bg-indigo-50 text-indigo-700",
+  in_progress: "bg-brand-blue-50 text-brand-blue-700",
   waiting_on_customer: "bg-blue-50 text-blue-700",
   resolved: "bg-emerald-50 text-emerald-700",
   closed: "bg-gray-100 text-gray-500",

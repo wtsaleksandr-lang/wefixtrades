@@ -53,8 +53,8 @@ import {
 const TIER_BADGE: Record<string, { label: string; bg: string; text: string }> = {
   free:    { label: "Dev",      bg: "bg-gray-100",   text: "text-gray-600" },
   starter: { label: "Starter",  bg: "bg-blue-50",    text: "text-blue-700" },
-  growth:  { label: "Growth",   bg: "bg-purple-50",  text: "text-purple-700" },
-  pro:     { label: "Pro",      bg: "bg-purple-50",  text: "text-purple-700" },
+  growth:  { label: "Growth",   bg: "bg-brand-blue-50",  text: "text-brand-blue-700" },
+  pro:     { label: "Pro",      bg: "bg-brand-blue-50",  text: "text-brand-blue-700" },
   scale:   { label: "Scale",    bg: "bg-amber-50",   text: "text-amber-700" },
   business:{ label: "Business", bg: "bg-amber-50",   text: "text-amber-700" },
   agency:  { label: "Agency",   bg: "bg-slate-100",  text: "text-slate-700" },
@@ -408,8 +408,8 @@ export default function ApiPlatformPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-                <Activity className="w-4 h-4 text-purple-600" />
+              <div className="w-8 h-8 rounded-lg bg-brand-blue-50 flex items-center justify-center">
+                <Activity className="w-4 h-4 text-brand-blue-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold font-mono text-gray-900">

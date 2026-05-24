@@ -50,11 +50,11 @@ export interface MapguardTaskItem {
 export const MG_STATUS_COLORS: Record<string, string> = {
   pending:          "bg-gray-100 text-gray-700",
   upcoming:         "bg-blue-50 text-blue-700",
-  ready:            "bg-indigo-50 text-indigo-700",
-  in_progress:      "bg-indigo-50 text-indigo-700",
+  ready:            "bg-brand-blue-50 text-brand-blue-700",
+  in_progress:      "bg-brand-blue-50 text-brand-blue-700",
   waiting_supplier: "bg-amber-50 text-amber-700",
   waiting_client:   "bg-amber-50 text-amber-700",
-  needs_review:     "bg-purple-50 text-purple-700",
+  needs_review:     "bg-brand-blue-50 text-brand-blue-700",
   blocked:          "bg-red-50 text-red-700",
   completed:        "bg-emerald-50 text-emerald-700",
   cancelled:        "bg-gray-100 text-gray-500",
@@ -149,7 +149,7 @@ const ACTION_STYLES: Record<string, string> = {
   "Start":      "bg-brand-blue hover:bg-brand-blue-600 text-white",
   "Done":       "bg-emerald-600 hover:bg-emerald-700 text-white",
   "Follow Up":  "bg-amber-500 hover:bg-amber-600 text-white",
-  "Approve":    "bg-purple-600 hover:bg-purple-700 text-white",
+  "Approve":    "bg-brand-blue-600 hover:bg-brand-blue-700 text-white",
   "Unblock":    "bg-red-500 hover:bg-red-600 text-white",
 };
 

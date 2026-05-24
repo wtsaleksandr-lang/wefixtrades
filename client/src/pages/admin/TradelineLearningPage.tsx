@@ -109,7 +109,7 @@ export default function TradelineLearningPage() {
         {/* Training budget */}
         <Card className="p-5">
           <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-600" /> Training budget
+            <Sparkles className="w-4 h-4 text-brand-blue-600" /> Training budget
           </h2>
           <p className="text-xs text-gray-600 mb-3 max-w-2xl">
             Picks the AI tier used for summarization + trainer steps. V1: informational only —
@@ -123,7 +123,7 @@ export default function TradelineLearningPage() {
                 return (
                   <div
                     key={t.id}
-                    className={`rounded-lg p-3 border ${active ? "border-indigo-400 bg-indigo-50" : "border-gray-200 bg-white"}`}
+                    className={`rounded-lg p-3 border ${active ? "border-brand-blue-400 bg-brand-blue-50" : "border-gray-200 bg-white"}`}
                   >
                     <div className="flex items-baseline justify-between mb-1">
                       <span className="text-xs font-semibold text-gray-900">{t.label}</span>
@@ -140,7 +140,7 @@ export default function TradelineLearningPage() {
         {/* Researcher trigger */}
         <Card className="p-5">
           <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-            <Search className="w-4 h-4 text-indigo-600" /> Manual Researcher trigger
+            <Search className="w-4 h-4 text-brand-blue-600" /> Manual Researcher trigger
           </h2>
           <p className="text-xs text-gray-600 mb-3 max-w-2xl">
             Queue an AI research pass against the niche source whitelist (NFPA, EPA, OSHA, state
@@ -192,7 +192,7 @@ export default function TradelineLearningPage() {
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
               <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-indigo-600" /> Candidate queue
+                <AlertCircle className="w-4 h-4 text-brand-blue-600" /> Candidate queue
               </h2>
               <p className="text-xs text-gray-600">
                 Suggested improvements awaiting your review. Approving doesn't auto-write to templates
@@ -204,7 +204,7 @@ export default function TradelineLearningPage() {
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${statusFilter === s ? "bg-indigo-600 border-indigo-600 text-white" : "border-gray-200 text-gray-700"}`}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${statusFilter === s ? "bg-brand-blue-600 border-brand-blue-600 text-white" : "border-gray-200 text-gray-700"}`}
                 >
                   {s}
                 </button>
@@ -252,7 +252,7 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <Badge variant="outline" className="text-[10px] bg-indigo-50 border-indigo-200 text-indigo-800">
+            <Badge variant="outline" className="text-[10px] bg-brand-blue-50 border-brand-blue-200 text-brand-blue-800">
               {candidate.niche.replace(/_/g, " ")}
             </Badge>
             <Badge variant="outline" className="text-[10px]">
@@ -278,7 +278,7 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
       </div>
       <pre className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 border border-gray-100 rounded px-3 py-2">{candidate.body}</pre>
       {candidate.source_url && (
-        <a href={candidate.source_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-indigo-600 inline-flex items-center gap-0.5 mt-2">
+        <a href={candidate.source_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-brand-blue-600 inline-flex items-center gap-0.5 mt-2">
           source <ExternalLink className="w-2.5 h-2.5" />
         </a>
       )}

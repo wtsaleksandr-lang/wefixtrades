@@ -236,7 +236,7 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
             <div className="flex items-center gap-2 mt-1 flex-wrap text-xs">
               <span className="font-mono text-gray-500">{templateId}</span>
               {d.is_user_created && (
-                <Badge variant="outline" className="bg-indigo-50 border-indigo-200 text-indigo-800 text-[10px]">User-created</Badge>
+                <Badge variant="outline" className="bg-brand-blue-50 border-brand-blue-200 text-brand-blue-800 text-[10px]">User-created</Badge>
               )}
               {d.overrides && Object.keys(d.overrides).length > 0 && !d.is_user_created && (
                 <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-800 text-[10px]">Has overrides</Badge>
@@ -763,14 +763,14 @@ function CalculationsTab({
                 <span className="font-semibold">{c.name}</span>
                 <span className="text-[11px] text-gray-500 ml-2 font-mono">{c.format}</span>
                 {c.name === result_calc && (
-                  <Badge variant="outline" className="ml-2 text-[10px] border-indigo-300 text-indigo-700 bg-indigo-50">
+                  <Badge variant="outline" className="ml-2 text-[10px] border-brand-blue-300 text-brand-blue-700 bg-brand-blue-50">
                     headline
                   </Badge>
                 )}
               </AccordionTrigger>
               <button
                 onClick={() => onChangeResult(c.name)}
-                className="text-[10px] text-indigo-600 hover:underline px-1"
+                className="text-[10px] text-brand-blue-600 hover:underline px-1"
                 title="Mark as the headline result"
               >
                 make headline
@@ -876,7 +876,7 @@ function FormulaTextarea({ value, onChange }: { value: string; onChange: (next: 
         <div className="text-[11px] text-gray-500 mt-1">
           References:{" "}
           {refs.map((r) => (
-            <span key={r} className="font-mono bg-indigo-50 text-indigo-700 border border-indigo-200 rounded px-1 mr-1">
+            <span key={r} className="font-mono bg-brand-blue-50 text-brand-blue-700 border border-brand-blue-200 rounded px-1 mr-1">
               [{r}]
             </span>
           ))}
@@ -951,11 +951,11 @@ function DefaultIconPickerField({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-3 rounded-md border border-gray-200 px-3 py-2 hover:border-indigo-300 hover:bg-indigo-50 transition"
+        className="flex items-center gap-3 rounded-md border border-gray-200 px-3 py-2 hover:border-brand-blue-300 hover:bg-brand-blue-50 transition"
         data-testid="default-icon-picker-trigger"
       >
-        <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center">
-          {Icon ? <Icon size={18} className="text-indigo-600" strokeWidth={2.25} /> : null}
+        <div className="w-8 h-8 rounded bg-brand-blue-50 flex items-center justify-center">
+          {Icon ? <Icon size={18} className="text-brand-blue-600" strokeWidth={2.25} /> : null}
         </div>
         <span className="text-sm text-gray-700">{value ?? "Choose an icon…"}</span>
       </button>

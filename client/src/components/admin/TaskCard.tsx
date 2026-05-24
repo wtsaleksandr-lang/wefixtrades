@@ -36,7 +36,7 @@ export interface TaskItem {
 const STATUS_COLORS: Record<string, string> = {
   not_started: "bg-gray-100 text-gray-700",
   submitted: "bg-blue-50 text-blue-700",
-  in_progress: "bg-indigo-50 text-indigo-700",
+  in_progress: "bg-brand-blue-50 text-brand-blue-700",
   waiting: "bg-amber-50 text-amber-700",
   blocked: "bg-red-50 text-red-700",
   delivered: "bg-emerald-50 text-emerald-700",
@@ -272,7 +272,7 @@ export function TaskCard({
                       className={`h-7 px-2.5 text-xs ${
                         autoType === "auto"
                           ? "border-blue-200 text-blue-700 hover:bg-blue-50"
-                          : "border-purple-200 text-purple-700 hover:bg-purple-50"
+                          : "border-brand-blue-200 text-brand-blue-700 hover:bg-brand-blue-50"
                       }`}
                       disabled={processing || isRunning}
                       onClick={(e) => {

@@ -218,7 +218,7 @@ export function OptionBForward({ setup, onBack, onDone }: Props) {
           placeholder="+1 555 123 4567"
           value={phoneInput}
           onChange={(e) => setPhoneInput(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base focus:border-brand-blue-500 focus:ring-2 focus:ring-brand-blue-100 focus:outline-none"
         />
         <p className="text-[11px] text-gray-500 mt-1">Include country code (+1 for USA/Canada).</p>
       </div>
@@ -365,7 +365,7 @@ function ActivateForwarding({
       {telUri && (
         <a
           href={telUri}
-          className="block w-full rounded-lg bg-indigo-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-indigo-700"
+          className="block w-full rounded-lg bg-brand-blue-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-brand-blue-700"
         >
           <PhoneCall className="w-4 h-4 inline-block mr-2" />
           Call now to activate forwarding

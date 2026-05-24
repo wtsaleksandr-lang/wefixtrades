@@ -289,7 +289,7 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
             <Layers className="w-4 h-4" />
             {sequence.name}
             {sequence.ai_personalize && (
-              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-purple-300 text-purple-700">
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-brand-blue-300 text-brand-blue-700">
                 <Sparkles className="w-3 h-3" />
                 AI: enabled
               </span>
@@ -496,7 +496,7 @@ export default function SequencesPage() {
                     <td className="px-3 py-2.5"><StatusBadge status={s.status} /></td>
                     <td className="px-3 py-2.5">
                       {s.ai_personalize ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-purple-300 text-purple-700">
+                        <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-brand-blue-300 text-brand-blue-700">
                           <Sparkles className="w-3 h-3" />
                           enabled
                         </span>

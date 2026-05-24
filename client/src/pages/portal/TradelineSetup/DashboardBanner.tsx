@@ -46,18 +46,18 @@ export function TradelineSetupBanner() {
   return (
     <Link href="/portal/tradeline/setup">
       <a
-        className="block rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-white p-4 hover:border-indigo-300 hover:shadow-sm transition-all group"
+        className="block rounded-xl border border-brand-blue-200 bg-gradient-to-r from-brand-blue-50 to-white p-4 hover:border-brand-blue-300 hover:shadow-sm transition-all group"
         data-testid="tradeline-setup-banner"
       >
         <div className="flex items-center gap-4">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-            <PhoneCall className="w-5 h-5 text-indigo-600" />
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-brand-blue-100 flex items-center justify-center">
+            <PhoneCall className="w-5 h-5 text-brand-blue-600" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 text-sm sm:text-base">{headline}</p>
             <p className="text-xs sm:text-sm text-gray-600 mt-0.5">{body}</p>
           </div>
-          <div className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-indigo-700 group-hover:text-indigo-900">
+          <div className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-brand-blue-700 group-hover:text-brand-blue-900">
             <span className="hidden sm:inline">{cta}</span>
             <span className="sm:hidden">Continue</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />

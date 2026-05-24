@@ -168,7 +168,7 @@ function TaskIcon({ status }: { status: string }) {
       return <Check className="w-4 h-4 text-emerald-500" />;
     case "in_progress":
     case "submitted":
-      return <Clock className="w-4 h-4 text-indigo-500" />;
+      return <Clock className="w-4 h-4 text-brand-blue-500" />;
     case "waiting":
     case "blocked":
       return <AlertCircle className="w-4 h-4 text-amber-500" />;
@@ -1168,7 +1168,7 @@ export default function PortalServiceDetail() {
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
                   <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-indigo-600" />
+                    <Users className="w-4 h-4 text-brand-blue-600" />
                     <h2 className="text-sm font-semibold text-gray-900">Recent Leads</h2>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
@@ -1202,7 +1202,7 @@ export default function PortalServiceDetail() {
                               lead.status === "won" ? "bg-emerald-50 text-emerald-700" :
                               lead.status === "contacted" ? "bg-blue-50 text-blue-700" :
                               lead.status === "lost" ? "bg-gray-100 text-gray-500" :
-                              "bg-indigo-50 text-indigo-700"
+                              "bg-brand-blue-50 text-brand-blue-700"
                             }`}>
                               {lead.status}
                             </span>

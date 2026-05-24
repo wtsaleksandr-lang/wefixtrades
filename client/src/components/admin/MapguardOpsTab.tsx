@@ -116,7 +116,7 @@ function getOperationalState(summary: TaskSummary) {
   if (summary.total === 0) return { label: "No tasks", color: "bg-gray-50 text-gray-600 border-gray-200", icon: MapPin };
   if (summary.blocked > 0) return { label: "Blocked — needs attention", color: "bg-red-50 text-red-700 border-red-200", icon: AlertTriangle };
   if (summary.overdue > 0) return { label: `${summary.overdue} overdue`, color: "bg-red-50 text-red-700 border-red-200", icon: Clock };
-  if (summary.needs_review > 0) return { label: "Review needed", color: "bg-purple-50 text-purple-700 border-purple-200", icon: Eye };
+  if (summary.needs_review > 0) return { label: "Review needed", color: "bg-brand-blue-50 text-brand-blue-700 border-brand-blue-200", icon: Eye };
   if (summary.waiting_supplier > 0) return { label: "Waiting on supplier", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Factory };
   if (summary.waiting_client > 0) return { label: "Waiting on client", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock };
   if (summary.in_progress > 0 || summary.ready > 0) return { label: "On track", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle };
@@ -248,7 +248,7 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
                 key={s.key}
                 className={`text-center py-1.5 rounded-md cursor-default ${
                   s.value > 0 && s.key === "blocked" ? "bg-red-50" :
-                  s.value > 0 && s.key === "needs_review" ? "bg-purple-50" :
+                  s.value > 0 && s.key === "needs_review" ? "bg-brand-blue-50" :
                   s.value > 0 && s.key === "waiting_supplier" ? "bg-amber-50" :
                   "bg-gray-50"
                 }`}
@@ -1066,7 +1066,7 @@ function TaskDetailDialog({
                       a.action === "assigned" ? "bg-amber-400" :
                       a.action === "result_submitted" ? "bg-emerald-400" :
                       a.action === "result_rejected" ? "bg-red-400" :
-                      a.action === "status_changed" ? "bg-indigo-400" :
+                      a.action === "status_changed" ? "bg-brand-blue-400" :
                       "bg-gray-300"
                     }`} />
                     <div className="min-w-0 flex-1">
