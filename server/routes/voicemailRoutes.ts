@@ -116,6 +116,9 @@ async function summarizeTranscript(transcript: string): Promise<SummaryResult | 
     system,
     messages: [{ role: "user", content: `Voicemail transcript: ${transcript}` }],
     maxTokens: 200,
+    // audit/ai 2026-05-24: voicemail summarization runs on the
+    // TradeLine voice surface (same gate as live-call processing).
+    surface: "tradeline_voice",
   });
 
   // The model sometimes wraps JSON in prose despite the instruction.

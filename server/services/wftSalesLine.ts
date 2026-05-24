@@ -65,6 +65,8 @@ interface Output {
         content: `Caller number: ${callerNumber || "unknown"}\n\nCall transcript:\n${transcript}`,
       }],
       maxTokens: 400,
+      // audit/ai 2026-05-24: extract sales-call lead info under wft_sales.
+      surface: "wft_sales",
     });
     const parsed = JSON.parse(cleanJson(response));
     return {

@@ -155,6 +155,9 @@ Summarize: uptime, plugin updates done, security status, any issues found.`;
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
       maxTokens: 800,
+      // audit/ai 2026-05-24: monthly WebCare report shares the wft_audit
+      // surface — same product (WebFix), same narrative-generation profile.
+      surface: "wft_audit",
     });
     return report;
   } catch (err: any) {

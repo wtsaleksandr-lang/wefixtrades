@@ -168,6 +168,8 @@ Return ONLY the JSON, no markdown fences.`;
     system: "You are a web performance optimization expert. Return only valid JSON.",
     messages: [{ role: "user", content: prompt }],
     maxTokens: 1200,
+    // audit/ai 2026-05-24: WeFix performance-audit narrative.
+    surface: "wft_audit",
   });
 
   try {
@@ -229,6 +231,9 @@ Return ONLY the JSON, no markdown fences.`;
     system: "You are a web performance consultant writing a client-friendly report. Return only valid JSON.",
     messages: [{ role: "user", content: prompt }],
     maxTokens: 1500,
+    // audit/ai 2026-05-24: WeFix before/after report — same surface as
+    // the prefix narrative call above.
+    surface: "wft_audit",
   });
 
   try {
