@@ -119,6 +119,9 @@ type User, type InsertUser,
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 import * as leadsImpl from "./storage/leads";
 import * as billingImpl from "./storage/billing";
+import * as socialsyncImpl from "./storage/socialsync";
+import * as reviewsImpl from "./storage/reviews";
+import * as calendarImpl from "./storage/calendar";
 import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
 import { createLogger } from "./lib/logger";
 import { kickoffMapguardService } from "./services/mapguardTaskEngine";
@@ -3371,221 +3374,91 @@ export class DatabaseStorage implements IStorage {
       return { revenue, voiceCost, smsCost, aiCost, totalCost, profit, margin };
   }
 
-  // ─── SocialSync ───
+  // ─── SocialSync (impl in ./storage/socialsync.ts) ───
 
   async upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile> {
-    const [row] = await db.insert(socialsyncProfiles).values(data)
-      .onConflictDoUpdate({ target: socialsyncProfiles.client_id, set: { ...data, updated_at: new Date() } })
-      .returning();
-    return row;
+    return socialsyncImpl.upsertSocialSyncProfile(data);
   }
-
   async getSocialSyncProfile(clientId: number): Promise<SocialSyncProfile | undefined> {
-    const [row] = await db.select().from(socialsyncProfiles)
-      .where(eq(socialsyncProfiles.client_id, clientId))
-      .limit(1);
-    return row;
+    return socialsyncImpl.getSocialSyncProfile(clientId);
   }
-
   async createSocialSyncTopic(data: InsertSocialSyncTopic): Promise<SocialSyncTopic> {
-    const [row] = await db.insert(socialsyncTopics).values(data).returning();
-    return row;
+    return socialsyncImpl.createSocialSyncTopic(data);
   }
-
   async createSocialSyncTopics(data: InsertSocialSyncTopic[]): Promise<SocialSyncTopic[]> {
-    if (data.length === 0) return [];
-    return db.insert(socialsyncTopics).values(data).returning();
+    return socialsyncImpl.createSocialSyncTopics(data);
   }
-
   async listSocialSyncTopics(clientId: number, status?: string): Promise<SocialSyncTopic[]> {
-    const conditions = [eq(socialsyncTopics.client_id, clientId)];
-    if (status) conditions.push(eq(socialsyncTopics.status, status));
-    return db.select().from(socialsyncTopics)
-      .where(and(...conditions))
-      .orderBy(desc(socialsyncTopics.created_at));
+    return socialsyncImpl.listSocialSyncTopics(clientId, status);
   }
-
   async updateSocialSyncTopic(id: number, updates: Partial<InsertSocialSyncTopic>): Promise<SocialSyncTopic | undefined> {
-    const [row] = await db.update(socialsyncTopics)
-      .set({ ...updates, updated_at: new Date() })
-      .where(eq(socialsyncTopics.id, id))
-      .returning();
-    return row;
+    return socialsyncImpl.updateSocialSyncTopic(id, updates);
   }
-
   async createSocialSyncPost(data: InsertSocialSyncPost): Promise<SocialSyncPost> {
-    const [row] = await db.insert(socialsyncPosts).values(data).returning();
-    return row;
+    return socialsyncImpl.createSocialSyncPost(data);
   }
-
   async listSocialSyncPosts(clientId: number, opts: { status?: string; platform?: string; limit?: number; offset?: number } = {}): Promise<SocialSyncPost[]> {
-    const { status, platform, limit = 50, offset = 0 } = opts;
-    const conditions = [eq(socialsyncPosts.client_id, clientId)];
-    if (status) conditions.push(eq(socialsyncPosts.status, status));
-    if (platform) conditions.push(eq(socialsyncPosts.platform, platform));
-    return db.select().from(socialsyncPosts)
-      .where(and(...conditions))
-      .orderBy(desc(socialsyncPosts.created_at))
-      .limit(limit)
-      .offset(offset);
+    return socialsyncImpl.listSocialSyncPosts(clientId, opts);
   }
-
   async getSocialSyncPostById(id: number): Promise<SocialSyncPost | undefined> {
-    const [row] = await db.select().from(socialsyncPosts)
-      .where(eq(socialsyncPosts.id, id))
-      .limit(1);
-    return row;
+    return socialsyncImpl.getSocialSyncPostById(id);
   }
-
   async updateSocialSyncPost(id: number, updates: Partial<InsertSocialSyncPost>): Promise<SocialSyncPost | undefined> {
-    const [row] = await db.update(socialsyncPosts)
-      .set({ ...updates, updated_at: new Date() })
-      .where(eq(socialsyncPosts.id, id))
-      .returning();
-    return row;
+    return socialsyncImpl.updateSocialSyncPost(id, updates);
   }
-
   async enqueueSocialSyncJob(data: InsertSocialSyncQueueItem): Promise<SocialSyncQueueItem> {
-    const [row] = await db.insert(socialsyncPublishQueue).values(data).returning();
-    return row;
+    return socialsyncImpl.enqueueSocialSyncJob(data);
   }
-
   async fetchDueSocialSyncJobs(limit = 20): Promise<SocialSyncQueueItem[]> {
-    const now = new Date();
-    return db.select().from(socialsyncPublishQueue)
-      .where(and(
-        eq(socialsyncPublishQueue.status, "pending"),
-        lte(socialsyncPublishQueue.run_at, now),
-        sql`${socialsyncPublishQueue.attempts} < ${socialsyncPublishQueue.max_attempts}`,
-        sql`${socialsyncPublishQueue.locked_at} IS NULL`,
-      ))
-      .orderBy(socialsyncPublishQueue.run_at)
-      .limit(limit);
+    return socialsyncImpl.fetchDueSocialSyncJobs(limit);
   }
-
   async updateSocialSyncQueueItem(id: number, updates: Record<string, any>): Promise<void> {
-    await db.update(socialsyncPublishQueue).set(updates).where(eq(socialsyncPublishQueue.id, id));
+    return socialsyncImpl.updateSocialSyncQueueItem(id, updates);
   }
-
   async listSocialSyncQueue(clientId: number): Promise<SocialSyncQueueItem[]> {
-    return db.select().from(socialsyncPublishQueue)
-      .where(eq(socialsyncPublishQueue.client_id, clientId))
-      .orderBy(desc(socialsyncPublishQueue.created_at));
+    return socialsyncImpl.listSocialSyncQueue(clientId);
   }
-
   async createSocialSyncLog(data: InsertSocialSyncActivityLog): Promise<SocialSyncActivityLog> {
-    const [row] = await db.insert(socialsyncActivityLogs).values(data).returning();
-    return row;
+    return socialsyncImpl.createSocialSyncLog(data);
   }
-
   async listSocialSyncLogs(clientId: number, limit = 50): Promise<SocialSyncActivityLog[]> {
-    return db.select().from(socialsyncActivityLogs)
-      .where(eq(socialsyncActivityLogs.client_id, clientId))
-      .orderBy(desc(socialsyncActivityLogs.created_at))
-      .limit(limit);
+    return socialsyncImpl.listSocialSyncLogs(clientId, limit);
   }
-
   async upsertSocialSyncConnection(data: InsertSocialSyncConnection): Promise<SocialSyncConnection> {
-    const existing = await db.select().from(socialsyncPlatformConnections)
-      .where(and(
-        eq(socialsyncPlatformConnections.client_id, data.client_id),
-        eq(socialsyncPlatformConnections.platform, data.platform),
-      ))
-      .limit(1);
-    if (existing.length > 0) {
-      const [row] = await db.update(socialsyncPlatformConnections)
-        .set({ ...data, updated_at: new Date() })
-        .where(eq(socialsyncPlatformConnections.id, existing[0].id))
-        .returning();
-      return row;
-    }
-    const [row] = await db.insert(socialsyncPlatformConnections).values(data).returning();
-    return row;
+    return socialsyncImpl.upsertSocialSyncConnection(data);
   }
-
   async listSocialSyncConnections(clientId: number): Promise<SocialSyncConnection[]> {
-    return db.select().from(socialsyncPlatformConnections)
-      .where(eq(socialsyncPlatformConnections.client_id, clientId))
-      .orderBy(socialsyncPlatformConnections.platform);
+    return socialsyncImpl.listSocialSyncConnections(clientId);
   }
-
   async listEnabledSocialSyncProfiles(): Promise<SocialSyncProfile[]> {
-    return db.select().from(socialsyncProfiles)
-      .where(eq(socialsyncProfiles.enabled, true));
+    return socialsyncImpl.listEnabledSocialSyncProfiles();
   }
-
   async listRecentSocialSyncPosts(clientId: number, limit = 30): Promise<SocialSyncPost[]> {
-    return db.select().from(socialsyncPosts)
-      .where(eq(socialsyncPosts.client_id, clientId))
-      .orderBy(desc(socialsyncPosts.created_at))
-      .limit(limit);
+    return socialsyncImpl.listRecentSocialSyncPosts(clientId, limit);
   }
-
   async listAllSocialSyncConnections(): Promise<SocialSyncConnection[]> {
-    return db.select().from(socialsyncPlatformConnections)
-      .where(sql`${socialsyncPlatformConnections.connection_status} IN ('connected', 'expiring_soon')`)
-      .orderBy(socialsyncPlatformConnections.token_expires_at);
+    return socialsyncImpl.listAllSocialSyncConnections();
   }
-
   async fetchStaleSocialSyncLocks(thresholdMs: number): Promise<SocialSyncQueueItem[]> {
-    const cutoff = new Date(Date.now() - thresholdMs);
-    return db.select().from(socialsyncPublishQueue)
-      .where(and(
-        eq(socialsyncPublishQueue.status, "locked"),
-        lte(socialsyncPublishQueue.locked_at, cutoff),
-      ))
-      .orderBy(socialsyncPublishQueue.locked_at)
-      .limit(50);
+    return socialsyncImpl.fetchStaleSocialSyncLocks(thresholdMs);
   }
 
-  // ─── Reviews ───
+  // ─── Reviews (impl in ./storage/reviews.ts) ───
 
   async upsertReview(data: InsertReview): Promise<Review> {
-    const existing = await this.getReviewByExternalId(data.client_id, data.platform, data.external_review_id);
-    if (existing) {
-      const [row] = await db.update(reviewsTable)
-        .set({ ...data, updated_at: new Date() })
-        .where(eq(reviewsTable.id, existing.id))
-        .returning();
-      return row;
-    }
-    const [row] = await db.insert(reviewsTable).values(data).returning();
-    return row;
+    return reviewsImpl.upsertReview(data);
   }
-
   async listReviews(clientId: number, opts: { platform?: string; needsReply?: boolean; limit?: number } = {}): Promise<Review[]> {
-    const { platform, needsReply, limit = 50 } = opts;
-    const conditions = [eq(reviewsTable.client_id, clientId)];
-    if (platform) conditions.push(eq(reviewsTable.platform, platform));
-    if (needsReply !== undefined) conditions.push(eq(reviewsTable.needs_reply, needsReply));
-    return db.select().from(reviewsTable)
-      .where(and(...conditions))
-      .orderBy(desc(reviewsTable.review_time))
-      .limit(limit);
+    return reviewsImpl.listReviews(clientId, opts);
   }
-
   async getReviewByExternalId(clientId: number, platform: string, externalId: string): Promise<Review | undefined> {
-    const [row] = await db.select().from(reviewsTable)
-      .where(and(
-        eq(reviewsTable.client_id, clientId),
-        eq(reviewsTable.platform, platform),
-        eq(reviewsTable.external_review_id, externalId),
-      ))
-      .limit(1);
-    return row;
+    return reviewsImpl.getReviewByExternalId(clientId, platform, externalId);
   }
-
   async updateReview(id: number, updates: Partial<InsertReview>): Promise<Review | undefined> {
-    const [row] = await db.update(reviewsTable)
-      .set({ ...updates, updated_at: new Date() })
-      .where(eq(reviewsTable.id, id))
-      .returning();
-    return row;
+    return reviewsImpl.updateReview(id, updates);
   }
-
   async createReviewSyncLog(data: InsertReviewSyncLog): Promise<ReviewSyncLog> {
-    const [row] = await db.insert(reviewSyncLogs).values(data).returning();
-    return row;
+    return reviewsImpl.createReviewSyncLog(data);
   }
 
   // ─── Review Requests ───
@@ -4757,53 +4630,22 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // ─── Calendar Connections (Booking Engine) ───
+  // ─── Calendar Connections — Booking Engine (impl in ./storage/calendar.ts) ───
 
   async getCalendarConnection(clientId: number): Promise<CalendarConnection | undefined> {
-    const [conn] = await db
-      .select()
-      .from(calendarConnections)
-      .where(and(eq(calendarConnections.client_id, clientId), eq(calendarConnections.is_active, true)))
-      .limit(1);
-    return conn;
+    return calendarImpl.getCalendarConnection(clientId);
   }
-
   async listCalendarConnections(clientId?: number): Promise<CalendarConnection[]> {
-    if (clientId) {
-      return db
-        .select()
-        .from(calendarConnections)
-        .where(eq(calendarConnections.client_id, clientId))
-        .orderBy(desc(calendarConnections.created_at));
-    }
-    return db
-      .select()
-      .from(calendarConnections)
-      .orderBy(desc(calendarConnections.created_at));
+    return calendarImpl.listCalendarConnections(clientId);
   }
-
   async createCalendarConnection(data: InsertCalendarConnection): Promise<CalendarConnection> {
-    const [conn] = await db.insert(calendarConnections).values(data).returning();
-    return conn;
+    return calendarImpl.createCalendarConnection(data);
   }
-
   async updateCalendarConnection(id: number, updates: Partial<InsertCalendarConnection>): Promise<CalendarConnection | undefined> {
-    const [conn] = await db
-      .update(calendarConnections)
-      .set({ ...updates, updated_at: new Date() })
-      .where(eq(calendarConnections.id, id))
-      .returning();
-    return conn;
+    return calendarImpl.updateCalendarConnection(id, updates);
   }
-
   async deleteCalendarConnection(id: number): Promise<CalendarConnection | undefined> {
-    // Soft delete — set is_active = false
-    const [conn] = await db
-      .update(calendarConnections)
-      .set({ is_active: false, updated_at: new Date() })
-      .where(eq(calendarConnections.id, id))
-      .returning();
-    return conn;
+    return calendarImpl.deleteCalendarConnection(id);
   }
 
   // ─── System Alerts ───
