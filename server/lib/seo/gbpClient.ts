@@ -380,7 +380,7 @@ async function gbpFetch<T>(
 
 /**
  * Create a local post (UPDATE / OFFER / EVENT / ALERT) on the connected
- * GBP location. Mirrors the v4 `accounts/*/locations/*/localPosts`
+ * GBP location. Mirrors the v4 accounts/{account}/locations/{location}/localPosts
  * endpoint.
  */
 export interface GbpLocalPostInput {
