@@ -16,6 +16,7 @@ import {
 } from "@shared/schema";
 import { createLogger } from "../../lib/logger";
 import { sendBookingConfirmationToCustomer, sendBookingNotificationToTradesperson } from "../../lib/bookingConfirmationEmail";
+import { sendSMS } from "../../twilioClient";
 
 const log = createLogger("BookFlow");
 
@@ -377,4 +378,90 @@ export async function listBookFlowClients(): Promise<BookflowSettings[]> {
     .select()
     .from(bookflowSettings)
     .orderBy(bookflowSettings.created_at);
+}
+
+/* ─── T-24h booking reminder cron ──────────────────────────────────
+ *
+ * Fires an SMS to the customer ~24h before their appointment. Run by
+ * scheduler.ts every 15 minutes; the [now+23h45m, now+24h15m] window
+ * means each appointment is matched on exactly one tick. Idempotency
+ * is enforced by writing `metadata.t24h_sms_sent_at` on send.
+ *
+ * Skips: cancelled / no_show / completed appointments, missing phone,
+ * appointments already flagged sent, opted-out numbers (enforced
+ * inside sendSMS()). Best-effort per row — one failure doesn't abort
+ * the batch.
+ */
+export async function sendT24hBookingReminders(): Promise<{
+  scanned: number;
+  sent: number;
+  skipped: number;
+  failed: number;
+}> {
+  const result = { scanned: 0, sent: 0, skipped: 0, failed: 0 };
+
+  const windowStart = sql`now() + interval '23 hours 45 minutes'`;
+  const windowEnd = sql`now() + interval '24 hours 15 minutes'`;
+
+  const due = await db
+    .select()
+    .from(bookflowAppointments)
+    .where(
+      and(
+        gte(bookflowAppointments.start_time, windowStart as any),
+        lte(bookflowAppointments.start_time, windowEnd as any),
+        ne(bookflowAppointments.status, "cancelled"),
+        ne(bookflowAppointments.status, "no_show"),
+        ne(bookflowAppointments.status, "completed"),
+      ),
+    );
+
+  for (const appt of due) {
+    result.scanned++;
+
+    const meta = ((appt.metadata as Record<string, unknown>) ?? {});
+    if (meta.t24h_sms_sent_at) {
+      result.skipped++;
+      continue;
+    }
+    if (!appt.customer_phone) {
+      result.skipped++;
+      continue;
+    }
+
+    const time = new Date(appt.start_time).toLocaleString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "UTC",
+    });
+    const service = appt.service_name || "service";
+    const body = `Reminder: your ${service} appointment is tomorrow at ${time}`;
+
+    try {
+      await sendSMS(appt.customer_phone, body, "sms");
+      result.sent++;
+      await db
+        .update(bookflowAppointments)
+        .set({
+          metadata: { ...meta, t24h_sms_sent_at: new Date().toISOString() },
+          updated_at: new Date(),
+        })
+        .where(eq(bookflowAppointments.id, appt.id));
+    } catch (err: any) {
+      if (err?.message === "sms_recipient_opted_out") {
+        result.skipped++;
+      } else {
+        result.failed++;
+        log.warn(`[bookflow-reminder] failed for appointment ${appt.id}: ${err.message}`);
+      }
+    }
+  }
+
+  if (result.scanned > 0) {
+    log.info(
+      `[bookflow-reminder] scanned=${result.scanned} sent=${result.sent} skipped=${result.skipped} failed=${result.failed}`,
+    );
+  }
+  return result;
 }

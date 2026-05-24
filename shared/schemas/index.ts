@@ -23,6 +23,7 @@ export * from "./rankflow";
 export * from "./contentflow";
 export * from "./contentflowSettings";
 export * from "./emailUnsubscribes";
+export * from "./smsOptOuts";
 export * from "./notificationPreferences";
 export * from "./mapguardConfig";
 export * from "./mapguardPosts";

@@ -52,6 +52,7 @@ import { processEmailQueue } from "../services/emailQueueService";
 import { processEmbedBrokenDetection } from "./embedBrokenDetector";
 import { processBillRetention } from "./tradelineBillRetentionWorker";
 import { processProTrialExpiry } from "./trialProExpiryWorker";
+import { sendT24hBookingReminders } from "../services/booking/bookflowService";
 import { processContentFlowReminders } from "./contentflowReminderWorker";
 import { processTradelineProvisionRetry } from "./tradelineProvisionRetryWorker";
 import { processRoutingEngine } from "../engine/routingWorker";
@@ -299,7 +300,8 @@ export function initScheduler() {
   }, { timezone: "UTC" });
 
   // Pro-features trial expiry — daily at 04:00 UTC; flips the trial flag
-  // on clients past their 14-day window and emails the trade.
+  // on clients past their 14-day window and emails the trade. Also fires
+  // the T-3d "trial ending" SMS heads-up (one-shot per trial, idempotent).
   cron.schedule("0 4 * * *", async () => {
     try {
       await runJob("trial_pro_expiry", processProTrialExpiry);
@@ -307,6 +309,26 @@ export function initScheduler() {
       log.error("trial_pro_expiry cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
+
+  // BookFlow T-24h appointment reminder — every 15 minutes. The 30-min
+  // matching window inside the worker ([+23h45m, +24h15m]) ensures each
+  // appointment is matched on exactly one tick. Idempotent via the
+  // metadata.t24h_sms_sent_at flag on each appointment row.
+  let bookflowReminderRunning = false;
+  cron.schedule("*/15 * * * *", async () => {
+    if (bookflowReminderRunning) {
+      log.debug("bookflow_t24h_reminder skipped — previous tick still running");
+      return;
+    }
+    bookflowReminderRunning = true;
+    try {
+      await runJob("bookflow_t24h_reminder", sendT24hBookingReminders);
+    } catch (err: any) {
+      log.error("bookflow_t24h_reminder cron handler error", { error: err.message });
+    } finally {
+      bookflowReminderRunning = false;
+    }
+  });
 
   // Tradeline provision retry — hourly; picks up queued rows when admin Twilio creds land
   cron.schedule("17 * * * *", async () => {

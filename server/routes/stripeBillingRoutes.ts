@@ -19,6 +19,8 @@ import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { sendPaymentReceipt } from "../lib/paymentReceiptEmail";
 import { sendAccountWelcome } from "../lib/accountWelcomeEmail";
 import { sendPaymentFailedEmail } from "../lib/paymentFailedEmail";
+import { sendSMS } from "../twilioClient";
+import { parseNotificationPreferences } from "@shared/schemas/notificationPreferences";
 import { sendCancellationEmail } from "../lib/cancellationEmail";
 import { sendOrderConfirmationEmail } from "../lib/orderConfirmationEmail";
 import {
@@ -706,6 +708,26 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice, eventId: string) {
     amountCents: invoice.amount_due ?? 0,
     nextAttemptAt: invoice.next_payment_attempt ? new Date(invoice.next_payment_attempt * 1000) : null,
   }).catch(err => log.warn(`[payment-failed] email send failed:`, err.message));
+
+  // Day 0 — SMS heads-up alongside the email. Respects both
+  // notification_preferences.channels.sms and the sms_opt_outs registry
+  // (the latter is enforced inside sendSMS()). Best-effort; never throws.
+  (async () => {
+    try {
+      if (!client.contact_phone) return;
+      const prefs = parseNotificationPreferences(client.metadata);
+      if (!prefs.channels.sms || !prefs.categories.billing) return;
+      await sendSMS(
+        client.contact_phone,
+        "Your WeFixTrades payment didn't go through. Update your card at https://wefixtrades.com/portal/billing",
+        "sms",
+      );
+    } catch (err: any) {
+      if (err?.message !== "sms_recipient_opted_out") {
+        log.warn(`[payment-failed] sms send failed:`, err.message);
+      }
+    }
+  })();
 
   // Day 2 / Day 5 / Day 7 — schedule the dunning sequence. Idempotent on
   // (subscription, event_id, kind) so duplicate Stripe deliveries are
