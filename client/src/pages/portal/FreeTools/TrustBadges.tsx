@@ -8,7 +8,6 @@ import {
   ChevronDown,
   ChevronUp,
   Save,
-  ExternalLink,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/utils";
+import { FieldGroupHeader, TitleInField } from "./_shared";
 
 /**
  * Trust Badges Widget — free-tools batch 1.
@@ -24,6 +24,9 @@ import { cn } from "@/lib/utils";
  * Customer toggles up to 20 trust badges from a curated library. Selected
  * badges render as inline SVG on the customer's website via the v1 loader
  * with data-tool="badges".
+ *
+ * DS compliance (PR #692 audit): title-in-field + top-left help cue + 2px
+ * input-cluster gaps + single .btn-primary-premium (Save badges).
  */
 
 interface Badge {
@@ -63,16 +66,12 @@ const CATALOG: CatalogEntry[] = [
   { slug: "trusted-since", label: "Trusted Since…", defaultProofPrompt: "Year (e.g. 2009)" },
 ];
 
-const labelClass = "block text-xs font-medium text-gray-600 mb-1";
-const inputClass =
-  "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
-
 export default function TrustBadges() {
   usePageTitle("Trust Badges Widget");
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery<BadgesResponse>({
+  const { data } = useQuery<BadgesResponse>({
     queryKey: ["/api/portal/free-tools/badges"],
     queryFn: async () => {
       const r = await fetch("/api/portal/free-tools/badges", { credentials: "include" });
@@ -198,14 +197,15 @@ export default function TrustBadges() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Picker */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3">
             <Card>
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-900">Choose your badges</h2>
-                  <span className="text-xs text-gray-500">{selectedList.length} selected</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <CardContent className="p-5 space-y-3">
+                <FieldGroupHeader
+                  title="Choose your badges"
+                  help="Click a badge to toggle it on or off. Selected tiles use the brand outline — the same style as every other 'on' picker in the portal."
+                  right={<span className="text-xs text-gray-500">{selectedList.length} selected</span>}
+                />
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
                   {CATALOG.map((entry) => {
                     const isOn = !!selected[entry.slug];
                     return (
@@ -215,6 +215,7 @@ export default function TrustBadges() {
                         onClick={() => toggle(entry)}
                         className={cn(
                           "flex items-center gap-2 p-3 text-left rounded-lg border bg-white transition-colors",
+                          /* DS rule — selected = outline, not bright fill. */
                           isOn ? "border-brand-blue ring-2 ring-brand-blue/20" : "border-gray-200 hover:border-gray-300",
                         )}
                         data-testid={`badge-toggle-${entry.slug}`}
@@ -232,36 +233,33 @@ export default function TrustBadges() {
             {selectedList.length > 0 && (
               <Card>
                 <CardContent className="p-5 space-y-3">
-                  <h2 className="text-sm font-semibold text-gray-900">Selected badge details</h2>
-                  <p className="text-xs text-gray-600">Optional: add a proof URL or a short value (like "4.9 ★ 230 reviews").</p>
-                  <ul className="space-y-3">
+                  <FieldGroupHeader
+                    title="Selected badge details"
+                    help="Optional — add a proof URL or value text. Useful for Google-rating ('4.9 ★ 230 reviews') or to link a BBB badge to your profile."
+                  />
+                  <ul className="space-y-2">
                     {selectedList.map((b) => (
-                      <li key={b.slug} className="border border-gray-200 rounded-lg p-3 bg-white space-y-2">
-                        <div className="flex items-center gap-2">
+                      <li key={b.slug} className="border border-gray-200 rounded-lg p-3 bg-white space-y-0.5">
+                        <div className="flex items-center gap-2 mb-1">
                           <BadgePreview slug={b.slug} />
                           <span className="text-sm font-medium text-gray-800">{b.label}</span>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div>
-                            <label className={labelClass} htmlFor={`badge-proof-${b.slug}`}>Proof URL (optional)</label>
-                            <input
-                              id={`badge-proof-${b.slug}`}
-                              className={inputClass}
-                              value={b.proofUrl ?? ""}
-                              onChange={(e) => updateField(b.slug, { proofUrl: e.target.value })}
-                              placeholder="https://…"
-                            />
-                          </div>
-                          <div>
-                            <label className={labelClass} htmlFor={`badge-value-${b.slug}`}>Value text (optional)</label>
-                            <input
-                              id={`badge-value-${b.slug}`}
-                              className={inputClass}
-                              value={b.valueText ?? ""}
-                              onChange={(e) => updateField(b.slug, { valueText: e.target.value })}
-                              placeholder={b.slug === "google-rating" ? "4.9 ★" : ""}
-                            />
-                          </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
+                          <TitleInField
+                            id={`badge-proof-${b.slug}`}
+                            label="Proof URL (optional)"
+                            value={b.proofUrl ?? ""}
+                            onChange={(v) => updateField(b.slug, { proofUrl: v })}
+                            placeholder="https://…"
+                            help="Link the badge clicks through to — e.g. your BBB profile or licence page."
+                          />
+                          <TitleInField
+                            id={`badge-value-${b.slug}`}
+                            label="Value text (optional)"
+                            value={b.valueText ?? ""}
+                            onChange={(v) => updateField(b.slug, { valueText: v })}
+                            placeholder={b.slug === "google-rating" ? "4.9 ★" : ""}
+                          />
                         </div>
                       </li>
                     ))}
@@ -271,6 +269,7 @@ export default function TrustBadges() {
             )}
 
             <div className="flex justify-end">
+              {/* DS rule 4 — single .btn-primary-premium per page: Save. */}
               <Button
                 type="button"
                 onClick={() => saveMut.mutate()}
@@ -285,10 +284,13 @@ export default function TrustBadges() {
           </div>
 
           {/* Snippet + preview */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-3">
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Live preview</h2>
+                <FieldGroupHeader
+                  title="Live preview"
+                  help="Real render of how the badge row looks on your site. Updates on save."
+                />
                 {widgetToken && (
                   <iframe
                     key={previewKey}
@@ -302,18 +304,22 @@ export default function TrustBadges() {
 
             <Card>
               <CardContent className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-900">Embed snippet</h2>
-                  <Button
-                    type="button"
-                    onClick={handleCopy}
-                    className="btn-primary-premium"
-                    disabled={!widgetToken}
-                    data-testid="badges-copy-snippet"
-                  >
-                    {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy</>}
-                  </Button>
-                </div>
+                <FieldGroupHeader
+                  title="Embed snippet"
+                  help="Paste this once anywhere in your site to drop in the selected badges."
+                  right={
+                    <Button
+                      type="button"
+                      onClick={handleCopy}
+                      variant="outline"
+                      size="sm"
+                      disabled={!widgetToken}
+                      data-testid="badges-copy-snippet"
+                    >
+                      {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy</>}
+                    </Button>
+                  }
+                />
                 <pre className="text-xs bg-slate-50 text-gray-800 p-3 rounded-md overflow-x-auto border border-gray-200">
                   <code>{snippet}</code>
                 </pre>
@@ -353,7 +359,7 @@ export default function TrustBadges() {
 }
 
 /* Inline preview swatch — mirrors a couple of the SVGs in the embed library. */
-function BadgePreview({ slug }: { slug: string }) {
+function BadgePreview({ slug: _slug }: { slug: string }) {
   return (
     <span className="inline-flex w-8 h-8 items-center justify-center rounded-md bg-brand-blue/10 text-brand-blue shrink-0">
       <ShieldCheck className="w-4 h-4" aria-hidden="true" />

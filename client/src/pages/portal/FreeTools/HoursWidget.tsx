@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,14 +18,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/utils";
+import {
+  FieldGroupHeader,
+  TitleInField,
+  TitleInFieldSelect,
+} from "./_shared";
 
 /**
  * Business Hours Widget — free-tools batch 1.
  *
  * Per-day open/close toggle + opens/closes time, plus holiday/special-day
  * overrides. Saves into clients.business_hours / clients.special_hours.
- * Variant attribute (badge | table | both) is set on the embed snippet —
- * customer picks here.
+ * Variant attribute (badge | table | both) is set on the embed snippet.
+ *
+ * DS compliance (PR #692 audit): title-in-field + top-left help cue + 2px
+ * input-cluster gaps + single .btn-primary-premium (Save hours).
  */
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
@@ -62,8 +69,7 @@ const DEFAULT_HOURS: HoursMap = {
   sun: { open: false },
 };
 
-const labelClass = "block text-xs font-medium text-gray-600 mb-1";
-const inputClass =
+const timeInputClass =
   "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
 
 export default function HoursWidget() {
@@ -71,7 +77,7 @@ export default function HoursWidget() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery<HoursResponse>({
+  const { data } = useQuery<HoursResponse>({
     queryKey: ["/api/portal/free-tools/hours"],
     queryFn: async () => {
       const r = await fetch("/api/portal/free-tools/hours", { credentials: "include" });
@@ -176,22 +182,23 @@ export default function HoursWidget() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Editor column */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3">
             <Card>
-              <CardContent className="p-5 space-y-4">
-                <h2 className="text-sm font-semibold text-gray-900">Weekly hours</h2>
-                <div>
-                  <label className={labelClass} htmlFor="hours-tz">Timezone</label>
-                  <input
+              <CardContent className="p-5 space-y-3">
+                <FieldGroupHeader
+                  title="Weekly hours"
+                  help="Tick the days you're open and pick opening + closing times. The widget shows your live status using the timezone below."
+                />
+                <div className="space-y-0.5">
+                  <TitleInField
                     id="hours-tz"
-                    className={inputClass}
+                    label="Timezone"
                     value={hours.tz ?? ""}
-                    onChange={(e) => setHours({ ...hours, tz: e.target.value })}
+                    onChange={(v) => setHours({ ...hours, tz: v })}
                     placeholder="America/Toronto"
+                    help="IANA timezone string, e.g. America/Toronto or Europe/London."
                   />
-                </div>
 
-                <div className="space-y-2">
                   {DAYS.map(({ key, label }) => {
                     const d = hours[key] ?? { open: false };
                     return (
@@ -207,17 +214,19 @@ export default function HoursWidget() {
                         </label>
                         <input
                           type="time"
+                          aria-label={`${label} opens`}
                           disabled={!d.open}
                           value={d.opens ?? "09:00"}
                           onChange={(e) => setDay(key, { opens: e.target.value })}
-                          className={cn(inputClass, "flex-1 disabled:opacity-50")}
+                          className={cn(timeInputClass, "flex-1 disabled:opacity-50")}
                         />
                         <input
                           type="time"
+                          aria-label={`${label} closes`}
                           disabled={!d.open}
                           value={d.closes ?? "17:00"}
                           onChange={(e) => setDay(key, { closes: e.target.value })}
-                          className={cn(inputClass, "flex-1 disabled:opacity-50")}
+                          className={cn(timeInputClass, "flex-1 disabled:opacity-50")}
                         />
                       </div>
                     );
@@ -228,12 +237,15 @@ export default function HoursWidget() {
 
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Special hours (holidays)</h2>
-                <p className="text-xs text-gray-600">Override a specific date — mark closed, or set custom opens/closes.</p>
-                <div className="flex gap-2">
+                <FieldGroupHeader
+                  title="Special hours (holidays)"
+                  help="Override a specific date — mark it closed, or set custom open/close times. The widget will show the special hours on that day only."
+                />
+                <div className="flex gap-1.5">
                   <input
                     type="date"
-                    className={inputClass}
+                    aria-label="New special day date"
+                    className={timeInputClass}
                     value={newSpecialDate}
                     onChange={(e) => setNewSpecialDate(e.target.value)}
                   />
@@ -242,7 +254,7 @@ export default function HoursWidget() {
                   </Button>
                 </div>
                 {special.length > 0 && (
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-0.5">
                     {special.map((s, i) => (
                       <li key={s.date} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-gray-50 text-xs">
                         <span className="font-medium text-gray-700 w-24">{s.date}</span>
@@ -263,6 +275,7 @@ export default function HoursWidget() {
                           <>
                             <input
                               type="time"
+                              aria-label={`${s.date} opens`}
                               value={s.opens ?? "09:00"}
                               onChange={(e) => {
                                 const copy = [...special];
@@ -273,6 +286,7 @@ export default function HoursWidget() {
                             />
                             <input
                               type="time"
+                              aria-label={`${s.date} closes`}
                               value={s.closes ?? "17:00"}
                               onChange={(e) => {
                                 const copy = [...special];
@@ -299,6 +313,8 @@ export default function HoursWidget() {
             </Card>
 
             <div className="flex justify-end">
+              {/* DS rule 4 — single .btn-primary-premium per page: the
+                  primary action is persisting the hours edit. */}
               <Button
                 type="button"
                 onClick={() => saveMut.mutate()}
@@ -313,23 +329,24 @@ export default function HoursWidget() {
           </div>
 
           {/* Snippet + preview */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-3">
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Live preview</h2>
-                <div>
-                  <label className={labelClass} htmlFor="hours-variant">Display variant</label>
-                  <select
-                    id="hours-variant"
-                    className={inputClass}
-                    value={variant}
-                    onChange={(e) => setVariant(e.target.value as Variant)}
-                  >
-                    <option value="badge">Badge only ("Open now")</option>
-                    <option value="table">Weekly table only</option>
-                    <option value="both">Both (badge + table)</option>
-                  </select>
-                </div>
+                <FieldGroupHeader
+                  title="Live preview"
+                  help="Real render of the chosen display variant. Use the picker below to switch between badge, table, or both."
+                />
+                <TitleInFieldSelect
+                  id="hours-variant"
+                  label="Display variant"
+                  value={variant}
+                  onChange={(v) => setVariant(v as Variant)}
+                  help="Badge = compact 'Open now' chip. Table = full weekly schedule. Both stacks them."
+                >
+                  <option value="badge">Badge only ("Open now")</option>
+                  <option value="table">Weekly table only</option>
+                  <option value="both">Both (badge + table)</option>
+                </TitleInFieldSelect>
                 {widgetToken && (
                   <iframe
                     key={previewKey}
@@ -343,18 +360,23 @@ export default function HoursWidget() {
 
             <Card>
               <CardContent className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-900">Embed snippet</h2>
-                  <Button
-                    type="button"
-                    onClick={handleCopy}
-                    className="btn-primary-premium"
-                    disabled={!widgetToken}
-                    data-testid="hours-copy-snippet"
-                  >
-                    {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy</>}
-                  </Button>
-                </div>
+                <FieldGroupHeader
+                  title="Embed snippet"
+                  help="Paste this once anywhere in your site. The variant attribute matches the picker above."
+                  right={
+                    /* Secondary CTA — Save hours owns the premium accent. */
+                    <Button
+                      type="button"
+                      onClick={handleCopy}
+                      variant="outline"
+                      size="sm"
+                      disabled={!widgetToken}
+                      data-testid="hours-copy-snippet"
+                    >
+                      {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy</>}
+                    </Button>
+                  }
+                />
                 <pre className="text-xs bg-slate-50 text-gray-800 p-3 rounded-md overflow-x-auto border border-gray-200">
                   <code>{snippet}</code>
                 </pre>

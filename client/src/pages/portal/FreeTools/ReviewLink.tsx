@@ -16,12 +16,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/utils";
+import {
+  FieldGroupHeader,
+  TitleInField,
+  TitleInFieldSelect,
+} from "./_shared";
 
 /**
  * Review Link funnel — free-tools batch 2.
  *
  * /r/{slug} sends customers to a star-rating gate. Above the threshold they
  * go to Google / Facebook / Yelp; below it they leave private feedback.
+ *
+ * DS compliance (PR #692 audit): title-in-field + top-left help cue + 2px
+ * input-cluster gaps + single .btn-primary-premium (Save changes).
  */
 
 interface ReviewLinkResponse {
@@ -50,16 +58,12 @@ interface StatsResponse {
   stars: Record<string, number>;
 }
 
-const labelClass = "block text-xs font-medium text-gray-600 mb-1";
-const inputClass =
-  "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
-
 export default function ReviewLink() {
   usePageTitle("Review Link");
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery<ReviewLinkResponse>({
+  const { data } = useQuery<ReviewLinkResponse>({
     queryKey: ["/api/portal/free-tools/review-link"],
     queryFn: async () => {
       const r = await fetch("/api/portal/free-tools/review-link", { credentials: "include" });
@@ -239,78 +243,64 @@ export default function ReviewLink() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Editor */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3">
             <Card>
-              <CardContent className="p-5 space-y-4">
-                <h2 className="text-sm font-semibold text-gray-900">Link settings</h2>
+              <CardContent className="p-5 space-y-3">
+                <FieldGroupHeader
+                  title="Link settings"
+                  help="The slug becomes /r/your-slug on your public review link. Set at least one external review URL (Google is recommended) and a star threshold for routing."
+                />
 
-                <div>
-                  <label className={labelClass} htmlFor="rl-slug">Link slug</label>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-gray-500 whitespace-nowrap">wefixtrades.com/r/</span>
-                    <input
-                      id="rl-slug"
-                      className={inputClass}
-                      value={slug}
-                      onChange={(e) => setSlug(e.target.value.toLowerCase())}
-                      placeholder="your-business"
-                    />
-                  </div>
-                  <p className="text-[11px] text-gray-500 mt-1">Lowercase letters, digits, dashes (2-42 chars).</p>
-                </div>
-
-                <div>
-                  <label className={labelClass} htmlFor="rl-google">Google review URL</label>
-                  <input
-                    id="rl-google"
-                    className={inputClass}
-                    value={googleUrl}
-                    onChange={(e) => setGoogleUrl(e.target.value)}
-                    placeholder="https://search.google.com/local/writereview?placeid=..."
+                <div className="space-y-0.5">
+                  <TitleInField
+                    id="rl-slug"
+                    label="Link slug"
+                    value={slug}
+                    onChange={(v) => setSlug(v.toLowerCase())}
+                    placeholder="your-business"
+                    required
+                    help="Lowercase letters, digits, dashes (2-42 chars). Becomes /r/<slug>."
                   />
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="rl-fb">Facebook review URL</label>
-                  <input
+                  <TitleInField
+                    id="rl-google"
+                    label="Google review URL"
+                    value={googleUrl}
+                    onChange={setGoogleUrl}
+                    placeholder="https://search.google.com/local/writereview?placeid=..."
+                    help="Direct 'Write a review' link from your Google Business Profile."
+                  />
+                  <TitleInField
                     id="rl-fb"
-                    className={inputClass}
+                    label="Facebook review URL"
                     value={facebookUrl}
-                    onChange={(e) => setFacebookUrl(e.target.value)}
+                    onChange={setFacebookUrl}
                     placeholder="https://www.facebook.com/yourpage/reviews"
                   />
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="rl-yelp">Yelp review URL</label>
-                  <input
+                  <TitleInField
                     id="rl-yelp"
-                    className={inputClass}
+                    label="Yelp review URL"
                     value={yelpUrl}
-                    onChange={(e) => setYelpUrl(e.target.value)}
+                    onChange={setYelpUrl}
                     placeholder="https://www.yelp.com/writeareview/biz/..."
                   />
-                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass} htmlFor="rl-threshold">Star threshold</label>
-                    <select
+                  <div className="grid grid-cols-2 gap-0.5">
+                    <TitleInFieldSelect
                       id="rl-threshold"
-                      className={inputClass}
+                      label="Star threshold"
                       value={threshold}
-                      onChange={(e) => setThreshold(Number(e.target.value))}
+                      onChange={(v) => setThreshold(Number(v))}
+                      help="Ratings at or above this go straight to your public review site. Below it lands in private feedback."
                     >
                       {[3, 4, 5].map((n) => (
                         <option key={n} value={n}>≥ {n} stars → external review</option>
                       ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelClass} htmlFor="rl-heading">Custom heading (optional)</label>
-                    <input
+                    </TitleInFieldSelect>
+                    <TitleInField
                       id="rl-heading"
-                      className={inputClass}
+                      label="Custom heading (optional)"
                       value={heading}
-                      onChange={(e) => setHeading(e.target.value)}
+                      onChange={setHeading}
                       placeholder="How was your experience?"
                     />
                   </div>
@@ -319,6 +309,7 @@ export default function ReviewLink() {
             </Card>
 
             <div className="flex justify-end">
+              {/* DS rule 4 — single .btn-primary-premium per page: Save. */}
               <Button
                 type="button"
                 onClick={() => saveMut.mutate()}
@@ -334,13 +325,16 @@ export default function ReviewLink() {
             {/* Feedback inbox */}
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Private feedback inbox</h2>
+                <FieldGroupHeader
+                  title="Private feedback inbox"
+                  help="Below-threshold ratings + freeform notes land here. They never go public — use them to follow up before the customer escalates."
+                />
                 {feedbackQuery.isLoading ? (
                   <p className="text-xs text-gray-500">Loading…</p>
                 ) : !feedbackQuery.data?.items.length ? (
                   <p className="text-xs text-gray-500">No private feedback yet. When unhappy customers fill the form, you'll see their notes here.</p>
                 ) : (
-                  <ul className="space-y-2.5">
+                  <ul className="space-y-2">
                     {feedbackQuery.data.items.map((row) => (
                       <li key={row.id} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
                         <div className="flex items-center gap-2 mb-1.5">
@@ -365,10 +359,13 @@ export default function ReviewLink() {
           </div>
 
           {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-3">
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Your public link</h2>
+                <FieldGroupHeader
+                  title="Your public link"
+                  help="Hand this URL to customers — print it, text it, or stick it on an invoice."
+                />
                 <pre className="text-xs bg-slate-50 text-gray-800 p-3 rounded-md overflow-x-auto border border-gray-200">
                   <code>{publicUrl}</code>
                 </pre>
@@ -376,7 +373,8 @@ export default function ReviewLink() {
                   type="button"
                   onClick={handleCopy}
                   disabled={!slug}
-                  className="btn-primary-premium w-full"
+                  variant="outline"
+                  className="w-full"
                   data-testid="review-link-copy"
                 >
                   {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy link</>}
@@ -386,7 +384,10 @@ export default function ReviewLink() {
 
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Printable QR card</h2>
+                <FieldGroupHeader
+                  title="Printable QR card"
+                  help="Business-card-sized PDF with a QR pointing at your /r/ link. Hand it to customers after every job for the highest review-conversion rates."
+                />
                 <p className="text-xs text-gray-600">
                   Business-card-sized PDF (3.5×2 in) with your name and a QR
                   that links to <code>/r/{slug || "your-slug"}</code>. Hand them
