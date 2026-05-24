@@ -62,6 +62,7 @@ import { runCalculatorAnalyticsRollup } from "./calculatorAnalyticsRollupWorker"
 import { runSharedFilesRetentionSweep } from "./sharedFilesRetentionSweepWorker";
 import { processInvoiceOverdue } from "./invoiceOverdueWorker";
 import { runBingIndexingTick } from "../cron/seoIndexing";
+import { runDailyDigest } from "../cron/dailyDigest";
 
 const log = createLogger("Scheduler");
 
@@ -967,6 +968,21 @@ export function initScheduler() {
       log.error("business_operator cron handler error", { error: err.message });
     } finally {
       businessOperatorRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Daily monitoring digest — 08:13 UTC every day (= 04:13 AM Toronto / EDT).
+  // Off-minute (13) so it doesn't pile on top of other on-the-hour crons.
+  // Builds GSC + Bing + GA4 + healthz + recent-activity recap and emails Alex
+  // (or writes to a tmp HTML file if SMTP isn't wired). Each source is
+  // fault-tolerant — a missing integration just renders "Not configured"
+  // instead of failing the whole digest.
+  cron.schedule("13 8 * * *", async () => {
+    log.info("Running daily monitoring digest...");
+    try {
+      await runJob("daily_monitoring_digest", runDailyDigest);
+    } catch (err: any) {
+      log.error("daily_monitoring_digest cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 
