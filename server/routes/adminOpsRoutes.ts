@@ -354,6 +354,7 @@ export function registerAdminOpsRoutes(app: Express): void {
     { name: "TradeLine Mode Sync", job_name: "tradeline_mode_sync", schedule: "*/5 * * * *", interval_minutes: 5 },
     { name: "TradeLine Retry", job_name: "tradeline_retry", schedule: "*/15 * * * *", interval_minutes: 15 },
     { name: "Vapi Recording Mirror", job_name: "vapi_recording_mirror", schedule: "47 */2 * * *", interval_minutes: 120 },
+    { name: "Vapi Assistant Health Check", job_name: "vapi_assistant_health_check", schedule: "15 9 * * *", interval_minutes: 1440 },
 
     /* MapGuard GBP automation */
     { name: "MapGuard Post Fan-out", job_name: "mapguard_post_fanout", schedule: "0 3 1 * *", interval_minutes: 43200 },
@@ -527,6 +528,7 @@ export function registerAdminOpsRoutes(app: Express): void {
     tradeline_provision_retry:    () => import("../jobs/tradelineProvisionRetryWorker").then(m => m.processTradelineProvisionRetry),
     tradeline_mode_sync:          () => import("../jobs/tradelineModeWorker").then(m => m.processTradeLineModeSync),
     tradeline_retry:              () => import("../jobs/tradelineRetryWorker").then(m => m.processTradeLineRetries),
+    vapi_assistant_health_check:  () => import("../jobs/vapiAssistantHealthCheck").then(m => m.runVapiAssistantHealthCheck),
 
     mapguard_post_drain:          () => import("../jobs/mapguardPostDrainer").then(m => m.processMapguardPostDrain),
 

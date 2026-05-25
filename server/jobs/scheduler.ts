@@ -72,6 +72,7 @@ import {
   runHoursSyncTick as runGbpHoursSyncTick,
 } from "../cron/gbpAutomation";
 import { runVapiRecordingMirrorTick } from "../cron/vapiRecordingMirror";
+import { runVapiAssistantHealthCheck } from "./vapiAssistantHealthCheck";
 
 const log = createLogger("Scheduler");
 
@@ -1137,6 +1138,20 @@ export function initScheduler() {
       log.error("learning_candidate_sweep cron handler error", { error: err.message });
     } finally {
       learningSweepRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Vapi assistant provisioning health check — 09:15 UTC daily. Counts
+  // assistants tagged metadata.source="tradeline_template_engine" on Vapi
+  // and alerts when zero are live while the DB carries at least one
+  // active TradeLine subscription. Surfaces silent provisioning failures
+  // (the failure mode flagged in the 2026-05-25 AI-infrastructure audit
+  // and previously root-caused to a missing custom-llm model field).
+  cron.schedule("15 9 * * *", async () => {
+    try {
+      await runJob("vapi_assistant_health_check", runVapiAssistantHealthCheck);
+    } catch (err: any) {
+      log.error("vapi_assistant_health_check cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 
