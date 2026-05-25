@@ -259,7 +259,15 @@ export default function AdminAiActivityPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(data?.all_playbooks ?? []).map((pb) => {
+              {(data?.all_playbooks ?? []).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+                    <ShieldAlert className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-700 mb-0.5">No AI playbooks registered</p>
+                    <p className="text-xs">Playbooks appear here once the AI agent surfaces them for auto-execute review.</p>
+                  </TableCell>
+                </TableRow>
+              ) : (data?.all_playbooks ?? []).map((pb) => {
                 const state = data?.playbooks.find((p) => p.playbook === pb);
                 const approvals = state?.consecutive_approvals ?? 0;
                 const unlocked = approvals >= UNLOCK_THRESHOLD;
@@ -400,8 +408,10 @@ export default function AdminAiActivityPage() {
               ))}
               {history.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
-                    No history rows.
+                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                    <RotateCw className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-700 mb-0.5">No AI actions logged yet</p>
+                    <p className="text-xs">Approvals, rejections, and auto-executed actions will appear here.</p>
                   </TableCell>
                 </TableRow>
               )}

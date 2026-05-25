@@ -592,23 +592,33 @@ export default function SuppliersPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {supplierDetail.tasks.map((t) => (
-                          <TableRow key={t.id}>
-                            <TableCell className="font-medium text-sm">{t.title}</TableCell>
-                            <TableCell>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TASK_STATUS_COLORS[t.status] || "bg-gray-100 text-gray-600"}`}>
-                                {t.status.replace(/_/g, " ")}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-sm capitalize">{t.priority}</TableCell>
-                            <TableCell className="text-xs text-gray-500">
-                              {new Date(t.created_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-xs text-gray-500">
-                              {t.completed_at ? new Date(t.completed_at).toLocaleDateString() : "-"}
+                        {supplierDetail.tasks.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                              <ListTodo className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                              <p className="text-sm font-medium text-gray-700 mb-0.5">No tasks assigned</p>
+                              <p className="text-xs text-gray-500">Tasks assigned to this supplier will appear here.</p>
                             </TableCell>
                           </TableRow>
-                        ))}
+                        ) : (
+                          supplierDetail.tasks.map((t) => (
+                            <TableRow key={t.id}>
+                              <TableCell className="font-medium text-sm">{t.title}</TableCell>
+                              <TableCell>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TASK_STATUS_COLORS[t.status] || "bg-gray-100 text-gray-600"}`}>
+                                  {t.status.replace(/_/g, " ")}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-sm capitalize">{t.priority}</TableCell>
+                              <TableCell className="text-xs text-gray-500">
+                                {new Date(t.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell className="text-xs text-gray-500">
+                                {t.completed_at ? new Date(t.completed_at).toLocaleDateString() : "-"}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   )}

@@ -395,7 +395,15 @@ export default function MapguardDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((c) => (
+                {filteredClients.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-10 text-gray-500">
+                      <MapPin className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-gray-700 mb-0.5">No MapGuard clients match</p>
+                      <p className="text-xs text-gray-500">Adjust the filter or onboard a client to MapGuard to see local-presence health here.</p>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredClients.map((c) => (
                   <TableRow key={c.client_id} className="hover:bg-gray-50">
                     <TableCell>
                       <Link href={`/admin/crm/clients/${c.client_id}`}>

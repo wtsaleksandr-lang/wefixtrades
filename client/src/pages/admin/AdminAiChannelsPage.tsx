@@ -150,7 +150,15 @@ export default function AdminAiChannelsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(data?.gates || []).map((row) => {
+                {(data?.gates || []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                      <Radio className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-gray-700 mb-0.5">No AI channels configured</p>
+                      <p className="text-xs text-gray-500">Channel gates appear here once the AI channels migration has run.</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (data?.gates || []).map((row) => {
                   const meta = CHANNEL_META[row.channel] || {
                     label: row.channel,
                     icon: Radio,
