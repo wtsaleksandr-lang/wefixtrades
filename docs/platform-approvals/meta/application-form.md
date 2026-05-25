@@ -51,6 +51,7 @@ Sourced from `server/services/socialSync/facebookService.ts`:
 - [ ] `pages_read_engagement` — read post insights for the monthly performance report.
 - [ ] `pages_manage_posts` — publish, edit, and delete posts on the selected page.
 - [ ] `pages_read_user_content` — read existing posts to detect duplicate scheduling.
+- [ ] `pages_manage_metadata` — edit Page name / About / category from the portal "Page Settings" tab.
 - [ ] `instagram_basic` — discover Instagram Business accounts linked to the page.
 - [ ] `instagram_content_publish` — publish photo posts to the linked Instagram Business account.
 
