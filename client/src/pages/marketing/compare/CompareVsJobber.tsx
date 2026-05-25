@@ -27,6 +27,12 @@ export default function CompareVsJobber() {
         "field service software for trades",
       ]}
       publishedDate={PUBLISHED}
+      productsMentioned={[
+        { label: "MapGuard", href: "/products/mapguard" },
+        { label: "ContentFlow", href: "/products/contentflow" },
+        { label: "TradeLine", href: "/products/tradeline" },
+        { label: "ReputationShield", href: "/products/reputationshield" },
+      ]}
       heroHeadline={
         <>
           WeFixTrades vs Jobber:

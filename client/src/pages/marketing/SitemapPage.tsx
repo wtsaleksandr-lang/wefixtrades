@@ -53,7 +53,7 @@ const SECTIONS: SitemapSection[] = [
       { href: "/products/sitelaunch", label: "SiteLaunch" },
       { href: "/products/webfix", label: "WebFix" },
       { href: "/products/adflow", label: "AdFlow" },
-      { href: "/products/bookflow", label: "BookFlow" },
+      { href: "/citation-builder", label: "Citation Builder (One-time)" },
       { href: "/citation-tracker", label: "Citation Tracker (Subscription)" },
     ],
   },

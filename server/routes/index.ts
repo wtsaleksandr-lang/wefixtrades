@@ -26,6 +26,8 @@ import { registerInboundEmailRoutes } from "./inboundEmailRoutes";
 import { registerFounderNotifyRoutes } from "./founderNotifyRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
 import { registerCitationTrackerRoutes } from "./citationTrackerRoutes";
+import { registerCitationBuilderRoutes } from "./citationBuilderRoutes";
+import { registerFullAuditRoutes } from "./fullAuditRoutes";
 import { registerWidgetDepositRoutes } from "./widgetDepositRoutes";
 import { registerBillingPortalRoute } from "./billingPortalRoute";
 import { registerEmailTrackingRoutes } from "./emailTrackingRoutes";
@@ -158,6 +160,8 @@ export async function registerRoutes(
   registerAdminAiChannelGatesRoutes(app);
   registerStripeBillingRoutes(app);
   registerCitationTrackerRoutes(app);
+  registerCitationBuilderRoutes(app);
+  registerFullAuditRoutes(app);
   registerWidgetDepositRoutes(app);
   registerBillingPortalRoute(app);
   registerEmailTrackingRoutes(app);

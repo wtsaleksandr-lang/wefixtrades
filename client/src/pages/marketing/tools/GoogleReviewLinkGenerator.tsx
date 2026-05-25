@@ -13,7 +13,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import FreeToolLayout from "@/components/marketing/FreeToolLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
-import { Copy, CheckCircle2, AlertCircle } from "lucide-react";
+import { Copy, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
 
 const TOOL_PATH = "/tools/google-review-link-generator";
 
@@ -371,6 +371,48 @@ export default function GoogleReviewLinkGenerator() {
               <div style={{ color: "rgba(0,0,0,0.62)" }}>{item.answer}</div>
             </div>
           ))}
+        </div>
+
+        {/* Wave 3.5 — ReputationShield cross-link. Matches the style of
+            LocalRankGrid.tsx → MapGuard upsell box so the visual language
+            is consistent across free-tool surfaces. */}
+        <div
+          style={{
+            marginTop: 24,
+            padding: "16px 18px",
+            borderRadius: 14,
+            background: "linear-gradient(135deg, rgba(13,60,252,0.06), rgba(13,60,252,0.02))",
+            border: "1px solid rgba(13,60,252,0.18)",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0d3cfc", marginBottom: 4 }}>
+            Automate review requests
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 6 }}>
+            Want to automate review requests after every job?
+          </div>
+          <div style={{ fontSize: 13, color: "rgba(0,0,0,0.62)", marginBottom: 10, lineHeight: 1.55 }}>
+            ReputationShield sends this review link via SMS + email to every customer
+            automatically once a job is marked complete — then nudges them again if
+            they forget. From $79/mo.
+          </div>
+          <a
+            href="/products/reputationshield"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "#0d3cfc",
+              color: "rgb(255,255,255)",
+              padding: "8px 14px",
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            See ReputationShield <ArrowRight size={14} />
+          </a>
         </div>
       </FreeToolLayout>
     </MarketingLayout>

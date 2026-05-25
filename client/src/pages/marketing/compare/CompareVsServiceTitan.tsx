@@ -29,6 +29,12 @@ export default function CompareVsServiceTitan() {
         "small business FSM alternative",
       ]}
       publishedDate={PUBLISHED}
+      productsMentioned={[
+        { label: "MapGuard", href: "/products/mapguard" },
+        { label: "ContentFlow", href: "/products/contentflow" },
+        { label: "TradeLine", href: "/products/tradeline" },
+        { label: "ReputationShield", href: "/products/reputationshield" },
+      ]}
       heroHeadline={
         <>
           WeFixTrades vs ServiceTitan:
