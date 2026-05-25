@@ -2,8 +2,28 @@ import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 import { generateEmailId, injectTracking } from "./emailTracking";
 import { createLogger } from "./logger";
+import {
+  sendEmailViaOrchestrator,
+  type EmailCategory,
+} from "./emailOrchestrator";
 
 const log = createLogger("EmailTransport");
+
+/**
+ * Master kill switch for the multi-provider orchestrator. When set to
+ * `"true"` (any case), every call to `transporter.sendMail()` flows through
+ * `sendEmailViaOrchestrator()` — which routes to Resend → Brevo →
+ * MailerLite → AWS SES → SendGrid based on category. When unset or
+ * `"false"`, the legacy SMTP-via-SendGrid path is used and nothing
+ * changes for callers.
+ *
+ * This single env-var flag lets us roll out provider rotation gradually
+ * (one provider at a time gets a Doppler key set) and snap back to
+ * SendGrid-only on a moment's notice if a vendor outage hits.
+ */
+function orchestratorEnabled(): boolean {
+  return String(process.env.EMAIL_ORCHESTRATOR_ENABLED || "").toLowerCase() === "true";
+}
 
 /**
  * Marker URL fragment that buildLegalFooter() emits when called with
@@ -14,6 +34,24 @@ const log = createLogger("EmailTransport");
  * flagged as spam.
  */
 const UNSUBSCRIBE_URL_FRAGMENT = "/api/unsubscribe/";
+
+/**
+ * Heuristic category classifier for legacy callers that don't pass an
+ * explicit `category` field on `sendMail()`. The orchestrator routes
+ * marketing vs transactional vs cold_outreach down different provider
+ * chains; callers can override by setting `mailOpts.category` directly,
+ * but most existing call sites won't.
+ *
+ * Marker: the unsubscribe-link fragment that `buildLegalFooter()` emits
+ * with `marketing: true` is our strongest marketing signal. Cold outreach
+ * is rare and currently always explicitly tagged.
+ */
+function inferCategory(mailOpts: any): EmailCategory {
+  if (mailOpts.category) return mailOpts.category as EmailCategory;
+  const html = typeof mailOpts.html === "string" ? mailOpts.html : "";
+  if (html.includes(UNSUBSCRIBE_URL_FRAGMENT)) return "marketing";
+  return "transactional";
+}
 
 /**
  * Extracts the absolute unsubscribe URL embedded in the email footer (if
@@ -73,6 +111,60 @@ export function getEmailTransporter(): Transporter | null {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
+
+  // ── Orchestrator-only mode ──
+  // When SMTP is not configured but the orchestrator IS enabled, return
+  // a stub transporter whose only job is to forward to
+  // sendEmailViaOrchestrator(). This lets us drop SendGrid SMTP entirely
+  // once Resend/Brevo are providing reliable transactional volume.
+  if ((!host || !user || !pass) && orchestratorEnabled()) {
+    const stub = nodemailer.createTransport({ jsonTransport: true });
+    const origStubSend = stub.sendMail.bind(stub);
+    stub.sendMail = (async (mailOpts: any) => {
+      const emailId = generateEmailId();
+      const baseUrl = process.env.APP_URL
+        || process.env.APP_PUBLIC_URL
+        || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
+      let trackedHtml = mailOpts.html;
+      try {
+        trackedHtml = mailOpts.html ? injectTracking(mailOpts.html, { emailId, baseUrl }) : mailOpts.html;
+      } catch {
+        /* tracking is best-effort */
+      }
+      const recipients = Array.isArray(mailOpts.to) ? mailOpts.to : [mailOpts.to];
+      const result = await sendEmailViaOrchestrator({
+        to: recipients,
+        from: typeof mailOpts.from === "string" ? mailOpts.from : `${mailOpts.from?.name || ""} <${mailOpts.from?.address}>`.trim(),
+        subject: mailOpts.subject,
+        html: trackedHtml,
+        text: mailOpts.text,
+        replyTo: typeof mailOpts.replyTo === "string" ? mailOpts.replyTo : mailOpts.replyTo?.address,
+        headers: { ...(mailOpts.headers || {}), "X-WeFixTrades-Email-Id": emailId },
+        attachments: Array.isArray(mailOpts.attachments)
+          ? mailOpts.attachments
+              .filter((a: any) => a?.content && Buffer.isBuffer(a.content))
+              .map((a: any) => ({ filename: a.filename, content: a.content }))
+          : undefined,
+        category: (mailOpts.category as any) ||
+          (typeof mailOpts.html === "string" && mailOpts.html.includes(UNSUBSCRIBE_URL_FRAGMENT)
+            ? "marketing"
+            : "transactional"),
+      });
+      return {
+        messageId: result.messageId,
+        accepted: recipients,
+        rejected: [],
+        response: `250 OK via=${result.providerUsed}`,
+        envelope: { from: mailOpts.from, to: recipients },
+      } as any;
+    }) as typeof stub.sendMail;
+    // Suppress unused-var warning for origStubSend (kept for nodemailer
+    // typing parity — same shape we use in the SMTP path above).
+    void origStubSend;
+    cached = stub;
+    return cached;
+  }
+
   if (!host || !user || !pass) return null;
 
   const port = parseInt(process.env.SMTP_PORT || "587", 10);
@@ -138,6 +230,42 @@ export function getEmailTransporter(): Transporter | null {
       };
 
       log.info(`[email-tracking] sent email_id=${emailId} to=${mailOpts.to}`);
+
+      // ── Orchestrator routing ──
+      // When the multi-provider orchestrator is enabled, hand off to it
+      // instead of the SendGrid SMTP transporter. The orchestrator
+      // picks Resend / Brevo / MailerLite / AWS SES based on category
+      // and free-tier budget, falling back to SendGrid only as
+      // overflow. We still emit the email_id header + tracking so
+      // webhooks reconcile cleanly regardless of which provider sent.
+      if (orchestratorEnabled()) {
+        const recipients = Array.isArray(mailOpts.to) ? mailOpts.to : [mailOpts.to];
+        const result = await sendEmailViaOrchestrator({
+          to: recipients,
+          from: typeof mailOpts.from === "string" ? mailOpts.from : `${mailOpts.from?.name || ""} <${mailOpts.from?.address}>`.trim(),
+          subject: mailOpts.subject,
+          html: trackedHtml,
+          text: mailOpts.text,
+          replyTo: typeof mailOpts.replyTo === "string" ? mailOpts.replyTo : mailOpts.replyTo?.address,
+          headers,
+          attachments: Array.isArray(mailOpts.attachments)
+            ? mailOpts.attachments
+                .filter((a: any) => a?.content && Buffer.isBuffer(a.content))
+                .map((a: any) => ({ filename: a.filename, content: a.content }))
+            : undefined,
+          category: inferCategory(mailOpts),
+        });
+        // Return a nodemailer-shaped response so callers that inspect
+        // `info.messageId` continue to work transparently.
+        return {
+          messageId: result.messageId,
+          accepted: recipients,
+          rejected: [],
+          response: `250 OK via=${result.providerUsed}`,
+          envelope: { from: mailOpts.from, to: recipients },
+        } as any;
+      }
+
       return await origSendMail(enrichedOpts);
     } catch (injectionErr: any) {
       // Tracking failure must never break sending. Fall back to original.
