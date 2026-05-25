@@ -146,8 +146,6 @@ client/src/pages/marketing/DesignShowcase.tsx:133:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:137:57	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:141:53	rule-c	size={1080}
 client/src/pages/marketing/tools/CitationChecker.tsx:216:40	rule-c	size={11}
-client/src/pages/marketing/tools/LocalSearchChecker.tsx:169:21	rule-c	size={13}
-client/src/pages/marketing/tools/LocalSearchChecker.tsx:210:19	rule-c	size={13}
 client/src/pages/portal/FreeTools/ServiceAreaMap.tsx:242:7	rule-b	<div> contains 3 cues
 client/src/pages/portal/PortalBilling.tsx:167:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBilling.tsx:178:24	rule-c	square w-9 h-9

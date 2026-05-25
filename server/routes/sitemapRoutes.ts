@@ -100,7 +100,12 @@ const STATIC_ROUTES: StaticRoute[] = [
   // "local search results checker", etc.) and funnels into the paid Full
   // Audit. Priority 0.8 — high lead-magnet value, indexed independently.
   { loc: "/tools/google-review-link-generator", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
-  { loc: "/tools/local-search-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // Wave 6E — BrightLocal-parity SERP viewer. Replaces the old
+  // /tools/local-search-checker thin placeholder; the old slug 301s here.
+  { loc: "/tools/local-serp-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // Wave 6F — multi-engine single-business rank snapshot. Distinct from
+  // /tools/local-rank-grid (5x5 geo heatmap).
+  { loc: "/tools/local-rank-tracker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/tools/citation-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/tools/local-rankflux", priority: "0.7", changefreq: "daily", lastmod: "2026-05-25" },
   // Free Tools Wave 2 — Local Rank Grid (single-shot 5x5 geo-grid scan).
