@@ -25,8 +25,17 @@ import { generateContentflowText } from "./aiText";
 import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
 import { buildPerformanceFeedback } from "./performanceTracker";
 import { createLogger } from "../../lib/logger";
+import { writeAudit } from "../../lib/auditLog";
+import {
+  evaluateArticleQuality,
+  loadPriorArticles,
+  type ArticleQualityResult,
+} from "./qualityGate/articleQualityGate";
 
 const log = createLogger("ArticleService");
+
+/** Max generation attempts before we accept the last attempt with a warning. */
+const MAX_GENERATION_ATTEMPTS = 3;
 
 /* ─── Draft creation ─────────────────────────────────────────────────── */
 
@@ -192,12 +201,51 @@ function parseArticleJson(raw: string): ArticleJson | null {
 }
 
 /**
+ * One attempt at AI generation — returns the raw model text and parsed
+ * JSON, or an error string. Cost is recorded on the draft regardless of
+ * whether the gate later accepts the output.
+ */
+async function generateOneArticleAttempt(
+  draftId: number,
+  userPrompt: string,
+): Promise<{ ok: true; parsed: ArticleJson } | { ok: false; error: string }> {
+  let raw: string;
+  try {
+    const gen = await generateContentflowText({
+      system: SYSTEM_PROMPT,
+      user: userPrompt,
+      maxTokens: 2000,
+    });
+    raw = gen.text;
+    storage.addDraftGenerationCost(draftId, gen.costMicroUsd).catch(() => {});
+  } catch (err: any) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+
+  const parsed = parseArticleJson(raw);
+  if (!parsed) {
+    return { ok: false, error: `unparseable model output (len=${raw.length})` };
+  }
+  return { ok: true, parsed };
+}
+
+/**
  * Run the AI generation step for an existing article draft. Always returns a
  * result object — never throws. On failure the draft is left with status='failed'
  * and metadata.generation_status='failed' so admins can re-trigger.
  *
  * Idempotency note: re-running on a draft with body already populated will
  * REGENERATE — that is intentional; admins use this to retry low-quality output.
+ *
+ * Quality gate (P0-3, mirrors SocialSync): after each attempt the parsed
+ * article body is run through `evaluateArticleQuality()` — 3 layers of
+ * banned-phrase rule checks, Jaccard similarity dedup against the last
+ * 20 prior articles for the same client, and an AI self-review score.
+ * On verdict="regenerate" we re-run generation up to MAX_GENERATION_ATTEMPTS
+ * times total. After the cap we accept the LAST attempt with a warning
+ * logged (so a stubborn topic never blocks customer content forever).
+ * Every attempt — pass or fail — writes an `audit_log` row with action
+ * `contentflow.article.quality_check`.
  */
 export async function generateArticleBody(draftId: number): Promise<GenerateArticleResult> {
   const draft = await storage.getContentDraftById(draftId);
@@ -225,39 +273,113 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
     performanceFeedback,
   });
 
-  let raw: string;
-  try {
-    const gen = await generateContentflowText({
-      system: SYSTEM_PROMPT,
-      user: userPrompt,
-      maxTokens: 2000,
+  // Pre-load prior articles ONCE — they're per-client and don't change
+  // between attempts in this loop. Layer 2 uses them; if storage fails
+  // here, layer 2 silently passes (handled inside loadPriorArticles).
+  const priorArticles = await loadPriorArticles(storage as any, draft.client_id, 20);
+  const gateContext = {
+    niche: (meta.niche as string | null) ?? null,
+    location: (meta.location as string | null) ?? null,
+    primaryKeyword: (meta.primary_keyword as string | null) ?? null,
+    brandLayer,
+  };
+
+  let lastAttempt: ArticleJson | null = null;
+  let lastGateResult: ArticleQualityResult | null = null;
+  let lastError: string | null = null;
+  let attemptsUsed = 0;
+
+  for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
+    attemptsUsed = attempt;
+    const result = await generateOneArticleAttempt(draftId, userPrompt);
+
+    if (!result.ok) {
+      lastError = result.error;
+      log.warn(
+        `[contentflow] article generation attempt ${attempt}/${MAX_GENERATION_ATTEMPTS} failed for draft ${draftId}: ${result.error}`,
+      );
+      // Generation-call failure (rotator exhausted, JSON unparseable) —
+      // retry if we have budget; otherwise fail out at the end.
+      continue;
+    }
+
+    lastAttempt = result.parsed;
+    lastError = null;
+
+    // Run the 3-layer quality gate on this attempt's body.
+    const gate = await evaluateArticleQuality({
+      body: result.parsed.body_md,
+      priorArticles,
+      context: gateContext,
     });
-    raw = gen.text;
-    storage.addDraftGenerationCost(draftId, gen.costMicroUsd).catch(() => {});
-  } catch (err: any) {
-    const msg = err?.message || String(err);
-    log.error(`[contentflow] article generation AI call failed for draft ${draftId}: ${msg}`);
-    // Re-read the draft to merge with any concurrent metadata writes
-    // (e.g. wordpress publish) that happened during the AI call.
+    lastGateResult = gate;
+
+    // Audit log this attempt's gate result. Fire-and-forget — never
+    // block the generation path on audit-write failure.
+    writeAudit({
+      actorType: "system",
+      action: "contentflow.article.quality_check",
+      entityType: "content_draft",
+      entityId: String(draftId),
+      metadata: {
+        attempt,
+        max_attempts: MAX_GENERATION_ATTEMPTS,
+        verdict: gate.verdict,
+        final_score: gate.finalScore,
+        passed_layer_1: gate.layer1.passed,
+        passed_layer_2: gate.layer2.passed,
+        passed_layer_3: gate.layer3.passed,
+        attempts_used: attempt,
+        banned_phrases_hit: gate.bannedPhrasesHit,
+        reasons: gate.reasons.slice(0, 10),
+        client_id: draft.client_id,
+        primary_keyword: gateContext.primaryKeyword,
+      },
+    });
+
+    if (gate.verdict === "accept") {
+      log.info(
+        `[contentflow] quality gate accepted draft ${draftId} on attempt ${attempt} (score=${gate.finalScore})`,
+      );
+      break;
+    }
+
+    log.warn(
+      `[contentflow] quality gate rejected draft ${draftId} attempt ${attempt}/${MAX_GENERATION_ATTEMPTS}: ${gate.reasons.slice(0, 3).join("; ")}`,
+    );
+    // Loop continues for next attempt (if budget remains).
+  }
+
+  // If every attempt failed at the generation step (no parseable output
+  // produced), fail the draft so an admin can retry.
+  if (!lastAttempt) {
+    const msg = lastError || "all generation attempts failed";
+    log.error(`[contentflow] article generation exhausted for draft ${draftId}: ${msg}`);
     const fresh = await storage.getContentDraftById(draftId);
     const freshMeta = (fresh?.metadata || meta) as Record<string, any>;
     await storage.updateContentDraft(draftId, {
       status: "failed",
-      metadata: { ...freshMeta, generation_status: "failed", generation_error: msg.slice(0, 500) },
+      metadata: {
+        ...freshMeta,
+        generation_status: "failed",
+        generation_error: msg.slice(0, 500),
+        quality_gate_attempts: attemptsUsed,
+      },
     });
     return { ok: false, error: msg };
   }
 
-  const parsed = parseArticleJson(raw);
-  if (!parsed) {
-    log.error(`[contentflow] article generation produced unparseable output for draft ${draftId}; raw len=${raw.length}`);
-    const fresh = await storage.getContentDraftById(draftId);
-    const freshMeta = (fresh?.metadata || meta) as Record<string, any>;
-    await storage.updateContentDraft(draftId, {
-      status: "failed",
-      metadata: { ...freshMeta, generation_status: "failed", generation_error: "unparseable model output" },
-    });
-    return { ok: false, error: "unparseable model output" };
+  // If we exited the loop with a non-"accept" verdict, we hit the
+  // attempt cap. Per the launch policy we still publish the LAST
+  // attempt — never block customer content forever on a stubborn
+  // topic — but stamp `quality_gate_warning` on the metadata so the
+  // admin UI can surface it.
+  const acceptedAfterCap =
+    lastGateResult !== null && lastGateResult.verdict !== "accept";
+  if (acceptedAfterCap) {
+    log.warn(
+      `[contentflow] draft ${draftId} accepted with warning after ${attemptsUsed} attempts (final_score=${lastGateResult?.finalScore})`,
+    );
   }
 
   // Re-read metadata immediately before write to preserve any concurrent
@@ -274,12 +396,33 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
    * silently change what the admin already signed off on. */
   const adminTouched =
     !!fresh && (fresh.status === "approved" || fresh.status === "published" || fresh.status === "rejected");
+
+  const qualityMeta = lastGateResult
+    ? {
+        quality_gate: {
+          verdict: lastGateResult.verdict,
+          final_score: lastGateResult.finalScore,
+          attempts_used: attemptsUsed,
+          passed_layer_1: lastGateResult.layer1.passed,
+          passed_layer_2: lastGateResult.layer2.passed,
+          passed_layer_3: lastGateResult.layer3.passed,
+          banned_phrases_hit: lastGateResult.bannedPhrasesHit,
+          accepted_with_warning: acceptedAfterCap,
+          reasons: lastGateResult.reasons.slice(0, 10),
+        },
+      }
+    : {};
+
   const updated = await storage.updateContentDraft(draftId, {
-    title: adminTouched ? fresh!.title : parsed.title,
-    excerpt: adminTouched ? fresh!.excerpt : parsed.excerpt,
-    body: adminTouched ? fresh!.body : parsed.body_md,
+    title: adminTouched ? fresh!.title : lastAttempt.title,
+    excerpt: adminTouched ? fresh!.excerpt : lastAttempt.excerpt,
+    body: adminTouched ? fresh!.body : lastAttempt.body_md,
     status: adminTouched ? fresh!.status : "draft",
-    metadata: { ...freshMeta, generation_status: "completed" },
+    quality_score: lastGateResult ? lastGateResult.finalScore : null,
+    quality_notes: lastGateResult
+      ? lastGateResult.reasons.slice(0, 5).join("; ").slice(0, 500) || null
+      : null,
+    metadata: { ...freshMeta, generation_status: "completed", ...qualityMeta },
   });
 
   return { ok: true, draft: updated };
