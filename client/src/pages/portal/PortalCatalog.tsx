@@ -264,7 +264,7 @@ export default function PortalCatalog() {
               {bundles.map((b) => (
                 <div
                   key={b.id}
-                  className={`h-full bg-white rounded-xl border p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow ${
+                  className={`h-full bg-white rounded-xl border p-5 flex flex-col gap-3 ${
                     b.highlighted
                       ? "border-brand-blue/40 ring-1 ring-brand-blue/20"
                       : "border-gray-200"
@@ -334,7 +334,7 @@ export default function PortalCatalog() {
               return (
               <div
                 key={svc.id}
-                className="relative h-full bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow"
+                className="relative h-full bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-3"
                 data-testid={`catalog-card-${svc.id}`}
               >
                 {/* Per-product Lucide icon top-right — sourced from the

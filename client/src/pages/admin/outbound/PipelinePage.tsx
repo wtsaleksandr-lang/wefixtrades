@@ -152,7 +152,7 @@ function OpportunityCard({
   const score = e?.quality_score;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-3 text-sm hover:shadow-sm transition-shadow">
+    <div className="bg-white rounded-lg border border-gray-200 p-3 text-sm">
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium text-gray-900 leading-snug line-clamp-1">{p?.business_name || "Unknown"}</p>
         {score !== null && score !== undefined && (

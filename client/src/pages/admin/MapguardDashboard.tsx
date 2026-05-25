@@ -129,7 +129,7 @@ function StatCard({ label, value, icon: Icon, color }: {
   color: string;
 }) {
   return (
-    <Card className="h-full p-4 hover:shadow-sm transition-shadow cursor-default">
+    <Card className="h-full p-4 cursor-default">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
