@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import PortalChatWidget, { type PortalChatContext } from "./PortalChatWidget";
+import { FirstVisitTooltip } from "./FirstVisitTooltip";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { OnboardingProvider } from "@/context/OnboardingContext";
@@ -343,23 +344,35 @@ export default function PortalLayout({
           </div>
           <div className="flex items-center gap-2">
             {/* AI Copilot trigger — icon + label so users immediately
-                recognise it as the AI assistant, not a plain chat bubble. */}
-            <button
-              type="button"
-              onClick={() => setCopilotOpen((v) => !v)}
-              className={cn(
-                "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-colors",
-                copilotOpen
-                  ? "bg-brand-blue/10 text-brand-blue"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              )}
-              title="AI Copilot — your assistant"
-              aria-pressed={copilotOpen}
-              data-testid="portal-copilot-trigger"
+                recognise it as the AI assistant, not a plain chat bubble.
+                Wrapped in FirstVisitTooltip so new portal users discover the
+                assistant on their first visit. Label is visible at every
+                breakpoint so the affordance is obvious on mobile too. */}
+            <FirstVisitTooltip
+              storageKey="portal-topnav-ai-copilot"
+              title="Meet your AI Copilot"
+              position="bottom"
+              anchor={
+                <button
+                  type="button"
+                  onClick={() => setCopilotOpen((v) => !v)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-colors",
+                    copilotOpen
+                      ? "bg-brand-blue/10 text-brand-blue"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  )}
+                  title="AI Copilot — your assistant"
+                  aria-pressed={copilotOpen}
+                  data-testid="portal-copilot-trigger"
+                >
+                  <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>AI Copilot</span>
+                </button>
+              }
             >
-              <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span className="hidden sm:inline">AI Copilot</span>
-            </button>
+              Ask questions, get help filling out forms, and navigate the portal hands-free.
+            </FirstVisitTooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-brand-blue flex items-center justify-center hover:ring-2 hover:ring-brand-blue/20 transition-shadow">

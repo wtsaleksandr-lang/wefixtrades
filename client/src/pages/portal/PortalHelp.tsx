@@ -93,6 +93,7 @@ function TicketSection() {
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("general");
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: ticketData } = useQuery<{ tickets: TicketRow[] }>({
     queryKey: ["/api/portal/tickets"],
@@ -129,7 +130,11 @@ function TicketSection() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!subject.trim() || !message.trim()) return;
+    if (!subject.trim() || !message.trim()) {
+      setError("Please fill in both subject and message.");
+      return;
+    }
+    setError(null);
     createTicket.mutate();
   }
 
@@ -144,13 +149,25 @@ function TicketSection() {
           <p className="text-xs text-gray-500 mt-0.5">Submit a ticket and we'll get back to you.</p>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          {error && (
+            <div
+              role="alert"
+              data-testid="portal-help-form-error"
+              className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2"
+            >
+              {error}
+            </div>
+          )}
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">
               Subject <span className="text-red-400">*</span>
             </label>
             <input
               value={subject}
-              onChange={(e) => setSubject(e.target.value)}
+              onChange={(e) => {
+                setSubject(e.target.value);
+                if (error) setError(null);
+              }}
               placeholder="e.g. Question about my MapGuard service"
               maxLength={80}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
@@ -175,7 +192,10 @@ function TicketSection() {
             </label>
             <textarea
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => {
+                setMessage(e.target.value);
+                if (error) setError(null);
+              }}
               placeholder="Describe what you need help with..."
               rows={5}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue resize-none"
