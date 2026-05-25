@@ -47,7 +47,7 @@ const PILL_TONES: Record<PillTone, string> = {
   green: "bg-emerald-50 text-emerald-700",
   amber: "bg-amber-50 text-amber-700",
   red: "bg-red-50 text-red-700",
-  gray: "bg-gray-100 text-gray-600",
+  gray: "bg-muted text-muted-foreground",
   cyan: "bg-cyan-50 text-cyan-700",
 };
 function Pill({ children, tone = "blue" }: { children: React.ReactNode; tone?: PillTone }) {
@@ -141,9 +141,9 @@ function TableRowSkeleton({ cols }: { cols: number }) {
 function EmptyState({ title, body }: { title: string; body?: string }) {
   return (
     <div className="text-center py-12 px-4">
-      <Inbox className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-      <p className="text-sm font-medium text-gray-700">{title}</p>
-      {body && <p className="text-xs text-gray-500 mt-1">{body}</p>}
+      <Inbox className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      {body && <p className="text-xs text-muted-foreground mt-1">{body}</p>}
     </div>
   );
 }
@@ -160,8 +160,8 @@ export default function AiDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">AI Operations</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-lg font-semibold text-foreground">AI Operations</h2>
+            <p className="text-sm text-muted-foreground">
               Conversations, usage, cost & topic insight across every AI surface.
             </p>
           </div>
@@ -285,8 +285,8 @@ function VapiStatusPanel() {
     <Card className="p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
         <div className="min-w-0">
-          <h3 className="text-base font-semibold text-gray-900">Vapi Voice Integration</h3>
-          <p className="text-xs text-gray-500 mt-0.5">AI phone assistant powered by the shared assistant core</p>
+          <h3 className="text-base font-semibold text-foreground">Vapi Voice Integration</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">AI phone assistant powered by the shared assistant core</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {data.webDemoReady && <Pill tone="cyan">Web Demo Live</Pill>}
@@ -306,14 +306,14 @@ function VapiStatusPanel() {
               key={key}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
                 val
-                  ? "bg-emerald-50/60 border-emerald-200 text-gray-900"
-                  : "bg-gray-50 border-gray-200 text-gray-500"
+                  ? "bg-emerald-50/60 border-emerald-200 text-foreground"
+                  : "bg-muted/50 border-border text-muted-foreground"
               }`}
             >
               {val ? (
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               ) : (
-                <XCircle className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <XCircle className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
               )}
               <span>{label}</span>
             </div>
@@ -322,31 +322,31 @@ function VapiStatusPanel() {
       </div>
 
       {data.missing && data.missing.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-3 mb-2">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">Still needed</div>
+        <div className="bg-muted/50 rounded-lg p-3 mb-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Still needed</div>
           <ul className="space-y-0.5">
             {data.missing.map((item) => (
-              <li key={item} className="text-xs text-gray-700">&bull; {item}</li>
+              <li key={item} className="text-xs text-foreground">&bull; {item}</li>
             ))}
           </ul>
         </div>
       )}
 
       {data.setupSteps && data.setupSteps.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-3">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">Setup steps</div>
+        <div className="bg-muted/50 rounded-lg p-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Setup steps</div>
           <ol className="space-y-0.5">
             {data.setupSteps.map((step, i) => (
-              <li key={i} className="text-xs text-gray-700">{i + 1}. {step}</li>
+              <li key={i} className="text-xs text-foreground">{i + 1}. {step}</li>
             ))}
           </ol>
         </div>
       )}
 
-      <div className="mt-3 text-[11px] text-gray-500 flex flex-wrap gap-2 items-center">
+      <div className="mt-3 text-[11px] text-muted-foreground flex flex-wrap gap-2 items-center">
         <span>Endpoints:</span>
-        <code className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">/api/vapi/webhook</code>
-        <code className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">/api/vapi/conversation</code>
+        <code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">/api/vapi/webhook</code>
+        <code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">/api/vapi/conversation</code>
       </div>
     </Card>
   );
@@ -384,13 +384,13 @@ function ConversationsTab({ onSelect }: { onSelect: (id: number) => void }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-semibold text-gray-900">Conversations</h3>
+      <h3 className="text-base font-semibold text-foreground">Conversations</h3>
       <FilterBar filters={filters} onChange={(f) => { setFilters(f); setPage(1); }} />
       {error && <ErrorBanner error={error} onRetry={refetch} label="Couldn't load conversations" />}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-muted/50">
               <tr>
                 <Th>Time</Th>
                 <Th>Surface</Th>
@@ -428,14 +428,14 @@ function ConversationsTab({ onSelect }: { onSelect: (id: number) => void }) {
                         onSelect(r.id);
                       }
                     }}
-                    className="border-t border-gray-100 cursor-pointer hover:bg-blue-50/40 focus-visible:outline-none focus-visible:bg-blue-50/60 focus-visible:ring-2 focus-visible:ring-brand-blue/40 transition-colors"
+                    className="border-t border-border cursor-pointer hover:bg-blue-50/40 focus-visible:outline-none focus-visible:bg-blue-50/60 focus-visible:ring-2 focus-visible:ring-brand-blue/40 transition-colors"
                   >
-                    <Td className="whitespace-nowrap text-gray-600 text-xs">{new Date(r.createdAt).toLocaleString()}</Td>
+                    <Td className="whitespace-nowrap text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleString()}</Td>
                     <Td><Pill tone="blue">{r.surface}</Pill></Td>
                     <Td className="hidden md:table-cell"><Pill tone={intentTone(r.primaryIntent)}>{r.primaryIntent}</Pill></Td>
                     <Td className="hidden lg:table-cell"><Pill tone={decisionTone(r.saveDecision)}>{r.saveDecision}</Pill></Td>
-                    <Td className="max-w-[280px] sm:max-w-[360px] truncate text-gray-700">{r.summary}</Td>
-                    <Td className="hidden sm:table-cell text-gray-500">{r.messageCount}</Td>
+                    <Td className="max-w-[280px] sm:max-w-[360px] truncate text-foreground">{r.summary}</Td>
+                    <Td className="hidden sm:table-cell text-muted-foreground">{r.messageCount}</Td>
                   </tr>
                 ))
               )}
@@ -477,7 +477,7 @@ function ConversationDetail({ id, onBack }: { id: number; onBack: () => void }) 
       >
         <ArrowLeft className="w-3.5 h-3.5" /> Back to list
       </button>
-      <h3 className="text-base font-semibold text-gray-900">Conversation Detail</h3>
+      <h3 className="text-base font-semibold text-foreground">Conversation Detail</h3>
 
       {error && <ErrorBanner error={error} onRetry={refetch} label="Couldn't load this conversation" />}
 
@@ -506,26 +506,26 @@ function DetailBody({ data }: { data: ConversationDetailData }) {
           <Meta label="Surface"><Pill tone="blue">{data.surface}</Pill></Meta>
           <Meta label="Intent"><Pill tone={intentTone(data.primary_intent)}>{data.primary_intent}</Pill></Meta>
           <Meta label="Decision"><Pill tone={decisionTone(data.save_decision)}>{data.save_decision}</Pill></Meta>
-          <Meta label="Session"><span className="text-xs text-gray-500 font-mono">{data.session_id?.slice(0, 20)}</span></Meta>
-          {data.report_id && <Meta label="Report"><span className="text-xs text-gray-500 font-mono">{data.report_id.slice(0, 12)}…</span></Meta>}
-          {data.user_id !== undefined && <Meta label="User ID"><span className="text-xs text-gray-700">{data.user_id}</span></Meta>}
-          <Meta label="Messages"><span className="text-sm text-gray-900">{data.message_count}</span></Meta>
-          <Meta label="Cost"><span className="text-sm text-gray-900">{microCentsToDollars(data.estimated_cost_usd || 0)}</span></Meta>
-          <Meta label="Created"><span className="text-xs text-gray-500">{new Date(data.created_at).toLocaleString()}</span></Meta>
+          <Meta label="Session"><span className="text-xs text-muted-foreground font-mono">{data.session_id?.slice(0, 20)}</span></Meta>
+          {data.report_id && <Meta label="Report"><span className="text-xs text-muted-foreground font-mono">{data.report_id.slice(0, 12)}…</span></Meta>}
+          {data.user_id !== undefined && <Meta label="User ID"><span className="text-xs text-foreground">{data.user_id}</span></Meta>}
+          <Meta label="Messages"><span className="text-sm text-foreground">{data.message_count}</span></Meta>
+          <Meta label="Cost"><span className="text-sm text-foreground">{microCentsToDollars(data.estimated_cost_usd || 0)}</span></Meta>
+          <Meta label="Created"><span className="text-xs text-muted-foreground">{new Date(data.created_at).toLocaleString()}</span></Meta>
         </div>
       </Card>
 
       {/* Summary */}
       <Card className="p-4">
         <Meta label="Summary">
-          <p className="text-sm text-gray-800 leading-relaxed mt-1">{data.summary}</p>
+          <p className="text-sm text-foreground leading-relaxed mt-1">{data.summary}</p>
         </Meta>
       </Card>
 
       {data.context_note && (
         <Card className="p-4">
           <Meta label="Context Note">
-            <p className="text-sm text-gray-600 mt-1">{data.context_note}</p>
+            <p className="text-sm text-muted-foreground mt-1">{data.context_note}</p>
           </Meta>
         </Card>
       )}
@@ -538,7 +538,7 @@ function DetailBody({ data }: { data: ConversationDetailData }) {
 
       {messages.length > 0 && (
         <Card className="overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-100 text-sm font-semibold text-gray-900 flex items-center gap-2">
+          <div className="px-4 py-2.5 border-b border-border text-sm font-semibold text-foreground flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-brand-blue" />
             Transcript ({messages.length} messages)
           </div>
@@ -548,12 +548,12 @@ function DetailBody({ data }: { data: ConversationDetailData }) {
                 key={i}
                 className={`px-3 py-2 rounded-lg text-sm leading-relaxed ${
                   m.role === "user"
-                    ? "bg-blue-50 text-gray-800"
-                    : "bg-gray-50 text-gray-800"
+                    ? "bg-blue-50 text-foreground"
+                    : "bg-muted/50 text-foreground"
                 }`}
               >
                 <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${
-                  m.role === "user" ? "text-blue-700" : "text-gray-500"
+                  m.role === "user" ? "text-blue-700" : "text-muted-foreground"
                 }`}>
                   {m.role === "user" ? "User" : "Assistant"}
                 </div>
@@ -570,7 +570,7 @@ function DetailBody({ data }: { data: ConversationDetailData }) {
 function Meta({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">{label}</div>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
       {children}
     </div>
   );
@@ -607,7 +607,7 @@ function UsageTab() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-semibold text-gray-900">Usage Logs</h3>
+      <h3 className="text-base font-semibold text-foreground">Usage Logs</h3>
       <div className="flex flex-wrap gap-2">
         <div className="min-w-[160px]">
           <label htmlFor="usage-surface" className="sr-only">Filter by surface</label>
@@ -644,7 +644,7 @@ function UsageTab() {
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-muted/50">
               <tr>
                 <Th>Time</Th>
                 <Th className="hidden md:table-cell">Model</Th>
@@ -670,9 +670,9 @@ function UsageTab() {
                 </tr>
               ) : (
                 data.rows.map((r) => (
-                  <tr key={r.id} className="border-t border-gray-100">
-                    <Td className="whitespace-nowrap text-xs text-gray-600">{new Date(r.created_at).toLocaleString()}</Td>
-                    <Td className="hidden md:table-cell text-[11px] font-mono text-gray-700">{r.model?.split("-").slice(-1)[0]}</Td>
+                  <tr key={r.id} className="border-t border-border">
+                    <Td className="whitespace-nowrap text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</Td>
+                    <Td className="hidden md:table-cell text-[11px] font-mono text-foreground">{r.model?.split("-").slice(-1)[0]}</Td>
                     <Td><Pill tone="blue">{r.surface}</Pill></Td>
                     <Td>
                       {r.success ? (
@@ -681,10 +681,10 @@ function UsageTab() {
                         <XCircle className="w-4 h-4 text-red-600" aria-label="Failed" />
                       )}
                     </Td>
-                    <Td className="hidden lg:table-cell text-gray-700">{r.input_tokens ?? "—"}</Td>
-                    <Td className="hidden lg:table-cell text-gray-700">{r.output_tokens ?? "—"}</Td>
-                    <Td className="hidden md:table-cell text-gray-700">{r.latency_ms ? `${r.latency_ms}ms` : "—"}</Td>
-                    <Td className="text-gray-700">{r.estimated_cost_usd ? microCentsToDollars(r.estimated_cost_usd) : "—"}</Td>
+                    <Td className="hidden lg:table-cell text-foreground">{r.input_tokens ?? "—"}</Td>
+                    <Td className="hidden lg:table-cell text-foreground">{r.output_tokens ?? "—"}</Td>
+                    <Td className="hidden md:table-cell text-foreground">{r.latency_ms ? `${r.latency_ms}ms` : "—"}</Td>
+                    <Td className="text-foreground">{r.estimated_cost_usd ? microCentsToDollars(r.estimated_cost_usd) : "—"}</Td>
                   </tr>
                 ))
               )}
@@ -736,11 +736,11 @@ function CostTab() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-semibold text-gray-900">Cost Per Day</h3>
+      <h3 className="text-base font-semibold text-foreground">Cost Per Day</h3>
 
       {chartData.length > 1 && (
         <Card className="p-4 sm:p-5">
-          <div className="text-sm font-semibold text-gray-900 mb-3">Daily Cost (USD)</div>
+          <div className="text-sm font-semibold text-foreground mb-3">Daily Cost (USD)</div>
           <div className="w-full h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
@@ -757,12 +757,12 @@ function CostTab() {
 
       {data.bySurface && data.bySurface.length > 0 && (
         <Card className="p-4">
-          <div className="text-sm font-semibold text-gray-900 mb-3">Cost by Surface (last 30 days)</div>
-          <ul className="divide-y divide-gray-100">
+          <div className="text-sm font-semibold text-foreground mb-3">Cost by Surface (last 30 days)</div>
+          <ul className="divide-y divide-border">
             {data.bySurface.map((s) => (
               <li key={s.surface} className="flex items-center justify-between py-2 gap-3 flex-wrap">
                 <Pill tone="blue">{s.surface}</Pill>
-                <span className="text-sm text-gray-700">{s.requests} requests — {microCentsToDollars(s.totalCost)}</span>
+                <span className="text-sm text-foreground">{s.requests} requests — {microCentsToDollars(s.totalCost)}</span>
               </li>
             ))}
           </ul>
@@ -772,7 +772,7 @@ function CostTab() {
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-muted/50">
               <tr>
                 <Th>Date</Th>
                 <Th>Requests</Th>
@@ -788,14 +788,14 @@ function CostTab() {
                 <tr><td colSpan={7}><EmptyState title="No daily totals yet" /></td></tr>
               ) : (
                 (data.daily || []).map((d) => (
-                  <tr key={d.date} className="border-t border-gray-100">
-                    <Td className="text-gray-700 whitespace-nowrap">{d.date}</Td>
-                    <Td className="text-gray-700">{d.requests}</Td>
-                    <Td className="hidden sm:table-cell text-gray-700">{d.successful}</Td>
-                    <Td className="hidden sm:table-cell text-gray-700">{d.failed}</Td>
-                    <Td className="hidden lg:table-cell text-gray-700">{d.totalInputTokens?.toLocaleString()}</Td>
-                    <Td className="hidden lg:table-cell text-gray-700">{d.totalOutputTokens?.toLocaleString()}</Td>
-                    <Td className="text-gray-700">{microCentsToDollars(d.totalCost)}</Td>
+                  <tr key={d.date} className="border-t border-border">
+                    <Td className="text-foreground whitespace-nowrap">{d.date}</Td>
+                    <Td className="text-foreground">{d.requests}</Td>
+                    <Td className="hidden sm:table-cell text-foreground">{d.successful}</Td>
+                    <Td className="hidden sm:table-cell text-foreground">{d.failed}</Td>
+                    <Td className="hidden lg:table-cell text-foreground">{d.totalInputTokens?.toLocaleString()}</Td>
+                    <Td className="hidden lg:table-cell text-foreground">{d.totalOutputTokens?.toLocaleString()}</Td>
+                    <Td className="text-foreground">{microCentsToDollars(d.totalCost)}</Td>
                   </tr>
                 ))
               )}
@@ -833,33 +833,33 @@ function TopicsTab() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-semibold text-gray-900">Top Topics & Intents</h3>
+      <h3 className="text-base font-semibold text-foreground">Top Topics & Intents</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="p-4">
-          <div className="text-sm font-semibold text-gray-900 mb-3">Top Intents</div>
+          <div className="text-sm font-semibold text-foreground mb-3">Top Intents</div>
           {!data.topIntents?.length ? (
             <EmptyState title="No intent data yet" />
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-border">
               {data.topIntents.map((r) => (
                 <li key={r.intent} className="flex items-center justify-between py-2 gap-3 flex-wrap">
                   <Pill tone={intentTone(r.intent)}>{r.intent}</Pill>
-                  <span className="text-sm font-semibold text-gray-800">{r.count}</span>
+                  <span className="text-sm font-semibold text-foreground">{r.count}</span>
                 </li>
               ))}
             </ul>
           )}
         </Card>
         <Card className="p-4">
-          <div className="text-sm font-semibold text-gray-900 mb-3">Top Tags</div>
+          <div className="text-sm font-semibold text-foreground mb-3">Top Tags</div>
           {!data.topTags?.length ? (
             <EmptyState title="No tag data yet" />
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-border">
               {data.topTags.map((r) => (
                 <li key={r.tag} className="flex items-center justify-between py-2 gap-3 flex-wrap">
                   <Pill tone="cyan">{r.tag}</Pill>
-                  <span className="text-sm font-semibold text-gray-800">{r.count}</span>
+                  <span className="text-sm font-semibold text-foreground">{r.count}</span>
                 </li>
               ))}
             </ul>
@@ -868,12 +868,12 @@ function TopicsTab() {
       </div>
       {data.surfaceDistribution && data.surfaceDistribution.length > 0 && (
         <Card className="p-4">
-          <div className="text-sm font-semibold text-gray-900 mb-3">Surface Distribution</div>
-          <ul className="divide-y divide-gray-100">
+          <div className="text-sm font-semibold text-foreground mb-3">Surface Distribution</div>
+          <ul className="divide-y divide-border">
             {data.surfaceDistribution.map((r) => (
               <li key={r.surface} className="flex items-center justify-between py-2 gap-3 flex-wrap">
                 <Pill tone="blue">{r.surface}</Pill>
-                <span className="text-sm font-semibold text-gray-800">{r.count}</span>
+                <span className="text-sm font-semibold text-foreground">{r.count}</span>
               </li>
             ))}
           </ul>
@@ -900,8 +900,8 @@ function RepositoryTab({ onSelect }: { onSelect: (id: number) => void }) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-semibold text-gray-900">Conversation Repository</h3>
-        <p className="text-xs text-gray-500 mt-0.5">Searchable archive of save-worthy conversations</p>
+        <h3 className="text-base font-semibold text-foreground">Conversation Repository</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">Searchable archive of save-worthy conversations</p>
       </div>
       <FilterBar filters={filters} onChange={(f) => { setFilters(f); setPage(1); }} showSaveFilter />
 
@@ -949,10 +949,10 @@ function RepositoryTab({ onSelect }: { onSelect: (id: number) => void }) {
                   <Pill tone={intentTone(r.primaryIntent)}>{r.primaryIntent}</Pill>
                   <Pill tone={decisionTone(r.saveDecision)}>{r.saveDecision}</Pill>
                 </div>
-                <span className="text-[11px] text-gray-500">{new Date(r.createdAt).toLocaleString()}</span>
+                <span className="text-[11px] text-muted-foreground">{new Date(r.createdAt).toLocaleString()}</span>
               </div>
-              <p className="text-sm text-gray-800 leading-relaxed">{r.summary}</p>
-              {r.contextNote && <p className="text-xs text-gray-500 mt-1.5">{r.contextNote}</p>}
+              <p className="text-sm text-foreground leading-relaxed">{r.summary}</p>
+              {r.contextNote && <p className="text-xs text-muted-foreground mt-1.5">{r.contextNote}</p>}
               {(r.tags?.length ?? 0) > 0 && (
                 <div className="flex gap-1 flex-wrap mt-2">
                   {r.tags!.map((t, i) => <Pill key={i} tone="cyan">{t}</Pill>)}
@@ -975,11 +975,11 @@ function StatCard({ label, value, tone }: { label: string; value: React.ReactNod
     tone === "green" ? "text-emerald-600" :
     tone === "red" ? "text-red-600" :
     tone === "amber" ? "text-amber-600" :
-    tone === "gray" ? "text-gray-400" :
-    "text-gray-900";
+    tone === "gray" ? "text-muted-foreground/70" :
+    "text-foreground";
   return (
     <Card className="p-4 sm:p-5">
-      <div className="text-[11px] font-medium text-gray-500 mb-1.5 truncate">{label}</div>
+      <div className="text-[11px] font-medium text-muted-foreground mb-1.5 truncate">{label}</div>
       <div className={`text-xl sm:text-2xl font-bold ${valueColor}`}>{value}</div>
     </Card>
   );
@@ -1068,7 +1068,7 @@ function FilterBar({
 
 function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <th className={`text-left px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 ${className}`}>
+    <th className={`text-left px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground ${className}`}>
       {children}
     </th>
   );
@@ -1096,8 +1096,8 @@ function Pagination({ page, total, limit, onChange }: {
       >
         <ChevronLeft className="w-4 h-4" />
       </Button>
-      <span className="text-sm text-gray-600 tabular-nums">
-        Page {page} of {totalPages} <span className="text-gray-400">({total} total)</span>
+      <span className="text-sm text-muted-foreground tabular-nums">
+        Page {page} of {totalPages} <span className="text-muted-foreground/70">({total} total)</span>
       </span>
       <Button
         variant="outline"
