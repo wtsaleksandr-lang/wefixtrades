@@ -40,6 +40,13 @@ import {
   interpolatePromptTemplate,
   type PromptVariables,
 } from "@shared/contentflow/promptLibrary";
+import {
+  extractBusinessProfileFromUrl,
+  prefillPromptTokens,
+  defaultSelectionsFromProfile,
+  type ExtractedBusinessProfile,
+  type PrefilledToken,
+} from "../../services/contentflow/profilePrefill";
 import { createLogger } from "../../lib/logger";
 
 const log = createLogger("PortalContentflow");
@@ -273,6 +280,199 @@ export function registerPortalContentflowRoutes(app: Express) {
     } catch (err: any) {
       log.error("[portal/prompts][preview]", err?.message || err);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ─── Phase 2: AI-prefill workflow (URL → profile → token chips) ─── */
+
+  /**
+   * POST /api/portal/contentflow/profile/from-url
+   * Body: { url: string }
+   *
+   * Step 1 of the Phase 2 flow. Fetches the customer's website,
+   * extracts visible text + meta tags + JSON-LD, and calls Claude
+   * Haiku to return a structured business profile (business_name,
+   * services, service_area, target_persona, brand_voice_adjectives,
+   * usps, hero_testimonials, primary_trade, also_offers_trades).
+   *
+   * Does NOT save to the database — the customer reviews the result
+   * in the editor (Step 2 UI) before the PATCH /brand-profile call
+   * persists their edits.
+   */
+  app.post("/api/portal/contentflow/profile/from-url", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const rawUrl = typeof req.body?.url === "string" ? req.body.url.trim() : "";
+      if (!rawUrl) return res.status(400).json({ error: "url is required", code: "missing_url" });
+      let parsed: URL;
+      try {
+        parsed = new URL(rawUrl);
+      } catch {
+        return res.status(400).json({ error: "url is not parseable", code: "invalid_url" });
+      }
+      if (!/^https?:$/.test(parsed.protocol)) {
+        return res.status(400).json({ error: "url must be http(s)", code: "invalid_url" });
+      }
+      /* Defense-in-depth: refuse private / loopback hosts so a bored
+       * customer can't ask us to fetch internal services. */
+      const host = parsed.hostname.toLowerCase();
+      if (host === "localhost" || host.endsWith(".local") || host.startsWith("127.") || host.startsWith("10.") || host.startsWith("192.168.") || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) {
+        return res.status(400).json({ error: "private hosts not allowed", code: "private_host" });
+      }
+
+      const profile = await extractBusinessProfileFromUrl(parsed.toString());
+      res.json({ ok: true, source_url: parsed.toString(), profile });
+    } catch (err: any) {
+      log.error("[portal/profile/from-url]", err?.message || err);
+      res.status(500).json({ error: err?.message || "extraction failed" });
+    }
+  });
+
+  /**
+   * POST /api/portal/contentflow/prompts/:id/prefill
+   * Body (optional):
+   *   {
+   *     profile?: ExtractedBusinessProfile   // when omitted, falls back to saved BrandProfile
+   *     current?: Partial<Record<placeholder, string>>  // optional starting selections
+   *   }
+   *
+   * Step 3 of the Phase 2 flow. For each {{placeholder}} in the
+   * template, the AI generates 4–6 alternatives anchored to the
+   * supplied (or saved) profile. Returns a PrefilledPrompt with:
+   *
+   *   { templateId, tokens: [{ placeholder, selected, alternatives }],
+   *     rendered: "the prompt with selections inlined" }
+   *
+   * The rendered field is what the modal previews; tokens carry the
+   * click-to-swap state. No DB writes.
+   */
+  app.post("/api/portal/contentflow/prompts/:id/prefill", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const tmpl = getPromptTemplate(req.params.id);
+      if (!tmpl) return res.status(404).json({ error: "prompt not found", code: "prompt_not_found" });
+
+      /* Profile preference order:
+       *   1. Caller-supplied (e.g. just-extracted, not yet saved)
+       *   2. Customer's saved brand profile (mapped onto the
+       *      ExtractedBusinessProfile shape)
+       */
+      let profile: ExtractedBusinessProfile;
+      if (req.body && typeof req.body === "object" && req.body.profile && typeof req.body.profile === "object") {
+        profile = req.body.profile as ExtractedBusinessProfile;
+      } else {
+        const client = await storage.getClientById(clientId);
+        const brand = readBrandProfile(client);
+        const meta = ((client?.metadata as Record<string, any>) || {}) as Record<string, any>;
+        const cb = (meta.content_brand && typeof meta.content_brand === "object" ? meta.content_brand : {}) as Record<string, any>;
+        profile = {
+          business_name: typeof cb.business_name === "string" ? cb.business_name : (client?.business_name as string | undefined),
+          services: brand.service_focus,
+          service_area: brand.location_cue,
+          target_persona: brand.target_audience,
+          brand_voice_adjectives: brand.tone ? [brand.tone] : undefined,
+          usps: brand.unique_selling_points ? [brand.unique_selling_points] : undefined,
+          hero_testimonials: typeof cb.hero_testimonial === "string"
+            ? [{ text: cb.hero_testimonial }]
+            : Array.isArray(cb.hero_testimonials) ? cb.hero_testimonials : undefined,
+          primary_trade: typeof cb.primary_trade === "string" ? cb.primary_trade : undefined,
+          also_offers_trades: Array.isArray(cb.also_offers_trades) ? cb.also_offers_trades : undefined,
+        };
+      }
+
+      const rawCurrent = (req.body && typeof req.body === "object" && req.body.current) || {};
+      const current: Partial<Record<keyof PromptVariables, string>> = {};
+      for (const k of Object.keys(rawCurrent)) {
+        const v = (rawCurrent as Record<string, unknown>)[k];
+        if (typeof v === "string" && v.trim().length > 0 && v.length <= 300) {
+          (current as Record<string, string>)[k] = v.trim();
+        }
+      }
+
+      const prefilled = await prefillPromptTokens({
+        templateId: tmpl.id,
+        template: tmpl.template,
+        profile,
+        current,
+      });
+
+      /* Echo a defaultSelections map so the client can render even if
+       * the user hasn't clicked a chip yet. */
+      const defaults = defaultSelectionsFromProfile(profile, current);
+
+      res.json({ ok: true, template: tmpl.template, prefilled, defaults });
+    } catch (err: any) {
+      log.error("[portal/prompts][prefill]", err?.message || err);
+      res.status(500).json({ error: err?.message || "prefill failed" });
+    }
+  });
+
+  /**
+   * POST /api/portal/contentflow/prompts/:id/draft
+   * Body: { tokens: PrefilledToken[], finalPrompt: string }
+   *
+   * Step 5 stub. Records the current prompt state to clients.metadata
+   * for the Phase 3 worker to pick up. No actual generation — the
+   * client toasts "Phase 3 ships generation pipeline" and stores the
+   * draft so nothing is lost between sessions.
+   *
+   * Persisted to clients.metadata.content_brand.last_draft as
+   *   { template_id, tokens, final_prompt, saved_at }
+   *
+   * Phase 3 will replace this with a real content_drafts row.
+   */
+  app.post("/api/portal/contentflow/prompts/:id/draft", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const tmpl = getPromptTemplate(req.params.id);
+      if (!tmpl) return res.status(404).json({ error: "prompt not found", code: "prompt_not_found" });
+
+      const rawTokens = Array.isArray(req.body?.tokens) ? (req.body.tokens as unknown[]) : [];
+      const finalPrompt = typeof req.body?.finalPrompt === "string" ? req.body.finalPrompt.slice(0, 8_000) : "";
+
+      const tokens: PrefilledToken[] = [];
+      for (const t of rawTokens.slice(0, 16)) {
+        if (!t || typeof t !== "object") continue;
+        const placeholder = (t as any).placeholder;
+        const selected = (t as any).selected;
+        const alternatives = (t as any).alternatives;
+        if (typeof placeholder !== "string") continue;
+        if (typeof selected !== "string") continue;
+        if (!Array.isArray(alternatives)) continue;
+        tokens.push({
+          placeholder: placeholder as keyof PromptVariables,
+          selected: selected.slice(0, 300),
+          alternatives: alternatives.filter((a) => typeof a === "string").slice(0, 6).map((a: string) => a.slice(0, 300)),
+        });
+      }
+
+      const client = await storage.getClientById(clientId);
+      const meta = ((client?.metadata as Record<string, any>) || {}) as Record<string, any>;
+      const cb = (meta.content_brand && typeof meta.content_brand === "object" ? meta.content_brand : {}) as Record<string, any>;
+      const updatedMeta = {
+        ...meta,
+        content_brand: {
+          ...cb,
+          last_draft: {
+            template_id: tmpl.id,
+            tokens,
+            final_prompt: finalPrompt,
+            saved_at: new Date().toISOString(),
+          },
+        },
+      };
+      await storage.updateClient(clientId, { metadata: updatedMeta } as any);
+
+      res.json({ ok: true, template_id: tmpl.id, saved_at: updatedMeta.content_brand.last_draft.saved_at });
+    } catch (err: any) {
+      log.error("[portal/prompts][draft]", err?.message || err);
+      res.status(500).json({ error: err?.message || "draft save failed" });
     }
   });
 

@@ -35,12 +35,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TokenChip from "@/components/forms/TokenChip";
+import BusinessProfileEditor, { type ExtractedBusinessProfile } from "@/components/portal/BusinessProfileEditor";
 
 /* The filter axis enums duplicated client-side so the picker can
  * render without a server round-trip. The /api/portal/contentflow/prompts
@@ -105,6 +108,82 @@ interface PromptPreviewResponse {
   variables_used: Record<string, string | number | undefined>;
 }
 
+/* Phase 2: AI-prefill response shapes. Mirrors
+ * server/services/contentflow/profilePrefill.ts. */
+type PrefillPlaceholder =
+  | "businessName"
+  | "city"
+  | "serviceUSP"
+  | "serviceFocus"
+  | "customerQuote"
+  | "brandPrimary"
+  | "brandSecondary"
+  | "tone"
+  | "audience"
+  | "yearFounded";
+
+interface PrefilledToken {
+  placeholder: PrefillPlaceholder;
+  selected: string;
+  alternatives: string[];
+}
+
+interface PrefilledPrompt {
+  templateId: string;
+  tokens: PrefilledToken[];
+  rendered: string;
+}
+
+interface PrefillResponse {
+  ok: boolean;
+  template: string;
+  prefilled: PrefilledPrompt;
+  defaults: Record<PrefillPlaceholder, string>;
+}
+
+const PLACEHOLDER_LABEL: Record<PrefillPlaceholder, string> = {
+  businessName: "Business name",
+  city: "City",
+  serviceUSP: "USP",
+  serviceFocus: "Service focus",
+  customerQuote: "Customer quote",
+  brandPrimary: "Primary color",
+  brandSecondary: "Secondary color",
+  tone: "Tone",
+  audience: "Audience",
+  yearFounded: "Year founded",
+};
+
+function isColorPlaceholder(p: PrefillPlaceholder): boolean {
+  return p === "brandPrimary" || p === "brandSecondary";
+}
+
+/* Render the template client-side after a chip swap so the preview
+ * updates without a server round-trip. Mirrors interpolatePromptTemplate
+ * in shared/contentflow/promptLibrary.ts (placeholder defaults match). */
+const CLIENT_PLACEHOLDER_DEFAULTS: Record<PrefillPlaceholder, string> = {
+  businessName: "[Your business name]",
+  city: "your service area",
+  serviceUSP: "fast, fair, no-surprise pricing",
+  serviceFocus: "service call",
+  customerQuote: "They showed up fast and fixed it right.",
+  brandPrimary: "your brand color",
+  brandSecondary: "your accent color",
+  tone: "friendly",
+  audience: "homeowners in your area",
+  yearFounded: "2019",
+};
+
+function clientRender(template: string, tokens: PrefilledToken[]): string {
+  const map = new Map<string, string>();
+  for (const t of tokens) map.set(t.placeholder, t.selected);
+  return template.replace(/{{\s*(\w+)\s*}}/g, (_m, k: string) => {
+    const v = map.get(k);
+    if (v && v.trim().length > 0) return v;
+    return CLIENT_PLACEHOLDER_DEFAULTS[k as PrefillPlaceholder] ?? `[${k}]`;
+  });
+}
+
 const ASSET_ICON: Record<PromptListItem["asset"], React.ComponentType<{ className?: string }>> = {
   image: ImageIcon,
   article: FileText,
@@ -124,6 +203,16 @@ export default function PortalContentFlow() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewEdit, setPreviewEdit] = useState<string>("");
+
+  /* Phase 2 state. */
+  const [tab, setTab] = useState<"library" | "profile">("library");
+  const [businessProfile, setBusinessProfile] = useState<ExtractedBusinessProfile | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string>("");
+  const [prefilled, setPrefilled] = useState<PrefilledPrompt | null>(null);
+  const [templateBody, setTemplateBody] = useState<string>("");
+  /* When the user taps the textarea Edit button we hand them the
+   * rendered prompt as a freeform string; chips become read-only. */
+  const [freeformMode, setFreeformMode] = useState<boolean>(false);
 
   /* Build the query string. Empty / "all" values are omitted so the
    * cache key stays tight. */
@@ -165,15 +254,112 @@ export default function PortalContentFlow() {
     },
   });
 
+  /* Phase 2 — per-prompt AI prefill. */
+  const prefillMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const body: Record<string, unknown> = {};
+      if (businessProfile) body.profile = businessProfile;
+      const res = await apiRequest("POST", `/api/portal/contentflow/prompts/${id}/prefill`, body);
+      return (await res.json()) as PrefillResponse;
+    },
+    onSuccess: (data) => {
+      setPrefilled(data.prefilled);
+      setTemplateBody(data.template);
+      setPreviewEdit(data.prefilled.rendered);
+      setFreeformMode(false);
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Could not prefill prompt",
+        description: err?.message || "Try again",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const draftMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedId) throw new Error("no prompt selected");
+      const res = await apiRequest("POST", `/api/portal/contentflow/prompts/${selectedId}/draft`, {
+        tokens: prefilled?.tokens ?? [],
+        finalPrompt: previewEdit,
+      });
+      return await res.json();
+    },
+  });
+
   function openPrompt(id: string) {
     setSelectedId(id);
     setPreviewEdit("");
-    previewMutation.mutate(id);
+    setPrefilled(null);
+    setTemplateBody("");
+    setFreeformMode(false);
+    /* Phase 2: if the customer has populated a business profile we ask
+     * the prefill endpoint for chip-editable tokens. Otherwise we fall
+     * back to the Phase 1 plain preview so the UI never blocks on a
+     * missing profile. */
+    if (businessProfile) {
+      prefillMutation.mutate(id);
+    } else {
+      previewMutation.mutate(id);
+    }
   }
 
   function closePrompt() {
     setSelectedId(null);
     setPreviewEdit("");
+    setPrefilled(null);
+    setTemplateBody("");
+    setFreeformMode(false);
+  }
+
+  /* Swap one token's selection, then re-render the preview. */
+  function setTokenSelection(placeholder: PrefillPlaceholder, next: string) {
+    if (!prefilled) return;
+    const nextTokens = prefilled.tokens.map((t) =>
+      t.placeholder === placeholder ? { ...t, selected: next } : t,
+    );
+    /* Make sure the new value is also in the alternatives list so the
+     * popover's radio set is consistent. */
+    const nextPrefilled: PrefilledPrompt = {
+      ...prefilled,
+      tokens: nextTokens.map((t) =>
+        t.placeholder === placeholder && !t.alternatives.includes(next)
+          ? { ...t, alternatives: [next, ...t.alternatives].slice(0, 6) }
+          : t,
+      ),
+      rendered: clientRender(templateBody, nextTokens),
+    };
+    setPrefilled(nextPrefilled);
+    setPreviewEdit(nextPrefilled.rendered);
+  }
+
+  async function regenerateAlternativesForToken(placeholder: PrefillPlaceholder) {
+    if (!selectedId) return;
+    /* Re-call the prefill endpoint with the current selections so the
+     * AI returns a fresh set of alternatives. We replace only the
+     * targeted token's alternatives — selections stay sticky. */
+    const body: Record<string, unknown> = {};
+    if (businessProfile) body.profile = businessProfile;
+    if (prefilled) {
+      body.current = Object.fromEntries(prefilled.tokens.map((t) => [t.placeholder, t.selected]));
+    }
+    try {
+      const res = await apiRequest("POST", `/api/portal/contentflow/prompts/${selectedId}/prefill`, body);
+      const data = (await res.json()) as PrefillResponse;
+      const fresh = data.prefilled.tokens.find((t) => t.placeholder === placeholder);
+      if (!prefilled || !fresh) return;
+      const nextTokens = prefilled.tokens.map((t) =>
+        t.placeholder === placeholder ? { ...t, alternatives: fresh.alternatives } : t,
+      );
+      setPrefilled({ ...prefilled, tokens: nextTokens });
+    } catch (err: any) {
+      toast({
+        title: "Could not regenerate alternatives",
+        description: err?.message || "Try again",
+        variant: "destructive",
+      });
+    }
   }
 
   const selected = useMemo(
@@ -183,13 +369,22 @@ export default function PortalContentFlow() {
 
   function handleGenerateStub() {
     /* Phase 3 wiring lives in server/services/contentflow/imageGenerationService
-     * + videoGenerationService + articleService. For Phase 1 we just
-     * tell the customer when it's coming. */
+     * + videoGenerationService + articleService. For Phase 2 we still
+     * stub the call, but we now also persist the final prompt + token
+     * state to clients.metadata so the Phase 3 worker can pick it up. */
     // eslint-disable-next-line no-console
-    console.log("[contentflow][phase1] Generate clicked", { selectedId, previewEdit });
-    toast({
-      title: "Generation pipeline lands in Phase 3",
-      description: "Your prompt is ready — generation wires up to the existing image / video / article workers in the next release.",
+    console.log("[contentflow][phase2] Generate clicked", {
+      selectedId,
+      previewEdit,
+      tokenCount: prefilled?.tokens.length ?? 0,
+    });
+    draftMutation.mutate(undefined, {
+      onSettled: () => {
+        toast({
+          title: "Phase 3 ships generation pipeline",
+          description: "Your prompt + token state is saved as a draft. Generation wires up to the image / video / article workers in the next release.",
+        });
+      },
     });
   }
 
@@ -202,6 +397,37 @@ export default function PortalContentFlow() {
             60 trade-adapted prompts across 12 named patterns. Pick one, preview it filled with your brand details, then generate.
           </p>
         </div>
+
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "library" | "profile")}>
+          <TabsList className="mb-5">
+            <TabsTrigger value="library" data-testid="tab-library">
+              Prompt library
+            </TabsTrigger>
+            <TabsTrigger value="profile" data-testid="tab-profile">
+              Business profile
+              {businessProfile && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-brand-blue" aria-hidden />}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="profile">
+            <BusinessProfileEditor
+              profile={businessProfile}
+              onProfileChange={setBusinessProfile}
+              sourceUrl={sourceUrl}
+              onSourceUrlChange={setSourceUrl}
+            />
+          </TabsContent>
+
+          <TabsContent value="library">
+        {!businessProfile && (
+          <Card className="mb-5 border-dashed bg-muted/30 p-4 text-xs text-muted-foreground" data-testid="profile-hint">
+            Tip: fill in your{" "}
+            <button type="button" className="underline" onClick={() => setTab("profile")}>
+              Business profile
+            </button>{" "}
+            first — then every prompt prefills with click-to-swap chips for business name, city, services, tone, and more.
+          </Card>
+        )}
 
         {/* ─── 3-axis filter row ──────────────────────────────────── */}
         <Card className="mb-5 p-4">
@@ -335,30 +561,93 @@ export default function PortalContentFlow() {
           </div>
         )}
 
-        {/* ─── Preview modal ─────────────────────────────────────── */}
+          </TabsContent>
+        </Tabs>
+
+        {/* ─── Prefilled-prompt modal (Phase 2) ──────────────────── */}
         <Dialog open={!!selectedId} onOpenChange={(open) => { if (!open) closePrompt(); }}>
-          <DialogContent className="max-w-2xl" data-testid="prompt-preview-dialog">
+          <DialogContent className="max-w-3xl" data-testid="prompt-preview-dialog">
             <DialogHeader>
               <DialogTitle>{selected?.title ?? "Loading…"}</DialogTitle>
               <DialogDescription>{selected?.description ?? ""}</DialogDescription>
             </DialogHeader>
 
-            {previewMutation.isPending ? (
+            {(previewMutation.isPending || prefillMutation.isPending) ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="space-y-3">
-                <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <Edit2 className="h-3 w-3" aria-hidden /> Your prompt — edit if you want
-                </label>
-                <Textarea
-                  rows={10}
-                  value={previewEdit}
-                  onChange={(e) => setPreviewEdit(e.target.value)}
-                  data-testid="prompt-preview-textarea"
-                  className="font-mono text-xs leading-relaxed"
-                />
+              <div className="space-y-4">
+                {/* Chip row — only when prefill ran successfully. */}
+                {prefilled && !freeformMode && (
+                  <div className="rounded-md border border-border bg-muted/20 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Click any chip to swap a value
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setFreeformMode(true)}
+                        data-testid="prompt-preview-edit-freeform"
+                      >
+                        <Edit2 className="mr-1 h-3 w-3" /> Edit as text
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {prefilled.tokens.map((t) => (
+                        <TokenChip
+                          key={t.placeholder}
+                          label={PLACEHOLDER_LABEL[t.placeholder]}
+                          value={t.selected}
+                          alternatives={t.alternatives}
+                          onChange={(next) => setTokenSelection(t.placeholder, next)}
+                          onRegenerate={() => regenerateAlternativesForToken(t.placeholder)}
+                          variant={isColorPlaceholder(t.placeholder) ? "color" : "default"}
+                          testId={`chip-${t.placeholder}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <Edit2 className="h-3 w-3" aria-hidden />{" "}
+                    {prefilled && !freeformMode ? "Live preview" : "Your prompt — edit if you want"}
+                  </label>
+                  <Textarea
+                    rows={10}
+                    value={previewEdit}
+                    onChange={(e) => {
+                      setPreviewEdit(e.target.value);
+                      /* If the user types into the textarea while chips
+                       * are still rendered, drop into freeform mode so
+                       * the chips don't keep overwriting their edits. */
+                      if (prefilled && !freeformMode) setFreeformMode(true);
+                    }}
+                    data-testid="prompt-preview-textarea"
+                    className="font-mono text-xs leading-relaxed"
+                    readOnly={prefilled !== null && !freeformMode}
+                  />
+                  {prefilled && freeformMode && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => {
+                        setFreeformMode(false);
+                        setPreviewEdit(prefilled.rendered);
+                      }}
+                    >
+                      Back to chips
+                    </Button>
+                  )}
+                </div>
+
                 {selected && selected.styleHints.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <span className="font-semibold uppercase tracking-wider text-muted-foreground">Suggested styles</span>
@@ -374,7 +663,7 @@ export default function PortalContentFlow() {
               <Button variant="outline" onClick={closePrompt} data-testid="prompt-preview-cancel">Cancel</Button>
               <Button
                 onClick={handleGenerateStub}
-                disabled={previewMutation.isPending || !previewEdit.trim()}
+                disabled={previewMutation.isPending || prefillMutation.isPending || !previewEdit.trim()}
                 data-testid="prompt-preview-generate"
               >
                 <Wand2 className="mr-1 h-3.5 w-3.5" /> Generate
