@@ -49,7 +49,8 @@ export interface SelectModelResult {
 const FALLBACK_MODELS: Record<TaskComplexity, string> = {
   simple: "claude-haiku-4-5",
   standard: "claude-sonnet-4-6",
-  complex: "claude-opus-4-7",
+  // Cost: demoted from Opus → Sonnet (~75× Haiku); admin tools don't need Opus.
+  complex: "claude-sonnet-4-6",
 };
 
 /**
