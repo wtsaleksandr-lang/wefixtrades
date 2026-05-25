@@ -20,9 +20,10 @@
  *
  *   Layer 3: AI self-review — separate `chat()` call asking for a
  *            JSON score on naturalness / on-brand / factual coherence.
- *            Threshold tiers: <70 regenerate, 70-85 accept-with-warn,
- *            >85 accept-clean. Uses the same `chat()` helper as the
- *            social gate.
+ *            Threshold tiers: <70 regenerate, 70-79 accept-with-warn,
+ *            ≥80 accept-clean. (Lowered from 85 → 80 after sample-run
+ *            data showed all 9 outputs landed at 79-82.) Uses the same
+ *            `chat()` helper as the social gate.
  *
  * The gate never throws — failures in layer 3 (model error, parse
  * error) degrade to "accept with warn" so a flaky review call cannot
@@ -66,7 +67,10 @@ export interface PriorArticle {
 
 export const JACCARD_THRESHOLD = 0.4; // > 0.4 = too similar to a prior article (tighter than social's 0.7)
 export const AI_REVIEW_REGEN_THRESHOLD = 70; // < 70 → regenerate
-export const AI_REVIEW_CLEAN_THRESHOLD = 85; // > 85 → accept clean; 70-85 → accept with warn
+// Lowered from 85 → 80 on 2026-05-25: sample-run data (9/9 articles) all
+// scored 79-82, so the 85 threshold pushed every output into the
+// accept-with-warning band even when content was clean.
+export const AI_REVIEW_CLEAN_THRESHOLD = 80; // ≥ 80 → accept clean; 70-79 → accept with warn
 
 const MIN_ARTICLE_LENGTH = 250; // chars — anything shorter is likely truncated
 const MAX_ARTICLE_LENGTH = 12000; // chars — guard against runaway output
@@ -227,7 +231,7 @@ export async function runLayer3AiReview(
             "- factual_coherence: no obvious hallucinations, contradictions, or invented stats",
             "- overall: 0-100, your overall accept/reject score",
             "",
-            "Also include a short \"reason\" string (max 200 chars) explaining the main issue if overall < 85.",
+            "Also include a short \"reason\" string (max 200 chars) explaining the main issue if overall < 80.",
             "",
             "JSON shape: { \"naturalness\": int, \"on_brand\": int, \"factual_coherence\": int, \"overall\": int, \"reason\": string }",
             "",

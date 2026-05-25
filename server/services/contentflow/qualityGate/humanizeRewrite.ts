@@ -43,6 +43,10 @@ export interface HumanizeContext {
    *  audit (Claude Haiku is the ContentFlow rotator default). The humanizer
    *  routes to the OPPOSITE provider. */
   sourceProvider?: HumanizeProvider;
+  /** Brief / draft title — used by the integrity check to verify the
+   *  rewrite didn't drift off-topic. If provided, the longest content
+   *  word from the title must appear somewhere in the rewrite. */
+  briefTitle?: string;
 }
 
 export interface HumanizeResult {
@@ -107,7 +111,9 @@ function normalizeHeading(h: string): string {
 
 /** Returns the FIRST original heading missing from the rewritten body,
  *  or null if every heading survived. Comparison is case- and
- *  punctuation-insensitive so cosmetic edits ("FAQ:" → "FAQ") still pass. */
+ *  punctuation-insensitive so cosmetic edits ("FAQ:" → "FAQ") still pass.
+ *  Retained for backwards compatibility and tests; the live integrity
+ *  check now uses {@link checkRewriteIntegrity} which is count-based. */
 export function findDroppedHeading(originalBody: string, rewritten: string): string | null {
   const original = extractHeadings(originalBody);
   if (original.length === 0) return null;
@@ -122,6 +128,63 @@ export function findDroppedHeading(originalBody: string, rewritten: string): str
     if (rewrittenLower.includes(h.toLowerCase())) continue;
     if (rewrittenHeadings.includes(norm)) continue;
     return h;
+  }
+  return null;
+}
+
+/** Extract the longest "content" word from the brief title — used to
+ *  verify the rewrite stayed on-topic. We skip common stopwords and
+ *  short words because they appear in most articles regardless of topic. */
+const TITLE_STOPWORDS = new Set([
+  "the", "and", "for", "with", "your", "you", "from", "this", "that", "what",
+  "when", "where", "why", "how", "are", "was", "were", "have", "has", "had",
+  "will", "can", "could", "should", "would", "about", "into", "their", "they",
+  "them", "our", "his", "her", "its", "any", "all", "but", "not", "one", "two",
+  "three", "out", "off", "now", "new", "old", "best", "top", "guide", "tips",
+  "ways", "things", "stuff", "more", "less", "than", "then", "some", "most",
+  "much", "many", "few", "every",
+]);
+
+export function extractCriticalTitleWord(title: string | undefined): string | null {
+  if (!title) return null;
+  const words = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !TITLE_STOPWORDS.has(w));
+  if (words.length === 0) return null;
+  // Longest content word — most specific signal of the article's topic.
+  return words.reduce((a, b) => (b.length > a.length ? b : a));
+}
+
+export interface IntegrityFailure {
+  reason: "heading_count_mismatch" | "off_topic";
+  detail: string;
+}
+
+/** Loosened integrity check — only fail if heading COUNT differs OR a
+ *  critical word from the brief title is entirely missing from the
+ *  rewrite. Cosmetic heading rephrasing ("## What To Do First" →
+ *  "## First Steps") no longer triggers a fallback. */
+export function checkRewriteIntegrity(
+  originalBody: string,
+  rewritten: string,
+  briefTitle: string | undefined,
+): IntegrityFailure | null {
+  const originalHeadings = extractHeadings(originalBody);
+  const rewrittenHeadings = extractHeadings(rewritten);
+  if (originalHeadings.length !== rewrittenHeadings.length) {
+    return {
+      reason: "heading_count_mismatch",
+      detail: `original=${originalHeadings.length} rewritten=${rewrittenHeadings.length}`,
+    };
+  }
+  const critical = extractCriticalTitleWord(briefTitle);
+  if (critical && !rewritten.toLowerCase().includes(critical)) {
+    return {
+      reason: "off_topic",
+      detail: `brief title word "${critical}" missing from rewrite`,
+    };
   }
   return null;
 }
@@ -162,7 +225,7 @@ export function buildHumanizePrompt(
     "",
     "Hard rules:",
     "- PRESERVE every factual claim, statistic, location, business name, URL, and contact detail exactly as written.",
-    "- PRESERVE every ## or ### heading (you may lightly rephrase a heading, but do not drop one or merge two into one).",
+    "- CRITICAL: Reproduce every ## and ### heading EXACTLY as written. Do not rephrase, shorten, or expand them. The body under each heading can be freely rewritten, but heading text must match character-for-character.",
     "- PRESERVE the target word count within ±10%.",
     "- Do NOT add new facts, claims, testimonials, prices, guarantees, or specific stats.",
     "- Do NOT introduce calls-to-action or marketing flourish that wasn't in the original.",
@@ -302,13 +365,18 @@ export async function humanizeArticle(
     return { ...baseResult, fell_back_to_original: true, fallback_reason: "rewrite_truncated" };
   }
 
-  // Heading integrity guard — every ## / ### heading must survive.
-  const dropped = findDroppedHeading(draftText, cleaned);
-  if (dropped) {
+  // Heading-count + on-topic integrity guard. Loosened from the original
+  // exact-heading-match check: gpt-4o-mini frequently renames headings
+  // ("## What To Do First" → "## First Steps") even though the body is
+  // fine. We now only fail when the heading COUNT changes (rewriter
+  // dropped or invented a section) OR when a critical word from the
+  // brief title is missing entirely (rewrite drifted off-topic).
+  const integrity = checkRewriteIntegrity(draftText, cleaned, ctx.briefTitle);
+  if (integrity) {
     log.warn(
-      `[humanize] rewrite dropped heading "${dropped.slice(0, 60)}" for client ${ctx.clientId} — falling back to original`,
+      `[humanize] rewrite integrity failed (${integrity.reason}: ${integrity.detail}) for client ${ctx.clientId} — falling back to original`,
     );
-    return { ...baseResult, fell_back_to_original: true, fallback_reason: "dropped_heading" };
+    return { ...baseResult, fell_back_to_original: true, fallback_reason: integrity.reason };
   }
 
   log.info(

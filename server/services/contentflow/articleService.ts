@@ -29,6 +29,8 @@ import { writeAudit } from "../../lib/auditLog";
 import {
   evaluateArticleQuality,
   loadPriorArticles,
+  AI_REVIEW_CLEAN_THRESHOLD,
+  AI_REVIEW_REGEN_THRESHOLD,
   type ArticleQualityResult,
 } from "./qualityGate/articleQualityGate";
 import {
@@ -40,6 +42,14 @@ const log = createLogger("ArticleService");
 
 /** Max generation attempts before we accept the last attempt with a warning. */
 const MAX_GENERATION_ATTEMPTS = 3;
+
+/** Classify a Layer-3 score into the canonical band label used by
+ *  admin dashboards. Mirrors the thresholds in articleQualityGate.ts. */
+function scoreBand(score: number): "clean" | "with_warning" | "regenerate" {
+  if (score >= AI_REVIEW_CLEAN_THRESHOLD) return "clean";
+  if (score >= AI_REVIEW_REGEN_THRESHOLD) return "with_warning";
+  return "regenerate";
+}
 
 /* ─── Draft creation ─────────────────────────────────────────────────── */
 
@@ -151,6 +161,7 @@ Output format: a single JSON object with exactly these keys:
 Output ONLY the JSON object. No preamble. No markdown code fence.`;
 
 function buildUserPrompt(input: {
+  briefTitle?: string | null;
   primaryKeyword: string | null;
   targetKeywords: string[];
   pageType: string | null;
@@ -160,6 +171,23 @@ function buildUserPrompt(input: {
   performanceFeedback?: string;
 }): string {
   const lines: string[] = [];
+
+  // Topic line — keep this at the TOP so the model anchors on the
+  // customer's exact angle instead of drifting to a generic industry
+  // piece. Falls back to primaryKeyword or the first targetKeyword
+  // when no explicit title was supplied (preserves existing brief shapes).
+  const topic =
+    (input.briefTitle && input.briefTitle.trim()) ||
+    (input.primaryKeyword && input.primaryKeyword.trim()) ||
+    (input.targetKeywords[0] && input.targetKeywords[0].trim()) ||
+    "";
+  if (topic) {
+    lines.push(`TOPIC: ${topic}`);
+    lines.push("");
+    lines.push("The article MUST be specifically about this topic. Do not write a generic piece about the industry. Stay focused on the exact question/angle in the topic line above.");
+    lines.push("");
+  }
+
   lines.push(`Business niche: ${input.niche || "local trade service"}`);
   lines.push(`Service area: ${input.location || "(not specified)"}`);
   lines.push(`Page type: ${input.pageType || "informational"}`);
@@ -272,7 +300,16 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
   const brandLayer = buildBrandLayerText(brand, tradeType) || undefined;
   const performanceFeedback = await buildPerformanceFeedback(draft.client_id, "wordpress") || undefined;
 
+  // Draft.title is back-filled from the originating RankFlow task title
+  // (see createDraftFromRankflowTask) — treat it as the brief's canonical
+  // topic line. meta.brief_title can override when present.
+  const briefTitle: string | null =
+    (typeof meta.brief_title === "string" && meta.brief_title.trim()) ||
+    draft.title ||
+    null;
+
   const userPrompt = buildUserPrompt({
+    briefTitle,
     primaryKeyword: meta.primary_keyword ?? null,
     targetKeywords: Array.isArray(meta.target_keywords) ? meta.target_keywords : [],
     pageType: meta.page_type ?? null,
@@ -328,6 +365,7 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
       industry: (meta.niche as string | null) ?? tradeType ?? undefined,
       targetWordCount: 600,
       sourceProvider,
+      briefTitle: briefTitle ?? undefined,
     });
     const humanizedBody = humanizeRes.humanized;
 
@@ -373,6 +411,9 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
         max_attempts: MAX_GENERATION_ATTEMPTS,
         verdict: gate.verdict,
         final_score: gate.finalScore,
+        score_band: scoreBand(gate.finalScore),
+        clean_threshold: AI_REVIEW_CLEAN_THRESHOLD,
+        regen_threshold: AI_REVIEW_REGEN_THRESHOLD,
         passed_layer_1: gate.layer1.passed,
         passed_layer_2: gate.layer2.passed,
         passed_layer_3: gate.layer3.passed,
@@ -449,6 +490,9 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
         quality_gate: {
           verdict: lastGateResult.verdict,
           final_score: lastGateResult.finalScore,
+          score_band: scoreBand(lastGateResult.finalScore),
+          clean_threshold: AI_REVIEW_CLEAN_THRESHOLD,
+          regen_threshold: AI_REVIEW_REGEN_THRESHOLD,
           attempts_used: attemptsUsed,
           passed_layer_1: lastGateResult.layer1.passed,
           passed_layer_2: lastGateResult.layer2.passed,
