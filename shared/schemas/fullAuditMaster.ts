@@ -19,13 +19,23 @@ export const fullAuditMasterOrders = pgTable("full_audit_master_orders", {
   stripe_session_id: text("stripe_session_id"),
   created_at: timestamp("created_at").notNull().defaultNow(),
   completed_at: timestamp("completed_at"),
-  /** Cached audit result for portal/email rendering. */
+  /** Cached audit result for portal/email rendering — MasterAuditReport JSON. */
   result_payload: jsonb("result_payload"),
   result_pdf_url: text("result_pdf_url"),
+  // ─── Wave 3.6 pipeline bookkeeping ───
+  /** URL-safe secret paired with id in the public report-view route. */
+  report_share_token: text("report_share_token"),
+  /** Pipeline start timestamp — surfaces orders that hang in "running". */
+  started_at: timestamp("started_at"),
+  /** Set when status transitions to "failed". */
+  failed_at: timestamp("failed_at"),
+  /** Short reason string for support triage on failed orders. */
+  error_message: text("error_message"),
 }, (table) => ({
   emailIdx: index("idx_full_audit_master_orders_email").on(table.customer_email),
   sessionIdx: index("idx_full_audit_master_orders_session").on(table.stripe_session_id),
   statusIdx: index("idx_full_audit_master_orders_status").on(table.status),
+  tokenIdx: index("idx_full_audit_master_orders_token").on(table.report_share_token),
 }));
 
 export const insertFullAuditMasterOrderSchema = createInsertSchema(fullAuditMasterOrders).omit({
