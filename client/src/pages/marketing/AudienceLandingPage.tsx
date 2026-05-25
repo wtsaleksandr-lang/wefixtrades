@@ -65,6 +65,19 @@ export interface AudienceLandingPageProps {
   testimonialAttribution: string;
   /** Final CTA headline. */
   finalCtaTitle: React.ReactNode;
+  /**
+   * Wave 3.5 launch-wiring — inline product CTAs in the body. Each
+   * audience page passes 3-4 deep links to the products that matter
+   * most to that audience so the page is no longer just a /pricing
+   * funnel. Optional — pages without this prop render exactly as
+   * before.
+   */
+  productCtas?: { label: string; href: string; tagline?: string }[];
+  /**
+   * Wave 3.5 launch-wiring — 2-3 deep links to relevant free tools so
+   * an audience visitor can sample the product without signing up.
+   */
+  recommendedFreeTools?: { label: string; href: string }[];
 }
 
 export default function AudienceLandingPage(props: AudienceLandingPageProps) {
@@ -85,6 +98,8 @@ export default function AudienceLandingPage(props: AudienceLandingPageProps) {
     testimonialQuote,
     testimonialAttribution,
     finalCtaTitle,
+    productCtas,
+    recommendedFreeTools,
   } = props;
 
   useBreadcrumbSchema([
@@ -181,6 +196,93 @@ export default function AudienceLandingPage(props: AudienceLandingPageProps) {
             </div>
           </V7Container>
         </V7Section>
+
+        {/* Wave 3.5 — inline product CTAs (deep links to the products
+           that matter most for this audience). Renders only when
+           productCtas is provided. */}
+        {productCtas && productCtas.length > 0 && (
+          <V7Section padding="64px">
+            <V7Container maxWidth={920}>
+              <Reveal>
+                <V7SectionHeading eyebrow="START HERE" title="Products built for this workflow" />
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: 16,
+                    marginTop: 24,
+                  }}
+                >
+                  {productCtas.map((cta) => (
+                    <Link
+                      key={cta.href}
+                      href={cta.href}
+                      style={{
+                        background: mkt.sectionLight,
+                        border: `1px solid ${mkt.onDarkBorder}`,
+                        borderRadius: 14,
+                        padding: "18px 18px",
+                        textDecoration: "none",
+                        color: mkt.onDark,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                      }}
+                    >
+                      <span style={{ fontSize: 15, fontWeight: 700 }}>{cta.label}</span>
+                      {cta.tagline && (
+                        <span style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.45 }}>{cta.tagline}</span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </Reveal>
+            </V7Container>
+          </V7Section>
+        )}
+
+        {/* Wave 3.5 — recommended free tools. */}
+        {recommendedFreeTools && recommendedFreeTools.length > 0 && (
+          <V7Section padding="48px">
+            <V7Container maxWidth={760}>
+              <Reveal>
+                <div style={{ textAlign: "center" }}>
+                  <p
+                    style={{
+                      fontFamily: MONO,
+                      fontSize: 11,
+                      letterSpacing: "0.16em",
+                      textTransform: "uppercase",
+                      color: mkt.accent,
+                      marginBottom: 14,
+                    }}
+                  >
+                    Recommended free tools
+                  </p>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                    {recommendedFreeTools.map((t) => (
+                      <Link
+                        key={t.href}
+                        href={t.href}
+                        style={{
+                          fontSize: 13,
+                          padding: "8px 14px",
+                          borderRadius: 999,
+                          background: "transparent",
+                          color: mkt.onDark,
+                          border: `1px solid ${mkt.onDarkBorder}`,
+                          textDecoration: "none",
+                        }}
+                      >
+                        {t.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+            </V7Container>
+          </V7Section>
+        )}
 
         {/* Pricing teaser */}
         <V7Section padding="72px">

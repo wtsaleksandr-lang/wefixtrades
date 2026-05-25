@@ -59,6 +59,16 @@ export default function ForSoloTradersPage() {
           Start booking the work.
         </>
       }
+      productCtas={[
+        { label: "TradeLine", href: "/products/tradeline", tagline: "AI voice agent answers every call, books jobs while you work" },
+        { label: "QuoteQuick", href: "/products/quotequick", tagline: "Instant on-site quotes from your phone — close more bids" },
+        { label: "ReputationShield", href: "/products/reputationshield", tagline: "Automatically request reviews after every completed job" },
+      ]}
+      recommendedFreeTools={[
+        { label: "Free Audit", href: "/tools/free-audit" },
+        { label: "Citation Checker", href: "/tools/citation-checker" },
+        { label: "Google Review Link Generator", href: "/tools/google-review-link-generator" },
+      ]}
     />
   );
 }

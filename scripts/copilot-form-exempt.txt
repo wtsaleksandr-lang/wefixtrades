@@ -58,6 +58,8 @@ client/src/pages/portal/DispatchPage.tsx
 client/src/pages/portal/InvoicesPage.tsx
 # Citation Tracker — read-only dashboard (subscription status, alerts, listings).
 client/src/pages/portal/CitationTrackerDashboard.tsx
+# Citation Builder — read-only dashboard (one-time orders + progress bars).
+client/src/pages/portal/CitationBuilderDashboard.tsx
 client/src/pages/portal/PortalBilling.tsx
 client/src/pages/portal/PortalChatHistoryPage.tsx
 client/src/pages/portal/PortalDashboard.tsx

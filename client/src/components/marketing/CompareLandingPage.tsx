@@ -103,6 +103,14 @@ export interface CompareLandingPageProps {
   finalCtaTitle: ReactNode;
   /** ISO date for Article JSON-LD. */
   publishedDate: string;
+  /**
+   * Wave 3.5 launch-wiring — products referenced in body copy. The
+   * page renders these as a "Products mentioned" link strip above the
+   * FAQ so every named product (MapGuard, ContentFlow, TradeLine,
+   * ReputationShield) becomes deep-linkable from the compare page
+   * instead of being plain text inside data tables. Optional.
+   */
+  productsMentioned?: { label: string; href: string }[];
 }
 
 /* ─── Cell renderer for the matrix ─────────────────────────────── */
@@ -212,6 +220,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
     faqItems,
     finalCtaTitle,
     publishedDate,
+    productsMentioned,
   } = props;
 
   const canonical = `${SITE_URL}${path}`;
@@ -710,6 +719,52 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
             </Reveal>
           </V7Container>
         </V7Section>
+
+        {/* Wave 3.5 launch-wiring — products referenced anywhere in this
+           page (matrix rows, FAQ answers) get deep-linkable anchors here
+           so the compare page is no longer a dead-end for product
+           discovery. Optional prop; renders nothing when absent. */}
+        {productsMentioned && productsMentioned.length > 0 && (
+          <V7Section padding="48px">
+            <V7Container maxWidth={820}>
+              <Reveal>
+                <div style={{ textAlign: "center" }}>
+                  <p
+                    style={{
+                      fontFamily: MONO,
+                      fontSize: 11,
+                      letterSpacing: "0.16em",
+                      textTransform: "uppercase",
+                      color: mkt.accent,
+                      marginBottom: 14,
+                    }}
+                  >
+                    Products mentioned
+                  </p>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                    {productsMentioned.map((p) => (
+                      <Link
+                        key={p.href}
+                        href={p.href}
+                        style={{
+                          fontSize: 13,
+                          padding: "8px 14px",
+                          borderRadius: 999,
+                          background: "transparent",
+                          color: mkt.onDark,
+                          border: `1px solid ${mkt.onDarkBorder}`,
+                          textDecoration: "none",
+                        }}
+                      >
+                        {p.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+            </V7Container>
+          </V7Section>
+        )}
 
         {/* ── FAQ — also emitted as FAQPage JSON-LD ─────────── */}
         <V7Section padding="80px">

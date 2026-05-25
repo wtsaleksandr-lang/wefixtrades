@@ -302,11 +302,22 @@ export const MAPGUARD: ProductDef = {
   category: "visibility",
   setup: 397,
   tiers: [
+    /* TODO(stripe-launch-wiring): MapGuard live Stripe Price IDs not yet
+     * minted. Wave 3.5 audit (2026-05-25) flagged this as a critical gap \u2014
+     * ContentFlow has live `price_...` IDs but MapGuard does not, so
+     * checkout falls back to inline price_data (works, but lookup_keys are
+     * the durable wiring). Alex to mint:
+     *   - mapguard_setup_one_time      \u2192 mapguard-setup
+     *   - mapguard_basic_monthly       \u2192 mapguard-basic
+     *   - mapguard_pro_monthly         \u2192 mapguard-pro
+     * then paste each `price_...` id into stripePriceId below.
+     */
     {
       id: "mapguard-setup",
       name: "MapSetup\u2122",
       price: 397,
       billingPeriod: "one-time",
+      stripePriceId: null,
       features: [
         "Full GBP audit & profile rebuild",
         "Category, services & area optimization",
@@ -320,6 +331,7 @@ export const MAPGUARD: ProductDef = {
       name: "Basic",
       price: 99,
       billingPeriod: "monthly",
+      stripePriceId: null,
       features: [
         "Weekly visibility monitoring & alerts",
         "2 Google Business posts/month",
@@ -334,6 +346,7 @@ export const MAPGUARD: ProductDef = {
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",
+      stripePriceId: null,
       features: [
         "Weekly visibility monitoring & alerts",
         "4 Google Business posts/month",
@@ -354,12 +367,21 @@ export const REPUTATIONSHIELD: ProductDef = {
   name: "ReputationShield\u2122",
   tagline: "Turn completed jobs into 5-star Google reviews — automatically",
   category: "reputation",
+  /* TODO(stripe-launch-wiring): ReputationShield live Stripe Price IDs
+   * not yet minted (Wave 3.5 audit 2026-05-25). ContentFlow has live
+   * `price_...` IDs but ReputationShield does not. Alex to mint:
+   *   - reputationshield_basic_monthly   → reputationshield-basic
+   *   - reputationshield_pro_monthly     → reputationshield-pro
+   *   - reputationshield_premium_monthly → reputationshield-premium
+   * then paste each into stripePriceId below.
+   */
   tiers: [
     {
       id: "reputationshield-basic",
       name: "Basic",
       price: 79,
       billingPeriod: "monthly",
+      stripePriceId: null,
       features: [
         "Automated review requests via SMS + email after every job",
         "Smart follow-up reminders if customers forget",
@@ -377,6 +399,7 @@ export const REPUTATIONSHIELD: ProductDef = {
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",
+      stripePriceId: null,
       features: [
         "Everything in Basic",
         "AI-drafted review responses — edit and post in seconds",
@@ -391,6 +414,7 @@ export const REPUTATIONSHIELD: ProductDef = {
       name: "Premium",
       price: 179,
       billingPeriod: "monthly",
+      stripePriceId: null,
       features: [
         "Everything in Pro",
         "Post AI responses directly to Google (no copy-paste)",
@@ -716,6 +740,108 @@ export const CONTENTFLOW: ProductDef = {
   ],
 };
 
+/* ═══════════════════════════════════════════
+   L. CITATION BUILDER (one-time service, 3 tiers)
+   ═══════════════════════════════════════════
+   Wave 3.5 launch-wiring — Citation Builder shipped its marketing
+   surface in PR #815 (Starter $79 / Pro $179 / Premium $299) but had
+   no Stripe entry here. This block fixes that so the page CTAs can
+   wire to a real checkout endpoint instead of mailto:sales@.
+
+   TODO(stripe): Alex to mint live prices then paste IDs:
+     - citation_builder_starter_one_time  → citationbuilder-starter
+     - citation_builder_pro_one_time      → citationbuilder-pro
+     - citation_builder_premium_one_time  → citationbuilder-premium
+   Until then, checkout falls back to inline price_data (works end-to-end).
+*/
+export const CITATIONBUILDER: ProductDef = {
+  id: "citationbuilder",
+  name: "Citation Builder",
+  tagline: "Done-for-you submission to 100+ local business directories",
+  category: "visibility",
+  tiers: [
+    {
+      id: "citationbuilder-starter",
+      name: "Starter",
+      price: 79,
+      billingPeriod: "one-time",
+      stripePriceId: null,
+      features: [
+        "25 hand-picked general directories",
+        "NAP verification + cleanup before submission",
+        "Listed within 7 business days",
+        "Status dashboard + completion report",
+        "Email support",
+      ],
+    },
+    {
+      id: "citationbuilder-pro",
+      name: "Pro",
+      price: 179,
+      billingPeriod: "one-time",
+      highlighted: true,
+      badge: "Most Popular",
+      stripePriceId: null,
+      features: [
+        "Everything in Starter (25 general)",
+        "+25 trade-specific directories (Angi, Houzz, HomeAdvisor)",
+        "Photo + service-list upload where supported",
+        "Listed within 7 business days",
+        "Priority email support",
+      ],
+    },
+    {
+      id: "citationbuilder-premium",
+      name: "Premium",
+      price: 299,
+      billingPeriod: "one-time",
+      stripePriceId: null,
+      features: [
+        "Everything in Pro (50 trade + general)",
+        "+50 niche / regional / industry directories",
+        "Voice-search optimized directories",
+        "Aggregator submissions (Localeze, Acxiom, Foursquare)",
+        "Quarterly NAP re-verification report",
+        "Phone support during business hours",
+      ],
+    },
+  ],
+};
+
+/* ═══════════════════════════════════════════
+   M. FULL AUDIT MASTER (one-time $9.80 upsell)
+   ═══════════════════════════════════════════
+   Wave 3.5 launch-wiring — multiple free tools advertise a "$9.80 full
+   audit" upsell (CitationChecker, LocalRankflux, LocalSearchChecker,
+   FreeToolLayout) but no Stripe product existed. This block + the
+   /api/full-audit/checkout endpoint close the loop so the upsell is
+   actually payable instead of dead copy.
+*/
+export const FULL_AUDIT_MASTER: ProductDef = {
+  id: "full_audit_master",
+  name: "Full Audit Master",
+  tagline: "Five audits combined into one PDF — local SEO, NAP, speed, trust, market size",
+  category: "visibility",
+  tiers: [
+    {
+      id: "full_audit_master",
+      name: "Master Audit",
+      price: 9.80,
+      billingPeriod: "one-time",
+      // TODO(stripe): mint live price (lookup_key full_audit_master_one_time) and paste id here
+      stripePriceId: null,
+      features: [
+        "Local SEO checklist (all 28 ranking factors)",
+        "NAP consistency across 50 directories",
+        "Site speed (Core Web Vitals desktop + mobile)",
+        "Trust & authority signals",
+        "Market size analysis for your service area",
+        "Delivered as a single PDF within 60 seconds of payment",
+      ],
+    },
+  ],
+};
+
 /* ─── All Products (ordered) ─── */
 export const ALL_PRODUCTS: ProductDef[] = [
   SITELAUNCH,
@@ -728,6 +854,8 @@ export const ALL_PRODUCTS: ProductDef[] = [
   REPUTATIONSHIELD,
   SOCIALSYNC,
   CONTENTFLOW,
+  CITATIONBUILDER,
+  FULL_AUDIT_MASTER,
   WEBFIX,
 ];
 

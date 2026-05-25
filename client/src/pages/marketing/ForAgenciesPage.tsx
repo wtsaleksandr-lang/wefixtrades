@@ -59,6 +59,17 @@ export default function ForAgenciesPage() {
           local presence from one place.
         </>
       }
+      productCtas={[
+        { label: "MapGuard", href: "/products/mapguard", tagline: "Manage every client's Google Maps visibility from one dashboard" },
+        { label: "Citation Builder", href: "/citation-builder", tagline: "Bulk-submit clients to 100+ directories — one order each" },
+        { label: "ContentFlow", href: "/products/contentflow", tagline: "Spin up monthly content for dozens of clients in batch" },
+        { label: "ReputationShield", href: "/products/reputationshield", tagline: "Multi-client review monitoring + response queue" },
+      ]}
+      recommendedFreeTools={[
+        { label: "Citation Checker", href: "/tools/citation-checker" },
+        { label: "Local RankFlux", href: "/tools/local-rankflux" },
+        { label: "Local Search Checker", href: "/tools/local-search-checker" },
+      ]}
     />
   );
 }

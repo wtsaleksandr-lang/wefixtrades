@@ -37,6 +37,7 @@ import { fireAlert } from "../services/alertService";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { runPreFixAudit } from "../services/webfixAuditService";
 import { sendAdflowOnboardingEmail } from "../lib/adflowOnboardingEmail";
+import { sendMapguardWelcomeEmail } from "../lib/mapguardWelcomeEmail";
 import { buildLoginToken, storeCheckoutLoginToken } from "../lib/loginToken";
 import { kickoffMapguardService } from "../services/mapguardTaskEngine";
 import { kickoffReputationShieldService } from "../services/reputation/reputationShieldKickoff";
@@ -47,6 +48,14 @@ import {
   isCitationTrackerSubscription,
   isCitationTrackerCheckout,
 } from "./citationTrackerWebhookHandlers";
+import {
+  handleCitationBuilderCheckoutCompleted,
+  isCitationBuilderCheckout,
+} from "./citationBuilderWebhookHandlers";
+import {
+  handleFullAuditMasterCheckoutCompleted,
+  isFullAuditMasterCheckout,
+} from "./fullAuditWebhookHandlers";
 
 const log = createLogger("StripeBilling");
 
@@ -319,6 +328,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
+  // ─── Citation Builder (Wave 3.5) one-time checkout ───
+  if (isCitationBuilderCheckout(session)) {
+    await handleCitationBuilderCheckoutCompleted(session);
+    return;
+  }
+
+  // ─── Full Audit Master (Wave 3.5) $9.80 one-time checkout ───
+  if (isFullAuditMasterCheckout(session)) {
+    await handleFullAuditMasterCheckoutCompleted(session);
+    return;
+  }
+
   const clientId = parseInt(session.metadata?.crm_client_id || "0");
   const serviceIdRaw = session.metadata?.service_catalog_id;
   const isPublicCheckout = session.metadata?.source === "public_checkout";
@@ -449,6 +470,21 @@ async function provisionOrConfirmService(
         }
       } catch (err: any) {
         log.warn(`[billing-webhook] MapGuard kickoff failed for client ${clientId}: ${err.message}`);
+      }
+      // Welcome email — fires once per checkout.session.completed.
+      try {
+        const mgClient = await storage.getClientById(clientId);
+        if (mgClient?.contact_email) {
+          const tierLabel = serviceId.replace(/^mapguard-/, "").replace(/^./, c => c.toUpperCase()) || "MapGuard";
+          await sendMapguardWelcomeEmail({
+            recipientEmail: mgClient.contact_email,
+            businessName: mgClient.business_name,
+            clientServiceId: existing.id,
+            tierLabel,
+          });
+        }
+      } catch (err: any) {
+        log.warn(`[billing-webhook] MapGuard welcome email failed for client ${clientId}: ${err.message}`);
       }
     }
 
@@ -624,6 +660,22 @@ async function provisionOrConfirmService(
       }
     } catch (err: any) {
       log.warn(`[billing-webhook] MapGuard kickoff failed for client ${clientId}: ${err.message}`);
+    }
+    // Welcome email — fires once per provisioning. Idempotency: this code
+    // path only runs when the service wasn't pre-provisioned, so duplicate
+    // sends are guarded by the existing-row check above.
+    try {
+      if (client?.contact_email) {
+        const tierLabel = serviceId.replace(/^mapguard-/, "").replace(/^./, c => c.toUpperCase()) || "MapGuard";
+        await sendMapguardWelcomeEmail({
+          recipientEmail: client.contact_email,
+          businessName: client.business_name,
+          clientServiceId: clientService.id,
+          tierLabel,
+        });
+      }
+    } catch (err: any) {
+      log.warn(`[billing-webhook] MapGuard welcome email failed for client ${clientId}: ${err.message}`);
     }
   }
 

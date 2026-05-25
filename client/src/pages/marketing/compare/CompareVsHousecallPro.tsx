@@ -28,6 +28,12 @@ export default function CompareVsHousecallPro() {
         "plumbing software comparison",
       ]}
       publishedDate={PUBLISHED}
+      productsMentioned={[
+        { label: "MapGuard", href: "/products/mapguard" },
+        { label: "ContentFlow", href: "/products/contentflow" },
+        { label: "TradeLine", href: "/products/tradeline" },
+        { label: "ReputationShield", href: "/products/reputationshield" },
+      ]}
       heroHeadline={
         <>
           WeFixTrades vs Housecall Pro:

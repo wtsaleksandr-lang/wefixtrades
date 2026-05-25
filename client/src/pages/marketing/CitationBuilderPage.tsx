@@ -172,14 +172,47 @@ const FAQ_ITEMS = [
       "Starter (25 directories) is the right floor for any local business — it covers Yelp, BBB, YellowPages, and the other general directories Google leans on most. Pro (+25 trade-specific) is the sweet spot for service businesses (plumbers, HVAC, electricians, etc.) because Angi / Houzz / HomeAdvisor actually drive leads — not just rankings.",
   },
   {
-    question: "When will Stripe checkout be live?",
+    question: "Is checkout secure?",
     answer:
-      "We're in soft-launch — every order goes through sales@wefixtrades.com right now so we can hand-walk the first batch through the intake. Online checkout opens in the next release. The price + scope on this page is locked.",
+      "Yes — every order goes through Stripe Checkout. We never see or store your card. You'll receive an order confirmation email immediately and a portal login link to track every submission as it goes live.",
   },
 ];
 
 function mailto(tierName: string): string {
   return `mailto:sales@wefixtrades.com?subject=${encodeURIComponent(`${MAILTO_SUBJECT_BASE} — ${tierName}`)}&body=${encodeURIComponent("Hi WeFixTrades team,\n\nI'd like to start the Citation Builder " + tierName + " tier. Here's my business info:\n\nBusiness name:\nWebsite:\nPhone:\nAddress:\n\nLooking forward to next steps.")}`;
+}
+
+/**
+ * Wave 3.5 launch-wiring — drives the tier CTA to Stripe Checkout via
+ * /api/citation-builder/checkout. Mailto fallback retained for legacy
+ * customers / when JS is disabled.
+ */
+async function startCheckout(tierSlug: "starter" | "pro" | "premium", tierName: string): Promise<void> {
+  try {
+    const businessName = window.prompt("Business name (we'll collect the rest after payment):") || "";
+    if (!businessName.trim()) return;
+    const email = window.prompt("Best email for the order receipt + completion report:") || undefined;
+
+    const res = await fetch("/api/citation-builder/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tier: tierSlug,
+        business_info: { name: businessName.trim() },
+        email: email?.trim() || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.checkout_url) {
+      console.error("[CitationBuilder] checkout failed", data);
+      window.location.href = mailto(tierName);
+      return;
+    }
+    window.location.href = data.checkout_url;
+  } catch (err) {
+    console.error("[CitationBuilder] checkout error", err);
+    window.location.href = mailto(tierName);
+  }
 }
 
 function TierCard({ tier }: { tier: TierDef }) {
@@ -247,8 +280,9 @@ function TierCard({ tier }: { tier: TierDef }) {
         ))}
       </ul>
 
-      <a
-        href={mailto(tier.name)}
+      <button
+        type="button"
+        onClick={() => startCheckout(tier.id, tier.name)}
         data-testid={`button-tier-${tier.id}-cta`}
         style={{
           display: "inline-flex",
@@ -264,12 +298,13 @@ function TierCard({ tier }: { tier: TierDef }) {
           fontWeight: 700,
           textDecoration: "none",
           marginTop: "auto",
+          cursor: "pointer",
         }}
       >
         Start at ${tier.price} <ArrowRight size={14} />
-      </a>
+      </button>
       <div style={{ fontSize: 11, color: "rgba(0,0,0,0.42)", textAlign: "center" }}>
-        Online checkout opens in the next release — orders today go via sales@.
+        Secure Stripe checkout · 7-day delivery
       </div>
     </div>
   );
