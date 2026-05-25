@@ -74,6 +74,7 @@ import {
 } from "../cron/gbpAutomation";
 import { runVapiRecordingMirrorTick } from "../cron/vapiRecordingMirror";
 import { runVapiAssistantHealthCheck } from "./vapiAssistantHealthCheck";
+import { processCitationTrackerDailyScan } from "./citationTrackerDailyScan";
 
 const log = createLogger("Scheduler");
 
@@ -289,6 +290,19 @@ export function initScheduler() {
       });
     } catch (err: any) {
       log.error("chat_memory_cleanup cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // Citation Tracker (Wave 3) — daily NAP drift / new-listing / removal scan
+  // across every active citation_tracker_subscriptions row. 03:00 UTC.
+  cron.schedule("0 3 * * *", async () => {
+    try {
+      await runJob("citation_tracker_daily_scan", async () => {
+        await processCitationTrackerDailyScan();
+        return { status: "ok" };
+      });
+    } catch (err: any) {
+      log.error("citation_tracker_daily_scan cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 

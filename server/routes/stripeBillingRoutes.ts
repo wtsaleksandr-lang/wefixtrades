@@ -41,6 +41,12 @@ import { buildLoginToken, storeCheckoutLoginToken } from "../lib/loginToken";
 import { kickoffMapguardService } from "../services/mapguardTaskEngine";
 import { kickoffReputationShieldService } from "../services/reputation/reputationShieldKickoff";
 import { sendGA4Event, clientIdFromStableId } from "../lib/analytics/ga4Server";
+import {
+  handleCitationTrackerCheckoutCompleted,
+  handleCitationTrackerSubscriptionEvent,
+  isCitationTrackerSubscription,
+  isCitationTrackerCheckout,
+} from "./citationTrackerWebhookHandlers";
 
 const log = createLogger("StripeBilling");
 
@@ -229,6 +235,12 @@ export function registerStripeBillingRoutes(app: Express): void {
           if (isApiSubscription(sub)) {
             await handleApiSubscriptionUpserted(sub);
           }
+          // Wave 3: ensure citation_tracker rows pick up the
+          // stripe_subscription_id even if the checkout webhook hasn't
+          // landed yet (Stripe sometimes fires "subscription.created" first).
+          if (isCitationTrackerSubscription(sub)) {
+            await handleCitationTrackerSubscriptionEvent(sub);
+          }
           break;
         }
 
@@ -245,12 +257,19 @@ export function registerStripeBillingRoutes(app: Express): void {
           if (isApiSubscription(event.data.object as Stripe.Subscription)) {
             await handleApiSubscriptionUpserted(event.data.object as Stripe.Subscription);
           }
+          // Wave 3: keep citation_tracker_subscriptions in sync.
+          if (isCitationTrackerSubscription(event.data.object as Stripe.Subscription)) {
+            await handleCitationTrackerSubscriptionEvent(event.data.object as Stripe.Subscription);
+          }
           break;
 
         case "customer.subscription.deleted":
           await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, event.id);
           if (isApiSubscription(event.data.object as Stripe.Subscription)) {
             await handleApiSubscriptionDeleted(event.data.object as Stripe.Subscription);
+          }
+          if (isCitationTrackerSubscription(event.data.object as Stripe.Subscription)) {
+            await handleCitationTrackerSubscriptionEvent(event.data.object as Stripe.Subscription);
           }
           break;
 
@@ -291,6 +310,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // ─── Wave R-2: widget deposit (Stripe Connect to calculator owner) ───
   if (session.metadata?.source === 'widget_deposit') {
     await handleWidgetDepositCompleted(session);
+    return;
+  }
+
+  // ─── Citation Tracker (Wave 3) subscription checkout ───
+  if (isCitationTrackerCheckout(session)) {
+    await handleCitationTrackerCheckoutCompleted(session);
     return;
   }
 

@@ -173,6 +173,8 @@ import SupportInboxPage from "@/pages/admin/SupportInboxPage";
 import SupportTicketDetailPage from "@/pages/admin/SupportTicketDetailPage";
 import AdminNoticesPage from "@/pages/admin/AdminNoticesPage";
 import PortalMapguard from "@/pages/portal/PortalMapguard";
+import CitationTrackerDashboard from "@/pages/portal/CitationTrackerDashboard";
+import CitationTrackerPage from "@/pages/marketing/CitationTrackerPage";
 import SocialSyncSetup from "@/pages/portal/SocialSyncSetup";
 import PortalSocialSync from "@/pages/portal/PortalSocialSync";
 import PortalRankFlow from "@/pages/portal/PortalRankFlow";
@@ -373,6 +375,7 @@ function Router() {
       <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
+      <Route path="/portal/citation-tracker">{() => <RequireClient><CitationTrackerDashboard /></RequireClient>}</Route>
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
       <Route path="/portal/catalog">{() => <RequireClient><PortalCatalog /></RequireClient>}</Route>
       <Route path="/portal/reviews/widget">{() => <RequireClient><PortalWidget /></RequireClient>}</Route>
@@ -513,6 +516,7 @@ function Router() {
       {/* Wave 2 SEO surfaces — Local Rank Grid (free) + Citation Builder (paid service). */}
       <Route path="/tools/local-rank-grid" component={LocalRankGrid} />
       <Route path="/citation-builder" component={CitationBuilderPage} />
+      <Route path="/citation-tracker" component={CitationTrackerPage} />
       {/* ContentFlow Phase 1 — public prompt-library SEO landings.
           One route per seed trade so wouter can match the `-ai-content-prompts`
           literal suffix without a regex param. The TradePromptsPage reads

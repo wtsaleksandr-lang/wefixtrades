@@ -181,6 +181,7 @@ function MarketingFooter() {
               { href: "/products/contentflow", label: "ContentFlow™" },
               { href: "/products/adflow", label: "AdFlow™" },
               { href: "/products/bookflow", label: "BookFlow™" },
+              { href: "/citation-tracker", label: "Citation Tracker" },
             ]}
           />
 

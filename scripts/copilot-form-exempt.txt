@@ -56,6 +56,8 @@ client/src/pages/portal/ChatWidgetInstallEntry.tsx
 client/src/pages/portal/ChatWidgetInstallOnboarding.tsx
 client/src/pages/portal/DispatchPage.tsx
 client/src/pages/portal/InvoicesPage.tsx
+# Citation Tracker — read-only dashboard (subscription status, alerts, listings).
+client/src/pages/portal/CitationTrackerDashboard.tsx
 client/src/pages/portal/PortalBilling.tsx
 client/src/pages/portal/PortalChatHistoryPage.tsx
 client/src/pages/portal/PortalDashboard.tsx
