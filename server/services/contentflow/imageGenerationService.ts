@@ -31,6 +31,13 @@ import type { ContentDraft } from "@shared/schema";
 import { readBrandProfile } from "./brandProfile";
 import { createLogger } from "../../lib/logger";
 import { postProcessAIImage, isPostProcessEnabled } from "./imagePostProcess";
+import {
+  applyStylePreset,
+  defaultPresetForIndustry,
+  isImageStylePresetId,
+  type ImageStylePresetId,
+} from "./imageStylePresets";
+import { writeAudit } from "../../lib/auditLog";
 
 const logger = createLogger("ImageGen");
 
@@ -293,8 +300,19 @@ async function uploadToR2(args: { key: string; contentType: string; sourceUrl?: 
  *
  * NEVER throws. The orchestrator must continue regardless of return
  * value — text-only publish remains the safety net.
+ *
+ * Sprint 19 — image-style preset resolution:
+ *   opts.imageStylePreset  → caller override (per-draft picker)
+ *   client brand profile   → customer default (PortalContentPreferences)
+ *   industry default       → defaultPresetForIndustry(trade_type)
+ *   hard fallback          → "photoreal"
+ * The chosen preset's promptSuffix is appended to the final 3-layer
+ * prompt before the gpt-image-1 call.
  */
-export async function generateForDraft(draftId: number, opts?: { skipPostProcess?: boolean }): Promise<GenerateForDraftResult> {
+export async function generateForDraft(
+  draftId: number,
+  opts?: { skipPostProcess?: boolean; imageStylePreset?: ImageStylePresetId | null },
+): Promise<GenerateForDraftResult> {
   const t0 = Date.now();
   const log = (msg: string) => logger.info(`[contentflow][image-gen] draft=${draftId} ${msg} duration_ms=${Date.now() - t0}`);
 
@@ -336,7 +354,45 @@ export async function generateForDraft(draftId: number, opts?: { skipPostProcess
     const brand = readClientBrand(client);
     const tradeType = (client?.trade_type as string | null) ?? null;
 
-    const finalPrompt = buildFinalPrompt({ postPrompt, brand, tradeType });
+    /* Resolve image style preset (Sprint 19). Precedence:
+     *   1. opts.imageStylePreset (caller override per draft)
+     *   2. client brand profile default (PortalContentPreferences)
+     *   3. industry default (defaultPresetForIndustry)
+     *   4. "photoreal" (the function above already returns this fallback) */
+    const fullBrand = readBrandProfile(client);
+    const customerDefault = isImageStylePresetId(fullBrand.image_style_preset)
+      ? fullBrand.image_style_preset
+      : null;
+    const callerOverride = isImageStylePresetId(opts?.imageStylePreset)
+      ? (opts!.imageStylePreset as ImageStylePresetId)
+      : null;
+    const industryDefault = defaultPresetForIndustry(tradeType);
+    const resolvedPreset: ImageStylePresetId =
+      callerOverride ?? customerDefault ?? industryDefault;
+    const fellBackToDefault = !callerOverride && !customerDefault;
+
+    const promptBeforeStyle = buildFinalPrompt({ postPrompt, brand, tradeType });
+    const finalPrompt = applyStylePreset(promptBeforeStyle, resolvedPreset);
+
+    /* Fire-and-forget audit so admins can see which preset shaped each
+     * draft's image. Not awaited — never block generation on audit. */
+    writeAudit({
+      actorType: "system",
+      action: "contentflow.image.style_preset_applied",
+      entityType: "content_draft",
+      entityId: String(draftId),
+      metadata: {
+        preset_id: resolvedPreset,
+        fallback_to_default: fellBackToDefault,
+        source: callerOverride
+          ? "caller_override"
+          : customerDefault
+            ? "customer_default"
+            : "industry_default",
+        trade_type: tradeType,
+        client_id: draft.client_id,
+      },
+    });
 
     /* Product-level gate — kill switch + monthly spend cap. */
     const gate = await checkContentflowGate();
@@ -446,6 +502,7 @@ export async function generateForDraft(draftId: number, opts?: { skipPostProcess
       revisedPrompt: apiResult.revised_prompt,
       provider,
       promptHash: crypto.createHash("sha256").update(finalPrompt).digest("hex").slice(0, 16),
+      stylePreset: resolvedPreset,
     });
 
     /* Record estimated image-gen cost toward the monthly spend cap.
@@ -522,7 +579,13 @@ async function scheduleR2Reupload(draftId: number, ephemeralUrl: string, r2Key: 
 
 async function persistImageOnDraft(
   draftId: number,
-  args: { imageUrl: string; revisedPrompt?: string; provider: string; promptHash: string },
+  args: {
+    imageUrl: string;
+    revisedPrompt?: string;
+    provider: string;
+    promptHash: string;
+    stylePreset?: ImageStylePresetId;
+  },
 ): Promise<void> {
   const fresh = await storage.getContentDraftById(draftId);
   if (!fresh) return;
@@ -538,6 +601,7 @@ async function persistImageOnDraft(
         image_provider: args.provider,
         image_prompt_hash: args.promptHash,
         image_revised_prompt: args.revisedPrompt ?? null,
+        image_style_preset: args.stylePreset ?? null,
       },
       image_generation_status: "succeeded",
       image_generation_at: new Date().toISOString(),
