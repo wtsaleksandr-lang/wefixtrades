@@ -1,9 +1,8 @@
 import express, { type Express, type Request, type Response } from "express";
-import { requireClient, requireClientStrict, hashPassword, verifyPassword } from "../auth";
+import { requireClient, requireClientStrict } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { authRateLimiter } from "../services/rateLimiter";
 
 import {
   clients,
@@ -11,14 +10,6 @@ import {
   fulfillmentTasks,
   onboardingSubmissions,
   clientPayments,
-  users,
-  calculators,
-  leads,
-  deploymentStatus,
-  passwordResetTokens,
-  parseNotificationPreferences,
-  notificationPreferencesSchema,
-  DEFAULT_NOTIFICATION_PREFERENCES,
 } from "@shared/schema";
 
 import { createLogger } from "../lib/logger";
@@ -37,14 +28,11 @@ import { registerPortalSocialsyncRoutes } from "./portal/socialsync";
 import { registerPortalRankflowRoutes } from "./portal/rankflow";
 import { registerPortalCatalogRoutes } from "./portal/catalog";
 import { registerPortalTicketsRoutes } from "./portal/tickets";
+import { registerPortalSettingsRoutes } from "./portal/settings";
 
 const log = createLogger("Portal");
 
 /* ─── Helpers ─── */
-
-function getClientIp(req: Request): string {
-  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
-}
 
 /** Resolve client_id from the authenticated user's id. Returns null if no client record linked. */
 async function resolveClientId(userId: number): Promise<number | null> {
@@ -87,6 +75,7 @@ export function registerPortalRoutes(app: Express) {
   registerPortalRankflowRoutes(app);
   registerPortalCatalogRoutes(app);
   registerPortalTicketsRoutes(app);
+  registerPortalSettingsRoutes(app);
 
   /**
    * GET /api/portal/overview
@@ -193,185 +182,6 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       log.error("Portal adflow reports error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load reports" });
-    }
-  });
-
-  /**
-   * GET /api/portal/settings
-   * Client profile and account info.
-   */
-  app.get("/api/portal/settings", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
-      const [user] = await db
-        .select({ email: users.email, name: users.name })
-        .from(users)
-        .where(eq(users.id, req.user!.id))
-        .limit(1);
-
-      res.json({
-        business_name: client.business_name,
-        contact_name: client.contact_name,
-        contact_email: client.contact_email,
-        contact_phone: client.contact_phone,
-        website_url: client.website_url,
-        logo_url: client.logo_url ?? null,
-        trade_type: client.trade_type,
-        account_email: user?.email ?? null,
-      });
-    } catch (err) {
-      log.error("Portal settings error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to load settings" });
-    }
-  });
-
-  /**
-   * PATCH /api/portal/settings
-   * Update client contact info.
-   */
-  app.patch("/api/portal/settings", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const { contact_name, contact_email, contact_phone, website_url } = req.body;
-
-      const updates: Record<string, string | undefined> = {};
-      if (contact_name !== undefined) updates.contact_name = contact_name;
-      if (contact_email !== undefined) updates.contact_email = contact_email;
-      if (contact_phone !== undefined) updates.contact_phone = contact_phone;
-      if (website_url !== undefined) updates.website_url = website_url;
-
-      if (Object.keys(updates).length === 0) {
-        return res.status(400).json({ error: "No fields to update" });
-      }
-
-      const [updated] = await db
-        .update(clients)
-        .set({ ...updates, updated_at: new Date() })
-        .where(eq(clients.id, clientId))
-        .returning();
-
-      res.json({
-        business_name: updated.business_name,
-        contact_name: updated.contact_name,
-        contact_email: updated.contact_email,
-        contact_phone: updated.contact_phone,
-        website_url: updated.website_url,
-        trade_type: updated.trade_type,
-      });
-    } catch (err) {
-      log.error("Portal settings update error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to update settings" });
-    }
-  });
-
-  /**
-   * GET /api/portal/notification-preferences
-   * Returns the client's notification preferences, falling back to
-   * sensible defaults if none have been saved yet.
-   */
-  app.get("/api/portal/notification-preferences", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const [client] = await db.select({ metadata: clients.metadata }).from(clients).where(eq(clients.id, clientId)).limit(1);
-      const prefs = parseNotificationPreferences(client?.metadata);
-      res.json({ preferences: prefs, defaults: DEFAULT_NOTIFICATION_PREFERENCES });
-    } catch (err) {
-      log.error("Portal notification prefs GET error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to load preferences" });
-    }
-  });
-
-  /**
-   * PUT /api/portal/notification-preferences
-   * Replace the full preferences blob. Body must match the
-   * notificationPreferencesSchema; partial updates are not supported
-   * because the categories list is short enough that a full PUT is
-   * always cheaper than reasoning about merges.
-   */
-  app.put("/api/portal/notification-preferences", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const parsed = notificationPreferencesSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: "Invalid preferences payload", details: parsed.error.flatten() });
-      }
-
-      const [existing] = await db.select({ metadata: clients.metadata }).from(clients).where(eq(clients.id, clientId)).limit(1);
-      const prevMetadata = (existing?.metadata ?? {}) as Record<string, unknown>;
-      const newMetadata = { ...prevMetadata, notification_preferences: parsed.data };
-
-      const [updated] = await db
-        .update(clients)
-        .set({ metadata: newMetadata, updated_at: new Date() })
-        .where(eq(clients.id, clientId))
-        .returning({ metadata: clients.metadata });
-
-      res.json({ preferences: parseNotificationPreferences(updated.metadata) });
-    } catch (err) {
-      log.error("Portal notification prefs PUT error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to update preferences" });
-    }
-  });
-
-  /**
-   * POST /api/portal/password
-   * Change password for the authenticated client.
-   */
-  app.post("/api/portal/password", requireClient, async (req: Request, res: Response) => {
-    try {
-      const ip = getClientIp(req);
-      if (!(await authRateLimiter.check(`pw:${ip}`))) {
-        return res.status(429).json({ error: "Too many attempts. Please wait before trying again." });
-      }
-
-      const { current_password, new_password } = req.body;
-
-      if (!current_password || typeof current_password !== "string") {
-        return res.status(400).json({ error: "Current password is required" });
-      }
-      if (!new_password || typeof new_password !== "string" || new_password.length < 8) {
-        return res.status(400).json({ error: "New password must be at least 8 characters" });
-      }
-
-      // Get current user with hash
-      const [user] = await db
-        .select({ id: users.id, password_hash: users.password_hash })
-        .from(users)
-        .where(eq(users.id, req.user!.id))
-        .limit(1);
-
-      if (!user) return res.status(404).json({ error: "User not found" });
-
-      // Verify current password
-      if (!verifyPassword(current_password, user.password_hash)) {
-        return res.status(401).json({ error: "Current password is incorrect" });
-      }
-
-      // Update password
-      await db
-        .update(users)
-        .set({ password_hash: hashPassword(new_password) })
-        .where(eq(users.id, req.user!.id));
-
-      // Invalidate any existing reset tokens for this user
-      await db
-        .update(passwordResetTokens)
-        .set({ used: true })
-        .where(and(eq(passwordResetTokens.user_id, req.user!.id), eq(passwordResetTokens.used, false)));
-
-      res.json({ ok: true });
-    } catch (err) {
-      log.error("Portal password change error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to change password" });
     }
   });
 
