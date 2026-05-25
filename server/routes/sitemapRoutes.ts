@@ -95,6 +95,12 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/solutions/for-remodelers", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
   { loc: "/solutions/for-general-contractors", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
   { loc: "/tools/free-audit", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-24" },
+  // ContentFlow Phase 1 — public AI-prompt-library landings, one per seed trade.
+  { loc: "/tools/plumbing-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/tools/hvac-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/tools/electrical-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/tools/roofing-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/tools/landscaping-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/products/quickquotepro/demo", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/products/quickquotepro/build-with-ai", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/about", priority: "0.6", changefreq: "monthly", lastmod: "2026-04-01" },

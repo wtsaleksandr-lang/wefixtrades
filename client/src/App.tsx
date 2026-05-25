@@ -19,6 +19,7 @@ const Wizard = lazy(() => import("@/pages/wizard"));
 const WizardLegacy = lazy(() => import("@/pages/wizard-legacy"));
 const Calculator = lazy(() => import("@/pages/calculator"));
 const FreeAudit = lazy(() => import("@/pages/marketing/FreeAudit"));
+const TradePromptsPage = lazy(() => import("@/pages/marketing/TradePromptsPage"));
 import EditCalculator from "@/pages/edit-calculator";
 import LeadsPage from "@/pages/leads";
 import Dashboard from "@/pages/dashboard";
@@ -159,6 +160,7 @@ import PortalSocialSync from "@/pages/portal/PortalSocialSync";
 import PortalRankFlow from "@/pages/portal/PortalRankFlow";
 import PortalArticles from "@/pages/portal/PortalArticles";
 import PortalContentPreferences from "@/pages/portal/PortalContentPreferences";
+import PortalContentFlow from "@/pages/portal/PortalContentFlow";
 import ResetPasswordPage from "@/pages/ResetPassword";
 import SignupPage from "@/pages/Signup";
 import SignupBusinessNamePage from "@/pages/SignupBusinessName";
@@ -362,6 +364,8 @@ function Router() {
       <Route path="/portal/rankflow">{() => <RequireClient><PortalRankFlow /></RequireClient>}</Route>
       <Route path="/portal/articles">{() => <RequireClient><PortalArticles /></RequireClient>}</Route>
       <Route path="/portal/content-preferences">{() => <RequireClient><PortalContentPreferences /></RequireClient>}</Route>
+      {/* ContentFlow Phase 1 — prompt-library picker. */}
+      <Route path="/portal/contentflow">{() => <RequireClient><PortalContentFlow /></RequireClient>}</Route>
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
       <Route path="/portal/help/tickets/:id">{() => <RequireClient><PortalTicketDetail /></RequireClient>}</Route>
       <Route path="/portal/socialsync-setup">{() => <RequireClient><SocialSyncSetup /></RequireClient>}</Route>
@@ -471,6 +475,15 @@ function Router() {
       {/* Tools-consolidation (2026-05-23) — the marketing /tools/* surface
           consolidated to a single Free Audit page. Live routes: */}
       <Route path="/tools/free-audit" component={FreeAudit} />
+      {/* ContentFlow Phase 1 — public prompt-library SEO landings.
+          One route per seed trade so wouter can match the `-ai-content-prompts`
+          literal suffix without a regex param. The TradePromptsPage reads
+          the slug via :trade and 404s if it's not in TRADE_META. */}
+      <Route path="/tools/plumbing-ai-content-prompts">{() => <TradePromptsPage />}</Route>
+      <Route path="/tools/hvac-ai-content-prompts">{() => <TradePromptsPage />}</Route>
+      <Route path="/tools/electrical-ai-content-prompts">{() => <TradePromptsPage />}</Route>
+      <Route path="/tools/roofing-ai-content-prompts">{() => <TradePromptsPage />}</Route>
+      <Route path="/tools/landscaping-ai-content-prompts">{() => <TradePromptsPage />}</Route>
       {/* Quote Demo + Build-with-AI relocated under QuoteQuick */}
       <Route path="/products/quickquotepro/demo" component={QuoteCalculatorDemo} />
       <Route path="/products/quickquotepro/build-with-ai/preview" component={BuildWithAiPreview} />
