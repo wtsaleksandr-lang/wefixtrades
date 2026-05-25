@@ -40,6 +40,18 @@ interface LineItem {
   unit_price_cents: number;
 }
 
+// Local-only line item carries a stable client-side uid so React keys are
+// stable across reorders/removals (avoids the `key={idx}` antipattern).
+interface DraftLineItem extends LineItem {
+  _uid: string;
+}
+
+function newLineItemUid(): string {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `li_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 interface InvoiceRow {
   id: number;
   client_id: number;
@@ -191,10 +203,10 @@ function InvoiceEditor({
   const [issueDate, setIssueDate] = useState(toIsoDate(inv.issue_date) || toIsoDate(inv.created_at));
   const [dueDate, setDueDate] = useState(toIsoDate(inv.due_date));
   const [notes, setNotes] = useState(inv.notes || "");
-  const [lineItems, setLineItems] = useState<LineItem[]>(
+  const [lineItems, setLineItems] = useState<DraftLineItem[]>(
     Array.isArray(inv.line_items) && inv.line_items.length > 0
-      ? inv.line_items
-      : [{ description: "", quantity: 1, unit_price_cents: 0 }],
+      ? inv.line_items.map((li) => ({ ...li, _uid: newLineItemUid() }))
+      : [{ _uid: newLineItemUid(), description: "", quantity: 1, unit_price_cents: 0 }],
   );
   const [taxMode, setTaxMode] = useState<"fixed" | "percent">("fixed");
   const [taxPercent, setTaxPercent] = useState<number>(0);
@@ -409,7 +421,7 @@ function InvoiceEditor({
         <Card title="Line items" help="Click any cell to edit; Add row to extend">
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {lineItems.map((li, idx) => (
-              <div key={idx} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 70px 90px 90px 28px", gap: 6, alignItems: "center" }}>
+              <div key={li._uid} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 70px 90px 90px 28px", gap: 6, alignItems: "center" }}>
                 <input
                   value={li.description}
                   onChange={(e) => {
@@ -464,7 +476,7 @@ function InvoiceEditor({
               </div>
             ))}
             <button
-              onClick={() => setLineItems([...lineItems, { description: "", quantity: 1, unit_price_cents: 0 }])}
+              onClick={() => setLineItems([...lineItems, { _uid: newLineItemUid(), description: "", quantity: 1, unit_price_cents: 0 }])}
               className="text-brand-blue hover:underline"
               style={{ alignSelf: "flex-start", background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "4px 0", display: "inline-flex", alignItems: "center", gap: 4 }}
             >

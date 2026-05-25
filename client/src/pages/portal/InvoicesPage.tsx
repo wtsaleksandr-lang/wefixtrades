@@ -39,6 +39,19 @@ interface LineItem {
   unit_price_cents: number;
 }
 
+// Local-only line item carries a stable client-side uid so React keys are
+// stable across reorders/removals (avoids the `key={idx}` antipattern).
+interface DraftLineItem extends LineItem {
+  _uid: string;
+}
+
+function newLineItemUid(): string {
+  // crypto.randomUUID is available in all evergreen browsers we support.
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `li_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -108,6 +121,9 @@ export default function InvoicesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/bookflow/invoices"] });
     },
+    onError: (err: Error) => {
+      toast({ title: "Failed to send invoice", description: err.message, variant: "destructive" });
+    },
   });
 
   const markPaid = useMutation({
@@ -123,6 +139,9 @@ export default function InvoicesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/bookflow/invoices"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to mark paid", description: err.message, variant: "destructive" });
     },
   });
 
@@ -413,15 +432,15 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", quantity: 1, unit_price_cents: 0 },
+  const [lineItems, setLineItems] = useState<DraftLineItem[]>([
+    { _uid: newLineItemUid(), description: "", quantity: 1, unit_price_cents: 0 },
   ]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   function addLineItem() {
-    setLineItems([...lineItems, { description: "", quantity: 1, unit_price_cents: 0 }]);
+    setLineItems([...lineItems, { _uid: newLineItemUid(), description: "", quantity: 1, unit_price_cents: 0 }]);
   }
 
   function updateLineItem(idx: number, field: keyof LineItem, value: string | number) {
@@ -539,7 +558,7 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
         {/* Line items */}
         <label style={{ ...labelStyle, marginBottom: 8, display: "block" }}>Line Items</label>
         {lineItems.map((li, idx) => (
-          <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+          <div key={li._uid} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
             <input
               value={li.description}
               onChange={(e) => updateLineItem(idx, "description", e.target.value)}
