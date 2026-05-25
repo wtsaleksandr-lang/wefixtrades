@@ -1,8 +1,10 @@
 /**
  * ThemeContext — day/night theme provider for the admin + portal surfaces.
  *
- * Three states: "light" / "dark" / "system".  Default is "system" (auto-
- * detect via prefers-color-scheme). User choice persists in localStorage
+ * Two states: "light" / "dark". The legacy "system" value is still
+ * accepted by the type (so old localStorage entries don't crash) but
+ * it's migrated to a concrete "light"/"dark" on first mount — see
+ * the migration effect below. User choice persists in localStorage
  * under `wft_theme_preference`. NEVER writes a cookie — pure client-side.
  *
  * The provider toggles `class="dark"` on <html> so Tailwind's
@@ -83,6 +85,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyToDocument(resolved);
   }, [resolved]);
+
+  /* One-time migration: if a returning user has the legacy "system"
+   * value persisted, snap it to whatever the OS resolves to right now
+   * and write that concrete value back. From then on, the binary
+   * Sun/Moon toggle just flips between "light" and "dark". */
+  useEffect(() => {
+    if (theme !== "system") return;
+    const concrete: ResolvedTheme = systemDark ? "dark" : "light";
+    setThemeState(concrete);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, concrete);
+    } catch {
+      /* private mode / quota — non-fatal */
+    }
+    // run once on mount; we intentionally don't react to later systemDark flips here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setTheme = useCallback((next: ThemeChoice) => {
     setThemeState(next);
