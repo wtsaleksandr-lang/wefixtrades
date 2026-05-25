@@ -3,25 +3,13 @@
 // (server/db.ts throws on missing DATABASE_URL, etc.). Side-effect only.
 import "./bootstrapDoppler";
 import "dotenv/config";
+// Sentry SDK init — MUST come before any other application import so the
+// SDK can install instrumentation hooks before those subsystems load.
+// Side-effect only; no-op when SENTRY_DSN is missing. See server/instrument.ts.
+import "./instrument";
 import * as Sentry from "@sentry/node";
 import { initAnalytics, shutdownAnalytics } from "./lib/analytics";
 import { initObjectStorage } from "./lib/objectStorage";
-
-if (process.env.SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV || "development",
-    // Release tagging lets Sentry group regressions per-deploy. Falls
-    // back through the same chain as /api/healthz so the two stay in sync.
-    release:
-      process.env.SENTRY_RELEASE ??
-      process.env.GIT_SHA ??
-      process.env.REPL_DEPLOYMENT_ID ??
-      process.env.SOURCE_VERSION ??
-      undefined,
-    tracesSampleRate: 0.1,
-  });
-}
 
 initAnalytics();
 // Fail-fast on bill-encryption key misconfiguration. Asymmetric with
