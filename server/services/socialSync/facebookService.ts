@@ -56,6 +56,10 @@ const REQUIRED_SCOPES = [
   "pages_read_engagement",
   "pages_manage_posts",
   "pages_read_user_content",
+  // Lets the customer edit their Page's basic metadata (name, about, category)
+  // from the WeFixTrades portal. Read/update routes live in
+  // server/routes/portal/socialsync.ts → /facebook-page/:pageId/metadata.
+  "pages_manage_metadata",
   // Instagram scopes — requested during the same Meta OAuth flow
   "instagram_basic",
   "instagram_content_publish",
@@ -440,4 +444,118 @@ export async function getFacebookPageToken(clientId: number): Promise<{ token: s
   } catch {
     return null;
   }
+}
+
+/* ─── Page Metadata (pages_manage_metadata scope) ─── */
+
+export interface FacebookPageMetadata {
+  id: string;
+  name: string | null;
+  about: string | null;
+  category: string | null;
+  category_list: { id: string; name: string }[];
+}
+
+export interface UpdateFacebookPageMetadataInput {
+  name?: string;
+  about?: string;
+  category?: string; // Page category name; Meta resolves it server-side.
+}
+
+/**
+ * Verify that the given Facebook pageId is the one this client is connected
+ * to. Returns the decrypted page-level access token on success, or null if
+ * the client has no connection to that page or the token is unusable.
+ *
+ * Centralised here so the portal route handler stays a thin wrapper.
+ */
+async function getConnectedPageToken(
+  clientId: number,
+  pageId: string,
+): Promise<{ token: string; connectionId: number } | null> {
+  const connections = await storage.listSocialSyncConnections(clientId);
+  const fbConn = connections.find(
+    (c) => c.platform === "facebook" && c.external_page_id === pageId,
+  );
+  if (!fbConn || !fbConn.token_ref) return null;
+  if (fbConn.connection_status !== "connected") return null;
+  if (fbConn.token_expires_at && new Date(fbConn.token_expires_at) < new Date()) return null;
+  try {
+    return { token: decryptToken(fbConn.token_ref), connectionId: fbConn.id };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch the editable Page metadata fields. Read-only; uses the
+ * page-level access token already stored from the OAuth flow.
+ * Throws on Meta API failure with the upstream error message.
+ */
+export async function fetchFacebookPageMetadata(
+  clientId: number,
+  pageId: string,
+): Promise<FacebookPageMetadata> {
+  const conn = await getConnectedPageToken(clientId, pageId);
+  if (!conn) {
+    throw new Error("Page not connected to this account, or token expired. Reconnect required.");
+  }
+
+  const fields = "id,name,about,category,category_list";
+  const url = `${GRAPH_API_BASE}/${encodeURIComponent(pageId)}?fields=${fields}&access_token=${conn.token}`;
+  const res = await fetchWithRetry(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Failed to fetch page metadata: ${(err as any)?.error?.message || res.statusText}`);
+  }
+  const data = (await res.json()) as any;
+  return {
+    id: String(data.id),
+    name: data.name ?? null,
+    about: data.about ?? null,
+    category: data.category ?? null,
+    category_list: Array.isArray(data.category_list)
+      ? data.category_list.map((c: any) => ({ id: String(c.id), name: String(c.name) }))
+      : [],
+  };
+}
+
+/**
+ * Update editable Page metadata fields via a POST to /{page-id}.
+ * Returns the freshly-fetched metadata so callers can echo it back.
+ *
+ * NOTE: `name` updates require the Page owner to have name-change rights
+ * enabled in Meta; failures from Meta surface as the thrown error message
+ * for the UI to display verbatim.
+ */
+export async function updateFacebookPageMetadata(
+  clientId: number,
+  pageId: string,
+  input: UpdateFacebookPageMetadataInput,
+): Promise<FacebookPageMetadata> {
+  const conn = await getConnectedPageToken(clientId, pageId);
+  if (!conn) {
+    throw new Error("Page not connected to this account, or token expired. Reconnect required.");
+  }
+
+  const params = new URLSearchParams();
+  if (typeof input.name === "string") params.set("name", input.name);
+  if (typeof input.about === "string") params.set("about", input.about);
+  if (typeof input.category === "string") params.set("category", input.category);
+  if ([...params.keys()].length === 0) {
+    // Nothing to update — return current state without hitting Meta.
+    return fetchFacebookPageMetadata(clientId, pageId);
+  }
+  params.set("access_token", conn.token);
+
+  const res = await fetchWithRetry(`${GRAPH_API_BASE}/${encodeURIComponent(pageId)}`, {
+    method: "POST",
+    body: params,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Failed to update page metadata: ${(err as any)?.error?.message || res.statusText}`);
+  }
+
+  return fetchFacebookPageMetadata(clientId, pageId);
 }

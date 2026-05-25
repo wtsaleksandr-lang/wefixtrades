@@ -5,6 +5,7 @@ import { Share2, CheckCircle, Clock, ImageIcon, Settings, X, ThumbsUp, ThumbsDow
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import UpsellCard from "@/components/portal/UpsellCard";
+import FacebookPageSettings from "@/components/portal/FacebookPageSettings";
 import {
   PortalProductPageShell,
   type ProductPortalStats,
@@ -479,6 +480,15 @@ export default function PortalSocialSync() {
           }
           tabs={[
             { id: "overview", label: "Overview", render: () => overviewBody },
+            {
+              id: "page-settings",
+              label: "Page Settings",
+              render: () => (
+                <div className="space-y-5">
+                  <FacebookPageSettings />
+                </div>
+              ),
+            },
           ]}
         />
       </div>

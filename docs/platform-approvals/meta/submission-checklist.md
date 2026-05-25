@@ -21,6 +21,7 @@ Do these in order. Each step should take 1–3 minutes.
   - [ ] `pages_read_engagement`
   - [ ] `pages_manage_posts`
   - [ ] `pages_read_user_content`
+  - [ ] `pages_manage_metadata`
   - [ ] `instagram_basic`
   - [ ] `instagram_content_publish`
 - [ ] For each scope, paste the matching justification from `permissions-justification.md` into the "How will you use this permission?" field.

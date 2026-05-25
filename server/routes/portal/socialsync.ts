@@ -22,6 +22,8 @@
  *   GET    /api/portal/socialsync-connections/:platform
  *   GET    /api/portal/socialsync                       (client-facing summary)
  *   PATCH  /api/portal/socialsync/settings
+ *   GET    /api/portal/socialsync/facebook-page/:pageId/metadata
+ *   PATCH  /api/portal/socialsync/facebook-page/:pageId/metadata
  */
 
 import type { Express, Request, Response, NextFunction } from "express";
@@ -37,6 +39,12 @@ import {
 } from "@shared/schema";
 import { portalReviewRateLimiter } from "../../services/rateLimiter";
 import { createLogger } from "../../lib/logger";
+import { writeAudit } from "../../lib/auditLog";
+import {
+  fetchFacebookPageMetadata,
+  updateFacebookPageMetadata,
+  type UpdateFacebookPageMetadataInput,
+} from "../../services/socialSync/facebookService";
 
 const log = createLogger("PortalSocialsync");
 
@@ -348,6 +356,8 @@ export function registerPortalSocialsyncRoutes(app: Express) {
       res.json({
         connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
         status: conn?.connection_status || "not_connected",
+        external_page_id: conn?.external_page_id ?? null,
+        external_account_id: conn?.external_account_id ?? null,
       });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to check connection" });
@@ -501,6 +511,125 @@ export function registerPortalSocialsyncRoutes(app: Express) {
     } catch (err: any) {
       log.error("[portal/socialsync/settings] Error:", { error: err.message });
       res.status(500).json({ error: "Failed to update SocialSync settings" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync/facebook-page/:pageId/metadata
+   * Returns the editable Facebook Page fields (name, about, category +
+   * available category_list) by reading from Meta's Graph API using the
+   * page-level token we stored at OAuth time.
+   *
+   * Ownership: the page must already be the one this client connected.
+   * `fetchFacebookPageMetadata` enforces this; we additionally pre-check so
+   * we can return a clean 404 instead of a generic 500.
+   */
+  app.get("/api/portal/socialsync/facebook-page/:pageId/metadata", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const pageId = String(req.params.pageId || "").trim();
+      if (!pageId) return res.status(400).json({ error: "pageId required" });
+
+      // Pre-check ownership for a friendlier error than the generic
+      // "Page not connected" thrown inside the service.
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const owns = connections.some(
+        (c) => c.platform === "facebook" && c.external_page_id === pageId,
+      );
+      if (!owns) return res.status(404).json({ error: "Page not connected to this account" });
+
+      const metadata = await fetchFacebookPageMetadata(clientId, pageId);
+      res.json(metadata);
+    } catch (err: any) {
+      log.error("[portal/socialsync/facebook-page metadata GET] Error", { error: err.message });
+      res.status(502).json({ error: err.message || "Failed to load page metadata" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/socialsync/facebook-page/:pageId/metadata
+   * Body: { name?: string; about?: string; category?: string }
+   *
+   * Updates the editable Facebook Page metadata fields. Returns the
+   * post-update snapshot so the UI can echo what Meta accepted (e.g. name
+   * changes silently no-op when the Page owner hasn't enabled name-change).
+   *
+   * Audited via writeAudit so the admin reader and Meta App Review
+   * auditors can see who changed what and when.
+   */
+  app.patch("/api/portal/socialsync/facebook-page/:pageId/metadata", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const pageId = String(req.params.pageId || "").trim();
+      if (!pageId) return res.status(400).json({ error: "pageId required" });
+
+      // Pre-check ownership.
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const owns = connections.some(
+        (c) => c.platform === "facebook" && c.external_page_id === pageId,
+      );
+      if (!owns) return res.status(404).json({ error: "Page not connected to this account" });
+
+      // Whitelist + light validation. Anything else is silently dropped.
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const update: UpdateFacebookPageMetadataInput = {};
+      if (typeof body.name === "string") {
+        const v = body.name.trim();
+        if (v.length < 2 || v.length > 75) {
+          return res.status(400).json({ error: "name must be 2–75 characters" });
+        }
+        update.name = v;
+      }
+      if (typeof body.about === "string") {
+        const v = body.about.trim();
+        if (v.length > 255) {
+          return res.status(400).json({ error: "about must be 255 characters or fewer" });
+        }
+        update.about = v;
+      }
+      if (typeof body.category === "string") {
+        const v = body.category.trim();
+        if (v.length < 2 || v.length > 64) {
+          return res.status(400).json({ error: "category must be 2–64 characters" });
+        }
+        update.category = v;
+      }
+      if (Object.keys(update).length === 0) {
+        return res.status(400).json({ error: "No editable fields supplied" });
+      }
+
+      // Capture the before-state for the audit row.
+      let before: Record<string, unknown> | null = null;
+      try {
+        before = await fetchFacebookPageMetadata(clientId, pageId);
+      } catch {
+        // If the read fails we still attempt the write so the customer
+        // isn't blocked by a transient Meta read error.
+        before = null;
+      }
+
+      const after = await updateFacebookPageMetadata(clientId, pageId, update);
+
+      void writeAudit({
+        actorId: req.user?.id ?? null,
+        actorType: "user",
+        action: "socialsync.facebook_page.metadata_update",
+        entityType: "facebook_page",
+        entityId: pageId,
+        before: before ?? undefined,
+        after,
+        metadata: { client_id: clientId, fields_changed: Object.keys(update) },
+        req,
+      });
+
+      res.json(after);
+    } catch (err: any) {
+      log.error("[portal/socialsync/facebook-page metadata PATCH] Error", { error: err.message });
+      res.status(502).json({ error: err.message || "Failed to update page metadata" });
     }
   });
 }
