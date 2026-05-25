@@ -138,7 +138,7 @@ export default function Calculator() {
   ) : null;
 
   if (!slug) {
-    if (!isEmbed) window.location.href = '/Wizard';
+    if (!isEmbed) window.location.href = '/wizard';
     return embedNoIndexMeta;
   }
 
@@ -163,7 +163,7 @@ export default function Calculator() {
             <p className="text-slate-500 text-sm" data-testid="text-error-message">{(error as Error).message}</p>
             {!isEmbed && (
               <a
-                href="/Wizard"
+                href="/wizard"
                 className="inline-block mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
                 style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)' }}
                 data-testid="link-create-calculator"

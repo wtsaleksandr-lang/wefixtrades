@@ -94,12 +94,12 @@ export default function QuoteQuickPricing() {
   // the page, which the server still maps to the new pro tier.
   const startCheckout = async (plan: 'free' | 'pro' | 'business' | 'starter') => {
     if (plan === 'free') {
-      window.location.href = '/Wizard';
+      window.location.href = '/wizard';
       return;
     }
     if (!hasCalc) {
       // New user — go to wizard first so a calculator + edit_token exist.
-      window.location.href = '/Wizard';
+      window.location.href = '/wizard';
       return;
     }
     setCheckoutLoading(plan);
@@ -382,7 +382,7 @@ export default function QuoteQuickPricing() {
             14 days free. No credit card. Live in 5 minutes.
           </p>
           <button
-            onClick={() => hasCalc ? startCheckout('starter') : (window.location.href = '/Wizard')}
+            onClick={() => hasCalc ? startCheckout('starter') : (window.location.href = '/wizard')}
             style={{
               padding: "16px 40px", borderRadius: 10, border: "none",
               background: mkt.ctaBg, color: mkt.ctaText, cursor: "pointer",

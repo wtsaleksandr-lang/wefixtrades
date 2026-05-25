@@ -1,0 +1,340 @@
+# Synced from /docs/openapi.yaml — keep in sync
+# WeFixTrades REST API — v1
+# Reference spec — regenerate from server code once AJ-6 lands.
+# Hand-maintained stub for /docs/api page until the canonical generator exists.
+
+openapi: 3.1.0
+info:
+  title: WeFixTrades API
+  version: "1.0.0"
+  description: |
+    REST API for embedding quote calculators, capturing leads, and integrating
+    WeFixTrades products into your stack. Authenticate with a bearer token
+    (`wfx_live_...` for production, `wfx_test_...` for sandbox).
+  contact:
+    name: WeFixTrades Developers
+    email: developers@wefixtrades.com
+    url: https://wefixtrades.com/docs/api
+  license:
+    name: Proprietary
+servers:
+  - url: https://api.wefixtrades.com
+    description: Production
+  - url: https://api.sandbox.wefixtrades.com
+    description: Sandbox
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Self
+    description: Authenticated workspace metadata.
+  - name: Calculators
+    description: Create, configure, and manage quote calculators.
+  - name: Submissions
+    description: Lead submissions captured by calculators.
+  - name: Quotes
+    description: Compute a quote without persisting a submission.
+  - name: Webhooks
+    description: Endpoint registration + event subscriptions.
+  - name: Templates
+    description: Public + workspace calculator templates.
+
+paths:
+  /api/v1/me:
+    get:
+      tags: [Self]
+      summary: Get authenticated workspace
+      operationId: getMe
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/calculators:
+    get:
+      tags: [Calculators]
+      summary: List calculators
+      operationId: listCalculators
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalculatorList"
+    post:
+      tags: [Calculators]
+      summary: Create a calculator
+      operationId: createCalculator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculatorCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Calculator"
+        "409":
+          description: Slug already exists
+        "422":
+          description: Validation error
+
+  /api/v1/calculators/{id}:
+    parameters:
+      - $ref: "#/components/parameters/CalculatorId"
+    get:
+      tags: [Calculators]
+      summary: Get one calculator
+      operationId: getCalculator
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Calculator"
+    patch:
+      tags: [Calculators]
+      summary: Update a calculator
+      operationId: updateCalculator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculatorUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Calculator"
+    delete:
+      tags: [Calculators]
+      summary: Archive a calculator
+      operationId: deleteCalculator
+      responses:
+        "204":
+          description: No Content
+
+  /api/v1/calculators/{id}/pause:
+    parameters:
+      - $ref: "#/components/parameters/CalculatorId"
+    post:
+      tags: [Calculators]
+      summary: Pause submissions
+      operationId: pauseCalculator
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/calculators/{id}/resume:
+    parameters:
+      - $ref: "#/components/parameters/CalculatorId"
+    post:
+      tags: [Calculators]
+      summary: Resume submissions
+      operationId: resumeCalculator
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/calculators/{id}/quotes:
+    parameters:
+      - $ref: "#/components/parameters/CalculatorId"
+    get:
+      tags: [Quotes]
+      summary: Compute a quote (no persistence)
+      operationId: computeQuote
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/submissions:
+    get:
+      tags: [Submissions]
+      summary: List submissions
+      operationId: listSubmissions
+      parameters:
+        - in: query
+          name: calculator_id
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/submissions/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Submissions]
+      summary: Get a submission
+      operationId: getSubmission
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/webhooks:
+    get:
+      tags: [Webhooks]
+      summary: List webhook endpoints
+      operationId: listWebhooks
+      responses:
+        "200":
+          description: OK
+    post:
+      tags: [Webhooks]
+      summary: Register a new webhook
+      operationId: createWebhook
+      responses:
+        "201":
+          description: Created
+
+  /api/v1/templates:
+    get:
+      tags: [Templates]
+      summary: List calculator templates
+      operationId: listTemplates
+      responses:
+        "200":
+          description: OK
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: "wfx_{live|test}_<key>"
+
+  parameters:
+    CalculatorId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+      example: calc_01HEX...
+    Limit:
+      in: query
+      name: limit
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    Cursor:
+      in: query
+      name: cursor
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: validation_error
+            message:
+              type: string
+            field:
+              type: string
+        request_id:
+          type: string
+          example: req_01HEX...
+
+    Workspace:
+      type: object
+      properties:
+        workspace_id: { type: string, example: ws_01HEX... }
+        name:         { type: string, example: Acme Plumbing }
+        tier:
+          type: string
+          enum: [dev, starter, pro, business, agency]
+        environment:
+          type: string
+          enum: [live, test]
+        usage:
+          type: object
+          properties:
+            calls_this_month: { type: integer }
+            quota:            { type: integer }
+
+    Calculator:
+      type: object
+      properties:
+        id:         { type: string, example: calc_01HEX... }
+        name:       { type: string }
+        slug:       { type: string }
+        status:
+          type: string
+          enum: [active, paused, archived]
+        embed_url:  { type: string, format: uri }
+        created_at: { type: string, format: date-time }
+
+    CalculatorCreate:
+      type: object
+      required: [name, slug, template]
+      properties:
+        name:     { type: string }
+        slug:     { type: string }
+        template: { type: string, example: tmpl_plumbing_v2 }
+        fields:
+          type: array
+          items:
+            type: object
+        pricing:
+          type: object
+
+    CalculatorUpdate:
+      type: object
+      properties:
+        name:    { type: string }
+        fields:
+          type: array
+          items: { type: object }
+        pricing:
+          type: object
+
+    CalculatorList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Calculator"
+        has_more:    { type: boolean }
+        next_cursor: { type: string, nullable: true }

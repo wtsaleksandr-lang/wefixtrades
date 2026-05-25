@@ -750,7 +750,7 @@ export default function SocialSyncDemo() {
                   </p>
                   <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
                     <Link
-                      href="/Wizard"
+                      href="/wizard"
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
@@ -825,7 +825,7 @@ export default function SocialSyncDemo() {
             </p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               <Link
-                href="/Wizard"
+                href="/wizard"
                 style={{
                   display: "inline-block",
                   padding: "14px 32px",

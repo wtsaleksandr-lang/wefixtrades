@@ -123,7 +123,7 @@ export default function MarketingStickyBar() {
          * from mkt.buttonBg/Text which were re-aliased to the cream
          * tokens in tokens.ts; this component's structure is unchanged. */}
         <Link
-          href="/Wizard"
+          href="/wizard"
           className="wft-hover-border-blue"
           style={{
             display: "inline-flex",

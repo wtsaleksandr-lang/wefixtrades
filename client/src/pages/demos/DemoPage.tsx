@@ -144,7 +144,7 @@ export default function DemoPage() {
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
               <Link
-                href="/Wizard"
+                href="/wizard"
                 data-testid="button-demo-start-free"
                 style={{
                   display: "inline-block",
@@ -395,7 +395,7 @@ export default function DemoPage() {
                 Book a Walkthrough
               </Link>
               <Link
-                href="/Wizard"
+                href="/wizard"
                 data-testid="button-demo-try-free"
                 style={{
                   display: "inline-flex",

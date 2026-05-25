@@ -564,7 +564,7 @@ export default function SolutionPage() {
             </p>
             <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
               <Link
-                href="/Wizard"
+                href="/wizard"
                 data-testid="solution-bottom-cta-start"
                 className="mkt-btn-primary"
                 style={{ display: "inline-block", padding: "15px 36px", borderRadius: 9999, background: mkt.onDark, color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}
