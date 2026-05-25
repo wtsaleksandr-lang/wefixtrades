@@ -49,8 +49,26 @@ async function resolveClientId(userId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-/** Middleware-style helper: resolve client_id or return 403. */
-async function withClientId(req: Request, res: Response): Promise<number | null> {
+/** Middleware-style helper: resolve client_id or return 403.
+ *
+ * Admin viewing the portal directly (not impersonating a customer) has no
+ * `clients` row of their own, so without this branch every GET 403'd and the
+ * UI showed "Failed to load settings". We now return null cleanly on read
+ * paths so the caller can render an empty/demo response; write paths pass
+ * `adminFallback: 'forbid'` to keep the explicit 403.
+ */
+async function withClientId(
+  req: Request,
+  res: Response,
+  opts: { adminFallback?: 'empty' | 'forbid' } = {},
+): Promise<number | null> {
+  if (req.user!.role === 'admin' && !req.adminImpersonating) {
+    if (opts.adminFallback === 'forbid') {
+      res.status(403).json({ error: "Admin must impersonate a customer for this action", code: "admin_no_impersonation" });
+      return null;
+    }
+    return null; // caller returns empty data
+  }
   const clientId = await resolveClientId(req.user!.id);
   if (!clientId) {
     // Q20a: stable error code so the portal UI can show an admin-friendly
@@ -69,7 +87,29 @@ export function registerPortalSettingsRoutes(app: Express) {
   app.get("/api/portal/settings", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
-      if (!clientId) return;
+      if (!clientId) {
+        // Admin previewing the portal directly: return a stub settings shape
+        // (200) so the page renders an empty state. Their account email is
+        // still useful context so we fill it from the users row.
+        if (req.user!.role === 'admin') {
+          const [adminUser] = await db
+            .select({ email: users.email, name: users.name })
+            .from(users)
+            .where(eq(users.id, req.user!.id))
+            .limit(1);
+          return res.json({
+            business_name: "",
+            contact_name: adminUser?.name ?? "",
+            contact_email: "",
+            contact_phone: "",
+            website_url: "",
+            logo_url: null,
+            trade_type: "",
+            account_email: adminUser?.email ?? null,
+          });
+        }
+        return;
+      }
 
       const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
       const [user] = await db
@@ -100,7 +140,7 @@ export function registerPortalSettingsRoutes(app: Express) {
    */
   app.patch("/api/portal/settings", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { adminFallback: 'forbid' });
       if (!clientId) return;
 
       const { contact_name, contact_email, contact_phone, website_url } = req.body;
@@ -143,7 +183,17 @@ export function registerPortalSettingsRoutes(app: Express) {
   app.get("/api/portal/notification-preferences", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
-      if (!clientId) return;
+      if (!clientId) {
+        // Admin previewing the portal directly: return defaults so the
+        // settings page renders without throwing.
+        if (req.user!.role === 'admin') {
+          return res.json({
+            preferences: DEFAULT_NOTIFICATION_PREFERENCES,
+            defaults: DEFAULT_NOTIFICATION_PREFERENCES,
+          });
+        }
+        return;
+      }
 
       const [client] = await db.select({ metadata: clients.metadata }).from(clients).where(eq(clients.id, clientId)).limit(1);
       const prefs = parseNotificationPreferences(client?.metadata);
@@ -163,7 +213,7 @@ export function registerPortalSettingsRoutes(app: Express) {
    */
   app.put("/api/portal/notification-preferences", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { adminFallback: 'forbid' });
       if (!clientId) return;
 
       const parsed = notificationPreferencesSchema.safeParse(req.body);
