@@ -607,11 +607,12 @@ export const ADFLOW: ProductDef = {
    were $49/$99/$199; new mid-tier prices drop ~40-50% per Alex's
    "really not expensive" direction.
 
-   IMPORTANT — Stripe mint pending: the four paid tiers below carry
-   `stripePriceId: null` to flag that NO live Stripe price exists yet.
-   Checkout flows must guard against null and surface "coming soon"
-   instead of attempting a session creation. The live-mint script
-   (scripts/billing/mint-stripe-prices.mjs) runs once Alex approves.
+   2026-05-25 — Stripe live prices minted (lookup_keys cf_starter_monthly_v1,
+   cf_creator_monthly_v2, cf_studio_monthly_v2, cf_agency_monthly_v2). The
+   `_v2` suffix marks the replaced Creator/Studio/Agency tiers that dropped
+   from $49/$99/$199 to $29/$69/$129; the prior live prices remain ACTIVE so
+   existing subscribers grandfather at old rates (Stripe keeps a subscription
+   on its original Price ID). New signups flow through the IDs below.
 */
 export const CONTENTFLOW: ProductDef = {
   id: "contentflow",
@@ -640,7 +641,8 @@ export const CONTENTFLOW: ProductDef = {
       name: "Starter",
       price: 9,
       billingPeriod: "monthly",
-      stripePriceId: null,
+      // Stripe live price minted 2026-05-25 (lookup_key cf_starter_monthly_v1)
+      stripePriceId: "price_1Tb1MDFWY4wju6Qir0av2PBN",
       badge: "New",
       features: [
         "10 AI images / month",
@@ -657,7 +659,10 @@ export const CONTENTFLOW: ProductDef = {
       name: "Creator",
       price: 29,
       billingPeriod: "monthly",
-      stripePriceId: null,
+      // Stripe live price minted 2026-05-25 (lookup_key cf_creator_monthly_v2 —
+      // _v2 suffix because Creator was previously $49/mo; old subscribers stay
+      // on legacy price `contentflow-creator_monthly` via Stripe subscription).
+      stripePriceId: "price_1Tb1MEFWY4wju6QiYpvucTjY",
       features: [
         "40 AI images / month",
         "20 AI articles / month",
@@ -675,7 +680,10 @@ export const CONTENTFLOW: ProductDef = {
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",
-      stripePriceId: null,
+      // Stripe live price minted 2026-05-25 (lookup_key cf_studio_monthly_v2 —
+      // _v2 suffix because Studio was previously $99/mo; old subscribers stay
+      // on legacy price `contentflow-studio_monthly` via Stripe subscription).
+      stripePriceId: "price_1Tb1MEFWY4wju6QibgFABfoM",
       features: [
         "150 AI images / month",
         "60 AI articles / month",
@@ -691,7 +699,10 @@ export const CONTENTFLOW: ProductDef = {
       name: "Agency",
       price: 129,
       billingPeriod: "monthly",
-      stripePriceId: null,
+      // Stripe live price minted 2026-05-25 (lookup_key cf_agency_monthly_v2 —
+      // _v2 suffix because Agency was previously $199/mo; old subscribers stay
+      // on legacy price `contentflow-agency_monthly` via Stripe subscription).
+      stripePriceId: "price_1Tb1MEFWY4wju6QiJkl1fMNp",
       features: [
         "500 AI images / month",
         "200 AI articles / month",
