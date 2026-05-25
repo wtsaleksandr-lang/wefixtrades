@@ -75,6 +75,7 @@ import {
 import { runVapiRecordingMirrorTick } from "../cron/vapiRecordingMirror";
 import { runVapiAssistantHealthCheck } from "./vapiAssistantHealthCheck";
 import { processCitationTrackerDailyScan } from "./citationTrackerDailyScan";
+import { runRankfluxAlertTick } from "./rankfluxAlertWorker";
 
 const log = createLogger("Scheduler");
 
@@ -303,6 +304,19 @@ export function initScheduler() {
       });
     } catch (err: any) {
       log.error("citation_tracker_daily_scan cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // Wave 6B — Rankflux daily alert tick. 09:30 UTC (= ~05:30 EST).
+  // Drives daily / weekly (Mondays) / urgent (HIGH-band only) emails to
+  // /tools/local-rankflux subscribers off the cached MozCast feed.
+  // Idempotent per-lane via last_*_sent_at columns. Off-minute (30) to
+  // avoid pile-up with the 09:00 reputation_reports job.
+  cron.schedule("30 9 * * *", async () => {
+    try {
+      await runJob("rankflux_alert", runRankfluxAlertTick);
+    } catch (err: any) {
+      log.error("rankflux_alert cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 

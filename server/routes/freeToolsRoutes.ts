@@ -33,6 +33,10 @@
 
 import type { Express, Request, Response } from "express";
 import { createLogger } from "../lib/logger";
+import { db } from "../db";
+import { rankfluxSubscriptions } from "@shared/schemas/rankfluxSubscriptions";
+import { sql } from "drizzle-orm";
+import { queueEmail } from "../services/emailQueueService";
 
 const log = createLogger("free-tools");
 
@@ -293,57 +297,177 @@ async function citationCheckerHandler(req: Request, res: Response) {
   });
 }
 
-/* ─── 4. Local Rankflux (stub) ────────────────────────────────────────── */
+/* ─── 4. Local Rankflux (Wave 6B — real MozCast feed) ────────────────── */
 
 /**
- * Stubbed daily Google-local volatility index. The real metric needs a
- * daily cron that re-runs a fixed keyword/location matrix through
- * Serper, stores SERP positions in Postgres, and computes a day-over-day
- * shuffle score. P2 follow-up: see comment in /tools/local-rankflux page.
+ * Wave 6B — real Google volatility data sourced from Moz's public
+ * MozCast feed (https://moz.com/mozcast.rss). MozCast publishes a daily
+ * 0–10 algorithm-volatility score that's the de-facto industry standard
+ * for "is Google shuffling SERPs today?". We mirror it into our own
+ * /tools/local-rankflux surface, expose a daily 7-day window, and let
+ * visitors subscribe to email alerts (daily / weekly / urgent-only).
  *
- * For now we return a deterministic synthetic series so the page never
- * "looks dead" between visits — the value is seeded off the date so it
- * stays stable for the day. The number is meant to be *plausible*, not
- * predictive; the UI flags it as a placeholder.
+ * Cache: parsed feed is held in-memory for 1 hour so we don't hammer
+ * moz.com on every request. The page only refreshes once per hour
+ * client-side anyway. Failures degrade to the last-known value.
  */
-function pseudoVolatility(dateISO: string): number {
-  // Simple stable hash of yyyy-mm-dd → 0..100.
-  let h = 0;
-  for (let i = 0; i < dateISO.length; i++) {
-    h = (h * 31 + dateISO.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h) % 60 + 20; // 20..79
+
+type MozBand = "LOW" | "MEDIUM" | "HIGH";
+interface MozCastDay {
+  date: string;        // yyyy-mm-dd (UTC)
+  score: number;       // Moz's 0..10 raw value
+  scorePct: number;    // 0..100 (= score*10, used for bar heights)
+  band: MozBand;
 }
 
-function bandFor(score: number): "LOW" | "MEDIUM" | "HIGH" {
-  if (score >= 65) return "HIGH";
-  if (score >= 40) return "MEDIUM";
+let mozCache: { fetchedAt: number; days: MozCastDay[] } | null = null;
+const MOZCAST_TTL_MS = 60 * 60 * 1000;
+
+function bandForMoz(score10: number): MozBand {
+  // Moz's published rubric: <3 quiet, 3–6 normal, 6–8 active, ≥8 storm.
+  if (score10 >= 8) return "HIGH";
+  if (score10 >= 3) return "MEDIUM";
   return "LOW";
 }
 
-function localRankfluxHandler(_req: Request, res: Response) {
-  const today = new Date();
-  const last7d: Array<{ date: string; score: number; band: "LOW" | "MEDIUM" | "HIGH" }> = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const iso = d.toISOString().slice(0, 10);
-    const score = pseudoVolatility(iso);
-    last7d.push({ date: iso, score, band: bandFor(score) });
+/**
+ * Parse MozCast's RSS. Items are 1 per day with a title that contains
+ * the day's score (e.g. "MozCast 7.2 - 2026-05-25"). We extract the
+ * numeric score with a lightweight regex pass — no XML parser dep.
+ * Returns up to 7 most-recent days.
+ */
+function parseMozCastRss(xml: string): MozCastDay[] {
+  // Match <item>…</item> blocks then pull title + pubDate.
+  const items: MozCastDay[] = [];
+  const itemRe = /<item[^>]*>([\s\S]*?)<\/item>/g;
+  let m: RegExpExecArray | null;
+  while ((m = itemRe.exec(xml)) !== null) {
+    const block = m[1];
+    const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
+    const pubMatch = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
+    if (!titleMatch) continue;
+    const title = titleMatch[1].replace(/<!\[CDATA\[/g, "").replace(/\]\]>/g, "").trim();
+    // Title format historically: "MozCast: <score>" or "MozCast <score> - <date>".
+    const scoreMatch = title.match(/(\d+(?:\.\d+)?)/);
+    if (!scoreMatch) continue;
+    const score = parseFloat(scoreMatch[1]);
+    if (!isFinite(score)) continue;
+    let dateISO: string;
+    if (pubMatch) {
+      const d = new Date(pubMatch[1].trim());
+      dateISO = isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    } else {
+      dateISO = new Date().toISOString().slice(0, 10);
+    }
+    items.push({
+      date: dateISO,
+      score: Math.max(0, Math.min(10, score)),
+      scorePct: Math.max(0, Math.min(100, score * 10)),
+      band: bandForMoz(score),
+    });
   }
-  const yesterday = last7d[last7d.length - 2] || last7d[last7d.length - 1];
+  // Newest first → oldest first for chart display (left = oldest, right = today)
+  return items.slice(0, 7).reverse();
+}
+
+async function fetchMozCast(): Promise<MozCastDay[] | null> {
+  const now = Date.now();
+  if (mozCache && now - mozCache.fetchedAt < MOZCAST_TTL_MS) return mozCache.days;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch("https://moz.com/mozcast.rss", {
+      signal: controller.signal,
+      headers: { "User-Agent": "WeFixTrades/1.0 (Rankflux mirror; +https://wefixtrades.com)" },
+    }).finally(() => clearTimeout(timer));
+    if (!r.ok) throw new Error(`MozCast HTTP ${r.status}`);
+    const xml = await r.text();
+    const days = parseMozCastRss(xml);
+    if (days.length === 0) throw new Error("MozCast feed returned no items");
+    mozCache = { fetchedAt: now, days };
+    return days;
+  } catch (err: any) {
+    log.warn("[rankflux] mozcast fetch failed", { error: err?.message || String(err) });
+    return mozCache?.days || null;
+  }
+}
+
+async function localRankfluxHandler(_req: Request, res: Response) {
+  const days = await fetchMozCast();
+  if (!days || days.length === 0) {
+    return res.status(502).json({ ok: false, error: "Could not reach MozCast — try again shortly." });
+  }
+  const today = days[days.length - 1];
   res.setHeader("Cache-Control", "public, max-age=3600");
   res.json({
     ok: true,
-    volatility: yesterday.band,
-    score: yesterday.score,
-    last7d,
+    source: "mozcast",
+    sourceUrl: "https://moz.com/mozcast.rss",
+    todayScore: today.score,
+    todayBand: today.band,
+    todayDate: today.date,
+    last7d: days,
     updatedAt: new Date().toISOString(),
-    // The page surfaces this so visitors know the number is a placeholder
-    // until the daily SERP-tracking cron lands (see P2 follow-up).
-    isStub: true,
   });
 }
+
+/* ─── 4b. Rankflux subscribe endpoint ─────────────────────────────── */
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function rankfluxSubscribeHandler(req: Request, res: Response) {
+  if (!rateOk("rankflux-subscribe", req, res)) return;
+  const email = strField(req.body?.email, 200).toLowerCase();
+  const daily = req.body?.daily === true;
+  const weekly = req.body?.weekly === true;
+  const urgent = req.body?.urgent === true;
+  if (!email || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ ok: false, error: "Please enter a valid email." });
+  }
+  if (!daily && !weekly && !urgent) {
+    return res.status(400).json({ ok: false, error: "Pick at least one alert cadence." });
+  }
+  try {
+    // Upsert on the unique email index. If the row exists we update the
+    // cadence flags + clear any prior unsubscribe stamp so resubscribing
+    // is one form submit.
+    await db.execute(sql`
+      INSERT INTO rankflux_subscriptions (email, daily, weekly, urgent, source)
+      VALUES (${email}, ${daily}, ${weekly}, ${urgent}, 'tools/local-rankflux')
+      ON CONFLICT (email) DO UPDATE
+      SET daily = EXCLUDED.daily,
+          weekly = EXCLUDED.weekly,
+          urgent = EXCLUDED.urgent,
+          unsubscribed_at = NULL
+    `);
+    // Best-effort confirmation. If SMTP isn't configured the queue is
+    // a no-op — the subscription row still lands so we don't lose the
+    // signal.
+    try {
+      const cadences = [daily && "daily", weekly && "weekly", urgent && "urgent-only"].filter(Boolean).join(", ");
+      await queueEmail(
+        email,
+        "You're subscribed to Local Rankflux alerts",
+        `<p>Thanks for subscribing to Local Rankflux alerts. You'll get the following from us:</p>
+         <p><strong>${cadences}</strong></p>
+         <p>Local Rankflux mirrors Moz's industry-standard MozCast volatility index. The same data feeds MapGuard's per-customer rank-recheck triggers.</p>
+         <p>You can unsubscribe anytime from any alert email.</p>`,
+        undefined,
+        { category: "marketing", source: "rankflux_subscribe" },
+      );
+    } catch (emailErr: any) {
+      log.debug("[rankflux] confirmation email enqueue failed (non-fatal)", { error: emailErr?.message });
+    }
+    return res.json({ ok: true });
+  } catch (err: any) {
+    log.warn("[rankflux] subscribe failed", { error: err?.message || String(err) });
+    return res.status(500).json({ ok: false, error: "Could not save your subscription. Please try again." });
+  }
+}
+
+// Re-export type for the cron worker.
+export type { MozBand, MozCastDay };
+export { fetchMozCast };
 
 /* ─── 5. Local Rank Grid (Serper, geo-grid) ───────────────────────────── */
 
@@ -406,6 +530,49 @@ function looseIncludes(haystack: string, needle: string): boolean {
   return normName(haystack).includes(normName(needle));
 }
 
+/**
+ * Wave 6A — competitor enrichment cache. The Places `findPlaceFromText`
+ * call to resolve a business name → rating/reviewCount is cheap but
+ * still bills per call; cache for 6h to avoid hammering Places when the
+ * same competitor recurs across grid scans (which they do, a lot).
+ */
+type PlacesCacheEntry = { fetchedAt: number; data: { rating: number | null; reviewsCount: number | null; address: string | null } };
+const placesCache = new Map<string, PlacesCacheEntry>();
+const PLACES_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function enrichCompetitor(
+  name: string,
+  city: string,
+  apiKey: string,
+): Promise<{ rating: number | null; reviewsCount: number | null; address: string | null }> {
+  const cacheKey = `${normName(name)}|${normName(city)}`;
+  const cached = placesCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && now - cached.fetchedAt < PLACES_CACHE_TTL_MS) {
+    return cached.data;
+  }
+  const url = new URL("https://maps.googleapis.com/maps/api/place/findplacefromtext/json");
+  url.searchParams.set("input", `${name} ${city}`);
+  url.searchParams.set("inputtype", "textquery");
+  url.searchParams.set("fields", "rating,user_ratings_total,formatted_address");
+  url.searchParams.set("key", apiKey);
+  try {
+    const data = await fetchJson(url.toString(), { method: "GET" }, 8000);
+    const cand = Array.isArray(data?.candidates) && data.candidates.length ? data.candidates[0] : null;
+    const result = {
+      rating: typeof cand?.rating === "number" ? cand.rating : null,
+      reviewsCount: typeof cand?.user_ratings_total === "number" ? cand.user_ratings_total : null,
+      address: typeof cand?.formatted_address === "string" ? cand.formatted_address : null,
+    };
+    placesCache.set(cacheKey, { fetchedAt: now, data: result });
+    return result;
+  } catch {
+    const result = { rating: null, reviewsCount: null, address: null };
+    placesCache.set(cacheKey, { fetchedAt: now, data: result });
+    return result;
+  }
+}
+
 async function localRankGridHandler(req: Request, res: Response) {
   if (!rateOk("rank-grid", req, res)) return;
   const businessName = strField(req.body?.businessName, 120);
@@ -436,6 +603,11 @@ async function localRankGridHandler(req: Request, res: Response) {
   // Serper / Google treat it as a real geo-located search. We dual-call
   // /maps (for Local Pack rank — the one that matters for trades) and
   // /search (organic rank — fallback when the business isn't in Maps).
+  //
+  // Wave 6A: also retain the top-3 Local Pack results per point so the
+  // frontend can render a hover popover ("who's #1/2/3 at this exact
+  // lat/lng") and aggregate the most-frequent #1s into a competitor
+  // sidebar.
   const points = await Promise.all(
     grid.map(async (pt) => {
       const body = {
@@ -479,9 +651,15 @@ async function localRankGridHandler(req: Request, res: Response) {
             break;
           }
         }
-        return { lat: pt.lat, lng: pt.lng, rank, mapRank };
+        const topResults = places.slice(0, 3).map((p: any, i: number) => ({
+          rank: i + 1,
+          name: p?.title || p?.name || "",
+          rating: typeof p?.rating === "number" ? p.rating : null,
+          reviewsCount: typeof p?.ratingCount === "number" ? p.ratingCount : null,
+        }));
+        return { lat: pt.lat, lng: pt.lng, rank, mapRank, topResults };
       } catch {
-        return { lat: pt.lat, lng: pt.lng, rank: null as number | null, mapRank: null as number | null };
+        return { lat: pt.lat, lng: pt.lng, rank: null as number | null, mapRank: null as number | null, topResults: [] as Array<{ rank: number; name: string; rating: number | null; reviewsCount: number | null }> };
       }
     }),
   );
@@ -495,6 +673,41 @@ async function localRankGridHandler(req: Request, res: Response) {
   const top3Count = found.filter((r) => r <= 3).length;
   const missedCount = points.length - found.length;
 
+  // Wave 6A — aggregate the most-frequent #1 businesses across all 25
+  // grid points to build the "Who's outranking you nearby" sidebar.
+  // Skip the searcher's own business; tally each distinct competitor by
+  // how many points they own #1; pick the top 3.
+  const ownNormName = normName(businessName);
+  const firstPlaceTally = new Map<string, { name: string; count: number }>();
+  for (const pt of points) {
+    const top = pt.topResults[0];
+    if (!top || !top.name) continue;
+    const key = normName(top.name);
+    if (!key || key === ownNormName) continue;
+    const prev = firstPlaceTally.get(key);
+    if (prev) prev.count += 1;
+    else firstPlaceTally.set(key, { name: top.name, count: 1 });
+  }
+  const topCompetitors = Array.from(firstPlaceTally.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  // Enrich each competitor name with Google Places rating + review
+  // count. The Places lookup is cached for 6h per (name, city) so the
+  // typical "scan the same city for the 5th time today" is free.
+  const competitors = await Promise.all(
+    topCompetitors.map(async (c) => {
+      const enrichment = await enrichCompetitor(c.name, city, placesKey);
+      return {
+        name: c.name,
+        wonAtPoints: c.count,
+        rating: enrichment.rating,
+        reviewsCount: enrichment.reviewsCount,
+        address: enrichment.address,
+      };
+    }),
+  );
+
   return res.json({
     ok: true,
     businessName,
@@ -503,6 +716,7 @@ async function localRankGridHandler(req: Request, res: Response) {
     center: { lat: geo.lat, lng: geo.lng, address: geo.address },
     gridPoints: points,
     summary: { avgRank, top3Count, missedCount },
+    competitors,
   });
 }
 
@@ -513,5 +727,6 @@ export function registerFreeToolsRoutes(app: Express): void {
   app.post("/api/tools/local-search-checker", localSearchCheckerHandler);
   app.post("/api/tools/citation-checker", citationCheckerHandler);
   app.get("/api/tools/local-rankflux", localRankfluxHandler);
+  app.post("/api/tools/rankflux-subscribe", rankfluxSubscribeHandler);
   app.post("/api/tools/local-rank-grid", localRankGridHandler);
 }

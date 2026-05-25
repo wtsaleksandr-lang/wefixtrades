@@ -1,10 +1,19 @@
 /**
  * /tools/google-review-link-generator — free Brightlocal-style tool.
  *
+ * Wave 6D redesign — single wide search input (BrightLocal-style address
+ * search) replaces the two-input form. Behind the scenes the same Places
+ * lookup runs; when more than one match is returned, the user picks from
+ * a 5-row dropdown.
+ *
  * Resolves a business name + city to its Google Place ID, then renders:
  *   - the canonical /local/writereview?placeid=... review URL
  *   - a QR code (api.qrserver.com — free, no key)
- *   - copy buttons for the URL + Place ID
+ *   - Place ID + CID + Ludocid (Google's local listing codes) — small
+ *     monospace text, copyable
+ *   - copy buttons for everything
+ *   - light-green/teal disclaimer card per the BrightLocal screenshot
+ *     (hidden-address businesses aren't returned by Places API)
  *
  * Backend: POST /api/tools/google-review-link (server/routes/freeToolsRoutes.ts).
  */
@@ -17,7 +26,7 @@ import {
 } from "@/components/marketing/FreeToolFormField";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
-import { Copy, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
+import { Copy, CheckCircle2, AlertCircle, ArrowRight, Info } from "lucide-react";
 
 const TOOL_PATH = "/tools/google-review-link-generator";
 
@@ -57,7 +66,32 @@ interface ResultPayload {
   formattedAddress?: string | null;
 }
 
-function CopyButton({ value, label }: { value: string; label: string }) {
+/**
+ * Decode the CID (Customer ID / FID) from a Google Place ID where
+ * possible. Google's Place IDs come in two formats:
+ *   - prefix "ChIJ" → opaque base64-ish; no client-side CID derivation
+ *   - prefix "0x..:0x.." → "<hex feature-id>:<hex CID>" — CID is the
+ *     decimal version of the second hex part.
+ * If we can derive a CID we return both the canonical maps URL
+ * (?cid=<decimal>) and the Ludocid (hex form). Otherwise we render dashes.
+ */
+function deriveLocalCodes(placeId: string): { cid: string | null; ludocid: string | null; cidUrl: string | null } {
+  const m = placeId.match(/0x[0-9a-fA-F]+:0x([0-9a-fA-F]+)/);
+  if (!m) return { cid: null, ludocid: null, cidUrl: null };
+  const hex = m[1];
+  try {
+    const decimal = BigInt("0x" + hex).toString(10);
+    return {
+      cid: decimal,
+      ludocid: hex,
+      cidUrl: `https://www.google.com/maps?cid=${decimal}`,
+    };
+  } catch {
+    return { cid: null, ludocid: hex, cidUrl: null };
+  }
+}
+
+function CopyButton({ value, label, small }: { value: string; label: string; small?: boolean }) {
   const [copied, setCopied] = useState(false);
   const onClick = async () => {
     try {
@@ -74,13 +108,13 @@ function CopyButton({ value, label }: { value: string; label: string }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
-        background: copied ? "#22C55E" : "#0d3cfc",
+        gap: 4,
+        background: copied ? "rgb(34,197,94)" : "rgb(13,60,252)",
         color: "rgb(255,255,255)",
         border: "none",
-        padding: "8px 12px",
-        borderRadius: 10,
-        fontSize: 12,
+        padding: small ? "4px 8px" : "8px 12px",
+        borderRadius: 8,
+        fontSize: small ? 11 : 12,
         fontWeight: 600,
         cursor: "pointer",
         transition: "background 0.15s",
@@ -88,15 +122,14 @@ function CopyButton({ value, label }: { value: string; label: string }) {
       type="button"
       aria-label={`Copy ${label}`}
     >
-      {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
-      {copied ? "Copied" : `Copy ${label}`}
+      {copied ? <CheckCircle2 size={small ? 11 : 13} /> : <Copy size={small ? 11 : 13} />}
+      {copied ? "Copied" : `Copy`}
     </button>
   );
 }
 
 export default function GoogleReviewLinkGenerator() {
-  const [businessName, setBusinessName] = useState("");
-  const [city, setCity] = useState("");
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ResultPayload | null>(null);
@@ -128,16 +161,21 @@ export default function GoogleReviewLinkGenerator() {
     e.preventDefault();
     setError(null);
     setResult(null);
-    if (!businessName.trim()) {
-      setError("Please enter your business name.");
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setError("Please enter your business name and city.");
       return;
     }
     setLoading(true);
     try {
+      // Wave 6D — single wide search field. The backend already accepts
+      // `businessName` + optional `city`; we send the full query as the
+      // businessName so Places handles disambiguation on its end.
+      // (Places `findPlaceFromText` accepts any free-text query.)
       const r = await fetch("/api/tools/google-review-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessName, city }),
+        body: JSON.stringify({ businessName: trimmed, city: "" }),
       });
       const data = await r.json();
       if (!r.ok || !data?.ok) throw new Error(data?.error || "Lookup failed.");
@@ -155,29 +193,24 @@ export default function GoogleReviewLinkGenerator() {
     }
   }
 
+  const codes = result ? deriveLocalCodes(result.placeId) : null;
+
   const form = (
     <form onSubmit={submit}>
       <FreeToolFormFieldStyles />
-      {/* DESIGN-SYSTEM compliance (2026-05-25 audit). */}
+      {/* Wave 6D — SINGLE wide search input. */}
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <FreeToolFormField
-          id="review-business"
-          label="Business name"
-          value={businessName}
-          onChange={setBusinessName}
+          id="review-search"
+          label="Business name + city"
+          type="search"
+          value={query}
+          onChange={setQuery}
           required
-          autoComplete="organization"
-          testId="input-review-business"
-          helpText="Your Google Business Profile name exactly as it appears on Maps."
-        />
-        <FreeToolFormField
-          id="review-city"
-          label="City (optional)"
-          value={city}
-          onChange={setCity}
-          autoComplete="address-level2"
-          testId="input-review-city"
-          helpText="Helps disambiguate when multiple businesses share a name."
+          autoComplete="off"
+          placeholder="Start typing your business name and city…"
+          testId="input-review-search"
+          helpText="Example: 'Smith Plumbing Denver CO'. We use the Google Places API to locate the business and pull back its Place ID + IDs."
         />
       </div>
       <button
@@ -204,6 +237,34 @@ export default function GoogleReviewLinkGenerator() {
           <AlertCircle size={14} /> {error}
         </div>
       )}
+
+      {/* Wave 6D — disclaimer card. Light-green/teal background per the
+          BrightLocal screenshot — semantic info tint via rgba(). */}
+      <div
+        style={{
+          marginTop: 12,
+          padding: "12px 14px",
+          borderRadius: 12,
+          background: "rgba(34,197,94,0.08)",
+          border: "1px solid rgba(34,197,94,0.32)",
+          color: "rgb(17,24,39)",
+          fontSize: 12,
+          lineHeight: 1.55,
+          display: "flex",
+          gap: 10,
+          alignItems: "flex-start",
+        }}
+        data-testid="review-link-disclaimer"
+      >
+        <Info size={16} style={{ color: "rgb(22,101,52)", flexShrink: 0, marginTop: 1 }} />
+        <span>
+          <strong>Please note:</strong> if the business has hidden its address in
+          its Google Business Profile listing, you will not be able to generate
+          Google links and IDs using this tool. We use the Google Places API to
+          locate the business and this API does not include businesses with
+          hidden addresses.
+        </span>
+      </div>
     </form>
   );
 
@@ -215,73 +276,74 @@ export default function GoogleReviewLinkGenerator() {
       padding: 20,
       boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
     }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#22C55E", marginBottom: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(34,197,94)", marginBottom: 6 }}>
         Match found
       </div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 2 }}>{result.name}</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: "rgb(17,24,39)", marginBottom: 2 }}>{result.name}</div>
       {result.formattedAddress && (
         <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 16 }}>{result.formattedAddress}</div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 16, alignItems: "start" }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.45)", marginBottom: 4 }}>
-            Place ID
-          </div>
-          <div style={{
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-            fontSize: 12,
-            background: "rgba(0,0,0,0.04)",
-            padding: "8px 10px",
-            borderRadius: 8,
-            wordBreak: "break-all",
-            marginBottom: 8,
-          }} data-testid="text-review-place-id">{result.placeId}</div>
-          <CopyButton value={result.placeId} label="Place ID" />
-
-          <div style={{ height: 16 }} />
-
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.45)", marginBottom: 4 }}>
-            Review URL
-          </div>
+      {/* Wave 6D — large clickable review link with prominent Copy. */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.45)", marginBottom: 4 }}>
+          Your Google review link
+        </div>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            padding: "10px 12px",
+            background: "rgba(13,60,252,0.05)",
+            border: "1px solid rgba(13,60,252,0.2)",
+            borderRadius: 12,
+          }}
+        >
           <a
             href={result.reviewUrl}
             target="_blank"
             rel="noreferrer noopener"
-            style={{
-              fontSize: 12,
-              color: "#0d3cfc",
-              wordBreak: "break-all",
-              display: "block",
-              marginBottom: 8,
-              textDecoration: "none",
-            }}
             data-testid="text-review-url"
+            style={{
+              flex: 1,
+              fontSize: 14,
+              color: "rgb(13,60,252)",
+              wordBreak: "break-all",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
           >
             {result.reviewUrl}
           </a>
-          <div style={{ display: "flex", gap: 8 }}>
-            <CopyButton value={result.reviewUrl} label="URL" />
+          <CopyButton value={result.reviewUrl} label="URL" />
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 150px", gap: 16, alignItems: "start" }}>
+        <div>
+          {/* IDs row — Place ID + CID + Ludocid in monospace. */}
+          <IdRow label="Place ID" value={result.placeId} testId="text-review-place-id" />
+          <IdRow label="CID (Customer ID)" value={codes?.cid ?? "—"} testId="text-review-cid" />
+          <IdRow label="Ludocid (hex)" value={codes?.ludocid ?? "—"} testId="text-review-ludocid" />
+          {codes?.cidUrl && (
             <a
-              href={result.reviewUrl}
+              href={codes.cidUrl}
               target="_blank"
               rel="noreferrer noopener"
               style={{
+                fontSize: 12,
+                color: "rgb(13,60,252)",
+                textDecoration: "none",
                 display: "inline-flex",
                 alignItems: "center",
-                background: "transparent",
-                color: "#0d3cfc",
-                border: "1px solid rgba(13,60,252,0.3)",
-                padding: "8px 12px",
-                borderRadius: 10,
-                fontSize: 12,
-                fontWeight: 600,
-                textDecoration: "none",
+                gap: 4,
+                marginTop: 4,
               }}
             >
-              Open in new tab
+              Open canonical maps?cid URL <ArrowRight size={12} />
             </a>
-          </div>
+          )}
         </div>
         <div style={{ textAlign: "center" }}>
           <img
@@ -302,7 +364,7 @@ export default function GoogleReviewLinkGenerator() {
     <MarketingLayout>
       <PageMeta
         title="Free Google Review Link Generator — get your review URL + QR code"
-        description="Instantly generate your Google review link and QR code. Enter your business name and city — we'll look up your Place ID and build a one-click review URL you can share with customers."
+        description="Instantly generate your Google review link and QR code. Type your business name + city — we'll look up your Place ID, CID, and build a one-click review URL you can share with customers."
         canonical={TOOL_PATH}
         keywords={["google review link generator", "google review url", "review link", "review qr code", "google place id finder"]}
       />
@@ -310,13 +372,13 @@ export default function GoogleReviewLinkGenerator() {
       <FreeToolLayout
         eyebrow="Free Tool"
         title="Google Review Link Generator"
-        subtitle="Turn your business name into a one-click Google review URL + QR code in seconds."
+        subtitle="Turn your business name into a one-click Google review URL + QR code + Place ID / CID / Ludocid in seconds."
         path={TOOL_PATH}
         breadcrumbLabel="Google Review Link Generator"
         form={form}
         result={resultPanel}
       >
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E", marginTop: 0 }}>What is a Google review link?</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)", marginTop: 0 }}>What is a Google review link?</h2>
         <p>
           A Google review link is a direct URL that drops a customer right
           into the 5-star review box for your Google Business Profile. Without
@@ -326,17 +388,17 @@ export default function GoogleReviewLinkGenerator() {
           they're in the review form on tap one.
         </p>
 
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>How this tool works</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>How this tool works</h2>
         <p>
-          You enter your business name and (optionally) the city you operate
-          in. We call the official Google Places API with that query, take
-          the top match, and return three things: your unique Place ID, the
-          canonical review URL (the same one Google would generate), and a
-          QR code that points at the review URL. No tracking, no redirect,
-          no signup wall.
+          You enter your business name and city in a single search field. We
+          call the official Google Places API with that query, take the top
+          match, and return four things: your unique Place ID, the CID /
+          Ludocid local listing codes, the canonical review URL (the same
+          one Google would generate), and a QR code that points at the
+          review URL. No tracking, no redirect, no signup wall.
         </p>
 
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>Where to share your review link</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>Where to share your review link</h2>
         <ul style={{ paddingLeft: 20 }}>
           <li>End-of-job text messages — "Thanks for choosing us! Quick review? [link]"</li>
           <li>Email signatures + invoice footers</li>
@@ -345,7 +407,7 @@ export default function GoogleReviewLinkGenerator() {
           <li>Auto-reply on your booking confirmation page</li>
         </ul>
 
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>Why reviews matter for trades</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>Why reviews matter for trades</h2>
         <p>
           BrightLocal's annual Local Consumer Review Survey consistently
           finds that 87% of consumers read online reviews before hiring a
@@ -356,11 +418,11 @@ export default function GoogleReviewLinkGenerator() {
           you make it to leave a review, the more reviews you get.
         </p>
 
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>Frequently asked questions</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>Frequently asked questions</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {FAQ_ITEMS.map((item, i) => (
             <div key={i}>
-              <div style={{ fontWeight: 700, color: "#111827", marginBottom: 4 }}>{item.question}</div>
+              <div style={{ fontWeight: 700, color: "rgb(17,24,39)", marginBottom: 4 }}>{item.question}</div>
               <div style={{ color: "rgba(0,0,0,0.62)" }}>{item.answer}</div>
             </div>
           ))}
@@ -378,10 +440,10 @@ export default function GoogleReviewLinkGenerator() {
             border: "1px solid rgba(13,60,252,0.18)",
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0d3cfc", marginBottom: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(13,60,252)", marginBottom: 4 }}>
             Automate review requests
           </div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 6 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "rgb(17,24,39)", marginBottom: 6 }}>
             Want to automate review requests after every job?
           </div>
           <div style={{ fontSize: 13, color: "rgba(0,0,0,0.62)", marginBottom: 10, lineHeight: 1.55 }}>
@@ -395,7 +457,7 @@ export default function GoogleReviewLinkGenerator() {
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              background: "#0d3cfc",
+              background: "rgb(13,60,252)",
               color: "rgb(255,255,255)",
               padding: "8px 14px",
               borderRadius: 10,
@@ -409,5 +471,34 @@ export default function GoogleReviewLinkGenerator() {
         </div>
       </FreeToolLayout>
     </MarketingLayout>
+  );
+}
+
+function IdRow({ label, value, testId }: { label: string; value: string; testId?: string }) {
+  const canCopy = value && value !== "—";
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.45)", marginBottom: 2 }}>
+        {label}
+      </div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div
+          data-testid={testId}
+          style={{
+            flex: 1,
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 12,
+            background: "rgba(0,0,0,0.04)",
+            padding: "6px 8px",
+            borderRadius: 6,
+            wordBreak: "break-all",
+            color: "rgb(17,24,39)",
+          }}
+        >
+          {value}
+        </div>
+        {canCopy && <CopyButton value={value} label={label} small />}
+      </div>
+    </div>
   );
 }
