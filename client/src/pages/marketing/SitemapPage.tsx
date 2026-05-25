@@ -99,6 +99,10 @@ const SECTIONS: SitemapSection[] = [
     description: "Public tools — no signup needed.",
     entries: [
       { href: "/tools/free-audit", label: "Free Local SEO Audit" },
+      { href: "/tools/google-review-link-generator", label: "Google Review Link Generator" },
+      { href: "/tools/local-search-checker", label: "Local Search Results Checker" },
+      { href: "/tools/citation-checker", label: "Citation Checker" },
+      { href: "/tools/local-rankflux", label: "Local Rankflux (Algorithm Tracker)" },
       { href: "/products/quickquotepro/demo", label: "QuoteQuick Live Demo" },
       { href: "/products/quickquotepro/build-with-ai", label: "Build with AI (from a photo)" },
       { href: "/tools/plumbing-ai-content-prompts", label: "Plumbing AI Content Prompts" },
