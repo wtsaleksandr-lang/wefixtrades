@@ -17,7 +17,7 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Link } from "wouter";
-import { Activity, Bell, Globe, Check, ArrowRight, Loader2 } from "lucide-react";
+import { Activity, Bell, Globe, Check, ArrowRight, Loader2, AlertTriangle, Code, Wrench } from "lucide-react";
 
 const PAGE_PATH = "/citation-tracker";
 const SITE_URL = "https://wefixtrades.com";
@@ -122,9 +122,11 @@ export default function CitationTrackerPage() {
 
       <div data-theme="light">
         <CitationTrackerHero />
+        <CitationTrackerThreeColumnHelps />
         <CitationTrackerFeatures />
         <CitationTrackerPricing />
         <CitationTrackerHowItWorks />
+        <CitationTrackerWhyTrustUs />
         <CitationTrackerFAQ />
       </div>
 
@@ -139,33 +141,353 @@ function CitationTrackerHero() {
   return (
     <section
       style={{
+        // Wave 6C — BrightLocal-style dark hero. Very dark navy background
+        // with a subtle dotted-grid backdrop. No raw #hex — rgb() form per
+        // PR #814 color-guard rules.
         background:
-          "radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(180deg, rgba(236,242,244,1) 0%, rgba(248,250,252,1) 100%)",
+          "radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(180deg, rgb(10,23,41) 0%, rgb(13,20,36) 100%)",
         backgroundSize: "22px 22px, 100% 100%",
-        padding: "80px 16px 56px",
-        textAlign: "center",
+        padding: "72px 16px 56px",
+        color: "rgb(255,255,255)",
+      }}
+      data-testid="citation-tracker-hero"
+    >
+      <div
+        style={{
+          maxWidth: 1180,
+          margin: "0 auto",
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+          gap: 40,
+          alignItems: "center",
+        }}
+        className="citation-hero-grid"
+      >
+        <div>
+          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginBottom: 14 }}>
+            <Link href="/" style={{ color: "rgba(255,255,255,0.55)", textDecoration: "none" }}>Home</Link>
+            <span style={{ margin: "0 6px" }}>›</span>
+            <span style={{ color: "rgb(255,255,255)" }}>Citation Tracker</span>
+          </nav>
+          {/* Pill badge — BrightLocal-style "category" tag. */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 999,
+              background: "rgba(34,197,94,0.14)",
+              border: "1px solid rgba(34,197,94,0.4)",
+              color: "rgb(134,239,172)",
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              marginBottom: 14,
+            }}
+          >
+            <Check size={12} /> Local citation tracker &amp; audit tool
+          </div>
+          <h1 style={{ fontSize: 40, fontWeight: 900, lineHeight: 1.12, margin: "0 0 14px", color: "rgb(255,255,255)" }}>
+            Stay accurate everywhere customers find you.
+          </h1>
+          <p style={{ fontSize: 17, lineHeight: 1.55, color: "rgba(255,255,255,0.75)", margin: "0 0 22px", maxWidth: 560 }}>
+            Citation Tracker watches your business's name, address, and phone across
+            50+ directories — Yelp, BBB, Bing Places, Apple Maps, Foursquare, Angi,
+            Houzz — and alerts you the moment a listing drifts, a new auto-citation
+            appears, or a directory removes you.
+          </p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <Link
+              href="/tools/citation-checker"
+              data-testid="cta-citation-hero-free-audit"
+              style={{
+                background: "rgb(22,163,74)",
+                color: "rgb(255,255,255)",
+                padding: "12px 18px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 700,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              Start your free citation audit <ArrowRight size={14} />
+            </Link>
+            <a
+              href="#pricing"
+              style={{
+                background: "transparent",
+                color: "rgb(255,255,255)",
+                padding: "12px 18px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 600,
+                textDecoration: "none",
+                border: "1px solid rgba(255,255,255,0.3)",
+              }}
+            >
+              See subscription pricing
+            </a>
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 14 }}>
+            From $5/mo as a MapGuard add-on · $19/mo standalone · cancel anytime
+          </div>
+        </div>
+        <CitationTrackerHeroPreview />
+      </div>
+      <style>{`
+        @media (max-width: 880px) {
+          .citation-hero-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/**
+ * Wave 6C — static dashboard mock for the hero right column. Mirrors
+ * BrightLocal's preview card pattern: a NAP-error alert at the top, a
+ * "Key Citation Score" widget with circular progress, found / not-found
+ * counts, and a Citation Flow Score progress bar.
+ *
+ * Static / illustrative — the numbers are illustrative defaults that
+ * match the screenshots Alex provided (not real customer data). Reuses
+ * tokens / rgb() form so the color guard stays happy.
+ */
+function CitationTrackerHeroPreview() {
+  return (
+    <div
+      data-testid="citation-tracker-hero-preview"
+      style={{
+        position: "relative",
+        borderRadius: 18,
+        padding: 20,
+        background: "rgb(255,255,255)",
+        color: "rgb(17,24,39)",
+        boxShadow: "0 20px 50px rgba(0,0,0,0.4)",
+        border: "1px solid rgba(255,255,255,0.06)",
       }}
     >
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
-          <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
-          <span style={{ margin: "0 6px" }}>›</span>
-          <span style={{ color: "#111827" }}>Citation Tracker</span>
-        </nav>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#0d3cfc", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
-          Wave 3 — Continuous monitoring
+      {/* Suspected NAP error alert. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+          padding: "10px 12px",
+          borderRadius: 12,
+          background: "rgba(251,146,60,0.12)",
+          border: "1px solid rgba(251,146,60,0.45)",
+          marginBottom: 14,
+        }}
+      >
+        <AlertTriangle size={16} style={{ color: "rgb(234,88,12)", flexShrink: 0, marginTop: 2 }} />
+        <div style={{ fontSize: 12, lineHeight: 1.45 }}>
+          <div style={{ fontWeight: 700, color: "rgb(124,45,18)" }}>Suspected NAP error</div>
+          <div style={{ color: "rgba(0,0,0,0.65)" }}>
+            BBB listing shows old phone (555-0144) — your canonical is (555-0188).
+          </div>
         </div>
-        <h1 style={{ fontSize: 38, fontWeight: 900, lineHeight: 1.15, margin: "0 0 14px", color: "#0b1220" }}>
-          Catch NAP changes before they tank your local rankings.
-        </h1>
-        <p style={{ fontSize: 17, lineHeight: 1.55, color: "#374151", margin: "0 auto 22px", maxWidth: 580 }}>
-          Citation Tracker monitors 50+ business directories daily. The
-          moment your phone, address, or name changes anywhere — Yelp,
-          BBB, Bing Places, Foursquare, Apple Maps, Angi, Houzz — you
-          get an email and a dashboard alert.
+      </div>
+
+      {/* Two-column row: key citation score (circular) + found / not-found. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 12,
+            background: "rgba(248,250,252,1)",
+            border: "1px solid rgba(0,0,0,0.06)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          {/* Inline SVG circular progress — 46/100 → ~46% (4.6/10). */}
+          <svg width="56" height="56" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="24" stroke="rgba(0,0,0,0.08)" strokeWidth="6" fill="none" />
+            <circle
+              cx="28" cy="28" r="24"
+              stroke="rgb(13,60,252)" strokeWidth="6" fill="none"
+              strokeDasharray={`${(46 / 100) * (2 * Math.PI * 24)} ${2 * Math.PI * 24}`}
+              transform="rotate(-90 28 28)"
+              strokeLinecap="round"
+            />
+          </svg>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(0,0,0,0.5)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Key Citation Score
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "rgb(17,24,39)" }}>4.6<span style={{ fontSize: 12, color: "rgba(0,0,0,0.5)" }}> / 10</span></div>
+          </div>
+        </div>
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 12,
+            background: "rgba(248,250,252,1)",
+            border: "1px solid rgba(0,0,0,0.06)",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            gap: 4,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+            <span style={{ fontSize: 20, fontWeight: 900, color: "rgb(22,163,74)" }}>19</span>
+            <span style={{ fontSize: 11, color: "rgba(0,0,0,0.55)", fontWeight: 600 }}>found</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+            <span style={{ fontSize: 20, fontWeight: 900, color: "rgb(220,38,38)" }}>20</span>
+            <span style={{ fontSize: 11, color: "rgba(0,0,0,0.55)", fontWeight: 600 }}>not found</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Citation Flow Score with progress bars. */}
+      <div style={{ padding: 12, borderRadius: 12, background: "rgba(248,250,252,1)", border: "1px solid rgba(0,0,0,0.06)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(0,0,0,0.55)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Citation Flow Score
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: "rgb(17,24,39)" }}>27<span style={{ fontSize: 11, color: "rgba(0,0,0,0.5)" }}> / 100</span></div>
+        </div>
+        {[
+          { label: "Mapping", pct: 32 },
+          { label: "Social", pct: 22 },
+          { label: "Aggregators", pct: 18 },
+        ].map((row) => (
+          <div key={row.label} style={{ marginTop: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(0,0,0,0.6)" }}>
+              <span>{row.label}</span>
+              <span>{row.pct}%</span>
+            </div>
+            <div style={{ height: 6, background: "rgba(0,0,0,0.06)", borderRadius: 999, overflow: "hidden", marginTop: 2 }}>
+              <div style={{ width: `${row.pct}%`, height: "100%", background: "rgb(13,60,252)" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Wave 6C — 3-column "How Citation Tracker helps you" section.
+   White-card numbered items (01/02/03) — BrightLocal pattern but with our
+   tokens. Sits directly under the hero. */
+function CitationTrackerThreeColumnHelps() {
+  const items = [
+    {
+      n: "01",
+      title: "Fix frustrating errors",
+      body: "Wrong number, old address, dropped suite — the kind of errors that turn a paying customer into a missed call. We surface every one within hours.",
+    },
+    {
+      n: "02",
+      title: "Analyze the competition",
+      body: "See where your competitors are listed (and where you're not). Citation coverage gaps are a common reason a competitor 3 km away outranks you.",
+    },
+    {
+      n: "03",
+      title: "Reclaim your time",
+      body: "Stop manually re-checking 50 directories every quarter. Citation Tracker does it daily and only pings you when something actually changes.",
+    },
+  ];
+  return (
+    <section
+      data-testid="citation-tracker-three-column-helps"
+      style={{ padding: "60px 16px", background: "rgb(255,255,255)" }}
+    >
+      <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+        <h2 style={{ fontSize: 26, fontWeight: 800, textAlign: "center", margin: "0 0 32px", color: "rgb(11,18,32)" }}>
+          How Citation Tracker helps you
+        </h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
+          {items.map((item) => (
+            <div
+              key={item.n}
+              style={{
+                padding: 20,
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.08)",
+                background: "rgb(255,255,255)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
+              }}
+            >
+              <div style={{ fontSize: 28, fontWeight: 900, color: "rgb(13,60,252)", lineHeight: 1, marginBottom: 8 }}>
+                {item.n}
+              </div>
+              <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 700, color: "rgb(11,18,32)" }}>
+                {item.title}
+              </h3>
+              <p style={{ margin: 0, fontSize: 14, color: "rgba(55,65,81,1)", lineHeight: 1.55 }}>{item.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* Wave 6C — "Why trust us" section. Replaces the BrightLocal-style fake
+   "15,000+ customers / 4.8★" social proof per Alex Q3: borrowed
+   credibility only. Tech stack quality + transparency + founder
+   positioning, no fabricated numbers. */
+function CitationTrackerWhyTrustUs() {
+  const reasons = [
+    {
+      icon: Globe,
+      title: "Built on the APIs Google uses",
+      body: "We query the same Places + Maps APIs Google's own products use to verify business info — not a scraped index that drifts out of date.",
+    },
+    {
+      icon: Code,
+      title: "Audit code is in the open",
+      body: "What we check, and how we check it, is in our public repo. You can read exactly what \"missing\", \"found\", or \"inconsistent\" means for every directory we cover.",
+    },
+    {
+      icon: Wrench,
+      title: "Designed and tested by working trades",
+      body: "We're not marketers selling to trades — we're trades who got tired of paying for tools that didn't catch our own NAP errors. The directory list and severity rubric come from running real plumbing / HVAC / electrical jobs.",
+    },
+  ];
+  return (
+    <section
+      data-testid="citation-tracker-why-trust-us"
+      style={{ padding: "60px 16px", background: "rgba(248,250,252,1)" }}
+    >
+      <div style={{ maxWidth: 880, margin: "0 auto" }}>
+        <h2 style={{ fontSize: 26, fontWeight: 800, textAlign: "center", margin: "0 0 8px", color: "rgb(11,18,32)" }}>
+          Why trust us
+        </h2>
+        <p style={{ textAlign: "center", color: "rgba(0,0,0,0.6)", fontSize: 14, margin: "0 0 28px" }}>
+          We don't have fabricated customer counts or borrowed star ratings. Here's what we do have.
         </p>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 16px", background: "rgba(13,60,252,0.08)", color: "#0d3cfc", borderRadius: 999, fontWeight: 600, fontSize: 14 }}>
-          From <span style={{ marginLeft: 4, marginRight: 4 }}>$5/mo</span> as a MapGuard add-on · $19/mo standalone
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {reasons.map((r) => (
+            <div
+              key={r.title}
+              style={{
+                display: "flex",
+                gap: 14,
+                alignItems: "flex-start",
+                padding: 18,
+                borderRadius: 12,
+                background: "rgb(255,255,255)",
+                border: "1px solid rgba(0,0,0,0.06)",
+              }}
+            >
+              <r.icon size={22} style={{ color: "rgb(13,60,252)", flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: "rgb(11,18,32)" }}>{r.title}</h3>
+                <p style={{ margin: 0, fontSize: 14, color: "rgba(55,65,81,1)", lineHeight: 1.55 }}>{r.body}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>

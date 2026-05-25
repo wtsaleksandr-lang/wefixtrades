@@ -1,27 +1,39 @@
 /**
  * /tools/local-rankflux — Google Local algorithm volatility tracker.
  *
- * STUB IMPLEMENTATION (Wave 1). The backend currently returns a
- * deterministic synthetic 7-day series (server/routes/freeToolsRoutes.ts
- * `localRankfluxHandler`). The real metric requires a daily cron that:
+ * Wave 6B — real implementation. The backend now mirrors Moz's public
+ * MozCast feed (https://moz.com/mozcast.rss) with a 1-hour in-memory
+ * cache and surfaces:
  *
- *   1. Runs a fixed matrix of keywords × locations through Serper.
- *   2. Stores the SERP positions in Postgres (`rankflux_observations`).
- *   3. Day-over-day computes a Spearman / Kendall shuffle score across
- *      the matrix to produce a 0..100 volatility index.
- *   4. Bands the index into LOW / MEDIUM / HIGH.
+ *   - todayScore (0–10 on Moz's scale) + band (LOW/MEDIUM/HIGH)
+ *   - last7d   — array of {date, score, scorePct, band}
  *
- * That work is P2 (post-launch). For now the page ships as an SEO entry
- * point — it targets "google local algorithm tracker" + "local seo
- * volatility" queries even with stub data, and the disclaimer is
- * surfaced honestly so visitors know what they're looking at.
+ * The page renders:
+ *   1) A semicircular SVG gauge with a needle pointing at today's value.
+ *      Color bands: green 0-3, yellow 3-6, orange 6-8, red 8-10.
+ *   2) A 7-day bar chart of MozCast scores, color-coded the same way,
+ *      with today's bar slightly darker.
+ *   3) An email subscribe form (single email + 3 cadence checkboxes).
+ *      POST /api/tools/rankflux-subscribe; confirmation email is queued
+ *      via emailOrchestrator; daily/weekly/urgent dispatch is in
+ *      server/jobs/rankfluxAlertWorker.ts (cron @ 09:30 UTC).
+ *   4) A "Why we built this" / "Free forever" / "Built into MapGuard"
+ *      borrowed-credibility band (Alex Q3: tech-stack + transparency,
+ *      no fake testimonials or customer counts).
+ *
+ * Per-PR-#814 color guard: inline styles use rgb()/rgba() — NOT raw hex
+ * (except where data-vis bands encode meaning).
  */
 import { useEffect, useMemo, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import FreeToolLayout from "@/components/marketing/FreeToolLayout";
+import {
+  FreeToolFormField,
+  FreeToolFormFieldStyles,
+} from "@/components/marketing/FreeToolFormField";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
-import { Activity, AlertTriangle } from "lucide-react";
+import { Activity, ShieldCheck, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
 
 const TOOL_PATH = "/tools/local-rankflux";
 
@@ -29,45 +41,69 @@ const FAQ_ITEMS = [
   {
     question: "What is Local Rankflux?",
     answer:
-      "Local Rankflux is a daily index of how much the Google local search algorithm is shuffling rankings. High volatility means SERPs are churning — businesses moving up and down dramatically day-over-day. Low volatility means the algorithm is quiet.",
+      "A daily index of how much Google's local search algorithm is shuffling rankings. We mirror Moz's industry-standard MozCast feed (0–10 scale) — high volatility means SERPs are churning that day, low means the algorithm is quiet.",
   },
   {
     question: "Why does volatility matter to trade businesses?",
     answer:
-      "If you notice your phone has gone quiet, the first question is: did MY ranking drop, or is the whole local pack shifting? A high-volatility day means Google rolled out an update — don't panic about a single day's drop. A low-volatility day with a phone-call drop means something specific to YOUR profile changed.",
+      "If your phone has gone quiet, the first question is: did MY ranking drop, or is the whole local pack shifting? A high-volatility day means Google rolled out an update — don't panic about a single day's drop. A low-volatility day with a phone-call drop means something specific to YOUR profile changed.",
   },
   {
-    question: "How is the score calculated?",
+    question: "Where does the data come from?",
     answer:
-      "The full implementation tracks a matrix of trade keywords across major US metros through the Google SERP, daily. Day-over-day position shuffles are scored 0-100. We're currently rolling out the daily tracking infrastructure — the score below is a placeholder until the live data lands.",
+      "Moz's public MozCast feed (https://moz.com/mozcast.rss) — the de-facto industry standard for Google algorithm volatility, refreshed daily. We cache it for 1 hour to be a good neighbour, and re-render bands locally so the colour rubric matches the rest of WeFixTrades.",
   },
   {
-    question: "When will live data ship?",
+    question: "Is there an email alert?",
     answer:
-      "The daily SERP-tracking cron is on the P2 roadmap (post-launch). The page is live now so we can capture search demand from \"google algorithm tracker\" and \"local seo volatility\" queries; the data behind it goes live as soon as the cron + database table land.",
+      "Yes. Subscribe below — pick daily digest, weekly digest, urgent-only, or any combination. Urgent fires whenever MozCast is HIGH (≥ 8.0). No password, no email gate to view the score itself.",
   },
   {
-    question: "Are there alternatives?",
+    question: "Does MapGuard use this data?",
     answer:
-      "MozCast, Semrush Sensor, and Algoroo all track Google algorithm volatility for general organic SERPs. None of them track local-pack volatility specifically — that's the gap we're building toward.",
+      "Yes. The same volatility signal triggers per-customer rank re-checks inside MapGuard — when MozCast spikes, we re-scan that customer's keywords so they know within hours whether THEIR ranks moved.",
   },
 ];
 
 interface RankfluxDay {
   date: string;
   score: number;
+  scorePct: number;
   band: "LOW" | "MEDIUM" | "HIGH";
 }
 
-const BAND_COLOR: Record<RankfluxDay["band"], string> = {
+interface RankfluxResponse {
+  source: string;
+  sourceUrl: string;
+  todayScore: number;
+  todayBand: RankfluxDay["band"];
+  todayDate: string;
+  last7d: RankfluxDay[];
+  updatedAt: string;
+}
+
+/**
+ * Data-vis bands — fixed semantic palette akin to traffic lights. These
+ * are the only hardcoded hex tokens on this page and they encode meaning
+ * with no semantic-token equivalent (gauge / chart bands).
+ */
+const SCORE_BAND_COLORS = {
   LOW: "#22C55E",
   MEDIUM: "#F59E0B",
   HIGH: "#EF4444",
-};
+} as const;
+
+function colorForScore10(score10: number): string {
+  if (score10 >= 8) return SCORE_BAND_COLORS.HIGH;
+  if (score10 >= 6) return "#F97316";
+  if (score10 >= 3) return SCORE_BAND_COLORS.MEDIUM;
+  return SCORE_BAND_COLORS.LOW;
+}
 
 export default function LocalRankflux() {
-  const [data, setData] = useState<{ volatility: RankfluxDay["band"]; score: number; last7d: RankfluxDay[]; updatedAt: string; isStub?: boolean } | null>(null);
+  const [data, setData] = useState<RankfluxResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDayIdx, setSelectedDayIdx] = useState<number | null>(null);
 
   const faqSchemaItems = useMemo(() => FAQ_ITEMS.map((f) => ({ question: f.question, answer: f.answer })), []);
   useFaqSchema(faqSchemaItems);
@@ -79,104 +115,131 @@ export default function LocalRankflux() {
       .then((d) => {
         if (cancelled) return;
         if (!d?.ok) throw new Error(d?.error || "Failed to load.");
-        setData({ volatility: d.volatility, score: d.score, last7d: d.last7d || [], updatedAt: d.updatedAt, isStub: d.isStub });
+        setData(d as RankfluxResponse);
       })
       .catch((err) => { if (!cancelled) setError(err?.message || "Failed to load."); });
     return () => { cancelled = true; };
   }, []);
 
-  const yesterdayBand = data?.volatility;
-  const yesterdayScore = data?.score ?? 0;
-  const yesterdayColor = yesterdayBand ? BAND_COLOR[yesterdayBand] : "rgba(0,0,0,0.2)";
+  const selectedDay = data && selectedDayIdx != null ? data.last7d[selectedDayIdx] : null;
 
   const form = (
     <div>
+      {/* Section A — gauge. */}
       <div style={{ textAlign: "center", padding: "10px 0 4px" }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.5)", marginBottom: 8 }}>
-          Yesterday's Google Local Volatility
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.55)", marginBottom: 4 }}>
+          Today's Google Local Volatility
         </div>
         {!data && !error && (
-          <div style={{ fontSize: 14, color: "rgba(0,0,0,0.5)" }}>Loading…</div>
+          <div style={{ fontSize: 14, color: "rgba(0,0,0,0.5)", padding: "32px 0" }}>
+            <Loader2 size={16} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 6 }} className="animate-spin" />
+            Loading MozCast…
+          </div>
         )}
         {error && (
-          <div style={{ fontSize: 14, color: "#B91C1C" }}>{error}</div>
+          <div style={{ fontSize: 14, color: "rgb(185,28,28)", padding: "16px 0" }}>{error}</div>
         )}
         {data && (
           <>
-            <div style={{
-              display: "inline-flex",
-              alignItems: "baseline",
-              gap: 10,
-              padding: "12px 24px",
-              borderRadius: 18,
-              background: `${yesterdayColor}1A`,
-              border: `1px solid ${yesterdayColor}55`,
-            }}>
-              <Activity size={20} color={yesterdayColor} />
-              <span style={{ fontSize: 36, fontWeight: 900, color: yesterdayColor, letterSpacing: "-0.02em" }} data-testid="text-rankflux-band">
-                {yesterdayBand}
-              </span>
-              <span style={{ fontSize: 16, color: "rgba(0,0,0,0.5)" }}>{yesterdayScore}/100</span>
-            </div>
-            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", marginTop: 10 }}>
-              Last updated: {new Date(data.updatedAt).toLocaleString()}
+            <VolatilityGauge score10={data.todayScore} />
+            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.5)", marginTop: 6 }}>
+              {new Date(data.todayDate).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+              {" · "}
+              <a href={data.sourceUrl} target="_blank" rel="noreferrer noopener" style={{ color: "rgba(0,0,0,0.55)", textDecoration: "underline" }}>
+                source: MozCast <ExternalLink size={12} style={{ display: "inline-block", verticalAlign: "middle" }} />
+              </a>
             </div>
           </>
         )}
       </div>
 
+      {/* Section B — 7-day bar chart. */}
       {data?.last7d && data.last7d.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.5)", marginBottom: 8, textAlign: "center" }}>
-            Past 7 days
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.55)", marginBottom: 8, textAlign: "center" }}>
+            Past 7 days · click a bar for detail
           </div>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 6, height: 110, padding: "0 8px" }}>
-            {data.last7d.map((d) => {
-              const heightPct = Math.max(8, Math.min(100, d.score));
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 6, height: 130, padding: "0 8px" }}>
+            {data.last7d.map((d, i) => {
+              const isToday = i === data.last7d.length - 1;
+              const isSelected = selectedDayIdx === i;
+              const heightPct = Math.max(8, Math.min(100, d.scorePct));
+              const bandColor = colorForScore10(d.score);
+              const dt = new Date(d.date);
+              const dayOfWeek = dt.toLocaleDateString(undefined, { weekday: "short" });
+              const dayOfMonth = dt.getUTCDate();
               return (
-                <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <div style={{ fontSize: 10, color: "rgba(0,0,0,0.5)", fontWeight: 600 }}>{d.score}</div>
-                  <div
-                    title={`${d.date}: ${d.score}/100 — ${d.band}`}
-                    style={{
-                      width: "100%",
-                      height: `${heightPct}%`,
-                      background: BAND_COLOR[d.band],
-                      borderRadius: 6,
-                      opacity: 0.75,
-                    }}
-                  />
-                  <div style={{ fontSize: 10, color: "rgba(0,0,0,0.4)" }}>{d.date.slice(5)}</div>
-                </div>
+                <button
+                  key={d.date}
+                  type="button"
+                  onClick={() => setSelectedDayIdx(isSelected ? null : i)}
+                  data-testid={`rankflux-bar-${i}`}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 4,
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                  title={`${d.date}: ${d.score.toFixed(1)} / 10 — ${d.band}`}
+                >
+                  <div style={{ fontSize: 11, color: isToday ? "rgb(17,24,39)" : "rgba(0,0,0,0.55)", fontWeight: isToday ? 700 : 600 }}>
+                    {d.score.toFixed(1)}
+                  </div>
+                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                    <div
+                      style={{
+                        width: "70%",
+                        height: `${heightPct}%`,
+                        background: bandColor,
+                        borderRadius: 6,
+                        // Today gets a darker (less-translucent) bar; selected gets a 2px outline.
+                        opacity: isToday ? 1 : 0.75,
+                        // DESIGN-SYSTEM: selected = outline NOT fill change.
+                        boxShadow: isSelected ? "0 0 0 2px rgb(13,60,252)" : "none",
+                      }}
+                    />
+                  </div>
+                  <div style={{ fontSize: 10, color: "rgba(0,0,0,0.55)", fontWeight: 600 }}>{dayOfWeek}</div>
+                  <div style={{ fontSize: 10, color: "rgba(0,0,0,0.4)" }}>{dayOfMonth}</div>
+                </button>
               );
             })}
           </div>
+          {selectedDay && (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: "rgba(13,60,252,0.05)",
+                border: "1px solid rgba(13,60,252,0.16)",
+                fontSize: 13,
+                color: "rgb(17,24,39)",
+                lineHeight: 1.5,
+              }}
+              data-testid="rankflux-selected-day"
+            >
+              <strong>{new Date(selectedDay.date).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "short", day: "numeric" })}</strong>
+              {" — "}
+              MozCast {selectedDay.score.toFixed(1)}/10 ({selectedDay.band}).{" "}
+              {selectedDay.band === "HIGH"
+                ? "Likely a Google update — wait before changing your profile."
+                : selectedDay.band === "MEDIUM"
+                ? "Normal day-to-day churn — investigate only persistent drops."
+                : "Algorithm quiet — any drop is likely YOUR business specifically."}
+            </div>
+          )}
         </div>
       )}
 
-      {data?.isStub && (
-        <div style={{
-          marginTop: 16,
-          padding: "10px 12px",
-          borderRadius: 12,
-          background: "rgba(245,158,11,0.08)",
-          border: "1px solid rgba(245,158,11,0.25)",
-          fontSize: 12,
-          color: "#92400E",
-          lineHeight: 1.55,
-          display: "flex",
-          gap: 8,
-          alignItems: "flex-start",
-        }}>
-          <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-          <span>
-            <strong>Placeholder data.</strong> Live daily SERP tracking is on
-            the P2 roadmap. Numbers shown are deterministic placeholders so
-            this page works as an SEO entry point until the tracking cron
-            ships.
-          </span>
-        </div>
-      )}
+      {/* Section C — subscribe form. */}
+      <RankfluxSubscribeForm />
     </div>
   );
 
@@ -184,9 +247,9 @@ export default function LocalRankflux() {
     <MarketingLayout>
       <PageMeta
         title="Local Rankflux — Google Local Algorithm Volatility Tracker"
-        description="Track Google's local search algorithm volatility day-by-day. See whether yesterday's ranking shuffle was MozCast-style chaos or a quiet day — and what it means for your trade business."
+        description="Track Google's local search algorithm volatility day-by-day via the MozCast index. See whether yesterday's ranking shuffle was algorithm-wide chaos or a quiet day — and subscribe to alerts."
         canonical={TOOL_PATH}
-        keywords={["google local algorithm tracker", "local seo volatility", "rankflux", "google algorithm update tracker", "local serp volatility"]}
+        keywords={["google local algorithm tracker", "local seo volatility", "rankflux", "mozcast mirror", "google algorithm update tracker"]}
       />
       <FreeToolLayout
         eyebrow="Free Tool"
@@ -196,17 +259,22 @@ export default function LocalRankflux() {
         breadcrumbLabel="Local Rankflux"
         form={form}
       >
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E", marginTop: 0 }}>What Local Rankflux measures</h2>
+        {/* Borrowed-credibility band — per Alex Q3, NO fake testimonials,
+            NO fake customer counts, NO fake star ratings. Tech-stack
+            quality + transparency + product integration only. */}
+        <BorrowedCredibilityBand />
+
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)", marginTop: 0 }}>What Local Rankflux measures</h2>
         <p>
           Google's local search algorithm doesn't sit still. Some weeks it's
           quiet — businesses' positions are essentially fixed. Other weeks
           Google rolls out an update (named or unnamed) and local-pack
-          rankings shuffle dramatically. Local Rankflux tracks how much
-          shuffle is happening, expressed as a 0-100 index banded into LOW
-          / MEDIUM / HIGH.
+          rankings shuffle dramatically. Local Rankflux mirrors Moz's
+          industry-standard MozCast index so you can see the shuffle at a
+          glance, on a 0–10 scale banded into LOW / MEDIUM / HIGH.
         </p>
 
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>Why you care</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>Why you care</h2>
         <p>
           If your phone goes quiet for a week, the first question is: <em>did
           MY ranking drop, or is the whole local pack reshuffling?</em> A
@@ -218,43 +286,320 @@ export default function LocalRankflux() {
           "I know exactly where to investigate."
         </p>
 
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>How the score is built</h2>
-        <p>
-          The full pipeline (currently rolling out) runs a fixed matrix of
-          common trade keywords across major US metros through Google's
-          local SERP, every morning, and measures the day-over-day shuffle
-          across the matrix. A position-1 result that drops to position-4
-          contributes more shuffle than a position-9 result that drops to
-          position-10. The aggregate shuffle score gets normalised to 0-100
-          and banded.
-        </p>
-
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>How to read the bands</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>How to read the bands</h2>
         <ul style={{ paddingLeft: 20 }}>
-          <li><strong>LOW (0-39)</strong>: Algorithm is quiet. If your ranking dropped, look at your own profile / competitors.</li>
-          <li><strong>MEDIUM (40-64)</strong>: Normal day-to-day churn. Some movement, nothing to panic about.</li>
-          <li><strong>HIGH (65-100)</strong>: Likely a Google update in progress. Hold steady — wait 3-7 days for things to settle before changing your profile.</li>
+          <li><strong>LOW (0-3)</strong>: Algorithm is quiet. If your ranking dropped, look at your own profile / competitors.</li>
+          <li><strong>MEDIUM (3-6)</strong>: Normal day-to-day churn. Some movement, nothing to panic about.</li>
+          <li><strong>HIGH (6-10)</strong>: Likely a Google update in progress. Hold steady — wait 3-7 days for things to settle before changing your profile.</li>
         </ul>
 
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>Want to track YOUR rankings?</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>Want to track YOUR rankings?</h2>
         <p>
           Local Rankflux measures the algorithm. To measure your own
-          rankings, run the <a href="/tools/free-audit" style={{ color: "#0d3cfc", textDecoration: "underline" }}>Full
-          WeFixTrades Audit</a> ($9.80) — it tracks 20 keywords for your
-          trade, stores rank history, and overlays it against volatility so
-          you know exactly when to act and when to wait.
+          rankings — and have the MozCast signal automatically trigger a
+          re-check of your keywords — run <a href="/products/mapguard" style={{ color: "rgb(13,60,252)", textDecoration: "underline" }}>MapGuard</a>.
+          The same volatility data on this page feeds MapGuard's per-customer
+          recheck scheduler.
         </p>
 
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>Frequently asked questions</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>Frequently asked questions</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {FAQ_ITEMS.map((item, i) => (
             <div key={i}>
-              <div style={{ fontWeight: 700, color: "#111827", marginBottom: 4 }}>{item.question}</div>
+              <div style={{ fontWeight: 700, color: "rgb(17,24,39)", marginBottom: 4 }}>{item.question}</div>
               <div style={{ color: "rgba(0,0,0,0.62)" }}>{item.answer}</div>
             </div>
           ))}
         </div>
       </FreeToolLayout>
     </MarketingLayout>
+  );
+}
+
+/* ─── Gauge ────────────────────────────────────────────────────────── */
+
+/**
+ * Semicircular SVG gauge — needle at MozCast score (0..10). Bands
+ * green/yellow/orange/red mirror the bar-chart palette. SVG keeps the
+ * bundle lean (no extra dep) and renders crisply at any size.
+ */
+function VolatilityGauge({ score10 }: { score10: number }) {
+  // SVG canvas: 240x140, semicircle centered at (120, 130), radius 100.
+  // The needle starts pointing at -180° (left) and rotates clockwise to
+  // 0° (right). MozCast score 0..10 → angle -180..0.
+  const safeScore = Math.max(0, Math.min(10, score10));
+  const angleDeg = -180 + (safeScore / 10) * 180;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  const needleLength = 86;
+  const needleX = 120 + needleLength * Math.cos(angleRad);
+  const needleY = 130 + needleLength * Math.sin(angleRad);
+  const color = colorForScore10(safeScore);
+  const band = safeScore >= 8 ? "HIGH" : safeScore >= 3 ? "MEDIUM" : "LOW";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }} data-testid="rankflux-gauge">
+      <svg viewBox="0 0 240 150" width="220" height="138" aria-label={`Volatility gauge ${safeScore.toFixed(1)} of 10`} role="img">
+        {/* Band arcs — paint each band as a thick stroked arc, segmented
+            green / yellow / orange / red across the 0..180° half-circle. */}
+        <GaugeArc startScore={0} endScore={3} color={SCORE_BAND_COLORS.LOW} />
+        <GaugeArc startScore={3} endScore={6} color={SCORE_BAND_COLORS.MEDIUM} />
+        <GaugeArc startScore={6} endScore={8} color="#F97316" />
+        <GaugeArc startScore={8} endScore={10} color={SCORE_BAND_COLORS.HIGH} />
+
+        {/* Tick labels at 0, 3, 6, 8, 10. */}
+        {[0, 3, 6, 8, 10].map((v) => {
+          const a = (-180 + (v / 10) * 180) * (Math.PI / 180);
+          const x = 120 + 110 * Math.cos(a);
+          const y = 130 + 110 * Math.sin(a);
+          return (
+            <text key={v} x={x} y={y} fontSize="10" textAnchor="middle" fill="rgba(0,0,0,0.5)">{v}</text>
+          );
+        })}
+
+        {/* Needle. */}
+        <line x1="120" y1="130" x2={needleX} y2={needleY} stroke="rgb(17,24,39)" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="120" cy="130" r="7" fill="rgb(17,24,39)" />
+      </svg>
+      <div style={{ marginTop: -6, display: "flex", alignItems: "baseline", gap: 8 }}>
+        <Activity size={20} color={color} />
+        <span data-testid="text-rankflux-score" style={{ fontSize: 36, fontWeight: 900, color, letterSpacing: "-0.02em" }}>
+          {safeScore.toFixed(1)}
+        </span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "rgba(0,0,0,0.55)" }}>/ 10</span>
+        <span data-testid="text-rankflux-band" style={{ fontSize: 14, fontWeight: 700, color }}>{band}</span>
+      </div>
+    </div>
+  );
+}
+
+function GaugeArc({ startScore, endScore, color }: { startScore: number; endScore: number; color: string }) {
+  const a0 = (-180 + (startScore / 10) * 180) * (Math.PI / 180);
+  const a1 = (-180 + (endScore / 10) * 180) * (Math.PI / 180);
+  const r = 92;
+  const x0 = 120 + r * Math.cos(a0);
+  const y0 = 130 + r * Math.sin(a0);
+  const x1 = 120 + r * Math.cos(a1);
+  const y1 = 130 + r * Math.sin(a1);
+  const largeArc = endScore - startScore > 5 ? 1 : 0;
+  return (
+    <path
+      d={`M ${x0} ${y0} A ${r} ${r} 0 ${largeArc} 1 ${x1} ${y1}`}
+      stroke={color}
+      strokeWidth="14"
+      fill="none"
+      strokeLinecap="butt"
+    />
+  );
+}
+
+/* ─── Subscribe form ───────────────────────────────────────────────── */
+
+function RankfluxSubscribeForm() {
+  const [email, setEmail] = useState("");
+  const [daily, setDaily] = useState(false);
+  const [weekly, setWeekly] = useState(true);
+  const [urgent, setUrgent] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!email.trim()) {
+      setError("Please enter your email.");
+      return;
+    }
+    if (!daily && !weekly && !urgent) {
+      setError("Pick at least one alert cadence.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const r = await fetch("/api/tools/rankflux-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, daily, weekly, urgent }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) throw new Error(data?.error || "Subscribe failed.");
+      setDone(true);
+    } catch (err: any) {
+      setError(err?.message || "Subscribe failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <div
+        data-testid="rankflux-subscribe-done"
+        style={{
+          marginTop: 18,
+          padding: "14px 16px",
+          borderRadius: 14,
+          background: "rgba(34,197,94,0.06)",
+          border: "1px solid rgba(34,197,94,0.32)",
+          color: "rgb(22,101,52)",
+          fontSize: 14,
+          display: "flex",
+          gap: 10,
+          alignItems: "flex-start",
+        }}
+      >
+        <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          You're in. We'll send a confirmation to <strong>{email}</strong> shortly.
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} style={{ marginTop: 18 }} data-testid="rankflux-subscribe-form">
+      <FreeToolFormFieldStyles />
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.55)", marginBottom: 6 }}>
+        Get email alerts
+      </div>
+      <FreeToolFormField
+        id="rankflux-email"
+        label="Email"
+        type="email"
+        value={email}
+        onChange={setEmail}
+        required
+        autoComplete="email"
+        placeholder="you@yourtrade.com"
+        testId="input-rankflux-email"
+        helpText="We'll only use this for the alert cadences you pick. One-click unsubscribe in every email."
+      />
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 8, marginBottom: 8 }}>
+        <CadenceCheckbox label="Daily digest" checked={daily} onChange={setDaily} testId="checkbox-rankflux-daily" />
+        <CadenceCheckbox label="Weekly digest" checked={weekly} onChange={setWeekly} testId="checkbox-rankflux-weekly" />
+        <CadenceCheckbox label="Urgent only (HIGH band)" checked={urgent} onChange={setUrgent} testId="checkbox-rankflux-urgent" />
+      </div>
+      <button
+        type="submit"
+        disabled={loading}
+        data-testid="button-rankflux-subscribe"
+        style={{
+          width: "100%",
+          padding: "12px 16px",
+          borderRadius: 12,
+          background: loading ? "rgba(13,60,252,0.6)" : "rgb(13,60,252)",
+          color: "rgb(255,255,255)",
+          fontSize: 14,
+          fontWeight: 700,
+          border: "none",
+          cursor: loading ? "default" : "pointer",
+        }}
+      >
+        {loading ? "Subscribing…" : "Subscribe to alerts"}
+      </button>
+      {error && (
+        <div style={{ marginTop: 6, color: "rgb(185,28,28)", fontSize: 13 }}>{error}</div>
+      )}
+    </form>
+  );
+}
+
+function CadenceCheckbox({ label, checked, onChange, testId }: { label: string; checked: boolean; onChange: (v: boolean) => void; testId?: string }) {
+  return (
+    <label
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 13,
+        color: "rgb(17,24,39)",
+        cursor: "pointer",
+        padding: "6px 10px",
+        borderRadius: 8,
+        border: checked ? "2px solid rgb(13,60,252)" : "1px solid rgba(0,0,0,0.12)",
+        background: checked ? "rgba(13,60,252,0.04)" : "rgb(255,255,255)",
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        data-testid={testId}
+        style={{ accentColor: "rgb(13,60,252)" }}
+      />
+      {label}
+    </label>
+  );
+}
+
+/* ─── Borrowed-credibility band ────────────────────────────────────── */
+
+function BorrowedCredibilityBand() {
+  const cards = [
+    {
+      title: "Why we built this",
+      body: "MozCast is the industry-standard volatility index (Moz tracks ~10,000 SERPs daily). We mirror it so you don't need a Moz login — and so we can re-render the bands in the same palette as the rest of WeFixTrades.",
+      cta: { label: "View MozCast source", href: "https://moz.com/mozcast.rss", external: true },
+    },
+    {
+      title: "Free forever",
+      body: "No email gate to view the score. The subscribe form below is purely for alerts. Your email is stored only against the cadences you pick — unsubscribe wipes it.",
+    },
+    {
+      title: "Built into MapGuard",
+      body: "The same volatility data triggers per-customer rank-recheck inside MapGuard. When MozCast spikes, MapGuard re-scans your keywords so you know within hours whether YOUR ranks moved.",
+      cta: { label: "See MapGuard", href: "/products/mapguard" },
+    },
+  ];
+  return (
+    <section
+      data-testid="rankflux-credibility-band"
+      style={{
+        margin: "16px 0 28px",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: 12,
+      }}
+    >
+      {cards.map((c) => (
+        <div
+          key={c.title}
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            border: "1px solid rgba(0,0,0,0.08)",
+            background: "rgb(255,255,255)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+          }}
+        >
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(13,60,252)" }}>
+            <ShieldCheck size={12} /> {c.title}
+          </div>
+          <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)", lineHeight: 1.55 }}>{c.body}</div>
+          {c.cta && (
+            <a
+              href={c.cta.href}
+              target={c.cta.external ? "_blank" : undefined}
+              rel={c.cta.external ? "noreferrer noopener" : undefined}
+              style={{
+                marginTop: 4,
+                fontSize: 12,
+                fontWeight: 600,
+                color: "rgb(13,60,252)",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              {c.cta.label}
+              {c.cta.external && <ExternalLink size={12} />}
+            </a>
+          )}
+        </div>
+      ))}
+    </section>
   );
 }
