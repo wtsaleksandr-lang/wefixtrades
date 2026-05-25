@@ -166,7 +166,7 @@ export default function PortalSocialSync() {
     return (
       <PortalLayout>
         <div className="max-w-3xl text-center py-16">
-          <Share2 className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <Share2 className="w-8 h-8 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">You haven't set up SocialSync yet</p>
           <p className="text-sm text-gray-400 mt-1 mb-4">Tell us about your business and we'll start creating content for you.</p>
           <Link href="/portal/socialsync-setup">
@@ -427,7 +427,7 @@ export default function PortalSocialSync() {
                     )}
                     <div className="flex gap-3 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded-lg -mx-1 px-1 transition-colors" onClick={() => setSelectedPost(post)}>
                       {post.has_image && post.image_url ? (
-                        <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
                           <img src={post.image_url} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                         </div>
                       ) : null}
