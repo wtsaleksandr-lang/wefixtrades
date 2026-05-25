@@ -25,6 +25,10 @@
  */
 
 import { storage } from "../../storage";
+import {
+  isImageStylePresetId,
+  type ImageStylePresetId,
+} from "./imageStylePresets";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -46,6 +50,10 @@ export interface BrandProfile {
   target_audience?: string;
   unique_selling_points?: string;
   preferred_topics?: string[];
+  /* Sprint 19: customer's default image style preset (see
+   * server/services/contentflow/imageStylePresets.ts). Validated
+   * against the closed enum at sanitize time. */
+  image_style_preset?: ImageStylePresetId;
 }
 
 /* Field allow-lists. Anything outside these sets is dropped at sanitize
@@ -66,6 +74,7 @@ const ADMIN_FIELDS: ReadonlyArray<keyof BrandProfile> = [
   "target_audience",
   "unique_selling_points",
   "preferred_topics",
+  "image_style_preset",
 ];
 const CLIENT_FIELDS: ReadonlyArray<keyof BrandProfile> = [
   "tone",
@@ -82,6 +91,7 @@ const CLIENT_FIELDS: ReadonlyArray<keyof BrandProfile> = [
   "target_audience",
   "unique_selling_points",
   "preferred_topics",
+  "image_style_preset",
 ];
 
 const VALID_TONES: ReadonlySet<Tone> = new Set([
@@ -239,6 +249,13 @@ export function sanitizeBrandProfilePatch(
         if (list !== null) out.reference_image_urls = list;
         break;
       }
+      case "image_style_preset": {
+        /* Closed enum — anything not in the preset list is dropped
+         * silently rather than echoed as an error (same convention as
+         * other invalid fields in this sanitizer). */
+        if (isImageStylePresetId(v)) out.image_style_preset = v;
+        break;
+      }
     }
   }
   return out;
@@ -270,6 +287,7 @@ export function readBrandProfile(client: { metadata?: unknown } | null | undefin
     target_audience: cb.target_audience,
     unique_selling_points: cb.unique_selling_points,
     preferred_topics: cb.preferred_topics,
+    image_style_preset: cb.image_style_preset,
   };
   return sanitizeBrandProfilePatch(merged, "admin");
 }

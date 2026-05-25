@@ -21,7 +21,23 @@ import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Check, ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
+import {
+  Loader2,
+  Check,
+  ArrowLeft,
+  ArrowRight,
+  Sparkles,
+  Camera,
+  Film,
+  Square,
+  Aperture,
+  Newspaper,
+  Users,
+  Package,
+  PaintBucket,
+  Brush,
+  Box,
+} from "lucide-react";
 
 type StepField =
   | "tone"
@@ -31,7 +47,42 @@ type StepField =
   | "target_audience"
   | "unique_selling_points"
   | "avoid"
-  | "location_cue";
+  | "location_cue"
+  | "image_style_preset";
+
+/* Sprint 19 — image-style preset catalog (must mirror server
+ * imageStylePresets.IMAGE_STYLE_PRESET_IDS). Icons are lucide placeholders
+ * until thumbnail assets ship. */
+type PresetId =
+  | "photoreal"
+  | "cinematic"
+  | "minimalist"
+  | "vintage"
+  | "editorial"
+  | "lifestyle"
+  | "product-hero"
+  | "flat-illustration"
+  | "hand-drawn"
+  | "3d-render";
+
+const PRESET_OPTIONS: Array<{
+  id: PresetId;
+  label: string;
+  short: string;
+  Icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { id: "photoreal", label: "Photorealistic", short: "Real photography, natural lighting", Icon: Camera },
+  { id: "cinematic", label: "Cinematic", short: "Film-style, dramatic lighting", Icon: Film },
+  { id: "minimalist", label: "Minimalist", short: "Single subject, clean background", Icon: Square },
+  { id: "vintage", label: "Vintage", short: "Retro film tones, warm grain", Icon: Aperture },
+  { id: "editorial", label: "Editorial", short: "Magazine photography, sharp focus", Icon: Newspaper },
+  { id: "lifestyle", label: "Lifestyle", short: "Candid, real people in setting", Icon: Users },
+  { id: "product-hero", label: "Product hero", short: "Studio shot, dramatic shadow", Icon: Package },
+  { id: "flat-illustration", label: "Flat illustration", short: "Modern flat graphic style", Icon: PaintBucket },
+  { id: "hand-drawn", label: "Hand-drawn", short: "Sketch / watercolor illustration", Icon: Brush },
+  { id: "3d-render", label: "3D render", short: "Stylized 3D, isometric framing", Icon: Box },
+];
+const PRESET_IDS: ReadonlySet<string> = new Set(PRESET_OPTIONS.map((p) => p.id));
 
 interface Opt {
   value: string;
@@ -41,7 +92,7 @@ interface Opt {
 
 interface Step {
   field: StepField;
-  kind: "single" | "multi" | "text";
+  kind: "single" | "multi" | "text" | "preset";
   title: string;
   subtitle: string;
   options?: Opt[];
@@ -162,6 +213,14 @@ const STEPS: Step[] = [
     optional: true,
     placeholder: "e.g. Portland, Oregon and nearby suburbs",
   },
+  {
+    field: "image_style_preset",
+    kind: "preset",
+    title: "Pick a default image style",
+    subtitle:
+      "Optional — sets the visual direction for every AI-generated image. You can still override per post.",
+    optional: true,
+  },
 ];
 
 type Answers = Record<StepField, string | string[]>;
@@ -176,6 +235,7 @@ function emptyAnswers(): Answers {
     unique_selling_points: [],
     avoid: [],
     location_cue: "",
+    image_style_preset: "",
   };
 }
 
@@ -214,8 +274,22 @@ export default function PortalContentPreferences() {
       unique_selling_points: usp,
       avoid: Array.isArray(bp.avoid) ? bp.avoid : [],
       location_cue: typeof bp.location_cue === "string" ? bp.location_cue : "",
+      image_style_preset:
+        typeof bp.image_style_preset === "string" && PRESET_IDS.has(bp.image_style_preset)
+          ? bp.image_style_preset
+          : "",
     });
   }, [data]);
+
+  /* Industry-default suggestion for the preset step (Sprint 19). */
+  const { data: presetMeta } = useQuery<{ industry_default: PresetId; trade_type: string | null }>({
+    queryKey: ["/api/portal/contentflow/image-style-presets"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/contentflow/image-style-presets", { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to load presets: ${res.status}`);
+      return res.json();
+    },
+  });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -229,6 +303,7 @@ export default function PortalContentPreferences() {
         unique_selling_points: (answers.unique_selling_points as string[]).join(", ") || undefined,
         avoid: answers.avoid,
         location_cue: (answers.location_cue as string).trim() || undefined,
+        image_style_preset: (answers.image_style_preset as string) || undefined,
       };
       const res = await apiRequest("PATCH", "/api/portal/contentflow/brand-profile", payload);
       return res.json();
@@ -276,7 +351,9 @@ export default function PortalContentPreferences() {
           ? `${s.title} (comma-separated; allowed: ${(s.options ?? []).map((o) => o.value).join(", ")})`
           : s.kind === "single"
             ? `${s.title} (one of: ${(s.options ?? []).map((o) => o.value).join(", ")})`
-            : s.title,
+            : s.kind === "preset"
+              ? `${s.title} (one of: ${PRESET_OPTIONS.map((p) => p.id).join(", ")})`
+              : s.title,
       required: !s.optional,
     })),
     values: answers as unknown as Record<string, unknown>,
@@ -288,6 +365,8 @@ export default function PortalContentPreferences() {
           if (!s) continue;
           if (s.kind === "text") {
             next[s.field] = fill.value;
+          } else if (s.kind === "preset") {
+            if (PRESET_IDS.has(fill.value)) next[s.field] = fill.value;
           } else if (s.kind === "single") {
             const allowed = new Set((s.options ?? []).map((o) => o.value));
             if (allowed.has(fill.value)) next[s.field] = fill.value;
@@ -418,6 +497,56 @@ export default function PortalContentPreferences() {
               maxLength={200}
               onChange={(e) => setAnswers((a) => ({ ...a, [step.field]: e.target.value }))}
             />
+          )}
+
+          {step.kind === "preset" && (
+            <>
+              {presetMeta?.industry_default && !(answers.image_style_preset as string) && (
+                <p className="text-xs text-muted-foreground mb-3">
+                  Suggested for your business:{" "}
+                  <span className="font-medium text-foreground">
+                    {PRESET_OPTIONS.find((p) => p.id === presetMeta.industry_default)?.label}
+                  </span>
+                </p>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {PRESET_OPTIONS.map((p) => {
+                  const selected = (answers.image_style_preset as string) === p.id;
+                  const isSuggested =
+                    !(answers.image_style_preset as string) &&
+                    presetMeta?.industry_default === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() =>
+                        setAnswers((a) => ({
+                          ...a,
+                          image_style_preset: selected ? "" : p.id,
+                        }))
+                      }
+                      className={`text-left rounded-lg border p-3 transition-colors ${
+                        selected
+                          ? "border-brand-blue-500 bg-brand-blue-50 ring-1 ring-brand-blue-500"
+                          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                      }`}
+                      data-testid={`button-image-style-${p.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <p.Icon className="h-4 w-4 text-muted-foreground" />
+                        <div className="text-sm font-medium">{p.label}</div>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">{p.short}</div>
+                      {isSuggested && (
+                        <div className="text-[10px] uppercase tracking-wide text-brand-blue-500 mt-1">
+                          Suggested
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
         </Card>
 

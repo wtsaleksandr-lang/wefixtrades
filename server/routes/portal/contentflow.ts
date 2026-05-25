@@ -28,6 +28,10 @@ import {
   mergeBrandProfile,
   sanitizeBrandProfilePatch,
 } from "../../services/contentflow/brandProfile";
+import {
+  IMAGE_STYLE_PRESETS,
+  defaultPresetForIndustry,
+} from "../../services/contentflow/imageStylePresets";
 import { createLogger } from "../../lib/logger";
 
 const log = createLogger("PortalContentflow");
@@ -89,6 +93,31 @@ export function registerPortalContentflowRoutes(app: Express) {
       res.json({ ok: true, brand_profile: updated });
     } catch (err: any) {
       log.error("[portal/brand-profile][patch]", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ─── Sprint 19: Image style presets (portal) ───────────────────── */
+
+  /**
+   * GET /api/portal/contentflow/image-style-presets
+   * Returns the static preset catalog + the suggested default for this
+   * client's trade_type. The customer's current selection (if any) is
+   * already on the brand profile — UI uses both to render.
+   */
+  app.get("/api/portal/contentflow/image-style-presets", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const client = await storage.getClientById(clientId);
+      const tradeType = (client?.trade_type as string | null) ?? null;
+      res.json({
+        presets: IMAGE_STYLE_PRESETS,
+        industry_default: defaultPresetForIndustry(tradeType),
+        trade_type: tradeType,
+      });
+    } catch (err: any) {
+      log.error("[portal/image-style-presets][get]", err?.message || err);
       res.status(500).json({ error: err.message });
     }
   });
