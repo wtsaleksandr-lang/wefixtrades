@@ -66,6 +66,9 @@ import GoogleReviewLinkGenerator from "@/pages/marketing/tools/GoogleReviewLinkG
 import LocalSearchChecker from "@/pages/marketing/tools/LocalSearchChecker";
 import CitationChecker from "@/pages/marketing/tools/CitationChecker";
 import LocalRankflux from "@/pages/marketing/tools/LocalRankflux";
+// Wave 2 — Local Rank Grid (free) + Citation Builder (paid service).
+import LocalRankGrid from "@/pages/marketing/tools/LocalRankGrid";
+import CitationBuilderPage from "@/pages/marketing/CitationBuilderPage";
 // Competitor comparison landing pages — "X alternative" / "X vs Y" SEO.
 import CompareVsJobber from "@/pages/marketing/compare/CompareVsJobber";
 import CompareVsHousecallPro from "@/pages/marketing/compare/CompareVsHousecallPro";
@@ -507,6 +510,9 @@ function Router() {
       <Route path="/tools/local-search-checker" component={LocalSearchChecker} />
       <Route path="/tools/citation-checker" component={CitationChecker} />
       <Route path="/tools/local-rankflux" component={LocalRankflux} />
+      {/* Wave 2 SEO surfaces — Local Rank Grid (free) + Citation Builder (paid service). */}
+      <Route path="/tools/local-rank-grid" component={LocalRankGrid} />
+      <Route path="/citation-builder" component={CitationBuilderPage} />
       {/* ContentFlow Phase 1 — public prompt-library SEO landings.
           One route per seed trade so wouter can match the `-ai-content-prompts`
           literal suffix without a regex param. The TradePromptsPage reads

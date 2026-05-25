@@ -21,6 +21,10 @@
  *   GET  /api/tools/local-rankflux
  *     → { ok, volatility: "HIGH"|"MEDIUM"|"LOW", score: number, last7d[], updatedAt }
  *
+ *   POST /api/tools/local-rank-grid
+ *     body  { businessName, city, keyword }
+ *     → { ok, gridPoints: [{ lat, lng, rank, mapRank }], summary, center }
+ *
  * Rate limit: shared with the existing /api/audit/* tab tools — 20 req /
  * hour / IP per tool. Implemented in-memory; not horizontally safe but
  * fine for the single-instance Replit deploy. Rotation of historical
@@ -341,6 +345,167 @@ function localRankfluxHandler(_req: Request, res: Response) {
   });
 }
 
+/* ─── 5. Local Rank Grid (Serper, geo-grid) ───────────────────────────── */
+
+/**
+ * Geocode the city via Google Places `findplacefromtext` — same SKU tier
+ * we already use in /api/tools/google-review-link, so no incremental
+ * billing surprises. We only need lat/lng + formatted_address; the
+ * `geometry/location` field is included by default in `findPlace`.
+ */
+async function geocodeCity(
+  city: string,
+  apiKey: string,
+): Promise<{ lat: number; lng: number; address: string } | null> {
+  const url = new URL("https://maps.googleapis.com/maps/api/place/findplacefromtext/json");
+  url.searchParams.set("input", city);
+  url.searchParams.set("inputtype", "textquery");
+  url.searchParams.set("fields", "geometry,formatted_address");
+  url.searchParams.set("key", apiKey);
+  try {
+    const data = await fetchJson(url.toString(), { method: "GET" }, 8000);
+    const cand = Array.isArray(data?.candidates) && data.candidates.length ? data.candidates[0] : null;
+    const loc = cand?.geometry?.location;
+    if (!loc || typeof loc.lat !== "number" || typeof loc.lng !== "number") return null;
+    return { lat: loc.lat, lng: loc.lng, address: cand.formatted_address || city };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 5x5 grid centred on (lat, lng), spread across a ~5km radius. We use a
+ * simple "1 degree latitude ≈ 111 km" approximation — accurate enough at
+ * city scale and fast enough to compute inline. Longitude is scaled by
+ * cos(lat) so the grid stays roughly square at any latitude.
+ */
+function buildGrid(lat: number, lng: number, radiusKm = 5): { lat: number; lng: number }[] {
+  const points: { lat: number; lng: number }[] = [];
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
+  // 5 evenly spaced steps from -radius to +radius in each axis.
+  const steps = [-1, -0.5, 0, 0.5, 1];
+  for (const dy of steps) {
+    for (const dx of steps) {
+      points.push({ lat: lat + dy * latDelta, lng: lng + dx * lngDelta });
+    }
+  }
+  return points;
+}
+
+/**
+ * Case-insensitive "does this business name appear in this result?"
+ * check. We trim non-alphanumerics on both sides so "Joe's Plumbing" vs
+ * "Joes Plumbing" still matches.
+ */
+function normName(s: string): string {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+function looseIncludes(haystack: string, needle: string): boolean {
+  if (!needle) return false;
+  return normName(haystack).includes(normName(needle));
+}
+
+async function localRankGridHandler(req: Request, res: Response) {
+  if (!rateOk("rank-grid", req, res)) return;
+  const businessName = strField(req.body?.businessName, 120);
+  const city = strField(req.body?.city, 80);
+  const keyword = strField(req.body?.keyword, 120);
+  if (!businessName || !city || !keyword) {
+    return res.status(400).json({ ok: false, error: "Business name, city, and keyword are all required." });
+  }
+
+  const serperKey = process.env.SERPER_API_KEY;
+  const placesKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+  if (!serperKey) {
+    return res.status(503).json({ ok: false, error: "Search provider not configured." });
+  }
+  if (!placesKey) {
+    return res.status(503).json({ ok: false, error: "Geocoding provider not configured." });
+  }
+
+  const geo = await geocodeCity(city, placesKey);
+  if (!geo) {
+    return res.status(404).json({ ok: false, error: "Could not geocode that city. Try \"City, State\"." });
+  }
+
+  const grid = buildGrid(geo.lat, geo.lng, 5);
+  const headers = { "X-API-KEY": serperKey, "Content-Type": "application/json" };
+
+  // 25 parallel searches. Each query carries the per-point lat/lng so
+  // Serper / Google treat it as a real geo-located search. We dual-call
+  // /maps (for Local Pack rank — the one that matters for trades) and
+  // /search (organic rank — fallback when the business isn't in Maps).
+  const points = await Promise.all(
+    grid.map(async (pt) => {
+      const body = {
+        q: keyword,
+        gl: "us",
+        hl: "en",
+        location: city,
+        latitude: pt.lat,
+        longitude: pt.lng,
+        num: 20,
+      };
+      try {
+        const [searchResp, mapsResp] = await Promise.allSettled([
+          fetchJson("https://google.serper.dev/search", {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+          }, 10000),
+          fetchJson("https://google.serper.dev/maps", {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+          }, 10000),
+        ]);
+        const search: any = searchResp.status === "fulfilled" ? searchResp.value : {};
+        const maps: any = mapsResp.status === "fulfilled" ? mapsResp.value : {};
+        let rank: number | null = null;
+        const organic = Array.isArray(search?.organic) ? search.organic : [];
+        for (let i = 0; i < organic.length && i < 20; i++) {
+          if (looseIncludes(organic[i]?.title || "", businessName)) {
+            rank = i + 1;
+            break;
+          }
+        }
+        let mapRank: number | null = null;
+        const places = Array.isArray(maps?.places) ? maps.places : [];
+        for (let i = 0; i < places.length && i < 20; i++) {
+          const name = places[i]?.title || places[i]?.name || "";
+          if (looseIncludes(name, businessName)) {
+            mapRank = i + 1;
+            break;
+          }
+        }
+        return { lat: pt.lat, lng: pt.lng, rank, mapRank };
+      } catch {
+        return { lat: pt.lat, lng: pt.lng, rank: null as number | null, mapRank: null as number | null };
+      }
+    }),
+  );
+
+  // Summary stats — average rank uses whichever signal is stronger per
+  // cell (mapRank wins because trades-intent searches resolve in the
+  // Local Pack 80%+ of the time). Missing cells excluded from average.
+  const effective = points.map((p) => p.mapRank ?? p.rank);
+  const found = effective.filter((r): r is number => r != null);
+  const avgRank = found.length ? found.reduce((a, b) => a + b, 0) / found.length : null;
+  const top3Count = found.filter((r) => r <= 3).length;
+  const missedCount = points.length - found.length;
+
+  return res.json({
+    ok: true,
+    businessName,
+    city,
+    keyword,
+    center: { lat: geo.lat, lng: geo.lng, address: geo.address },
+    gridPoints: points,
+    summary: { avgRank, top3Count, missedCount },
+  });
+}
+
 /* ─── Router registration ─────────────────────────────────────────────── */
 
 export function registerFreeToolsRoutes(app: Express): void {
@@ -348,4 +513,5 @@ export function registerFreeToolsRoutes(app: Express): void {
   app.post("/api/tools/local-search-checker", localSearchCheckerHandler);
   app.post("/api/tools/citation-checker", citationCheckerHandler);
   app.get("/api/tools/local-rankflux", localRankfluxHandler);
+  app.post("/api/tools/local-rank-grid", localRankGridHandler);
 }
