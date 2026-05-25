@@ -733,7 +733,7 @@ export default function PortalChatWidget({
   return (
     <div
       data-theme="light"
-      className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-gray-200 shadow-xl"
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-border shadow-xl"
       style={{
         // Mobile: ignore inline width (Tailwind w-full wins). Desktop: use saved panelWidth.
         width: typeof window !== "undefined" && window.innerWidth >= 640 ? panelWidth : undefined,
@@ -757,12 +757,12 @@ export default function PortalChatWidget({
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 shrink-0">
+      <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-brand-blue" aria-hidden="true" />
-          <span className="text-sm font-semibold text-gray-900">AI Copilot</span>
+          <span className="text-sm font-semibold text-foreground">AI Copilot</span>
           {isOnboarding && (
-            <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">setup</span>
+            <span className="text-[10px] text-muted-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">setup</span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -771,7 +771,7 @@ export default function PortalChatWidget({
               type="button"
               onClick={openHistory}
               title="View 7-day chat history"
-              className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1"
+              className="text-[11px] text-muted-foreground/70 hover:text-muted-foreground px-2 py-1"
               data-testid="button-chat-history"
             >
               History
@@ -780,7 +780,7 @@ export default function PortalChatWidget({
           <button
             type="button"
             onClick={() => setShowSettings((v) => !v)}
-            className={`p-1.5 rounded ${showSettings ? "bg-gray-100 text-gray-700" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"}`}
+            className={`p-1.5 rounded ${showSettings ? "bg-muted text-foreground" : "text-muted-foreground/70 hover:bg-muted/50 hover:text-muted-foreground"}`}
             aria-label="Chat settings"
             aria-pressed={showSettings}
             data-testid="button-chat-settings"
@@ -790,7 +790,7 @@ export default function PortalChatWidget({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+            className="p-1.5 rounded text-muted-foreground/70 hover:bg-muted/50 hover:text-muted-foreground"
             aria-label="Close AI Copilot"
           >
             <X className="w-4 h-4" aria-hidden="true" />
@@ -800,10 +800,10 @@ export default function PortalChatWidget({
 
       {/* Q25: settings drawer — transparency slider */}
       {showSettings && (
-        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80 space-y-2 shrink-0" data-testid="chat-settings-drawer">
+        <div className="px-4 py-3 border-b border-border bg-muted/50/80 space-y-2 shrink-0" data-testid="chat-settings-drawer">
           <div className="flex items-center justify-between">
-            <label className="text-[11px] font-medium text-gray-600 uppercase tracking-wide">Panel transparency</label>
-            <span className="text-[10px] text-gray-500">{Math.round(panelOpacity * 100)}%</span>
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Panel transparency</label>
+            <span className="text-[10px] text-muted-foreground">{Math.round(panelOpacity * 100)}%</span>
           </div>
           <input
             type="range"
@@ -816,7 +816,7 @@ export default function PortalChatWidget({
             aria-label="Panel transparency"
             data-testid="slider-chat-opacity"
           />
-          <p className="text-[10px] text-gray-500">
+          <p className="text-[10px] text-muted-foreground">
             Affects the panel background only — message bubbles stay solid so text remains readable.
             Drag the left edge to resize the panel width.
           </p>
@@ -826,7 +826,7 @@ export default function PortalChatWidget({
       {historyView ? (
         /* ─── Inline history view ─── */
         <>
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50/80 shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/50/80 shrink-0">
             <button
               type="button"
               onClick={() => setHistoryView(false)}
@@ -835,12 +835,12 @@ export default function PortalChatWidget({
             >
               <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" /> Return to chat
             </button>
-            <span className="ml-auto text-[10px] text-gray-400 uppercase tracking-wide">7-day history</span>
+            <span className="ml-auto text-[10px] text-muted-foreground/70 uppercase tracking-wide">7-day history</span>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-3" data-testid="chat-history-transcript">
             {historyLoading && (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground/70" />
               </div>
             )}
             {historyError && (
@@ -849,14 +849,14 @@ export default function PortalChatWidget({
               </div>
             )}
             {!historyLoading && !historyError && historyMessages.length === 0 && (
-              <div className="text-center text-xs text-gray-500 py-10" data-testid="chat-history-empty">
+              <div className="text-center text-xs text-muted-foreground py-10" data-testid="chat-history-empty">
                 No conversation history yet. The assistant keeps a 7-day rolling thread — come back after a chat.
               </div>
             )}
             {historyMessages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
-                  m.role === "user" ? "bg-brand-blue text-white" : "bg-gray-100 text-gray-800"
+                  m.role === "user" ? "bg-brand-blue text-white" : "bg-muted text-foreground"
                 }`}>
                   {m.content}
                 </div>
@@ -871,12 +871,12 @@ export default function PortalChatWidget({
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {/* Q25: history banner on next-day reopen with prior messages */}
             {showHistoryBanner && messages.length > 0 && (
-              <div className="flex items-center gap-2 -mt-1 mb-1 px-2.5 py-1.5 bg-gray-50 border border-gray-100 rounded text-[11px] text-gray-500" data-testid="banner-prior-conversation">
-                <History className="w-3 h-3 shrink-0 text-gray-400" />
+              <div className="flex items-center gap-2 -mt-1 mb-1 px-2.5 py-1.5 bg-muted/50 border border-border rounded text-[11px] text-muted-foreground" data-testid="banner-prior-conversation">
+                <History className="w-3 h-3 shrink-0 text-muted-foreground/70" />
                 <span className="flex-1">Previous conversation — picking up where you left off.</span>
                 <button
                   onClick={() => setShowHistoryBanner(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-muted-foreground/70 hover:text-muted-foreground"
                   aria-label="Dismiss"
                 >
                   <X className="w-3 h-3" />
@@ -885,13 +885,13 @@ export default function PortalChatWidget({
             )}
             {messages.length === 0 && !isOnboarding && (
               <div className="text-center py-3">
-                <p className="text-xs text-gray-400 mb-2">Ask anything about your services, billing, or account.</p>
+                <p className="text-xs text-muted-foreground/70 mb-2">Ask anything about your services, billing, or account.</p>
                 <div className="flex flex-wrap gap-1.5 justify-center">
                   {suggestionsForPath(location).map((s, i) => (
                     <button
                       key={i}
                       onClick={() => send(s)}
-                      className="px-2.5 py-1 text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-full hover:bg-gray-100 transition-colors"
+                      className="px-2.5 py-1 text-[11px] text-muted-foreground bg-muted/50 border border-border rounded-full hover:bg-muted transition-colors"
                     >
                       {s}
                     </button>
@@ -901,7 +901,7 @@ export default function PortalChatWidget({
             )}
             {messages.length === 0 && isOnboarding && (
               <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-700">
+                <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground">
                   Hi! I'm here to help you fill out the {chatContext?.service_name} setup form. Ask me anything about any of the fields.
                 </div>
               </div>
@@ -909,11 +909,11 @@ export default function PortalChatWidget({
             {messages.map((m, i) => (
               <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                  m.role === "user" ? "bg-brand-blue text-white" : "bg-gray-100 text-gray-700"
+                  m.role === "user" ? "bg-brand-blue text-white" : "bg-muted text-foreground"
                 }`}>
                   {m.content
                     ? m.content
-                    : <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+                    : <Loader2 className="w-4 h-4 animate-spin text-muted-foreground/70" />}
                 </div>
                 {m.role === "assistant" && m.actions && m.actions.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[85%]" data-testid={`chat-actions-${i}`}>
@@ -945,7 +945,7 @@ export default function PortalChatWidget({
                           }
                         }}
                         title={a.hint}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-brand-blue bg-white border border-brand-blue/30 rounded-full hover:bg-[#EEF3FF] hover:border-brand-blue/60 transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-brand-blue bg-card border border-brand-blue/30 rounded-full hover:bg-[#EEF3FF] hover:border-brand-blue/60 transition-colors"
                         data-testid={`chat-action-${i}-${j}`}
                       >
                         {a.label}
@@ -962,26 +962,26 @@ export default function PortalChatWidget({
               <div className="border border-brand-blue/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-1.5">
                   <ClipboardList className="w-3.5 h-3.5 text-brand-blue" />
-                  <p className="text-xs font-medium text-gray-900">Support Ticket Draft</p>
+                  <p className="text-xs font-medium text-foreground">Support Ticket Draft</p>
                 </div>
-                <p className="text-[10px] text-gray-500">Review and edit. No ticket until you confirm.</p>
+                <p className="text-[10px] text-muted-foreground">Review and edit. No ticket until you confirm.</p>
 
                 <div className="space-y-1.5">
                   <div className="grid grid-cols-[1fr_auto] gap-1.5">
                     <div>
-                      <label className="text-[9px] font-medium text-gray-500 uppercase tracking-wider">Subject</label>
+                      <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">Subject</label>
                       <input
                         value={draftSubject}
                         onChange={(e) => setDraftSubject(e.target.value)}
-                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue/30 bg-white"
+                        className="w-full mt-0.5 px-2 py-1 text-xs border border-border rounded focus:outline-none focus:ring-1 focus:ring-brand-blue/30 bg-card"
                       />
                     </div>
                     <div>
-                      <label className="text-[9px] font-medium text-gray-500 uppercase tracking-wider">Category</label>
+                      <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">Category</label>
                       <select
                         value={draftCategory}
                         onChange={(e) => setDraftCategory(e.target.value)}
-                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue/30 bg-white"
+                        className="w-full mt-0.5 px-2 py-1 text-xs border border-border rounded focus:outline-none focus:ring-1 focus:ring-brand-blue/30 bg-card"
                       >
                         {CATEGORIES.map((c) => (
                           <option key={c.value} value={c.value}>{c.label}</option>
@@ -990,12 +990,12 @@ export default function PortalChatWidget({
                     </div>
                   </div>
                   <div>
-                    <label className="text-[9px] font-medium text-gray-500 uppercase tracking-wider">Description</label>
+                    <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">Description</label>
                     <textarea
                       value={draftDescription}
                       onChange={(e) => setDraftDescription(e.target.value)}
                       rows={2}
-                      className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue/30 bg-white resize-none"
+                      className="w-full mt-0.5 px-2 py-1 text-xs border border-border rounded focus:outline-none focus:ring-1 focus:ring-brand-blue/30 bg-card resize-none"
                     />
                   </div>
                 </div>
@@ -1011,7 +1011,7 @@ export default function PortalChatWidget({
                   <button
                     onClick={dismissDraft}
                     disabled={submittingTicket}
-                    className="px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-muted-foreground bg-card border border-border rounded hover:bg-muted/50 transition-colors"
                   >
                     Dismiss
                   </button>
@@ -1037,7 +1037,7 @@ export default function PortalChatWidget({
               <div className="border border-brand-blue/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2" data-testid="form-fill-proposal">
                 <div className="flex items-center gap-1.5">
                   <Wand2 className="w-3.5 h-3.5 text-brand-blue" />
-                  <p className="text-xs font-medium text-gray-900">
+                  <p className="text-xs font-medium text-foreground">
                     Suggested fill ({pendingProposal.length} field{pendingProposal.length === 1 ? "" : "s"})
                   </p>
                 </div>
@@ -1046,10 +1046,10 @@ export default function PortalChatWidget({
                     const fieldDefs = registeredForm?.fields ?? chatContext?.fields;
                     const label = fieldDefs?.find((f) => f.key === fill.field_key)?.label ?? fill.field_key;
                     return (
-                      <div key={i} className="text-[11px] bg-white rounded border border-gray-100 px-2 py-1.5">
-                        <p className="font-medium text-gray-700">{label}</p>
-                        <p className="text-gray-900 break-words">{fill.value}</p>
-                        {fill.reason && <p className="text-[10px] text-gray-500 mt-0.5">{fill.reason}</p>}
+                      <div key={i} className="text-[11px] bg-card rounded border border-border px-2 py-1.5">
+                        <p className="font-medium text-foreground">{label}</p>
+                        <p className="text-foreground break-words">{fill.value}</p>
+                        {fill.reason && <p className="text-[10px] text-muted-foreground mt-0.5">{fill.reason}</p>}
                       </div>
                     );
                   })}
@@ -1066,7 +1066,7 @@ export default function PortalChatWidget({
                   <button
                     onClick={skipProposal}
                     disabled={applyingProposal}
-                    className="px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-muted-foreground bg-card border border-border rounded hover:bg-muted/50 transition-colors"
                     data-testid="button-skip-fill"
                   >
                     Skip
@@ -1088,19 +1088,19 @@ export default function PortalChatWidget({
                   </span>
                 </div>
                 <div className="px-3 py-2 space-y-1">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     {pendingToolCall.toolName.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())}
                   </p>
                   {Object.keys(pendingToolCall.args).length > 0 && (
                     <ul className="space-y-0.5">
                       {Object.entries(pendingToolCall.args).map(([k, v]) => (
-                        <li key={k} className="text-xs text-gray-600">
-                          <span className="text-gray-400">{k.replace(/_/g, " ")}:</span> {String(v)}
+                        <li key={k} className="text-xs text-muted-foreground">
+                          <span className="text-muted-foreground/70">{k.replace(/_/g, " ")}:</span> {String(v)}
                         </li>
                       ))}
                     </ul>
                   )}
-                  <p className="text-[10px] text-gray-500">
+                  <p className="text-[10px] text-muted-foreground">
                     The assistant will only do this after you confirm.
                   </p>
                   {pendingToolCall.error && (
@@ -1111,7 +1111,7 @@ export default function PortalChatWidget({
                   <div className="flex gap-2 px-3 py-2 border-t border-amber-200">
                     <button
                       onClick={cancelToolCall}
-                      className="flex-1 text-xs text-gray-500 hover:text-gray-700 py-1.5 rounded border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                      className="flex-1 text-xs text-muted-foreground hover:text-foreground py-1.5 rounded border border-border bg-card hover:bg-muted/50 transition-colors"
                       data-testid="button-tool-cancel"
                     >
                       Cancel
@@ -1127,7 +1127,7 @@ export default function PortalChatWidget({
                 )}
                 {pendingToolCall.state === "confirming" && (
                   <div className="px-3 py-2 border-t border-amber-200 text-center">
-                    <span className="text-xs text-gray-400 inline-flex items-center justify-center gap-1">
+                    <span className="text-xs text-muted-foreground/70 inline-flex items-center justify-center gap-1">
                       <Loader2 className="w-3 h-3 animate-spin" /> Applying…
                     </span>
                   </div>
@@ -1148,7 +1148,7 @@ export default function PortalChatWidget({
           </div>
 
           {/* Input */}
-          <div className="border-t border-gray-100 shrink-0">
+          <div className="border-t border-border shrink-0">
             <ChatAttachmentChips
               value={attachments}
               onRemove={(id) => setAttachments(attachments.filter((a) => a.id !== id))}
@@ -1179,7 +1179,7 @@ export default function PortalChatWidget({
                       : "Type or paste a screenshot..."
                 }
                 disabled={!!pendingToolCall}
-                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue disabled:bg-gray-50"
+                className="flex-1 text-sm px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue disabled:bg-muted/50"
               />
               <button
                 onClick={() => send()}
@@ -1196,7 +1196,7 @@ export default function PortalChatWidget({
               </button>
             </div>
             {/* Q25: subtle "safe to close" reassurance */}
-            <p className="px-3 pb-2 text-[10px] text-gray-400 leading-snug">
+            <p className="px-3 pb-2 text-[10px] text-muted-foreground/70 leading-snug">
               You can close this — your conversation stays saved.
             </p>
           </div>

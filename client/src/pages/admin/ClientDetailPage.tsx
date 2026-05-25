@@ -197,14 +197,14 @@ function VideoGenerationSection({ clientId }: { clientId: number }) {
         onClick={() => setOpen(!open)}
         className="flex items-center justify-between w-full p-4 text-left min-h-[44px]"
       >
-        <span className="text-sm font-medium text-gray-500">Video Generation</span>
-        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        <span className="text-sm font-medium text-muted-foreground">Video Generation</span>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground/70" /> : <ChevronDown className="w-4 h-4 text-muted-foreground/70" />}
       </button>
       {open && (
-        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-4">
+        <div className="px-4 pb-4 border-t border-border pt-3 space-y-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground/70" />
             </div>
           ) : data ? (
             <>
@@ -221,8 +221,8 @@ function VideoGenerationSection({ clientId }: { clientId: number }) {
               {/* Toggle */}
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">AI Video Generation</p>
-                  <p className="text-xs text-gray-400">Generate AI videos from article scripts and upload to YouTube</p>
+                  <p className="text-sm font-medium text-foreground">AI Video Generation</p>
+                  <p className="text-xs text-muted-foreground/70">Generate AI videos from article scripts and upload to YouTube</p>
                 </div>
                 <Switch
                   checked={data.enabled}
@@ -234,12 +234,12 @@ function VideoGenerationSection({ clientId }: { clientId: number }) {
               {/* Stats */}
               <div className="flex gap-4 text-xs">
                 <div>
-                  <span className="text-gray-400">Videos this month:</span>{" "}
-                  <span className="font-medium text-gray-700">{data.videos_this_month}</span>
+                  <span className="text-muted-foreground/70">Videos this month:</span>{" "}
+                  <span className="font-medium text-foreground">{data.videos_this_month}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Status:</span>{" "}
-                  <Badge variant="outline" className={data.enabled ? "bg-emerald-50 text-emerald-700" : "bg-gray-50 text-gray-500"}>
+                  <span className="text-muted-foreground/70">Status:</span>{" "}
+                  <Badge variant="outline" className={data.enabled ? "bg-emerald-50 text-emerald-700" : "bg-muted/50 text-muted-foreground"}>
                     {data.enabled ? "Enabled" : "Disabled"}
                   </Badge>
                 </div>
@@ -248,12 +248,12 @@ function VideoGenerationSection({ clientId }: { clientId: number }) {
               {/* Recent videos */}
               {data.recent_videos.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">Recent Videos</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Recent Videos</p>
                   <div className="space-y-2">
                     {data.recent_videos.map((v) => (
                       <div key={v.id} className="flex items-center justify-between text-xs border rounded px-3 py-2">
                         <div>
-                          <span className="font-medium text-gray-700">{v.title || `Draft #${v.id}`}</span>
+                          <span className="font-medium text-foreground">{v.title || `Draft #${v.id}`}</span>
                           <Badge variant="outline" className="ml-2 text-[10px]">{v.kind}</Badge>
                           <Badge variant="outline" className="ml-1 text-[10px]">{v.status}</Badge>
                         </div>
@@ -263,7 +263,7 @@ function VideoGenerationSection({ clientId }: { clientId: number }) {
                               YouTube <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
-                          <span className="text-gray-400">{v.created_at ? new Date(v.created_at).toLocaleDateString() : ""}</span>
+                          <span className="text-muted-foreground/70">{v.created_at ? new Date(v.created_at).toLocaleDateString() : ""}</span>
                         </div>
                       </div>
                     ))}
@@ -272,7 +272,7 @@ function VideoGenerationSection({ clientId }: { clientId: number }) {
               )}
 
               {data.recent_videos.length === 0 && data.enabled && (
-                <p className="text-xs text-gray-400 italic">No videos generated yet. Videos are created when articles are repurposed.</p>
+                <p className="text-xs text-muted-foreground/70 italic">No videos generated yet. Videos are created when articles are repurposed.</p>
               )}
             </>
           ) : null}
@@ -291,12 +291,12 @@ function ActivitySection({ clientId }: { clientId: number }) {
         onClick={() => setOpen(!open)}
         className="flex items-center justify-between w-full p-4 text-left min-h-[44px]"
       >
-        <span className="text-sm font-medium text-gray-500">Activity Log</span>
-        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        <span className="text-sm font-medium text-muted-foreground">Activity Log</span>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground/70" /> : <ChevronDown className="w-4 h-4 text-muted-foreground/70" />}
       </button>
       {open && (
-        <div className="px-4 pb-4 border-t border-gray-100 pt-3">
-          <p className="text-sm text-gray-500">Activity log will show all actions taken on this client — by humans and AI agents. Coming in the next iteration.</p>
+        <div className="px-4 pb-4 border-t border-border pt-3">
+          <p className="text-sm text-muted-foreground">Activity log will show all actions taken on this client — by humans and AI agents. Coming in the next iteration.</p>
         </div>
       )}
     </Card>
@@ -734,7 +734,7 @@ export default function ClientDetailPage() {
     return (
       <AdminLayout>
         <div className="text-center py-20">
-          <p className="text-gray-500">Client not found.</p>
+          <p className="text-muted-foreground">Client not found.</p>
           <Link href="/admin/crm/clients"><span className="text-sm text-brand-blue">Back to clients</span></Link>
         </div>
       </AdminLayout>
@@ -779,7 +779,7 @@ export default function ClientDetailPage() {
       <div className="space-y-5">
         {/* Back link */}
         <Link href="/admin/crm/clients">
-          <span className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 min-h-[44px] py-2">
+          <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground min-h-[44px] py-2">
             <ArrowLeft className="w-4 h-4" /> All Clients
           </span>
         </Link>
@@ -808,8 +808,8 @@ export default function ClientDetailPage() {
         <Card className="p-5">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">{client.business_name}</h2>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
+              <h2 className="text-xl font-semibold text-foreground">{client.business_name}</h2>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
                 {client.contact_name && <span>{client.contact_name}</span>}
                 {client.contact_email && (
                   <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {client.contact_email}</span>
@@ -824,7 +824,7 @@ export default function ClientDetailPage() {
                   <span className="flex items-center gap-1 capitalize"><MapPin className="w-3.5 h-3.5" /> {client.trade_type}</span>
                 )}
                 {client.created_at && (
-                  <span className="text-gray-400">Since {new Date(client.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
+                  <span className="text-muted-foreground/70">Since {new Date(client.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
                 )}
               </div>
             </div>
@@ -880,21 +880,21 @@ export default function ClientDetailPage() {
           </div>
 
           {/* Quick stats — responsive: stack on mobile, 2-up on tablet, 4-up on desktop. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-border">
             <div>
-              <p className="text-xs text-gray-500">Monthly Revenue</p>
-              <p className="text-lg font-semibold text-gray-900">{fmt(totalRevenue)}</p>
+              <p className="text-xs text-muted-foreground">Monthly Revenue</p>
+              <p className="text-lg font-semibold text-foreground">{fmt(totalRevenue)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Monthly Cost</p>
-              <p className="text-lg font-semibold text-gray-900">{fmt(totalCost)}</p>
+              <p className="text-xs text-muted-foreground">Monthly Cost</p>
+              <p className="text-lg font-semibold text-foreground">{fmt(totalCost)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Profit</p>
+              <p className="text-xs text-muted-foreground">Profit</p>
               <p className={`text-lg font-semibold ${totalProfit >= 0 ? "text-emerald-700" : "text-red-600"}`}>{fmt(totalProfit)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Margin</p>
+              <p className="text-xs text-muted-foreground">Margin</p>
               <p className={`text-lg font-semibold ${marginPct >= 50 ? "text-emerald-700" : marginPct >= 20 ? "text-amber-600" : "text-red-600"}`}>{marginPct}%</p>
             </div>
           </div>
@@ -937,8 +937,8 @@ export default function ClientDetailPage() {
           {/* ─── Services Tab ─── */}
           <TabsContent value="services" className="mt-4">
             <Card>
-              <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Services ({services?.length ?? 0})</h3>
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h3 className="text-sm font-semibold text-foreground">Services ({services?.length ?? 0})</h3>
                 <Button size="sm" variant="outline" className="min-h-[36px]" onClick={() => setShowAddService(true)}>
                   <Plus className="w-3.5 h-3.5 mr-1" /> Add Service
                 </Button>
@@ -962,7 +962,7 @@ export default function ClientDetailPage() {
                   <TableBody>
                     {services?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-6 text-gray-500 text-sm">
+                        <TableCell colSpan={8} className="text-center py-6 text-muted-foreground text-sm">
                           No services assigned yet.
                         </TableCell>
                       </TableRow>
@@ -971,14 +971,14 @@ export default function ClientDetailPage() {
                         <TableRow key={s.id}>
                           <TableCell className="font-medium text-sm">{s.service_name || s.service_id}</TableCell>
                           <TableCell><StatusBadge status={s.status} /></TableCell>
-                          <TableCell className="text-xs text-gray-500 capitalize">{s.fulfillment_mode || "-"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground capitalize">{s.fulfillment_mode || "-"}</TableCell>
                           <TableCell className="text-sm">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</TableCell>
                           <TableCell className="text-sm">
                             <div className="flex items-center gap-1">
                               <input
                                 id={`cost-input-${s.id}`}
                                 type="number"
-                                className="w-20 h-7 px-2 text-xs border border-gray-200 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                className="w-20 h-7 px-2 text-xs border border-border rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-300"
                                 defaultValue={s.cost_cents ? (s.cost_cents / 100).toFixed(0) : ""}
                                 placeholder="0"
                                 onBlur={(e) => {
@@ -1020,7 +1020,7 @@ export default function ClientDetailPage() {
                               <span className={`font-medium ${((s.price_cents - (s.cost_cents ?? 0)) / s.price_cents * 100) >= 50 ? "text-emerald-600" : ((s.price_cents - (s.cost_cents ?? 0)) / s.price_cents * 100) >= 20 ? "text-amber-600" : "text-red-600"}`}>
                                 {Math.round(((s.price_cents - (s.cost_cents ?? 0)) / s.price_cents) * 100)}%
                               </span>
-                            ) : <span className="text-gray-400">—</span>}
+                            ) : <span className="text-muted-foreground/70">—</span>}
                           </TableCell>
                           <TableCell className="text-sm">
                             <div className="flex gap-1">
@@ -1039,7 +1039,7 @@ export default function ClientDetailPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-xs text-gray-500 hover:text-brand-blue"
+                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-brand-blue"
                                   onClick={() => generateTasks.mutate(s.id)}
                                   disabled={generateTasks.isPending}
                                 >
@@ -1051,7 +1051,7 @@ export default function ClientDetailPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 px-2 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                    className="h-7 px-2 text-xs text-muted-foreground/70 hover:text-red-600 hover:bg-red-50"
                                     onClick={() => setDeleteServiceTarget({ id: s.id, name: s.service_name || s.service_id })}
                                     disabled={deleteClientService.isPending}
                                     aria-label={`Remove ${s.service_name || s.service_id}`}
@@ -1077,18 +1077,18 @@ export default function ClientDetailPage() {
               </div>
 
               {/* Mobile card list */}
-              <div className="md:hidden divide-y divide-gray-100">
+              <div className="md:hidden divide-y divide-border">
                 {services?.length === 0 ? (
-                  <p className="text-center py-6 text-gray-500 text-sm">No services assigned yet.</p>
+                  <p className="text-center py-6 text-muted-foreground text-sm">No services assigned yet.</p>
                 ) : (
                   services?.map((s) => (
                     <div key={s.id} className="p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900 truncate">{s.service_name || s.service_id}</p>
+                          <p className="text-sm font-medium text-foreground truncate">{s.service_name || s.service_id}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <StatusBadge status={s.status} />
-                            <span className="text-xs text-gray-500">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</span>
+                            <span className="text-xs text-muted-foreground">{fmt(s.price_cents)}{s.billing_period === "monthly" ? "/mo" : ""}</span>
                           </div>
                         </div>
                         <Switch
@@ -1112,7 +1112,7 @@ export default function ClientDetailPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-xs text-gray-500 hover:text-brand-blue"
+                            className="h-7 px-2 text-xs text-muted-foreground hover:text-brand-blue"
                             onClick={() => generateTasks.mutate(s.id)}
                             disabled={generateTasks.isPending}
                           >
@@ -1122,7 +1122,7 @@ export default function ClientDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 ml-auto"
+                          className="h-7 px-2 text-xs text-muted-foreground/70 hover:text-red-600 hover:bg-red-50 ml-auto"
                           onClick={() => setDeleteServiceTarget({ id: s.id, name: s.service_name || s.service_id })}
                           disabled={deleteClientService.isPending}
                           aria-label={`Remove ${s.service_name || s.service_id}`}
@@ -1139,18 +1139,18 @@ export default function ClientDetailPage() {
             {/* QuoteQuick Calculator Section */}
             {qqData && qqData.calculators && qqData.calculators.length > 0 && (
               <Card className="mt-4">
-                <div className="p-4 border-b border-gray-100">
+                <div className="p-4 border-b border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Calculator className="w-4 h-4 text-brand-blue-500" />
-                      <h3 className="text-sm font-semibold text-gray-900">QuoteQuick Calculators</h3>
+                      <h3 className="text-sm font-semibold text-foreground">QuoteQuick Calculators</h3>
                     </div>
                     {qqData.profitability && (
                       <div className="flex items-center gap-4 text-xs">
-                        <span className="text-gray-500">Rev: <span className="font-semibold text-gray-900">${(qqData.profitability.total_revenue_cents / 100).toFixed(0)}/mo</span></span>
-                        <span className="text-gray-500">Cost: <span className="font-semibold text-gray-900">${(qqData.profitability.total_cost_cents / 100).toFixed(0)}/mo</span></span>
-                        <span className="text-gray-500">Profit: <span className="font-semibold text-emerald-700">${(qqData.profitability.profit_cents / 100).toFixed(0)}/mo</span></span>
-                        <span className="text-gray-400">{qqData.profitability.margin_pct}% margin</span>
+                        <span className="text-muted-foreground">Rev: <span className="font-semibold text-foreground">${(qqData.profitability.total_revenue_cents / 100).toFixed(0)}/mo</span></span>
+                        <span className="text-muted-foreground">Cost: <span className="font-semibold text-foreground">${(qqData.profitability.total_cost_cents / 100).toFixed(0)}/mo</span></span>
+                        <span className="text-muted-foreground">Profit: <span className="font-semibold text-emerald-700">${(qqData.profitability.profit_cents / 100).toFixed(0)}/mo</span></span>
+                        <span className="text-muted-foreground/70">{qqData.profitability.margin_pct}% margin</span>
                       </div>
                     )}
                   </div>
@@ -1160,25 +1160,25 @@ export default function ClientDetailPage() {
                     <div key={calc.id} className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">{calc.business_name}</p>
+                          <p className="text-sm font-medium text-foreground">{calc.business_name}</p>
                           <div className="flex items-center flex-wrap gap-2 mt-1">
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              calc.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
+                              calc.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground"
                             }`}>
                               {calc.status === "live" ? "Live" : "Draft"}
                             </span>
-                            <span className="text-[11px] text-gray-400 capitalize">{calc.trade_type}</span>
-                            <span className="text-[11px] text-gray-400 capitalize">{calc.plan_tier} plan</span>
+                            <span className="text-[11px] text-muted-foreground/70 capitalize">{calc.trade_type}</span>
+                            <span className="text-[11px] text-muted-foreground/70 capitalize">{calc.plan_tier} plan</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-gray-500 shrink-0">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
                           <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{calc.total_views}</span>
                           <span className="flex items-center gap-1"><UserPlus className="w-3 h-3" />{calc.total_leads}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 mt-2.5">
                         <a href={calc.calculator_url} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 transition-colors">
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
                           <Globe className="w-3 h-3" /> View Live
                         </a>
                         <a href={calc.edit_url} target="_blank" rel="noopener noreferrer"
@@ -1187,7 +1187,7 @@ export default function ClientDetailPage() {
                         </a>
                         <button
                           onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${calc.calculator_url}`); }}
-                          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors">
                           <Copy className="w-3 h-3" /> Copy Link
                         </button>
                       </div>
@@ -1220,12 +1220,12 @@ export default function ClientDetailPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <ClipboardCheck className="w-4 h-4 text-gray-400 shrink-0" />
-                      <span className="text-sm font-medium text-gray-900">Onboarding Form</span>
+                      <ClipboardCheck className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+                      <span className="text-sm font-medium text-foreground">Onboarding Form</span>
                       <StatusBadge status={ob.status} />
                     </div>
                     {ob.submitted_at && (
-                      <p className="text-xs text-gray-500 mt-1 ml-6">
+                      <p className="text-xs text-muted-foreground mt-1 ml-6">
                         Submitted {new Date(ob.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </p>
                     )}
@@ -1236,7 +1236,7 @@ export default function ClientDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs text-gray-500 hover:text-brand-blue"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-brand-blue"
                           onClick={async () => {
                             const url = `${window.location.origin}/onboarding/${ob.access_token}`;
                             navigator.clipboard.writeText(url);
@@ -1253,7 +1253,7 @@ export default function ClientDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs text-gray-500 hover:text-brand-blue"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-brand-blue"
                           onClick={() => window.open(`/onboarding/${ob.access_token}`, "_blank")}
                         >
                           <ExternalLink className="w-3 h-3 mr-1" /> Open
@@ -1267,8 +1267,8 @@ export default function ClientDetailPage() {
                   <div className="mt-3 ml-6 space-y-1.5 border-t border-gray-50 pt-3">
                     {Object.entries(ob.responses).map(([key, val]) => (
                       <div key={key} className="flex gap-2 text-xs">
-                        <span className="text-gray-400 shrink-0 w-28 truncate">{key.replace(/_/g, " ")}</span>
-                        <span className="text-gray-700">
+                        <span className="text-muted-foreground/70 shrink-0 w-28 truncate">{key.replace(/_/g, " ")}</span>
+                        <span className="text-foreground">
                           {typeof (val as any)?.value === "boolean" ? ((val as any).value ? "Yes" : "No") : String((val as any)?.value || "-")}
                         </span>
                       </div>
@@ -1284,8 +1284,8 @@ export default function ClientDetailPage() {
               const total = fulfillment.length;
               return (
                 <div className="flex items-center gap-2 mb-2 px-0.5">
-                  <span className="text-xs font-medium text-gray-500">{done}/{total} complete</span>
-                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]">
+                  <span className="text-xs font-medium text-muted-foreground">{done}/{total} complete</span>
+                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-[120px]">
                     <div className="h-full bg-brand-blue rounded-full transition-all" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
                   </div>
                 </div>
@@ -1322,8 +1322,8 @@ export default function ClientDetailPage() {
           {/* ─── Billing Tab ─── */}
           <TabsContent value="billing" className="mt-4 space-y-4">
             <Card>
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Payments ({payments?.length ?? 0})</h3>
+              <div className="p-4 border-b border-border">
+                <h3 className="text-sm font-semibold text-foreground">Payments ({payments?.length ?? 0})</h3>
               </div>
 
               {/* Desktop table */}
@@ -1341,7 +1341,7 @@ export default function ClientDetailPage() {
                   <TableBody>
                     {payments?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-6 text-gray-500 text-sm">No payment records.</TableCell>
+                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">No payment records.</TableCell>
                       </TableRow>
                     ) : (
                       payments?.map((p) => (
@@ -1361,7 +1361,7 @@ export default function ClientDetailPage() {
                               </SelectContent>
                             </Select>
                           </TableCell>
-                          <TableCell className="text-sm text-gray-500">{p.description || "-"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{p.description || "-"}</TableCell>
                           <TableCell className="text-sm">{fmtDate(p.paid_at || p.created_at)}</TableCell>
                         </TableRow>
                       ))
@@ -1371,16 +1371,16 @@ export default function ClientDetailPage() {
               </div>
 
               {/* Mobile card list */}
-              <div className="md:hidden divide-y divide-gray-100">
+              <div className="md:hidden divide-y divide-border">
                 {payments?.length === 0 ? (
-                  <p className="text-center py-6 text-gray-500 text-sm">No payment records.</p>
+                  <p className="text-center py-6 text-muted-foreground text-sm">No payment records.</p>
                 ) : (
                   payments?.map((p) => (
                     <div key={p.id} className="p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-gray-900 capitalize">{p.type} &middot; {fmt(p.amount_cents)}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{p.description || fmtDate(p.paid_at || p.created_at)}</p>
+                          <p className="text-sm font-medium text-foreground capitalize">{p.type} &middot; {fmt(p.amount_cents)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{p.description || fmtDate(p.paid_at || p.created_at)}</p>
                         </div>
                         <Select value={p.status} onValueChange={(v) => updatePaymentStatus.mutate({ id: p.id, status: v })}>
                           <SelectTrigger className="h-7 w-auto min-w-[80px] text-[11px] px-2">
@@ -1438,8 +1438,8 @@ export default function ClientDetailPage() {
                 <Card key={n.id} className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-medium text-gray-500 capitalize">{n.actor_type}</span>
-                      <span className="text-xs text-gray-400">{fmtDate(n.created_at)}</span>
+                      <span className="text-xs font-medium text-muted-foreground capitalize">{n.actor_type}</span>
+                      <span className="text-xs text-muted-foreground/70">{fmtDate(n.created_at)}</span>
                       {n.pinned && <Badge variant="outline" className="text-[10px]">Pinned</Badge>}
                     </div>
                     {!isEditing && (
@@ -1447,7 +1447,7 @@ export default function ClientDetailPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 px-1.5 text-xs text-gray-500 hover:text-brand-blue"
+                          className="h-6 px-1.5 text-xs text-muted-foreground hover:text-brand-blue"
                           onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.content); }}
                         >
                           <Pencil className="w-3 h-3 mr-1" /> Edit
@@ -1455,7 +1455,7 @@ export default function ClientDetailPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 px-1.5 text-xs text-gray-500 hover:text-red-600"
+                          className="h-6 px-1.5 text-xs text-muted-foreground hover:text-red-600"
                           onClick={() => setDeleteNoteId(n.id)}
                         >
                           Delete
@@ -1491,13 +1491,13 @@ export default function ClientDetailPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{n.content}</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{n.content}</p>
                   )}
                 </Card>
               );
             })}
             {notes?.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-4">No notes yet.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">No notes yet.</p>
             )}
           </TabsContent>
 
@@ -1525,7 +1525,7 @@ export default function ClientDetailPage() {
               <DialogTitle>Add Service</DialogTitle>
             </DialogHeader>
             <div>
-              <label className="text-xs font-medium text-gray-600">Service</label>
+              <label className="text-xs font-medium text-muted-foreground">Service</label>
               <Select value={newServiceId} onValueChange={setNewServiceId}>
                 <SelectTrigger><SelectValue placeholder="Select a service..." /></SelectTrigger>
                 <SelectContent>
@@ -1555,35 +1555,35 @@ export default function ClientDetailPage() {
             <DialogHeader><DialogTitle>Edit Client</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-gray-600">Business Name *</label>
+                <label className="text-xs font-medium text-muted-foreground">Business Name *</label>
                 <Input value={editForm.business_name} onChange={(e) => setEditForm({ ...editForm, business_name: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Contact Name</label>
+                  <label className="text-xs font-medium text-muted-foreground">Contact Name</label>
                   <Input value={editForm.contact_name} onChange={(e) => setEditForm({ ...editForm, contact_name: e.target.value })} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Phone</label>
+                  <label className="text-xs font-medium text-muted-foreground">Phone</label>
                   <Input value={editForm.contact_phone} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Email</label>
+                <label className="text-xs font-medium text-muted-foreground">Email</label>
                 <Input value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Trade</label>
+                  <label className="text-xs font-medium text-muted-foreground">Trade</label>
                   <Input value={editForm.trade_type} onChange={(e) => setEditForm({ ...editForm, trade_type: e.target.value })} placeholder="e.g. plumber" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Website</label>
+                  <label className="text-xs font-medium text-muted-foreground">Website</label>
                   <Input value={editForm.website_url} onChange={(e) => setEditForm({ ...editForm, website_url: e.target.value })} placeholder="https://..." />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Source</label>
+                <label className="text-xs font-medium text-muted-foreground">Source</label>
                 <Select value={editForm.source || "manual"} onValueChange={(v) => setEditForm({ ...editForm, source: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1616,17 +1616,17 @@ export default function ClientDetailPage() {
               <DialogTitle>Portal Access Created</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Share these credentials with the client. They can sign in at <span className="font-medium">/login</span>.
               </p>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3 border border-gray-200">
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3 border border-border">
                 <div>
-                  <p className="text-xs text-gray-500 mb-0.5">Email</p>
+                  <p className="text-xs text-muted-foreground mb-0.5">Email</p>
                   <div className="flex items-center gap-2">
-                    <code className="text-sm font-medium text-gray-900">{portalResult?.email}</code>
+                    <code className="text-sm font-medium text-foreground">{portalResult?.email}</code>
                     <button
                       onClick={() => { navigator.clipboard.writeText(portalResult?.email || ""); toast({ title: "Copied email" }); }}
-                      className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                      className="p-1 rounded hover:bg-muted text-muted-foreground/70 hover:text-muted-foreground"
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </button>
@@ -1634,12 +1634,12 @@ export default function ClientDetailPage() {
                 </div>
                 {portalResult?.temporary_password && (
                   <div>
-                    <p className="text-xs text-gray-500 mb-0.5">Temporary Password</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">Temporary Password</p>
                     <div className="flex items-center gap-2">
-                      <code className="text-sm font-medium text-gray-900">{portalResult.temporary_password}</code>
+                      <code className="text-sm font-medium text-foreground">{portalResult.temporary_password}</code>
                       <button
                         onClick={() => { navigator.clipboard.writeText(portalResult?.temporary_password || ""); toast({ title: "Copied password" }); }}
-                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                        className="p-1 rounded hover:bg-muted text-muted-foreground/70 hover:text-muted-foreground"
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
@@ -1813,12 +1813,12 @@ function CostProfitPanel({ clientId }: { clientId: number }) {
 
   return (
     <Card>
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-gray-900">Operational Cost &amp; Profit</h3>
+          <h3 className="text-sm font-semibold text-foreground">Operational Cost &amp; Profit</h3>
           {data?.budget && <BudgetBandBadge budget={data.budget} />}
         </div>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5">
           Measured spend over the last {data?.window_days ?? 30} days — actual AI, SMS, email and
           infrastructure cost, separate from the contract figures in the header.
         </p>
@@ -1833,23 +1833,23 @@ function CostProfitPanel({ clientId }: { clientId: number }) {
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <p className="text-xs text-gray-500">Revenue</p>
-              <p className="text-lg font-semibold text-gray-900">{usd(data.revenue_usd)}</p>
+              <p className="text-xs text-muted-foreground">Revenue</p>
+              <p className="text-lg font-semibold text-foreground">{usd(data.revenue_usd)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Cost</p>
-              <p className="text-lg font-semibold text-gray-900">{usd(data.cost_usd)}</p>
+              <p className="text-xs text-muted-foreground">Cost</p>
+              <p className="text-lg font-semibold text-foreground">{usd(data.cost_usd)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Profit</p>
+              <p className="text-xs text-muted-foreground">Profit</p>
               <p className={`text-lg font-semibold ${data.profit_usd >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                 {usd(data.profit_usd)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Margin</p>
+              <p className="text-xs text-muted-foreground">Margin</p>
               <p className={`text-lg font-semibold ${
-                data.margin_pct === null ? "text-gray-400"
+                data.margin_pct === null ? "text-muted-foreground/70"
                   : data.margin_pct >= 50 ? "text-emerald-700"
                   : data.margin_pct >= 20 ? "text-amber-600"
                   : "text-red-600"
@@ -1859,21 +1859,21 @@ function CostProfitPanel({ clientId }: { clientId: number }) {
             </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-3">
-            <p className="text-xs font-medium text-gray-600 mb-2">Cost breakdown</p>
+          <div className="border-t border-border pt-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Cost breakdown</p>
             {(() => {
               const rows = Object.entries(data.cost_breakdown)
                 .filter(([, v]) => v > 0)
                 .sort((a, b) => b[1] - a[1]);
               if (rows.length === 0) {
-                return <p className="text-xs text-gray-500">No measured costs in this window.</p>;
+                return <p className="text-xs text-muted-foreground">No measured costs in this window.</p>;
               }
               return (
                 <div className="space-y-1.5">
                   {rows.map(([type, amount]) => (
                     <div key={type} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">{COST_LABELS[type] ?? type}</span>
-                      <span className="font-medium text-gray-900">{usd(amount)}</span>
+                      <span className="text-muted-foreground">{COST_LABELS[type] ?? type}</span>
+                      <span className="font-medium text-foreground">{usd(amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -1994,10 +1994,10 @@ function VariableCostPanel({ clientId }: { clientId: number }) {
 
   return (
     <Card>
-      <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3">
+      <div className="p-4 border-b border-border flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Cost &amp; Profit ({monthLabel})</h3>
-          <p className="text-xs text-gray-500">
+          <h3 className="text-sm font-semibold text-foreground">Cost &amp; Profit ({monthLabel})</h3>
+          <p className="text-xs text-muted-foreground">
             Variable-cost ledger — AI + SMS + voice spend vs revenue, current month and lifetime.
           </p>
         </div>
@@ -2009,7 +2009,7 @@ function VariableCostPanel({ clientId }: { clientId: number }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <Stat label="Revenue" value={usd(revenue)} />
           <Stat label="AI cost" value={usd(costs.ai_cost_cents_month)} extra={
-            <span className="text-[11px] text-gray-500">{pctOfBudget}% of ${(budget/100).toFixed(0)} budget</span>
+            <span className="text-[11px] text-muted-foreground">{pctOfBudget}% of ${(budget/100).toFixed(0)} budget</span>
           } />
           <Stat label="SMS + Voice" value={usd(costs.sms_cost_cents_month + costs.voice_cost_cents_month)} />
           <Stat
@@ -2017,18 +2017,18 @@ function VariableCostPanel({ clientId }: { clientId: number }) {
             value={usd(profit)}
             valueClass={profit >= 0 ? "text-emerald-700" : "text-red-600"}
             extra={marginPct === null
-              ? <span className="text-[11px] text-gray-400">no revenue yet</span>
-              : <span className="text-[11px] text-gray-500">{marginPct}% margin</span>}
+              ? <span className="text-[11px] text-muted-foreground/70">no revenue yet</span>
+              : <span className="text-[11px] text-muted-foreground">{marginPct}% margin</span>}
           />
         </div>
 
         {/* Budget progress bar */}
         <div>
-          <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
             <span>AI spend vs default budget</span>
             <span>{usd(spend)} / {usd(budget)} (soft cap {usd(softCap)})</span>
           </div>
-          <div className="h-2 bg-gray-100 rounded">
+          <div className="h-2 bg-muted rounded">
             <div
               className={`h-2 rounded ${band === "over_cap" ? "bg-red-500" : band === "soft_cap" ? "bg-amber-500" : "bg-emerald-500"}`}
               style={{ width: `${pctOfBudget}%` }}
@@ -2037,7 +2037,7 @@ function VariableCostPanel({ clientId }: { clientId: number }) {
         </div>
 
         {/* Lifetime */}
-        <div className="border-t border-gray-100 pt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div className="border-t border-border pt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <Stat label="Lifetime revenue" value={usd(costs.revenue_cents_lifetime)} muted />
           <Stat label="Lifetime AI" value={usd(costs.ai_cost_cents_lifetime)} muted />
           <Stat label="Lifetime SMS+Voice" value={usd(costs.sms_cost_cents_lifetime + costs.voice_cost_cents_lifetime)} muted />
@@ -2051,8 +2051,8 @@ function VariableCostPanel({ clientId }: { clientId: number }) {
 
         {/* 6-month chart */}
         {chartData.length > 0 && (
-          <div className="border-t border-gray-100 pt-3">
-            <p className="text-xs font-medium text-gray-600 mb-2">Cost vs revenue (last 6 months, USD)</p>
+          <div className="border-t border-border pt-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Cost vs revenue (last 6 months, USD)</p>
             <div style={{ width: "100%", height: 180 }}>
               <ResponsiveContainer>
                 <BarChart data={chartData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
@@ -2071,8 +2071,8 @@ function VariableCostPanel({ clientId }: { clientId: number }) {
         )}
 
         {/* Budget editor */}
-        <div className="border-t border-gray-100 pt-3 flex items-center gap-2 text-sm">
-          <span className="text-gray-600">Default monthly AI budget:</span>
+        <div className="border-t border-border pt-3 flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Default monthly AI budget:</span>
           {!editing ? (
             <>
               <span className="font-medium">${(budget / 100).toFixed(2)}</span>
@@ -2082,7 +2082,7 @@ function VariableCostPanel({ clientId }: { clientId: number }) {
             </>
           ) : (
             <>
-              <span className="text-gray-500">$</span>
+              <span className="text-muted-foreground">$</span>
               <Input
                 type="number"
                 step="0.01"
@@ -2130,8 +2130,8 @@ function Stat({
 }) {
   return (
     <div>
-      <p className={`text-xs ${muted ? "text-gray-400" : "text-gray-500"}`}>{label}</p>
-      <p className={`text-base font-semibold ${valueClass ?? (muted ? "text-gray-600" : "text-gray-900")}`}>
+      <p className={`text-xs ${muted ? "text-muted-foreground/70" : "text-muted-foreground"}`}>{label}</p>
+      <p className={`text-base font-semibold ${valueClass ?? (muted ? "text-muted-foreground" : "text-foreground")}`}>
         {value}
       </p>
       {extra && <div className="mt-0.5">{extra}</div>}
@@ -2188,8 +2188,8 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
 
   if (!data?.hasService) {
     return (
-      <Card className="p-6 text-center text-gray-500 text-sm">
-        <ShieldCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+      <Card className="p-6 text-center text-muted-foreground text-sm">
+        <ShieldCheck className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
         No ReputationShield service active for this client.
       </Card>
     );
@@ -2368,25 +2368,25 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
       {/* Operational Health */}
       <ServiceOpsSection title="Operational Health">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <button onClick={() => navigate("/admin/crm/reviews")} className="text-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div className="text-lg font-semibold text-gray-900">{s.totalReviews}</div>
-            <div className="text-[11px] text-gray-500">Reviews Tracked</div>
+          <button onClick={() => navigate("/admin/crm/reviews")} className="text-center p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+            <div className="text-lg font-semibold text-foreground">{s.totalReviews}</div>
+            <div className="text-[11px] text-muted-foreground">Reviews Tracked</div>
           </button>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-lg font-semibold text-gray-900">{s.totalRequests}</div>
-            <div className="text-[11px] text-gray-500">Requests Sent</div>
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="text-lg font-semibold text-foreground">{s.totalRequests}</div>
+            <div className="text-[11px] text-muted-foreground">Requests Sent</div>
           </div>
           <button
             onClick={s.lowRatingNoResponse > 0 ? () => navigate("/admin/crm/reviews") : undefined}
-            className={`text-center p-3 rounded-lg transition-colors ${s.lowRatingNoResponse > 0 ? "bg-red-50 hover:bg-red-100 cursor-pointer" : "bg-gray-50"}`}
+            className={`text-center p-3 rounded-lg transition-colors ${s.lowRatingNoResponse > 0 ? "bg-red-50 hover:bg-red-100 cursor-pointer" : "bg-muted/50"}`}
           >
-            <div className={`text-lg font-semibold ${s.lowRatingNoResponse > 0 ? "text-red-700" : "text-gray-900"}`}>{s.lowRatingNoResponse}</div>
-            <div className="text-[11px] text-gray-500">Low-Rating Unresponded</div>
+            <div className={`text-lg font-semibold ${s.lowRatingNoResponse > 0 ? "text-red-700" : "text-foreground"}`}>{s.lowRatingNoResponse}</div>
+            <div className="text-[11px] text-muted-foreground">Low-Rating Unresponded</div>
           </button>
-          <div className={`text-center p-3 rounded-lg ${s.missingGoogleName > 0 ? "bg-amber-50" : "bg-gray-50"}`}>
-            <div className="text-lg font-semibold text-gray-900">{s.missingGoogleName}</div>
+          <div className={`text-center p-3 rounded-lg ${s.missingGoogleName > 0 ? "bg-amber-50" : "bg-muted/50"}`}>
+            <div className="text-lg font-semibold text-foreground">{s.missingGoogleName}</div>
             <HelpCue text="Reviews without a Google API identifier cannot be posted to. Trigger a re-sync to attempt recovery.">
-              <span className="text-[11px] text-gray-500">Missing Post ID</span>
+              <span className="text-[11px] text-muted-foreground">Missing Post ID</span>
             </HelpCue>
             {s.missingGoogleName > 0 && (
               <button
@@ -2444,8 +2444,8 @@ function TLCallIcon({ outcome }: { outcome: string }) {
   switch (outcome) {
     case "answered": return <PhoneIncoming className="w-3.5 h-3.5 text-emerald-500" />;
     case "missed": return <PhoneMissed className="w-3.5 h-3.5 text-red-500" />;
-    case "failed": return <PhoneOff className="w-3.5 h-3.5 text-gray-400" />;
-    default: return <PhoneCall className="w-3.5 h-3.5 text-gray-400" />;
+    case "failed": return <PhoneOff className="w-3.5 h-3.5 text-muted-foreground/70" />;
+    default: return <PhoneCall className="w-3.5 h-3.5 text-muted-foreground/70" />;
   }
 }
 
@@ -2597,10 +2597,10 @@ function EmergencyKillSwitch({ clientServiceId, isDisabled, queryKey }: { client
               <AlertCircle className="w-5 h-5" /> Emergency Disable
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             This will immediately disable the TradeLine assistant. All incoming calls will receive a "service unavailable" message.
           </p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             You can re-enable it later which will trigger a full rebuild.
           </p>
           <DialogFooter className="gap-2 mt-4">
@@ -2682,18 +2682,18 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
         onClick={() => setOpen(!open)}
         className="flex items-center justify-between w-full p-4 text-left min-h-[44px]"
       >
-        <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
+        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
           <PhoneCall className="w-4 h-4 text-blue-600" />
           {serviceName} — TradeLine Config
         </span>
-        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground/70" /> : <ChevronDown className="w-4 h-4 text-muted-foreground/70" />}
       </button>
 
       {open && (
-        <div className="border-t border-gray-100 p-4 space-y-4">
+        <div className="border-t border-border p-4 space-y-4">
           {isLoading && (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground/70" />
             </div>
           )}
 
@@ -2702,7 +2702,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               {/* Mode + variant */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mode</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Mode</p>
                   <ModeToggle
                     currentMode={cfg.currentMode}
                     clientServiceId={clientServiceId}
@@ -2713,14 +2713,14 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   />
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1 flex items-center gap-1">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1 flex items-center gap-1">
                     Variant
-                    <Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-gray-300 cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[200px] text-xs">Call Backup = voice only. Chat = website widget only. Complete = voice + chat + hosted page.</TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[200px] text-xs">Call Backup = voice only. Chat = website widget only. Complete = voice + chat + hosted page.</TooltipContent></Tooltip>
                   </p>
-                  <p className="text-sm text-gray-900 capitalize">{(cfg.variant || "").replace(/_/g, " ")}</p>
+                  <p className="text-sm text-foreground capitalize">{(cfg.variant || "").replace(/_/g, " ")}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Channels</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Channels</p>
                   <div className="flex flex-wrap gap-1">
                     {cfg.channels?.voice && <Badge variant="outline" className="text-[10px]">Voice</Badge>}
                     {cfg.channels?.websiteChat && <Badge variant="outline" className="text-[10px]">Chat</Badge>}
@@ -2730,10 +2730,10 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   </div>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Phone Routing</p>
-                  <p className="text-sm text-gray-900 capitalize">{(cfg.phoneRouting?.forwardingMode || "").replace(/_/g, " ")}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Phone Routing</p>
+                  <p className="text-sm text-foreground capitalize">{(cfg.phoneRouting?.forwardingMode || "").replace(/_/g, " ")}</p>
                   {cfg.phoneRouting?.primaryBusinessNumber && (
-                    <p className="text-xs text-gray-500">{cfg.phoneRouting.primaryBusinessNumber}</p>
+                    <p className="text-xs text-muted-foreground">{cfg.phoneRouting.primaryBusinessNumber}</p>
                   )}
                 </div>
               </div>
@@ -2741,10 +2741,10 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               {/* Website embed */}
               {cfg.website?.embedMode !== "none" && (
                 <div className="text-sm">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Website</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Website</p>
                   <span className="capitalize">{cfg.website.embedMode?.replace(/_/g, " ")}</span>
                   {cfg.website.hostedUrl && (
-                    <span className="text-xs text-gray-500 ml-2">{cfg.website.hostedUrl}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{cfg.website.hostedUrl}</span>
                   )}
                 </div>
               )}
@@ -2752,37 +2752,37 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               {/* Voice & Personality */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Voice</p>
-                  <p className="text-sm text-gray-900">{(cfg as any).voice?.label || "Professional Female"}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Voice</p>
+                  <p className="text-sm text-foreground">{(cfg as any).voice?.label || "Professional Female"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Tone</p>
-                  <p className="text-sm text-gray-900 capitalize">{(cfg as any).personality?.tone || "friendly"}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Tone</p>
+                  <p className="text-sm text-foreground capitalize">{(cfg as any).personality?.tone || "friendly"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Language</p>
-                  <p className="text-sm text-gray-900 uppercase">{(cfg as any).personality?.language || "en"}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Language</p>
+                  <p className="text-sm text-foreground uppercase">{(cfg as any).personality?.language || "en"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Widget Style</p>
-                  <p className="text-sm text-gray-900 capitalize">{(cfg as any).widgetStyle?.preset || "clean"}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Widget Style</p>
+                  <p className="text-sm text-foreground capitalize">{(cfg as any).widgetStyle?.preset || "clean"}</p>
                 </div>
               </div>
 
               {/* Setup Stage + Assistant Status */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Setup Stage</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Setup Stage</p>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
                     (data.setupStage || cfg.setupStage) === "live" ? "bg-emerald-50 text-emerald-700"
                     : (data.setupStage || cfg.setupStage) === "ready_for_testing" ? "bg-amber-50 text-amber-700"
-                    : "bg-gray-100 text-gray-600"
+                    : "bg-muted text-muted-foreground"
                   }`}>
                     {(data.setupStage || cfg.setupStage || "not_started").replace(/_/g, " ")}
                   </span>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Assistant</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Assistant</p>
                   {(data.assistantStatus || cfg.assistant?.status) === "disabled" ? (
                     <div>
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800">
@@ -2796,13 +2796,13 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                         <CheckCircle2 className="w-3 h-3" /> Built
                       </span>
                       {(cfg.assistant?.templateId) && (
-                        <p className="text-xs text-gray-500 mt-0.5 capitalize flex items-center gap-1">
+                        <p className="text-xs text-muted-foreground mt-0.5 capitalize flex items-center gap-1">
                           Template: {cfg.assistant.templateId}
-                          <Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-gray-300 cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs">Trade-specific prompt template used to generate the AI assistant. Selected automatically based on the client's trade type.</TooltipContent></Tooltip>
+                          <Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs">Trade-specific prompt template used to generate the AI assistant. Selected automatically based on the client's trade type.</TooltipContent></Tooltip>
                         </p>
                       )}
                       {data.assistantBuiltAt && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">
                           {new Date(data.assistantBuiltAt).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                         </p>
                       )}
@@ -2825,7 +2825,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                     </span>
                   ) : (
                     <div>
-                      <span className="text-xs text-gray-500">Not built</span>
+                      <span className="text-xs text-muted-foreground">Not built</span>
                       <RebuildAssistantButton clientServiceId={clientServiceId} queryKey={`/api/admin/crm/tradeline/${clientServiceId}`} />
                     </div>
                   )}
@@ -2835,25 +2835,25 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               {/* Usage */}
               {data.usage && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Current Period Usage</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-2">Current Period Usage</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Calls</p>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground">Calls</p>
                       <p className="text-lg font-semibold">{data.usage.calls_count}</p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Voice Min</p>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground">Voice Min</p>
                       <p className="text-lg font-semibold">
                         {data.usage.voice_minutes_used}
-                        <span className="text-xs font-normal text-gray-400">/{data.usage.included_minutes}</span>
+                        <span className="text-xs font-normal text-muted-foreground/70">/{data.usage.included_minutes}</span>
                       </p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">SMS</p>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground">SMS</p>
                       <p className="text-lg font-semibold">{data.usage.sms_count}</p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500 flex items-center gap-1">Overage <Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-gray-300 cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[180px] text-xs">Voice minutes over the included amount. Billed at the overage rate.</TooltipContent></Tooltip></p>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">Overage <Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[180px] text-xs">Voice minutes over the included amount. Billed at the overage rate.</TooltipContent></Tooltip></p>
                       <p className={`text-lg font-semibold ${data.usage.overage_minutes > 0 ? "text-amber-600" : ""}`}>
                         {data.usage.overage_minutes}
                       </p>
@@ -2865,22 +2865,22 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               {/* Profitability */}
               {data.profitability && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1.5">Profitability</p>
-                  <div className="border border-gray-100 rounded-lg p-2.5 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5">Profitability</p>
+                  <div className="border border-border rounded-lg p-2.5 space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">Revenue</span>
+                      <span className="text-muted-foreground">Revenue</span>
                       <span className="font-semibold">${(data.profitability.revenue / 100).toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-gray-400">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground/70">
                       <span>Voice / SMS / AI</span>
                       <span>-${(data.profitability.voiceCost / 100).toFixed(2)} / -${(data.profitability.smsCost / 100).toFixed(2)} / -${(data.profitability.aiCost / 100).toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs border-t border-gray-100 pt-1">
-                      <span className="text-gray-500">Total Cost</span>
-                      <span className="font-medium text-gray-700">-${(data.profitability.totalCost / 100).toFixed(2)}</span>
+                    <div className="flex items-center justify-between text-xs border-t border-border pt-1">
+                      <span className="text-muted-foreground">Total Cost</span>
+                      <span className="font-medium text-foreground">-${(data.profitability.totalCost / 100).toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm border-t border-gray-200 pt-1.5">
-                      <span className="font-semibold text-gray-900">Profit</span>
+                    <div className="flex items-center justify-between text-sm border-t border-border pt-1.5">
+                      <span className="font-semibold text-foreground">Profit</span>
                       <div className="flex items-center gap-2">
                         <span className="font-bold">${(data.profitability.profit / 100).toFixed(2)}</span>
                         <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
@@ -2899,11 +2899,11 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               {/* Recent calls */}
               {data.recentCalls.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Recent Calls</p>
-                  <div className="border border-gray-100 rounded-lg overflow-hidden">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-2">Recent Calls</p>
+                  <div className="border border-border rounded-lg overflow-hidden">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-left text-[10px] text-gray-400 border-b border-gray-100">
+                        <tr className="text-left text-[10px] text-muted-foreground/70 border-b border-border">
                           <th className="px-3 py-2 font-medium w-6"></th>
                           <th className="px-3 py-2 font-medium">Caller</th>
                           <th className="px-3 py-2 font-medium">Outcome</th>
@@ -2916,21 +2916,21 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                         {data.recentCalls.map((c) => (
                           <tr key={c.id}>
                             <td className="px-3 py-2"><TLCallIcon outcome={c.outcome} /></td>
-                            <td className="px-3 py-2 text-gray-700">{c.caller_number || "-"}</td>
+                            <td className="px-3 py-2 text-foreground">{c.caller_number || "-"}</td>
                             <td className="px-3 py-2">
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${
                                 c.outcome === "answered" ? "bg-emerald-50 text-emerald-700"
                                 : c.outcome === "missed" ? "bg-red-50 text-red-700"
-                                : "bg-gray-100 text-gray-600"
+                                : "bg-muted text-muted-foreground"
                               }`}>{c.outcome}</span>
                             </td>
-                            <td className="px-3 py-2 text-gray-500">
+                            <td className="px-3 py-2 text-muted-foreground">
                               {c.duration_seconds > 0
                                 ? `${Math.floor(c.duration_seconds / 60)}:${String(c.duration_seconds % 60).padStart(2, "0")}`
                                 : "-"}
                             </td>
-                            <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{c.ended_at ? fmtDate(c.ended_at) : "-"}</td>
-                            <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate">{c.summary || "-"}</td>
+                            <td className="px-3 py-2 text-muted-foreground/70 whitespace-nowrap">{c.ended_at ? fmtDate(c.ended_at) : "-"}</td>
+                            <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate">{c.summary || "-"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2958,7 +2958,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Variant</label>
+                  <label className="text-xs font-medium text-muted-foreground">Variant</label>
                   <Select value={configDraft.variant} onValueChange={(v) => setConfigDraft({ ...configDraft, variant: v })}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -2969,7 +2969,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Phone Routing</label>
+                  <label className="text-xs font-medium text-muted-foreground">Phone Routing</label>
                   <Select
                     value={configDraft.phoneRouting?.forwardingMode || "no_answer"}
                     onValueChange={(v) => setConfigDraft({ ...configDraft, phoneRouting: { ...configDraft.phoneRouting, forwardingMode: v } })}
@@ -2985,7 +2985,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               </div>
 
               <div>
-                <label className="text-xs font-medium text-gray-600">Primary Business Number</label>
+                <label className="text-xs font-medium text-muted-foreground">Primary Business Number</label>
                 <Input
                   value={configDraft.phoneRouting?.primaryBusinessNumber || ""}
                   onChange={(e) => setConfigDraft({ ...configDraft, phoneRouting: { ...configDraft.phoneRouting, primaryBusinessNumber: e.target.value } })}
@@ -2995,10 +2995,10 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               </div>
 
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">Channels</label>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Channels</label>
                 <div className="flex flex-wrap gap-3">
                   {(["voice", "websiteChat", "websiteVoice", "sms", "hostedFallback"] as const).map((ch) => (
-                    <label key={ch} className="flex items-center gap-1.5 text-xs text-gray-700">
+                    <label key={ch} className="flex items-center gap-1.5 text-xs text-foreground">
                       <Switch
                         checked={configDraft.channels?.[ch] ?? false}
                         onCheckedChange={(v) => setConfigDraft({
@@ -3014,7 +3014,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Website Embed Mode</label>
+                  <label className="text-xs font-medium text-muted-foreground">Website Embed Mode</label>
                   <Select
                     value={configDraft.website?.embedMode || "none"}
                     onValueChange={(v) => setConfigDraft({ ...configDraft, website: { ...configDraft.website, embedMode: v } })}
@@ -3028,7 +3028,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Hosted URL</label>
+                  <label className="text-xs font-medium text-muted-foreground">Hosted URL</label>
                   <Input
                     value={configDraft.website?.hostedUrl || ""}
                     onChange={(e) => setConfigDraft({ ...configDraft, website: { ...configDraft.website, hostedUrl: e.target.value } })}
@@ -3041,7 +3041,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               {/* Voice & Personality */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Voice Preset</label>
+                  <label className="text-xs font-medium text-muted-foreground">Voice Preset</label>
                   <Select
                     value={configDraft.voice?.presetId || "professional-female"}
                     onValueChange={(v) => {
@@ -3059,7 +3059,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Tone</label>
+                  <label className="text-xs font-medium text-muted-foreground">Tone</label>
                   <Select
                     value={configDraft.personality?.tone || "friendly"}
                     onValueChange={(v) => setConfigDraft({ ...configDraft, personality: { ...configDraft.personality, tone: v } })}
@@ -3076,7 +3076,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Language</label>
+                  <label className="text-xs font-medium text-muted-foreground">Language</label>
                   <Select
                     value={configDraft.personality?.language || "en"}
                     onValueChange={(v) => setConfigDraft({ ...configDraft, personality: { ...configDraft.personality, language: v } })}
@@ -3090,7 +3090,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Humor</label>
+                  <label className="text-xs font-medium text-muted-foreground">Humor</label>
                   <Select
                     value={configDraft.personality?.humor || "off"}
                     onValueChange={(v) => setConfigDraft({ ...configDraft, personality: { ...configDraft.personality, humor: v } })}
@@ -3103,7 +3103,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Widget Style</label>
+                  <label className="text-xs font-medium text-muted-foreground">Widget Style</label>
                   <Select
                     value={configDraft.widgetStyle?.preset || "clean"}
                     onValueChange={(v) => setConfigDraft({ ...configDraft, widgetStyle: { ...configDraft.widgetStyle, preset: v } })}

@@ -26,7 +26,7 @@ function BackToReviews() {
   return (
     <Link
       href="/portal/reviews"
-      className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
       data-testid="back-to-reviews"
     >
       <ChevronLeft className="w-3.5 h-3.5" /> Back to Reviews
@@ -108,13 +108,13 @@ function WidgetPreview({ token, type, reloadKey }: WidgetPreviewProps) {
       {/* Help cue — top-left, per design system Rule 4. */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Live preview</p>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Live preview</p>
+          <p className="text-xs text-muted-foreground/70 mt-0.5">
             What visitors to your site will actually see — pulls your real reviews
           </p>
         </div>
         <div
-          className="inline-flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-md"
+          className="inline-flex items-center gap-0.5 p-0.5 bg-muted rounded-md"
           role="group"
           aria-label="Preview viewport size"
         >
@@ -124,8 +124,8 @@ function WidgetPreview({ token, type, reloadKey }: WidgetPreviewProps) {
             aria-pressed={viewport === "mobile"}
             className={`px-2 h-7 rounded text-xs inline-flex items-center gap-1 transition-colors ${
               viewport === "mobile"
-                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-card text-foreground shadow-sm border border-border"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             data-testid="viewport-mobile"
           >
@@ -137,8 +137,8 @@ function WidgetPreview({ token, type, reloadKey }: WidgetPreviewProps) {
             aria-pressed={viewport === "tablet"}
             className={`px-2 h-7 rounded text-xs inline-flex items-center gap-1 transition-colors ${
               viewport === "tablet"
-                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-card text-foreground shadow-sm border border-border"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             data-testid="viewport-tablet"
           >
@@ -150,8 +150,8 @@ function WidgetPreview({ token, type, reloadKey }: WidgetPreviewProps) {
             aria-pressed={viewport === "desktop"}
             className={`px-2 h-7 rounded text-xs inline-flex items-center gap-1 transition-colors ${
               viewport === "desktop"
-                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-card text-foreground shadow-sm border border-border"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             data-testid="viewport-desktop"
           >
@@ -161,14 +161,14 @@ function WidgetPreview({ token, type, reloadKey }: WidgetPreviewProps) {
       </div>
 
       {/* Preview frame — centered, bordered, scrollable on narrow parents. */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-auto p-3 flex justify-center">
+      <div className="bg-muted/50 border border-border rounded-lg overflow-auto p-3 flex justify-center">
         <iframe
           key={`${type}-${reloadKey}-${viewport}`}
           src={src}
           title="Review widget preview"
           width={widthPx}
           height={type === "badge" ? 140 : 280}
-          className="bg-background border border-gray-200 rounded shrink-0"
+          className="bg-background border border-border rounded shrink-0"
           style={{ maxWidth: "100%" }}
           sandbox="allow-scripts allow-same-origin"
           data-testid="widget-preview-iframe"
@@ -223,15 +223,15 @@ function InstallModal({ open, onOpenChange, snippet, sourcesLabel, hasConnectedS
         </DialogHeader>
 
         {/* What it does + where reviews come from. */}
-        <div className="space-y-2 text-sm text-gray-700">
+        <div className="space-y-2 text-sm text-foreground">
           <p>
             The widget shows your best reviews on your website, so visitors trust you before
             they call. It updates automatically whenever a new review comes in.
           </p>
-          <div className="flex items-start gap-2 p-3 rounded-md bg-gray-50 border border-gray-200">
-            <Info className="w-4 h-4 text-gray-500 mt-0.5 shrink-0" />
-            <div className="text-xs text-gray-600">
-              <span className="font-medium text-gray-800">Reviews are pulled from:</span>{" "}
+          <div className="flex items-start gap-2 p-3 rounded-md bg-muted/50 border border-border">
+            <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Reviews are pulled from:</span>{" "}
               {sourcesLabel}.
               {!hasConnectedSource && (
                 <>
@@ -260,15 +260,15 @@ function InstallModal({ open, onOpenChange, snippet, sourcesLabel, hasConnectedS
           </TabsList>
 
           <TabsContent value="wordpress" className="space-y-3 mt-3">
-            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+            <ol className="text-sm text-foreground space-y-2 list-decimal list-inside">
               <li>In your WordPress admin, open <span className="font-medium">Appearance → Theme File Editor</span> (or install a code-snippet plugin like WPCode).</li>
-              <li>Open <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">footer.php</code> and paste the snippet below just before the closing <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">&lt;/body&gt;</code> tag.</li>
+              <li>Open <code className="px-1 py-0.5 bg-muted rounded text-xs">footer.php</code> and paste the snippet below just before the closing <code className="px-1 py-0.5 bg-muted rounded text-xs">&lt;/body&gt;</code> tag.</li>
               <li>Click <span className="font-medium">Update File</span>. Refresh your site to confirm the widget appears.</li>
             </ol>
           </TabsContent>
 
           <TabsContent value="wix" className="space-y-3 mt-3">
-            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+            <ol className="text-sm text-foreground space-y-2 list-decimal list-inside">
               <li>Open your Wix dashboard and go to <span className="font-medium">Settings → Custom Code</span>.</li>
               <li>Click <span className="font-medium">+ Add Custom Code</span>, paste the snippet below, and choose <span className="font-medium">Body — end</span> as the placement.</li>
               <li>Apply to <span className="font-medium">All pages</span> (or just the pages you want), then click <span className="font-medium">Apply</span>.</li>
@@ -276,24 +276,24 @@ function InstallModal({ open, onOpenChange, snippet, sourcesLabel, hasConnectedS
           </TabsContent>
 
           <TabsContent value="squarespace" className="space-y-3 mt-3">
-            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+            <ol className="text-sm text-foreground space-y-2 list-decimal list-inside">
               <li>Open <span className="font-medium">Settings → Advanced → Code Injection</span>.</li>
               <li>Paste the snippet below into the <span className="font-medium">Footer</span> field.</li>
               <li>Click <span className="font-medium">Save</span> and reload your site.</li>
             </ol>
-            <p className="text-xs text-gray-500">Code injection requires a Business plan or higher on Squarespace.</p>
+            <p className="text-xs text-muted-foreground">Code injection requires a Business plan or higher on Squarespace.</p>
           </TabsContent>
 
           <TabsContent value="shopify" className="space-y-3 mt-3">
-            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+            <ol className="text-sm text-foreground space-y-2 list-decimal list-inside">
               <li>Open <span className="font-medium">Online Store → Themes</span> and click <span className="font-medium">Edit code</span> on your current theme.</li>
-              <li>Open <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">theme.liquid</code> and paste the snippet just before the closing <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">&lt;/body&gt;</code> tag.</li>
+              <li>Open <code className="px-1 py-0.5 bg-muted rounded text-xs">theme.liquid</code> and paste the snippet just before the closing <code className="px-1 py-0.5 bg-muted rounded text-xs">&lt;/body&gt;</code> tag.</li>
               <li>Click <span className="font-medium">Save</span>.</li>
             </ol>
           </TabsContent>
 
           <TabsContent value="html" className="space-y-3 mt-3">
-            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+            <ol className="text-sm text-foreground space-y-2 list-decimal list-inside">
               <li>Open the HTML file (or template) for the page where you want the widget to appear.</li>
               <li>Paste the snippet below where you want the widget to render. It will appear right at that spot.</li>
               <li>Save and re-upload to your web host.</li>
@@ -304,7 +304,7 @@ function InstallModal({ open, onOpenChange, snippet, sourcesLabel, hasConnectedS
         {/* The snippet itself, syntax-styled. */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Your snippet</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your snippet</p>
             <Button
               size="sm"
               variant="outline"
@@ -321,26 +321,26 @@ function InstallModal({ open, onOpenChange, snippet, sourcesLabel, hasConnectedS
         </div>
 
         {/* FAQ. */}
-        <div className="space-y-2 pt-2 border-t border-gray-100">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Common questions</p>
-          <details className="text-sm text-gray-700">
-            <summary className="cursor-pointer font-medium text-gray-800">Will it slow my site down?</summary>
-            <p className="mt-1 text-xs text-gray-600">
+        <div className="space-y-2 pt-2 border-t border-border">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Common questions</p>
+          <details className="text-sm text-foreground">
+            <summary className="cursor-pointer font-medium text-foreground">Will it slow my site down?</summary>
+            <p className="mt-1 text-xs text-muted-foreground">
               No. The widget script loads asynchronously and the review data is cached for 5
               minutes, so it doesn't block page rendering.
             </p>
           </details>
-          <details className="text-sm text-gray-700">
-            <summary className="cursor-pointer font-medium text-gray-800">Can I customize how it looks?</summary>
-            <p className="mt-1 text-xs text-gray-600">
+          <details className="text-sm text-foreground">
+            <summary className="cursor-pointer font-medium text-foreground">Can I customize how it looks?</summary>
+            <p className="mt-1 text-xs text-muted-foreground">
               You control which reviews show (minimum rating, max count, name + date toggles)
               from the Widget Settings panel on this page. Layout is fixed to keep the widget
               tidy on any site.
             </p>
           </details>
-          <details className="text-sm text-gray-700">
-            <summary className="cursor-pointer font-medium text-gray-800">What if I disable the widget?</summary>
-            <p className="mt-1 text-xs text-gray-600">
+          <details className="text-sm text-foreground">
+            <summary className="cursor-pointer font-medium text-foreground">What if I disable the widget?</summary>
+            <p className="mt-1 text-xs text-muted-foreground">
               The snippet stays on your site but stops rendering — no broken layout, no error
               messages for visitors.
             </p>
@@ -443,7 +443,7 @@ export default function PortalWidget() {
     return (
       <PortalLayout>
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/70" />
         </div>
       </PortalLayout>
     );
@@ -456,9 +456,9 @@ export default function PortalWidget() {
           <BackToReviews />
         </div>
         <div className="py-12 text-center space-y-4">
-          <Code className="w-12 h-12 text-gray-300 mx-auto" />
-          <h2 className="text-lg font-semibold text-gray-900">Review Widget</h2>
-          <p className="text-sm text-gray-500">Display your best reviews on your website. Available with ReputationShield.</p>
+          <Code className="w-12 h-12 text-muted-foreground/50 mx-auto" />
+          <h2 className="text-lg font-semibold text-foreground">Review Widget</h2>
+          <p className="text-sm text-muted-foreground">Display your best reviews on your website. Available with ReputationShield.</p>
         </div>
       </PortalLayout>
     );
@@ -477,14 +477,14 @@ export default function PortalWidget() {
         <BackToReviews />
         {/* Header */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Review Widget</h2>
-          <p className="text-sm text-gray-500">Show your best reviews on your website with a simple code snippet</p>
+          <h2 className="text-lg font-semibold text-foreground">Review Widget</h2>
+          <p className="text-sm text-muted-foreground">Show your best reviews on your website with a simple code snippet</p>
         </div>
 
         {/* How it works */}
         <Card className="p-4">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">How it works</p>
-          <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">How it works</p>
+          <ol className="text-sm text-foreground space-y-2 list-decimal list-inside">
             <li>Copy the embed code below</li>
             <li>Paste it into your website where you want reviews to appear (need exact steps? click <span className="font-medium">How to install</span>)</li>
             <li>Your best reviews show up automatically and stay up to date</li>
@@ -496,15 +496,15 @@ export default function PortalWidget() {
         <Card className="p-4">
           <div className="flex items-start gap-2">
             {hasConnectedSource ? (
-              <Info className="w-4 h-4 text-gray-500 mt-0.5 shrink-0" />
+              <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
             ) : (
               <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pulls from</p>
-              <p className="text-sm text-gray-800 mt-0.5" data-testid="widget-sources-label">{sourcesLabel}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pulls from</p>
+              <p className="text-sm text-foreground mt-0.5" data-testid="widget-sources-label">{sourcesLabel}</p>
               {!hasConnectedSource && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Connect Google or another platform so your widget has reviews to show.{" "}
                   <Link href="/portal/reviews" className="text-brand-blue hover:underline" data-testid="connect-source-link">
                     Connect a source
@@ -519,8 +519,8 @@ export default function PortalWidget() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">Widget Enabled</p>
-              <p className="text-xs text-gray-400">When disabled, the widget won't show on your site</p>
+              <p className="text-sm font-medium text-foreground">Widget Enabled</p>
+              <p className="text-xs text-muted-foreground/70">When disabled, the widget won't show on your site</p>
             </div>
             <button
               role="switch"
@@ -529,7 +529,7 @@ export default function PortalWidget() {
               className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-blue/30 ${settings.enabled ? "bg-brand-blue" : "bg-gray-300"}`}
               onClick={() => updateMutation.mutate({ enabled: !settings.enabled })}
             >
-              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.enabled ? "left-[18px]" : "left-0.5"}`} />
+              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.enabled ? "left-[18px]" : "left-0.5"}`} />
             </button>
           </div>
         </Card>
@@ -538,8 +538,8 @@ export default function PortalWidget() {
         <Card className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">Badge Widget</p>
-              <p className="text-xs text-gray-400">Compact rating summary — great for headers, sidebars, or footers</p>
+              <p className="text-sm font-medium text-foreground">Badge Widget</p>
+              <p className="text-xs text-muted-foreground/70">Compact rating summary — great for headers, sidebars, or footers</p>
             </div>
             <Badge variant="secondary" className="text-[10px] bg-green-50 text-green-700">Available</Badge>
           </div>
@@ -579,13 +579,13 @@ export default function PortalWidget() {
         <Card className={`p-4 space-y-3 ${!data.carouselAccess ? "opacity-70" : ""}`}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">Carousel Widget</p>
-              <p className="text-xs text-gray-400">Rotating reviews with star ratings and text — great for landing pages</p>
+              <p className="text-sm font-medium text-foreground">Carousel Widget</p>
+              <p className="text-xs text-muted-foreground/70">Rotating reviews with star ratings and text — great for landing pages</p>
             </div>
             {data.carouselAccess ? (
               <Badge variant="secondary" className="text-[10px] bg-green-50 text-green-700">Available</Badge>
             ) : (
-              <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-500">
+              <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground">
                 <Lock className="w-3 h-3 mr-1" /> Pro Plan
               </Badge>
             )}
@@ -623,7 +623,7 @@ export default function PortalWidget() {
               </div>
             </>
           ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 text-sm text-gray-500">
+            <div className="bg-muted/50 border border-border rounded-lg p-3 flex items-center gap-2 text-sm text-muted-foreground">
               <Lock className="w-4 h-4 shrink-0" />
               Carousel widget is available on the Pro plan. Upgrade to access rotating review displays.
             </div>
@@ -632,10 +632,10 @@ export default function PortalWidget() {
 
         {/* Settings */}
         <Card className="p-4 space-y-4">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Widget Settings</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Widget Settings</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Minimum Star Rating</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Minimum Star Rating</label>
               <Select
                 value={String(settings.min_rating)}
                 onValueChange={(v) => updateMutation.mutate({ min_rating: parseInt(v) })}
@@ -649,7 +649,7 @@ export default function PortalWidget() {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Max Reviews Shown</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Max Reviews Shown</label>
               <Select
                 value={String(settings.max_reviews)}
                 onValueChange={(v) => updateMutation.mutate({ max_reviews: parseInt(v) })}
@@ -664,8 +664,8 @@ export default function PortalWidget() {
             </div>
             <div className="flex items-center justify-between sm:col-span-2">
               <div>
-                <p className="text-sm text-gray-700">Show Reviewer Names</p>
-                <p className="text-xs text-gray-400">Display the name of each reviewer</p>
+                <p className="text-sm text-foreground">Show Reviewer Names</p>
+                <p className="text-xs text-muted-foreground/70">Display the name of each reviewer</p>
               </div>
               <button
                 role="switch"
@@ -674,13 +674,13 @@ export default function PortalWidget() {
                 className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-blue/30 ${settings.show_reviewer_name ? "bg-brand-blue" : "bg-gray-300"}`}
                 onClick={() => updateMutation.mutate({ show_reviewer_name: !settings.show_reviewer_name })}
               >
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.show_reviewer_name ? "left-[18px]" : "left-0.5"}`} />
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.show_reviewer_name ? "left-[18px]" : "left-0.5"}`} />
               </button>
             </div>
             <div className="flex items-center justify-between sm:col-span-2">
               <div>
-                <p className="text-sm text-gray-700">Show Review Dates</p>
-                <p className="text-xs text-gray-400">Display when each review was posted</p>
+                <p className="text-sm text-foreground">Show Review Dates</p>
+                <p className="text-xs text-muted-foreground/70">Display when each review was posted</p>
               </div>
               <button
                 role="switch"
@@ -689,7 +689,7 @@ export default function PortalWidget() {
                 className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-blue/30 ${settings.show_date ? "bg-brand-blue" : "bg-gray-300"}`}
                 onClick={() => updateMutation.mutate({ show_date: !settings.show_date })}
               >
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.show_date ? "left-[18px]" : "left-0.5"}`} />
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.show_date ? "left-[18px]" : "left-0.5"}`} />
               </button>
             </div>
           </div>

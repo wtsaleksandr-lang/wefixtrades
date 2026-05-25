@@ -386,7 +386,7 @@ export default function ProductDetailPage() {
 
         {isLoading && (
           <div className="flex items-center justify-center h-32">
-            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground/70" />
           </div>
         )}
 
@@ -401,11 +401,11 @@ export default function ProductDetailPage() {
             {/* Title row stays full-width so it spans both columns */}
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="min-w-0">
-                <h1 className="text-xl font-semibold text-gray-900 truncate">{live.name}</h1>
-                <p className="text-xs text-gray-500 mt-0.5 font-mono">ID: {live.id}</p>
+                <h1 className="text-xl font-semibold text-foreground truncate">{live.name}</h1>
+                <p className="text-xs text-muted-foreground mt-0.5 font-mono">ID: {live.id}</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wide ${live.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wide ${live.is_active ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
                   {live.is_active ? "Active" : "Inactive"}
                 </span>
               </div>
@@ -511,9 +511,9 @@ export default function ProductDetailPage() {
             <Card className="p-5 space-y-4">
               <div className="flex items-center gap-2">
                 <Pencil className="w-4 h-4 text-brand-blue" />
-                <h2 className="text-sm font-semibold text-gray-900">Edit product</h2>
+                <h2 className="text-sm font-semibold text-foreground">Edit product</h2>
               </div>
-              <p className="text-[11px] text-gray-500 -mt-2">
+              <p className="text-[11px] text-muted-foreground -mt-2">
                 Customer-visible content. Changes go live on the website, /pricing, and the customer portal once published.
               </p>
 
@@ -540,7 +540,7 @@ export default function ProductDetailPage() {
                 <Field label="Price">
                   {/* Dollar-formatted input — API still receives cents. */}
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-sm text-gray-500 pointer-events-none">$</span>
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-sm text-muted-foreground pointer-events-none">$</span>
                     <Input
                       type="text"
                       inputMode="decimal"
@@ -559,7 +559,7 @@ export default function ProductDetailPage() {
                 </Field>
                 <Field label="Billing">
                   <select
-                    className="h-9 w-full px-2 text-sm border border-gray-200 rounded-md bg-white"
+                    className="h-9 w-full px-2 text-sm border border-border rounded-md bg-card"
                     value={form.billing_period}
                     onChange={(e) => setForm({ ...form, billing_period: e.target.value })}
                     data-testid="input-billing"
@@ -570,7 +570,7 @@ export default function ProductDetailPage() {
                 </Field>
                 <Field label="Category">
                   <select
-                    className="h-9 w-full px-2 text-sm border border-gray-200 rounded-md bg-white"
+                    className="h-9 w-full px-2 text-sm border border-border rounded-md bg-card"
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
                     data-testid="input-category"
@@ -591,8 +591,8 @@ export default function ProductDetailPage() {
                 holds the raw textarea string as local state and auto-grows. */}
             <Card className="p-5 space-y-3">
               <div>
-                <h2 className="text-sm font-semibold text-gray-900">What's included</h2>
-                <p className="text-[11px] text-gray-500 mt-0.5">
+                <h2 className="text-sm font-semibold text-foreground">What's included</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   Product-level bullets shown on marketing/portal cards and audit recommendations.
                   One bullet per line. Leave empty to fall back to the hardcoded list.
                 </p>
@@ -609,8 +609,8 @@ export default function ProductDetailPage() {
             <Card className="p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-900">Pricing tiers</h2>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <h2 className="text-sm font-semibold text-foreground">Pricing tiers</h2>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
                     Optional. Use tiers for products with Starter/Growth/Pro packaging. Single-price
                     products can leave this empty and rely on the price above.
                   </p>
@@ -627,18 +627,18 @@ export default function ProductDetailPage() {
               </div>
 
               {form.tiers.length === 0 && (
-                <p className="text-xs text-gray-400 italic">No tiers configured.</p>
+                <p className="text-xs text-muted-foreground/70 italic">No tiers configured.</p>
               )}
 
               {form.tiers.map((tier, idx) => (
                 <div
                   key={idx}
-                  className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50"
+                  className="border border-border rounded-lg p-3 space-y-3 bg-muted/50"
                   data-testid={`tier-card-${idx}`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                         Tier #{idx + 1}
                       </span>
                       {tier.highlighted && (
@@ -652,21 +652,21 @@ export default function ProductDetailPage() {
                         type="button"
                         onClick={() => moveTier(idx, -1)}
                         disabled={idx === 0}
-                        className="p-1 rounded hover:bg-white disabled:opacity-30"
+                        className="p-1 rounded hover:bg-card disabled:opacity-30"
                         aria-label="Move up"
                         data-testid={`tier-up-${idx}`}
                       >
-                        <ArrowUp className="w-3.5 h-3.5 text-gray-500" />
+                        <ArrowUp className="w-3.5 h-3.5 text-muted-foreground" />
                       </button>
                       <button
                         type="button"
                         onClick={() => moveTier(idx, 1)}
                         disabled={idx === form.tiers.length - 1}
-                        className="p-1 rounded hover:bg-white disabled:opacity-30"
+                        className="p-1 rounded hover:bg-card disabled:opacity-30"
                         aria-label="Move down"
                         data-testid={`tier-down-${idx}`}
                       >
-                        <ArrowDown className="w-3.5 h-3.5 text-gray-500" />
+                        <ArrowDown className="w-3.5 h-3.5 text-muted-foreground" />
                       </button>
                       <button
                         type="button"
@@ -712,7 +712,7 @@ export default function ProductDetailPage() {
                     </Field>
                     <Field label="Billing">
                       <select
-                        className="h-9 w-full px-2 text-sm border border-gray-200 rounded-md bg-white"
+                        className="h-9 w-full px-2 text-sm border border-border rounded-md bg-card"
                         value={tier.billing_period}
                         onChange={(e) => updateTier(idx, { billing_period: e.target.value as "monthly" | "one-time" })}
                         data-testid={`tier-billing-${idx}`}
@@ -743,7 +743,7 @@ export default function ProductDetailPage() {
                       />
                     </Field>
                     <Field label="Featured">
-                      <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+                      <label className="inline-flex items-center gap-2 h-9 text-xs text-foreground">
                         <input
                           type="checkbox"
                           checked={!!tier.highlighted}
@@ -788,7 +788,7 @@ export default function ProductDetailPage() {
             {/* Q28c — Stripe linkage */}
             <Card className="p-5 space-y-3 border-amber-200/60">
               <div>
-                <h2 className="text-sm font-semibold text-gray-900">Stripe linkage</h2>
+                <h2 className="text-sm font-semibold text-foreground">Stripe linkage</h2>
                 <p className="text-[11px] text-amber-700 mt-0.5">
                   ⚠ Changing these IDs affects billing. Tier-level Stripe price IDs above take
                   precedence for tier purchases — these product-level IDs are used for
@@ -829,8 +829,8 @@ export default function ProductDetailPage() {
             {/* Q28f — AI workflow / cron config */}
             <Card className="p-5 space-y-3">
               <div>
-                <h2 className="text-sm font-semibold text-gray-900">AI workflow & cron</h2>
-                <p className="text-[11px] text-gray-500 mt-0.5">
+                <h2 className="text-sm font-semibold text-foreground">AI workflow & cron</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   Defaults applied when a client first subscribes. The product's own scheduled
                   job reads cron_schedule + ai_agent_system_prompt at boot.
                 </p>
@@ -838,7 +838,7 @@ export default function ProductDetailPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Automation enabled by default">
-                  <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+                  <label className="inline-flex items-center gap-2 h-9 text-xs text-foreground">
                     <input
                       type="checkbox"
                       checked={form.automation_config.automation_enabled_default ?? true}
@@ -853,7 +853,7 @@ export default function ProductDetailPage() {
                   </label>
                 </Field>
                 <Field label="Human review required by default">
-                  <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+                  <label className="inline-flex items-center gap-2 h-9 text-xs text-foreground">
                     <input
                       type="checkbox"
                       checked={form.automation_config.human_review_required_default ?? false}
@@ -923,7 +923,7 @@ export default function ProductDetailPage() {
               </Field>
 
               <Field label="Alert admins on automation failure">
-                <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+                <label className="inline-flex items-center gap-2 h-9 text-xs text-foreground">
                   <input
                     type="checkbox"
                     checked={form.automation_config.alert_on_failure ?? true}
@@ -968,17 +968,17 @@ export default function ProductDetailPage() {
                 >
                   {saveDraft.isPending ? "Saving..." : hasPendingDraft ? "Update Draft" : "Save as Draft"}
                 </Button>
-                {!hasChanges && <span className="text-xs text-gray-400">No changes yet</span>}
-                {hasChanges && <span className="text-xs text-gray-500">{Object.keys(dirty).length} field(s) edited</span>}
+                {!hasChanges && <span className="text-xs text-muted-foreground/70">No changes yet</span>}
+                {hasChanges && <span className="text-xs text-muted-foreground">{Object.keys(dirty).length} field(s) edited</span>}
               </div>
             </Card>
 
-            <Card className="p-4 border-gray-200 bg-gray-50">
+            <Card className="p-4 border-border bg-muted/50">
               <div className="flex items-center gap-2 mb-1">
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <p className="text-xs font-medium text-gray-700">Q28 product editor — full scope shipped</p>
+                <p className="text-xs font-medium text-foreground">Q28 product editor — full scope shipped</p>
               </div>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-[11px] text-muted-foreground">
                 Pricing tiers, features, Stripe IDs, suppliers, subscribers, and AI workflow are all
                 editable above. Remaining nice-to-haves: per-supplier cost overrides for this product,
                 and a multi-approver workflow (today any admin can publish their own draft).
@@ -990,25 +990,25 @@ export default function ProductDetailPage() {
               <aside className="lg:col-span-4 space-y-4 lg:sticky lg:top-4 self-start">
                 <Card className="p-4 space-y-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Preview</h3>
-                    <p className="text-[11px] text-gray-500 mt-0.5">How this product reads on customer surfaces.</p>
+                    <h3 className="text-sm font-semibold text-foreground">Preview</h3>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">How this product reads on customer surfaces.</p>
                   </div>
-                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-1.5">
-                    <p className="text-sm font-semibold text-gray-900 leading-tight">{form.name || live.name}</p>
+                  <div className="rounded-md border border-border bg-muted/50 p-3 space-y-1.5">
+                    <p className="text-sm font-semibold text-foreground leading-tight">{form.name || live.name}</p>
                     {form.tagline && (
-                      <p className="text-[12px] text-gray-600 leading-snug">{form.tagline}</p>
+                      <p className="text-[12px] text-muted-foreground leading-snug">{form.tagline}</p>
                     )}
                     <p className="text-lg font-bold text-brand-blue tabular-nums">
                       {(() => {
                         const cents = form.default_price_cents.trim() === "" ? null : Number(form.default_price_cents);
                         return formatUsd(cents);
                       })()}
-                      <span className="text-[11px] font-normal text-gray-500 ml-1">
+                      <span className="text-[11px] font-normal text-muted-foreground ml-1">
                         {form.billing_period === "monthly" ? "/mo" : " one-time"}
                       </span>
                     </p>
                     {form.features.length > 0 && (
-                      <ul className="text-[11px] text-gray-700 space-y-0.5 pt-1">
+                      <ul className="text-[11px] text-foreground space-y-0.5 pt-1">
                         {form.features.slice(0, 4).map((b, i) => (
                           <li key={i} className="flex items-start gap-1">
                             <Check className="w-3 h-3 text-emerald-600 mt-0.5 shrink-0" />
@@ -1016,7 +1016,7 @@ export default function ProductDetailPage() {
                           </li>
                         ))}
                         {form.features.length > 4 && (
-                          <li className="text-gray-400 italic">+ {form.features.length - 4} more…</li>
+                          <li className="text-muted-foreground/70 italic">+ {form.features.length - 4} more…</li>
                         )}
                       </ul>
                     )}
@@ -1024,36 +1024,36 @@ export default function ProductDetailPage() {
                 </Card>
 
                 <Card className="p-4 space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-900">Where this shows</h3>
-                  <ul className="text-[11px] text-gray-600 space-y-1">
+                  <h3 className="text-sm font-semibold text-foreground">Where this shows</h3>
+                  <ul className="text-[11px] text-muted-foreground space-y-1">
                     <li className="flex items-center gap-1.5">
-                      <ExternalLink className="w-3 h-3 text-gray-400" />
+                      <ExternalLink className="w-3 h-3 text-muted-foreground/70" />
                       <a href="/pricing" target="_blank" rel="noreferrer" className="hover:text-brand-blue underline">/pricing page</a>
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <ExternalLink className="w-3 h-3 text-gray-400" />
+                      <ExternalLink className="w-3 h-3 text-muted-foreground/70" />
                       <a href="/portal/catalog" target="_blank" rel="noreferrer" className="hover:text-brand-blue underline">Customer portal catalog</a>
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <ExternalLink className="w-3 h-3 text-gray-400" />
+                      <ExternalLink className="w-3 h-3 text-muted-foreground/70" />
                       <a href="/" target="_blank" rel="noreferrer" className="hover:text-brand-blue underline">Marketing / audit recommendations</a>
                     </li>
                   </ul>
                 </Card>
 
                 <Card className="p-4 space-y-1.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Last edited</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Last edited</h3>
                   {hasPendingDraft ? (
                     <>
-                      <p className="text-[11px] text-gray-600">
+                      <p className="text-[11px] text-muted-foreground">
                         Draft by <span className="font-medium">{draft?.created_by_email ?? "—"}</span>
                       </p>
-                      <p className="text-[11px] text-gray-500">
+                      <p className="text-[11px] text-muted-foreground">
                         {draft?.updated_at ? new Date(draft.updated_at).toLocaleString() : "—"}
                       </p>
                     </>
                   ) : (
-                    <p className="text-[11px] text-gray-500 italic">No pending draft.</p>
+                    <p className="text-[11px] text-muted-foreground italic">No pending draft.</p>
                   )}
                 </Card>
               </aside>
@@ -1095,13 +1095,13 @@ function SmartBackNav({ productName }: { productName: string }) {
       <button
         type="button"
         onClick={handleBack}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         data-testid="back-button"
       >
         <ChevronLeft className="w-4 h-4" />
         <span>Back</span>
       </button>
-      <nav aria-label="Breadcrumb" className="text-xs text-gray-500">
+      <nav aria-label="Breadcrumb" className="text-xs text-muted-foreground">
         <ol className="flex items-center gap-1 flex-wrap">
           <li>
             <button
@@ -1113,7 +1113,7 @@ function SmartBackNav({ productName }: { productName: string }) {
               Admin
             </button>
           </li>
-          <li aria-hidden="true" className="text-gray-300">/</li>
+          <li aria-hidden="true" className="text-muted-foreground/50">/</li>
           <li>
             <button
               type="button"
@@ -1124,8 +1124,8 @@ function SmartBackNav({ productName }: { productName: string }) {
               Catalog
             </button>
           </li>
-          <li aria-hidden="true" className="text-gray-300">/</li>
-          <li className="text-gray-700 font-medium truncate max-w-[200px]" aria-current="page">
+          <li aria-hidden="true" className="text-muted-foreground/50">/</li>
+          <li className="text-foreground font-medium truncate max-w-[200px]" aria-current="page">
             {productName}
           </li>
         </ol>
@@ -1137,7 +1137,7 @@ function SmartBackNav({ productName }: { productName: string }) {
 function Field({ label, children, testid }: { label: string; children: React.ReactNode; testid?: string }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-medium text-gray-600 mb-1">{label}</span>
+      <span className="block text-[11px] font-medium text-muted-foreground mb-1">{label}</span>
       {children}
     </label>
   );
@@ -1217,7 +1217,7 @@ function FeaturesEditor({ features, onChange, placeholder, testid, minRows = 6 }
         className="resize-none overflow-hidden"
         data-testid={testid}
       />
-      <p className="text-[10px] text-gray-400 flex items-center gap-2">
+      <p className="text-[10px] text-muted-foreground/70 flex items-center gap-2">
         <span>
           {bulletCount} bullet{bulletCount === 1 ? "" : "s"} · {lineCount}/{FEATURE_MAX_LINES} lines · {FEATURE_MAX_CHARS_PER_LINE} chars/line
         </span>
@@ -1305,10 +1305,10 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
     <Card className="p-5 space-y-3" data-testid="suppliers-panel">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Factory className="w-4 h-4 text-gray-500" />
+          <Factory className="w-4 h-4 text-muted-foreground" />
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Suppliers</h2>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <h2 className="text-sm font-semibold text-foreground">Suppliers</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Who fulfills this product. Changes take effect immediately.
               Manage supplier records on <a href="/admin/crm/suppliers" className="text-brand-blue underline">Suppliers</a>.
             </p>
@@ -1317,13 +1317,13 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
       </div>
 
       {isLoading && (
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
           <Loader2 className="w-3 h-3 animate-spin" /> Loading suppliers...
         </div>
       )}
 
       {data && data.assigned.length === 0 && (
-        <p className="text-xs text-gray-400 italic">No suppliers assigned to {serviceName} yet.</p>
+        <p className="text-xs text-muted-foreground/70 italic">No suppliers assigned to {serviceName} yet.</p>
       )}
 
       {data && data.assigned.length > 0 && (
@@ -1335,13 +1335,13 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
             return (
             <li
               key={s.id}
-              className="px-3 py-2 rounded-md border border-gray-200 bg-white"
+              className="px-3 py-2 rounded-md border border-border bg-card"
               data-testid={`supplier-row-${s.id}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate">{s.name}</p>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-sm font-medium text-foreground truncate">{s.name}</p>
+                  <p className="text-[11px] text-muted-foreground">
                     {s.type}
                     {effectiveCostCents != null && (
                       <> · {(effectiveCostCents / 100).toFixed(2)} {currency}
@@ -1358,7 +1358,7 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
                       setEditingCost(editingCost === s.id ? null : s.id);
                       setCostInput(overrideEntry ? String(overrideEntry.cost_cents) : "");
                     }}
-                    className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+                    className="p-1.5 rounded hover:bg-muted text-muted-foreground"
                     aria-label="Edit per-service cost"
                     title="Edit per-service cost"
                     data-testid={`supplier-edit-cost-${s.id}`}
@@ -1384,8 +1384,8 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
 
               {/* Q28h: inline cost override editor */}
               {editingCost === s.id && (
-                <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2" data-testid={`supplier-cost-editor-${s.id}`}>
-                  <span className="text-[11px] text-gray-500 shrink-0">Cost ({currency}, cents):</span>
+                <div className="mt-2 pt-2 border-t border-border flex items-center gap-2" data-testid={`supplier-cost-editor-${s.id}`}>
+                  <span className="text-[11px] text-muted-foreground shrink-0">Cost ({currency}, cents):</span>
                   <Input
                     type="number"
                     min={0}
@@ -1447,7 +1447,7 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
           <select
             value={selectedSupplier}
             onChange={(e) => setSelectedSupplier(e.target.value)}
-            className="h-9 flex-1 px-2 text-sm border border-gray-200 rounded-md bg-white"
+            className="h-9 flex-1 px-2 text-sm border border-border rounded-md bg-card"
             data-testid="supplier-select"
           >
             <option value="">Assign existing supplier…</option>
@@ -1549,12 +1549,12 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
     <Card className="p-5 space-y-3" data-testid="subscribers-panel">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-gray-500" />
+          <Users className="w-4 h-4 text-muted-foreground" />
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">
-              Subscribers <span className="text-gray-400 font-normal">({active.length} active{cancelled.length ? ` · ${cancelled.length} cancelled` : ""})</span>
+            <h2 className="text-sm font-semibold text-foreground">
+              Subscribers <span className="text-muted-foreground/70 font-normal">({active.length} active{cancelled.length ? ` · ${cancelled.length} cancelled` : ""})</span>
             </h2>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Clients with this product. Toggle enabled to pause without cancelling.
             </p>
           </div>
@@ -1562,13 +1562,13 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
       </div>
 
       {isLoading && (
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
           <Loader2 className="w-3 h-3 animate-spin" /> Loading subscribers...
         </div>
       )}
 
       {!isLoading && subs.length === 0 && (
-        <p className="text-xs text-gray-400 italic">No subscribers yet for {serviceName}.</p>
+        <p className="text-xs text-muted-foreground/70 italic">No subscribers yet for {serviceName}.</p>
       )}
 
       {active.length > 0 && (
@@ -1576,16 +1576,16 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
           {active.map((s) => (
             <li
               key={s.id}
-              className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-200 bg-white"
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-border bg-card"
               data-testid={`subscriber-row-${s.id}`}
             >
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-foreground truncate">
                   <a href={`/admin/crm/clients/${s.client_id}`} className="hover:text-brand-blue hover:underline">
                     {s.client_name}
                   </a>
                 </p>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-[11px] text-muted-foreground">
                   {s.status}
                   {!s.enabled && " · paused"}
                   {s.price_cents != null && ` · $${(s.price_cents / 100).toFixed(2)}${s.billing_period === "monthly" ? "/mo" : ""}`}
@@ -1625,12 +1625,12 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
 
       {cancelled.length > 0 && (
         <details className="text-xs">
-          <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
             {cancelled.length} cancelled subscription{cancelled.length === 1 ? "" : "s"}
           </summary>
           <ul className="mt-2 space-y-1">
             {cancelled.map((s) => (
-              <li key={s.id} className="px-3 py-1.5 text-[11px] text-gray-500 bg-gray-50 rounded">
+              <li key={s.id} className="px-3 py-1.5 text-[11px] text-muted-foreground bg-muted/50 rounded">
                 <a href={`/admin/crm/clients/${s.client_id}`} className="hover:text-brand-blue hover:underline">
                   {s.client_name}
                 </a>
@@ -1693,15 +1693,15 @@ function EngineConfigCard({
     <Card className="p-5 space-y-4" data-testid="engine-config-card">
       <div className="flex items-center gap-2">
         <Settings className="w-4 h-4 text-brand-blue" />
-        <h2 className="text-sm font-semibold text-gray-900">Engine config</h2>
+        <h2 className="text-sm font-semibold text-foreground">Engine config</h2>
       </div>
-      <p className="text-[11px] text-gray-500 -mt-2">
+      <p className="text-[11px] text-muted-foreground -mt-2">
         Internal operational toggles. Changes save immediately and bypass the draft → publish flow.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Field label="Delivery enabled">
-          <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+          <label className="inline-flex items-center gap-2 h-9 text-xs text-foreground">
             <input
               type="checkbox"
               checked={form.delivery_enabled ?? true}
@@ -1713,7 +1713,7 @@ function EngineConfigCard({
           </label>
         </Field>
         <Field label="Auto-handle inbound">
-          <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+          <label className="inline-flex items-center gap-2 h-9 text-xs text-foreground">
             <input
               type="checkbox"
               checked={form.auto_handle_inbound ?? false}
@@ -1729,7 +1729,7 @@ function EngineConfigCard({
       <Field label="Visibility scope">
         <div className="flex flex-wrap items-center gap-3 pt-1" data-testid="engine-visibility-scope">
           {(["internal", "customer_facing", "both"] as const).map((opt) => (
-            <label key={opt} className="inline-flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+            <label key={opt} className="inline-flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
               <input
                 type="radio"
                 name={`visibility-scope-${serviceId}`}
@@ -1770,8 +1770,8 @@ function EngineConfigCard({
         >
           {save.isPending ? "Saving..." : "Save engine config"}
         </Button>
-        {!dirty && <span className="text-xs text-gray-400">No changes</span>}
-        {dirty && <span className="text-xs text-gray-500">Unsaved changes</span>}
+        {!dirty && <span className="text-xs text-muted-foreground/70">No changes</span>}
+        {dirty && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
       </div>
     </Card>
   );

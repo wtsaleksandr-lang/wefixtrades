@@ -101,7 +101,7 @@ function ExpandedRow({ log }: { log: JobLog }) {
   // SystemJobsPage is light-theme locked (admin UI) — see CONTRAST-2.
   return (
     <tr data-theme="light">
-      <td colSpan={6} className="px-4 py-3 bg-gray-50 border-b">
+      <td colSpan={6} className="px-4 py-3 bg-muted/50 border-b">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           {log.error_message && (
             <div>
@@ -113,14 +113,14 @@ function ExpandedRow({ log }: { log: JobLog }) {
           )}
           {log.metadata && (
             <div>
-              <p className="font-medium text-gray-700 mb-1">Metadata</p>
-              <pre className="text-xs bg-white border rounded p-2 whitespace-pre-wrap max-h-40 overflow-auto">
+              <p className="font-medium text-foreground mb-1">Metadata</p>
+              <pre className="text-xs bg-card border rounded p-2 whitespace-pre-wrap max-h-40 overflow-auto">
                 {JSON.stringify(log.metadata, null, 2)}
               </pre>
             </div>
           )}
           {!log.error_message && !log.metadata && (
-            <p className="text-gray-400 italic">No additional details</p>
+            <p className="text-muted-foreground/70 italic">No additional details</p>
           )}
         </div>
       </td>
@@ -195,8 +195,8 @@ export default function SystemJobsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Job Logs</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Monitor background job runs and failures</p>
+            <h1 className="text-xl font-bold text-foreground">Job Logs</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Monitor background job runs and failures</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -205,7 +205,7 @@ export default function SystemJobsPage() {
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
                 autoRefresh
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  : "bg-card text-muted-foreground border-border hover:bg-muted/50"
               )}
             >
               <RefreshCw className={cn("w-3.5 h-3.5", autoRefresh && "animate-spin")} />
@@ -213,7 +213,7 @@ export default function SystemJobsPage() {
             </button>
             <button
               onClick={() => { refetchJobs(); refetchSummary(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-card text-muted-foreground border border-border hover:bg-muted/50"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Refresh
@@ -224,60 +224,60 @@ export default function SystemJobsPage() {
         {/* Summary cards */}
         {summary && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Activity className="w-4 h-4 text-blue-500" />
-                <span className="text-xs font-medium text-gray-500 uppercase">Runs Today</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase">Runs Today</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{summary.overall.total_runs_today}</p>
+              <p className="text-2xl font-bold text-foreground">{summary.overall.total_runs_today}</p>
             </div>
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center gap-2 mb-1">
                 <AlertTriangle className="w-4 h-4 text-red-500" />
-                <span className="text-xs font-medium text-gray-500 uppercase">Failures Today</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase">Failures Today</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{summary.overall.failures_today}</p>
+              <p className="text-2xl font-bold text-foreground">{summary.overall.failures_today}</p>
             </div>
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Timer className="w-4 h-4 text-amber-500" />
-                <span className="text-xs font-medium text-gray-500 uppercase">Longest Job</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase">Longest Job</span>
               </div>
-              <p className="text-lg font-bold text-gray-900">
+              <p className="text-lg font-bold text-foreground">
                 {summary.overall.longest_job
                   ? formatSeconds(summary.overall.longest_job.duration_seconds)
                   : "-"}
               </p>
               {summary.overall.longest_job && (
-                <p className="text-xs text-gray-400 truncate">{summary.overall.longest_job.job_name}</p>
+                <p className="text-xs text-muted-foreground/70 truncate">{summary.overall.longest_job.job_name}</p>
               )}
             </div>
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center gap-2 mb-1">
                 <XCircle className="w-4 h-4 text-red-500" />
-                <span className="text-xs font-medium text-gray-500 uppercase">Most Failures</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase">Most Failures</span>
               </div>
-              <p className="text-lg font-bold text-gray-900">
+              <p className="text-lg font-bold text-foreground">
                 {summary.overall.most_failures
                   ? `${summary.overall.most_failures.failure_count}x`
                   : "-"}
               </p>
               {summary.overall.most_failures && (
-                <p className="text-xs text-gray-400 truncate">{summary.overall.most_failures.job_name}</p>
+                <p className="text-xs text-muted-foreground/70 truncate">{summary.overall.most_failures.job_name}</p>
               )}
             </div>
           </div>
         )}
 
         {/* Filters */}
-        <div className="bg-white rounded-lg border p-4">
+        <div className="bg-card rounded-lg border p-4">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Job Name</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Job Name</label>
               <select
                 value={jobName}
                 onChange={(e) => { setJobName(e.target.value); setOffset(0); }}
-                className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white min-w-[180px]"
+                className="h-9 px-3 rounded-md border border-border text-sm bg-card min-w-[180px]"
               >
                 <option value="">All Jobs</option>
                 {jobsData?.job_names.map((name) => (
@@ -286,11 +286,11 @@ export default function SystemJobsPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Status</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
               <select
                 value={status}
                 onChange={(e) => { setStatus(e.target.value); setOffset(0); }}
-                className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white min-w-[120px]"
+                className="h-9 px-3 rounded-md border border-border text-sm bg-card min-w-[120px]"
               >
                 <option value="">All</option>
                 <option value="running">Running</option>
@@ -299,27 +299,27 @@ export default function SystemJobsPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">From</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">From</label>
               <input
                 type="date"
                 value={fromDate}
                 onChange={(e) => { setFromDate(e.target.value); setOffset(0); }}
-                className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white"
+                className="h-9 px-3 rounded-md border border-border text-sm bg-card"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">To</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">To</label>
               <input
                 type="date"
                 value={toDate}
                 onChange={(e) => { setToDate(e.target.value); setOffset(0); }}
-                className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white"
+                className="h-9 px-3 rounded-md border border-border text-sm bg-card"
               />
             </div>
             {(jobName || status || fromDate || toDate) && (
               <button
                 onClick={() => { setJobName(""); setStatus(""); setFromDate(""); setToDate(""); setOffset(0); }}
-                className="h-9 px-3 rounded-md text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                className="h-9 px-3 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
               >
                 Clear
               </button>
@@ -343,9 +343,9 @@ export default function SystemJobsPage() {
         )}
 
         {/* Table */}
-        <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="bg-card rounded-lg border overflow-hidden">
           {jobsLoading ? (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-border">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="px-4 py-3 flex items-center gap-4">
                   <Skeleton className="h-3.5 w-3.5 rounded" />
@@ -361,53 +361,53 @@ export default function SystemJobsPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-muted/50 border-b">
                     <tr>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 w-8"></th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">Job Name</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">Status</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">Started</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">Duration</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">Error / Metadata</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-8"></th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Job Name</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Started</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Duration</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Error / Metadata</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-border">
                     {jobsData?.data.map((log) => {
                       const expanded = expandedId === log.id;
                       const Icon = STATUS_ICON[log.status] || Clock;
                       return (
                         <Fragment key={log.id}>
                           <tr
-                            className="hover:bg-gray-50 cursor-pointer"
+                            className="hover:bg-muted/50 cursor-pointer"
                             onClick={() => setExpandedId(expanded ? null : log.id)}
                           >
                             <td className="px-4 py-2.5">
                               {expanded
-                                ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
-                                : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+                                ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/70" />
+                                : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/70" />}
                             </td>
-                            <td className="px-4 py-2.5 font-mono text-xs text-gray-800">{log.job_name}</td>
+                            <td className="px-4 py-2.5 font-mono text-xs text-foreground">{log.job_name}</td>
                             <td className="px-4 py-2.5">
                               <span className={cn(
                                 "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                                STATUS_STYLES[log.status] || "bg-gray-100 text-gray-600"
+                                STATUS_STYLES[log.status] || "bg-muted text-muted-foreground"
                               )}>
                                 <Icon className="w-3 h-3" />
                                 {log.status}
                               </span>
                             </td>
-                            <td className="px-4 py-2.5 text-xs text-gray-500">
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">
                               {log.started_at ? formatRelativeTime(log.started_at) : "-"}
                             </td>
-                            <td className="px-4 py-2.5 text-xs text-gray-500">
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">
                               {formatDuration(log.started_at, log.finished_at)}
                             </td>
-                            <td className="px-4 py-2.5 text-xs text-gray-500 max-w-[300px] truncate">
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[300px] truncate">
                               {log.error_message
                                 ? <span className="text-red-600">{log.error_message.slice(0, 80)}</span>
                                 : log.metadata
-                                  ? <span className="text-gray-400">{JSON.stringify(log.metadata).slice(0, 80)}</span>
-                                  : <span className="text-gray-300">-</span>}
+                                  ? <span className="text-muted-foreground/70">{JSON.stringify(log.metadata).slice(0, 80)}</span>
+                                  : <span className="text-muted-foreground/50">-</span>}
                             </td>
                           </tr>
                           {expanded && <ExpandedRow log={log} />}
@@ -416,7 +416,7 @@ export default function SystemJobsPage() {
                     })}
                     {jobsData?.data.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                        <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground/70">
                           No job logs found
                         </td>
                       </tr>
@@ -427,25 +427,25 @@ export default function SystemJobsPage() {
 
               {/* Pagination */}
               {jobsData && jobsData.total > limit && (
-                <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-                  <p className="text-xs text-gray-500">
+                <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/50">
+                  <p className="text-xs text-muted-foreground">
                     Showing {offset + 1}-{Math.min(offset + limit, jobsData.total)} of {jobsData.total}
                   </p>
                   <div className="flex items-center gap-1">
                     <button
                       disabled={offset === 0}
                       onClick={() => setOffset(Math.max(0, offset - limit))}
-                      className="px-3 py-1 rounded text-xs font-medium border bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1 rounded text-xs font-medium border bg-card text-muted-foreground hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Previous
                     </button>
-                    <span className="text-xs text-gray-500 px-2">
+                    <span className="text-xs text-muted-foreground px-2">
                       Page {currentPage} of {totalPages}
                     </span>
                     <button
                       disabled={offset + limit >= jobsData.total}
                       onClick={() => setOffset(offset + limit)}
-                      className="px-3 py-1 rounded text-xs font-medium border bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1 rounded text-xs font-medium border bg-card text-muted-foreground hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Next
                     </button>

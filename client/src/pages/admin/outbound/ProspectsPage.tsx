@@ -67,7 +67,7 @@ interface ProspectRow {
 
 /* ─── Status badge ─── */
 const STATUS_COLORS: Record<string, string> = {
-  new: "bg-gray-100 text-gray-700",
+  new: "bg-muted text-foreground",
   enriched: "bg-blue-100 text-blue-700",
   approved: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-600",
@@ -75,19 +75,19 @@ const STATUS_COLORS: Record<string, string> = {
   campaign_queued: "bg-brand-blue-100 text-brand-blue-700",
   in_outreach: "bg-brand-blue-100 text-brand-blue-700",
   replied: "bg-amber-100 text-amber-700",
-  lost: "bg-gray-200 text-gray-600",
+  lost: "bg-muted text-muted-foreground",
 };
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span data-theme="light" className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${STATUS_COLORS[status] ?? "bg-gray-100 text-gray-600"}`}>
+    <span data-theme="light" className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${STATUS_COLORS[status] ?? "bg-muted text-muted-foreground"}`}>
       {status.replace("_", " ")}
     </span>
   );
 }
 
 function ScoreBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-xs text-gray-400">—</span>;
+  if (score === null) return <span className="text-xs text-muted-foreground/70">—</span>;
   const color = score >= 70 ? "text-green-600" : score >= 45 ? "text-amber-600" : "text-red-500";
   return <span className={`text-sm font-bold ${color}`}>{score}</span>;
 }
@@ -165,29 +165,29 @@ function ScrapeLeadsDialog({ open, onClose }: { open: boolean; onClose: () => vo
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                  <HelpCircle className="w-3 h-3 text-muted-foreground/70" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[260px] text-xs">
                   The trade keyword used in the Google Maps search (e.g. "plumber in Toronto, ON, CA").
                 </TooltipContent>
               </Tooltip>
-              <label className="text-xs font-medium text-gray-700">Trade</label>
+              <label className="text-xs font-medium text-foreground">Trade</label>
             </div>
             <Input value={form.trade} onChange={(e) => setForm((f) => ({ ...f, trade: e.target.value }))} placeholder="plumber" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-700">City</label>
+              <label className="text-xs font-medium text-foreground">City</label>
               <Input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} placeholder="Toronto" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-700">State / Province</label>
+              <label className="text-xs font-medium text-foreground">State / Province</label>
               <Input value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} placeholder="ON" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-700">Country</label>
+              <label className="text-xs font-medium text-foreground">Country</label>
               <Select value={form.country} onValueChange={(v) => setForm((f) => ({ ...f, country: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -202,13 +202,13 @@ function ScrapeLeadsDialog({ open, onClose }: { open: boolean; onClose: () => vo
               <div className="flex items-center gap-1">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <HelpCircle className="w-3 h-3 text-gray-400" />
+                    <HelpCircle className="w-3 h-3 text-muted-foreground/70" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-[260px] text-xs">
                     Max leads to fetch. Outscraper credits are consumed per lead — keep small for testing.
                   </TooltipContent>
                 </Tooltip>
-                <label className="text-xs font-medium text-gray-700">Limit</label>
+                <label className="text-xs font-medium text-foreground">Limit</label>
               </div>
               <Input
                 type="number"
@@ -219,7 +219,7 @@ function ScrapeLeadsDialog({ open, onClose }: { open: boolean; onClose: () => vo
               />
             </div>
           </div>
-          <p className="text-[11px] text-gray-500">
+          <p className="text-[11px] text-muted-foreground">
             Rate limited to 5 scrapes per hour per admin. Results are deduped, blacklisted prospects skipped, and heuristics run automatically.
           </p>
         </div>
@@ -278,11 +278,11 @@ function CsvUploadDialog({ open, onClose }: { open: boolean; onClose: () => void
         <DialogHeader><DialogTitle>Import Outscraper CSV</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600">Filename (optional)</label>
+            <label className="text-xs font-medium text-muted-foreground">Filename (optional)</label>
             <Input value={filename} onChange={(e) => setFilename(e.target.value)} placeholder="outscraper-plumbers-miami.csv" />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">CSV Data (paste content)</label>
+            <label className="text-xs font-medium text-muted-foreground">CSV Data (paste content)</label>
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -291,7 +291,7 @@ function CsvUploadDialog({ open, onClose }: { open: boolean; onClose: () => void
               placeholder={"name,email,phone,site,city,state,rating,reviews,category\nABC Plumbing,owner@abcplumbing.com,555-1234,abcplumbing.com,Miami,FL,4.8,47,plumber"}
             />
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Outscraper columns auto-mapped: name, email, phone, site/website, city, state, rating, reviews, category, place_id, full_address, owner, country.
           </p>
         </div>
@@ -349,7 +349,7 @@ function ReviewDialog({
         <DialogHeader><DialogTitle>Review: {prospect.business_name}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600">Action</label>
+            <label className="text-xs font-medium text-muted-foreground">Action</label>
             <Select value={action} onValueChange={(v) => setAction(v as typeof action)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -361,7 +361,7 @@ function ReviewDialog({
             </Select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Notes (optional)</label>
+            <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Reason or notes..." />
           </div>
         </div>
@@ -438,8 +438,8 @@ export default function ProspectsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Lead Review Queue</h2>
-            <p className="text-sm text-gray-500">{overview?.total_prospects ?? 0} total prospects</p>
+            <h2 className="text-lg font-semibold text-foreground">Lead Review Queue</h2>
+            <p className="text-sm text-muted-foreground">{overview?.total_prospects ?? 0} total prospects</p>
           </div>
           <div className="flex gap-2">
             {selected.length > 0 && (
@@ -468,21 +468,21 @@ export default function ProspectsPage() {
         {/* Stats strip */}
         <div className="grid grid-cols-5 gap-3">
           {[
-            { label: "New", value: overview?.new, color: "text-gray-700" },
+            { label: "New", value: overview?.new, color: "text-foreground" },
             { label: "Enriched", value: overview?.enriched, color: "text-blue-600" },
             { label: "Approved", value: overview?.approved, color: "text-green-600" },
             { label: "In Outreach", value: overview?.in_outreach, color: "text-brand-blue-600" },
             { label: "Replied", value: overview?.replied, color: "text-amber-600" },
           ].map((s) => (
-            <div key={s.label} className="bg-white rounded-lg border border-gray-200 p-3">
+            <div key={s.label} className="bg-card rounded-lg border border-border p-3">
               <p className={`text-xl font-bold ${s.color}`}>{s.value ?? 0}</p>
-              <p className="text-xs text-gray-500">{s.label}</p>
+              <p className="text-xs text-muted-foreground">{s.label}</p>
             </div>
           ))}
         </div>
 
         {/* Filters */}
-        <div className="flex gap-2 bg-white p-3 rounded-lg border border-gray-200">
+        <div className="flex gap-2 bg-card p-3 rounded-lg border border-border">
           <Input
             placeholder="Search name, email, domain..."
             value={search}
@@ -505,31 +505,31 @@ export default function ProspectsPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
           {isLoading ? (
-            <div className="p-8 text-center text-sm text-gray-500">Loading prospects...</div>
+            <div className="p-8 text-center text-sm text-muted-foreground">Loading prospects...</div>
           ) : rows.length === 0 ? (
-            <div className="p-8 text-center text-sm text-gray-500">
+            <div className="p-8 text-center text-sm text-muted-foreground">
               No prospects found.{" "}
               <button onClick={() => setCsvOpen(true)} className="text-[#0d3cfc] underline">Import a CSV</button> to get started.
             </div>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="w-8 px-3 py-2.5 text-left">
                     <input type="checkbox" className="rounded" onChange={(e) => {
                       setSelected(e.target.checked ? rows.map((r) => r.prospect.id) : []);
                     }} checked={selected.length === rows.length && rows.length > 0} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Business</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Contact</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Trade / City</th>
-                  <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500">
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Business</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Contact</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Trade / City</th>
+                  <th className="px-3 py-2.5 text-center text-xs font-medium text-muted-foreground">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="inline-flex items-center gap-0.5 cursor-default">
-                          Score <HelpCircle className="w-3 h-3 text-gray-400" />
+                          Score <HelpCircle className="w-3 h-3 text-muted-foreground/70" />
                         </span>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-[220px] text-xs">
@@ -537,11 +537,11 @@ export default function ProspectsPage() {
                       </TooltipContent>
                     </Tooltip>
                   </th>
-                  <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 hidden lg:table-cell">
+                  <th className="px-3 py-2.5 text-center text-xs font-medium text-muted-foreground hidden lg:table-cell">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="inline-flex items-center gap-0.5 cursor-default">
-                          Priority <HelpCircle className="w-3 h-3 text-gray-400" />
+                          Priority <HelpCircle className="w-3 h-3 text-muted-foreground/70" />
                         </span>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-[240px] text-xs">
@@ -549,14 +549,14 @@ export default function ProspectsPage() {
                       </TooltipContent>
                     </Tooltip>
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Status</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">AI Notes</th>
-                  <th className="px-3 py-2.5 text-right text-xs font-medium text-gray-500">Actions</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">AI Notes</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {rows.map(({ prospect: p, enrichment: e }) => (
-                  <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${selected.includes(p.id) ? "bg-green-50" : ""}`}>
+                  <tr key={p.id} className={`hover:bg-muted/50 transition-colors ${selected.includes(p.id) ? "bg-green-50" : ""}`}>
                     <td className="px-3 py-2.5">
                       <input
                         type="checkbox"
@@ -566,7 +566,7 @@ export default function ProspectsPage() {
                       />
                     </td>
                     <td className="px-3 py-2.5">
-                      <p className="font-medium text-gray-900 max-w-[180px] truncate">{p.business_name}</p>
+                      <p className="font-medium text-foreground max-w-[180px] truncate">{p.business_name}</p>
                       {p.website_domain && (
                         <a
                           href={`https://${p.website_domain}`}
@@ -578,19 +578,19 @@ export default function ProspectsPage() {
                         </a>
                       )}
                       {p.google_rating && (
-                        <span className="text-xs text-gray-400 flex items-center gap-0.5">
+                        <span className="text-xs text-muted-foreground/70 flex items-center gap-0.5">
                           <Star className="w-3 h-3 text-amber-400" />
                           {p.google_rating} ({p.google_review_count ?? 0})
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-xs text-gray-600">
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">
                       {p.primary_email && <div className="flex items-center gap-1"><Mail className="w-3 h-3" /><span className="truncate max-w-[160px]">{p.primary_email}</span></div>}
                       {p.primary_phone && <div className="flex items-center gap-1"><Phone className="w-3 h-3" />{p.primary_phone}</div>}
                     </td>
-                    <td className="px-3 py-2.5 text-xs text-gray-600">
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">
                       <p className="capitalize">{p.trade_category || "—"}</p>
-                      <p className="text-gray-400">{[p.city, p.state].filter(Boolean).join(", ")}</p>
+                      <p className="text-muted-foreground/70">{[p.city, p.state].filter(Boolean).join(", ")}</p>
                     </td>
                     <td className="px-3 py-2.5 text-center">
                       <ScoreBadge score={e?.quality_score ?? null} />
@@ -602,7 +602,7 @@ export default function ProspectsPage() {
                           <span className="text-xs font-semibold text-amber-600">{p.priority_score}</span>
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-muted-foreground/70">—</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5">
@@ -610,11 +610,11 @@ export default function ProspectsPage() {
                     </td>
                     <td className="px-3 py-2.5 max-w-[220px]">
                       {e?.ai_notes ? (
-                        <p className="text-xs text-gray-500 line-clamp-2">{e.ai_notes}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{e.ai_notes}</p>
                       ) : e?.enrichment_source === "heuristic" ? (
-                        <span className="text-xs text-gray-400">No AI yet · run AI Enrich ↑</span>
+                        <span className="text-xs text-muted-foreground/70">No AI yet · run AI Enrich ↑</span>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-muted-foreground/70">—</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-right">

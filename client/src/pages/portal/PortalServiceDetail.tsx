@@ -156,9 +156,9 @@ function CallIcon({ outcome }: { outcome: string }) {
     case "missed":
       return <PhoneMissed className="w-4 h-4 text-red-500" />;
     case "failed":
-      return <PhoneOff className="w-4 h-4 text-gray-400" />;
+      return <PhoneOff className="w-4 h-4 text-muted-foreground/70" />;
     default:
-      return <PhoneCall className="w-4 h-4 text-gray-400" />;
+      return <PhoneCall className="w-4 h-4 text-muted-foreground/70" />;
   }
 }
 
@@ -173,9 +173,9 @@ function TaskIcon({ status }: { status: string }) {
     case "blocked":
       return <AlertCircle className="w-4 h-4 text-amber-500" />;
     case "cancelled":
-      return <Circle className="w-4 h-4 text-gray-300" />;
+      return <Circle className="w-4 h-4 text-muted-foreground/50" />;
     default:
-      return <Circle className="w-4 h-4 text-gray-300" />;
+      return <Circle className="w-4 h-4 text-muted-foreground/50" />;
   }
 }
 
@@ -327,26 +327,26 @@ function VoiceAndStyleCard({
   });
 
   return (
-    <div className="bg-card rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex items-center justify-between w-full px-5 py-4 text-left"
       >
         <div className="flex items-center gap-2">
           <Mic className="w-4 h-4 text-blue-600" />
-          <h2 className="text-sm font-semibold text-gray-900">Voice & Style</h2>
-          <span className="text-xs text-gray-400">
+          <h2 className="text-sm font-semibold text-foreground">Voice & Style</h2>
+          <span className="text-xs text-muted-foreground/70">
             {VOICE_PRESETS.find(v => v.id === voicePresetId)?.label} · {TONE_OPTIONS.find(t => t.value === tone)?.label}
           </span>
         </div>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-4 h-4 text-muted-foreground/70 transition-transform ${expanded ? "rotate-180" : ""}`} />
       </button>
 
       {expanded && (
-        <div className="px-5 pb-4 space-y-3.5 border-t border-gray-100 pt-3">
+        <div className="px-5 pb-4 space-y-3.5 border-t border-border pt-3">
           {/* Voice preset */}
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1.5 block">Voice</label>
+            <label className="text-xs font-medium text-foreground mb-1.5 block">Voice</label>
             <div className="grid grid-cols-2 gap-1.5">
               {VOICE_PRESETS.map((v) => (
                 <button
@@ -356,11 +356,11 @@ function VoiceAndStyleCard({
                   className={`text-left px-2.5 py-2 rounded-lg border text-sm transition-colors ${
                     voicePresetId === v.id
                       ? "border-blue-500 bg-blue-50 text-blue-900"
-                      : "border-gray-200 hover:border-gray-300 text-gray-700"
+                      : "border-border hover:border-input text-foreground"
                   }`}
                 >
                   <span className="font-medium">{v.label}</span>
-                  <span className="text-[11px] text-gray-400 ml-1">{v.desc}</span>
+                  <span className="text-[11px] text-muted-foreground/70 ml-1">{v.desc}</span>
                 </button>
               ))}
             </div>
@@ -369,7 +369,7 @@ function VoiceAndStyleCard({
           {/* Tone + Language (side by side) */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Tone</label>
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Tone</label>
               <div className="flex gap-1">
                 {TONE_OPTIONS.map((t) => (
                   <button
@@ -379,7 +379,7 @@ function VoiceAndStyleCard({
                     className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
                       tone === t.value
                         ? "border-blue-500 bg-blue-50 text-blue-900 font-medium"
-                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                        : "border-border hover:border-input text-muted-foreground"
                     }`}
                   >
                     {t.label}
@@ -388,7 +388,7 @@ function VoiceAndStyleCard({
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Language</label>
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Language</label>
               <div className="flex gap-1">
                 {LANGUAGE_OPTIONS.map((l) => (
                   <button
@@ -398,7 +398,7 @@ function VoiceAndStyleCard({
                     className={`px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
                       language === l.value
                         ? "border-blue-500 bg-blue-50 text-blue-900 font-medium"
-                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                        : "border-border hover:border-input text-muted-foreground"
                     }`}
                   >
                     {l.label}
@@ -415,8 +415,8 @@ function VoiceAndStyleCard({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-xs font-medium text-gray-700">Light humor</label>
-                <p className="text-[10px] text-gray-400">Subtle warmth only</p>
+                <label className="text-xs font-medium text-foreground">Light humor</label>
+                <p className="text-[10px] text-muted-foreground/70">Subtle warmth only</p>
               </div>
               <Switch
                 checked={humor === "light"}
@@ -424,7 +424,7 @@ function VoiceAndStyleCard({
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1.5 block">Widget Style</label>
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Widget Style</label>
               <div className="flex gap-1">
                 {WIDGET_PRESETS.map((w) => (
                   <button
@@ -434,7 +434,7 @@ function VoiceAndStyleCard({
                     className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
                       widgetPreset === w.value
                         ? "border-blue-500 bg-blue-50 text-blue-900 font-medium"
-                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                        : "border-border hover:border-input text-muted-foreground"
                     }`}
                   >
                     {w.label}
@@ -446,7 +446,7 @@ function VoiceAndStyleCard({
 
           {/* Bubble label */}
           <div className="flex items-center gap-3">
-            <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Bubble text</label>
+            <label className="text-xs font-medium text-foreground whitespace-nowrap">Bubble text</label>
             <Input
               value={bubbleLabel}
               onChange={(e) => setBubbleLabel(e.target.value)}
@@ -623,20 +623,20 @@ export default function PortalServiceDetail() {
         className="max-w-4xl space-y-6"
       >
         {/* Back link */}
-        <Link href="/portal/services" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+        <Link href="/portal/services" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
         </Link>
 
         {isLoading && (
           <div className="flex items-center justify-center h-48">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/70" />
           </div>
         )}
 
         {error && (
           <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
             <span>We couldn't load this service. It may have been removed, or there's a brief hiccup — try again.</span>
-            <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+            <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-card border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
               <RefreshCw className="w-3 h-3" /> Try again
             </button>
           </div>
@@ -645,13 +645,13 @@ export default function PortalServiceDetail() {
         {data && (
           <>
             {/* Service header */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="bg-card rounded-xl border border-border p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h1 className="text-lg font-semibold text-gray-900">
+                  <h1 className="text-lg font-semibold text-foreground">
                     {data.service.service_name || data.service.service_id}
                   </h1>
-                  <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                  <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                     {data.service.category && (
                       <span className="capitalize">{data.service.category}</span>
                     )}
@@ -663,7 +663,7 @@ export default function PortalServiceDetail() {
                     )}
                   </div>
                 </div>
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${SERVICE_STATUS_STYLES[data.service.status] || "bg-gray-100 text-gray-600"}`}>
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${SERVICE_STATUS_STYLES[data.service.status] || "bg-muted text-muted-foreground"}`}>
                   {statusLabel(SERVICE_STATUS_LABELS, data.service.status)}
                 </span>
               </div>
@@ -683,8 +683,8 @@ export default function PortalServiceDetail() {
                     <Shield className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">Open your MapGuard dashboard →</p>
-                    <p className="text-xs text-gray-600 mt-0.5">
+                    <p className="text-sm font-semibold text-foreground">Open your MapGuard dashboard →</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       See your visibility score, Google ranking trends, post calendar, and the
                       improvements we've shipped this month.
                     </p>
@@ -706,8 +706,8 @@ export default function PortalServiceDetail() {
                 />
 
                 {/* Mode control */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <h2 className="text-sm font-semibold text-gray-900 mb-3">Current Mode</h2>
+                <div className="bg-card rounded-xl border border-border p-5">
+                  <h2 className="text-sm font-semibold text-foreground mb-3">Current Mode</h2>
                   <ModeToggle
                     currentMode={tlData.config.currentMode as any}
                     clientServiceId={parseInt(serviceId!)}
@@ -717,7 +717,7 @@ export default function PortalServiceDetail() {
                     }}
                   />
                   {tlData.config.channels.voice && (
-                    <p className="text-xs text-gray-400 mt-3 flex items-center gap-1.5">
+                    <p className="text-xs text-muted-foreground/70 mt-3 flex items-center gap-1.5">
                       <PhoneCall className="w-3 h-3" />
                       Your phone rings first. If you miss it, TradeLine steps in.
                     </p>
@@ -747,23 +747,23 @@ export default function PortalServiceDetail() {
 
                 {/* Usage summary */}
                 {tlData.usage && (
-                  <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <h2 className="text-sm font-semibold text-gray-900 mb-3">This Month</h2>
+                  <div className="bg-card rounded-xl border border-border p-5">
+                    <h2 className="text-sm font-semibold text-foreground mb-3">This Month</h2>
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <p className="text-xs text-gray-500">Calls</p>
-                        <p className="text-lg font-semibold text-gray-900">{tlData.usage.calls_count}</p>
+                        <p className="text-xs text-muted-foreground">Calls</p>
+                        <p className="text-lg font-semibold text-foreground">{tlData.usage.calls_count}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Voice Minutes</p>
-                        <p className="text-lg font-semibold text-gray-900">
+                        <p className="text-xs text-muted-foreground">Voice Minutes</p>
+                        <p className="text-lg font-semibold text-foreground">
                           {tlData.usage.voice_minutes_used}
-                          <span className="text-sm font-normal text-gray-400">/{tlData.usage.included_minutes}</span>
+                          <span className="text-sm font-normal text-muted-foreground/70">/{tlData.usage.included_minutes}</span>
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">SMS</p>
-                        <p className="text-lg font-semibold text-gray-900">{tlData.usage.sms_count}</p>
+                        <p className="text-xs text-muted-foreground">SMS</p>
+                        <p className="text-lg font-semibold text-foreground">{tlData.usage.sms_count}</p>
                       </div>
                     </div>
                     {tlData.usage.overage_minutes > 0 && (
@@ -782,12 +782,12 @@ export default function PortalServiceDetail() {
 
                 {/* Widget / hosted info */}
                 {(tlData.config.website.embedMode !== "none" || tlData.config.website.hostedUrl) && (
-                  <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <h2 className="text-sm font-semibold text-gray-900 mb-2">Website Setup</h2>
-                    <div className="space-y-2 text-sm text-gray-600">
+                  <div className="bg-card rounded-xl border border-border p-5">
+                    <h2 className="text-sm font-semibold text-foreground mb-2">Website Setup</h2>
+                    <div className="space-y-2 text-sm text-muted-foreground">
                       {tlData.config.website.embedMode !== "none" && (
                         <div className="flex items-center gap-2">
-                          <Globe className="w-3.5 h-3.5 text-gray-400" />
+                          <Globe className="w-3.5 h-3.5 text-muted-foreground/70" />
                           <span>Install type: <span className="font-medium">{
                             tlData.config.website.embedMode === "direct_embed" ? "Installed on your website"
                             : tlData.config.website.embedMode === "hosted_fallback" ? "Hosted version"
@@ -797,7 +797,7 @@ export default function PortalServiceDetail() {
                       )}
                       {tlData.config.website.hostedUrl && (
                         <div className="flex items-center gap-2">
-                          <Globe className="w-3.5 h-3.5 text-gray-400" />
+                          <Globe className="w-3.5 h-3.5 text-muted-foreground/70" />
                           <a href={tlData.config.website.hostedUrl} target="_blank" rel="noopener noreferrer" className="text-brand-blue hover:underline text-xs truncate">
                             {tlData.config.website.hostedUrl}
                           </a>
@@ -848,18 +848,18 @@ export default function PortalServiceDetail() {
 
             {/* Service-specific: WebFix progress */}
             {isWebFix && data.tasks.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
                   <div className="flex items-center gap-2">
                     <Wrench className="w-4 h-4 text-blue-600" />
-                    <h2 className="text-sm font-semibold text-gray-900">Fixes Progress</h2>
+                    <h2 className="text-sm font-semibold text-foreground">Fixes Progress</h2>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {data.tasks.filter((t) => t.status === "delivered").length} of {data.tasks.length} fixes completed
                   </p>
                   {/* Progress bar */}
                   <div className="mt-2">
-                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-blue-500 rounded-full transition-all"
                         style={{ width: `${data.tasks.length > 0 ? Math.round((data.tasks.filter(t => t.status === "delivered").length / data.tasks.length) * 100) : 0}%` }}
@@ -871,8 +871,8 @@ export default function PortalServiceDetail() {
                     metadata (the deliverable row carries an empty url), so it
                     is surfaced via the response's webfix_audit field. */}
                 {data.webfix_audit && (
-                  <div className="px-5 py-4 border-b border-gray-100">
-                    <p className="text-xs font-medium text-gray-700 mb-2">Before / After Performance Report</p>
+                  <div className="px-5 py-4 border-b border-border">
+                    <p className="text-xs font-medium text-foreground mb-2">Before / After Performance Report</p>
                     {(() => {
                       const wa = data.webfix_audit!;
                       const after = wa.metrics?.performance_score;
@@ -883,11 +883,11 @@ export default function PortalServiceDetail() {
                         <>
                           {(before != null || after != null) && (
                             <div className="flex items-center gap-3 mb-3">
-                              <div className="flex-1 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-center">
-                                <p className="text-[10px] uppercase tracking-wide text-gray-400">Before</p>
-                                <p className="text-lg font-semibold text-gray-500">{before ?? "-"}</p>
+                              <div className="flex-1 bg-muted/50 border border-border rounded-lg px-3 py-2 text-center">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Before</p>
+                                <p className="text-lg font-semibold text-muted-foreground">{before ?? "-"}</p>
                               </div>
-                              <div className="text-gray-300">→</div>
+                              <div className="text-muted-foreground/50">→</div>
                               <div className="flex-1 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-center">
                                 <p className="text-[10px] uppercase tracking-wide text-emerald-500">After</p>
                                 <p className="text-lg font-semibold text-emerald-700">{after ?? "-"}</p>
@@ -900,13 +900,13 @@ export default function PortalServiceDetail() {
                             </div>
                           )}
                           {wa.improvements_summary && (
-                            <p className="text-sm font-medium text-gray-800 mb-1">{wa.improvements_summary}</p>
+                            <p className="text-sm font-medium text-foreground mb-1">{wa.improvements_summary}</p>
                           )}
                           {wa.ai_report && (
-                            <p className="text-sm text-gray-600 whitespace-pre-line">{wa.ai_report}</p>
+                            <p className="text-sm text-muted-foreground whitespace-pre-line">{wa.ai_report}</p>
                           )}
                           {wa.audited_at && (
-                            <p className="text-[11px] text-gray-400 mt-2">
+                            <p className="text-[11px] text-muted-foreground/70 mt-2">
                               Verified {formatDate(wa.audited_at)}
                             </p>
                           )}
@@ -918,7 +918,7 @@ export default function PortalServiceDetail() {
                 {/* Deliverables from completed tasks */}
                 {webFixDeliverables.length > 0 && (
                   <div className="px-5 py-4">
-                    <p className="text-xs font-medium text-gray-700 mb-2">Reports & Deliverables</p>
+                    <p className="text-xs font-medium text-foreground mb-2">Reports & Deliverables</p>
                     <DeliverableViewer deliverables={webFixDeliverables} showThumbnails={false} />
                   </div>
                 )}
@@ -930,12 +930,12 @@ export default function PortalServiceDetail() {
               <SectionErrorRetry title="uptime monitoring" onRetry={() => refetchUptime()} />
             )}
             {isWebCare && !uptimeError && (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Shield className="w-4 h-4 text-emerald-600" />
-                      <h2 className="text-sm font-semibold text-gray-900">Website Monitoring</h2>
+                      <h2 className="text-sm font-semibold text-foreground">Website Monitoring</h2>
                     </div>
                     {data.service.status === "active" && (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700">
@@ -944,15 +944,15 @@ export default function PortalServiceDetail() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Your website is being monitored for uptime, security, and performance.
                   </p>
                 </div>
                 {/* Uptime display */}
                 {uptimeData && uptimeData.total_checks > 0 && (
-                  <div className="px-5 py-4 border-b border-gray-100">
+                  <div className="px-5 py-4 border-b border-border">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-medium text-gray-700">Uptime</p>
+                      <p className="text-xs font-medium text-foreground">Uptime</p>
                       <span className={`text-sm font-semibold ${
                         uptimeData.uptime_percent >= 99.5 ? "text-emerald-600"
                         : uptimeData.uptime_percent >= 95 ? "text-amber-600"
@@ -973,7 +973,7 @@ export default function PortalServiceDetail() {
                         />
                       ))}
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-1.5">
+                    <p className="text-[10px] text-muted-foreground/70 mt-1.5">
                       {uptimeData.total_checks} checks recorded
                       {uptimeData.down_checks > 0 && (
                         <> &middot; <span className="text-red-500">{uptimeData.down_checks} downtime{uptimeData.down_checks === 1 ? "" : "s"} detected</span></>
@@ -984,17 +984,17 @@ export default function PortalServiceDetail() {
                 {/* Recent monthly tasks */}
                 {data.tasks.length > 0 && (
                   <div className="px-5 py-4">
-                    <p className="text-xs font-medium text-gray-700 mb-2">Recent Maintenance</p>
+                    <p className="text-xs font-medium text-foreground mb-2">Recent Maintenance</p>
                     <ul className="space-y-2">
                       {data.tasks.slice(0, 6).map((task) => (
                         <li key={task.id} className="flex items-center justify-between text-sm">
                           <div className="flex items-center gap-2">
                             <TaskIcon status={task.status} />
-                            <span className={task.status === "delivered" ? "text-gray-400" : "text-gray-700"}>
+                            <span className={task.status === "delivered" ? "text-muted-foreground/70" : "text-foreground"}>
                               {task.title}
                             </span>
                           </div>
-                          <span className="text-[10px] text-gray-400">
+                          <span className="text-[10px] text-muted-foreground/70">
                             {task.completed_at ? formatDate(task.completed_at) : task.due_at ? `Due ${formatDate(task.due_at)}` : ""}
                           </span>
                         </li>
@@ -1002,10 +1002,10 @@ export default function PortalServiceDetail() {
                     </ul>
                     {/* Content change quota for pro tier */}
                     {data.service.service_id?.includes("pro") && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="mt-3 pt-3 border-t border-border">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-500">Content changes this month</span>
-                          <span className="font-medium text-gray-700">
+                          <span className="text-muted-foreground">Content changes this month</span>
+                          <span className="font-medium text-foreground">
                             {data.tasks.filter(t => t.title?.toLowerCase().includes("content") && t.status === "delivered").length} used
                           </span>
                         </div>
@@ -1018,13 +1018,13 @@ export default function PortalServiceDetail() {
 
             {/* Service-specific: AdFlow campaign metrics */}
             {isAdFlow && (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="w-4 h-4 text-blue-600" />
-                    <h2 className="text-sm font-semibold text-gray-900">Campaign Performance</h2>
+                    <h2 className="text-sm font-semibold text-foreground">Campaign Performance</h2>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Your campaigns are managed by our agency partner.
                   </p>
                 </div>
@@ -1032,51 +1032,51 @@ export default function PortalServiceDetail() {
                 {data.adflow_metrics && data.adflow_metrics.leads_generated != null ? (
                   <>
                     {/* KPI tiles */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-gray-100">
-                      <div className="bg-white p-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-muted">
+                      <div className="bg-card p-4">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <Eye className="w-3 h-3 text-gray-400" />
-                          <p className="text-[10px] text-gray-500">Impressions</p>
+                          <Eye className="w-3 h-3 text-muted-foreground/70" />
+                          <p className="text-[10px] text-muted-foreground">Impressions</p>
                         </div>
-                        <p className="text-lg font-semibold text-gray-900">
+                        <p className="text-lg font-semibold text-foreground">
                           {data.adflow_metrics.impressions?.toLocaleString() ?? "-"}
                         </p>
                       </div>
-                      <div className="bg-white p-4">
+                      <div className="bg-card p-4">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <MousePointerClick className="w-3 h-3 text-gray-400" />
-                          <p className="text-[10px] text-gray-500">Clicks</p>
+                          <MousePointerClick className="w-3 h-3 text-muted-foreground/70" />
+                          <p className="text-[10px] text-muted-foreground">Clicks</p>
                         </div>
-                        <p className="text-lg font-semibold text-gray-900">
+                        <p className="text-lg font-semibold text-foreground">
                           {data.adflow_metrics.clicks?.toLocaleString() ?? "-"}
                         </p>
                       </div>
-                      <div className="bg-white p-4">
+                      <div className="bg-card p-4">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <Users className="w-3 h-3 text-gray-400" />
-                          <p className="text-[10px] text-gray-500">Leads</p>
+                          <Users className="w-3 h-3 text-muted-foreground/70" />
+                          <p className="text-[10px] text-muted-foreground">Leads</p>
                         </div>
                         <p className="text-lg font-semibold text-emerald-600">
                           {data.adflow_metrics.leads_generated?.toLocaleString() ?? "-"}
                         </p>
                       </div>
-                      <div className="bg-white p-4">
+                      <div className="bg-card p-4">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <DollarSign className="w-3 h-3 text-gray-400" />
-                          <p className="text-[10px] text-gray-500">Spend</p>
+                          <DollarSign className="w-3 h-3 text-muted-foreground/70" />
+                          <p className="text-[10px] text-muted-foreground">Spend</p>
                         </div>
-                        <p className="text-lg font-semibold text-gray-900">
+                        <p className="text-lg font-semibold text-foreground">
                           {data.adflow_metrics.cost_spent_cents != null
                             ? `$${(data.adflow_metrics.cost_spent_cents / 100).toFixed(2)}`
                             : "-"}
                         </p>
                       </div>
-                      <div className="bg-white p-4">
+                      <div className="bg-card p-4">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <DollarSign className="w-3 h-3 text-gray-400" />
-                          <p className="text-[10px] text-gray-500">Cost / Lead</p>
+                          <DollarSign className="w-3 h-3 text-muted-foreground/70" />
+                          <p className="text-[10px] text-muted-foreground">Cost / Lead</p>
                         </div>
-                        <p className="text-lg font-semibold text-gray-900">
+                        <p className="text-lg font-semibold text-foreground">
                           {data.adflow_metrics.leads_generated && data.adflow_metrics.cost_spent_cents
                             ? `$${(data.adflow_metrics.cost_spent_cents / data.adflow_metrics.leads_generated / 100).toFixed(2)}`
                             : "-"}
@@ -1086,22 +1086,22 @@ export default function PortalServiceDetail() {
 
                     {/* Period info */}
                     {data.adflow_metrics.period_start && (
-                      <div className="px-5 py-3 border-t border-gray-100 text-xs text-gray-400">
+                      <div className="px-5 py-3 border-t border-border text-xs text-muted-foreground/70">
                         Report period: {new Date(data.adflow_metrics.period_start).toLocaleDateString("en-AU", { month: "long", year: "numeric" })}
                       </div>
                     )}
                   </>
                 ) : (
                   <div className="px-5 py-8 text-center">
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       Your first performance report will arrive after your campaigns have been running for a full month.
                     </p>
                   </div>
                 )}
 
                 {/* Next report note */}
-                <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
-                  <p className="text-xs text-gray-500">
+                <div className="px-5 py-3 border-t border-border bg-muted/50/50">
+                  <p className="text-xs text-muted-foreground">
                     Next report drops on the 2nd of every month. Ad spend is funded separately — you pay the ad platforms directly.
                   </p>
                 </div>
@@ -1113,13 +1113,13 @@ export default function PortalServiceDetail() {
               <SectionErrorRetry title="AdFlow reports" onRetry={() => refetchAdflow()} />
             )}
             {isAdFlow && !adflowError && adflowReports && adflowReports.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-gray-500" />
-                    <h2 className="text-sm font-semibold text-gray-900">Past Reports</h2>
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <h2 className="text-sm font-semibold text-foreground">Past Reports</h2>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Your monthly performance report history.
                   </p>
                 </div>
@@ -1127,16 +1127,16 @@ export default function PortalServiceDetail() {
                   {adflowReports.map((rpt) => {
                     const m = rpt.metrics || {};
                     return (
-                      <div key={rpt.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                      <div key={rpt.id} className="px-5 py-3 flex items-center justify-between hover:bg-muted/50/50 transition-colors">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{rpt.period_label}</p>
+                          <p className="text-sm font-medium text-foreground">{rpt.period_label}</p>
                           {rpt.sent_at && (
-                            <p className="text-[10px] text-gray-400 mt-0.5">
+                            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
                               Sent {new Date(rpt.sent_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           {m.leads_generated != null && (
                             <span>{m.leads_generated} lead{m.leads_generated === 1 ? "" : "s"}</span>
                           )}
@@ -1165,20 +1165,20 @@ export default function PortalServiceDetail() {
               />
             )}
             {isQuoteQuick && !qqSummaryError && !qqLeadsError && qqLeads && qqLeads.leads.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-brand-blue-600" />
-                    <h2 className="text-sm font-semibold text-gray-900">Recent Leads</h2>
+                    <h2 className="text-sm font-semibold text-foreground">Recent Leads</h2>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Last {qqLeads.leads.length} quote requests from your calculator.
                   </p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
+                      <tr className="text-left text-xs text-muted-foreground border-b border-border">
                         <th className="px-5 py-2 font-medium">Name</th>
                         <th className="px-5 py-2 font-medium">Contact</th>
                         <th className="px-5 py-2 font-medium">Quote</th>
@@ -1189,25 +1189,25 @@ export default function PortalServiceDetail() {
                     <tbody className="divide-y divide-gray-50">
                       {qqLeads.leads.map((lead) => (
                         <tr key={lead.id}>
-                          <td className="px-5 py-3 text-gray-700">{lead.name || "-"}</td>
-                          <td className="px-5 py-3 text-gray-600 text-xs">
+                          <td className="px-5 py-3 text-foreground">{lead.name || "-"}</td>
+                          <td className="px-5 py-3 text-muted-foreground text-xs">
                             {lead.email && <div>{lead.email}</div>}
                             {lead.phone && <div>{lead.phone}</div>}
                           </td>
-                          <td className="px-5 py-3 text-gray-900 font-medium whitespace-nowrap">
+                          <td className="px-5 py-3 text-foreground font-medium whitespace-nowrap">
                             {lead.quote_amount != null ? `$${lead.quote_amount}` : "-"}
                           </td>
                           <td className="px-5 py-3">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                               lead.status === "won" ? "bg-emerald-50 text-emerald-700" :
                               lead.status === "contacted" ? "bg-blue-50 text-blue-700" :
-                              lead.status === "lost" ? "bg-gray-100 text-gray-500" :
+                              lead.status === "lost" ? "bg-muted text-muted-foreground" :
                               "bg-brand-blue-50 text-brand-blue-700"
                             }`}>
                               {lead.status}
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-gray-500 text-xs whitespace-nowrap">
+                          <td className="px-5 py-3 text-muted-foreground text-xs whitespace-nowrap">
                             {formatDate(lead.created_date)}
                           </td>
                         </tr>
@@ -1216,7 +1216,7 @@ export default function PortalServiceDetail() {
                   </table>
                 </div>
                 {qqSummary?.calculator && (
-                  <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-xs text-gray-500">
+                  <div className="px-5 py-3 border-t border-border bg-muted/50/50 text-xs text-muted-foreground">
                     {qqSummary.calculator.total_leads} total leads &middot; {qqSummary.calculator.total_views} total views
                   </div>
                 )}
@@ -1224,9 +1224,9 @@ export default function PortalServiceDetail() {
             )}
 
             {isQuoteQuick && !qqSummaryError && !qqLeadsError && qqLeads && qqLeads.leads.length === 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
-                <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No leads yet. Once your calculator starts receiving quote requests, they'll appear here.</p>
+              <div className="bg-card rounded-xl border border-border p-5 text-center">
+                <Users className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No leads yet. Once your calculator starts receiving quote requests, they'll appear here.</p>
               </div>
             )}
 
@@ -1235,10 +1235,10 @@ export default function PortalServiceDetail() {
 
             {/* All deliverables across tasks */}
             {allDeliverables.length > 0 && !isSiteLaunch && !isWebFix && (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
-                  <h2 className="text-sm font-semibold text-gray-900">Deliverables</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">{allDeliverables.length} {allDeliverables.length === 1 ? "file" : "files"} attached</p>
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground">Deliverables</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">{allDeliverables.length} {allDeliverables.length === 1 ? "file" : "files"} attached</p>
                 </div>
                 <div className="px-5 py-4">
                   <DeliverableViewer deliverables={allDeliverables} />
@@ -1248,14 +1248,14 @@ export default function PortalServiceDetail() {
 
             {/* Payments */}
             {data.payments.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
-                  <h2 className="text-sm font-semibold text-gray-900">Payments</h2>
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground">Payments</h2>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
+                      <tr className="text-left text-xs text-muted-foreground border-b border-border">
                         <th className="px-5 py-2 font-medium">Date</th>
                         <th className="px-5 py-2 font-medium">Description</th>
                         <th className="px-5 py-2 font-medium">Amount</th>
@@ -1265,11 +1265,11 @@ export default function PortalServiceDetail() {
                     <tbody className="divide-y divide-gray-50">
                       {data.payments.map((p) => (
                         <tr key={p.id}>
-                          <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{formatDate(p.created_at)}</td>
-                          <td className="px-5 py-3 text-gray-700">{p.description || "Invoice"}</td>
-                          <td className="px-5 py-3 text-gray-900 font-medium whitespace-nowrap">{formatCents(p.amount_cents)}</td>
+                          <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{formatDate(p.created_at)}</td>
+                          <td className="px-5 py-3 text-foreground">{p.description || "Invoice"}</td>
+                          <td className="px-5 py-3 text-foreground font-medium whitespace-nowrap">{formatCents(p.amount_cents)}</td>
                           <td className="px-5 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-muted text-muted-foreground"}`}>
                               {statusLabel(PAYMENT_STATUS_LABELS, p.status)}
                             </span>
                           </td>
