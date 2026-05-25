@@ -39,6 +39,14 @@ const WRITE_BASELINE = process.argv.includes("--write-baseline");
 const ALLOWLIST = new Set([
   "client/src/components/quote-widget/PremiumAnimations.tsx",
   "client/src/lib/contrastGuard.ts",
+  // Brand-locked OAuth buttons. Facebook + Microsoft brand kits both
+  // mandate a white background (or a flat brand-colored background) for
+  // their official "Sign in with…" buttons — themed/inverted variants
+  // are not permitted by the brand guidelines and would fail vendor
+  // review. The neutral white interior also keeps the row of social
+  // buttons (Google / Facebook / Microsoft) visually consistent.
+  "client/src/components/auth/FacebookSignInButton.tsx",
+  "client/src/components/auth/MicrosoftSignInButton.tsx",
 ]);
 const ALLOWLIST_PREFIXES = ["tests/"];
 

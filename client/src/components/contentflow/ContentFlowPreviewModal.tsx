@@ -107,6 +107,12 @@ export default function ContentFlowPreviewModal({ open, onOpenChange, draft }: P
       <DialogContent
         className={kind === "image" || kind === "video" ? "max-w-3xl" : "max-w-xl"}
         data-testid={`contentflow-preview-${draft.id}`}
+        // data-theme="light" — this dialog renders social-card / blog /
+        // image / video previews that intentionally emulate the published
+        // (light-themed) Facebook, Instagram, LinkedIn, blog, etc.
+        // chrome. The bg-white / bg-black / text-white tailwind classes
+        // below are part of that emulation, not theme-naive surfaces.
+        data-theme="light"
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">

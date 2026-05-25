@@ -1125,7 +1125,12 @@ function LivePreview({ config }: { config: TemplateConfig }) {
       : { width: "100%", maxWidth: "100%" };
 
   return (
-    <Card className="overflow-hidden bg-white">
+    // data-theme="light" — this is the QuoteQuick widget LIVE-preview pane:
+    // it must render the trade's installed widget exactly as the public
+    // visitor will see it (light-mode chrome on a white card), regardless
+    // of whether the admin viewing the page is in dark mode. The bg-white
+    // / inner light-mode utility classes below are part of that emulation.
+    <Card className="overflow-hidden bg-white" data-theme="light">
       {/* Header — help cue top-left (DESIGN-SYSTEM Rule 4), toggle top-right */}
       <div className="flex items-start justify-between gap-2 px-3 pt-3">
         <div>

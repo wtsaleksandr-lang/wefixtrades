@@ -57,8 +57,14 @@ export default class AppErrorBoundary extends Component<{ children: ReactNode },
     if (!this.state.error) return this.props.children;
 
     return (
+      // data-theme="dark" — this fallback is intentionally a dark crash
+      // screen (so it renders legibly even if Tailwind/CSS failed to load,
+      // which is itself a common crash cause). Marking the scope lets the
+      // hardcoded-color guard correctly treat the white/dark-slate inline
+      // styles below as theme-scoped, not theme-naive.
       <div
         role="alert"
+        data-theme="dark"
         style={{
           minHeight: "100vh",
           display: "flex",
