@@ -120,6 +120,10 @@ function buildNavItems(active: Set<string>): NavItem[] {
     { label: "ContentFlow", href: "/portal/articles", icon: FileText },
     { label: "Content Style", href: "/portal/content-preferences", icon: Sparkles, indent: true },
     { label: "MapGuard", href: "/portal/mapguard", icon: MapPin, requires: "mapguard" },
+    /* Wave 7 — AI Insights bundled with MapGuard ($99/$149/mo). Indented as
+       a MapGuard sub-tab; same `requires` gate so the nav entry hides for
+       non-subscribers (the page itself also enforces the gate server-side). */
+    { label: "AI Insights", href: "/portal/ai-insights", icon: Sparkles, indent: true, requires: "mapguard" },
     /* BookFlow tabs are always visible — every customer has a job
        calendar and an invoice ledger, even if they're empty. The
        child pages render their own empty states. */

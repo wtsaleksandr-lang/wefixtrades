@@ -126,6 +126,7 @@ import { registerApiV1Routes } from "./apiV1";
 import { registerAdminSeoIntegrationsRoutes } from "./adminSeoIntegrationsRoutes";
 import { registerRumIngestRoutes } from "./rumIngestRoutes";
 import { registerHealthzRoute } from "./healthz";
+import { registerAiInsightsRoutes } from "./aiInsightsRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -276,6 +277,9 @@ export async function registerRoutes(
   // crawled independently. Rate-limited 20/hour/IP per tool.
   registerFreeToolsRoutes(app);
   registerApiV1Routes(app);
+  // Wave 7 — AI Insights bundled with MapGuard ($99/$149/mo). Generates
+  // Claude-powered prioritized actions from MapGuard / CT signals.
+  registerAiInsightsRoutes(app);
   registerAdminSeoIntegrationsRoutes(app);
   // SEO Wave D — public RUM ingest (Core Web Vitals from real users).
   registerRumIngestRoutes(app);
