@@ -111,7 +111,7 @@ export default function LocalSearchChecker() {
             borderRadius: 12,
             border: "1px solid rgba(0,0,0,0.10)",
             fontSize: 14,
-            background: "#fff",
+            background: "rgb(255,255,255)",
             outline: "none",
           }}
           data-testid="input-search-keyword"
@@ -127,7 +127,7 @@ export default function LocalSearchChecker() {
             borderRadius: 12,
             border: "1px solid rgba(0,0,0,0.10)",
             fontSize: 14,
-            background: "#fff",
+            background: "rgb(255,255,255)",
             outline: "none",
           }}
           data-testid="input-search-location"
@@ -143,7 +143,7 @@ export default function LocalSearchChecker() {
           padding: "12px 16px",
           borderRadius: 12,
           background: loading ? "rgba(13,60,252,0.6)" : "#0d3cfc",
-          color: "#fff",
+          color: "rgb(255,255,255)",
           fontSize: 14,
           fontWeight: 700,
           border: "none",
@@ -164,7 +164,7 @@ export default function LocalSearchChecker() {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {result.localPack.length > 0 && (
         <div style={{
-          background: "#fff",
+          background: "rgb(255,255,255)",
           border: "1px solid rgba(0,0,0,0.08)",
           borderRadius: 18,
           padding: 20,
@@ -205,7 +205,7 @@ export default function LocalSearchChecker() {
       )}
 
       <div style={{
-        background: "#fff",
+        background: "rgb(255,255,255)",
         border: "1px solid rgba(0,0,0,0.08)",
         borderRadius: 18,
         padding: 20,
