@@ -44,6 +44,7 @@ import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
 import { registerAdminOpsRoutes, registerBrandAvailabilityRoutes } from "./adminOpsRoutes";
 import { registerAdminEnvPresenceRoutes } from "./adminEnvPresence";
+import { registerAdminSerpProvidersRoute } from "./adminSerpProvidersRoute";
 import { registerAdminOutboundRoutes } from "./adminOutboundRoutes";
 import { registerAdminOutreachSequencesRoutes } from "./adminOutreachSequencesRoutes";
 import { registerReviewPublicRoutes } from "./reviewPublicRoutes";
@@ -181,6 +182,7 @@ export async function registerRoutes(
   registerAdminOpsRoutes(app);
   registerBrandAvailabilityRoutes(app);
   registerAdminEnvPresenceRoutes(app);
+  registerAdminSerpProvidersRoute(app);
   registerAdminOutboundRoutes(app);
   registerAdminOutreachSequencesRoutes(app);
   registerMapguardRoutes(app);

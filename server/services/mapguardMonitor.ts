@@ -18,6 +18,7 @@ import { processMapguardAlerts, getAlertCountSince, checkCostAlert } from "./map
 import { parseMapguardConfig } from "@shared/schemas/mapguardConfig";
 import { buildMonitorKeywords } from "./mapguardKeywords";
 import { createLogger } from "../lib/logger";
+import { searchSerp } from "../lib/serpOrchestrator";
 
 const log = createLogger("MapguardMonitor");
 
@@ -29,16 +30,15 @@ const log = createLogger("MapguardMonitor");
    no AI narrative, no full website QA.
    ═══════════════════════════════════════════ */
 
-const SERPER_TIMEOUT = 15_000;
 const PLACES_TIMEOUT = 10_000;
 
 // Load-test hooks. All default to production behavior when unset.
-// SERPER_BASE_URL / PLACES_BASE_URL let scripts/load/mock-apis.ts intercept
-// upstream traffic without touching the network.
+// PLACES_BASE_URL lets scripts/load/mock-apis.ts intercept upstream
+// traffic without touching the network. (SERPER_BASE_URL is consumed
+// by the SERP orchestrator's Serper provider — see server/lib/serpProviders/serper.ts.)
 // MAPGUARD_LOAD_MODE bypasses DB reads/writes inside the scan path so the
 // k6 harness can hammer the worker without polluting dev data; see
 // scripts/load/README.md for the full env recipe.
-const SERPER_BASE_URL = process.env.SERPER_BASE_URL || "https://google.serper.dev";
 const PLACES_BASE_URL = process.env.PLACES_BASE_URL || "https://places.googleapis.com/v1/places";
 const LOAD_MODE = process.env.MAPGUARD_LOAD_MODE === "1";
 const LOAD_CLIENT_COUNT = Number.parseInt(process.env.MAPGUARD_LOAD_CLIENT_COUNT || "100", 10) || 100;
@@ -178,39 +178,36 @@ async function fetchKeywordRankings(keywords: string[], businessName: string, ci
 }> {
   const results: KeywordResult[] = [];
 
-  const apiKey = process.env.SERPER_API_KEY;
-  if (!apiKey) return { results, apiCalled: false };
+  // Wave 6.5: route through the multi-provider SERP orchestrator.
+  // `apiCalled` still gates the visibility-derived issue emission below;
+  // we report false only when neither SERPER_API_KEY nor any alternate
+  // provider env var is set.
+  const anySerpProvider =
+    !!process.env.SERPER_API_KEY ||
+    !!process.env.GOOGLE_CUSTOMSEARCH_API_KEY ||
+    !!process.env.BRAVE_SEARCH_API_KEY ||
+    !!process.env.SCALESERP_API_KEY ||
+    !!process.env.SERPSTACK_API_KEY ||
+    !!process.env.DATAFORSEO_LOGIN;
+  if (!anySerpProvider) return { results, apiCalled: false };
 
   const nameLower = businessName.toLowerCase();
 
   const promises = keywords.map(async (keyword): Promise<KeywordResult> => {
     try {
-      const searchRes = await fetch(`${SERPER_BASE_URL}/search`, {
-        method: "POST",
-        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ q: `${keyword} ${city}`, num: 20, gl: "au" }),
-        ...withSignal(SERPER_TIMEOUT),
-      });
-      if (!searchRes.ok) {
-        console.warn(`[mapguard-monitor] serper search ${searchRes.status} for "${keyword}"`);
+      const [searchSettled, mapsSettled] = await Promise.allSettled([
+        searchSerp({ query: `${keyword} ${city}`, num: 20, country: "au", language: "en", engine: "google_web" }),
+        searchSerp({ query: `${keyword} ${city}`, country: "au", language: "en", engine: "google_maps" }),
+      ]);
+      if (searchSettled.status !== "fulfilled" && mapsSettled.status !== "fulfilled") {
+        console.warn(`[mapguard-monitor] serp orchestrator failed for "${keyword}"`);
         return { keyword, organicRank: null, localPackPosition: null, isInLocalPack: false, error: true };
       }
-      const searchData = await searchRes.json();
-
-      const mapsRes = await fetch(`${SERPER_BASE_URL}/maps`, {
-        method: "POST",
-        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ q: `${keyword} ${city}`, gl: "au" }),
-        ...withSignal(SERPER_TIMEOUT),
-      });
-      if (!mapsRes.ok) {
-        console.warn(`[mapguard-monitor] serper maps ${mapsRes.status} for "${keyword}"`);
-        return { keyword, organicRank: null, localPackPosition: null, isInLocalPack: false, error: true };
-      }
-      const mapsData = await mapsRes.json();
+      const searchData = searchSettled.status === "fulfilled" ? searchSettled.value : null;
+      const mapsData = mapsSettled.status === "fulfilled" ? mapsSettled.value : null;
 
       let organicRank: number | null = null;
-      const organic = searchData?.organic || [];
+      const organic = searchData?.organic ?? [];
       for (let i = 0; i < organic.length; i++) {
         const title = (organic[i].title || "").toLowerCase();
         const link = (organic[i].link || "").toLowerCase();
@@ -222,7 +219,7 @@ async function fetchKeywordRankings(keywords: string[], businessName: string, ci
 
       let localPackPosition: number | null = null;
       let isInLocalPack = false;
-      const places = mapsData?.places || [];
+      const places = mapsData?.localPack ?? [];
       for (let i = 0; i < places.length; i++) {
         const title = (places[i].title || "").toLowerCase();
         if (title.includes(nameLower)) {
@@ -234,7 +231,7 @@ async function fetchKeywordRankings(keywords: string[], businessName: string, ci
 
       return { keyword, organicRank, localPackPosition, isInLocalPack };
     } catch (err: any) {
-      console.warn(`[mapguard-monitor] serper exception for "${keyword}": ${err?.message || err}`);
+      console.warn(`[mapguard-monitor] serp orchestrator exception for "${keyword}": ${err?.message || err}`);
       return { keyword, organicRank: null, localPackPosition: null, isInLocalPack: false, error: true };
     }
   });
@@ -318,15 +315,21 @@ function detectMonitoringIssues(profile: NonNullable<Awaited<ReturnType<typeof f
   if (profile.reviewCount < 100) issues.push("low-reviews");
   if ((profile.rating ?? 5) < 4.2) issues.push("bad-rating");
 
-  // Only emit ranking-derived issues when Serper actually ran AND the
-  // error rate is acceptable. Without SERPER_API_KEY, fetchKeywordRankings
-  // returns [] (caller already drops to apiCalled=false). When Serper IS
-  // configured but >25% of keywords errored (e.g. 429/5xx outage), we
-  // can't trust the visibility signal — the absence of a result for an
-  // errored keyword is indistinguishable from a genuine "not ranked".
-  // Suppressing in that case prevents the bogus-task flood that would
-  // otherwise fire for every active client during a Serper incident.
-  if (process.env.SERPER_API_KEY && keywords.length > 0) {
+  // Only emit ranking-derived issues when the SERP orchestrator actually
+  // ran AND the error rate is acceptable. Without any provider key,
+  // fetchKeywordRankings returns [] (caller already drops to
+  // apiCalled=false). When SERP IS configured but >25% of keywords
+  // errored (e.g. provider-wide outage), we can't trust the visibility
+  // signal — suppressing prevents the bogus-task flood that would
+  // otherwise fire for every active client during an upstream incident.
+  const anySerpProviderConfigured =
+    !!process.env.SERPER_API_KEY ||
+    !!process.env.GOOGLE_CUSTOMSEARCH_API_KEY ||
+    !!process.env.BRAVE_SEARCH_API_KEY ||
+    !!process.env.SCALESERP_API_KEY ||
+    !!process.env.SERPSTACK_API_KEY ||
+    !!process.env.DATAFORSEO_LOGIN;
+  if (anySerpProviderConfigured && keywords.length > 0) {
     const erroredCount = keywords.filter(k => k.error === true).length;
     const errorRate = erroredCount / keywords.length;
     if (errorRate <= 0.25) {

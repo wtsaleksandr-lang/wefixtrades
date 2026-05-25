@@ -13,6 +13,7 @@
 
 import type { Express, Request, Response } from "express";
 import { createLogger } from "../lib/logger";
+import { searchSerp } from "../lib/serpOrchestrator";
 import {
   rateOk,
   loadBusinessFromReport,
@@ -73,20 +74,18 @@ async function runPageSpeed(url: string): Promise<PageSpeedSummary | null> {
 }
 
 async function findCompetitorUrl(trade: string, city: string, excludeDomain: string | null): Promise<string | null> {
-  const apiKey = process.env.SERPER_API_KEY;
-  if (!apiKey || !trade || !city) return null;
-  const q = `${trade} ${city}`;
+  if (!trade || !city) return null;
   try {
-    const r = await fetch("https://google.serper.dev/search", {
-      method: "POST",
-      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q, location: city, gl: "us", hl: "en", num: 10 }),
+    const result = await searchSerp({
+      query: `${trade} ${city}`,
+      location: city,
+      country: "us",
+      language: "en",
+      num: 10,
+      engine: "google_web",
     });
-    if (!r.ok) return null;
-    const data: any = await r.json();
-    const organic = Array.isArray(data?.organic) ? data.organic : [];
-    for (const o of organic) {
-      const link = String(o?.link || "");
+    for (const o of result.organic) {
+      const link = String(o.link || "");
       if (!link) continue;
       try {
         const host = new URL(link).hostname.replace(/^www\./, "");

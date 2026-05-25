@@ -1195,59 +1195,64 @@ async function fetchOutscraperReviews(placeId: string) {
   };
 }
 
-/* ─── E3: Serper Keyword Rankings ─── */
+/* ─── E3: SERP Keyword Rankings (multi-provider via Wave 6.5 orchestrator) ─── */
 async function fetchSerperRankings(
   keywords: string[], businessDomain: string, businessName: string, city: string,
   stateCode?: string, businessAddress?: string
 ) {
-  const apiKey = process.env.SERPER_API_KEY;
-  if (!apiKey) return null;
   const domain = businessDomain.replace(/^https?:\/\//, "").replace(/\/.*/, "").toLowerCase();
   const nameLC = businessName.toLowerCase();
   const businessNameWords = nameLC.split(' ').filter((w: string) => w.length > 3);
   const nameFirstWord = nameLC.split(' ')[0];
   const streetNum = (businessAddress || "").toLowerCase().split(',')[0].trim();
   const locationStr = stateCode ? `${city}, ${stateCode}, Canada` : `${city}, Canada`;
-  log.info('[serper] location:', { detail: locationStr });
+  log.info('[serp] location:', { detail: locationStr });
 
   const results = await Promise.allSettled(keywords.map(async (kw) => {
     const cacheKey = `serper:${kw.toLowerCase()}:${city.toLowerCase()}`;
     const cachedData = getCached(cacheKey);
     if (cachedData) {
-      log.info('[serper] cache hit:', { detail: kw });
+      log.info('[serp] cache hit:', { detail: kw });
       return { keyword: kw, data: cachedData };
     }
 
-    // Run /search (organic) and /maps (local pack) in parallel
-    const headers = { "X-API-KEY": apiKey, "Content-Type": "application/json" };
-    const body = { q: kw, location: locationStr, gl: "ca", hl: "en" };
-    const { signal: sSignal, clear: sClear } = withSignal(15000);
+    // Run /web (organic + ads) and /maps (local pack) in parallel via
+    // the multi-provider orchestrator (Wave 6.5). Returns null on total
+    // provider failure rather than throwing.
+    let searchResult: Awaited<ReturnType<typeof searchSerp>> | null = null;
+    let mapsResult: Awaited<ReturnType<typeof searchSerp>> | null = null;
     try {
-      const [searchResp, mapsResp] = await Promise.allSettled([
-        fetch("https://google.serper.dev/search", {
-          method: "POST", headers,
-          body: JSON.stringify({ ...body, num: 20 }),
-          signal: sSignal,
-        }).then(r => r.json()),
-        fetch("https://google.serper.dev/maps", {
-          method: "POST", headers,
-          body: JSON.stringify(body),
-          signal: sSignal,
-        }).then(r => r.json()),
+      const [s, m] = await Promise.allSettled([
+        searchSerp({ query: kw, location: locationStr, country: "ca", language: "en", num: 20, engine: "google_web" }),
+        searchSerp({ query: kw, location: locationStr, country: "ca", language: "en", engine: "google_maps" }),
       ]);
-      const searchData = searchResp.status === "fulfilled" ? searchResp.value : {};
-      const mapsData = mapsResp.status === "fulfilled" ? mapsResp.value : {};
-      // Merge maps places into search data as localResults
-      const data = {
-        ...searchData,
-        localResults: Array.isArray(mapsData?.places) ? mapsData.places : [],
-      };
-      setCached(cacheKey, data);
-      log.info('[serper] cached:', { arg0: kw, arg1: '— organic:', arg2: (data.organic?.length || 0), arg3: 'local:', arg4: data.localResults.length });
-      return { keyword: kw, data };
-    } finally {
-      sClear();
+      searchResult = s.status === "fulfilled" ? s.value : null;
+      mapsResult = m.status === "fulfilled" ? m.value : null;
+    } catch (err: any) {
+      log.warn('[serp] orchestrator failed for keyword', { keyword: kw, error: err?.message || String(err) });
     }
+    const data = {
+      organic: (searchResult?.organic ?? []).map((o) => ({
+        position: o.position,
+        title: o.title,
+        link: o.link,
+        snippet: o.snippet,
+      })),
+      ads: (searchResult?.ads ?? []).map((a) => ({
+        title: a.title,
+        displayedLink: a.displayedLink,
+        link: a.link,
+      })),
+      localResults: (mapsResult?.localPack ?? []).map((p) => ({
+        title: p.title,
+        rating: p.rating,
+        ratingCount: p.reviewCount,
+        address: p.address,
+      })),
+    };
+    setCached(cacheKey, data);
+    log.info('[serp] cached:', { arg0: kw, arg1: '— organic:', arg2: data.organic.length, arg3: 'local:', arg4: data.localResults.length });
+    return { keyword: kw, data };
   }));
   log.info('[serper] cache stats:', { arg0: Object.keys(loadCache()).length, arg1: 'entries cached' });
 
@@ -3000,6 +3005,7 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
 /* ─── GET /report/:id/rankflow-recommendation ─── */
 import { recommendRankFlowTier } from "./services/rankflow/auditConversion";
 import { createLogger } from "./lib/logger";
+import { searchSerp } from "./lib/serpOrchestrator";
 
 const log = createLogger("AuditRoutes");
 

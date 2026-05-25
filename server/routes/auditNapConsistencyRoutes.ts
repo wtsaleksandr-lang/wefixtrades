@@ -21,6 +21,7 @@
 import type { Express, Request, Response } from "express";
 import * as cheerio from "cheerio";
 import { createLogger } from "../lib/logger";
+import { searchSerp } from "../lib/serpOrchestrator";
 import {
   rateOk,
   loadBusinessFromReport,
@@ -186,38 +187,11 @@ async function scrapeDirectory(
   businessName: string,
   city: string,
 ): Promise<NapRow> {
-  const apiKey = process.env.SERPER_API_KEY;
-  if (!apiKey) {
-    return {
-      source,
-      label,
-      status: "unable-to-check",
-      nameMatch: "unknown",
-      addressMatch: "unknown",
-      phoneMatch: "unknown",
-      note: "Directory search unavailable right now.",
-    };
-  }
+  let target: string | undefined;
   try {
     const q = `site:${domain} ${businessName} ${city || ""}`.trim();
-    const sr = await fetchWithTimeout("https://google.serper.dev/search", {
-      method: "POST",
-      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q, num: 3 }),
-      timeoutMs: 6000,
-    });
-    if (!sr || !sr.ok) {
-      return {
-        source,
-        label,
-        status: "unable-to-check",
-        nameMatch: "unknown",
-        addressMatch: "unknown",
-        phoneMatch: "unknown",
-      };
-    }
-    const sj: any = await sr.json();
-    const target = sj?.organic?.[0]?.link;
+    const serpRes = await searchSerp({ query: q, num: 3, country: "us", language: "en" });
+    target = serpRes.organic[0]?.link;
     if (!target) {
       return {
         source,
