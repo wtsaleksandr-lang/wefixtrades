@@ -123,3 +123,10 @@ client/src/pages/portal/FreeTools/_shared.tsx
 client/src/pages/portal/invoice-templates/ClassicMinimal.tsx
 client/src/pages/portal/invoice-templates/ModernBold.tsx
 client/src/pages/portal/invoice-templates/TradeService.tsx
+
+# ── ContentFlow Phase 1-4 portal aggregator: chip-driven editor (Phase 2)
+#    has its own custom prefill flow + business profile editor; the
+#    copilot form pattern would conflict with the existing AI-prefill UX.
+#    Phase 5 follow-up: integrate useCopilotForm() with the chip editor.
+#    Until then, exempt this page.
+client/src/pages/portal/PortalContentFlow.tsx
