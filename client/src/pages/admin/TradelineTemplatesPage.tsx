@@ -638,7 +638,12 @@ function PlayPreviewDialog({ template, onClose }: { template: TemplateSummary; o
   const isVoice = template.kind === "tradeline"; // hero shows mixed; we render single visual
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      {/* data-theme="light" — this dialog simulates the trade's installed
+          TradeLine voice/concierge widget exactly as the end-customer sees
+          it (light-mode chrome on a white transcript). The bg-white +
+          text-white-on-brand-blue chat bubbles below are part of that
+          emulation, not theme-naive surfaces. */}
+      <DialogContent className="max-w-md" data-theme="light">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {template.kind === "tradeline" ? <Phone className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}

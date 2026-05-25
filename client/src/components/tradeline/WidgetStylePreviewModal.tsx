@@ -57,7 +57,16 @@ export default function WidgetStylePreviewModal({ style, open, onClose, onApply 
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-auto max-h-[92vh] overflow-y-auto p-0 gap-0">
+      <DialogContent
+        className="max-w-3xl w-[calc(100vw-2rem)] sm:w-auto max-h-[92vh] overflow-y-auto p-0 gap-0"
+        // data-theme="light" — the preview body intentionally uses a dark
+        // gallery backdrop (bg-gray-900) with white-on-dark text + a white
+        // footer to simulate the trade's installed widget on their own
+        // site. Marking the scope so the hardcoded-color guard treats the
+        // white text/footer as intentional preview chrome, not a
+        // theme-naive surface.
+        data-theme="light"
+      >
         {/* DialogContent renders its own close X in the top-right corner.
             Header just carries the style name + description. */}
         <DialogHeader className="space-y-0 px-5 py-3 pr-12 border-b border-gray-200">

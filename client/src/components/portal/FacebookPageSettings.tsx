@@ -199,7 +199,7 @@ export default function FacebookPageSettings() {
               type="submit"
               size="sm"
               disabled={!dirty || saveMutation.isPending}
-              className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white text-xs"
+              className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-primary-foreground text-xs"
             >
               {saveMutation.isPending ? (
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
