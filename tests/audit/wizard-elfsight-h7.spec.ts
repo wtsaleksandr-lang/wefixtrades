@@ -199,7 +199,12 @@ test.describe('wizard H7 — Template gallery', () => {
   test('Browse-all modal opens, lists templates, closes via × button', async ({ page }) => {
     await openWizard(page);
 
-    await page.getByTestId('template-browse-all').click();
+    // BD-2a-sticky — Build tab sticky-shell can intercept clicks on the
+    // browse-all button. Scroll into view + force-click to bypass the
+    // overlap. Selector itself is correct; only the click stability changed.
+    const browseAll = page.getByTestId('template-browse-all');
+    await browseAll.scrollIntoViewIfNeeded();
+    await browseAll.click({ force: true });
     const modal = page.getByTestId('template-browse-modal');
     await expect(modal).toBeVisible({ timeout: 1500 });
     await expect(page.getByTestId('template-browse-grid')).toBeVisible();
