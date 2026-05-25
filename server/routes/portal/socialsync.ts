@@ -28,6 +28,7 @@
  *   POST   /api/portal/socialsync/tech-provider-attestation
  *   POST   /api/portal/socialsync/facebook-page/:pageId/messaging/subscribe
  *   POST   /api/portal/socialsync/facebook-page/:pageId/messaging/reply
+ *   POST   /api/portal/socialsync/whatsapp/send
  */
 
 import type { Express, Request, Response, NextFunction } from "express";
@@ -52,6 +53,7 @@ import {
   updateFacebookPageMetadata,
   type UpdateFacebookPageMetadataInput,
 } from "../../services/socialSync/facebookService";
+import { sendWhatsappMessage } from "../../services/whatsappCloudService";
 
 const log = createLogger("PortalSocialsync");
 
@@ -891,4 +893,101 @@ export function registerPortalSocialsyncRoutes(app: Express) {
       }
     },
   );
+
+  /**
+   * POST /api/portal/socialsync/whatsapp/send
+   * Body: { phone_number_id: string, to: string (E.164), text: string }
+   *
+   * Send a single text WhatsApp message via Meta's WhatsApp Cloud API
+   * (perm #5 of 5, `whatsapp_business_messaging`). Foundation endpoint
+   * for the Meta App Review reviewer test path:
+   *
+   *   1. Reviewer connects Facebook + grants whatsapp_business_messaging
+   *   2. Admin POSTs to this endpoint with the reviewer's WhatsApp number
+   *   3. Reviewer's phone receives the message
+   *
+   * Body fields:
+   *   - phone_number_id: WhatsApp Business phone-number id (Meta-issued,
+   *     NOT the E.164 number). Provided by the customer via their Meta
+   *     WhatsApp Business setup.
+   *   - to: recipient phone number in E.164 (e.g. "+447700900123").
+   *   - text: message body (1-4096 chars).
+   *
+   * Constraints:
+   *   - Only text messages — template / media support lands in follow-ups.
+   *   - Subject to Meta's 24-hour customer-care window. Outside the
+   *     window Meta returns error (#131047); we surface it verbatim.
+   *   - This PR does NOT persist per-customer phone_number_id /
+   *     accessToken mapping in the DB (no migration). The body must
+   *     supply both. A follow-up PR will read them from the
+   *     socialsync_connections row keyed on the customer.
+   *
+   * Coexistence: leaves the existing Twilio WhatsApp path untouched —
+   * customers on Twilio continue to send via /api/twilio/* endpoints,
+   * customers on Meta Cloud API send via this one.
+   */
+  app.post("/api/portal/socialsync/whatsapp/send", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const phoneNumberId = typeof body.phone_number_id === "string" ? body.phone_number_id.trim() : "";
+      const to = typeof body.to === "string" ? body.to.trim() : "";
+      const text = typeof body.text === "string" ? body.text.trim() : "";
+
+      if (!phoneNumberId) return res.status(400).json({ error: "phone_number_id required" });
+      if (!to) return res.status(400).json({ error: "to required (E.164 phone number)" });
+      // Light E.164 sanity check: leading "+" followed by 8-15 digits.
+      if (!/^\+[1-9]\d{7,14}$/.test(to)) {
+        return res.status(400).json({ error: "to must be a valid E.164 phone number (e.g. +447700900123)" });
+      }
+      if (!text) return res.status(400).json({ error: "text required" });
+      if (text.length > 4096) return res.status(400).json({ error: "text too long (max 4096 chars)" });
+
+      // Per-customer access token. Until we persist this on
+      // socialsync_connections (follow-up PR), we accept it from the body
+      // so the Meta reviewer test path works end-to-end. Admin-only by
+      // virtue of requireClientStrict gating an authenticated client.
+      const accessToken = typeof body.access_token === "string" ? body.access_token : "";
+      if (!accessToken) {
+        return res.status(400).json({ error: "access_token required (will be sourced from stored connection in a follow-up PR)" });
+      }
+
+      const result = await sendWhatsappMessage({
+        phoneNumberId,
+        accessToken,
+        to,
+        type: "text",
+        text,
+      });
+
+      void writeAudit({
+        actorId: req.user?.id ?? null,
+        actorType: "user",
+        action: "socialsync.whatsapp.message_sent",
+        entityType: "whatsapp_phone_number",
+        entityId: phoneNumberId,
+        after: {
+          phone_number_id: phoneNumberId,
+          to,
+          message_id: result.message_id,
+          wa_id: result.wa_id,
+          message_length: text.length,
+        },
+        metadata: { client_id: clientId, source: "portal_whatsapp_send" },
+        req,
+      });
+
+      res.json({
+        ok: true,
+        message_id: result.message_id,
+        wa_id: result.wa_id,
+        meta_response: result.meta_response,
+      });
+    } catch (err: any) {
+      log.error("[portal/socialsync/whatsapp/send POST] Error", { error: err.message });
+      res.status(502).json({ error: err.message || "Failed to send WhatsApp message" });
+    }
+  });
 }
