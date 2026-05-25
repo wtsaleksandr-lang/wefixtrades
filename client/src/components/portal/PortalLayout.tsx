@@ -27,7 +27,7 @@ import {
   FileCode2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,8 @@ import PortalChatWidget, { type PortalChatContext } from "./PortalChatWidget";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { OnboardingProvider } from "@/context/OnboardingContext";
+import { loadPortalOpenState, savePortalOpenState } from "@/lib/chatHelpers";
+import { extractPageContext, pushPageContext } from "@/lib/chat/pageContext";
 
 interface NavItem {
   label: string;
@@ -178,9 +180,33 @@ export default function PortalLayout({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
-  // AI Copilot panel open/close — the trigger lives in the top navbar
-  // (mirrors the admin AdminLayout → AdminCopilot pattern).
-  const [copilotOpen, setCopilotOpen] = useState(false);
+  /* AI Copilot panel open/close — the trigger lives in the top navbar
+   * (mirrors the admin AdminLayout → AdminCopilot pattern).
+   *
+   * PortalLayout re-mounts on every portal route change, so a plain
+   * useState(false) would slam the panel closed on every navigation.
+   * Hydrate from localStorage on mount and persist on every toggle so
+   * the copilot stays open as the customer clicks through the portal. */
+  const [copilotOpen, setCopilotOpenState] = useState<boolean>(() => loadPortalOpenState());
+  const setCopilotOpen = (next: boolean | ((prev: boolean) => boolean)) => {
+    setCopilotOpenState((prev) => {
+      const resolved = typeof next === "function" ? (next as (p: boolean) => boolean)(prev) : next;
+      savePortalOpenState(resolved);
+      return resolved;
+    });
+  };
+
+  /* Page-context sync — every portal route change pushes a fresh snapshot
+   * onto the shared ring buffer so the next chat turn carries the user's
+   * recent navigation trail (route + title + visible entities + DOM
+   * excerpt). Delayed one tick so document.title has time to update. */
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      pushPageContext(extractPageContext(location));
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [location]);
+
   const activePrefixes = useActiveServicePrefixes();
   const NAV_ITEMS = buildNavItems(activePrefixes);
   const breadcrumbItems = useBreadcrumbs();
