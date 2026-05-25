@@ -134,3 +134,8 @@ client/src/pages/portal/invoice-templates/TradeService.tsx
 #    Phase 5 follow-up: integrate useCopilotForm() with the chip editor.
 #    Until then, exempt this page.
 client/src/pages/portal/PortalContentFlow.tsx
+
+# ── Wave 7 — AI Insights is a read-only dashboard: Claude-generated
+#    prioritized actions surfaced as cards with dismiss/refresh buttons.
+#    No user-fillable form fields exist on this page.
+client/src/pages/portal/AiInsightsPage.tsx

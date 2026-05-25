@@ -35,6 +35,10 @@ export const AI_SURFACES = {
   tradeline_voice: "tradeline_voice",
   ops_engine: "ops_engine",
   demo: "demo",
+  // Wave 7 — AI Insights bundled with MapGuard. Generates prioritized
+  // action recommendations from MapGuard/CT signals. 24h cache keeps
+  // monthly spend low (~$0.10/customer/mo at full utilization).
+  ai_insights: "ai_insights",
 } as const;
 
 export type AiSurface = (typeof AI_SURFACES)[keyof typeof AI_SURFACES];
@@ -67,6 +71,9 @@ export const DEFAULT_BUDGET_CENTS: Record<AiSurface, number | null> = {
   tradeline_voice: 2000,
   ops_engine: 500,
   demo: 500,
+  // 24h cache + max 1 refresh/hr/customer keeps spend bounded. Conservative
+  // monthly cap; gate row will lazy-create on first call.
+  ai_insights: 2000,
 };
 
 /** Human-readable display label used in the admin gates dashboard. */
@@ -90,4 +97,5 @@ export const AI_SURFACE_LABELS: Record<AiSurface, string> = {
   tradeline_voice: "TradeLine Voice",
   ops_engine: "Ops Engine Summary",
   demo: "Public Demos",
+  ai_insights: "AI Insights (MapGuard)",
 };

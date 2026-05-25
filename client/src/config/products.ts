@@ -186,6 +186,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
       "Ongoing optimization work executed for you every month",
       "Competitor tracking and ranking adjustments",
       "Monthly performance reports showing real progress",
+      // Wave 7 — bundled with every MapGuard plan, no separate SKU.
+      "AI Insights: Claude turns your data into a prioritized to-do list",
     ],
     outcomes: [
       { title: "Rank in Map Pack", desc: "We optimize your profile so you appear in Google's local results where customers are searching." },

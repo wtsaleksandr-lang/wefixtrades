@@ -178,6 +178,7 @@ import SupportInboxPage from "@/pages/admin/SupportInboxPage";
 import SupportTicketDetailPage from "@/pages/admin/SupportTicketDetailPage";
 import AdminNoticesPage from "@/pages/admin/AdminNoticesPage";
 import PortalMapguard from "@/pages/portal/PortalMapguard";
+import AiInsightsPage from "@/pages/portal/AiInsightsPage";
 import CitationTrackerDashboard from "@/pages/portal/CitationTrackerDashboard";
 import CitationTrackerPage from "@/pages/marketing/CitationTrackerPage";
 import CitationBuilderDashboard from "@/pages/portal/CitationBuilderDashboard";
@@ -381,6 +382,7 @@ function Router() {
       <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
+      <Route path="/portal/ai-insights">{() => <RequireClient><AiInsightsPage /></RequireClient>}</Route>
       <Route path="/portal/citation-tracker">{() => <RequireClient><CitationTrackerDashboard /></RequireClient>}</Route>
       <Route path="/portal/citation-builder">{() => <RequireClient><CitationBuilderDashboard /></RequireClient>}</Route>
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
