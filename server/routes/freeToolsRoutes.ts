@@ -37,6 +37,7 @@ import { db } from "../db";
 import { rankfluxSubscriptions } from "@shared/schemas/rankfluxSubscriptions";
 import { sql } from "drizzle-orm";
 import { queueEmail } from "../services/emailQueueService";
+import { searchSerp } from "../lib/serpOrchestrator";
 
 const log = createLogger("free-tools");
 
@@ -144,34 +145,22 @@ async function localSearchCheckerHandler(req: Request, res: Response) {
     return res.status(400).json({ ok: false, error: "Both keyword and location are required." });
   }
 
-  const apiKey = process.env.SERPER_API_KEY;
-  if (!apiKey) {
-    return res.status(503).json({ ok: false, error: "Search provider not configured." });
-  }
-
-  const headers = { "X-API-KEY": apiKey, "Content-Type": "application/json" };
-  const body = { q: keyword, location, gl: "us", hl: "en", num: 20 };
-
   try {
-    // /search + /maps in parallel — same dual-call pattern as auditRoutes
-    // fetchSerperRankings (used by the paid Full Audit). The /maps call is
-    // what surfaces the Local Pack rows that competitors actually rank in.
+    // /web + /maps via the multi-provider orchestrator (Wave 6.5). Same
+    // dual-call shape — orchestrator picks the best free-tier provider
+    // available for each engine.
     const [searchResp, mapsResp] = await Promise.allSettled([
-      fetchJson("https://google.serper.dev/search", {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-      }),
-      fetchJson("https://google.serper.dev/maps", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ q: keyword, location, gl: "us", hl: "en" }),
-      }),
+      searchSerp({ query: keyword, location, country: "us", language: "en", num: 20, engine: "google_web" }),
+      searchSerp({ query: keyword, location, country: "us", language: "en", engine: "google_maps" }),
     ]);
-    const search: any = searchResp.status === "fulfilled" ? searchResp.value : {};
-    const maps: any = mapsResp.status === "fulfilled" ? mapsResp.value : {};
-    const organic = Array.isArray(search?.organic)
-      ? search.organic.slice(0, 10).map((o: any, i: number) => ({
+    const search = searchResp.status === "fulfilled" ? searchResp.value : null;
+    const maps = mapsResp.status === "fulfilled" ? mapsResp.value : null;
+    if (!search && !maps) {
+      log.warn("[local-search] all serp providers failed");
+      return res.status(502).json({ ok: false, error: "Search check failed. Please try again." });
+    }
+    const organic = search?.organic
+      ? search.organic.slice(0, 10).map((o, i: number) => ({
           rank: o.position ?? i + 1,
           title: o.title || "",
           url: o.link || "",
@@ -185,15 +174,15 @@ async function localSearchCheckerHandler(req: Request, res: Response) {
           })(),
         }))
       : [];
-    const localPack = Array.isArray(maps?.places)
-      ? maps.places.slice(0, 10).map((p: any, i: number) => ({
+    const localPack = maps?.localPack
+      ? maps.localPack.slice(0, 10).map((p, i: number) => ({
           rank: i + 1,
-          name: p.title || p.name || "",
+          name: p.title || "",
           address: p.address || "",
           rating: p.rating ?? null,
-          reviewsCount: p.ratingCount ?? null,
-          gbpUrl: p.cid ? `https://www.google.com/maps?cid=${p.cid}` : p.link || null,
-          phone: p.phoneNumber || null,
+          reviewsCount: p.reviewCount ?? null,
+          gbpUrl: p.placeId ? `https://www.google.com/maps?cid=${p.placeId}` : null,
+          phone: null,
         }))
       : [];
     return res.json({
@@ -206,7 +195,7 @@ async function localSearchCheckerHandler(req: Request, res: Response) {
       localPack,
     });
   } catch (err: any) {
-    log.warn("[local-search] serper failed:", { error: err?.message || String(err) });
+    log.warn("[local-search] serp orchestrator failed:", { error: err?.message || String(err) });
     return res.status(502).json({ ok: false, error: "Search check failed. Please try again." });
   }
 }
@@ -235,13 +224,6 @@ async function citationCheckerHandler(req: Request, res: Response) {
     return res.status(400).json({ ok: false, error: "Missing businessName." });
   }
 
-  const apiKey = process.env.SERPER_API_KEY;
-  if (!apiKey) {
-    return res.status(503).json({ ok: false, error: "Search provider not configured." });
-  }
-
-  const headers = { "X-API-KEY": apiKey, "Content-Type": "application/json" };
-
   const checks = CITATION_SOURCES.map(async (src) => {
     // `site:<domain> "<name>" <city>` — phone added only if supplied. We
     // accept the first organic hit on that domain as confirmation; the
@@ -255,17 +237,8 @@ async function citationCheckerHandler(req: Request, res: Response) {
     ].filter(Boolean);
     const q = queryParts.join(" ");
     try {
-      const data: any = await fetchJson(
-        "https://google.serper.dev/search",
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ q, gl: "us", hl: "en", num: 5 }),
-        },
-        9000,
-      );
-      const organic = Array.isArray(data?.organic) ? data.organic : [];
-      const hit = organic.find((o: any) => {
+      const result = await searchSerp({ query: q, country: "us", language: "en", num: 5 });
+      const hit = result.organic.find((o) => {
         try {
           const host = new URL(o.link).hostname.replace(/^www\./, "");
           return host === src.domain || host.endsWith(`.${src.domain}`);
@@ -582,11 +555,7 @@ async function localRankGridHandler(req: Request, res: Response) {
     return res.status(400).json({ ok: false, error: "Business name, city, and keyword are all required." });
   }
 
-  const serperKey = process.env.SERPER_API_KEY;
   const placesKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
-  if (!serperKey) {
-    return res.status(503).json({ ok: false, error: "Search provider not configured." });
-  }
   if (!placesKey) {
     return res.status(503).json({ ok: false, error: "Geocoding provider not configured." });
   }
@@ -597,12 +566,12 @@ async function localRankGridHandler(req: Request, res: Response) {
   }
 
   const grid = buildGrid(geo.lat, geo.lng, 5);
-  const headers = { "X-API-KEY": serperKey, "Content-Type": "application/json" };
 
-  // 25 parallel searches. Each query carries the per-point lat/lng so
-  // Serper / Google treat it as a real geo-located search. We dual-call
-  // /maps (for Local Pack rank — the one that matters for trades) and
-  // /search (organic rank — fallback when the business isn't in Maps).
+  // 25 parallel searches via the multi-provider orchestrator (Wave 6.5).
+  // Each request carries per-point lat/lng — Serper consumes them
+  // directly; other providers ignore them and fall back to the city
+  // location text. We dual-call web + maps per point (Local Pack rank is
+  // what matters for trades; organic rank is the fallback signal).
   //
   // Wave 6A: also retain the top-3 Local Pack results per point so the
   // frontend can render a hover popover ("who's #1/2/3 at this exact
@@ -610,32 +579,33 @@ async function localRankGridHandler(req: Request, res: Response) {
   // sidebar.
   const points = await Promise.all(
     grid.map(async (pt) => {
-      const body = {
-        q: keyword,
-        gl: "us",
-        hl: "en",
-        location: city,
-        latitude: pt.lat,
-        longitude: pt.lng,
-        num: 20,
-      };
       try {
         const [searchResp, mapsResp] = await Promise.allSettled([
-          fetchJson("https://google.serper.dev/search", {
-            method: "POST",
-            headers,
-            body: JSON.stringify(body),
-          }, 10000),
-          fetchJson("https://google.serper.dev/maps", {
-            method: "POST",
-            headers,
-            body: JSON.stringify(body),
-          }, 10000),
+          searchSerp({
+            query: keyword,
+            country: "us",
+            language: "en",
+            location: city,
+            latitude: pt.lat,
+            longitude: pt.lng,
+            num: 20,
+            engine: "google_web",
+          }),
+          searchSerp({
+            query: keyword,
+            country: "us",
+            language: "en",
+            location: city,
+            latitude: pt.lat,
+            longitude: pt.lng,
+            num: 20,
+            engine: "google_maps",
+          }),
         ]);
-        const search: any = searchResp.status === "fulfilled" ? searchResp.value : {};
-        const maps: any = mapsResp.status === "fulfilled" ? mapsResp.value : {};
+        const search = searchResp.status === "fulfilled" ? searchResp.value : null;
+        const maps = mapsResp.status === "fulfilled" ? mapsResp.value : null;
         let rank: number | null = null;
-        const organic = Array.isArray(search?.organic) ? search.organic : [];
+        const organic = search?.organic ?? [];
         for (let i = 0; i < organic.length && i < 20; i++) {
           if (looseIncludes(organic[i]?.title || "", businessName)) {
             rank = i + 1;
@@ -643,19 +613,18 @@ async function localRankGridHandler(req: Request, res: Response) {
           }
         }
         let mapRank: number | null = null;
-        const places = Array.isArray(maps?.places) ? maps.places : [];
+        const places = maps?.localPack ?? [];
         for (let i = 0; i < places.length && i < 20; i++) {
-          const name = places[i]?.title || places[i]?.name || "";
-          if (looseIncludes(name, businessName)) {
+          if (looseIncludes(places[i]?.title || "", businessName)) {
             mapRank = i + 1;
             break;
           }
         }
-        const topResults = places.slice(0, 3).map((p: any, i: number) => ({
+        const topResults = places.slice(0, 3).map((p, i: number) => ({
           rank: i + 1,
-          name: p?.title || p?.name || "",
-          rating: typeof p?.rating === "number" ? p.rating : null,
-          reviewsCount: typeof p?.ratingCount === "number" ? p.ratingCount : null,
+          name: p.title || "",
+          rating: typeof p.rating === "number" ? p.rating : null,
+          reviewsCount: typeof p.reviewCount === "number" ? p.reviewCount : null,
         }));
         return { lat: pt.lat, lng: pt.lng, rank, mapRank, topResults };
       } catch {
