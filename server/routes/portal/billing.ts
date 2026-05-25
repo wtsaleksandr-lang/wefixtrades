@@ -43,8 +43,26 @@ async function resolveClientId(userId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-/** Middleware-style helper: resolve client_id or return 403. */
-async function withClientId(req: Request, res: Response): Promise<number | null> {
+/** Middleware-style helper: resolve client_id or return 403.
+ *
+ * Admin viewing the portal directly (not impersonating a customer) has no
+ * `clients` row of their own, so without this branch every GET 403'd — and
+ * on billing the resulting error crashed the page (full error boundary trip).
+ * We now return null cleanly on read paths so the caller can render an empty
+ * shape; write paths pass `adminFallback: 'forbid'` to keep the explicit 403.
+ */
+async function withClientId(
+  req: Request,
+  res: Response,
+  opts: { adminFallback?: 'empty' | 'forbid' } = {},
+): Promise<number | null> {
+  if (req.user!.role === 'admin' && !req.adminImpersonating) {
+    if (opts.adminFallback === 'forbid') {
+      res.status(403).json({ error: "Admin must impersonate a customer for this action", code: "admin_no_impersonation" });
+      return null;
+    }
+    return null; // caller returns empty data
+  }
   const clientId = await resolveClientId(req.user!.id);
   if (!clientId) {
     res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
@@ -61,7 +79,23 @@ export function registerPortalBillingRoutes(app: Express) {
   app.get("/api/portal/billing", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
-      if (!clientId) return;
+      if (!clientId) {
+        // Admin previewing the portal directly: return the full BillingData
+        // shape (200) so PortalBilling.tsx renders its empty state instead
+        // of throwing on data.summary / data.payments access.
+        if (req.user!.role === 'admin') {
+          return res.json({
+            payments: [],
+            summary: {
+              total_paid_cents: 0,
+              total_pending_cents: 0,
+              next_due_at: null,
+              next_due_amount_cents: null,
+            },
+          });
+        }
+        return;
+      }
 
       // All payments with service name
       const payments = await db
@@ -125,7 +159,7 @@ export function registerPortalBillingRoutes(app: Express) {
    */
   app.post("/api/portal/billing/send-link", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { adminFallback: 'forbid' });
       if (!clientId) return;
 
       const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
@@ -151,7 +185,7 @@ export function registerPortalBillingRoutes(app: Express) {
    */
   app.post("/api/portal/billing/portal-session", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { adminFallback: 'forbid' });
       if (!clientId) return;
 
       const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);

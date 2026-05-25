@@ -57,10 +57,18 @@ export default function PortalBilling() {
     },
   });
 
-  const hasPending = data && data.summary.total_pending_cents > 0;
-  const unpaidCount = data
-    ? data.payments.filter((p) => p.status === "pending" || p.status === "failed").length
-    : 0;
+  // Defensive: server normally returns the full BillingData shape, but if a
+  // partial/malformed payload ever slips through we don't want the page to
+  // hard-crash (which trips the top-level AppErrorBoundary with "This page
+  // crashed unexpectedly"). Treat missing fields as empty/zero.
+  const payments = data?.payments ?? [];
+  const summary = data?.summary;
+  const totalPaidCents = summary?.total_paid_cents ?? 0;
+  const totalPendingCents = summary?.total_pending_cents ?? 0;
+  const nextDueAt = summary?.next_due_at ?? null;
+  const nextDueAmountCents = summary?.next_due_amount_cents ?? null;
+  const hasPending = totalPendingCents > 0;
+  const unpaidCount = payments.filter((p) => p.status === "pending" || p.status === "failed").length;
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
 
@@ -161,7 +169,7 @@ export default function PortalBilling() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Total Paid</p>
-                    <p className="text-lg font-semibold text-gray-900">{formatCents(data.summary.total_paid_cents)}</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatCents(totalPaidCents)}</p>
                   </div>
                 </div>
               </div>
@@ -172,7 +180,7 @@ export default function PortalBilling() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Amount Due</p>
-                    <p className="text-lg font-semibold text-gray-900">{formatCents(data.summary.total_pending_cents)}</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatCents(totalPendingCents)}</p>
                   </div>
                 </div>
               </div>
@@ -184,11 +192,11 @@ export default function PortalBilling() {
                   <div>
                     <p className="text-xs text-gray-500">Next Due</p>
                     <p className="text-lg font-semibold text-gray-900">
-                      {data.summary.next_due_amount_cents
-                        ? formatCents(data.summary.next_due_amount_cents)
+                      {nextDueAmountCents
+                        ? formatCents(nextDueAmountCents)
                         : "-"}
-                      {data.summary.next_due_at && (
-                        <span className="text-xs font-normal text-gray-400 ml-1.5">on {formatDate(data.summary.next_due_at)}</span>
+                      {nextDueAt && (
+                        <span className="text-xs font-normal text-gray-400 ml-1.5">on {formatDate(nextDueAt)}</span>
                       )}
                     </p>
                   </div>
@@ -253,7 +261,7 @@ export default function PortalBilling() {
               <div className="px-5 py-4 border-b border-gray-100">
                 <h2 className="text-sm font-semibold text-gray-900">Payment History</h2>
               </div>
-              {data.payments.length === 0 ? (
+              {payments.length === 0 ? (
                 <div className="px-5 py-8 text-center">
                   <FileText className="w-8 h-8 text-gray-300 mx-auto mb-3" aria-hidden="true" />
                   <p className="text-sm font-medium text-gray-700 mb-1">No invoices yet</p>
@@ -263,7 +271,7 @@ export default function PortalBilling() {
                 <>
                 {/* Mobile-friendly stacked cards — appears < md */}
                 <div className="md:hidden divide-y divide-gray-50">
-                  {data.payments.map((p) => {
+                  {payments.map((p) => {
                     const isUnpaid = p.status === "pending" || p.status === "failed";
                     return (
                       <div key={p.id} className="p-4 space-y-1.5">
@@ -307,7 +315,7 @@ export default function PortalBilling() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {data.payments.map((p) => {
+                      {payments.map((p) => {
                         const isUnpaid = p.status === "pending" || p.status === "failed";
                         return (
                           <tr key={p.id} className="hover:bg-gray-50/50">

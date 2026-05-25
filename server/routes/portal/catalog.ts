@@ -42,8 +42,26 @@ async function resolveClientId(userId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-/** Middleware-style helper: resolve client_id or return 403. */
-async function withClientId(req: Request, res: Response): Promise<number | null> {
+/** Middleware-style helper: resolve client_id or return 403.
+ *
+ * Admin viewing the portal directly (not impersonating a customer) has no
+ * `clients` row of their own, so without this branch every GET 403'd and the
+ * UI showed a generic "couldn't load" red box. We now return null cleanly on
+ * read paths so the caller can render an empty/demo response; write paths
+ * pass `adminFallback: 'forbid'` to keep the explicit 403.
+ */
+async function withClientId(
+  req: Request,
+  res: Response,
+  opts: { adminFallback?: 'empty' | 'forbid' } = {},
+): Promise<number | null> {
+  if (req.user!.role === 'admin' && !req.adminImpersonating) {
+    if (opts.adminFallback === 'forbid') {
+      res.status(403).json({ error: "Admin must impersonate a customer for this action", code: "admin_no_impersonation" });
+      return null;
+    }
+    return null; // caller returns empty data
+  }
   const clientId = await resolveClientId(req.user!.id);
   if (!clientId) {
     res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
@@ -63,7 +81,7 @@ export function registerPortalCatalogRoutes(app: Express) {
    */
   app.post("/api/portal/catalog/subscribe", requireClientStrict, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { adminFallback: 'forbid' });
       if (!clientId) return;
 
       const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -330,7 +348,15 @@ export function registerPortalCatalogRoutes(app: Express) {
   app.get("/api/portal/catalog", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
-      if (!clientId) return;
+      if (!clientId) {
+        // Admin previewing the portal directly: return an empty-shape response
+        // (200) so the catalog page renders its empty state instead of a red
+        // "couldn't load" box. Non-admin no-client-linked already 403'd above.
+        if (req.user!.role === 'admin') {
+          return res.json({ services: [], bundles: [] });
+        }
+        return;
+      }
 
       const active = await db
         .select({ service_id: clientServices.service_id })
