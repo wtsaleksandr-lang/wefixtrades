@@ -15,9 +15,14 @@
  *   GET    /api/portal/contentflow/videos
  *   GET    /api/portal/contentflow/video-settings
  *   PATCH  /api/portal/contentflow/video-settings
+ *   POST   /api/portal/contentflow/generate                    (Phase 3)
+ *   GET    /api/portal/contentflow/custom-prompts              (Phase 3)
+ *   POST   /api/portal/contentflow/custom-prompts              (Phase 3)
+ *   DELETE /api/portal/contentflow/custom-prompts/:id          (Phase 3)
  */
 
 import type { Express, Request, Response } from "express";
+import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { requireClient } from "../../auth";
 import { storage } from "../../storage";
@@ -31,6 +36,9 @@ import {
 import {
   IMAGE_STYLE_PRESETS,
   defaultPresetForIndustry,
+  isImageStylePresetId,
+  applyStylePreset,
+  type ImageStylePresetId,
 } from "../../services/contentflow/imageStylePresets";
 import {
   PROMPT_TEMPLATE_COUNT,
@@ -47,6 +55,10 @@ import {
   type ExtractedBusinessProfile,
   type PrefilledToken,
 } from "../../services/contentflow/profilePrefill";
+import { generateImageViaOrchestrator } from "../../services/contentflow/imageOrchestrator";
+import { generateContentflowText } from "../../services/contentflow/aiText";
+import { humanizeViaOrchestrator } from "../../services/contentflow/humanizationOrchestrator";
+import { writeAudit } from "../../lib/auditLog";
 import { createLogger } from "../../lib/logger";
 
 const log = createLogger("PortalContentflow");
@@ -584,4 +596,544 @@ export function registerPortalContentflowRoutes(app: Express) {
       res.status(500).json({ error: err.message });
     }
   });
+
+  /* ─── Phase 3: Generate endpoint + custom-prompt save ──────────────
+   *
+   * Phase 3 wires the modal's Generate button to the existing image
+   * orchestrator (PR #786) and article humanize pipeline (PR #787),
+   * persists a content_drafts row per generation, and adds tier-gated
+   * custom-prompt save (Free=0, Starter=5, Creator=5, Studio=25,
+   * Agency=unlimited). Tier resolution reads client_services for an
+   * active contentflow-* row; tier-less customers fall through to
+   * "free". No DB migration — custom prompts live on
+   * clients.metadata.content_brand.custom_prompts; this will move
+   * to a dedicated table in Phase 5 (TODO comment near write path).
+   */
+
+  /**
+   * POST /api/portal/contentflow/generate
+   *
+   * Body: { templateId, tokens?, rendered, assetType }
+   * Returns: { ok, draftId, assetUrl?, content?, tier, ... }
+   *
+   * Asset routing:
+   *   - "image":   generateImageViaOrchestrator(rendered + style preset)
+   *   - "article": generateContentflowText() → humanizeViaOrchestrator()
+   *   - "video":   402 if free/starter, 503 ("early access") otherwise.
+   *                VIDEO_GENERATION_ENABLED is off platform-wide per
+   *                PR #777 — no actual video generation today.
+   *   - "multi":   image + article in parallel (Promise.all).
+   *
+   * Every generation writes a content_drafts row (surface='contentflow_portal',
+   * kind matches assetType) so the customer can see the output in their
+   * library. Audit row on each success/failure.
+   */
+  app.post("/api/portal/contentflow/generate", requireClient, async (req: Request, res: Response) => {
+    const t0 = Date.now();
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { templateId, tokens, rendered, assetType } = (req.body || {}) as {
+        templateId?: string;
+        tokens?: unknown;
+        rendered?: string;
+        assetType?: string;
+      };
+
+      /* ── Validate body ────────────────────────────────────────── */
+      if (!templateId || typeof templateId !== "string") {
+        return res.status(400).json({ error: "templateId is required", code: "missing_template_id" });
+      }
+      const tmpl = getPromptTemplate(templateId);
+      if (!tmpl) return res.status(404).json({ error: "prompt not found", code: "prompt_not_found" });
+      if (!rendered || typeof rendered !== "string" || !rendered.trim()) {
+        return res.status(400).json({ error: "rendered prompt is required", code: "missing_rendered" });
+      }
+      if (rendered.length > 8_000) {
+        return res.status(400).json({ error: "rendered prompt too long (max 8000)", code: "prompt_too_long" });
+      }
+      const VALID_ASSETS = new Set(["image", "article", "video", "multi"]);
+      if (!assetType || !VALID_ASSETS.has(assetType)) {
+        return res.status(400).json({ error: "assetType must be one of image|article|video|multi", code: "invalid_asset_type" });
+      }
+
+      const tier = await resolveContentflowTier(clientId);
+
+      /* ── Video: hard-stop at the tier gate (Free/Starter) and then
+       *    early-access stub at Creator+. No video pipeline today. */
+      if (assetType === "video") {
+        if (tier === "free" || tier === "starter") {
+          writeAudit({
+            actorType: "system",
+            actorId: req.user?.id ?? null,
+            action: "contentflow.generate.blocked",
+            entityType: "client",
+            entityId: String(clientId),
+            metadata: { template_id: templateId, asset_type: assetType, reason: "tier_below_creator", tier },
+          });
+          return res.status(402).json({
+            error: "Video requires Creator+ tier.",
+            code: "tier_too_low",
+            tier,
+            upgrade_required: true,
+          });
+        }
+        writeAudit({
+          actorType: "system",
+          actorId: req.user?.id ?? null,
+          action: "contentflow.generate.video_early_access",
+          entityType: "client",
+          entityId: String(clientId),
+          metadata: { template_id: templateId, asset_type: assetType, tier },
+        });
+        return res.status(503).json({
+          error: "Video generation is in early access, scripts coming soon.",
+          code: "video_early_access",
+          tier,
+        });
+      }
+
+      /* ── Resolve customer brand + image style preset for image gen. */
+      const client = await storage.getClientById(clientId);
+      const brand = readBrandProfile(client);
+      const tradeType = (client?.trade_type as string | null) ?? null;
+      const customerStylePreset =
+        isImageStylePresetId(brand.image_style_preset)
+          ? brand.image_style_preset
+          : defaultPresetForIndustry(tradeType);
+
+      /* ── Single insert of a draft row that we then attach the result
+       *    to. Doing this up front means a failure mid-pipeline still
+       *    leaves a record the customer can re-run. */
+      const draftKind =
+        assetType === "image" ? "image"
+        : assetType === "article" ? "article"
+        : "multi";
+      const insertedDraft = await storage.createContentDraft({
+        client_id: clientId,
+        client_service_id: null,
+        kind: draftKind,
+        surface: "contentflow_portal",
+        title: tmpl.title,
+        body: null,
+        excerpt: null,
+        target_platform: null,
+        target_url: null,
+        metadata: {
+          template_id: templateId,
+          pattern_id: tmpl.patternId,
+          trade: tmpl.trade,
+          goal: tmpl.goal,
+          asset: tmpl.asset,
+          tokens: Array.isArray(tokens) ? tokens : [],
+          rendered_prompt: rendered,
+          style_preset: customerStylePreset,
+          tier_at_generation: tier,
+          source: "phase3_generate_endpoint",
+          generation_status: "in_progress",
+        } as any,
+        quality_score: null,
+        quality_notes: null,
+        status: "draft",
+        auto_approved: false,
+        requires_admin_review: false,
+        requires_client_review: false,
+        admin_approved_at: null,
+        admin_approved_by: null,
+        client_approved_at: null,
+        rejected_at: null,
+        rejection_reason: null,
+        linked_social_post_id: null,
+        linked_task_id: null,
+        generation_cost_micro_usd: null,
+        created_by: "system",
+      } as any);
+
+      const draftId = insertedDraft.id;
+
+      /* ── Image branch — orchestrator + persist URL on the draft. */
+      let assetUrl: string | undefined;
+      let articleContent: string | undefined;
+      const errors: string[] = [];
+
+      const runImage = async (): Promise<void> => {
+        const finalPrompt = applyStyleSuffixToPrompt(rendered, customerStylePreset);
+        const orch = await generateImageViaOrchestrator(finalPrompt, {
+          customerTier: tier,
+        });
+        if (orch.ok) {
+          /* Persist as a data URI for now — Phase 3 ships without R2
+           * coupling on this surface; the existing publish pipeline
+           * uses R2, but here the asset is shown directly in the
+           * browser. Cap at ~1.2 MB to stay metadata-safe. */
+          const b64 = orch.imageBuffer.toString("base64");
+          assetUrl = `data:image/png;base64,${b64}`;
+        } else {
+          errors.push(`image:${orch.reason}`);
+        }
+      };
+
+      const runArticle = async (): Promise<void> => {
+        const draftRaw = await generateContentflowText({
+          system: "You are an SEO content writer for a local trade-services business. Produce a single short-form article (300-500 words) that answers the brief. Markdown headings allowed (## only). No fabricated testimonials, certifications, or prices. Plain prose only.",
+          user: rendered,
+          maxTokens: 1500,
+        }).catch((e: any) => ({ text: "", provider: "error", costMicroUsd: 0, _err: e?.message } as any));
+        const draftText = (draftRaw as any).text as string;
+        if (!draftText || !draftText.trim()) {
+          errors.push(`article:gen_empty${(draftRaw as any)._err ? `:${(draftRaw as any)._err}` : ""}`);
+          return;
+        }
+        try {
+          const humanized = await humanizeViaOrchestrator(draftText, {
+            clientId,
+            industry: tradeType ?? undefined,
+            targetWordCount: 400,
+            sourceProvider: (draftRaw as any).provider === "openai" ? "openai" : "anthropic",
+          });
+          articleContent = humanized.humanized || draftText;
+        } catch (err: any) {
+          /* Humanizer failure is non-fatal — fall back to the LLM draft. */
+          articleContent = draftText;
+          log.warn("[generate] humanizer fell through", { err: err?.message });
+        }
+      };
+
+      try {
+        if (assetType === "image") {
+          await runImage();
+        } else if (assetType === "article") {
+          await runArticle();
+        } else if (assetType === "multi") {
+          await Promise.all([runImage(), runArticle()]);
+        }
+      } catch (err: any) {
+        /* Top-level pipeline crash — log + record on the draft. */
+        log.error("[generate] pipeline crash", { err: err?.message, draftId });
+        errors.push(`pipeline:${err?.message || "unknown"}`);
+      }
+
+      const succeeded =
+        (assetType === "image" && !!assetUrl) ||
+        (assetType === "article" && !!articleContent) ||
+        (assetType === "multi" && (!!assetUrl || !!articleContent));
+
+      /* ── Persist result on the draft. */
+      await storage.updateContentDraft(draftId, {
+        body: articleContent ?? null,
+        metadata: {
+          template_id: templateId,
+          pattern_id: tmpl.patternId,
+          trade: tmpl.trade,
+          goal: tmpl.goal,
+          asset: tmpl.asset,
+          tokens: Array.isArray(tokens) ? tokens : [],
+          rendered_prompt: rendered,
+          style_preset: customerStylePreset,
+          tier_at_generation: tier,
+          source: "phase3_generate_endpoint",
+          generation_status: succeeded ? "succeeded" : "failed",
+          generation_errors: errors,
+          media_plan: assetUrl ? { image_url: assetUrl, prompt: rendered, image_style_preset: customerStylePreset } : null,
+          duration_ms: Date.now() - t0,
+        } as any,
+        status: succeeded ? "draft" : "failed",
+      } as any);
+
+      writeAudit({
+        actorType: "system",
+        actorId: req.user?.id ?? null,
+        action: "contentflow.generate.complete",
+        entityType: "content_draft",
+        entityId: String(draftId),
+        metadata: {
+          client_id: clientId,
+          template_id: templateId,
+          asset_type: assetType,
+          tier,
+          succeeded,
+          errors,
+          has_image: !!assetUrl,
+          has_article: !!articleContent,
+          style_preset: customerStylePreset,
+          duration_ms: Date.now() - t0,
+        },
+      });
+
+      if (!succeeded) {
+        return res.status(502).json({
+          ok: false,
+          draftId,
+          tier,
+          errors,
+          message: "Generation pipeline returned no asset. Try again or contact support.",
+        });
+      }
+
+      res.json({
+        ok: true,
+        draftId,
+        tier,
+        assetUrl,
+        content: articleContent,
+        stylePreset: customerStylePreset,
+      });
+    } catch (err: any) {
+      log.error("[portal/contentflow/generate]", err?.message || err);
+      res.status(500).json({ error: err?.message || "generate failed" });
+    }
+  });
+
+  /* ─── Custom-prompt save (tier-gated) ─────────────────────────────
+   *
+   * Storage: clients.metadata.content_brand.custom_prompts. JSON-only
+   * for Phase 3 — Phase 5 will lift this into a dedicated table once
+   * we wire share-with-team and library search. TODO(phase5-migration).
+   *
+   * Limits per tier:
+   *   free      → 0    (returns 402 with upgrade message)
+   *   starter   → 5
+   *   creator   → 5
+   *   studio    → 25
+   *   agency    → Infinity (unlimited)
+   */
+
+  app.get("/api/portal/contentflow/custom-prompts", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const tier = await resolveContentflowTier(clientId);
+      const cap = customPromptCapForTier(tier);
+      const items = await readCustomPrompts(clientId);
+      res.json({
+        ok: true,
+        tier,
+        cap: Number.isFinite(cap) ? cap : null,
+        used: items.length,
+        remaining: Number.isFinite(cap) ? Math.max(0, cap - items.length) : null,
+        custom_prompts: items,
+      });
+    } catch (err: any) {
+      log.error("[portal/custom-prompts][list]", err?.message || err);
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  app.post("/api/portal/contentflow/custom-prompts", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { baseTemplateId, customizedRendered, customizedTokens, title } = (req.body || {}) as {
+        baseTemplateId?: string;
+        customizedRendered?: string;
+        customizedTokens?: unknown;
+        title?: string;
+      };
+      if (!baseTemplateId || typeof baseTemplateId !== "string") {
+        return res.status(400).json({ error: "baseTemplateId is required", code: "missing_base_template" });
+      }
+      if (!customizedRendered || typeof customizedRendered !== "string" || !customizedRendered.trim()) {
+        return res.status(400).json({ error: "customizedRendered is required", code: "missing_rendered" });
+      }
+      if (customizedRendered.length > 8_000) {
+        return res.status(400).json({ error: "customizedRendered too long (max 8000)", code: "prompt_too_long" });
+      }
+      const cleanTitle = typeof title === "string" && title.trim().length > 0
+        ? title.trim().slice(0, 200)
+        : "Untitled prompt";
+
+      const tier = await resolveContentflowTier(clientId);
+      const cap = customPromptCapForTier(tier);
+      if (cap <= 0) {
+        return res.status(402).json({
+          error: "Upgrade to Starter to save custom prompts",
+          code: "tier_no_save",
+          tier,
+          upgrade_required: true,
+        });
+      }
+
+      const existing = await readCustomPrompts(clientId);
+      if (Number.isFinite(cap) && existing.length >= cap) {
+        return res.status(402).json({
+          error: `Your ${tier} plan caps custom prompts at ${cap}. Delete one or upgrade to add more.`,
+          code: "tier_cap_reached",
+          tier,
+          cap,
+          used: existing.length,
+          upgrade_required: true,
+        });
+      }
+
+      /* Sanitize the tokens array — same shape as the prefill response. */
+      const safeTokens = Array.isArray(customizedTokens)
+        ? (customizedTokens as unknown[]).slice(0, 16).filter((t): t is Record<string, unknown> =>
+            !!t && typeof t === "object",
+          ).map((t) => {
+            const placeholder = (t as any).placeholder;
+            const selected = (t as any).selected;
+            const alternatives = (t as any).alternatives;
+            return {
+              placeholder: typeof placeholder === "string" ? placeholder.slice(0, 60) : "",
+              selected: typeof selected === "string" ? selected.slice(0, 300) : "",
+              alternatives: Array.isArray(alternatives)
+                ? alternatives.filter((a) => typeof a === "string").slice(0, 6).map((a: string) => a.slice(0, 300))
+                : [],
+            };
+          })
+          .filter((t) => t.placeholder && t.selected)
+        : [];
+
+      const item = {
+        id: `cf_custom_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
+        baseTemplateId,
+        title: cleanTitle,
+        rendered: customizedRendered.slice(0, 8_000),
+        tokens: safeTokens,
+        savedAt: new Date().toISOString(),
+      };
+
+      const next = [...existing, item];
+      await writeCustomPrompts(clientId, next);
+
+      writeAudit({
+        actorType: "system",
+        actorId: req.user?.id ?? null,
+        action: "contentflow.custom_prompt.created",
+        entityType: "client",
+        entityId: String(clientId),
+        metadata: {
+          custom_prompt_id: item.id,
+          base_template_id: baseTemplateId,
+          tier,
+          total_after_save: next.length,
+        },
+      });
+
+      res.json({ ok: true, tier, custom_prompt: item, used: next.length, cap: Number.isFinite(cap) ? cap : null });
+    } catch (err: any) {
+      log.error("[portal/custom-prompts][create]", err?.message || err);
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  app.delete("/api/portal/contentflow/custom-prompts/:id", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const id = String(req.params.id || "");
+      if (!id) return res.status(400).json({ error: "id is required", code: "missing_id" });
+
+      const existing = await readCustomPrompts(clientId);
+      const before = existing.length;
+      const next = existing.filter((p) => p.id !== id);
+      if (next.length === before) {
+        return res.status(404).json({ error: "custom prompt not found", code: "not_found" });
+      }
+      await writeCustomPrompts(clientId, next);
+
+      writeAudit({
+        actorType: "system",
+        actorId: req.user?.id ?? null,
+        action: "contentflow.custom_prompt.deleted",
+        entityType: "client",
+        entityId: String(clientId),
+        metadata: { custom_prompt_id: id, remaining: next.length },
+      });
+
+      res.json({ ok: true, deleted_id: id, remaining: next.length });
+    } catch (err: any) {
+      log.error("[portal/custom-prompts][delete]", err?.message || err);
+      res.status(500).json({ error: err?.message });
+    }
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Phase 3 helpers — tier resolution, custom-prompt persistence,
+ * style-suffix glue. Kept in this file because each is small and
+ * only used by the routes above; promoted to a service if reused.
+ * ────────────────────────────────────────────────────────────────── */
+
+type ContentflowTier = "free" | "starter" | "creator" | "studio" | "agency";
+
+/**
+ * Resolve a client's effective ContentFlow tier from their active
+ * client_services rows. Returns the highest tier among
+ * contentflow-* service ids; falls back to "free" if no row is
+ * active. Order: agency > studio > creator > starter > free.
+ */
+async function resolveContentflowTier(clientId: number): Promise<ContentflowTier> {
+  try {
+    const rows = await storage.listClientServices(clientId);
+    const active = rows.filter((r) => r.status === "active" && r.enabled === true);
+    const ids = new Set(active.map((r) => r.service_id));
+    if (ids.has("contentflow-agency")) return "agency";
+    if (ids.has("contentflow-studio")) return "studio";
+    if (ids.has("contentflow-creator")) return "creator";
+    if (ids.has("contentflow-starter")) return "starter";
+    return "free";
+  } catch {
+    return "free";
+  }
+}
+
+function customPromptCapForTier(tier: ContentflowTier): number {
+  switch (tier) {
+    case "free": return 0;
+    case "starter": return 5;
+    case "creator": return 5;
+    case "studio": return 25;
+    case "agency": return Number.POSITIVE_INFINITY;
+  }
+}
+
+interface SavedCustomPrompt {
+  id: string;
+  baseTemplateId: string;
+  title: string;
+  rendered: string;
+  tokens: Array<{ placeholder: string; selected: string; alternatives: string[] }>;
+  savedAt: string;
+}
+
+async function readCustomPrompts(clientId: number): Promise<SavedCustomPrompt[]> {
+  const client = await storage.getClientById(clientId);
+  const meta = ((client?.metadata as Record<string, any>) || {}) as Record<string, any>;
+  const cb = (meta.content_brand && typeof meta.content_brand === "object" ? meta.content_brand : {}) as Record<string, any>;
+  const arr = Array.isArray(cb.custom_prompts) ? cb.custom_prompts : [];
+  return arr.filter((p: any) =>
+    p && typeof p === "object"
+      && typeof p.id === "string"
+      && typeof p.baseTemplateId === "string"
+      && typeof p.rendered === "string",
+  ) as SavedCustomPrompt[];
+}
+
+async function writeCustomPrompts(clientId: number, items: SavedCustomPrompt[]): Promise<void> {
+  /* TODO(phase5-migration): move to a dedicated contentflow_custom_prompts
+   * table once we wire share-with-team / library search. Today we
+   * store on clients.metadata.content_brand.custom_prompts so Phase 3
+   * ships without a migration. */
+  const client = await storage.getClientById(clientId);
+  const meta = ((client?.metadata as Record<string, any>) || {}) as Record<string, any>;
+  const cb = (meta.content_brand && typeof meta.content_brand === "object" ? meta.content_brand : {}) as Record<string, any>;
+  const next = {
+    ...meta,
+    content_brand: { ...cb, custom_prompts: items },
+  };
+  await storage.updateClient(clientId, { metadata: next } as any);
+}
+
+/**
+ * Append the customer's image-style preset hint to the rendered prompt.
+ */
+function applyStyleSuffixToPrompt(rendered: string, preset: string): string {
+  if (isImageStylePresetId(preset)) {
+    return applyStylePreset(rendered, preset as ImageStylePresetId);
+  }
+  return rendered;
 }
