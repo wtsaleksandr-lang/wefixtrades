@@ -2,7 +2,9 @@ import crypto from "crypto";
 import { hashPassword } from "./auth";
 import { db } from "./db";
 import {
-calculators, leads, analyticsEvents, deploymentStatus,
+  // Calculator + leads + analytics_events + deployment_status table objects
+  // moved with impl to ./storage/calculator.ts and ./storage/leads.ts /
+  // ./storage/analytics.ts. Types stay here for IStorage signatures.
   jobLogs,
   notificationQueue, followupJobs, bookings,
   users, auditSubmissions, auditFollowupEmails, demoQuoteLeads, missedCallLeads,
@@ -105,7 +107,7 @@ type User, type InsertUser,
   productDrafts,
   type ProductDraft, type InsertProductDraft,
 } from "@shared/schema";
-import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, ilike, or, count } from "drizzle-orm";
 import * as leadsImpl from "./storage/leads";
 import * as billingImpl from "./storage/billing";
 import * as socialsyncImpl from "./storage/socialsync";
@@ -121,7 +123,7 @@ import * as reputationImpl from "./storage/reputation";
 import * as analyticsImpl from "./storage/analytics";
 import * as fulfillmentImpl from "./storage/fulfillment";
 import * as supportImpl from "./storage/support";
-import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
+import * as calculatorImpl from "./storage/calculator";
 import { createLogger } from "./lib/logger";
 import { kickoffMapguardService } from "./services/mapguardTaskEngine";
 import { fireSetupCompletionUpsell } from "./services/mapguardUpsell";
@@ -635,87 +637,15 @@ export { type ContentJobPlatform } from "./storage/contentflow";
 import type { ContentJobPlatform } from "./storage/contentflow";
 
 export class DatabaseStorage implements IStorage {
-  async createCalculator(data: InsertCalculator): Promise<Calculator> {
-    const [calc] = await db.insert(calculators).values(data).returning();
-    return calc;
-  }
-
-  async getCalculatorBySlug(slug: string): Promise<Calculator | undefined> {
-    const [calc] = await db.select().from(calculators).where(eq(calculators.slug, slug)).limit(1);
-    return calc;
-  }
-
-  async getCalculatorByToken(token: string): Promise<Calculator | undefined> {
-    const [calc] = await db.select().from(calculators).where(eq(calculators.edit_token, token)).limit(1);
-    return calc;
-  }
-
-  async updateCalculator(id: number, updates: Partial<InsertCalculator>): Promise<Calculator | undefined> {
-    const [calc] = await db.update(calculators).set(updates).where(eq(calculators.id, id)).returning();
-    return calc;
-  }
-
-  async duplicateCalculator(id: number, newSlug: string, newToken: string, newExpiry: Date): Promise<Calculator | undefined> {
-    const original = await this.getCalculatorById(id);
-    if (!original) return undefined;
-
-    await db.update(calculators).set({ is_duplicated: true }).where(eq(calculators.id, id));
-
-    const [newCalc] = await db.insert(calculators).values({
-      user_id: original.user_id,
-      slug: newSlug,
-      business_name: original.business_name,
-      trade_type: original.trade_type,
-      tagline: original.tagline,
-      logo_url: original.logo_url,
-      owner_email: original.owner_email,
-      owner_phone: original.owner_phone,
-      website_url: original.website_url,
-      primary_color: original.primary_color,
-      cta_button_text: original.cta_button_text,
-      lead_thank_you_message: original.lead_thank_you_message,
-      pricing_config: original.pricing_config,
-      theme_overrides: original.theme_overrides,
-      calculator_settings: original.calculator_settings,
-      edit_token: newToken,
-      token_expires_at: newExpiry,
-      is_duplicated: false,
-      total_views: 0,
-      show_powered_by_badge: original.show_powered_by_badge,
-      plan_tier: original.plan_tier,
-    }).returning();
-    return newCalc;
-  }
-
-  async getCalculatorByOldSlug(oldSlug: string): Promise<Calculator | undefined> {
-    // Search for a calculator that has this slug in its _slug_redirects metadata.
-    //
-    // Wave Q-Hotfix — the previous version dropped the `jsonb_typeof` guard.
-    // When any row had `calculator_settings._slug_redirects` as null or as a
-    // non-array (e.g. legacy rows pre-slug-redirect feature), the bare
-    // `@> [...]::jsonb` containment check threw and bubbled out as HTTP 500
-    // from the /api/calculators/lookup endpoint, killing the hosted-page
-    // feature entirely. The typeof guard short-circuits rows that don't
-    // have an array there so the containment runs only on safe shapes.
-    const results = await db.select().from(calculators)
-      .where(sql`
-        jsonb_typeof(${calculators.calculator_settings}::jsonb -> '_slug_redirects') = 'array'
-        AND ${calculators.calculator_settings}::jsonb -> '_slug_redirects' @> ${JSON.stringify([{ slug: oldSlug }])}::jsonb
-      `)
-      .limit(1);
-    return results[0];
-  }
-
-  async deleteCalculator(id: number): Promise<void> {
-    await db.delete(analyticsEvents).where(eq(analyticsEvents.calculator_id, id));
-    await db.delete(deploymentStatus).where(eq(deploymentStatus.calculator_id, id));
-    await db.delete(leads).where(eq(leads.calculator_id, id));
-    await db.delete(calculators).where(eq(calculators.id, id));
-  }
-
-  async incrementViews(id: number): Promise<void> {
-    await db.update(calculators).set({ total_views: sql`${calculators.total_views} + 1` }).where(eq(calculators.id, id));
-  }
+  // ─── Calculator methods (impl in ./storage/calculator.ts) ───
+  createCalculator(data: InsertCalculator): Promise<Calculator> { return calculatorImpl.createCalculator(data); }
+  getCalculatorBySlug(slug: string): Promise<Calculator | undefined> { return calculatorImpl.getCalculatorBySlug(slug); }
+  getCalculatorByToken(token: string): Promise<Calculator | undefined> { return calculatorImpl.getCalculatorByToken(token); }
+  updateCalculator(id: number, updates: Partial<InsertCalculator>): Promise<Calculator | undefined> { return calculatorImpl.updateCalculator(id, updates); }
+  duplicateCalculator(id: number, newSlug: string, newToken: string, newExpiry: Date): Promise<Calculator | undefined> { return calculatorImpl.duplicateCalculator(id, newSlug, newToken, newExpiry); }
+  getCalculatorByOldSlug(oldSlug: string): Promise<Calculator | undefined> { return calculatorImpl.getCalculatorByOldSlug(oldSlug); }
+  deleteCalculator(id: number): Promise<void> { return calculatorImpl.deleteCalculator(id); }
+  incrementViews(id: number): Promise<void> { return calculatorImpl.incrementViews(id); }
 
   // ─── Lead methods (impl in ./storage/leads.ts) ───
   createLead(data: InsertLead): Promise<Lead> { return leadsImpl.createLead(data); }
@@ -730,64 +660,10 @@ export class DatabaseStorage implements IStorage {
   getWeeklyTrend(calculatorId: number): Promise<{ week: string; views: number; leads: number }[]> { return analyticsImpl.getWeeklyTrend(calculatorId); }
   getAvgQuoteAmount(calculatorId: number): Promise<number> { return analyticsImpl.getAvgQuoteAmount(calculatorId); }
 
-  async getDeploymentStatus(calculatorId: number): Promise<DeploymentStatus | undefined> {
-    const [ds] = await db.select().from(deploymentStatus).where(eq(deploymentStatus.calculator_id, calculatorId)).limit(1);
-    return ds;
-  }
-
-  async upsertDeploymentStatus(data: InsertDeploymentStatus): Promise<DeploymentStatus> {
-    const existing = await this.getDeploymentStatus(data.calculator_id);
-    if (existing) {
-      const [updated] = await db.update(deploymentStatus)
-        .set({ ...data, updated_at: new Date() })
-        .where(eq(deploymentStatus.calculator_id, data.calculator_id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(deploymentStatus).values(data).returning();
-    return created;
-  }
-
-  async getAllCalculatorsWithEmail(): Promise<Calculator[]> {
-    return db.select().from(calculators).where(isNotNull(calculators.owner_email));
-  }
-
-  async getAllCalculatorsForAdmin(): Promise<any[]> {
-    const allCalcs = await db.select({
-      id: calculators.id,
-      user_id: calculators.user_id,
-      business_name: calculators.business_name,
-      trade_type: calculators.trade_type,
-      slug: calculators.slug,
-      owner_email: calculators.owner_email,
-      plan_tier: calculators.plan_tier,
-      total_views: calculators.total_views,
-      created_at: calculators.created_at,
-      calculator_settings: calculators.calculator_settings,
-    }).from(calculators).orderBy(desc(calculators.created_at));
-
-    const PLAN_REVENUE = QUOTEQUICK_PLAN_REVENUE_CENTS;
-    const QQ_COST_CENTS = 500;
-
-    const results = [];
-    for (const calc of allCalcs) {
-      const deploy = await this.getDeploymentStatus(calc.id);
-      const [leadRow] = await db.select({ count: sql<number>`count(*)::int` })
-        .from(leads).where(eq(leads.calculator_id, calc.id));
-      const tier = (calc.plan_tier as string) ?? 'free';
-      const settings = (calc.calculator_settings as any) || {};
-      results.push({
-        ...calc,
-        total_leads: leadRow?.count ?? 0,
-        status: deploy?.status ?? 'draft',
-        price_cents: PLAN_REVENUE[tier] ?? 0,
-        cost_cents: tier === 'free' ? 0 : QQ_COST_CENTS,
-        // Lead email notifications are on unless explicitly disabled.
-        notifications_enabled: settings?.followup?.notifications?.email_enabled !== false,
-      });
-    }
-    return results;
-  }
+  getDeploymentStatus(calculatorId: number): Promise<DeploymentStatus | undefined> { return calculatorImpl.getDeploymentStatus(calculatorId); }
+  upsertDeploymentStatus(data: InsertDeploymentStatus): Promise<DeploymentStatus> { return calculatorImpl.upsertDeploymentStatus(data); }
+  getAllCalculatorsWithEmail(): Promise<Calculator[]> { return calculatorImpl.getAllCalculatorsWithEmail(); }
+  getAllCalculatorsForAdmin(): Promise<any[]> { return calculatorImpl.getAllCalculatorsForAdmin(); }
 
   /**
    * Daily lead counts across all QuoteQuick calculators for the last N days.
@@ -796,12 +672,7 @@ export class DatabaseStorage implements IStorage {
    */
   getQuoteQuickLeadTrend(days: number): Promise<Array<{ date: string; count: number }>> { return leadsImpl.getQuoteQuickLeadTrend(days); }
 
-  async findCalculatorByStripeSubscriptionId(subscriptionId: string): Promise<Calculator | undefined> {
-    const [calc] = await db.select().from(calculators)
-      .where(eq(calculators.stripe_subscription_id, subscriptionId))
-      .limit(1);
-    return calc;
-  }
+  findCalculatorByStripeSubscriptionId(subscriptionId: string): Promise<Calculator | undefined> { return calculatorImpl.findCalculatorByStripeSubscriptionId(subscriptionId); }
 
   markLeadReplied(leadId: number): Promise<Lead | undefined> { return leadsImpl.markLeadReplied(leadId); }
 
@@ -894,10 +765,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(followupJobs.lead_id, leadId), eq(followupJobs.status, 'pending')));
   }
 
-  async getCalculatorById(id: number): Promise<Calculator | undefined> {
-    const [calc] = await db.select().from(calculators).where(eq(calculators.id, id)).limit(1);
-    return calc;
-  }
+  getCalculatorById(id: number): Promise<Calculator | undefined> { return calculatorImpl.getCalculatorById(id); }
 
   async createBooking(data: InsertBooking): Promise<Booking> {
     const [booking] = await db.insert(bookings).values(data).returning();
@@ -1087,9 +955,7 @@ export class DatabaseStorage implements IStorage {
     return { user, created: true, tempPassword };
   }
 
-  async getCalculatorsByUserId(userId: number): Promise<Calculator[]> {
-    return db.select().from(calculators).where(eq(calculators.user_id, userId)).orderBy(desc(calculators.id));
-  }
+  getCalculatorsByUserId(userId: number): Promise<Calculator[]> { return calculatorImpl.getCalculatorsByUserId(userId); }
 
   async createAuditSubmission(data: InsertAuditSubmission): Promise<AuditSubmission> {
     const [row] = await db.insert(auditSubmissions).values(data).returning();
