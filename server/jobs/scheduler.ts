@@ -34,6 +34,7 @@ import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorke
 import { processImageRetention } from "./imageRetentionWorker";
 import { processPerformanceQueue } from "./performanceWorker";
 import { processContentflowGeneration } from "./contentflowGenerationWorker";
+import { resetAllContentflowQuotas } from "../services/contentflow/quotaService";
 import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
@@ -582,6 +583,26 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  /* Phase 4 — ContentFlow monthly quota reset.
+   *
+   * 00:05 UTC on the 1st of every month. Zeros out the per-client
+   * images_used / articles_used / videos_used counters on
+   * clients.metadata.content_brand.quota_usage and stamps the new
+   * period_start (YYYY-MM-01). Free-tier customers don't have a
+   * clientServices row, so they're reset lazily by getQuotaState() on
+   * next portal hit — that's fine, no recurring cron exists for them.
+   *
+   * Idempotent: writing the same period_start twice in a row is a no-op
+   * w.r.t. counters (they're already zero). */
+  cron.schedule("5 0 1 * *", async () => {
+    log.info("Running ContentFlow monthly quota reset...");
+    try {
+      await runJob("contentflow_quota_reset", resetAllContentflowQuotas);
+    } catch (err: any) {
+      log.error("contentflow_quota_reset cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
   cron.schedule("0 6 * * 0", async () => {
     log.info("Running SocialSync weekly content generation...");
     try {
@@ -620,6 +641,7 @@ export function initScheduler() {
       "Review monitoring: every 6 hours",
       "Reputation reports: 09:00 UTC daily",
       "ContentFlow per-client generation: 08:30 UTC every day",
+      "ContentFlow monthly quota reset: 00:05 UTC on the 1st of each month",
       "SocialSync queue worker: every 2 minutes",
       "SocialSync weekly generation: 06:00 UTC every Sunday",
       "SocialSync expiry check: 04:00 UTC every day",
