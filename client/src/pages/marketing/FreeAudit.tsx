@@ -12,15 +12,16 @@ import { colors } from "@/theme/tokens";
 import { Search, CheckCircle2, Calculator, ArrowRight, ChevronDown } from "lucide-react";
 import ReportView from "./ReportView";
 import AuditGate from "@/components/marketing/AuditGate";
-// BG-2: hero input promoted to the QuoteQuick gold standard. We reuse the
-// shared InfoCue (`?` icon + popover with WidgetSchema diagram) from the
-// widget editor so the help affordance matches PortalOnboarding. The input
-// itself is an inline floating-label adaptation of PortalOnboarding's
-// FloatingLabelInput — copied here because that export lives under
-// pages/portal/ and crosses a page-domain boundary; an inline copy keeps
-// the marketing surface self-contained and matches FreeAudit's inline-style
-// pattern (it doesn't use Tailwind utility classes like the portal file).
-import InfoCue from "@/components/wizard/elfsight/InfoCue";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import MapSnapshotShell from "@/components/marketing/map-snapshot/MapSnapshotShell";
+// BG-2: hero input promoted to the QuoteQuick gold standard. The input is an
+// inline floating-label adaptation of PortalOnboarding's FloatingLabelInput —
+// copied here because that export lives under pages/portal/ and crosses a
+// page-domain boundary; an inline copy keeps the marketing surface
+// self-contained and matches FreeAudit's inline-style pattern (it doesn't
+// use Tailwind utility classes like the portal file).
+// BG-3 fix 2: the InfoCue help-popover was removed — its copy referenced a
+// website input from an older step and confused users on the GBP search.
 import { OptimizedImage } from "@/components/ui/Picture";
 
 type Prediction = {
@@ -279,6 +280,10 @@ export default function FreeAudit() {
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [searchDone, setSearchDone] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  // BG-3 fix 1: keyboard navigation through predictions. Tracks which
+  // suggestion row is currently highlighted by arrow keys; -1 means none.
+  // Reset whenever a new prediction list arrives or the dropdown closes.
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -339,14 +344,16 @@ export default function FreeAudit() {
     }
   }, []);
 
-  // Autocomplete search: fires after 3+ chars with 400ms debounce
-  useEffect(() => {
+  // Shared search runner — used by the debounce effect and by the Enter-key
+  // handler (Enter skips the 400ms wait and fires immediately).
+  const runSearch = useCallback((rawQuery: string) => {
     setError(null);
-    const q = debounced.trim();
+    const q = rawQuery.trim();
     if (q.length < 3) {
       setPredictions([]);
       setDropdownOpen(false);
       setSearchDone(false);
+      setHighlightedIndex(-1);
       return;
     }
 
@@ -363,6 +370,8 @@ export default function FreeAudit() {
         setLocationHint(d.locationHint || null);
         setSearchDone(true);
         setDropdownOpen(true);
+        // Reset highlight whenever a new list lands.
+        setHighlightedIndex(-1);
       })
       .catch((e) => {
         console.error("[Audit] Search failed:", e);
@@ -370,9 +379,15 @@ export default function FreeAudit() {
         setPredictions([]);
         setSearchDone(true);
         setDropdownOpen(true);
+        setHighlightedIndex(-1);
       })
       .finally(() => setLoadingSearch(false));
-  }, [debounced]);
+  }, []);
+
+  // Autocomplete search: fires after 3+ chars with 400ms debounce
+  useEffect(() => {
+    runSearch(debounced);
+  }, [debounced, runSearch]);
 
   // Dismiss dropdown on outside click
   useEffect(() => {
@@ -790,29 +805,10 @@ export default function FreeAudit() {
                   The relative wrapper carries the floating-label peer styles
                   via a scoped class so we don't need Tailwind on this page. */}
               <div className="audit-hero-input" style={{ position: "relative", paddingLeft: 26 }}>
-                {/* Help cue — top-left, anchored above the floating label so
-                    it never overlaps the input chrome on mobile (44px tap
-                    target is preserved by the input itself). */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: 22,
-                    height: 22,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 2,
-                  }}
-                >
-                  <InfoCue
-                    testid="audit-hero"
-                    label="Help: Search your business"
-                    region="step-content"
-                    text="Enter your business website. We'll scan it for SEO, speed, and conversion issues — free, in about 30 seconds."
-                  />
-                </div>
+                {/* BG-3 fix 2: removed mismatched InfoCue help cue. The old
+                    copy referenced a website input from an earlier step; the
+                    floating-label placeholder ("Type your business name +
+                    city…") is now self-explanatory so no popover is needed. */}
                 <Search
                   size={18}
                   strokeWidth={1.75}
@@ -834,6 +830,36 @@ export default function FreeAudit() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => { if (predictions.length > 0 || (searchDone && predictions.length === 0)) setDropdownOpen(true); }}
+                  // BG-3 fix 1: keyboard handling. Enter selects the
+                  // highlighted (or first) prediction, or fires the search
+                  // immediately if predictions aren't loaded yet. Arrow
+                  // keys navigate the prediction list.
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown" && predictions.length > 0) {
+                      e.preventDefault();
+                      setDropdownOpen(true);
+                      setHighlightedIndex((i) =>
+                        i + 1 >= predictions.length ? 0 : i + 1
+                      );
+                    } else if (e.key === "ArrowUp" && predictions.length > 0) {
+                      e.preventDefault();
+                      setDropdownOpen(true);
+                      setHighlightedIndex((i) =>
+                        i <= 0 ? predictions.length - 1 : i - 1
+                      );
+                    } else if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (predictions.length > 0) {
+                        const idx = highlightedIndex >= 0 ? highlightedIndex : 0;
+                        const pick = predictions[idx];
+                        if (pick) runAudit(pick, lastTradeRef.current || undefined);
+                      } else if (query.trim().length >= 3) {
+                        // No predictions yet — skip the 400ms debounce wait
+                        // and fire the search now so Enter never feels dead.
+                        runSearch(query);
+                      }
+                    }
+                  }}
                   // Floating label uses :placeholder-shown — needs a single
                   // space so the label can collapse when the input is empty.
                   placeholder=" "
@@ -943,12 +969,16 @@ export default function FreeAudit() {
                           key={p.place_id}
                           data-testid={`button-place-${p.place_id}`}
                           className="audit-suggestion"
+                          onMouseEnter={() => setHighlightedIndex(i)}
                           onClick={() => runAudit(p, lastTradeRef.current || undefined)}
                           style={{
                             width: "100%",
                             textAlign: "left",
                             padding: "10px 16px",
-                            background: "transparent",
+                            // BG-3 fix 1: tint the row when keyboard or
+                            // mouse highlight selects it so Enter has a
+                            // visible target.
+                            background: highlightedIndex === i ? "rgba(13,60,252,0.06)" : "transparent",
                             border: "none",
                             borderBottom: i < predictions.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none",
                             cursor: "pointer",
@@ -1077,6 +1107,18 @@ export default function FreeAudit() {
           )}
 
           {reportReady && report && (() => {
+            // BG-3 fix 3: wire the GBP rank-grid as a second tab. The
+            // selected business + the resolved report.business already
+            // carry the name and full address, so MapSnapshotShell can
+            // auto-run its snapshot without asking the visitor to retype.
+            // Default trade keyword falls back to lastTradeRef (the prefill)
+            // or a generic "near me" so the keyword chip picker has at
+            // least one entry before auto-submit.
+            const biz = report.business || {};
+            const rankBusinessName = [biz.name, biz.formattedAddress || biz.formatted_address]
+              .filter(Boolean)
+              .join(" ");
+            const rankTrade = lastTradeRef.current || (biz.types?.[0] as string | undefined);
             return (
               <div ref={reportRef} style={{
                 minHeight: '100vh',
@@ -1094,18 +1136,33 @@ export default function FreeAudit() {
                     </span>
                   </div>
                 )}
-                <ReportView
-                  report={report}
-                  business={report.business}
-                  reportId={reportId}
-                  liveSpeedData={speedData}
-                  speedLoading={speedLoading}
-                  liveWebsiteAIAnalysis={websiteAIAnalysis}
-                  liveWebsiteScreenshot={websiteScreenshot}
-                  liveWebsiteQualityCheckScore={websiteQualityCheckScore}
-                  unlocked={auditUnlocked}
-                  onUnlock={() => { trackEvent("audit_unlocked"); setAuditUnlocked(true); }}
-                />
+                <Tabs defaultValue="audit" style={{ padding: "0 16px" }}>
+                  <TabsList style={{ marginBottom: 12 }}>
+                    <TabsTrigger value="audit" data-testid="tab-audit-cards">Audit cards</TabsTrigger>
+                    <TabsTrigger value="rank-grid" data-testid="tab-rank-grid">Rank Grid</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="audit">
+                    <ReportView
+                      report={report}
+                      business={report.business}
+                      reportId={reportId}
+                      liveSpeedData={speedData}
+                      speedLoading={speedLoading}
+                      liveWebsiteAIAnalysis={websiteAIAnalysis}
+                      liveWebsiteScreenshot={websiteScreenshot}
+                      liveWebsiteQualityCheckScore={websiteQualityCheckScore}
+                      unlocked={auditUnlocked}
+                      onUnlock={() => { trackEvent("audit_unlocked"); setAuditUnlocked(true); }}
+                    />
+                  </TabsContent>
+                  <TabsContent value="rank-grid">
+                    <MapSnapshotShell
+                      trade={rankTrade}
+                      initialBusinessName={rankBusinessName}
+                      autoSubmit
+                    />
+                  </TabsContent>
+                </Tabs>
               </div>
             );
           })()}
