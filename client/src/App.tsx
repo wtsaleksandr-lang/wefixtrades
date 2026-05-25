@@ -20,6 +20,7 @@ const WizardLegacy = lazy(() => import("@/pages/wizard-legacy"));
 const Calculator = lazy(() => import("@/pages/calculator"));
 const FreeAudit = lazy(() => import("@/pages/marketing/FreeAudit"));
 const TradePromptsPage = lazy(() => import("@/pages/marketing/TradePromptsPage"));
+const ContentFlowStandalone = lazy(() => import("@/pages/marketing/ContentFlowStandalone"));
 import EditCalculator from "@/pages/edit-calculator";
 import LeadsPage from "@/pages/leads";
 import Dashboard from "@/pages/dashboard";
@@ -484,6 +485,11 @@ function Router() {
       <Route path="/tools/electrical-ai-content-prompts">{() => <TradePromptsPage />}</Route>
       <Route path="/tools/roofing-ai-content-prompts">{() => <TradePromptsPage />}</Route>
       <Route path="/tools/landscaping-ai-content-prompts">{() => <TradePromptsPage />}</Route>
+      {/* ContentFlow standalone marketing landing — public, no auth.
+          Speaks to marketers / agencies / creators / trades equally.
+          The 12-pattern trade landings above remain the per-trade SEO
+          entry-points. */}
+      <Route path="/contentflow">{() => <ContentFlowStandalone />}</Route>
       {/* Quote Demo + Build-with-AI relocated under QuoteQuick */}
       <Route path="/products/quickquotepro/demo" component={QuoteCalculatorDemo} />
       <Route path="/products/quickquotepro/build-with-ai/preview" component={BuildWithAiPreview} />

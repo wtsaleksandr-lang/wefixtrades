@@ -101,6 +101,10 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/tools/electrical-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/tools/roofing-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/tools/landscaping-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // ContentFlow standalone marketing landing — broad audience (marketers,
+  // agencies, creators, trades). High priority because it's the top of
+  // the standalone-subscription funnel.
+  { loc: "/contentflow", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-25" },
   { loc: "/products/quickquotepro/demo", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/products/quickquotepro/build-with-ai", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/about", priority: "0.6", changefreq: "monthly", lastmod: "2026-04-01" },

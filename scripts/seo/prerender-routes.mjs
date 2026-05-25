@@ -103,6 +103,8 @@ const STATIC_ROUTES = [
   "/tools/electrical-ai-content-prompts",
   "/tools/roofing-ai-content-prompts",
   "/tools/landscaping-ai-content-prompts",
+  // ContentFlow standalone marketing landing — broad-audience SEO entry.
+  "/contentflow",
   "/products/quickquotepro/demo",
   "/products/quickquotepro/build-with-ai",
   "/about",

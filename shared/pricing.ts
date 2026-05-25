@@ -36,6 +36,14 @@ export interface Tier {
   highlighted?: boolean;
   features: string[];
   includedMins?: number; // TradeLine only
+  /**
+   * Stripe live price id for this tier. `null` means "tier is defined
+   * in code but Stripe price has NOT yet been minted live — checkout
+   * cannot proceed until Alex approves and the live-mint script runs."
+   * Existing tiers that resolve their price via a server-side env var
+   * (e.g. STRIPE_QUOTEQUICK_INSTALL_PRICE) leave this undefined.
+   */
+  stripePriceId?: string | null;
 }
 
 /* ─── Product Definition ─── */
@@ -591,55 +599,107 @@ export const ADFLOW: ProductDef = {
 
 /* ═══════════════════════════════════════════
    K. CONTENTFLOW
-   ═══════════════════════════════════════════ */
+   ═══════════════════════════════════════════
+   2026-05-25 — standalone-pricing rework. ContentFlow now positions as
+   a self-serve product anyone can subscribe to (marketers, agencies,
+   creators, solopreneurs, trades). New ladder: Free → Starter $9 →
+   Creator $29 → Studio $69 → Agency $129. Old Creator/Studio/Agency
+   were $49/$99/$199; new mid-tier prices drop ~40-50% per Alex's
+   "really not expensive" direction.
+
+   IMPORTANT — Stripe mint pending: the four paid tiers below carry
+   `stripePriceId: null` to flag that NO live Stripe price exists yet.
+   Checkout flows must guard against null and surface "coming soon"
+   instead of attempting a session creation. The live-mint script
+   (scripts/billing/mint-stripe-prices.mjs) runs once Alex approves.
+*/
 export const CONTENTFLOW: ProductDef = {
   id: "contentflow",
   name: "ContentFlow™",
-  tagline: "AI that writes, designs, and publishes your content — across every channel",
+  tagline: "AI content that actually sounds human — for marketers, agencies, creators, and trades",
   category: "visibility",
   tiers: [
     {
+      id: "contentflow-free",
+      name: "Free",
+      price: 0,
+      billingPeriod: "monthly",
+      stripePriceId: null,
+      features: [
+        "5 AI images / month",
+        "3 AI articles / month",
+        "0 AI videos",
+        "1 publishing channel",
+        "Watermark on images",
+        "Brand-color aware styling",
+        "Sub-30% AI detection (humanization pipeline)",
+      ],
+    },
+    {
+      id: "contentflow-starter",
+      name: "Starter",
+      price: 9,
+      billingPeriod: "monthly",
+      stripePriceId: null,
+      badge: "New",
+      features: [
+        "10 AI images / month",
+        "5 AI articles / month",
+        "1 AI video / month",
+        "1 publishing channel",
+        "No watermark",
+        "All 10 image-style presets",
+        "URL prefill (paste a link, AI fills the brief)",
+      ],
+    },
+    {
       id: "contentflow-creator",
       name: "Creator",
-      price: 49,
+      price: 29,
       billingPeriod: "monthly",
+      stripePriceId: null,
       features: [
-        "1 business profile",
-        "~12 AI content pieces/month (articles + social posts)",
-        "Up to 3 connected channels",
-        "AI-generated images",
-        "Content-style questionnaire — set your tone, topics & audience",
+        "40 AI images / month",
+        "20 AI articles / month",
+        "5 AI videos / month",
+        "3 publishing channels",
         "Approve-before-publish review queue",
+        "Content-style questionnaire (tone, topics, audience)",
+        "12-pattern content library",
       ],
     },
     {
       id: "contentflow-studio",
       name: "Studio",
-      price: 99,
+      price: 69,
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",
+      stripePriceId: null,
       features: [
-        "Up to 3 business profiles",
-        "~40 AI content pieces/month",
-        "All publish channels (blog, Facebook, Instagram, Google, LinkedIn, Pinterest, email)",
+        "150 AI images / month",
+        "60 AI articles / month",
+        "15 AI videos / month",
+        "5 publishing channels",
         "Premium AI model for higher-quality writing",
-        "AI-generated images on every post",
         "Automated multi-channel repurposing",
+        "Brand-voice memory across sessions",
       ],
     },
     {
       id: "contentflow-agency",
       name: "Agency",
-      price: 199,
+      price: 129,
       billingPeriod: "monthly",
+      stripePriceId: null,
       features: [
-        "Unlimited business profiles",
-        "~120 AI content pieces/month",
-        "All publish channels",
-        "Premium AI model",
-        "Early access: AI video scripts (full video clips coming soon)",
+        "500 AI images / month",
+        "200 AI articles / month",
+        "50 AI videos / month",
+        "Unlimited publishing channels",
+        "Unlimited brand/client profiles",
         "Priority generation & support",
+        "Early access to new patterns + styles",
       ],
     },
   ],
