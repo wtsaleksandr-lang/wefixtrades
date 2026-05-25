@@ -103,6 +103,10 @@ const STATIC_ROUTES = [
   "/tools/local-search-checker",
   "/tools/citation-checker",
   "/tools/local-rankflux",
+  // Wave 2 — Local Rank Grid (free) + Citation Builder (paid service).
+  // Both need hydrated head tags for non-JS crawlers (Bing, LLMs).
+  "/tools/local-rank-grid",
+  "/citation-builder",
   // ContentFlow Phase 1 — 5 public prompt-library SEO landings.
   // Bing + LLM crawlers (no JS exec) need hydrated head tags here.
   "/tools/plumbing-ai-content-prompts",

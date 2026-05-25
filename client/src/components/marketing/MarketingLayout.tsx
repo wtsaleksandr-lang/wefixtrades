@@ -221,6 +221,8 @@ function MarketingFooter() {
             <FtLink href="/pricing">Pricing</FtLink>
             {/* AJ-7 — API developer docs */}
             <FtLink href="/docs/api">API Docs</FtLink>
+            {/* Wave 2 — paid one-time citation submission service. */}
+            <FtLink href="/citation-builder">Citation Builder</FtLink>
             {/* Compare — "X alternative" / "X vs Y" SEO entries. */}
             <FtLink href="/wefixtrades-vs-jobber">vs Jobber</FtLink>
             <FtLink href="/wefixtrades-vs-housecall-pro">vs Housecall Pro</FtLink>
@@ -242,6 +244,8 @@ function MarketingFooter() {
             <FtLink href="/tools/local-search-checker">Local Search Results Checker</FtLink>
             <FtLink href="/tools/citation-checker">Citation Checker</FtLink>
             <FtLink href="/tools/local-rankflux">Local Rankflux</FtLink>
+            {/* Wave 2 — single-shot 5x5 geo-grid rank scan; upsell to MapGuard. */}
+            <FtLink href="/tools/local-rank-grid">Local Rank Grid</FtLink>
             <FtLink href="/products/quickquotepro/demo">QuoteQuick Demo</FtLink>
             {/* BI-1 — anonymous AI demo: upload an invoice, AI builds your calculator. */}
             <FtLink href="/products/quickquotepro/build-with-ai">Build with AI — From a Photo</FtLink>

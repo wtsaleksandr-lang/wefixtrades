@@ -103,6 +103,12 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/tools/local-search-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/tools/citation-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/tools/local-rankflux", priority: "0.7", changefreq: "daily", lastmod: "2026-05-25" },
+  // Free Tools Wave 2 — Local Rank Grid (single-shot 5x5 geo-grid scan).
+  // Free lead magnet that funnels to MapGuard for continuous monitoring.
+  { loc: "/tools/local-rank-grid", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // Citation Builder — paid one-time service ($79/$179/$299). Marketing
+  // page only for now; Stripe checkout + submission backend ship in Wave 2.5.
+  { loc: "/citation-builder", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   // ContentFlow Phase 1 — public AI-prompt-library landings, one per seed trade.
   { loc: "/tools/plumbing-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/tools/hvac-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
