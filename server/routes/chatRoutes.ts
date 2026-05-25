@@ -88,7 +88,7 @@ async function parseAssistantRequest(req: Request): Promise<
   { ok: true; assistantReq: AssistantRequest } |
   { ok: false; status: number; error: string }
 > {
-  const { surface: rawSurface, mode, messages, sessionId, reportId, auditContext: clientAuditCtx, pageContext: clientPageCtx, pageContentSnapshot: clientPageSnap, userId } = req.body || {};
+  const { surface: rawSurface, mode, messages, sessionId, reportId, auditContext: clientAuditCtx, pageContext: clientPageCtx, pageContentSnapshot: clientPageSnap, userId, recent_navigation: clientRecentNav } = req.body || {};
 
   const surfaceStr = rawSurface || mode || "website";
   const surface: ChatSurface = VALID_SURFACES.includes(surfaceStr) ? surfaceStr : "website";
@@ -159,6 +159,23 @@ async function parseAssistantRequest(req: Request): Promise<
             // website: the live page the visitor is reading, so the chat
             // assistant stays current with whatever was just published.
             pageContentSnapshot: typeof clientPageSnap === "string" ? clientPageSnap.slice(0, 2000) : undefined,
+            /* Persistent-chat: bounded, shape-validated navigation trail
+             * captured by the layout's per-route effect. Bypass: keep only
+             * the last 5 entries with whitelisted fields so a malformed
+             * client payload can't smuggle large strings into the prompt. */
+            recent_navigation: Array.isArray(clientRecentNav)
+              ? (clientRecentNav as any[])
+                  .filter((n) => n && typeof n.route === "string")
+                  .slice(-5)
+                  .map((n) => ({
+                    route: String(n.route).slice(0, 200),
+                    page_title: typeof n.page_title === "string" ? n.page_title.slice(0, 120) : "",
+                    visible_entities: Array.isArray(n.visible_entities)
+                      ? n.visible_entities.filter((e: any) => typeof e === "string").slice(0, 5).map((e: string) => e.slice(0, 60))
+                      : [],
+                    ts: typeof n.ts === "number" ? n.ts : 0,
+                  }))
+              : undefined,
           }
         : undefined,
       portalContext: portalCtx,

@@ -193,3 +193,19 @@ export function loadPortalOpenState(): boolean {
 export function savePortalOpenState(open: boolean): void {
   try { localStorage.setItem(PORTAL_OPEN_KEY, open ? "1" : "0"); } catch { /* noop */ }
 }
+
+/* ─── Admin Copilot open-state persistence ─────────────────────────────
+ * AdminLayout re-mounts on every admin route change, so any open/close
+ * state held in plain useState would reset whenever the user navigates.
+ * Persisting to localStorage lets the AdminCopilot panel stay open across
+ * route changes — matching the portal copilot pattern above.
+ * Storage key mirrors the existing `wft_copilot_*` admin namespace. */
+const COPILOT_OPEN_KEY = "wft_copilot_open";
+
+export function loadCopilotOpenState(): boolean {
+  try { return localStorage.getItem(COPILOT_OPEN_KEY) === "1"; } catch { return false; }
+}
+
+export function saveCopilotOpenState(open: boolean): void {
+  try { localStorage.setItem(COPILOT_OPEN_KEY, open ? "1" : "0"); } catch { /* noop */ }
+}

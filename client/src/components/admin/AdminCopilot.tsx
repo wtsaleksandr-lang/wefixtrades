@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { X, Send, Sparkles, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle, Wand2, Settings as SettingsIcon } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
+import { getNavigationTrail } from "@/lib/chat/pageContext";
 import { useToast } from "@/hooks/use-toast";
 import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
 import { extractCopilotPrompt, type CopilotPromptRequest } from "@shared/copilotProtocol";
@@ -913,6 +914,16 @@ export default function AdminCopilot({
           sessionId: getCopilotSessionId(),
           pageContext: effectivePageContext,
           pageContentSnapshot,
+          /* Persistent-chat: include the navigation trail captured by
+           * AdminLayout's per-route effect. Lets the admin AI handle
+           * "what page was I just on?" without forcing the operator
+           * to retype context after every click. */
+          recent_navigation: getNavigationTrail().map((s) => ({
+            route: s.route,
+            page_title: s.page_title,
+            visible_entities: s.visible_entities,
+            ts: s.ts,
+          })),
           attachments: sentAttachments.map((a) => ({
             url: a.url,
             filename: a.filename,

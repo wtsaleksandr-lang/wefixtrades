@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
 import type { CopilotPromptRequest } from "@shared/copilotProtocol";
 import { useActiveCopilotForm } from "@/context/CopilotFormContext";
+import { getNavigationTrail } from "@/lib/chat/pageContext";
 
 const LAST_OPEN_KEY = "wft_portal_chat_last_open";
 const OPACITY_KEY = "wft_portal_chat_opacity";
@@ -372,6 +373,18 @@ export default function PortalChatWidget({
     const page_path = typeof window !== "undefined" ? location : undefined;
     const page_title = typeof document !== "undefined" ? document.title : undefined;
     const page_content = readPageContentSnapshot();
+    /* Persistent-chat addition: recent navigation trail (last 5 routes
+     * the user moved through since the panel mounted/since the last
+     * message). The server folds this into the assistant's next system
+     * prompt so it can say things like "I see you just came from
+     * /portal/invoices — looking for that?". Unknown fields on the
+     * server are ignored, so this is additive. */
+    const recent_navigation = getNavigationTrail().map((s) => ({
+      route: s.route,
+      page_title: s.page_title,
+      visible_entities: s.visible_entities,
+      ts: s.ts,
+    }));
     // Phase 1a: prefer the form registered via useCopilotForm(); fall back to
     // the legacy chatContext prop for pages not yet migrated.
     const formFields = registeredForm?.fields ?? chatContext?.fields;
@@ -385,6 +398,7 @@ export default function PortalChatWidget({
         page_path,
         page_title,
         page_content,
+        recent_navigation,
       };
     }
     return {
@@ -393,6 +407,7 @@ export default function PortalChatWidget({
       page_path,
       page_title,
       page_content,
+      recent_navigation,
       // A registered form makes form-fill available on any page, not just onboarding.
       ...(formFields && formFields.length > 0
         ? { fields: formFields, current_responses: formValues }

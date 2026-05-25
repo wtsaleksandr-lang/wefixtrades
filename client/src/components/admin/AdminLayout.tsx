@@ -51,6 +51,8 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { loadCopilotOpenState, saveCopilotOpenState } from "@/lib/chatHelpers";
+import { extractPageContext, pushPageContext } from "@/lib/chat/pageContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -956,8 +958,29 @@ export default function AdminLayout({
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
-  const [copilotOpen, setCopilotOpen] = useState(false);
+  /* Persistent across route changes: AdminLayout re-mounts on every admin
+   * page, so a plain useState(false) would slam the copilot closed on every
+   * navigation. We hydrate from localStorage on mount and write back on
+   * every toggle so the panel stays open as the admin clicks through. */
+  const [copilotOpen, setCopilotOpenState] = useState<boolean>(() => loadCopilotOpenState());
+  const setCopilotOpen = (next: boolean) => {
+    setCopilotOpenState(next);
+    saveCopilotOpenState(next);
+  };
   const breadcrumbItems = useBreadcrumbs();
+
+  /* Page-context sync — every route change pushes a fresh snapshot onto
+   * the shared ring buffer so the next chat turn carries the user's
+   * recent navigation trail. The chat widget itself listens to the
+   * dispatched CustomEvent for inline UI hints. We capture document.title
+   * one tick after the route change so the new page's <title> has a chance
+   * to render before we snapshot it. */
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      pushPageContext(extractPageContext(location));
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [location]);
 
   /* Mobile-only "Admin works best on desktop" banner. The admin surface
    * is intentionally desktop-first (dense tables, multi-column forms,
@@ -1212,6 +1235,7 @@ export default function AdminLayout({
               size="icon"
               className={`h-8 w-8 ${copilotOpen ? "bg-brand-blue/10 text-brand-blue" : "text-gray-500"}`}
               onClick={() => setCopilotOpen(!copilotOpen)}
+              data-testid="admin-copilot-trigger"
               title="AI Copilot"
             >
               <Sparkles className="w-4 h-4" />
