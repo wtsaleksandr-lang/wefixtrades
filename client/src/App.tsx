@@ -61,6 +61,11 @@ import ForAgenciesPage from "@/pages/marketing/ForAgenciesPage";
 import ForFranchisesPage from "@/pages/marketing/ForFranchisesPage";
 import ForSoloTradersPage from "@/pages/marketing/ForSoloTradersPage";
 import SitemapPage from "@/pages/marketing/SitemapPage";
+// Free Tools Wave 1 — 4 standalone /tools/* pages (Brightlocal replication).
+import GoogleReviewLinkGenerator from "@/pages/marketing/tools/GoogleReviewLinkGenerator";
+import LocalSearchChecker from "@/pages/marketing/tools/LocalSearchChecker";
+import CitationChecker from "@/pages/marketing/tools/CitationChecker";
+import LocalRankflux from "@/pages/marketing/tools/LocalRankflux";
 // FreeAudit lazy-loaded at top of file (embed-y / rarely visited).
 // Tools-consolidation: Missed Call Calculator deleted entirely; MapSnapshot
 // folded into FreeAudit "Rank Grid" tab; tools-hub deleted; Quote Demo +
@@ -487,6 +492,13 @@ function Router() {
       {/* Tools-consolidation (2026-05-23) — the marketing /tools/* surface
           consolidated to a single Free Audit page. Live routes: */}
       <Route path="/tools/free-audit" component={FreeAudit} />
+      {/* Free Tools Wave 1 — Brightlocal-style standalone tools. Each is a
+          public lead-magnet page with its own /tools/* URL, form, result
+          panel, and cross-link back to the paid Full Audit. */}
+      <Route path="/tools/google-review-link-generator" component={GoogleReviewLinkGenerator} />
+      <Route path="/tools/local-search-checker" component={LocalSearchChecker} />
+      <Route path="/tools/citation-checker" component={CitationChecker} />
+      <Route path="/tools/local-rankflux" component={LocalRankflux} />
       {/* ContentFlow Phase 1 — public prompt-library SEO landings.
           One route per seed trade so wouter can match the `-ai-content-prompts`
           literal suffix without a regex param. The TradePromptsPage reads

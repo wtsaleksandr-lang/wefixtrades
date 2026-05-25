@@ -232,6 +232,12 @@ function MarketingFooter() {
               relocated under the QuoteQuick product family. */}
           <FooterColumn title="Free Tools">
             <FtLink href="/tools/free-audit">Free Audit</FtLink>
+            {/* Free Tools Wave 1 — Brightlocal-style standalone tools, each
+                with its own /tools/* URL + lead-magnet page. */}
+            <FtLink href="/tools/google-review-link-generator">Google Review Link Generator</FtLink>
+            <FtLink href="/tools/local-search-checker">Local Search Results Checker</FtLink>
+            <FtLink href="/tools/citation-checker">Citation Checker</FtLink>
+            <FtLink href="/tools/local-rankflux">Local Rankflux</FtLink>
             <FtLink href="/products/quickquotepro/demo">QuoteQuick Demo</FtLink>
             {/* BI-1 — anonymous AI demo: upload an invoice, AI builds your calculator. */}
             <FtLink href="/products/quickquotepro/build-with-ai">Build with AI — From a Photo</FtLink>

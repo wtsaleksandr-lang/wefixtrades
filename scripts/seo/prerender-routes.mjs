@@ -96,6 +96,13 @@ const STATIC_ROUTES = [
   "/solutions/for-remodelers",
   "/solutions/for-general-contractors",
   "/tools/free-audit",
+  // Free Tools Wave 1 — 4 standalone Brightlocal-style tool pages. Each
+  // is a public lead magnet with unique <PageMeta>, FAQ + (where relevant)
+  // HowTo JSON-LD. Hydrated head needed for non-JS crawlers (Bing, LLMs).
+  "/tools/google-review-link-generator",
+  "/tools/local-search-checker",
+  "/tools/citation-checker",
+  "/tools/local-rankflux",
   // ContentFlow Phase 1 — 5 public prompt-library SEO landings.
   // Bing + LLM crawlers (no JS exec) need hydrated head tags here.
   "/tools/plumbing-ai-content-prompts",

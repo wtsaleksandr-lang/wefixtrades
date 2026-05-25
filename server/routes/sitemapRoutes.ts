@@ -95,6 +95,14 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/solutions/for-remodelers", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
   { loc: "/solutions/for-general-contractors", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
   { loc: "/tools/free-audit", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-24" },
+  // Free Tools Wave 1 — Brightlocal replication. Each standalone tool
+  // page targets a distinct search intent ("google review link generator",
+  // "local search results checker", etc.) and funnels into the paid Full
+  // Audit. Priority 0.8 — high lead-magnet value, indexed independently.
+  { loc: "/tools/google-review-link-generator", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/tools/local-search-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/tools/citation-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/tools/local-rankflux", priority: "0.7", changefreq: "daily", lastmod: "2026-05-25" },
   // ContentFlow Phase 1 — public AI-prompt-library landings, one per seed trade.
   { loc: "/tools/plumbing-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/tools/hvac-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },

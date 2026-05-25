@@ -117,6 +117,7 @@ import { registerAuditSiteSpeedComparisonRoutes } from "./auditSiteSpeedComparis
 import { registerAuditNapConsistencyRoutes } from "./auditNapConsistencyRoutes";
 import { registerAuditMarketSizerRoutes } from "./auditMarketSizerRoutes";
 import { registerAuditTrustInspectorRoutes } from "./auditTrustInspectorRoutes";
+import { registerFreeToolsRoutes } from "./freeToolsRoutes";
 import { registerApiV1Routes } from "./apiV1";
 import { registerAdminSeoIntegrationsRoutes } from "./adminSeoIntegrationsRoutes";
 import { registerRumIngestRoutes } from "./rumIngestRoutes";
@@ -262,6 +263,10 @@ export async function registerRoutes(
   registerAuditNapConsistencyRoutes(app);
   registerAuditMarketSizerRoutes(app);
   registerAuditTrustInspectorRoutes(app);
+  // Free Tools — Wave 1 (Brightlocal-style public lead magnets).
+  // Each tool stands alone (no reportId, no auth) so it can be linked +
+  // crawled independently. Rate-limited 20/hour/IP per tool.
+  registerFreeToolsRoutes(app);
   registerApiV1Routes(app);
   registerAdminSeoIntegrationsRoutes(app);
   // SEO Wave D — public RUM ingest (Core Web Vitals from real users).
