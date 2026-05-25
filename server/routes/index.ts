@@ -60,6 +60,7 @@ import { registerUnsubscribeRoutes } from "./unsubscribeRoutes";
 import { registerEmailChartsRoute } from "../services/emailCharts";
 import { registerAdminSupplierRoutes } from "./adminSupplierRoutes";
 import { registerSupplierWebhookRoutes } from "./supplierWebhookRoutes";
+import { registerMetaMessagingWebhookRoutes } from "./metaMessagingWebhookRoutes";
 import { registerAdminServiceRoutes } from "./adminServiceRoutes";
 import { registerApprovalRoutes } from "./approvalRoutes";
 import { registerDemoRoutes } from "./demoRoutes";
@@ -187,6 +188,10 @@ export async function registerRoutes(
   registerEmailChartsRoute(app);
   registerAdminSupplierRoutes(app);
   registerSupplierWebhookRoutes(app);
+  // Meta perm #4 of 5 — pages_messaging webhook receiver. See
+  // routes/metaMessagingWebhookRoutes.ts. Public (signed by Meta with
+  // X-Hub-Signature-256, verified per-request).
+  registerMetaMessagingWebhookRoutes(app);
   registerAdminServiceRoutes(app);
   registerApprovalRoutes(app);
   registerDemoRoutes(app);

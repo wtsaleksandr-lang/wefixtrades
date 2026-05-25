@@ -67,6 +67,13 @@ const REQUIRED_SCOPES = [
   // fetchFacebookBusinesses() and the /api/portal/socialsync/businesses +
   // /api/portal/socialsync/tech-provider-attestation routes.
   "business_management",
+  // Lets WeFixTrades subscribe a customer's connected Page to Messenger
+  // webhooks and send replies on behalf of the Page. Foundation for the
+  // "AI auto-reply to Page DMs" feature — this PR ships the inbound
+  // webhook receiver + a manually-triggered reply endpoint. AI-driven
+  // replies + an inbox UI ship in follow-up PRs. Backed by
+  // subscribePageToMessagingWebhooks() and sendFacebookMessengerReply().
+  "pages_messaging",
   // Instagram scopes — requested during the same Meta OAuth flow
   "instagram_basic",
   "instagram_content_publish",
@@ -658,4 +665,175 @@ export async function fetchFacebookBusinesses(
   }));
 
   return rows;
+}
+
+/* ─── Messenger (pages_messaging scope) ─── */
+
+/**
+ * Fields we subscribe to on the Page's webhook. Kept small on purpose —
+ * `messages` covers inbound DMs and `messaging_postbacks` covers
+ * button / quick-reply postback events. Wider event types
+ * (`message_deliveries`, `message_reads`, etc.) can be added in a
+ * follow-up PR once we have an inbox UI to reflect them.
+ */
+export const MESSENGER_SUBSCRIBED_FIELDS = ["messages", "messaging_postbacks"];
+
+export interface SubscribePageToMessagingResult {
+  page_id: string;
+  subscribed_fields: string[];
+  meta_response: unknown;
+}
+
+/**
+ * Subscribe a customer's connected Facebook Page to Messenger webhooks
+ * via POST /{page-id}/subscribed_apps. The Page-level access token is
+ * required (not the user token) — Meta scopes the subscription to the
+ * Page that the token belongs to.
+ *
+ * Idempotent on Meta's side: re-subscribing with the same fields is a
+ * no-op, so callers can safely retry. Failures surface the upstream
+ * error message verbatim for the portal UI to display.
+ */
+export async function subscribePageToMessagingWebhooks(
+  clientId: number,
+  pageId: string,
+): Promise<SubscribePageToMessagingResult> {
+  const conn = await getConnectedPageToken(clientId, pageId);
+  if (!conn) {
+    throw new Error("Page not connected to this account, or token expired. Reconnect required.");
+  }
+
+  const params = new URLSearchParams();
+  params.set("subscribed_fields", MESSENGER_SUBSCRIBED_FIELDS.join(","));
+  params.set("access_token", conn.token);
+
+  const res = await fetchWithRetry(
+    `${GRAPH_API_BASE}/${encodeURIComponent(pageId)}/subscribed_apps`,
+    { method: "POST", body: params },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      `Failed to subscribe Page to Messenger webhooks: ${(err as any)?.error?.message || res.statusText}`,
+    );
+  }
+  const metaResponse = await res.json().catch(() => ({}));
+  return {
+    page_id: pageId,
+    subscribed_fields: MESSENGER_SUBSCRIBED_FIELDS,
+    meta_response: metaResponse,
+  };
+}
+
+export interface SendMessengerReplyResult {
+  recipient_id: string | null;
+  message_id: string | null;
+  meta_response: unknown;
+}
+
+/**
+ * Send a text reply to a Messenger user (identified by their Page-scoped
+ * PSID) on behalf of the customer's connected Facebook Page.
+ *
+ * Calls POST /me/messages with the Page-level access token. Meta returns
+ * `{ recipient_id, message_id }` on success. We surface both back to the
+ * caller along with the raw response so the portal UI can log the
+ * acknowledged message id.
+ *
+ * The caller is responsible for enforcing Meta's 24-hour "standard
+ * messaging" window — this helper does not attach a message tag, so
+ * outbound replies must be in response to an inbound message within
+ * the last 24h.
+ */
+export async function sendFacebookMessengerReply(
+  clientId: number,
+  pageId: string,
+  recipientPsid: string,
+  message: string,
+): Promise<SendMessengerReplyResult> {
+  const conn = await getConnectedPageToken(clientId, pageId);
+  if (!conn) {
+    throw new Error("Page not connected to this account, or token expired. Reconnect required.");
+  }
+
+  const body = {
+    recipient: { id: recipientPsid },
+    message: { text: message },
+    messaging_type: "RESPONSE" as const,
+  };
+
+  const url = `${GRAPH_API_BASE}/me/messages?access_token=${encodeURIComponent(conn.token)}`;
+  const res = await fetchWithRetry(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      `Failed to send Messenger reply: ${(err as any)?.error?.message || res.statusText}`,
+    );
+  }
+  const data = (await res.json().catch(() => ({}))) as any;
+  return {
+    recipient_id: typeof data.recipient_id === "string" ? data.recipient_id : null,
+    message_id: typeof data.message_id === "string" ? data.message_id : null,
+    meta_response: data,
+  };
+}
+
+/**
+ * Return the Meta app secret used to sign incoming webhook requests.
+ * Both FACEBOOK_APP_SECRET (SocialSync OAuth flow) and
+ * FACEBOOK_OAUTH_CLIENT_SECRET (social-login OAuth flow) refer to the
+ * same Meta App, but historically two env names coexist. We accept
+ * either so deployments aren't blocked by which name is populated.
+ */
+export function getMetaAppSecret(): string | null {
+  return (
+    process.env.FACEBOOK_APP_SECRET ||
+    process.env.FACEBOOK_OAUTH_CLIENT_SECRET ||
+    null
+  );
+}
+
+/**
+ * Verify the X-Hub-Signature-256 header on an inbound Meta webhook
+ * delivery. Meta signs the raw request body with HMAC-SHA256 using the
+ * app secret and sends the hex digest in the header as `sha256=...`.
+ *
+ * Returns true if the signature matches, false otherwise. Uses a
+ * constant-time comparison to avoid leaking byte-by-byte timing
+ * information.
+ */
+export function verifyMetaWebhookSignature(
+  rawBody: Buffer | string,
+  headerSignature: string | null | undefined,
+): boolean {
+  if (!headerSignature || typeof headerSignature !== "string") return false;
+  const appSecret = getMetaAppSecret();
+  if (!appSecret) return false;
+
+  const expectedPrefix = "sha256=";
+  if (!headerSignature.startsWith(expectedPrefix)) return false;
+  const providedHex = headerSignature.slice(expectedPrefix.length);
+
+  // Lazy require to keep crypto out of the module-load path for tests
+  // that stub fetch but not crypto.
+  const { createHmac, timingSafeEqual } = require("crypto") as typeof import("crypto");
+  const bodyBuf =
+    typeof rawBody === "string" ? Buffer.from(rawBody, "utf-8") : rawBody;
+  const expectedHex = createHmac("sha256", appSecret).update(bodyBuf).digest("hex");
+
+  // Lengths must match to use timingSafeEqual; if they don't, signature
+  // is invalid regardless.
+  if (providedHex.length !== expectedHex.length) return false;
+  try {
+    return timingSafeEqual(
+      Buffer.from(providedHex, "hex"),
+      Buffer.from(expectedHex, "hex"),
+    );
+  } catch {
+    return false;
+  }
 }

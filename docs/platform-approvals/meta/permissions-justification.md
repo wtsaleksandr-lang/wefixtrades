@@ -30,6 +30,16 @@ Each scope below is requested by `server/services/socialSync/facebookService.ts`
 - **Code:** `fetchFacebookBusinesses()` in `facebookService.ts` (GET `/me/businesses?fields=id,name,verification_status,primary_page,owned_ad_accounts.summary(true),owned_pages.summary(true)`). Exposed at portal routes `GET /api/portal/socialsync/businesses` (list) and `POST /api/portal/socialsync/tech-provider-attestation` (record attestation). The attestation route validates the customer admins the named business, then writes an audit-log row (`socialsync.facebook_business.tech_provider_attestation`) with actor, business id + name, accepted-at timestamp, and an `ownership_verified` flag.
 - **Reviewer test path:** Connect a Facebook account that admins at least one Business Manager → open "Your Social Media" → switch to the "Business Assets" tab → see the Business listed with verification badge + owned page / ad-account counts → click "Set as primary" → confirm the success toast and the audit row in `audit_log` under action `socialsync.facebook_business.tech_provider_attestation`.
 
+### `pages_messaging`
+- **Why:** Trades businesses get a lot of customer enquiries via Facebook Page DMs ("can you fit me in this week?", "do you cover my postcode?"). WeFixTrades' SocialSync surface lets the customer reply to those DMs from the WeFixTrades portal — and, in a future release, has the WeFixTrades AI assistant draft / send replies on the Page's behalf using the customer's existing knowledge-base (services offered, service area, prices). This PR ships only the **foundation**: subscribing a connected Page to Messenger webhooks, receiving signed inbound deliveries, and a manually-triggered reply endpoint the customer (or admin) can use from the portal. The AI auto-reply path is gated behind a follow-up PR and is opt-in per customer.
+- **Code:**
+  - OAuth scope appended to `REQUIRED_SCOPES` in `server/services/socialSync/facebookService.ts`.
+  - `subscribePageToMessagingWebhooks()` (POST `/{page-id}/subscribed_apps?subscribed_fields=messages,messaging_postbacks`) and `sendFacebookMessengerReply()` (POST `/me/messages`) live in the same service.
+  - Inbound webhook receiver: `server/routes/metaMessagingWebhookRoutes.ts` registers `GET /webhooks/meta/messaging` (hub.challenge verification) and `POST /webhooks/meta/messaging` (signed inbound delivery). The POST handler verifies the `X-Hub-Signature-256` HMAC against the Meta app secret using constant-time comparison, then writes one audit row per non-echo message (`socialsync.messenger.message_received`).
+  - Portal endpoints: `POST /api/portal/socialsync/facebook-page/:pageId/messaging/subscribe` (enable webhook delivery) and `POST /api/portal/socialsync/facebook-page/:pageId/messaging/reply` (manual reply). Both gated by `requireClientStrict` and audited.
+- **Webhook URL to register in the Meta App dashboard:** `https://wefixtrades.com/webhooks/meta/messaging` — with subscribed fields `messages, messaging_postbacks` and the verify token set to env var `META_WEBHOOK_VERIFY_TOKEN`.
+- **Reviewer test path:** Connect a Facebook Page → open "Your Social Media" → click "Enable Messenger replies" (calls the `/subscribe` endpoint) → from a separate Facebook user, send a DM to the connected Page → in the WeFixTrades portal, paste the sender's PSID and a reply text into the "Send manual reply" form → confirm the reply arrives in Messenger and an audit row appears under action `socialsync.messenger.message_sent`. The inbound message itself is recorded under `socialsync.messenger.message_received`.
+
 ## Instagram Scopes
 
 ### `instagram_basic`
@@ -44,7 +54,6 @@ Each scope below is requested by `server/services/socialSync/facebookService.ts`
 
 To pre-empt reviewer questions: SocialSync deliberately does not request, and does not need:
 
-- `pages_messaging` — we never reply to DMs.
 - `ads_*` — we do not run paid ads from this app.
 - `user_posts` / `user_photos` — we never read personal Facebook content.
 - `ads_management` — we do not create, edit, or pause ad accounts. The `business_management` scope is used only to *read* the customer's Business Manager inventory so we can record an explicit Tech Provider attestation.
