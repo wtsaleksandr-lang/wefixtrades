@@ -17,6 +17,7 @@
  *  - Tier-gated cap UI — Phase 4.
  */
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Loader2,
@@ -28,6 +29,10 @@ import {
   Layers,
   Edit2,
   Wand2,
+  Download,
+  Save,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
@@ -288,6 +293,93 @@ export default function PortalContentFlow() {
     },
   });
 
+  /* Phase 3: generation + custom-prompt save state + mutations. */
+  type GenerateResult = {
+    ok: boolean;
+    draftId?: number;
+    tier?: string;
+    assetUrl?: string;
+    content?: string;
+    stylePreset?: string;
+    code?: string;
+    error?: string;
+    upgrade_required?: boolean;
+  };
+  const [generateResult, setGenerateResult] = useState<GenerateResult | null>(null);
+  const [generateError, setGenerateError] = useState<GenerateResult | null>(null);
+
+  const generateMutation = useMutation<GenerateResult, Error, void>({
+    mutationFn: async () => {
+      if (!selected || !selectedId) throw new Error("no prompt selected");
+      const body = {
+        templateId: selectedId,
+        tokens: prefilled?.tokens ?? [],
+        rendered: previewEdit,
+        assetType: selected.asset,
+      };
+      const res = await apiRequest("POST", "/api/portal/contentflow/generate", body);
+      const json = (await res.json()) as GenerateResult;
+      if (!res.ok) {
+        /* surface 402 / 503 / 502 with our friendlier UI rather than
+         * throwing into the toast — react-query treats non-2xx as
+         * errors only when apiRequest does, which it doesn't here. */
+        const err: GenerateResult = { ...json, ok: false };
+        throw Object.assign(new Error(json.error || "Generation failed"), { result: err, status: res.status });
+      }
+      return json;
+    },
+    onSuccess: (data) => {
+      setGenerateResult(data);
+      setGenerateError(null);
+    },
+    onError: (err: any) => {
+      const r: GenerateResult = err?.result || { ok: false, error: err?.message };
+      setGenerateError(r);
+      setGenerateResult(null);
+      toast({
+        title: r.code === "tier_too_low" ? "Upgrade required"
+          : r.code === "video_early_access" ? "Coming soon"
+          : "Generation failed",
+        description: r.error || "Try again",
+        variant: r.code === "video_early_access" ? "default" : "destructive",
+      });
+    },
+  });
+
+  const saveCustomMutation = useMutation<{ ok: boolean; tier: string; custom_prompt?: { id: string } }, Error, void>({
+    mutationFn: async () => {
+      if (!selected || !selectedId) throw new Error("no prompt selected");
+      const body = {
+        baseTemplateId: selectedId,
+        customizedRendered: previewEdit,
+        customizedTokens: prefilled?.tokens ?? [],
+        title: selected.title,
+      };
+      const res = await apiRequest("POST", "/api/portal/contentflow/custom-prompts", body);
+      const json = await res.json();
+      if (!res.ok) {
+        throw Object.assign(new Error(json.error || "Save failed"), { result: json, status: res.status });
+      }
+      return json;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Saved to your library",
+        description: "You can re-use this customized prompt from the library tab.",
+      });
+    },
+    onError: (err: any) => {
+      const r = err?.result || {};
+      toast({
+        title: r.code === "tier_no_save" || r.code === "tier_cap_reached"
+          ? "Upgrade required"
+          : "Could not save prompt",
+        description: r.error || err?.message || "Try again",
+        variant: "destructive",
+      });
+    },
+  });
+
   function openPrompt(id: string) {
     setSelectedId(id);
     setPreviewEdit("");
@@ -367,25 +459,20 @@ export default function PortalContentFlow() {
     [listQuery.data, selectedId],
   );
 
-  function handleGenerateStub() {
-    /* Phase 3 wiring lives in server/services/contentflow/imageGenerationService
-     * + videoGenerationService + articleService. For Phase 2 we still
-     * stub the call, but we now also persist the final prompt + token
-     * state to clients.metadata so the Phase 3 worker can pick it up. */
-    // eslint-disable-next-line no-console
-    console.log("[contentflow][phase2] Generate clicked", {
-      selectedId,
-      previewEdit,
-      tokenCount: prefilled?.tokens.length ?? 0,
-    });
-    draftMutation.mutate(undefined, {
-      onSettled: () => {
-        toast({
-          title: "Phase 3 ships generation pipeline",
-          description: "Your prompt + token state is saved as a draft. Generation wires up to the image / video / article workers in the next release.",
-        });
-      },
-    });
+  function handleGenerate() {
+    /* Phase 3: persist the prompt draft (best-effort, no toast) then
+     * fire the real generation pipeline. The draft mutation is kept
+     * for analytics — it stamps clients.metadata.last_draft so the
+     * customer's prompt isn't lost if the generate call fails. */
+    setGenerateError(null);
+    setGenerateResult(null);
+    draftMutation.mutate(undefined);
+    generateMutation.mutate();
+  }
+
+  function closeResult() {
+    setGenerateResult(null);
+    setGenerateError(null);
   }
 
   return (
@@ -662,12 +749,157 @@ export default function PortalContentFlow() {
             <DialogFooter className="gap-2 sm:gap-2">
               <Button variant="outline" onClick={closePrompt} data-testid="prompt-preview-cancel">Cancel</Button>
               <Button
-                onClick={handleGenerateStub}
-                disabled={previewMutation.isPending || prefillMutation.isPending || !previewEdit.trim()}
+                onClick={handleGenerate}
+                disabled={
+                  previewMutation.isPending
+                  || prefillMutation.isPending
+                  || generateMutation.isPending
+                  || !previewEdit.trim()
+                }
                 data-testid="prompt-preview-generate"
               >
-                <Wand2 className="mr-1 h-3.5 w-3.5" /> Generate
+                {generateMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Generating…
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="mr-1 h-3.5 w-3.5" /> Generate
+                  </>
+                )}
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ─── Phase 3: Generation result modal ──────────────────── */}
+        <Dialog open={!!generateResult || !!generateError} onOpenChange={(open) => { if (!open) closeResult(); }}>
+          <DialogContent className="max-w-3xl" data-testid="generate-result-dialog">
+            <DialogHeader>
+              <DialogTitle>
+                {generateError ? (
+                  generateError.code === "tier_too_low" || generateError.code === "tier_no_save" || generateError.code === "tier_cap_reached"
+                    ? "Upgrade required"
+                    : generateError.code === "video_early_access"
+                      ? "Video — early access"
+                      : "Generation failed"
+                ) : (
+                  selected?.asset === "article" ? "Your article" : selected?.asset === "image" ? "Your image" : "Your content"
+                )}
+              </DialogTitle>
+              <DialogDescription>
+                {generateError ? (generateError.error || "Try again or contact support.") : "Save it to your library, download it, or generate a variation."}
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* ── Error state ───────────────────────────────────── */}
+            {generateError && (
+              <div className="flex flex-col gap-3 py-2">
+                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
+                  <div className="flex-1">
+                    <div className="font-medium text-destructive">{generateError.error}</div>
+                    {generateError.tier && (
+                      <div className="mt-1 text-xs text-muted-foreground">Your tier: {generateError.tier}</div>
+                    )}
+                  </div>
+                </div>
+                {generateError.upgrade_required && (
+                  <Link href="/contentflow#pricing">
+                    <Button className="w-full" data-testid="generate-result-upgrade">
+                      See ContentFlow plans
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            )}
+
+            {/* ── Success state ─────────────────────────────────── */}
+            {generateResult && (
+              <div className="flex flex-col gap-4 py-2">
+                {generateResult.assetUrl && (
+                  <div className="overflow-hidden rounded-md border border-border bg-muted/20">
+                    {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+                    <img
+                      src={generateResult.assetUrl}
+                      alt={`Generated image for ${selected?.title ?? "prompt"}`}
+                      className="block max-h-[500px] w-full object-contain"
+                      data-testid="generate-result-image"
+                    />
+                  </div>
+                )}
+                {generateResult.content && (
+                  <div className="max-h-[400px] overflow-auto rounded-md border border-border bg-muted/10 p-3 text-sm leading-relaxed">
+                    <pre className="whitespace-pre-wrap font-sans" data-testid="generate-result-article">{generateResult.content}</pre>
+                  </div>
+                )}
+                {generateResult.stylePreset && (
+                  <div className="text-xs text-muted-foreground">
+                    Style preset: <span className="font-medium">{generateResult.stylePreset}</span>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {generateResult.assetUrl && (
+                    <a
+                      href={generateResult.assetUrl}
+                      download={`contentflow-${selectedId ?? "image"}.png`}
+                      data-testid="generate-result-download-image"
+                    >
+                      <Button variant="outline" size="sm">
+                        <Download className="mr-1 h-3.5 w-3.5" /> Download image
+                      </Button>
+                    </a>
+                  )}
+                  {generateResult.content && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const blob = new Blob([generateResult.content ?? ""], { type: "text/plain;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `contentflow-${selectedId ?? "article"}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      data-testid="generate-result-download-article"
+                    >
+                      <Download className="mr-1 h-3.5 w-3.5" /> Download text
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => saveCustomMutation.mutate()}
+                    disabled={saveCustomMutation.isPending}
+                    data-testid="generate-result-save-library"
+                  >
+                    {saveCustomMutation.isPending ? (
+                      <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Saving…</>
+                    ) : (
+                      <><Save className="mr-1 h-3.5 w-3.5" /> Save to library</>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => generateMutation.mutate()}
+                    disabled={generateMutation.isPending}
+                    data-testid="generate-result-variation"
+                  >
+                    {generateMutation.isPending ? (
+                      <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Generating…</>
+                    ) : (
+                      <><RefreshCw className="mr-1 h-3.5 w-3.5" /> Generate variation</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={closeResult} data-testid="generate-result-close">Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
