@@ -217,7 +217,7 @@ export function registerPortalContentflowRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const tmpl = getPromptTemplate(req.params.id);
+      const tmpl = getPromptTemplate(String(req.params.id || ""));
       if (!tmpl) return res.status(404).json({ error: "prompt not found", code: "prompt_not_found" });
       res.json({ prompt: tmpl });
     } catch (err: any) {
@@ -242,7 +242,7 @@ export function registerPortalContentflowRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const tmpl = getPromptTemplate(req.params.id);
+      const tmpl = getPromptTemplate(String(req.params.id || ""));
       if (!tmpl) return res.status(404).json({ error: "prompt not found", code: "prompt_not_found" });
 
       const client = await storage.getClientById(clientId);
@@ -365,7 +365,7 @@ export function registerPortalContentflowRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const tmpl = getPromptTemplate(req.params.id);
+      const tmpl = getPromptTemplate(String(req.params.id || ""));
       if (!tmpl) return res.status(404).json({ error: "prompt not found", code: "prompt_not_found" });
 
       /* Profile preference order:
@@ -442,7 +442,7 @@ export function registerPortalContentflowRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const tmpl = getPromptTemplate(req.params.id);
+      const tmpl = getPromptTemplate(String(req.params.id || ""));
       if (!tmpl) return res.status(404).json({ error: "prompt not found", code: "prompt_not_found" });
 
       const rawTokens = Array.isArray(req.body?.tokens) ? (req.body.tokens as unknown[]) : [];

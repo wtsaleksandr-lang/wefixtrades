@@ -343,12 +343,12 @@ function varyParagraphOpeners(
     const word = m[2];
     const lower = word.toLowerCase();
     if (prevOpener && lower === prevOpener) {
-      const subs = OPENER_SUBSTITUTES[lower];
+      const subs: readonly string[] | undefined = OPENER_SUBSTITUTES[lower];
       if (subs && subs.length > 0) {
-        const sub = pick(rng, subs);
+        const sub: string = pick(rng, subs);
         paragraphs[i] = leading + sub + p.slice(m[0].length);
         stats.openerVariationApplied++;
-        prevOpener = sub.toLowerCase().split(/\s+/)[0];
+        prevOpener = (sub.toLowerCase().split(/\s+/)[0] ?? "");
         continue;
       }
     }
