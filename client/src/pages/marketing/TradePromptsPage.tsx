@@ -198,7 +198,7 @@ export default function TradePromptsPage() {
                           display: "flex", alignItems: "center", justifyContent: "center",
                           color: mkt.accent,
                         }}>
-                          <Icon size={18} />
+                          <Icon size={20} />
                         </div>
                         <span style={{
                           fontSize: 10, fontWeight: 700, color: mkt.onDarkFaint,
