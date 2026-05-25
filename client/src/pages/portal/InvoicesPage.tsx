@@ -399,7 +399,8 @@ export default function InvoicesPage() {
                   </button>
                   <button
                     onClick={() => markPaid.mutate(inv.id)}
-                    style={{ ...actionBtn, background: "#f0fdf4", borderColor: "#bbf7d0", color: "#16a34a" }}
+                    className="text-green-700 bg-green-50 border-green-200 dark:bg-green-950/40 dark:border-green-800/60 dark:text-green-300"
+                    style={actionBtn}
                   >
                     <DollarSign size={12} />
                     Mark Paid

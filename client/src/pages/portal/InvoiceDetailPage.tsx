@@ -166,8 +166,11 @@ export default function InvoiceDetailPage() {
         )}
 
         {error && (
-          <div style={{ padding: 20, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#b91c1c", fontSize: 13 }}>
-            Couldn't load this invoice. <button onClick={() => navigate("/portal/invoices")} style={{ background: "none", border: "none", color: "#b91c1c", textDecoration: "underline", cursor: "pointer" }}>Return to list</button>
+          <div
+            className="bg-destructive/10 border border-destructive/30 text-destructive dark:bg-destructive/20 dark:border-destructive/40"
+            style={{ padding: 20, borderRadius: 8, fontSize: 13 }}
+          >
+            Couldn't load this invoice. <button onClick={() => navigate("/portal/invoices")} className="text-destructive underline bg-transparent border-0 cursor-pointer">Return to list</button>
           </div>
         )}
 
@@ -537,14 +540,18 @@ function InvoiceEditor({
         </Card>
 
         {/* Actions */}
-        <div className="invoice-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "sticky", bottom: 0, background: "#F6F7F9", padding: "12px 0" }}>
+        <div className="invoice-actions bg-background" style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "sticky", bottom: 0, padding: "12px 0" }}>
           <button onClick={() => save.mutate()} disabled={save.isPending} className="btn-primary-premium bg-brand-blue text-white" style={primaryBtn}>
             {save.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
           </button>
           <button onClick={() => setShowSend(true)} className="btn-primary-premium bg-brand-blue text-white" style={primaryBtn}>
             <Send size={14} /> Send invoice
           </button>
-          <button onClick={() => setShowMarkPaid(true)} style={{ ...ghostBtn, background: "#f0fdf4", borderColor: "#bbf7d0", color: "#16a34a" }}>
+          <button
+            onClick={() => setShowMarkPaid(true)}
+            className="text-green-700 bg-green-50 border-green-200 dark:bg-green-950/40 dark:border-green-800/60 dark:text-green-300"
+            style={ghostBtn}
+          >
             <DollarSign size={14} /> Mark paid
           </button>
           <a
