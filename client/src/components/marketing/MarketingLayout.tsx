@@ -257,20 +257,23 @@ function MarketingFooter() {
             <div style={{ display: "flex", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
               <a
                 href="tel:+19156153280"
+                className="mkt-ft-soft"
                 style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
                 data-testid="footer-phone"
               >
                 <Phone size={12} color={mkt.accent} strokeWidth={2} />
-                +1 (915) 615-3280 · AI-answered 24/7
+                +1 (915) 615-3280 · answered 24/7
               </a>
               <a
                 href="mailto:sales@wefixtrades.com"
+                className="mkt-ft-soft"
                 style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
               >
                 ✉️ sales@wefixtrades.com
               </a>
               <a
                 href="mailto:support@wefixtrades.com"
+                className="mkt-ft-soft"
                 style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
               >
                 ✉️ support@wefixtrades.com
@@ -281,11 +284,11 @@ function MarketingFooter() {
             </p>
           </div>
           <div className="mkt-footer-legal-links" style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-            <Link href="/privacy" className="mkt-ft-underline" style={legalLinkStyle}>Privacy</Link>
+            <Link href="/privacy" className="mkt-ft-soft" style={legalLinkStyle}>Privacy</Link>
             <span style={legalDividerStyle} />
-            <Link href="/terms" className="mkt-ft-underline" style={legalLinkStyle}>Terms</Link>
+            <Link href="/terms" className="mkt-ft-soft" style={legalLinkStyle}>Terms</Link>
             <span style={legalDividerStyle} />
-            <Link href="/terms" className="mkt-ft-underline" style={legalLinkStyle}>Cookies</Link>
+            <Link href="/terms" className="mkt-ft-soft" style={legalLinkStyle}>Cookies</Link>
             {isAuthenticated && (
               <>
                 <span style={legalDividerStyle} />
@@ -294,7 +297,7 @@ function MarketingFooter() {
                     await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
                     queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
                   }}
-                  className="mkt-ft-underline"
+                  className="mkt-ft-soft"
                   style={{ ...legalLinkStyle, background: "none", border: "none", cursor: "pointer" }}
                 >
                   Sign out
@@ -359,6 +362,17 @@ function MarketingFooter() {
         /* "All Products" / "All Solutions" toggle — subtle brighten on hover. */
         .mkt-ft-expand:hover {
           color: rgba(255,255,255,0.92) !important;
+        }
+
+        /* Soft hover for legal links + contact lines (phone / email) — color
+           shift only, no underline, no border. Used in the corporate bottom
+           bar where the aggressive blue underline felt out of place. */
+        .mkt-ft-soft {
+          transition: color 0.15s ease;
+        }
+        .mkt-ft-soft:hover {
+          color: rgba(255,255,255,0.92) !important;
+          text-decoration: none !important;
         }
 
         /* Smooth unfold — grid 0fr → 1fr animates to content height. */
