@@ -215,10 +215,10 @@ export default function TradelineVoicesPage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
               <Mic2 className="w-6 h-6 text-brand-blue-600" /> TradeLine Voices
             </h1>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Manage the ElevenLabs voice catalog, monthly minute budgets, and per-client overrides.
             </p>
           </div>
@@ -234,7 +234,7 @@ export default function TradelineVoicesPage() {
         <Card className="p-4">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
-              <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <h2 className="font-semibold text-foreground flex items-center gap-2">
                 {healthQ.data && (healthQ.data.driftCount > 0 || healthQ.data.dbServicesFailed > 0 || !healthQ.data.vapiReachable) ? (
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                 ) : (
@@ -242,7 +242,7 @@ export default function TradelineVoicesPage() {
                 )}
                 Provisioning health
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 DB-side TradeLine state vs the live Vapi account. Auto-refreshes every minute.
               </p>
             </div>
@@ -258,7 +258,7 @@ export default function TradelineVoicesPage() {
             </Button>
           </div>
 
-          {healthQ.isLoading && <div className="text-sm text-gray-500">Loading provisioning health…</div>}
+          {healthQ.isLoading && <div className="text-sm text-muted-foreground">Loading provisioning health…</div>}
           {healthQ.isError && (
             <div className="text-sm text-red-700">
               Couldn't load provisioning health: {(healthQ.error as Error | null)?.message ?? "unknown"}
@@ -267,30 +267,30 @@ export default function TradelineVoicesPage() {
           {healthQ.data && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div className="rounded border border-gray-200 p-2">
-                  <div className="text-[11px] text-gray-500">DB services (total)</div>
-                  <div className="text-lg font-semibold text-gray-900" data-testid="health-db-total">
+                <div className="rounded border border-border p-2">
+                  <div className="text-[11px] text-muted-foreground">DB services (total)</div>
+                  <div className="text-lg font-semibold text-foreground" data-testid="health-db-total">
                     {healthQ.data.dbServicesTotal}
                   </div>
-                  <div className="text-[11px] text-gray-500">
+                  <div className="text-[11px] text-muted-foreground">
                     {healthQ.data.dbServicesActive} active · {healthQ.data.dbServicesPending} pending
                   </div>
                 </div>
-                <div className="rounded border border-gray-200 p-2">
-                  <div className="text-[11px] text-gray-500">DB with vapi_id</div>
-                  <div className="text-lg font-semibold text-gray-900" data-testid="health-db-with-vapi-id">
+                <div className="rounded border border-border p-2">
+                  <div className="text-[11px] text-muted-foreground">DB with vapi_id</div>
+                  <div className="text-lg font-semibold text-foreground" data-testid="health-db-with-vapi-id">
                     {healthQ.data.dbServicesWithAssistantId}
                   </div>
-                  <div className="text-[11px] text-gray-500">
+                  <div className="text-[11px] text-muted-foreground">
                     settings rows: {healthQ.data.dbAssistantSettingsRows}
                   </div>
                 </div>
-                <div className="rounded border border-gray-200 p-2">
-                  <div className="text-[11px] text-gray-500">Live Vapi (tradeline)</div>
-                  <div className="text-lg font-semibold text-gray-900" data-testid="health-vapi-tradeline">
+                <div className="rounded border border-border p-2">
+                  <div className="text-[11px] text-muted-foreground">Live Vapi (tradeline)</div>
+                  <div className="text-lg font-semibold text-foreground" data-testid="health-vapi-tradeline">
                     {healthQ.data.vapiReachable ? healthQ.data.vapiTradelineAssistants : "—"}
                   </div>
-                  <div className="text-[11px] text-gray-500">
+                  <div className="text-[11px] text-muted-foreground">
                     of {healthQ.data.vapiReachable ? healthQ.data.vapiAssistantsTotal : "?"} total
                   </div>
                 </div>
@@ -298,19 +298,19 @@ export default function TradelineVoicesPage() {
                   className={`rounded border p-2 ${
                     healthQ.data.driftCount > 0
                       ? "border-amber-300 bg-amber-50"
-                      : "border-gray-200"
+                      : "border-border"
                   }`}
                 >
-                  <div className="text-[11px] text-gray-500">Drift</div>
+                  <div className="text-[11px] text-muted-foreground">Drift</div>
                   <div
                     className={`text-lg font-semibold ${
-                      healthQ.data.driftCount > 0 ? "text-amber-700" : "text-gray-900"
+                      healthQ.data.driftCount > 0 ? "text-amber-700" : "text-foreground"
                     }`}
                     data-testid="health-drift-count"
                   >
                     {healthQ.data.vapiReachable ? healthQ.data.driftCount : "—"}
                   </div>
-                  <div className="text-[11px] text-gray-500">DB ids missing live</div>
+                  <div className="text-[11px] text-muted-foreground">DB ids missing live</div>
                 </div>
               </div>
 
@@ -328,10 +328,10 @@ export default function TradelineVoicesPage() {
 
               {healthQ.data.failures.length > 0 && (
                 <details className="text-xs">
-                  <summary className="cursor-pointer text-gray-700 hover:text-gray-900">
+                  <summary className="cursor-pointer text-foreground hover:text-foreground">
                     {healthQ.data.failures.length} failed build{healthQ.data.failures.length === 1 ? "" : "s"} (click to expand)
                   </summary>
-                  <ul className="mt-2 space-y-1 text-gray-600">
+                  <ul className="mt-2 space-y-1 text-muted-foreground">
                     {healthQ.data.failures.map((f) => (
                       <li key={f.id} className="font-mono">
                         service #{f.id} · {f.status} · {f.lastBuildError}
@@ -348,27 +348,27 @@ export default function TradelineVoicesPage() {
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="font-semibold text-gray-900">Voice usage this month</h2>
-              <p className="text-xs text-gray-500">Minutes consumed per voice, rolled up across all clients.</p>
+              <h2 className="font-semibold text-foreground">Voice usage this month</h2>
+              <p className="text-xs text-muted-foreground">Minutes consumed per voice, rolled up across all clients.</p>
             </div>
             <Badge variant="secondary">{totalMinutes.toLocaleString()} total min</Badge>
           </div>
           <div className="space-y-2">
             {(usageQ.data?.usage ?? []).length === 0 && (
-              <div className="text-sm text-gray-500">No usage recorded yet.</div>
+              <div className="text-sm text-muted-foreground">No usage recorded yet.</div>
             )}
             {(usageQ.data?.usage ?? []).map((row) => {
               const voice = row.voice_id ? voiceMap.get(row.voice_id) : null;
               const pct = totalMinutes > 0 ? Math.round((Number(row.minutes_used) / totalMinutes) * 100) : 0;
               return (
                 <div key={row.voice_id ?? "unassigned"} className="flex items-center gap-3">
-                  <div className="w-44 text-sm font-medium text-gray-800 truncate">
+                  <div className="w-44 text-sm font-medium text-foreground truncate">
                     {voice?.display_name ?? row.voice_id ?? "Unassigned"}
                   </div>
-                  <div className="flex-1 h-2 bg-gray-100 rounded overflow-hidden">
+                  <div className="flex-1 h-2 bg-muted rounded overflow-hidden">
                     <div className="h-2 bg-brand-blue-500" style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="w-32 text-right text-xs text-gray-600">
+                  <div className="w-32 text-right text-xs text-muted-foreground">
                     {Number(row.minutes_used).toLocaleString()} min · {row.client_count} client{Number(row.client_count) !== 1 ? "s" : ""}
                   </div>
                 </div>
@@ -379,7 +379,7 @@ export default function TradelineVoicesPage() {
 
         {/* Voice catalog */}
         <div>
-          <h2 className="font-semibold text-gray-900 mb-3">Voice catalog</h2>
+          <h2 className="font-semibold text-foreground mb-3">Voice catalog</h2>
           {voices.isError && (
             <Card className="p-4 bg-red-50 border-red-200 mb-3">
               <div className="flex items-start gap-3">
@@ -404,18 +404,18 @@ export default function TradelineVoicesPage() {
               </div>
             </Card>
           )}
-          {voices.isLoading && <div className="text-sm text-gray-500">Loading voices…</div>}
+          {voices.isLoading && <div className="text-sm text-muted-foreground">Loading voices…</div>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {(voices.data?.voices ?? []).map((v) => (
               <Card key={v.id} className="p-4 flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="font-medium text-gray-900">{v.display_name}</div>
-                    <div className="text-xs text-gray-500">{v.id} · {v.elevenlabs_voice_id}</div>
+                    <div className="font-medium text-foreground">{v.display_name}</div>
+                    <div className="text-xs text-muted-foreground">{v.id} · {v.elevenlabs_voice_id}</div>
                   </div>
                   <Badge variant={v.status === "active" ? "default" : "secondary"}>{v.status}</Badge>
                 </div>
-                {v.description && <div className="text-sm text-gray-700">{v.description}</div>}
+                {v.description && <div className="text-sm text-foreground">{v.description}</div>}
                 <div className="flex flex-wrap gap-1">
                   {v.gender && <Badge variant="outline">{v.gender}</Badge>}
                   {v.accent && <Badge variant="outline">{v.accent}</Badge>}
@@ -456,10 +456,10 @@ export default function TradelineVoicesPage() {
 
         {/* Per-client budget */}
         <div>
-          <h2 className="font-semibold text-gray-900 mb-3">Per-client budgets &amp; voice overrides</h2>
+          <h2 className="font-semibold text-foreground mb-3">Per-client budgets &amp; voice overrides</h2>
           <Card className="overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600">
+              <thead className="bg-muted/50 text-muted-foreground">
                 <tr>
                   <th className="text-left px-3 py-2">Client</th>
                   <th className="text-left px-3 py-2">Trade</th>
@@ -471,10 +471,10 @@ export default function TradelineVoicesPage() {
               <tbody>
                 {(clientsQ.data?.clients ?? []).length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-10 text-gray-500">
-                      <Mic2 className="w-6 h-6 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm font-medium text-gray-700 mb-0.5">No TradeLine clients yet</p>
-                      <p className="text-xs text-gray-500">Per-client voice overrides and call-minute budgets appear here once clients onboard to TradeLine.</p>
+                    <td colSpan={5} className="text-center py-10 text-muted-foreground">
+                      <Mic2 className="w-6 h-6 text-muted-foreground/50 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-foreground mb-0.5">No TradeLine clients yet</p>
+                      <p className="text-xs text-muted-foreground">Per-client voice overrides and call-minute budgets appear here once clients onboard to TradeLine.</p>
                     </td>
                   </tr>
                 ) : (
@@ -574,7 +574,7 @@ export default function TradelineVoicesPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block text-sm">
-      <span className="text-gray-700 font-medium">{label}</span>
+      <span className="text-foreground font-medium">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
   );
@@ -595,9 +595,9 @@ function ClientRow({
   const [budget, setBudget] = useState<string>(row.monthly_minute_budget?.toString() ?? "");
   const dirty = voiceId !== (row.voice_id ?? "") || budget !== (row.monthly_minute_budget?.toString() ?? "");
   return (
-    <tr className="border-t border-gray-100">
-      <td className="px-3 py-2 text-gray-900 font-medium">{row.business_name}</td>
-      <td className="px-3 py-2 text-gray-600">{row.trade_type ?? "—"}</td>
+    <tr className="border-t border-border">
+      <td className="px-3 py-2 text-foreground font-medium">{row.business_name}</td>
+      <td className="px-3 py-2 text-muted-foreground">{row.trade_type ?? "—"}</td>
       <td className="px-3 py-2">
         <Select value={voiceId} onValueChange={setVoiceId}>
           <SelectTrigger className="w-44"><SelectValue placeholder="Default" /></SelectTrigger>
@@ -611,8 +611,8 @@ function ClientRow({
       </td>
       <td className="px-3 py-2 text-right">
         <div className="flex items-center justify-end gap-2">
-          <span className="text-gray-600">{row.monthly_minute_used}</span>
-          <span className="text-gray-400">/</span>
+          <span className="text-muted-foreground">{row.monthly_minute_used}</span>
+          <span className="text-muted-foreground/70">/</span>
           <Input
             className="w-24 text-right"
             value={budget}

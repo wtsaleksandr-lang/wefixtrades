@@ -140,8 +140,8 @@ function MetricCard({ icon: Icon, label, value, delta, deltaSuffix, deltaInvert,
     <Card className="h-full p-4">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+          <p className="text-2xl font-semibold text-foreground mt-1">{value}</p>
           {delta !== undefined && delta !== null && <div className="mt-1"><Delta value={delta} suffix={deltaSuffix} invert={deltaInvert} /></div>}
         </div>
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
@@ -156,8 +156,8 @@ function MetricCard({ icon: Icon, label, value, delta, deltaSuffix, deltaInvert,
 function ChartTooltipContent({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white shadow-lg border border-gray-200 rounded-lg px-3 py-2 text-xs">
-      <p className="text-gray-500 mb-1">{label}</p>
+    <div className="bg-card shadow-lg border border-border rounded-lg px-3 py-2 text-xs">
+      <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((entry: any) => (
         <p key={entry.name} style={{ color: entry.color }} className="font-medium">
           {entry.name}: {entry.value}
@@ -205,14 +205,14 @@ function SetupCompletionUpsellBanner({
           <CheckCircle className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-base font-semibold text-gray-900">{sinceCopy}</h2>
-          <p className="text-sm text-gray-600 mt-1">
+          <h2 className="text-base font-semibold text-foreground">{sinceCopy}</h2>
+          <p className="text-sm text-muted-foreground mt-1">
             Your Google Business profile, listings, and visibility groundwork
             are in place. Continue with monthly monitoring to catch problems
             before your customers do.
           </p>
 
-          <ul className="mt-4 space-y-2 text-sm text-gray-700">
+          <ul className="mt-4 space-y-2 text-sm text-foreground">
             <li className="flex items-start gap-2">
               <Shield className="w-4 h-4 text-[#2D6A4F] mt-0.5 flex-shrink-0" />
               <span><b>Basic</b> — weekly visibility scans + alerting on rating, reviews, and keyword drops.</span>
@@ -235,14 +235,14 @@ function SetupCompletionUpsellBanner({
               type="button"
               onClick={() => dismiss.mutate()}
               disabled={dismiss.isPending}
-              className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+              className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
               data-testid="upsell-dismiss"
             >
               {dismiss.isPending ? "Dismissing…" : "Not now"}
             </button>
           </div>
           {completedAt && (
-            <p className="mt-3 text-xs text-gray-400">
+            <p className="mt-3 text-xs text-muted-foreground/70">
               Setup completed {new Date(completedAt).toLocaleDateString()}.
             </p>
           )}
@@ -273,8 +273,8 @@ export default function PortalMapguard() {
             <Shield className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">MapGuard</h1>
-            <p className="text-sm text-gray-500">Your Google Maps visibility report</p>
+            <h1 className="text-lg font-semibold text-foreground">MapGuard</h1>
+            <p className="text-sm text-muted-foreground">Your Google Maps visibility report</p>
           </div>
         </div>
 
@@ -303,8 +303,8 @@ export default function PortalMapguard() {
         {data && !data.active && !data.setup_completed_upsell?.should_show && (
           <Card className="p-8 text-center">
             <Shield className="w-8 h-8 text-gray-200 mx-auto mb-3" />
-            <p className="text-sm font-medium text-gray-700">MapGuard is not active on your account</p>
-            <p className="text-xs text-gray-400 mt-1">Contact us to get started with Google Maps optimization.</p>
+            <p className="text-sm font-medium text-foreground">MapGuard is not active on your account</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Contact us to get started with Google Maps optimization.</p>
           </Card>
         )}
 
@@ -336,7 +336,7 @@ export default function PortalMapguard() {
                     <span className="flex items-center gap-2">
                       {data.current.score ?? "—"}
                       {data.current.grade && (
-                        <span className={`text-sm px-1.5 py-0.5 rounded font-bold border ${GRADE_COLORS[data.current.grade] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                        <span className={`text-sm px-1.5 py-0.5 rounded font-bold border ${GRADE_COLORS[data.current.grade] || "bg-muted text-muted-foreground border-border"}`}>
                           {data.current.grade}
                         </span>
                       )}
@@ -392,7 +392,7 @@ export default function PortalMapguard() {
             {/* Score Trend Chart */}
             {data.snapshots.length >= 2 && (
               <Card className="p-5">
-                <h2 className="text-sm font-semibold text-gray-900 mb-4">Visibility Score Over Time</h2>
+                <h2 className="text-sm font-semibold text-foreground mb-4">Visibility Score Over Time</h2>
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={data.snapshots.map(s => ({
@@ -413,7 +413,7 @@ export default function PortalMapguard() {
             {/* Reviews Trend Chart */}
             {data.snapshots.length >= 2 && data.snapshots.some(s => s.review_count != null) && (
               <Card className="p-5">
-                <h2 className="text-sm font-semibold text-gray-900 mb-4">Reviews Over Time</h2>
+                <h2 className="text-sm font-semibold text-foreground mb-4">Reviews Over Time</h2>
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={data.snapshots.map(s => ({
@@ -434,11 +434,11 @@ export default function PortalMapguard() {
             {/* Improvement Progress */}
             {data.execution_progress && data.execution_progress.completed > 0 && (
               <Card className="p-5">
-                <h2 className="text-sm font-semibold text-gray-900 mb-2">Improvement Progress</h2>
-                <p className="text-xs text-gray-500 mb-3">
+                <h2 className="text-sm font-semibold text-foreground mb-2">Improvement Progress</h2>
+                <p className="text-xs text-muted-foreground mb-3">
                   {data.execution_progress.completed} improvement{data.execution_progress.completed !== 1 ? "s" : ""} completed this month
                 </p>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-brand-blue rounded-full transition-all"
                     style={{ width: `${Math.min(100, data.execution_progress.completed * 20)}%` }}
@@ -449,7 +449,7 @@ export default function PortalMapguard() {
 
             {/* What We're Doing — dynamic from tasks + signals */}
             <Card className="p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">What We're Doing For You</h2>
+              <h2 className="text-sm font-semibold text-foreground mb-3">What We're Doing For You</h2>
               <div className="space-y-3">
                 {/* Dynamic activity items from active tasks */}
                 {data.activities && data.activities.length > 0 ? (
@@ -510,20 +510,20 @@ export default function PortalMapguard() {
             {/* Backlog + Upgrade Signal */}
             {data.execution_progress && data.execution_progress.pending > 0 && (
               <Card className={`p-5 ${data.execution_progress.has_more ? "border-amber-200 bg-amber-50/30" : ""}`}>
-                <h2 className="text-sm font-semibold text-gray-900 mb-1">
+                <h2 className="text-sm font-semibold text-foreground mb-1">
                   {data.execution_progress.pending} improvement{data.execution_progress.pending !== 1 ? "s" : ""} waiting
                 </h2>
-                <p className="text-xs text-gray-500 mb-3">
+                <p className="text-xs text-muted-foreground mb-3">
                   {data.execution_progress.has_more
                     ? "We've identified additional improvements that can boost your visibility. Your current plan limits how many we complete each month."
                     : "These will be completed soon as part of your plan."}
                 </p>
                 {data.execution_progress.has_more && (
-                  <div className="flex items-start gap-3 px-3 py-3 rounded-lg bg-white border border-amber-200">
+                  <div className="flex items-start gap-3 px-3 py-3 rounded-lg bg-card border border-amber-200">
                     <TrendingUp className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">Unlock faster growth</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Upgrade your plan to allow us to fix more issues each month and improve your ranking faster.</p>
+                      <p className="text-sm font-semibold text-foreground">Unlock faster growth</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Upgrade your plan to allow us to fix more issues each month and improve your ranking faster.</p>
                       <UpgradePlanButton />
                     </div>
                   </div>
@@ -539,7 +539,7 @@ export default function PortalMapguard() {
             {/* Recent Activity Feed */}
             {data.activity_feed && data.activity_feed.length > 0 && (
               <Card className="p-5">
-                <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent Activity</h2>
+                <h2 className="text-sm font-semibold text-foreground mb-3">Recent Activity</h2>
                 <div className="space-y-2.5">
                   {data.activity_feed.map((item, i) => (
                     <div key={i} className="flex items-start gap-3">
@@ -550,8 +550,8 @@ export default function PortalMapguard() {
                         "bg-gray-300"
                       }`} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-gray-700">{item.message}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
+                        <p className="text-sm text-foreground">{item.message}</p>
+                        <p className="text-[11px] text-muted-foreground/70 mt-0.5">
                           {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
                       </div>
@@ -564,7 +564,7 @@ export default function PortalMapguard() {
             {/* Profile Snapshot */}
             {data.current && (
               <Card className="p-5">
-                <h2 className="text-sm font-semibold text-gray-900 mb-3">Profile Snapshot</h2>
+                <h2 className="text-sm font-semibold text-foreground mb-3">Profile Snapshot</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <ProfileCheck label="Website linked" ok={data.current.has_website} />
                   <ProfileCheck label="Business description" ok={data.current.has_description} />
@@ -596,11 +596,11 @@ function HealthBanner({ health, lastScan }: { health: string; lastScan: string |
         <Icon className={`w-5 h-5 ${display.color}`} />
         <div>
           <p className={`text-sm font-semibold ${display.color}`}>{display.label}</p>
-          <p className="text-xs text-gray-500">Your Google Maps presence</p>
+          <p className="text-xs text-muted-foreground">Your Google Maps presence</p>
         </div>
       </div>
       {lastScan && (
-        <div className="flex items-center gap-1 text-xs text-gray-400">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground/70">
           <Clock className="w-3 h-3" />
           Last checked {new Date(lastScan).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
         </div>
@@ -621,8 +621,8 @@ function ActivityItem({ icon: Icon, color, title, description }: {
         <Icon className="w-3.5 h-3.5 text-white" />
       </div>
       <div>
-        <p className="text-sm font-medium text-gray-900">{title}</p>
-        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
       </div>
     </div>
   );
@@ -634,11 +634,11 @@ function ProfileCheck({ label, ok, detail }: { label: string; ok: boolean; detai
       {ok ? (
         <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
       ) : (
-        <div className="w-4 h-4 rounded-full border-2 border-gray-300 shrink-0" />
+        <div className="w-4 h-4 rounded-full border-2 border-input shrink-0" />
       )}
       <div>
-        <span className={ok ? "text-gray-700" : "text-gray-400"}>{label}</span>
-        {detail && <span className="text-[11px] text-gray-400 ml-1">({detail})</span>}
+        <span className={ok ? "text-foreground" : "text-muted-foreground/70"}>{label}</span>
+        {detail && <span className="text-[11px] text-muted-foreground/70 ml-1">({detail})</span>}
       </div>
     </div>
   );
@@ -774,16 +774,16 @@ function MapguardConfigCard() {
   return (
     <Card className="p-5 space-y-5">
       <div className="flex items-center gap-2">
-        <Settings className="w-4 h-4 text-gray-700" />
+        <Settings className="w-4 h-4 text-foreground" />
         <div>
-          <h2 className="text-sm font-semibold text-gray-900">Monitoring settings</h2>
-          <p className="text-xs text-gray-500">Customize what we monitor and how we alert you.</p>
+          <h2 className="text-sm font-semibold text-foreground">Monitoring settings</h2>
+          <p className="text-xs text-muted-foreground">Customize what we monitor and how we alert you.</p>
         </div>
       </div>
 
       {/* City override */}
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-gray-700">City / region</label>
+        <label className="text-xs font-medium text-foreground">City / region</label>
         <Input
           type="text"
           value={draft.city ?? ""}
@@ -791,7 +791,7 @@ function MapguardConfigCard() {
           placeholder={data.resolved_city ?? "auto-detected from your business profile"}
           className="h-9 text-sm"
         />
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-muted-foreground/70">
           Used when searching for keyword rankings. Leave blank to let MapGuard auto-detect.
         </p>
       </div>
@@ -799,9 +799,9 @@ function MapguardConfigCard() {
       {/* Keywords */}
       <div className="space-y-2">
         <div className="flex items-baseline justify-between gap-2">
-          <label className="text-xs font-medium text-gray-700">Tracked keywords</label>
+          <label className="text-xs font-medium text-foreground">Tracked keywords</label>
           {!usingCustomKeywords && (
-            <span className="text-[11px] text-gray-400">
+            <span className="text-[11px] text-muted-foreground/70">
               Auto-generated from {data.trade_type ?? "your trade"}
             </span>
           )}
@@ -811,14 +811,14 @@ function MapguardConfigCard() {
             {(draft.custom_keywords ?? []).map((kw) => (
               <span
                 key={kw}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-md text-xs font-medium text-gray-700"
+                className="inline-flex items-center gap-1 px-2 py-1 bg-muted rounded-md text-xs font-medium text-foreground"
               >
                 {kw}
                 <button
                   type="button"
                   onClick={() => removeKeyword(kw)}
                   aria-label={`Remove ${kw}`}
-                  className="text-gray-400 hover:text-gray-700"
+                  className="text-muted-foreground/70 hover:text-foreground"
                 >
                   <X size={12} />
                 </button>
@@ -844,19 +844,19 @@ function MapguardConfigCard() {
             <Plus size={14} className="mr-1" /> Add
           </Button>
         </div>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-muted-foreground/70">
           Up to 50 keywords. Adding even one switches off the auto-generated list.
         </p>
       </div>
 
       {/* Alerts */}
-      <div className="border-t border-gray-100 pt-4 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Alerts</p>
+      <div className="border-t border-border pt-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Alerts</p>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-gray-700">
+          <label className="text-xs font-medium text-foreground">
             Alert when ranking drops by at least
-            <span className="ml-2 font-semibold text-gray-900">
+            <span className="ml-2 font-semibold text-foreground">
               {draft.alerts.rank_drop_threshold === 0
                 ? "disabled"
                 : `${draft.alerts.rank_drop_threshold} position${draft.alerts.rank_drop_threshold === 1 ? "" : "s"}`}
@@ -875,7 +875,7 @@ function MapguardConfigCard() {
             }
             className="w-full"
           />
-          <div className="flex justify-between text-[10px] text-gray-400">
+          <div className="flex justify-between text-[10px] text-muted-foreground/70">
             <span>Off</span>
             <span>Sensitive</span>
             <span>10+ positions</span>
@@ -884,8 +884,8 @@ function MapguardConfigCard() {
 
         <div className="flex items-center justify-between gap-3 pt-1">
           <div>
-            <p className="text-sm font-medium text-gray-800">Weekly summary email</p>
-            <p className="text-[11px] text-gray-400">Friday recap of last week's rankings, reviews, and snapshot changes.</p>
+            <p className="text-sm font-medium text-foreground">Weekly summary email</p>
+            <p className="text-[11px] text-muted-foreground/70">Friday recap of last week's rankings, reviews, and snapshot changes.</p>
           </div>
           <Switch
             checked={draft.alerts.weekly_summary}
@@ -898,7 +898,7 @@ function MapguardConfigCard() {
 
       {/* Save bar */}
       {dirty && (
-        <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+        <div className="flex items-center gap-3 pt-1 border-t border-border">
           <Button
             onClick={() => saveMutation.mutate(draft)}
             disabled={saveMutation.isPending}
@@ -918,14 +918,14 @@ function MapguardConfigCard() {
             type="button"
             onClick={() => setDraft(data.config)}
             disabled={saveMutation.isPending}
-            className="text-xs text-gray-500 hover:text-gray-700"
+            className="text-xs text-muted-foreground hover:text-foreground"
           >
             Discard changes
           </button>
         </div>
       )}
       {!dirty && draft.custom_keywords === null && draft.alerts.rank_drop_threshold === DEFAULT_MAPGUARD_CONFIG.alerts.rank_drop_threshold && (
-        <p className="text-[11px] text-gray-400 pt-1 border-t border-gray-100">
+        <p className="text-[11px] text-muted-foreground/70 pt-1 border-t border-border">
           You're using the default MapGuard configuration.
         </p>
       )}
@@ -985,8 +985,8 @@ function GbpConnectBanner() {
           <MapPin className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900">Connect your Google Business Profile</p>
-          <p className="text-xs text-gray-600 mt-0.5">
+          <p className="text-sm font-semibold text-foreground">Connect your Google Business Profile</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
             We'll be able to post updates, respond to reviews, and protect your listing automatically.
             Takes about 30 seconds and you can revoke access any time from your Google account.
           </p>
@@ -996,9 +996,9 @@ function GbpConnectBanner() {
               type="checkbox"
               checked={consented}
               onChange={(e) => setConsented(e.target.checked)}
-              className="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 text-[#008BBE] focus:ring-[#008BBE]"
+              className="mt-0.5 w-3.5 h-3.5 rounded border-input text-[#008BBE] focus:ring-[#008BBE]"
             />
-            <span className="text-[11px] text-gray-600 leading-snug">
+            <span className="text-[11px] text-muted-foreground leading-snug">
               I authorise WeFixTrades to act as a Manager on my Google Business Profile —
               posting updates, replying to reviews, and editing listing information on my
               behalf. I can revoke this access any time from my Google account. See our{" "}
@@ -1082,13 +1082,13 @@ function FirstScanRunningCard() {
   return (
     <Card className="p-8 text-center bg-emerald-50/40 border-emerald-200">
       <Shield className="w-8 h-8 text-emerald-600 mx-auto mb-3" />
-      <p className="text-sm font-semibold text-gray-900">First scan is running</p>
-      <p className="text-xs text-gray-600 mt-2 max-w-md mx-auto">
+      <p className="text-sm font-semibold text-foreground">First scan is running</p>
+      <p className="text-xs text-muted-foreground mt-2 max-w-md mx-auto">
         We're collecting your baseline visibility data right now. Your full dashboard
         — score, rating, reviews, keyword rankings — will be ready within 24 hours.
         We'll email you when the first report is available.
       </p>
-      <p className="text-[11px] text-gray-400 mt-4">
+      <p className="text-[11px] text-muted-foreground/70 mt-4">
         Want to speed this up? Connect your Google Business Profile below so we can
         start posting and responding on your behalf immediately.
       </p>
@@ -1163,10 +1163,10 @@ function PostCalendarCard() {
     return (
       <Card className="p-5">
         <div className="flex items-center gap-2 mb-2">
-          <Calendar className="w-4 h-4 text-gray-700" />
-          <h2 className="text-sm font-semibold text-gray-900">Post calendar</h2>
+          <Calendar className="w-4 h-4 text-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">Post calendar</h2>
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Your Google Business posts will appear here once they're scheduled.
           We schedule the next month's posts on the 1st of each month.
         </p>
@@ -1177,8 +1177,8 @@ function PostCalendarCard() {
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-3">
-        <Calendar className="w-4 h-4 text-gray-700" />
-        <h2 className="text-sm font-semibold text-gray-900">Post calendar</h2>
+        <Calendar className="w-4 h-4 text-foreground" />
+        <h2 className="text-sm font-semibold text-foreground">Post calendar</h2>
       </div>
 
       <div className="space-y-4">
@@ -1201,8 +1201,8 @@ function PostPeriodSection({ period, posts }: { period: string; posts: MapguardP
   return (
     <div>
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{label}</h3>
-        <span className="text-[11px] text-gray-400">{published}/{total} posted</span>
+        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">{label}</h3>
+        <span className="text-[11px] text-muted-foreground/70">{published}/{total} posted</span>
       </div>
       <div className="space-y-2">
         {posts.map((p) => <PostRow key={p.id} post={p} />)}
@@ -1221,9 +1221,9 @@ function PostRow({ post }: { post: MapguardPostRow }) {
   const preview = post.content ? post.content.slice(0, 140) + (post.content.length > 140 ? "…" : "") : null;
 
   return (
-    <div className="flex items-start gap-3 px-3 py-2.5 rounded-lg bg-gray-50/60 border border-gray-100">
+    <div className="flex items-start gap-3 px-3 py-2.5 rounded-lg bg-muted/50/60 border border-border">
       <div className="shrink-0 pt-0.5">
-        <Icon className="w-3.5 h-3.5 text-gray-500" />
+        <Icon className="w-3.5 h-3.5 text-muted-foreground" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
@@ -1231,14 +1231,14 @@ function PostRow({ post }: { post: MapguardPostRow }) {
             {display.label}
           </span>
           {themeLabel && (
-            <span className="text-[10px] text-gray-400">{themeLabel}</span>
+            <span className="text-[10px] text-muted-foreground/70">{themeLabel}</span>
           )}
-          <span className="text-[10px] text-gray-400 ml-auto">{dateStr}</span>
+          <span className="text-[10px] text-muted-foreground/70 ml-auto">{dateStr}</span>
         </div>
         {preview ? (
-          <p className="text-xs text-gray-700 leading-snug line-clamp-2">{preview}</p>
+          <p className="text-xs text-foreground leading-snug line-clamp-2">{preview}</p>
         ) : (
-          <p className="text-[11px] text-gray-400 italic">
+          <p className="text-[11px] text-muted-foreground/70 italic">
             {post.status === "scheduled" ? "Content will be drafted closer to the publish date." : "—"}
           </p>
         )}

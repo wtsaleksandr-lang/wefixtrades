@@ -72,7 +72,7 @@ const STATUS_STYLES: Record<string, string> = {
   in_progress: "bg-brand-blue-50 text-brand-blue-700",
   waiting_on_customer: "bg-blue-50 text-blue-700",
   resolved: "bg-emerald-50 text-emerald-700",
-  closed: "bg-gray-100 text-gray-500",
+  closed: "bg-muted text-muted-foreground",
 };
 
 function formatTime(d: string | null): string {
@@ -179,7 +179,7 @@ export default function SupportTicketDetailPage() {
     return (
       <AdminLayout pageContext={{ page: "support" }}>
         {/* CONTRAST-2 — admin pages are light-theme locked. */}
-        <div data-theme="light" className="text-center py-12 text-gray-500 text-sm">Invalid ticket.</div>
+        <div data-theme="light" className="text-center py-12 text-muted-foreground text-sm">Invalid ticket.</div>
       </AdminLayout>
     );
   }
@@ -189,7 +189,7 @@ export default function SupportTicketDetailPage() {
       {/* CONTRAST-2 — admin pages are light-theme locked. */}
       <div data-theme="light">
         {/* Back link */}
-        <Link href="/admin/crm/support" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4">
+        <Link href="/admin/crm/support" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Tickets
         </Link>
 
@@ -210,11 +210,11 @@ export default function SupportTicketDetailPage() {
         {isLoading && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 space-y-4">
-              <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 space-y-2">
+              <div className="bg-card rounded-xl border border-border px-5 py-4 space-y-2">
                 <Skeleton className="h-5 w-2/3" />
                 <Skeleton className="h-3 w-1/2" />
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+              <div className="bg-card rounded-xl border border-border p-5 space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="space-y-1.5">
                     <Skeleton className="h-12 w-full rounded-lg" />
@@ -224,7 +224,7 @@ export default function SupportTicketDetailPage() {
               </div>
             </div>
             <div className="space-y-4">
-              <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+              <div className="bg-card rounded-xl border border-border p-4 space-y-3">
                 <Skeleton className="h-3 w-16" />
                 <Skeleton className="h-9 w-full rounded-lg" />
                 <Skeleton className="h-9 w-full rounded-lg" />
@@ -239,9 +239,9 @@ export default function SupportTicketDetailPage() {
             {/* Left: Messages thread (2 cols) */}
             <div className="lg:col-span-2 space-y-4">
               {/* Header */}
-              <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
-                <h1 className="text-base font-semibold text-gray-900">{ticket.subject}</h1>
-                <p className="text-xs text-gray-400 mt-1">
+              <div className="bg-card rounded-xl border border-border px-5 py-4">
+                <h1 className="text-base font-semibold text-foreground">{ticket.subject}</h1>
+                <p className="text-xs text-muted-foreground/70 mt-1">
                   #{ticket.id} &middot; {ticket.client_name || `Client #${ticket.client_id}`} &middot; {ticket.source === "ai_escalation" ? "AI escalation" : "Manual"} &middot; Created {formatDate(ticket.created_at)}
                 </p>
                 {ticket.ai_summary && (
@@ -253,13 +253,13 @@ export default function SupportTicketDetailPage() {
               </div>
 
               {/* Messages */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-3 border-b border-gray-100">
-                  <h2 className="text-sm font-semibold text-gray-900">Messages</h2>
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-5 py-3 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground">Messages</h2>
                 </div>
                 <div className="p-5 space-y-4 max-h-[500px] overflow-y-auto">
                   {messages.length === 0 && (
-                    <p className="text-sm text-gray-400 text-center py-4">No messages yet.</p>
+                    <p className="text-sm text-muted-foreground/70 text-center py-4">No messages yet.</p>
                   )}
                   {messages.map((m) => {
                     const isInternal = m.visibility === "internal";
@@ -274,13 +274,13 @@ export default function SupportTicketDetailPage() {
                             : isCustomer
                             ? "bg-blue-50 text-blue-900"
                             : isSystem
-                            ? "bg-gray-50 text-gray-500 italic"
-                            : "bg-gray-100 text-gray-700"
+                            ? "bg-muted/50 text-muted-foreground italic"
+                            : "bg-muted text-foreground"
                         }`}>
                           {m.content}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <p className="text-[10px] text-gray-400">
+                          <p className="text-[10px] text-muted-foreground/70">
                             {isCustomer ? "Customer" : isAdmin ? (m.author_name || "Admin") : "System"} &middot; {formatTime(m.created_at)}
                           </p>
                           {isInternal && (
@@ -299,7 +299,7 @@ export default function SupportTicketDetailPage() {
                 <div className={`border-t-2 px-5 py-4 space-y-3 transition-colors ${
                   visibility === "internal"
                     ? "border-amber-400 bg-amber-50/40"
-                    : "border-gray-100 bg-white"
+                    : "border-border bg-card"
                 }`}>
                   {/* Visibility toggle */}
                   <div className="flex items-center gap-2">
@@ -309,7 +309,7 @@ export default function SupportTicketDetailPage() {
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                         visibility === "customer"
                           ? "bg-brand-blue text-white ring-2 ring-brand-blue/30"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          : "bg-muted text-muted-foreground hover:bg-muted"
                       }`}
                     >
                       <Eye className="w-3 h-3" /> Reply to Customer
@@ -320,7 +320,7 @@ export default function SupportTicketDetailPage() {
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                         visibility === "internal"
                           ? "bg-amber-500 text-white ring-2 ring-amber-400/40"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          : "bg-muted text-muted-foreground hover:bg-muted"
                       }`}
                     >
                       <EyeOff className="w-3 h-3" /> Internal Note
@@ -352,7 +352,7 @@ export default function SupportTicketDetailPage() {
                       className={`flex-1 text-sm px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 resize-none ${
                         visibility === "internal"
                           ? "border-amber-300 focus:ring-amber-200/50 focus:border-amber-400 bg-amber-50"
-                          : "border-gray-200 focus:ring-brand-blue/20 focus:border-brand-blue"
+                          : "border-border focus:ring-brand-blue/20 focus:border-brand-blue"
                       }`}
                     />
                     <button
@@ -372,7 +372,7 @@ export default function SupportTicketDetailPage() {
                       {(sendMessage.error as Error).message || "Failed to send."}
                     </p>
                   )}
-                  <p className="text-[10px] text-gray-400">
+                  <p className="text-[10px] text-muted-foreground/70">
                     Ctrl+Enter to send.
                   </p>
                 </div>
@@ -382,18 +382,18 @@ export default function SupportTicketDetailPage() {
             {/* Right: Ticket metadata sidebar (1 col) */}
             <div className="space-y-4">
               {/* Ticket Controls */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Manage</h3>
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-4 py-3 border-b border-border">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Manage</h3>
                 </div>
                 <div className="p-4 space-y-3">
                   <div>
-                    <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">Status</label>
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 block">Status</label>
                     <select
                       value={ticket.status}
                       onChange={(e) => updateTicket.mutate({ status: e.target.value })}
                       disabled={updateTicket.isPending}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
                     >
                       {STATUSES.map((s) => (
                         <option key={s.value} value={s.value}>{s.label}</option>
@@ -402,12 +402,12 @@ export default function SupportTicketDetailPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">Priority</label>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 block">Priority</label>
                       <select
                         value={ticket.priority}
                         onChange={(e) => updateTicket.mutate({ priority: e.target.value })}
                         disabled={updateTicket.isPending}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
+                        className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
                       >
                         {PRIORITIES.map((p) => (
                           <option key={p.value} value={p.value}>{p.label}</option>
@@ -415,12 +415,12 @@ export default function SupportTicketDetailPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">Category</label>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 block">Category</label>
                       <select
                         value={ticket.category}
                         onChange={(e) => updateTicket.mutate({ category: e.target.value })}
                         disabled={updateTicket.isPending}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
+                        className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
                       >
                         {CATEGORIES.map((c) => (
                           <option key={c.value} value={c.value}>{c.label}</option>
@@ -428,12 +428,12 @@ export default function SupportTicketDetailPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">Assigned To</label>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 block">Assigned To</label>
                       <select
                         value={ticket.assigned_to ?? ""}
                         onChange={(e) => updateTicket.mutate({ assigned_to: e.target.value ? Number(e.target.value) : null })}
                         disabled={updateTicket.isPending}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
+                        className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
                       >
                         <option value="">Unassigned</option>
                         {(adminUsers ?? []).map((u) => (
@@ -446,33 +446,33 @@ export default function SupportTicketDetailPage() {
               </div>
 
               {/* Details */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Details</h3>
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="px-4 py-3 border-b border-border">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Details</h3>
                 </div>
                 <div className="p-4 space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Client</span>
-                    <span className="text-gray-900 font-medium">{ticket.client_name || `#${ticket.client_id}`}</span>
+                    <span className="text-muted-foreground">Client</span>
+                    <span className="text-foreground font-medium">{ticket.client_name || `#${ticket.client_id}`}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Created via</span>
-                    <span className="text-gray-900">{ticket.source === "ai_escalation" ? "AI chat" : ticket.source === "admin_created" ? "Admin" : "Customer form"}</span>
+                    <span className="text-muted-foreground">Created via</span>
+                    <span className="text-foreground">{ticket.source === "ai_escalation" ? "AI chat" : ticket.source === "admin_created" ? "Admin" : "Customer form"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Created</span>
-                    <span className="text-gray-900">{formatDate(ticket.created_at)}</span>
+                    <span className="text-muted-foreground">Created</span>
+                    <span className="text-foreground">{formatDate(ticket.created_at)}</span>
                   </div>
                   {ticket.resolved_at && (
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Resolved</span>
-                      <span className="text-gray-900">{formatDate(ticket.resolved_at)}</span>
+                      <span className="text-muted-foreground">Resolved</span>
+                      <span className="text-foreground">{formatDate(ticket.resolved_at)}</span>
                     </div>
                   )}
                   {ticket.closed_at && (
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Closed</span>
-                      <span className="text-gray-900">{formatDate(ticket.closed_at)}</span>
+                      <span className="text-muted-foreground">Closed</span>
+                      <span className="text-foreground">{formatDate(ticket.closed_at)}</span>
                     </div>
                   )}
                 </div>

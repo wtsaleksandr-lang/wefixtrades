@@ -233,10 +233,10 @@ export default function CommunicationsPage() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">Communications</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-lg font-semibold text-foreground">Communications</h2>
+            <p className="text-sm text-muted-foreground">
               {config?.fromNumber
-                ? <>Twilio number: <span className="font-medium text-gray-700">{formatPhone(config.fromNumber)}</span></>
+                ? <>Twilio number: <span className="font-medium text-foreground">{formatPhone(config.fromNumber)}</span></>
                 : "Twilio number not configured"}
             </p>
           </div>
@@ -340,8 +340,8 @@ function SmsPanel({
     <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-3 min-h-[60vh]">
       {/* LEFT — conversation list */}
       <Card className="flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Conversations</span>
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Conversations</span>
           <div className="flex items-center gap-1">
             <Button
               size="sm"
@@ -370,7 +370,7 @@ function SmsPanel({
         >
           {!smsReady ? (
             <EmptyState
-              icon={<MessageSquare className="w-8 h-8 text-gray-300" />}
+              icon={<MessageSquare className="w-8 h-8 text-muted-foreground/50" />}
               title="SMS not ready"
               message="Configure Twilio env vars to load conversations."
             />
@@ -382,12 +382,12 @@ function SmsPanel({
             </div>
           ) : threads.length === 0 ? (
             <EmptyState
-              icon={<MessageSquare className="w-8 h-8 text-gray-300" />}
+              icon={<MessageSquare className="w-8 h-8 text-muted-foreground/50" />}
               title="No messages yet"
               message="Inbound and outbound texts on your Twilio number will appear here."
             />
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-border">
               {threads.map((t) => {
                 const active = normalizeContact(t.contact) === normalizeContact(activeContact ?? "");
                 const c = contactsByPhone.get(toE164ish(t.contact));
@@ -397,7 +397,7 @@ function SmsPanel({
                       type="button"
                       onClick={() => onSelectContact(t.contact)}
                       className={cn(
-                        "w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors",
+                        "w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors",
                         active && "bg-[#EEF3FF] hover:bg-[#EEF3FF]"
                       )}
                       data-testid={`twilio-thread-${normalizeContact(t.contact)}`}
@@ -405,22 +405,22 @@ function SmsPanel({
                       <div className="flex items-center justify-between gap-2 mb-0.5">
                         <span className={cn(
                           "text-sm font-medium truncate",
-                          active ? "text-brand-blue" : "text-gray-900"
+                          active ? "text-brand-blue" : "text-foreground"
                         )} data-testid={`twilio-thread-name-${normalizeContact(t.contact)}`}>
                           {c?.display_name ?? formatPhone(t.contact)}
                         </span>
-                        <span className="text-[10px] text-gray-400 shrink-0">
+                        <span className="text-[10px] text-muted-foreground/70 shrink-0">
                           {formatTimestamp(new Date(t.lastAt).toISOString())}
                         </span>
                       </div>
                       {c && (
                         <div className="flex items-center gap-1 mb-0.5">
-                          <span className="text-[10px] text-gray-400 truncate">{formatPhone(t.contact)}</span>
+                          <span className="text-[10px] text-muted-foreground/70 truncate">{formatPhone(t.contact)}</span>
                           <LinkChips contact={c} small />
                         </div>
                       )}
-                      <p className="text-xs text-gray-500 truncate">
-                        {t.lastDirection === "outbound" && <span className="text-gray-400">You: </span>}
+                      <p className="text-xs text-muted-foreground truncate">
+                        {t.lastDirection === "outbound" && <span className="text-muted-foreground/70">You: </span>}
                         {t.lastBody || <em className="opacity-60">(no body)</em>}
                       </p>
                     </button>
@@ -442,7 +442,7 @@ function SmsPanel({
           />
         ) : (
           <EmptyState
-            icon={<MessageSquare className="w-8 h-8 text-gray-300" />}
+            icon={<MessageSquare className="w-8 h-8 text-muted-foreground/50" />}
             title="Pick a conversation"
             message="Select a thread on the left or start a new message."
           />
@@ -552,17 +552,17 @@ function ThreadView({
   return (
     <>
       {/* Header */}
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between gap-2">
+      <div className="px-4 py-2.5 border-b border-border flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate" data-testid="thread-header-name">
+          <p className="text-sm font-semibold text-foreground truncate" data-testid="thread-header-name">
             {contactRecord?.display_name ?? formatPhone(contact)}
           </p>
           <div className="flex items-center gap-1.5 flex-wrap">
             {contactRecord && (
-              <span className="text-[11px] text-gray-500">{formatPhone(contact)}</span>
+              <span className="text-[11px] text-muted-foreground">{formatPhone(contact)}</span>
             )}
-            <span className="text-[11px] text-gray-400">·</span>
-            <span className="text-[11px] text-gray-400">{data?.messages?.length ?? 0} messages</span>
+            <span className="text-[11px] text-muted-foreground/70">·</span>
+            <span className="text-[11px] text-muted-foreground/70">{data?.messages?.length ?? 0} messages</span>
             {contactRecord && <LinkChips contact={contactRecord} />}
           </div>
         </div>
@@ -582,28 +582,28 @@ function ThreadView({
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div
-                className="absolute right-0 top-8 z-20 min-w-[180px] rounded-lg border border-gray-200 bg-white shadow-lg py-1 text-sm"
+                className="absolute right-0 top-8 z-20 min-w-[180px] rounded-lg border border-border bg-card shadow-lg py-1 text-sm"
                 role="menu"
               >
                 {contactRecord ? (
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 hover:bg-muted/50 flex items-center gap-2"
                     onClick={() => { setMenuOpen(false); setEditContactOpen(true); }}
                     data-testid="thread-menu-edit-contact"
                   >
-                    <Pencil className="w-3.5 h-3.5 text-gray-500" /> Edit contact
+                    <Pencil className="w-3.5 h-3.5 text-muted-foreground" /> Edit contact
                   </button>
                 ) : (
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 hover:bg-muted/50 flex items-center gap-2"
                     onClick={() => { setMenuOpen(false); setSaveContactOpen(true); }}
                     data-testid="thread-menu-save-contact"
                   >
-                    <Plus className="w-3.5 h-3.5 text-gray-500" /> Save as contact
+                    <Plus className="w-3.5 h-3.5 text-muted-foreground" /> Save as contact
                   </button>
                 )}
                 <button
@@ -634,7 +634,7 @@ function ThreadView({
             <Skeleton className="h-10 w-3/5 rounded-2xl" />
           </div>
         ) : (data?.messages?.length ?? 0) === 0 ? (
-          <p className="text-center text-xs text-gray-400 py-6">No messages in this thread yet.</p>
+          <p className="text-center text-xs text-muted-foreground/70 py-6">No messages in this thread yet.</p>
         ) : (
           (data?.messages ?? []).map((m) => (
             <Bubble
@@ -674,7 +674,7 @@ function ThreadView({
       />
 
       {/* Composer — Enter sends */}
-      <div className="border-t border-gray-100 p-3 bg-white">
+      <div className="border-t border-border p-3 bg-card">
         <div className="flex items-end gap-2">
           <textarea
             value={draft}
@@ -682,7 +682,7 @@ function ThreadView({
             onKeyDown={onKeyDown}
             placeholder="Type a message…"
             rows={1}
-            className="flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/60 min-h-[40px] max-h-[120px]"
+            className="flex-1 resize-none rounded-xl border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/60 min-h-[40px] max-h-[120px]"
             data-testid="twilio-composer-input"
           />
           <Button
@@ -696,7 +696,7 @@ function ThreadView({
             {sendMutation.isPending ? "…" : "Send"}
           </Button>
         </div>
-        <p className="text-[10px] text-gray-400 mt-1.5 ml-1">Enter to send · Shift+Enter for newline</p>
+        <p className="text-[10px] text-muted-foreground/70 mt-1.5 ml-1">Enter to send · Shift+Enter for newline</p>
       </div>
     </>
   );
@@ -709,7 +709,7 @@ function Bubble({ message, onDelete }: { message: TwilioMessage; onDelete: () =>
       {isMine && (
         <button
           type="button"
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground/70 hover:text-red-600 hover:bg-red-50"
           onClick={onDelete}
           title="Delete this message"
           data-testid={`twilio-bubble-delete-${message.sid}`}
@@ -722,14 +722,14 @@ function Bubble({ message, onDelete }: { message: TwilioMessage; onDelete: () =>
           "max-w-[78%] px-3.5 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words",
           isMine
             ? "bg-brand-blue text-white rounded-br-sm"
-            : "bg-white text-gray-900 border border-gray-200 rounded-bl-sm"
+            : "bg-card text-foreground border border-border rounded-bl-sm"
         )}
         data-testid={`twilio-bubble-${message.direction}`}
       >
         {message.body || <em className="opacity-60">(no body)</em>}
         <div className={cn(
           "text-[10px] mt-1 opacity-70",
-          isMine ? "text-blue-100" : "text-gray-400"
+          isMine ? "text-blue-100" : "text-muted-foreground/70"
         )}>
           {formatTimestamp(message.date_sent)}
           {message.status && message.status !== "delivered" && (
@@ -740,7 +740,7 @@ function Bubble({ message, onDelete }: { message: TwilioMessage; onDelete: () =>
       {!isMine && (
         <button
           type="button"
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground/70 hover:text-red-600 hover:bg-red-50"
           onClick={onDelete}
           title="Delete this message"
           data-testid={`twilio-bubble-delete-${message.sid}`}
@@ -1107,19 +1107,19 @@ function PhonePanel({
       <Card className="p-5 flex flex-col" data-testid="twilio-dialer-panel">
         <div className="flex items-center gap-2 mb-1">
           <PhoneCall className="w-4 h-4 text-brand-blue" />
-          <h3 className="text-sm font-semibold text-gray-900">Dialer</h3>
+          <h3 className="text-sm font-semibold text-foreground">Dialer</h3>
           {dialerState === "ready" && (
             <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Ready
             </span>
           )}
           {dialerState === "initializing" && (
-            <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded-full">
+            <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/50 border border-border px-1.5 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" /> Connecting…
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-muted-foreground mb-4">
           {fromNumber ? <>From {formatPhone(fromNumber)}</> : "From: Twilio number not set"}
         </p>
 
@@ -1134,10 +1134,10 @@ function PhonePanel({
                   : "Create a TwiML App in the Twilio Console (Voice URL → /api/twilio/voice-twiml) and set TWILIO_APP_SID. Also need TWILIO_API_KEY + TWILIO_API_KEY_SECRET (separate from your Auth Token)."
               }
             />
-            <div className="mt-5 p-4 rounded-lg border border-dashed border-gray-200 text-center" data-testid="twilio-dialer-empty">
-              <Phone className="w-8 h-8 text-gray-300 mx-auto" />
-              <p className="text-sm font-medium text-gray-600 mt-2">Voice not configured</p>
-              <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
+            <div className="mt-5 p-4 rounded-lg border border-dashed border-border text-center" data-testid="twilio-dialer-empty">
+              <Phone className="w-8 h-8 text-muted-foreground/50 mx-auto" />
+              <p className="text-sm font-medium text-muted-foreground mt-2">Voice not configured</p>
+              <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs mx-auto">
                 Set the env vars above in Doppler and reload to enable browser-based calling.
               </p>
             </div>
@@ -1176,7 +1176,7 @@ function PhonePanel({
                       setDialNumber((n) => n + d);
                     }
                   }}
-                  className="h-12 rounded-xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-gray-800 text-base font-medium transition-colors"
+                  className="h-12 rounded-xl bg-muted/50 hover:bg-muted active:bg-muted text-foreground text-base font-medium transition-colors"
                   data-testid={`twilio-dial-key-${d}`}
                 >
                   {d}
@@ -1272,9 +1272,9 @@ function PhonePanel({
 
       {/* Recent calls */}
       <Card className="flex flex-col overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">Recent calls</h3>
-          <p className="text-[11px] text-gray-400">Last 50 from Twilio</p>
+        <div className="px-4 py-2.5 border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground">Recent calls</h3>
+          <p className="text-[11px] text-muted-foreground/70">Last 50 from Twilio</p>
         </div>
         <div className="flex-1 overflow-y-auto">
           {callsLoading ? (
@@ -1285,12 +1285,12 @@ function PhonePanel({
             </div>
           ) : (callsData?.calls?.length ?? 0) === 0 ? (
             <EmptyState
-              icon={<Phone className="w-8 h-8 text-gray-300" />}
+              icon={<Phone className="w-8 h-8 text-muted-foreground/50" />}
               title="No calls yet"
               message="Inbound and outbound calls on your Twilio number will appear here."
             />
           ) : (
-            <ul className="divide-y divide-gray-100" data-testid="twilio-calls-list">
+            <ul className="divide-y divide-border" data-testid="twilio-calls-list">
               {callsData!.calls.map((c) => {
                 const isInbound = (c.direction ?? "").startsWith("inbound");
                 const other = isInbound ? c.from : c.to;
@@ -1300,18 +1300,18 @@ function PhonePanel({
                   <li key={c.sid} className="px-3 py-2.5 group" data-testid={`twilio-call-row-${c.sid}`}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <Icon className={cn("w-3.5 h-3.5 shrink-0", isInbound ? "text-blue-500" : "text-gray-400")} />
-                        <span className="text-sm font-medium text-gray-900 truncate">
+                        <Icon className={cn("w-3.5 h-3.5 shrink-0", isInbound ? "text-blue-500" : "text-muted-foreground/70")} />
+                        <span className="text-sm font-medium text-foreground truncate">
                           {contact?.display_name ?? formatPhone(other)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-[10px] text-muted-foreground/70">
                           {formatTimestamp(c.start_time)}
                         </span>
                         <button
                           type="button"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground/70 hover:text-red-600 hover:bg-red-50"
                           onClick={() => setConfirmDeleteCallSid(c.sid)}
                           title="Delete this call record"
                           data-testid={`twilio-call-delete-${c.sid}`}
@@ -1322,18 +1322,18 @@ function PhonePanel({
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 ml-5.5 pl-1 flex-wrap">
                       {contact && (
-                        <span className="text-[10px] text-gray-400">{formatPhone(other)}</span>
+                        <span className="text-[10px] text-muted-foreground/70">{formatPhone(other)}</span>
                       )}
                       <span className={cn(
                         "text-[10px] px-1.5 py-0.5 rounded-full",
                         c.status === "completed" ? "bg-green-50 text-green-700"
                           : c.status === "no-answer" || c.status === "failed" ? "bg-red-50 text-red-700"
-                          : "bg-gray-100 text-gray-600"
+                          : "bg-muted text-muted-foreground"
                       )}>
                         {c.status}
                       </span>
                       {c.duration_sec != null && (
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-[10px] text-muted-foreground/70">
                           {Math.floor(c.duration_sec / 60)}m {c.duration_sec % 60}s
                         </span>
                       )}
@@ -1365,8 +1365,8 @@ function EmptyState({ icon, title, message }: { icon: React.ReactNode; title: st
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center">
       {icon}
-      <p className="text-sm font-medium text-gray-700 mt-3">{title}</p>
-      <p className="text-xs text-gray-500 mt-1 max-w-xs">{message}</p>
+      <p className="text-sm font-medium text-foreground mt-3">{title}</p>
+      <p className="text-xs text-muted-foreground mt-1 max-w-xs">{message}</p>
     </div>
   );
 }
@@ -1468,7 +1468,7 @@ function ConfirmDeleteDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-gray-600">{description}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={pending}>Cancel</Button>
           <Button
@@ -1528,22 +1528,22 @@ function ContactsPanel() {
     <Card className="flex flex-col overflow-hidden min-h-[60vh]">
       {/* Section header — help cue top-left per DESIGN-SYSTEM rule 5,
           action button top-right per existing tab conventions. */}
-      <div className="px-3 py-2.5 border-b border-gray-100 flex items-center justify-between gap-2">
+      <div className="px-3 py-2.5 border-b border-border flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Contacts</span>
-          <p className="text-[11px] text-gray-400 mt-0.5">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contacts</span>
+          <p className="text-[11px] text-muted-foreground/70 mt-0.5">
             Saved numbers with optional link to a client or supplier.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/70 pointer-events-none" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search…"
-              className="h-7 pl-7 pr-2 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/60"
+              className="h-7 pl-7 pr-2 text-xs rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/60"
               data-testid="contacts-search"
             />
           </div>
@@ -1567,12 +1567,12 @@ function ContactsPanel() {
           </div>
         ) : rows.length === 0 ? (
           <EmptyState
-            icon={<ContactIcon className="w-8 h-8 text-gray-300" />}
+            icon={<ContactIcon className="w-8 h-8 text-muted-foreground/50" />}
             title={search ? "No matching contacts" : "No contacts yet"}
             message={search ? "Try a different search." : "Add contacts to give phone numbers a name."}
           />
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-border">
             {rows.map((c) => (
               <li
                 key={c.id}
@@ -1581,10 +1581,10 @@ function ContactsPanel() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-gray-900 truncate">{c.display_name}</span>
+                    <span className="text-sm font-medium text-foreground truncate">{c.display_name}</span>
                     <LinkChips contact={c} small />
                   </div>
-                  <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                  <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
                     <span>{formatPhone(c.phone_e164)}</span>
                     {c.email && <span className="truncate">· {c.email}</span>}
                   </div>
@@ -1603,7 +1603,7 @@ function ContactsPanel() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    className="h-8 w-8 p-0 text-muted-foreground/70 hover:text-red-600 hover:bg-red-50"
                     onClick={() => setConfirmDelete(c)}
                     title="Delete contact"
                     data-testid={`contact-delete-${c.id}`}
@@ -1796,7 +1796,7 @@ function ContactFormDialog({
           </FloatField>
 
           <div className="space-y-2">
-            <p className="text-[11px] font-medium text-gray-600 uppercase tracking-wide">Link to profile (optional)</p>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Link to profile (optional)</p>
             <LinkPicker
               kind="user"
               currentId={linkedUserId}
@@ -1874,7 +1874,7 @@ function LinkPicker({
   if (currentId != null) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-gray-500 w-16 shrink-0">{label}:</span>
+        <span className="text-[11px] text-muted-foreground w-16 shrink-0">{label}:</span>
         <span
           className={cn(
             "inline-flex items-center gap-1 rounded-full border text-[11px] px-2 py-0.5",
@@ -1902,9 +1902,9 @@ function LinkPicker({
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-gray-500 w-16 shrink-0">{label}:</span>
+        <span className="text-[11px] text-muted-foreground w-16 shrink-0">{label}:</span>
         <div className="relative flex-1">
-          <Link2 className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <Link2 className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/70 pointer-events-none" />
           <input
             type="text"
             value={q}
@@ -1912,14 +1912,14 @@ function LinkPicker({
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
             placeholder={`Search ${label.toLowerCase()}s…`}
-            className="w-full h-8 pl-7 pr-2 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/60"
+            className="w-full h-8 pl-7 pr-2 text-xs rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/60"
             data-testid={`link-picker-input-${kind}`}
           />
         </div>
       </div>
       {open && (data?.length ?? 0) > 0 && (
         <ul
-          className="absolute z-30 left-[4.25rem] right-0 mt-1 max-h-44 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg py-1 text-xs"
+          className="absolute z-30 left-[4.25rem] right-0 mt-1 max-h-44 overflow-y-auto rounded-md border border-border bg-card shadow-lg py-1 text-xs"
           data-testid={`link-picker-results-${kind}`}
         >
           {(data ?? []).map((item) => {
@@ -1929,7 +1929,7 @@ function LinkPicker({
               <li key={id}>
                 <button
                   type="button"
-                  className="w-full text-left px-2.5 py-1.5 hover:bg-gray-50 flex items-center gap-1.5"
+                  className="w-full text-left px-2.5 py-1.5 hover:bg-muted/50 flex items-center gap-1.5"
                   onMouseDown={() => {
                     onChange(id, name ?? `#${id}`);
                     setQ("");
@@ -1937,7 +1937,7 @@ function LinkPicker({
                   }}
                   data-testid={`link-picker-option-${kind}-${id}`}
                 >
-                  <Icon className="w-3 h-3 text-gray-400" />
+                  <Icon className="w-3 h-3 text-muted-foreground/70" />
                   <span className="truncate">{name ?? `#${id}`}</span>
                 </button>
               </li>

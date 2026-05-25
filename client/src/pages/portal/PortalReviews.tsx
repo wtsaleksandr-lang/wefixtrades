@@ -108,9 +108,9 @@ function MetricCard({ label, value, sub, icon: Icon, color }: {
           <Icon className="w-4 h-4 text-white" />
         </div>
         <div>
-          <p className="text-2xl font-semibold text-gray-900">{value}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-          {sub && <p className="text-[11px] text-gray-400 mt-0.5">{sub}</p>}
+          <p className="text-2xl font-semibold text-foreground">{value}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+          {sub && <p className="text-[11px] text-muted-foreground/70 mt-0.5">{sub}</p>}
         </div>
       </div>
     </Card>
@@ -119,9 +119,9 @@ function MetricCard({ label, value, sub, icon: Icon, color }: {
 
 function UpgradeBanner({ feature, hint }: { feature: string; hint: string }) {
   return (
-    <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500">
+    <div className="flex items-center gap-2 bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground">
       <Lock className="w-3.5 h-3.5 shrink-0" />
-      <span>{feature} — <span className="font-medium text-gray-700">{hint}</span></span>
+      <span>{feature} — <span className="font-medium text-foreground">{hint}</span></span>
     </div>
   );
 }
@@ -375,9 +375,9 @@ export default function PortalReviews() {
     return (
       <PortalLayout>
         <div className="py-12 text-center space-y-4">
-          <ShieldCheck className="w-12 h-12 text-gray-300 mx-auto" />
-          <h2 className="text-lg font-semibold text-gray-900">ReputationShield</h2>
-          <p className="text-sm text-gray-500 max-w-md mx-auto">
+          <ShieldCheck className="w-12 h-12 text-muted-foreground/50 mx-auto" />
+          <h2 className="text-lg font-semibold text-foreground">ReputationShield</h2>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
             Protect and grow your online reputation with automated review requests,
             monitoring, and AI-powered response drafting.
           </p>
@@ -409,14 +409,14 @@ export default function PortalReviews() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-gray-900">Your Reviews</h2>
+              <h2 className="text-lg font-semibold text-foreground">Your Reviews</h2>
               {config?.tierLabel && (
                 <Badge variant="secondary" className="text-[10px] bg-[#EEF3FF] text-brand-blue">
                   {config.tierLabel}
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-gray-500">How customers see your business online</p>
+            <p className="text-sm text-muted-foreground">How customers see your business online</p>
           </div>
           <div className="flex gap-2">
             <Link href="/portal/reviews/setup">
@@ -448,10 +448,10 @@ export default function PortalReviews() {
         {/* Settings panel (collapsible) */}
         {showSettings && settings && (
           <Card className="p-4 space-y-4">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Review Request Settings</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Review Request Settings</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Preferred Channel</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Preferred Channel</label>
                 <Select
                   value={settings.channel_preference}
                   onValueChange={(v) => settingsMutation.mutate({ channel_preference: v })}
@@ -467,7 +467,7 @@ export default function PortalReviews() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Delay After Job Completion</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Delay After Job Completion</label>
                 <Select
                   value={String(settings.review_request_delay_hours)}
                   onValueChange={(v) => settingsMutation.mutate({ review_request_delay_hours: parseInt(v) })}
@@ -487,26 +487,26 @@ export default function PortalReviews() {
               </div>
               <div className="flex items-center justify-between sm:col-span-2">
                 <div>
-                  <p className="text-sm text-gray-700">Follow-up Reminders</p>
-                  <p className="text-xs text-gray-400">Automatically send gentle reminders if customers haven't responded</p>
+                  <p className="text-sm text-foreground">Follow-up Reminders</p>
+                  <p className="text-xs text-muted-foreground/70">Automatically send gentle reminders if customers haven't responded</p>
                 </div>
                 <button
                   className={`relative w-10 h-6 rounded-full transition-colors ${settings.reminders_enabled ? "bg-brand-blue" : "bg-gray-300"}`}
                   onClick={() => settingsMutation.mutate({ reminders_enabled: !settings.reminders_enabled })}
                 >
-                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.reminders_enabled ? "left-[18px]" : "left-0.5"}`} />
+                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.reminders_enabled ? "left-[18px]" : "left-0.5"}`} />
                 </button>
               </div>
               <div className="flex items-center justify-between sm:col-span-2">
                 <div>
-                  <p className="text-sm text-gray-700">Low-Rating Alerts</p>
-                  <p className="text-xs text-gray-400">Get notified when a 1 or 2 star review is detected</p>
+                  <p className="text-sm text-foreground">Low-Rating Alerts</p>
+                  <p className="text-xs text-muted-foreground/70">Get notified when a 1 or 2 star review is detected</p>
                 </div>
                 <button
                   className={`relative w-10 h-6 rounded-full transition-colors ${settings.low_rating_alerts ? "bg-brand-blue" : "bg-gray-300"}`}
                   onClick={() => settingsMutation.mutate({ low_rating_alerts: !settings.low_rating_alerts })}
                 >
-                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.low_rating_alerts ? "left-[18px]" : "left-0.5"}`} />
+                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.low_rating_alerts ? "left-[18px]" : "left-0.5"}`} />
                 </button>
               </div>
             </div>
@@ -523,8 +523,8 @@ export default function PortalReviews() {
                 <PlayCircle className="w-5 h-5 text-emerald-500" />
               )}
               <div>
-                <p className="text-sm font-medium text-gray-900">Auto-Replies</p>
-                <p className="text-xs text-gray-500">{isAutoReplyPaused ? "Paused" : "Active"}</p>
+                <p className="text-sm font-medium text-foreground">Auto-Replies</p>
+                <p className="text-xs text-muted-foreground">{isAutoReplyPaused ? "Paused" : "Active"}</p>
               </div>
             </div>
             <Switch
@@ -549,7 +549,7 @@ export default function PortalReviews() {
         {pendingReplies.length > 0 && (
           <div>
             <button
-              className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3 hover:text-gray-900"
+              className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3 hover:text-foreground"
               onClick={() => setShowPendingReplies(!showPendingReplies)}
             >
               <MessageSquareWarning className="w-4 h-4 text-amber-500" />
@@ -572,13 +572,13 @@ export default function PortalReviews() {
                       {starRating !== null && (
                         <div className="flex items-center gap-2 mb-2">
                           <RatingStars rating={starRating} />
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-muted-foreground">
                             {reply.title || "Customer Review"}
                           </span>
                         </div>
                       )}
                       {!starRating && reply.title && (
-                        <p className="text-xs font-medium text-gray-600 mb-2">{reply.title}</p>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">{reply.title}</p>
                       )}
 
                       {/* AI-drafted reply */}
@@ -620,7 +620,7 @@ export default function PortalReviews() {
 
                       {/* Action buttons */}
                       {!isRequestingChanges && (
-                        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                        <div className="flex items-center gap-2 pt-2 border-t border-border">
                           <Button
                             size="sm"
                             className="bg-brand-blue hover:bg-brand-blue-600 text-white text-xs"
@@ -665,24 +665,24 @@ export default function PortalReviews() {
           <Card className={`p-4 ${googleStatus.needsReconnect ? "border-amber-200" : ""}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${googleStatus.connected && !googleStatus.needsReconnect ? "bg-emerald-50" : googleStatus.needsReconnect ? "bg-amber-50" : "bg-gray-50"}`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${googleStatus.connected && !googleStatus.needsReconnect ? "bg-emerald-50" : googleStatus.needsReconnect ? "bg-amber-50" : "bg-muted/50"}`}>
                   {googleStatus.connected && !googleStatus.needsReconnect ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   ) : googleStatus.needsReconnect ? (
                     <AlertTriangle className="w-4 h-4 text-amber-600" />
                   ) : (
-                    <Unplug className="w-4 h-4 text-gray-400" />
+                    <Unplug className="w-4 h-4 text-muted-foreground/70" />
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     {googleStatus.connected && !googleStatus.needsReconnect
                       ? "Google Connected"
                       : googleStatus.needsReconnect
                         ? "Google Needs Reconnection"
                         : "Connect Google"}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed max-w-md">
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed max-w-md">
                     {googleStatus.connected && !googleStatus.needsReconnect
                       ? "Review responses can be posted directly to Google from ReputationShield."
                       : googleStatus.needsReconnect
@@ -690,7 +690,7 @@ export default function PortalReviews() {
                         : "Connect your Google Business Profile to post review responses directly — no copy-paste needed."}
                   </p>
                   {googleStatus.connected && googleStatus.connectedAt && !googleStatus.needsReconnect && (
-                    <p className="text-[11px] text-gray-400 mt-1">Connected {new Date(googleStatus.connectedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+                    <p className="text-[11px] text-muted-foreground/70 mt-1">Connected {new Date(googleStatus.connectedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
                   )}
                 </div>
               </div>
@@ -709,7 +709,7 @@ export default function PortalReviews() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs text-gray-500"
+                    className="h-8 text-xs text-muted-foreground"
                     onClick={() => setShowDisconnectConfirm(true)}
                   >
                     Disconnect
@@ -723,7 +723,7 @@ export default function PortalReviews() {
         {/* Metrics */}
         {loadingOverview ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/70" />
           </div>
         ) : rv && rq ? (
           <>
@@ -760,22 +760,22 @@ export default function PortalReviews() {
 
             {/* Value signals */}
             <Card className="p-4 space-y-2">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">This Month</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">This Month</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                 {rv.last30Days > 0 && (
-                  <div className="flex items-center gap-2 text-gray-700">
+                  <div className="flex items-center gap-2 text-foreground">
                     <Star className="w-4 h-4 text-amber-500 shrink-0" />
                     <span><strong>{rv.last30Days}</strong> new public review{rv.last30Days !== 1 ? "s" : ""}</span>
                   </div>
                 )}
                 {rq.feedbackCaptured > 0 && (
-                  <div className="flex items-center gap-2 text-gray-700">
+                  <div className="flex items-center gap-2 text-foreground">
                     <ShieldCheck className="w-4 h-4 text-brand-blue-500 shrink-0" />
                     <span><strong>{rq.feedbackCaptured}</strong> issue{rq.feedbackCaptured !== 1 ? "s" : ""} captured privately</span>
                   </div>
                 )}
                 {rv.withoutResponse > 0 && (
-                  <div className="flex items-center gap-2 text-gray-700">
+                  <div className="flex items-center gap-2 text-foreground">
                     <MessageSquare className="w-4 h-4 text-amber-500 shrink-0" />
                     <span><strong>{rv.withoutResponse}</strong> review{rv.withoutResponse !== 1 ? "s" : ""} awaiting reply</span>
                   </div>
@@ -807,15 +807,15 @@ export default function PortalReviews() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-blue-500" />
-                <p className="text-sm font-medium text-gray-900">Request a Review</p>
+                <p className="text-sm font-medium text-foreground">Request a Review</p>
               </div>
               {requestStats && requestStats.portal_manual > 0 && (
-                <span className="text-xs text-gray-400">{requestStats.portal_manual} sent</span>
+                <span className="text-xs text-muted-foreground/70">{requestStats.portal_manual} sent</span>
               )}
             </div>
             {!showRequestForm ? (
               <div>
-                <p className="text-xs text-gray-500 mb-3">Send a review request to a specific customer by email or text.</p>
+                <p className="text-xs text-muted-foreground mb-3">Send a review request to a specific customer by email or text.</p>
                 <Button size="sm" className="bg-brand-blue hover:bg-brand-blue-600" onClick={() => setShowRequestForm(true)}>
                   <Send className="w-3.5 h-3.5 mr-1" /> Send Review Request
                 </Button>
@@ -880,18 +880,18 @@ export default function PortalReviews() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <QrCode className="w-4 h-4 text-brand-blue-500" />
-                <p className="text-sm font-medium text-gray-900">QR Review Code</p>
+                <p className="text-sm font-medium text-foreground">QR Review Code</p>
               </div>
               {requestStats && requestStats.qr_scan > 0 && (
-                <span className="text-xs text-gray-400">{requestStats.qr_scan} scans</span>
+                <span className="text-xs text-muted-foreground/70">{requestStats.qr_scan} scans</span>
               )}
             </div>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-muted-foreground mb-3">
               Customers scan this code after a job to leave a review. Add it to business cards, invoices, or show it on your phone.
             </p>
             {qrData?.qrUrl ? (
               <div className="space-y-3">
-                <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-center">
+                <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-center">
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrData.qrUrl)}&margin=8`}
                     alt="QR Code"
@@ -927,17 +927,17 @@ export default function PortalReviews() {
                     Copy Link
                   </Button>
                 </div>
-                <p className="text-[11px] text-gray-400">Works on any phone camera. No app needed.</p>
+                <p className="text-[11px] text-muted-foreground/70">Works on any phone camera. No app needed.</p>
               </div>
             ) : (
-              <div className="text-sm text-gray-400 italic">Loading QR code...</div>
+              <div className="text-sm text-muted-foreground/70 italic">Loading QR code...</div>
             )}
           </Card>
         </div>
 
         {/* Source breakdown */}
         {requestStats && requestStats.total > 0 && (
-          <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span>Review requests by source:</span>
             {requestStats.job_complete > 0 && <Badge variant="secondary" className="text-[10px]">Post-job: {requestStats.job_complete}</Badge>}
             {requestStats.portal_manual > 0 && <Badge variant="secondary" className="text-[10px]">Manual: {requestStats.portal_manual}</Badge>}
@@ -948,13 +948,13 @@ export default function PortalReviews() {
 
         {/* Recent Reviews */}
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Reviews</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">Recent Reviews</h3>
           {loadingReviews ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/70" />
             </div>
           ) : reviews.length === 0 ? (
-            <Card className="p-6 text-center text-gray-500 text-sm">
+            <Card className="p-6 text-center text-muted-foreground text-sm">
               No public reviews tracked yet. Reviews will appear here once monitoring starts.
             </Card>
           ) : (
@@ -965,7 +965,7 @@ export default function PortalReviews() {
                 return (
                   <Card key={r.id} className={`overflow-hidden ${isLow && !r.response_text ? "border-red-200" : ""}`}>
                     <button
-                      className="w-full p-4 text-left flex items-start gap-3 hover:bg-gray-50/50 transition-colors"
+                      className="w-full p-4 text-left flex items-start gap-3 hover:bg-muted/50/50 transition-colors"
                       onClick={() => setExpandedReview(expanded ? null : r.id)}
                     >
                       <div className="shrink-0 mt-0.5">
@@ -973,11 +973,11 @@ export default function PortalReviews() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-gray-900">{r.reviewer_name}</span>
-                          <span className="text-xs text-gray-400">{formatDate(r.published_at)}</span>
+                          <span className="text-sm font-medium text-foreground">{r.reviewer_name}</span>
+                          <span className="text-xs text-muted-foreground/70">{formatDate(r.published_at)}</span>
                           {r.is_new && <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />}
                         </div>
-                        {r.review_text && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{r.review_text}</p>}
+                        {r.review_text && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{r.review_text}</p>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {r.response_text ? (
@@ -987,20 +987,20 @@ export default function PortalReviews() {
                         ) : isLow ? (
                           <Badge variant="secondary" className="text-[10px] bg-red-50 text-red-600">Needs reply</Badge>
                         ) : null}
-                        {expanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground/70" /> : <ChevronDown className="w-4 h-4 text-muted-foreground/70" />}
                       </div>
                     </button>
                     {expanded && (
                       <div className="px-4 pb-4 pt-0 space-y-3 border-t">
                         {r.review_text && (
                           <div className="pt-3">
-                            <p className="text-xs text-gray-400 mb-1">Full Review</p>
-                            <p className="text-sm text-gray-800 whitespace-pre-wrap">{r.review_text}</p>
+                            <p className="text-xs text-muted-foreground/70 mb-1">Full Review</p>
+                            <p className="text-sm text-foreground whitespace-pre-wrap">{r.review_text}</p>
                           </div>
                         )}
                         {r.response_text && (
                           <div>
-                            <p className="text-xs text-gray-400 mb-1">Your Response (Public)</p>
+                            <p className="text-xs text-muted-foreground/70 mb-1">Your Response (Public)</p>
                             <div className="bg-green-50 border border-green-100 rounded-lg p-3">
                               <p className="text-sm text-green-800 whitespace-pre-wrap">{r.response_text}</p>
                             </div>
@@ -1008,7 +1008,7 @@ export default function PortalReviews() {
                         )}
                         {!r.response_text && r.draft_response && features.aiDrafts && (
                           <div>
-                            <p className="text-xs text-gray-400 mb-1">Draft Response (Not Posted)</p>
+                            <p className="text-xs text-muted-foreground/70 mb-1">Draft Response (Not Posted)</p>
                             <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
                               <p className="text-sm text-blue-800 whitespace-pre-wrap">{r.draft_response}</p>
                               <p className="text-[11px] text-blue-500 mt-2">Prepared by your team. Not posted publicly yet.</p>
@@ -1016,15 +1016,15 @@ export default function PortalReviews() {
                           </div>
                         )}
                         {!r.response_text && !r.draft_response && (
-                          <div className={`rounded-lg p-3 ${isLow ? "bg-red-50 border border-red-100" : "bg-gray-50"}`}>
-                            <p className={`text-sm ${isLow ? "text-red-700" : "text-gray-500"}`}>
+                          <div className={`rounded-lg p-3 ${isLow ? "bg-red-50 border border-red-100" : "bg-muted/50"}`}>
+                            <p className={`text-sm ${isLow ? "text-red-700" : "text-muted-foreground"}`}>
                               {isLow
                                 ? "This review hasn't been responded to yet. Low-rating reviews benefit from a timely reply."
                                 : "No response has been posted to this review yet."}
                             </p>
                           </div>
                         )}
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-muted-foreground/70">
                           First seen {formatDate(r.first_seen_at)} on <span className="capitalize font-medium">{r.platform}</span>
                         </div>
                       </div>
@@ -1039,13 +1039,13 @@ export default function PortalReviews() {
         {/* Private Feedback */}
         <div>
           <button
-            className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3 hover:text-gray-900"
+            className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3 hover:text-foreground"
             onClick={() => setShowFeedback(!showFeedback)}
           >
             <ThumbsDown className="w-4 h-4" />
             Private Customer Feedback
             {rq && rq.feedbackCaptured > 0 && (
-              <span className="text-xs font-normal text-gray-400">({rq.feedbackCaptured})</span>
+              <span className="text-xs font-normal text-muted-foreground/70">({rq.feedbackCaptured})</span>
             )}
             {showFeedback ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
@@ -1053,10 +1053,10 @@ export default function PortalReviews() {
             <>
               {loadingFeedback ? (
                 <div className="flex justify-center py-6">
-                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground/70" />
                 </div>
               ) : feedback.length === 0 ? (
-                <Card className="p-4 text-center text-gray-500 text-sm">
+                <Card className="p-4 text-center text-muted-foreground text-sm">
                   No private feedback captured yet. When customers share concerns privately, they appear here.
                 </Card>
               ) : (
@@ -1065,13 +1065,13 @@ export default function PortalReviews() {
                     <Card key={f.id} className="p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <span className="text-sm font-medium text-gray-900">{f.customer_name || "Customer"}</span>
-                          <span className="text-xs text-gray-400 ml-2">{formatDate(f.completed_at || f.created_at)}</span>
+                          <span className="text-sm font-medium text-foreground">{f.customer_name || "Customer"}</span>
+                          <span className="text-xs text-muted-foreground/70 ml-2">{formatDate(f.completed_at || f.created_at)}</span>
                         </div>
                         <Badge variant="secondary" className="text-[10px] bg-brand-blue-50 text-brand-blue-600">Private</Badge>
                       </div>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{f.internal_feedback}</p>
-                      <p className="text-xs text-gray-400 mt-2">Captured privately — not posted publicly.</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap">{f.internal_feedback}</p>
+                      <p className="text-xs text-muted-foreground/70 mt-2">Captured privately — not posted publicly.</p>
                     </Card>
                   ))}
                 </div>

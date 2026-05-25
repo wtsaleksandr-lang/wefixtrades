@@ -45,7 +45,7 @@ import {
 /* ─── Shared badges (kept local — index page has its own copy) ────────── */
 
 const TIER_BADGE: Record<string, { label: string; bg: string; text: string }> = {
-  free:    { label: "Dev",      bg: "bg-gray-100",   text: "text-gray-600" },
+  free:    { label: "Dev",      bg: "bg-muted",   text: "text-muted-foreground" },
   starter: { label: "Starter",  bg: "bg-blue-50",    text: "text-blue-700" },
   growth:  { label: "Growth",   bg: "bg-brand-blue-50",  text: "text-brand-blue-700" },
   pro:     { label: "Pro",      bg: "bg-brand-blue-50",  text: "text-brand-blue-700" },
@@ -59,14 +59,14 @@ const SUB_STATUS_BADGE: Record<string, { label: string; bg: string; text: string
   trialing:  { label: "Trialing",  bg: "bg-blue-50",    text: "text-blue-700" },
   past_due:  { label: "Past due",  bg: "bg-amber-50",   text: "text-amber-700" },
   paused:    { label: "Paused",    bg: "bg-amber-50",   text: "text-amber-700" },
-  cancelled: { label: "Cancelled", bg: "bg-gray-100",   text: "text-gray-500" },
-  canceled:  { label: "Cancelled", bg: "bg-gray-100",   text: "text-gray-500" },
+  cancelled: { label: "Cancelled", bg: "bg-muted",   text: "text-muted-foreground" },
+  canceled:  { label: "Cancelled", bg: "bg-muted",   text: "text-muted-foreground" },
 };
 
 const KEY_STATUS_BADGE: Record<string, { label: string; bg: string; text: string }> = {
   active:   { label: "Active",   bg: "bg-emerald-50", text: "text-emerald-700" },
   disabled: { label: "Disabled", bg: "bg-amber-50",   text: "text-amber-700" },
-  revoked:  { label: "Revoked",  bg: "bg-gray-100",   text: "text-gray-500" },
+  revoked:  { label: "Revoked",  bg: "bg-muted",   text: "text-muted-foreground" },
 };
 
 function Badge({ config }: { config: { label: string; bg: string; text: string } }) {
@@ -77,9 +77,9 @@ function Badge({ config }: { config: { label: string; bg: string; text: string }
   );
 }
 
-const tierBadge = (id: string) => TIER_BADGE[id] ?? { label: id, bg: "bg-gray-100", text: "text-gray-600" };
-const subStatusBadge = (s: string) => SUB_STATUS_BADGE[s] ?? { label: s, bg: "bg-gray-100", text: "text-gray-500" };
-const keyStatusBadge = (s: string) => KEY_STATUS_BADGE[s] ?? { label: s, bg: "bg-gray-100", text: "text-gray-500" };
+const tierBadge = (id: string) => TIER_BADGE[id] ?? { label: id, bg: "bg-muted", text: "text-muted-foreground" };
+const subStatusBadge = (s: string) => SUB_STATUS_BADGE[s] ?? { label: s, bg: "bg-muted", text: "text-muted-foreground" };
+const keyStatusBadge = (s: string) => KEY_STATUS_BADGE[s] ?? { label: s, bg: "bg-muted", text: "text-muted-foreground" };
 
 /* ─── Types — must mirror server response ─────────────────────────────── */
 
@@ -137,7 +137,7 @@ interface UserDetailResponse {
 function UsageChart({ data }: { data: { day: string; calls: number }[] }) {
   if (data.length < 2) {
     return (
-      <div className="h-32 flex items-center justify-center text-xs text-gray-400">
+      <div className="h-32 flex items-center justify-center text-xs text-muted-foreground/70">
         Not enough data yet — usage will appear here once this customer starts hitting the API.
       </div>
     );
@@ -349,7 +349,7 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
   if (!Number.isFinite(userIdNum)) {
     return (
       <AdminLayout pageContext={{ page: "API Platform — User" }}>
-        <div className="p-12 text-center text-sm text-gray-500">
+        <div className="p-12 text-center text-sm text-muted-foreground">
           <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-amber-500" />
           Invalid user id.
         </div>
@@ -380,18 +380,18 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
               </div>
             </div>
           ) : !user ? (
-            <p className="text-sm text-gray-500">User not found.</p>
+            <p className="text-sm text-muted-foreground">User not found.</p>
           ) : (
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
                 {initials}
               </div>
               <div className="flex-1">
-                <h1 className="text-xl font-bold text-gray-900">
+                <h1 className="text-xl font-bold text-foreground">
                   {user.name ?? user.email ?? `User #${user.id}`}
                 </h1>
                 {user.email && (
-                  <p className="text-sm text-gray-500">{user.email}</p>
+                  <p className="text-sm text-muted-foreground">{user.email}</p>
                 )}
               </div>
               <Link
@@ -407,7 +407,7 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
         {/* Subscription card */}
         <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium uppercase tracking-wider text-gray-500">Subscription</h2>
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Subscription</h2>
             {sub && (
               <div className="flex items-center gap-2">
                 <Badge config={tierBadge(sub.tier)} />
@@ -418,42 +418,42 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
           {detailQuery.isLoading ? (
             <Skeleton className="h-24 w-full" />
           ) : !sub ? (
-            <p className="text-sm text-gray-500">No active subscription.</p>
+            <p className="text-sm text-muted-foreground">No active subscription.</p>
           ) : (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div>
-                  <p className="text-xs text-gray-500">Period start</p>
-                  <p className="text-sm text-gray-900">
+                  <p className="text-xs text-muted-foreground">Period start</p>
+                  <p className="text-sm text-foreground">
                     {sub.current_period_start
                       ? new Date(sub.current_period_start).toLocaleDateString()
                       : "--"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Period end</p>
-                  <p className="text-sm text-gray-900">
+                  <p className="text-xs text-muted-foreground">Period end</p>
+                  <p className="text-sm text-foreground">
                     {sub.current_period_end
                       ? new Date(sub.current_period_end).toLocaleDateString()
                       : "--"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Quota</p>
-                  <p className="text-sm font-mono text-gray-900">{sub.monthly_call_quota.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Quota</p>
+                  <p className="text-sm font-mono text-foreground">{sub.monthly_call_quota.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Used</p>
-                  <p className="text-sm font-mono text-gray-900">{sub.monthly_calls_used.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Used</p>
+                  <p className="text-sm font-mono text-foreground">{sub.monthly_calls_used.toLocaleString()}</p>
                 </div>
               </div>
               {/* Quota progress bar */}
               <div className="mb-4">
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <div className="flex justify-between text-xs text-muted-foreground mb-1">
                   <span>Quota usage</span>
                   <span className="font-mono">{quotaPct}%</span>
                 </div>
-                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div className={`h-full ${quotaBarColor}`} style={{ width: `${quotaPct}%` }} />
                 </div>
               </div>
@@ -494,23 +494,23 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
         {/* Keys */}
         <Card className="overflow-hidden">
           <div className="px-5 py-4 border-b flex items-center justify-between">
-            <h2 className="text-sm font-medium uppercase tracking-wider text-gray-500">Keys</h2>
-            <p className="text-xs text-gray-400">{keys.length} total</p>
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Keys</h2>
+            <p className="text-xs text-muted-foreground/70">{keys.length} total</p>
           </div>
           {detailQuery.isLoading ? (
             <div className="p-6 space-y-3">
               {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : keys.length === 0 ? (
-            <div className="p-12 text-center text-sm text-gray-500">
-              <KeyRound className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+            <div className="p-12 text-center text-sm text-muted-foreground">
+              <KeyRound className="w-8 h-8 mx-auto mb-3 text-muted-foreground/50" />
               No keys issued yet.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-gray-50/50 text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <tr className="border-b bg-muted/50/50 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     <th className="text-left px-4 py-3">Prefix</th>
                     <th className="text-left px-4 py-3">Name</th>
                     <th className="text-left px-4 py-3">Tier</th>
@@ -523,18 +523,18 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
                 </thead>
                 <tbody className="divide-y">
                   {keys.map((k) => (
-                    <tr key={k.id} className="hover:bg-gray-50/50">
-                      <td className="px-4 py-3 font-mono text-xs text-gray-700">{k.prefix}…</td>
-                      <td className="px-4 py-3 text-gray-700">{k.name ?? "--"}</td>
+                    <tr key={k.id} className="hover:bg-muted/50/50">
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">{k.prefix}…</td>
+                      <td className="px-4 py-3 text-foreground">{k.name ?? "--"}</td>
                       <td className="px-4 py-3"><Badge config={tierBadge(k.tier)} /></td>
                       <td className="px-4 py-3"><Badge config={keyStatusBadge(k.status)} /></td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
                         {k.created_at ? new Date(k.created_at).toLocaleDateString() : "--"}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
                         {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : "--"}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-gray-700">
+                      <td className="px-4 py-3 text-right tabular-nums text-foreground">
                         {k.total_calls.toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
@@ -579,8 +579,8 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
         {/* Usage chart */}
         <Card className="p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-medium uppercase tracking-wider text-gray-500">Calls — last 30 days</h2>
-            <p className="text-sm font-mono font-semibold text-gray-900">
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Calls — last 30 days</h2>
+            <p className="text-sm font-mono font-semibold text-foreground">
               {daily.reduce((s, d) => s + d.calls, 0).toLocaleString()}
             </p>
           </div>
@@ -590,19 +590,19 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
         {/* Recent usage logs */}
         <Card className="overflow-hidden">
           <div className="px-5 py-4 border-b">
-            <h2 className="text-sm font-medium uppercase tracking-wider text-gray-500">Recent calls</h2>
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Recent calls</h2>
           </div>
           {detailQuery.isLoading ? (
             <div className="p-6 space-y-2">
               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
             </div>
           ) : recent.length === 0 ? (
-            <div className="p-12 text-center text-sm text-gray-500">No recent API calls.</div>
+            <div className="p-12 text-center text-sm text-muted-foreground">No recent API calls.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-gray-50/50 text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <tr className="border-b bg-muted/50/50 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     <th className="text-left px-4 py-2">Time</th>
                     <th className="text-left px-4 py-2">Method</th>
                     <th className="text-left px-4 py-2">Endpoint</th>
@@ -612,12 +612,12 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
                 </thead>
                 <tbody className="divide-y">
                   {recent.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50/50">
-                      <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">
+                    <tr key={r.id} className="hover:bg-muted/50/50">
+                      <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(r.created_at).toLocaleString()}
                       </td>
-                      <td className="px-4 py-2 font-mono text-xs text-gray-700">{r.method}</td>
-                      <td className="px-4 py-2 font-mono text-xs text-gray-700 max-w-[280px] truncate">{r.endpoint}</td>
+                      <td className="px-4 py-2 font-mono text-xs text-foreground">{r.method}</td>
+                      <td className="px-4 py-2 font-mono text-xs text-foreground max-w-[280px] truncate">{r.endpoint}</td>
                       <td className={`px-4 py-2 text-right font-mono text-xs ${
                         r.status_code >= 500 ? "text-rose-600" :
                         r.status_code >= 400 ? "text-amber-600" :
@@ -625,7 +625,7 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
                       }`}>
                         {r.status_code}
                       </td>
-                      <td className="px-4 py-2 text-right font-mono text-xs text-gray-600">{r.response_ms}ms</td>
+                      <td className="px-4 py-2 text-right font-mono text-xs text-muted-foreground">{r.response_ms}ms</td>
                     </tr>
                   ))}
                 </tbody>
@@ -638,12 +638,12 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
         <Card className="overflow-hidden">
           <div className="px-5 py-4 border-b flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Webhook className="w-4 h-4 text-gray-400" />
-              <h2 className="text-sm font-medium uppercase tracking-wider text-gray-500">
+              <Webhook className="w-4 h-4 text-muted-foreground/70" />
+              <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
                 Webhook deliveries
               </h2>
             </div>
-            <p className="text-xs text-gray-400">last {webhookDeliveries.length}</p>
+            <p className="text-xs text-muted-foreground/70">last {webhookDeliveries.length}</p>
           </div>
           {detailQuery.isLoading ? (
             <div className="p-6 space-y-2">
@@ -652,15 +652,15 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
               ))}
             </div>
           ) : webhookDeliveries.length === 0 ? (
-            <div className="p-12 text-center text-sm text-gray-500">
-              <Webhook className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+            <div className="p-12 text-center text-sm text-muted-foreground">
+              <Webhook className="w-8 h-8 mx-auto mb-3 text-muted-foreground/50" />
               No webhook deliveries yet.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-gray-50/50 text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <tr className="border-b bg-muted/50/50 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     <th className="text-left px-4 py-2">Time</th>
                     <th className="text-left px-4 py-2">Event</th>
                     <th className="text-left px-4 py-2">Status</th>
@@ -679,10 +679,10 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
                         ? "text-amber-700 bg-amber-50"
                         : d.status === "dead"
                         ? "text-rose-700 bg-rose-50"
-                        : "text-gray-700 bg-gray-100";
+                        : "text-foreground bg-muted";
                     const httpColor =
                       d.last_response_status == null
-                        ? "text-gray-400"
+                        ? "text-muted-foreground/70"
                         : d.last_response_status >= 500
                         ? "text-rose-600"
                         : d.last_response_status >= 400
@@ -690,11 +690,11 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
                         : "text-emerald-600";
                     const replayable = d.status === "failed" || d.status === "dead";
                     return (
-                      <tr key={d.id} className="hover:bg-gray-50/50">
-                        <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">
+                      <tr key={d.id} className="hover:bg-muted/50/50">
+                        <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
                           {new Date(d.created_at).toLocaleString()}
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-gray-700">{d.event_type}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-foreground">{d.event_type}</td>
                         <td className="px-4 py-2">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}`}
@@ -705,10 +705,10 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
                         <td className={`px-4 py-2 text-right font-mono text-xs ${httpColor}`}>
                           {d.last_response_status ?? "—"}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono text-xs text-gray-600">
+                        <td className="px-4 py-2 text-right font-mono text-xs text-muted-foreground">
                           {d.attempt_count}
                         </td>
-                        <td className="px-4 py-2 text-xs text-gray-500 max-w-[260px] truncate">
+                        <td className="px-4 py-2 text-xs text-muted-foreground max-w-[260px] truncate">
                           {d.last_error ?? "—"}
                         </td>
                         <td className="px-4 py-2 text-right">
@@ -735,29 +735,29 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
         {/* Audit history (feature-detected) */}
         <Card className="overflow-hidden">
           <div className="px-5 py-4 border-b">
-            <h2 className="text-sm font-medium uppercase tracking-wider text-gray-500">Audit history</h2>
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Audit history</h2>
           </div>
           {auditQuery.isLoading ? (
             <div className="p-6 space-y-2">
               {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}
             </div>
           ) : !auditQuery.data ? (
-            <div className="p-6 text-xs text-gray-400">
+            <div className="p-6 text-xs text-muted-foreground/70">
               Audit history endpoint not yet available — will appear here once Wave AI-3c lands.
             </div>
           ) : auditQuery.data.entries.length === 0 ? (
-            <div className="p-6 text-xs text-gray-400">No admin actions recorded for this user yet.</div>
+            <div className="p-6 text-xs text-muted-foreground/70">No admin actions recorded for this user yet.</div>
           ) : (
             <div className="divide-y">
               {auditQuery.data.entries.map((a) => (
                 <div key={a.id} className="px-5 py-3 flex items-center justify-between text-sm">
                   <div>
-                    <p className="text-gray-900">{a.summary}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-foreground">{a.summary}</p>
+                    <p className="text-xs text-muted-foreground">
                       {a.actor_name ?? "system"} · {a.action}
                     </p>
                   </div>
-                  <p className="text-xs text-gray-400 whitespace-nowrap">
+                  <p className="text-xs text-muted-foreground/70 whitespace-nowrap">
                     {new Date(a.created_at).toLocaleString()}
                   </p>
                 </div>

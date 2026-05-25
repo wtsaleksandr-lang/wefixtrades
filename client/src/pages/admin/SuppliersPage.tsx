@@ -103,7 +103,7 @@ const TYPE_COLORS: Record<string, string> = {
   freelancer: "bg-blue-50 text-blue-700",
   white_label: "bg-brand-blue-50 text-brand-blue-700",
   automation: "bg-cyan-50 text-cyan-700",
-  internal: "bg-gray-100 text-gray-700",
+  internal: "bg-muted text-foreground",
 };
 
 const COST_TYPE_LABELS: Record<string, string> = {
@@ -114,7 +114,7 @@ const COST_TYPE_LABELS: Record<string, string> = {
 };
 
 const TASK_STATUS_COLORS: Record<string, string> = {
-  not_started: "bg-gray-100 text-gray-600",
+  not_started: "bg-muted text-muted-foreground",
   submitted: "bg-blue-50 text-blue-700",
   in_progress: "bg-yellow-50 text-yellow-700",
   waiting: "bg-orange-50 text-orange-700",
@@ -122,7 +122,7 @@ const TASK_STATUS_COLORS: Record<string, string> = {
   qa_review: "bg-brand-blue-50 text-brand-blue-700",
   revision_required: "bg-pink-50 text-pink-700",
   delivered: "bg-emerald-50 text-emerald-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  cancelled: "bg-muted text-muted-foreground",
 };
 
 /* W-AM-3: canonical specialty tag suggestions for the multi-select pills.
@@ -174,7 +174,7 @@ function VettingBadge({ lastVettedAt }: { lastVettedAt: string | null }) {
   const status = getVettingStatus(lastVettedAt);
   const cls = {
     verified: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    stale: "bg-gray-100 text-gray-600 border-gray-200",
+    stale: "bg-muted text-muted-foreground border-border",
     unverified: "bg-amber-50 text-amber-700 border-amber-200",
   }[status];
   const label = { verified: "Verified", stale: "Stale", unverified: "Unverified" }[status];
@@ -443,12 +443,12 @@ export default function SuppliersPage() {
     return (
       <AdminLayout pageContext={{ page: "suppliers" }}>
         <div className="space-y-4">
-          <Button variant="ghost" size="sm" onClick={() => setDetailId(null)} className="gap-1 text-gray-600">
+          <Button variant="ghost" size="sm" onClick={() => setDetailId(null)} className="gap-1 text-muted-foreground">
             <ArrowLeft className="w-4 h-4" /> Back to Suppliers
           </Button>
 
           {detailLoading ? (
-            <Card><CardContent className="py-12 text-center text-gray-400">Loading supplier...</CardContent></Card>
+            <Card><CardContent className="py-12 text-center text-muted-foreground/70">Loading supplier...</CardContent></Card>
           ) : supplierDetail ? (
             <>
               {/* Header */}
@@ -457,21 +457,21 @@ export default function SuppliersPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-xl font-semibold text-gray-900">{supplierDetail.name}</h2>
+                        <h2 className="text-xl font-semibold text-foreground">{supplierDetail.name}</h2>
                         <VettingBadge lastVettedAt={supplierDetail.last_vetted_at} />
                       </div>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <SupplierTypeBadge type={supplierDetail.supplier_type} />
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TYPE_COLORS[supplierDetail.type] || "bg-gray-100 text-gray-600"}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TYPE_COLORS[supplierDetail.type] || "bg-muted text-muted-foreground"}`}>
                           {supplierDetail.type.replace(/_/g, " ")}
                         </span>
                         {supplierDetail.is_active ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Active</span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Inactive</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">Inactive</span>
                         )}
                         {((supplierDetail.specialties as string[]) || []).map((tag) => (
-                          <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                          <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
                             {tag}
                           </span>
                         ))}
@@ -485,28 +485,28 @@ export default function SuppliersPage() {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
                     <div>
-                      <span className="text-gray-500 text-xs">Contact</span>
-                      <div className="text-gray-900">{supplierDetail.contact_name || "-"}</div>
-                      <div className="text-gray-600 text-xs">{supplierDetail.contact_email || ""}</div>
-                      {supplierDetail.contact_phone && <div className="text-gray-600 text-xs">{supplierDetail.contact_phone}</div>}
+                      <span className="text-muted-foreground text-xs">Contact</span>
+                      <div className="text-foreground">{supplierDetail.contact_name || "-"}</div>
+                      <div className="text-muted-foreground text-xs">{supplierDetail.contact_email || ""}</div>
+                      {supplierDetail.contact_phone && <div className="text-muted-foreground text-xs">{supplierDetail.contact_phone}</div>}
                     </div>
                     <div>
-                      <span className="text-gray-500 text-xs">Cost Rate</span>
-                      <div className="text-gray-900">{formatCost(supplierDetail.cost_rate, supplierDetail.cost_type)}</div>
+                      <span className="text-muted-foreground text-xs">Cost Rate</span>
+                      <div className="text-foreground">{formatCost(supplierDetail.cost_rate, supplierDetail.cost_type)}</div>
                     </div>
                     <div>
-                      <span className="text-gray-500 text-xs">Services</span>
+                      <span className="text-muted-foreground text-xs">Services</span>
                       <div className="flex flex-wrap gap-1 mt-0.5">
                         {(supplierDetail.supported_services || []).length > 0
                           ? (supplierDetail.supported_services as string[]).map((s) => (
                               <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
                             ))
-                          : <span className="text-gray-400">None assigned</span>
+                          : <span className="text-muted-foreground/70">None assigned</span>
                         }
                       </div>
                     </div>
                     <div>
-                      <span className="text-gray-500 text-xs">Links</span>
+                      <span className="text-muted-foreground text-xs">Links</span>
                       <div className="flex flex-col gap-0.5">
                         {supplierDetail.fiverr_profile_url && (
                           <a href={supplierDetail.fiverr_profile_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-blue hover:underline">Fiverr Profile</a>
@@ -514,12 +514,12 @@ export default function SuppliersPage() {
                         {supplierDetail.platform_url && (
                           <a href={supplierDetail.platform_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-blue hover:underline">Platform URL</a>
                         )}
-                        {!supplierDetail.fiverr_profile_url && !supplierDetail.platform_url && <span className="text-gray-400 text-xs">-</span>}
+                        {!supplierDetail.fiverr_profile_url && !supplierDetail.platform_url && <span className="text-muted-foreground/70 text-xs">-</span>}
                       </div>
                     </div>
                   </div>
                   {supplierDetail.notes && (
-                    <div className="mt-3 text-sm text-gray-600 bg-gray-50 rounded-md p-3">{supplierDetail.notes}</div>
+                    <div className="mt-3 text-sm text-muted-foreground bg-muted/50 rounded-md p-3">{supplierDetail.notes}</div>
                   )}
                 </CardContent>
               </Card>
@@ -532,8 +532,8 @@ export default function SuppliersPage() {
                       <ListTodo className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-gray-900">{supplierDetail.stats.total_tasks}</div>
-                      <div className="text-xs text-gray-500">Total Tasks</div>
+                      <div className="text-2xl font-bold text-foreground">{supplierDetail.stats.total_tasks}</div>
+                      <div className="text-xs text-muted-foreground">Total Tasks</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -543,8 +543,8 @@ export default function SuppliersPage() {
                       <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-gray-900">{supplierDetail.stats.completed_tasks}</div>
-                      <div className="text-xs text-gray-500">Completed</div>
+                      <div className="text-2xl font-bold text-foreground">{supplierDetail.stats.completed_tasks}</div>
+                      <div className="text-xs text-muted-foreground">Completed</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -554,12 +554,12 @@ export default function SuppliersPage() {
                       <Clock className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-gray-900">
+                      <div className="text-2xl font-bold text-foreground">
                         {supplierDetail.stats.avg_completion_time_hours !== null
                           ? `${supplierDetail.stats.avg_completion_time_hours}h`
                           : "-"}
                       </div>
-                      <div className="text-xs text-gray-500">Avg Delivery</div>
+                      <div className="text-xs text-muted-foreground">Avg Delivery</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -573,8 +573,8 @@ export default function SuppliersPage() {
                 <CardContent>
                   {supplierDetail.tasks.length === 0 ? (
                     <div className="text-center py-8 px-4">
-                      <p className="text-sm text-gray-500 mb-1">No tasks assigned to this supplier yet.</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-sm text-muted-foreground mb-1">No tasks assigned to this supplier yet.</p>
+                      <p className="text-xs text-muted-foreground/70">
                         Tasks appear here as soon as a client orders a service this supplier covers,
                         or after you manually assign one from a
                         {" "}<a href="/admin/crm/clients" className="text-brand-blue hover:underline font-medium">client's fulfillment tab</a>.
@@ -594,10 +594,10 @@ export default function SuppliersPage() {
                       <TableBody>
                         {supplierDetail.tasks.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                              <ListTodo className="w-6 h-6 text-gray-300 mx-auto mb-2" />
-                              <p className="text-sm font-medium text-gray-700 mb-0.5">No tasks assigned</p>
-                              <p className="text-xs text-gray-500">Tasks assigned to this supplier will appear here.</p>
+                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                              <ListTodo className="w-6 h-6 text-muted-foreground/50 mx-auto mb-2" />
+                              <p className="text-sm font-medium text-foreground mb-0.5">No tasks assigned</p>
+                              <p className="text-xs text-muted-foreground">Tasks assigned to this supplier will appear here.</p>
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -605,15 +605,15 @@ export default function SuppliersPage() {
                             <TableRow key={t.id}>
                               <TableCell className="font-medium text-sm">{t.title}</TableCell>
                               <TableCell>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TASK_STATUS_COLORS[t.status] || "bg-gray-100 text-gray-600"}`}>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TASK_STATUS_COLORS[t.status] || "bg-muted text-muted-foreground"}`}>
                                   {t.status.replace(/_/g, " ")}
                                 </span>
                               </TableCell>
                               <TableCell className="text-sm capitalize">{t.priority}</TableCell>
-                              <TableCell className="text-xs text-gray-500">
+                              <TableCell className="text-xs text-muted-foreground">
                                 {new Date(t.created_at).toLocaleDateString()}
                               </TableCell>
-                              <TableCell className="text-xs text-gray-500">
+                              <TableCell className="text-xs text-muted-foreground">
                                 {t.completed_at ? new Date(t.completed_at).toLocaleDateString() : "-"}
                               </TableCell>
                             </TableRow>
@@ -626,7 +626,7 @@ export default function SuppliersPage() {
               </Card>
             </>
           ) : (
-            <Card><CardContent className="py-12 text-center text-gray-400">Supplier not found.</CardContent></Card>
+            <Card><CardContent className="py-12 text-center text-muted-foreground/70">Supplier not found.</CardContent></Card>
           )}
         </div>
 
@@ -662,8 +662,8 @@ export default function SuppliersPage() {
         {/* Header */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">Supplier Management</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-lg font-semibold text-foreground">Supplier Management</h2>
+            <p className="text-sm text-muted-foreground">
               {activeSuppliers.length} active of {suppliers.length} total suppliers
             </p>
           </div>
@@ -731,42 +731,42 @@ export default function SuppliersPage() {
                 ))
               ) : suppliers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No suppliers yet. Click "Add Supplier" to register your first one.
                   </TableCell>
                 </TableRow>
               ) : (
                 suppliers.map((s) => (
-                  <TableRow key={s.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setDetailId(s.id)}>
+                  <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetailId(s.id)}>
                     <TableCell>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <div className="font-medium text-sm text-gray-900">{s.name}</div>
+                        <div className="font-medium text-sm text-foreground">{s.name}</div>
                         <VettingBadge lastVettedAt={s.last_vetted_at} />
                       </div>
-                      <div className="text-xs text-gray-500">{s.contact_email || ""}</div>
+                      <div className="text-xs text-muted-foreground">{s.contact_email || ""}</div>
                       {((s.specialties as string[]) || []).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {((s.specialties as string[]) || []).slice(0, 4).map((tag) => (
-                            <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                            <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
                               {tag}
                             </span>
                           ))}
                           {((s.specialties as string[]) || []).length > 4 && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
                               +{((s.specialties as string[]) || []).length - 4}
                             </span>
                           )}
                         </div>
                       )}
                       {/* Mobile: surface type inline below name since we hid the column */}
-                      <div className="md:hidden mt-1 text-[11px] text-gray-500 capitalize">
+                      <div className="md:hidden mt-1 text-[11px] text-muted-foreground capitalize">
                         {s.type.replace(/_/g, " ")} · {formatCost(s.cost_rate, s.cost_type)}
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <div className="flex items-center gap-1.5">
                         <SupplierTypeBadge type={s.supplier_type} />
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TYPE_COLORS[s.type] || "bg-gray-100 text-gray-600"}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TYPE_COLORS[s.type] || "bg-muted text-muted-foreground"}`}>
                           {s.type.replace(/_/g, " ")}
                         </span>
                       </div>
@@ -780,24 +780,24 @@ export default function SuppliersPage() {
                           <Badge variant="secondary" className="text-xs">+{(s.supported_services as string[]).length - 3}</Badge>
                         )}
                         {((s.supported_services as string[]) || []).length === 0 && (
-                          <span className="text-xs text-gray-400">-</span>
+                          <span className="text-xs text-muted-foreground/70">-</span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-gray-700">
+                    <TableCell className="hidden md:table-cell text-sm text-foreground">
                       {formatCost(s.cost_rate, s.cost_type)}
                     </TableCell>
                     <TableCell>
                       {s.is_active ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Active</span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Inactive</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">Inactive</span>
                       )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="sm" onClick={() => openEditForm(s)} className="h-8 w-8 p-0" aria-label={`Edit ${s.name}`}>
-                          <Pencil className="w-3.5 h-3.5 text-gray-500" />
+                          <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
                         </Button>
                         {s.is_active && (
                           <Button
@@ -857,7 +857,7 @@ export default function SuppliersPage() {
 
 function SupplierTypeBadge({ type }: { type: string }) {
   const Icon = SUPPLIER_TYPE_ICON[type] || Mail;
-  const colors = SUPPLIER_TYPE_COLORS[type] || "bg-gray-100 text-gray-600 border-gray-200";
+  const colors = SUPPLIER_TYPE_COLORS[type] || "bg-muted text-muted-foreground border-border";
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border capitalize ${colors}`}>
       <Icon className="w-3 h-3" />
@@ -911,26 +911,26 @@ function SupplierFormDialog({
           {/* General Tab */}
           <TabsContent value="general" className="space-y-3 mt-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Name *</label>
+              <label className="text-xs font-medium text-muted-foreground">Name *</label>
               <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Supplier name" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Contact Email *</label>
+              <label className="text-xs font-medium text-muted-foreground">Contact Email *</label>
               <Input type="email" value={form.contact_email} onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))} placeholder="supplier@example.com" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-600">Contact Name</label>
+                <label className="text-xs font-medium text-muted-foreground">Contact Name</label>
                 <Input value={form.contact_name} onChange={(e) => setForm((f) => ({ ...f, contact_name: e.target.value }))} />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Contact Phone</label>
+                <label className="text-xs font-medium text-muted-foreground">Contact Phone</label>
                 <Input value={form.contact_phone} onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-600">Category</label>
+                <label className="text-xs font-medium text-muted-foreground">Category</label>
                 <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -943,7 +943,7 @@ function SupplierFormDialog({
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Supplier Type</label>
+                <label className="text-xs font-medium text-muted-foreground">Supplier Type</label>
                 <Select value={form.supplier_type} onValueChange={(v) => setForm((f) => ({ ...f, supplier_type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -957,7 +957,7 @@ function SupplierFormDialog({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-600">Cost Rate ($)</label>
+                <label className="text-xs font-medium text-muted-foreground">Cost Rate ($)</label>
                 <Input
                   type="number"
                   step="0.01"
@@ -968,7 +968,7 @@ function SupplierFormDialog({
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Cost Type</label>
+                <label className="text-xs font-medium text-muted-foreground">Cost Type</label>
                 <Select value={form.cost_type} onValueChange={(v) => setForm((f) => ({ ...f, cost_type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -981,7 +981,7 @@ function SupplierFormDialog({
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Status</label>
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
               <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -993,9 +993,9 @@ function SupplierFormDialog({
 
             {/* W-AM-3: external-marketplace vetting metadata */}
             <div className="pt-2 border-t">
-              <div className="text-xs font-semibold text-gray-700 mb-2">Vetting (Fiverr / external marketplace)</div>
+              <div className="text-xs font-semibold text-foreground mb-2">Vetting (Fiverr / external marketplace)</div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Specialties</label>
+                <label className="text-xs font-medium text-muted-foreground">Specialties</label>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {SPECIALTY_SUGGESTIONS.map((tag) => {
                     const selected = form.specialties.includes(tag);
@@ -1007,7 +1007,7 @@ function SupplierFormDialog({
                         className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
                           selected
                             ? "bg-brand-blue/10 text-brand-blue border-brand-blue/30"
-                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                            : "bg-card text-muted-foreground border-border hover:bg-muted/50"
                         }`}
                       >
                         {tag}
@@ -1060,7 +1060,7 @@ function SupplierFormDialog({
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Avg turnaround (days)</label>
+                  <label className="text-xs font-medium text-muted-foreground">Avg turnaround (days)</label>
                   <Input
                     type="number"
                     min="0"
@@ -1071,7 +1071,7 @@ function SupplierFormDialog({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Quality rating (0-5)</label>
+                  <label className="text-xs font-medium text-muted-foreground">Quality rating (0-5)</label>
                   <Input
                     type="number"
                     min="0"
@@ -1085,7 +1085,7 @@ function SupplierFormDialog({
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">External completed jobs</label>
+                  <label className="text-xs font-medium text-muted-foreground">External completed jobs</label>
                   <Input
                     type="number"
                     min="0"
@@ -1096,7 +1096,7 @@ function SupplierFormDialog({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Last vetted at</label>
+                  <label className="text-xs font-medium text-muted-foreground">Last vetted at</label>
                   <div className="flex gap-1">
                     <Input
                       type="date"
@@ -1118,7 +1118,7 @@ function SupplierFormDialog({
             </div>
 
             <div>
-              <label className="text-xs font-medium text-gray-600">Notes</label>
+              <label className="text-xs font-medium text-muted-foreground">Notes</label>
               <Textarea
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
@@ -1131,13 +1131,13 @@ function SupplierFormDialog({
           {/* Integration Tab */}
           <TabsContent value="integration" className="space-y-3 mt-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Platform URL</label>
+              <label className="text-xs font-medium text-muted-foreground">Platform URL</label>
               <Input value={form.platform_url} onChange={(e) => setForm((f) => ({ ...f, platform_url: e.target.value }))} placeholder="https://..." />
             </div>
 
             {form.supplier_type === "fiverr" && (
               <div>
-                <label className="text-xs font-medium text-gray-600">Fiverr Profile URL</label>
+                <label className="text-xs font-medium text-muted-foreground">Fiverr Profile URL</label>
                 <Input value={form.fiverr_profile_url} onChange={(e) => setForm((f) => ({ ...f, fiverr_profile_url: e.target.value }))} placeholder="https://fiverr.com/seller" />
               </div>
             )}
@@ -1145,11 +1145,11 @@ function SupplierFormDialog({
             {form.supplier_type === "api" && (
               <>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">API Endpoint</label>
+                  <label className="text-xs font-medium text-muted-foreground">API Endpoint</label>
                   <Input value={form.api_endpoint} onChange={(e) => setForm((f) => ({ ...f, api_endpoint: e.target.value }))} placeholder="https://api.example.com/tasks" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">API Key</label>
+                  <label className="text-xs font-medium text-muted-foreground">API Key</label>
                   <Input
                     type="password"
                     value={form.api_key}
@@ -1161,7 +1161,7 @@ function SupplierFormDialog({
             )}
 
             {form.supplier_type !== "fiverr" && form.supplier_type !== "api" && (
-              <div className="text-sm text-gray-400 py-4 text-center">
+              <div className="text-sm text-muted-foreground/70 py-4 text-center">
                 Select "Fiverr" or "API" as supplier type to configure integration-specific fields.
               </div>
             )}
@@ -1169,10 +1169,10 @@ function SupplierFormDialog({
 
           {/* Services Tab */}
           <TabsContent value="services" className="mt-3">
-            <p className="text-xs text-gray-500 mb-3">Select the services this supplier can handle:</p>
+            <p className="text-xs text-muted-foreground mb-3">Select the services this supplier can handle:</p>
             <div className="space-y-1 max-h-[300px] overflow-y-auto">
               {activeServices.length === 0 ? (
-                <div className="text-sm text-gray-400 py-4 text-center">No active services found.</div>
+                <div className="text-sm text-muted-foreground/70 py-4 text-center">No active services found.</div>
               ) : (
                 activeServices.map((svc) => (
                   <label
@@ -1180,17 +1180,17 @@ function SupplierFormDialog({
                     className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
                       form.supported_services.includes(svc.id)
                         ? "bg-brand-blue/10 border border-brand-blue/30"
-                        : "hover:bg-gray-50 border border-transparent"
+                        : "hover:bg-muted/50 border border-transparent"
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={form.supported_services.includes(svc.id)}
                       onChange={() => onToggleService(svc.id)}
-                      className="rounded border-gray-300 text-brand-blue focus:ring-brand-blue"
+                      className="rounded border-input text-brand-blue focus:ring-brand-blue"
                     />
-                    <span className="text-sm text-gray-800">{svc.name}</span>
-                    <span className="text-xs text-gray-400 ml-auto">{svc.id}</span>
+                    <span className="text-sm text-foreground">{svc.name}</span>
+                    <span className="text-xs text-muted-foreground/70 ml-auto">{svc.id}</span>
                   </label>
                 ))
               )}

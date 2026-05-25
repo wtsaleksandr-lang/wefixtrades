@@ -112,7 +112,7 @@ export default function PortalRankFlow() {
     return (
       <PortalLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-300" />
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/50" />
         </div>
       </PortalLayout>
     );
@@ -189,11 +189,11 @@ export default function PortalRankFlow() {
   const overviewBody = (
     <div data-theme="light" className="max-w-3xl space-y-5">
       {data.statusLine && (
-        <p className="text-sm text-gray-600">{data.statusLine}</p>
+        <p className="text-sm text-muted-foreground">{data.statusLine}</p>
       )}
 
       {/* ─── Pause Article Generation Toggle ─── */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {isArticleGenPaused ? (
@@ -202,8 +202,8 @@ export default function PortalRankFlow() {
                 <PlayCircle className="w-5 h-5 text-emerald-500" />
               )}
               <div>
-                <p className="text-sm font-medium text-gray-900">New Article Generation</p>
-                <p className="text-xs text-gray-500">{isArticleGenPaused ? "Paused" : "Active"}</p>
+                <p className="text-sm font-medium text-foreground">New Article Generation</p>
+                <p className="text-xs text-muted-foreground">{isArticleGenPaused ? "Paused" : "Active"}</p>
               </div>
             </div>
             <Switch
@@ -249,22 +249,22 @@ export default function PortalRankFlow() {
         />
 
         {/* ─── Progress Bar ─── */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-600">Monthly Progress</span>
-            <span className="text-xs text-gray-400">{m.progressPct}% complete</span>
+            <span className="text-xs font-medium text-muted-foreground">Monthly Progress</span>
+            <span className="text-xs text-muted-foreground/70">{m.progressPct}% complete</span>
           </div>
-          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
             <div className="h-full bg-[#0d3cfc] rounded-full transition-all duration-500" style={{ width: `${m.progressPct}%` }} />
           </div>
         </div>
 
         {/* ─── Ranking Highlights ─── */}
         {r && (r.keywordsTracked > 0 || r.highlights.length > 0) && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-                <Search className="w-4 h-4 text-gray-400" /> Ranking Progress
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <Search className="w-4 h-4 text-muted-foreground/70" /> Ranking Progress
               </h2>
             </div>
             <div className="px-5 py-4">
@@ -287,7 +287,7 @@ export default function PortalRankFlow() {
                 </ul>
               )}
               {r.avgPosition !== null && (
-                <p className="text-xs text-gray-400 mt-3">Average position: {r.avgPosition}</p>
+                <p className="text-xs text-muted-foreground/70 mt-3">Average position: {r.avgPosition}</p>
               )}
             </div>
           </div>
@@ -295,20 +295,20 @@ export default function PortalRankFlow() {
 
         {/* ─── Indexing Status ─── */}
         {idx && idx.totalPages > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-                <Globe className="w-4 h-4 text-gray-400" /> Pages on Google
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-muted-foreground/70" /> Pages on Google
               </h2>
             </div>
             <div className="px-5 py-4">
               <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs text-gray-600">{idx.indexed} of {idx.totalPages} pages indexed</span>
-                    <span className="text-xs text-gray-400">{idx.totalPages > 0 ? Math.round((idx.indexed / idx.totalPages) * 100) : 0}%</span>
+                    <span className="text-xs text-muted-foreground">{idx.indexed} of {idx.totalPages} pages indexed</span>
+                    <span className="text-xs text-muted-foreground/70">{idx.totalPages > 0 ? Math.round((idx.indexed / idx.totalPages) * 100) : 0}%</span>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-500 rounded-full transition-all"
                       style={{ width: `${idx.totalPages > 0 ? (idx.indexed / idx.totalPages) * 100 : 0}%` }}
@@ -317,7 +317,7 @@ export default function PortalRankFlow() {
                 </div>
               </div>
               {idx.pending > 0 && (
-                <p className="text-xs text-gray-400 mt-2">{idx.pending} page{idx.pending > 1 ? "s" : ""} waiting to be indexed by Google</p>
+                <p className="text-xs text-muted-foreground/70 mt-2">{idx.pending} page{idx.pending > 1 ? "s" : ""} waiting to be indexed by Google</p>
               )}
             </div>
           </div>
@@ -325,19 +325,19 @@ export default function PortalRankFlow() {
 
         {/* ─── Work Completed ─── */}
         {data.completed && data.completed.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900">What We Did This Month</h2>
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">What We Did This Month</h2>
             </div>
             <ul className="divide-y divide-gray-50">
               {data.completed.map((item, i) => (
                 <li key={i} className="px-5 py-3 flex items-start gap-3">
                   <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700">{item.detail}</p>
+                    <p className="text-sm text-foreground">{item.detail}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] font-medium text-gray-400">{item.label}</span>
-                      {item.completedAt && <span className="text-[10px] text-gray-300">{formatDate(item.completedAt)}</span>}
+                      <span className="text-[10px] font-medium text-muted-foreground/70">{item.label}</span>
+                      {item.completedAt && <span className="text-[10px] text-muted-foreground/50">{formatDate(item.completedAt)}</span>}
                     </div>
                   </div>
                 </li>
@@ -348,17 +348,17 @@ export default function PortalRankFlow() {
 
         {/* ─── In Progress ─── */}
         {data.inProgress && data.inProgress.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900">Currently Working On</h2>
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">Currently Working On</h2>
             </div>
             <ul className="divide-y divide-gray-50">
               {data.inProgress.map((item, i) => (
                 <li key={i} className="px-5 py-3 flex items-start gap-3">
                   <Clock className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700">{item.detail}</p>
-                    <span className="text-[10px] font-medium text-gray-400">{item.label}</span>
+                    <p className="text-sm text-foreground">{item.detail}</p>
+                    <span className="text-[10px] font-medium text-muted-foreground/70">{item.label}</span>
                   </div>
                 </li>
               ))}
@@ -368,15 +368,15 @@ export default function PortalRankFlow() {
 
       {/* ─── What's Next ─── */}
       {data.nextUp && data.nextUp.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900">Coming Up Next</h2>
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold text-foreground">Coming Up Next</h2>
           </div>
           <ul className="divide-y divide-gray-50">
             {data.nextUp.map((item, i) => (
               <li key={i} className="px-5 py-3 flex items-center gap-3">
                 <ArrowRight className="w-4 h-4 text-[#0d3cfc] shrink-0" />
-                <p className="text-sm text-gray-700">{item}</p>
+                <p className="text-sm text-foreground">{item}</p>
               </li>
             ))}
           </ul>
@@ -448,13 +448,13 @@ function SearchConsoleCard() {
   // Already connected to Search Console
   if (scStatus.searchConsoleConnected) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="bg-card rounded-xl border border-border p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <ShieldCheck className="w-5 h-5 text-emerald-500" />
             <div>
-              <p className="text-sm font-medium text-gray-900">Google Search Console</p>
-              <p className="text-xs text-gray-500">Connected -- real ranking data is active</p>
+              <p className="text-sm font-medium text-foreground">Google Search Console</p>
+              <p className="text-xs text-muted-foreground">Connected -- real ranking data is active</p>
             </div>
           </div>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700">Active</span>
@@ -466,12 +466,12 @@ function SearchConsoleCard() {
   // Google connected but Search Console not accessible (might need to verify site)
   if (scStatus.googleConnected && !scStatus.searchConsoleConnected) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="bg-card rounded-xl border border-border p-4">
         <div className="flex items-center gap-3 mb-3">
           <Link className="w-5 h-5 text-amber-500" />
           <div>
-            <p className="text-sm font-medium text-gray-900">Google Search Console</p>
-            <p className="text-xs text-gray-500">Google connected, but Search Console access not detected</p>
+            <p className="text-sm font-medium text-foreground">Google Search Console</p>
+            <p className="text-xs text-muted-foreground">Google connected, but Search Console access not detected</p>
           </div>
         </div>
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -496,12 +496,12 @@ function SearchConsoleCard() {
 
   // Not connected at all
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
+    <div className="bg-card rounded-xl border border-border p-4">
       <div className="flex items-center gap-3 mb-3">
-        <Globe className="w-5 h-5 text-gray-400" />
+        <Globe className="w-5 h-5 text-muted-foreground/70" />
         <div>
-          <p className="text-sm font-medium text-gray-900">Connect Google Search Console</p>
-          <p className="text-xs text-gray-500">Get real ranking data directly from Google for more accurate reports</p>
+          <p className="text-sm font-medium text-foreground">Connect Google Search Console</p>
+          <p className="text-xs text-muted-foreground">Get real ranking data directly from Google for more accurate reports</p>
         </div>
       </div>
       <button
@@ -523,10 +523,10 @@ function MetricCard({ icon: Icon, label, value, color }: { icon: any; label: str
     indigo: "text-brand-blue-500",
   };
   return (
-    <div className="h-full bg-white rounded-xl border border-gray-200 p-4 text-center">
-      <Icon className={`w-4 h-4 mx-auto mb-1.5 ${colors[color] || "text-gray-400"}`} />
-      <p className="text-xl font-semibold text-gray-900">{value}</p>
-      <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
+    <div className="h-full bg-card rounded-xl border border-border p-4 text-center">
+      <Icon className={`w-4 h-4 mx-auto mb-1.5 ${colors[color] || "text-muted-foreground/70"}`} />
+      <p className="text-xl font-semibold text-foreground">{value}</p>
+      <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
     </div>
   );
 }
@@ -534,8 +534,8 @@ function MetricCard({ icon: Icon, label, value, color }: { icon: any; label: str
 function MiniStat({ label, value, highlight, hint }: { label: string; value: string; highlight?: boolean; hint?: string }) {
   return (
     <div className="text-center" title={hint}>
-      <p className={`text-lg font-semibold ${highlight ? "text-emerald-600" : "text-gray-900"}`}>{value}</p>
-      <p className="text-[10px] text-gray-500">{label}</p>
+      <p className={`text-lg font-semibold ${highlight ? "text-emerald-600" : "text-foreground"}`}>{value}</p>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -601,8 +601,8 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
           <Sparkles className="w-7 h-7 text-[#0d3cfc]" />
         </div>
-        <h1 className="text-lg font-semibold text-gray-900 mb-2">You're all set!</h1>
-        <p className="text-sm text-gray-500">We're starting your SEO work now. Check back soon to see progress.</p>
+        <h1 className="text-lg font-semibold text-foreground mb-2">You're all set!</h1>
+        <p className="text-sm text-muted-foreground">We're starting your SEO work now. Check back soon to see progress.</p>
       </div>
     );
   }
@@ -611,19 +611,19 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     <div className="max-w-md mx-auto py-8">
       <div className="text-center mb-6">
         <TrendingUp className="w-8 h-8 text-[#0d3cfc] mx-auto mb-3" />
-        <h1 className="text-lg font-semibold text-gray-900">Set Up RankFlow</h1>
-        <p className="text-sm text-gray-500 mt-1">Tell us about your business so we can start improving your local SEO.</p>
+        <h1 className="text-lg font-semibold text-foreground">Set Up RankFlow</h1>
+        <p className="text-sm text-muted-foreground mt-1">Tell us about your business so we can start improving your local SEO.</p>
       </div>
       <div className="flex items-center gap-2 mb-6">
         {[1, 2, 3].map(s => (
-          <div key={s} className={`flex-1 h-1.5 rounded-full transition-colors ${s <= step ? "bg-[#0d3cfc]" : "bg-gray-200"}`} />
+          <div key={s} className={`flex-1 h-1.5 rounded-full transition-colors ${s <= step ? "bg-[#0d3cfc]" : "bg-muted"}`} />
         ))}
       </div>
-      <p className="text-xs text-gray-400 text-center mb-4">Step {step} of 3</p>
+      <p className="text-xs text-muted-foreground/70 text-center mb-4">Step {step} of 3</p>
 
       {step === 1 && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+          <div className="bg-card rounded-xl border border-border p-5 space-y-4">
             <Field label="Business name" placeholder="e.g. Ace Plumbing" value={form.business_name} onChange={v => setForm({ ...form, business_name: v })} />
             <Field label="Website URL" placeholder="e.g. https://aceplumbing.ca" value={form.website_url} onChange={v => setForm({ ...form, website_url: v })} type="url" />
           </div>
@@ -633,10 +633,10 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
       {step === 2 && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+          <div className="bg-card rounded-xl border border-border p-5 space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">What type of trade?</label>
-              <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/30 bg-white" value={form.niche} onChange={e => setForm({ ...form, niche: e.target.value })}>
+              <label className="block text-xs font-medium text-foreground mb-1">What type of trade?</label>
+              <select className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/30 bg-card" value={form.niche} onChange={e => setForm({ ...form, niche: e.target.value })}>
                 <option value="">Select your trade...</option>
                 {TRADE_OPTIONS.map(t => <option key={t} value={t.toLowerCase()}>{t}</option>)}
               </select>
@@ -646,7 +646,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <Field label="Other areas you serve" placeholder="e.g. Burlington, Stoney Creek" value={form.additional_locations} onChange={v => setForm({ ...form, additional_locations: v })} optional hint="Separate with commas" />
           </div>
           <div className="flex gap-2">
-            <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors" onClick={() => setStep(1)}>Back</button>
+            <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-muted-foreground bg-muted hover:bg-muted transition-colors" onClick={() => setStep(1)}>Back</button>
             <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6] disabled:opacity-50 transition-colors" disabled={!canAdvance2} onClick={() => setStep(3)}>Continue</button>
           </div>
         </div>
@@ -654,8 +654,8 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
       {step === 3 && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Confirm your details</h2>
+          <div className="bg-card rounded-xl border border-border p-5">
+            <h2 className="text-sm font-semibold text-foreground mb-3">Confirm your details</h2>
             <dl className="space-y-2 text-sm">
               <ConfirmRow label="Business" value={form.business_name} />
               <ConfirmRow label="Website" value={form.website_url} />
@@ -670,7 +670,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           </div>
           {error && <p className="text-sm text-red-600 text-center">{error}</p>}
           <div className="flex gap-2">
-            <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors" onClick={() => setStep(2)}>Back</button>
+            <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-muted-foreground bg-muted hover:bg-muted transition-colors" onClick={() => setStep(2)}>Back</button>
             <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6] disabled:opacity-50 transition-colors" disabled={onboard.isPending} onClick={() => onboard.mutate()}>
               {onboard.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Start My SEO"}
             </button>
@@ -689,15 +689,15 @@ function Field({ label, placeholder, value, onChange, type, optional, hint }: {
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
-        {label} {optional && <span className="text-gray-400">(optional)</span>}
+      <label className="block text-xs font-medium text-foreground mb-1">
+        {label} {optional && <span className="text-muted-foreground/70">(optional)</span>}
       </label>
       <input
         type={type || "text"} placeholder={placeholder}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/30 focus:border-[#0d3cfc]"
+        className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/30 focus:border-[#0d3cfc]"
         value={value} onChange={e => onChange(e.target.value)}
       />
-      {hint && <p className="text-[10px] text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-[10px] text-muted-foreground/70 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -705,8 +705,8 @@ function Field({ label, placeholder, value, onChange, type, optional, hint }: {
 function ConfirmRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between">
-      <dt className="text-gray-500">{label}</dt>
-      <dd className="text-gray-900 font-medium capitalize text-right max-w-[200px] truncate">{value}</dd>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-foreground font-medium capitalize text-right max-w-[200px] truncate">{value}</dd>
     </div>
   );
 }

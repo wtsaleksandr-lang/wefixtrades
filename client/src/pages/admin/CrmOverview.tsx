@@ -55,7 +55,7 @@ const SEVERITY_STYLES: Record<string, { badge: string; dot: string }> = {
   critical: { badge: ALERT_SEVERITY.critical.color, dot: ALERT_SEVERITY.critical.bgColor },
   high:     { badge: "bg-orange-50 text-orange-700 border border-orange-200", dot: "bg-orange-500" },
   medium:   { badge: "bg-amber-50 text-amber-700 border border-amber-200", dot: "bg-amber-400" },
-  low:      { badge: "bg-gray-50 text-gray-600 border border-gray-200", dot: "bg-gray-400" },
+  low:      { badge: "bg-muted/50 text-muted-foreground border border-border", dot: "bg-gray-400" },
 };
 
 function SeverityBadge({ severity }: { severity: string }) {
@@ -85,15 +85,15 @@ function OpsIntelligenceWidget() {
 
   return (
     <Card className="p-0 overflow-hidden col-span-full">
-      <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-brand-blue flex items-center justify-center">
             <AlertTriangle className="w-3.5 h-3.5 text-white" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Daily Operations Summary</h3>
+            <h3 className="text-sm font-semibold text-foreground">Daily Operations Summary</h3>
             {generatedAt && (
-              <p className="text-[10px] text-gray-400">
+              <p className="text-[10px] text-muted-foreground/70">
                 Last run {generatedAt}
                 {snapshot?.signal_count != null && ` · ${snapshot.signal_count} signal${snapshot.signal_count !== 1 ? "s" : ""} detected`}
                 {snapshot?.detector_version && ` · ${snapshot.detector_version}`}
@@ -104,7 +104,7 @@ function OpsIntelligenceWidget() {
         <button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-40 transition-opacity"
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 transition-opacity"
           title="Refresh"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
@@ -128,7 +128,7 @@ function OpsIntelligenceWidget() {
           </div>
         ) : !snapshot ? (
           <div className="text-center py-6">
-            <p className="text-sm text-gray-500 mb-3">No daily summary yet. Run your first operations check.</p>
+            <p className="text-sm text-muted-foreground mb-3">No daily summary yet. Run your first operations check.</p>
             <TriggerOpsRunButton />
           </div>
         ) : !aiOutput ? (
@@ -144,23 +144,23 @@ function OpsIntelligenceWidget() {
         ) : (
           <div className="space-y-4">
             {/* Narrative summary */}
-            <p className="text-sm text-gray-700 leading-relaxed">{aiOutput.summary}</p>
+            <p className="text-sm text-foreground leading-relaxed">{aiOutput.summary}</p>
 
             {/* Priorities */}
             {aiOutput.priorities.length > 0 && (
               <div>
-                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                   Priorities ({aiOutput.priorities.length})
                 </p>
                 <div className="space-y-1.5">
                   {aiOutput.priorities.map((p, i) => (
-                    <div key={i} className="flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                    <div key={i} className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
                       <div className="pt-0.5">
                         <SeverityBadge severity={p.severity} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-gray-800">{p.title}</p>
-                        <p className="text-[11px] text-gray-500 mt-0.5">{p.reason}</p>
+                        <p className="text-xs font-medium text-foreground">{p.title}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{p.reason}</p>
                       </div>
                     </div>
                   ))}
@@ -172,10 +172,10 @@ function OpsIntelligenceWidget() {
             <div className="grid sm:grid-cols-2 gap-3">
               {aiOutput.risks.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Risks</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Risks</p>
                   <ul className="space-y-1">
                     {aiOutput.risks.map((r, i) => (
-                      <li key={i} className="flex items-start gap-1.5 text-[11px] text-gray-600">
+                      <li key={i} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
                         <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
                         {r}
                       </li>
@@ -185,10 +185,10 @@ function OpsIntelligenceWidget() {
               )}
               {aiOutput.recommendations.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Recommended Actions</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Recommended Actions</p>
                   <ul className="space-y-1">
                     {aiOutput.recommendations.map((rec, i) => (
-                      <li key={i} className="flex items-start gap-1.5 text-[11px] text-gray-600">
+                      <li key={i} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
                         <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
                         {rec}
                       </li>
@@ -199,8 +199,8 @@ function OpsIntelligenceWidget() {
             </div>
 
             {/* Footer meta */}
-            <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-              <p className="text-[10px] text-gray-400 italic">
+            <div className="flex items-center justify-between pt-1 border-t border-border">
+              <p className="text-[10px] text-muted-foreground/70 italic">
                 AI-generated summary — review before acting. Signals detected by deterministic rules.
               </p>
               <TriggerOpsRunButton small />
@@ -271,11 +271,11 @@ function StatCard({
   color: string;
 }) {
   const inner = (
-    <Card className={`h-full p-4 transition-all duration-150 ${href ? "cursor-pointer hover:border-gray-300 hover:shadow-md active:scale-[0.98]" : "cursor-default"}`}>
+    <Card className={`h-full p-4 transition-all duration-150 ${href ? "cursor-pointer hover:border-input hover:shadow-md active:scale-[0.98]" : "cursor-default"}`}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+          <p className="text-2xl font-semibold text-foreground mt-1">{value}</p>
         </div>
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${color}`}>
           <Icon className="w-4 h-4 text-white" />
@@ -334,13 +334,13 @@ function QaQueueWidget() {
 
   return (
     <Card className="h-full p-0 overflow-hidden">
-      <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-brand-blue-600 flex items-center justify-center">
             <ShieldCheck className="w-3.5 h-3.5 text-white" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">
+            <h3 className="text-sm font-semibold text-foreground">
               QA Queue
               {count > 0 && (
                 <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-brand-blue-100 text-brand-blue-700 text-[10px] font-bold">
@@ -348,7 +348,7 @@ function QaQueueWidget() {
                 </span>
               )}
             </h3>
-            <p className="text-[10px] text-gray-400">Tasks awaiting quality review before delivery</p>
+            <p className="text-[10px] text-muted-foreground/70">Tasks awaiting quality review before delivery</p>
           </div>
         </div>
       </div>
@@ -360,8 +360,8 @@ function QaQueueWidget() {
           </div>
         ) : count === 0 ? (
           <div className="text-center py-6">
-            <ShieldCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">No tasks awaiting QA review.</p>
+            <ShieldCheck className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No tasks awaiting QA review.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -374,22 +374,22 @@ function QaQueueWidget() {
                 : null;
 
               return (
-                <div key={t.id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                <div key={t.id} className="rounded-lg border border-border bg-muted/50 px-3 py-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <Link href={`/admin/crm/clients/${t.client_id}`}>
-                        <p className="text-sm font-medium text-gray-800 hover:text-brand-blue truncate cursor-pointer">{t.title}</p>
+                        <p className="text-sm font-medium text-foreground hover:text-brand-blue truncate cursor-pointer">{t.title}</p>
                       </Link>
-                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
                         <span>{t.client_name ?? "Unknown client"}</span>
                         {t.service_name && (
                           <>
-                            <span className="text-gray-300">|</span>
+                            <span className="text-muted-foreground/50">|</span>
                             <span>{t.service_name}</span>
                           </>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-400">
+                      <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground/70">
                         {submittedDate && <span>Submitted {submittedDate}</span>}
                         {dueLabel && (
                           <span className={`flex items-center gap-0.5 ${isOverdue ? "text-red-500 font-medium" : ""}`}>
@@ -477,36 +477,36 @@ function QuoteQuickProductCard() {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-900">Products</h3>
-        <p className="text-[11px] text-gray-400">Jump into product-scoped admin tools</p>
+        <h3 className="text-sm font-semibold text-foreground">Products</h3>
+        <p className="text-[11px] text-muted-foreground/70">Jump into product-scoped admin tools</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Link href="/admin/crm/quotequick" className="block">
-          <Card className="h-full p-4 transition-all duration-150 cursor-pointer hover:border-gray-300 hover:shadow-md active:scale-[0.98]">
+          <Card className="h-full p-4 transition-all duration-150 cursor-pointer hover:border-input hover:shadow-md active:scale-[0.98]">
             <div className="flex items-start gap-3">
               <div data-theme="dark" className="w-10 h-10 rounded-lg flex items-center justify-center bg-brand-blue shrink-0">
                 <Calculator className="w-5 h-5 text-white" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-gray-900">QuoteQuick</p>
+                  <p className="text-sm font-semibold text-foreground">QuoteQuick</p>
                   <span className="inline-flex items-center text-[11px] font-medium text-brand-blue shrink-0">
                     Manage calculators
                     <ArrowRight className="w-3 h-3 ml-0.5" />
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Embeddable quote calculators across all clients
                 </p>
                 <div className="mt-2 min-h-[20px]">
                   {isLoading ? (
                     <Skeleton className="h-3 w-48" />
                   ) : (
-                    <p className="text-xs text-gray-600">
-                      <span className="font-semibold text-gray-900">{activeCalculators}</span> active
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">{activeCalculators}</span> active
                       {activeCalculators === 1 ? " calculator" : " calculators"}
-                      <span className="text-gray-300 mx-1.5">·</span>
-                      <span className="font-semibold text-gray-900">{leadsThisMonth}</span>{" "}
+                      <span className="text-muted-foreground/50 mx-1.5">·</span>
+                      <span className="font-semibold text-foreground">{leadsThisMonth}</span>{" "}
                       lead{leadsThisMonth === 1 ? "" : "s"} this month
                     </p>
                   )}
@@ -545,8 +545,8 @@ export default function CrmOverview() {
     }}>
       <div className="space-y-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Operations Overview</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Your business at a glance</p>
+          <h2 className="text-lg font-semibold text-foreground">Operations Overview</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Your business at a glance</p>
         </div>
 
         {/* Stat cards */}
@@ -586,7 +586,7 @@ export default function CrmOverview() {
           {/* Recent Clients */}
           <Card className="h-full p-0 overflow-hidden">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <h3 className="text-sm font-semibold text-gray-900">Recent Clients</h3>
+              <h3 className="text-sm font-semibold text-foreground">Recent Clients</h3>
               <Link href="/admin/crm/clients">
                 <span className="text-xs text-brand-blue font-medium hover:underline">View all</span>
               </Link>
@@ -597,14 +597,14 @@ export default function CrmOverview() {
               </div>
             ) : !data?.recentClients?.length ? (
               <div className="px-4 pb-4">
-                <p className="text-sm text-gray-500">No clients yet. <a href="/admin/crm/clients" className="text-brand-blue hover:underline">Add your first client</a> to get started.</p>
+                <p className="text-sm text-muted-foreground">No clients yet. <a href="/admin/crm/clients" className="text-brand-blue hover:underline">Add your first client</a> to get started.</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
                 {data.recentClients.map((c) => (
                   <Link key={c.id} href={`/admin/crm/clients/${c.id}`}>
-                    <div className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 cursor-pointer min-h-[44px]">
-                      <span className="text-sm font-medium text-gray-800 truncate">{c.business_name}</span>
+                    <div className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 cursor-pointer min-h-[44px]">
+                      <span className="text-sm font-medium text-foreground truncate">{c.business_name}</span>
                       <StatusBadge status={c.status} />
                     </div>
                   </Link>
@@ -616,7 +616,7 @@ export default function CrmOverview() {
           {/* Recent Tasks */}
           <Card className="h-full p-0 overflow-hidden">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <h3 className="text-sm font-semibold text-gray-900">Open Tasks</h3>
+              <h3 className="text-sm font-semibold text-foreground">Open Tasks</h3>
               <Link href="/admin/crm/inbox">
                 <span className="text-xs text-brand-blue font-medium hover:underline">View inbox</span>
               </Link>
@@ -627,16 +627,16 @@ export default function CrmOverview() {
               </div>
             ) : !data?.recentTasks?.length ? (
               <div className="px-4 pb-4">
-                <p className="text-sm text-gray-500">No open tasks.</p>
+                <p className="text-sm text-muted-foreground">No open tasks.</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
                 {data.recentTasks.map((t) => (
                   <Link key={t.id} href={`/admin/crm/clients/${t.client_id}`}>
-                    <div className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 cursor-pointer min-h-[44px] gap-2">
+                    <div className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 cursor-pointer min-h-[44px] gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-800 truncate">{t.title}</p>
-                        <p className="text-xs text-gray-400 truncate">{t.client_name}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
+                        <p className="text-xs text-muted-foreground/70 truncate">{t.client_name}</p>
                       </div>
                       <StatusBadge status={t.status} />
                     </div>

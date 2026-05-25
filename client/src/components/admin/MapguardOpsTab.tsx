@@ -113,7 +113,7 @@ const MG_STATUSES = [
 
 /* ─── Operational State Banner ─── */
 function getOperationalState(summary: TaskSummary) {
-  if (summary.total === 0) return { label: "No tasks", color: "bg-gray-50 text-gray-600 border-gray-200", icon: MapPin };
+  if (summary.total === 0) return { label: "No tasks", color: "bg-muted/50 text-muted-foreground border-border", icon: MapPin };
   if (summary.blocked > 0) return { label: "Blocked — needs attention", color: "bg-red-50 text-red-700 border-red-200", icon: AlertTriangle };
   if (summary.overdue > 0) return { label: `${summary.overdue} overdue`, color: "bg-red-50 text-red-700 border-red-200", icon: Clock };
   if (summary.needs_review > 0) return { label: "Review needed", color: "bg-brand-blue-50 text-brand-blue-700 border-brand-blue-200", icon: Eye };
@@ -250,22 +250,22 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
                   s.value > 0 && s.key === "blocked" ? "bg-red-50" :
                   s.value > 0 && s.key === "needs_review" ? "bg-brand-blue-50" :
                   s.value > 0 && s.key === "waiting_supplier" ? "bg-amber-50" :
-                  "bg-gray-50"
+                  "bg-muted/50"
                 }`}
               >
-                <p className="text-lg font-semibold text-gray-900">{s.value}</p>
-                <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">{s.label}</p>
+                <p className="text-lg font-semibold text-foreground">{s.value}</p>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{s.label}</p>
               </div>
             ))}
           </div>
 
           {/* Execution usage */}
           {summary.execution && (
-            <div className={`mt-3 px-3 py-2.5 rounded-lg border ${summary.execution.at_limit ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"}`}>
+            <div className={`mt-3 px-3 py-2.5 rounded-lg border ${summary.execution.at_limit ? "bg-amber-50 border-amber-200" : "bg-muted/50 border-border"}`}>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-gray-700">
+                <span className="text-xs font-medium text-foreground">
                   Execution: {summary.execution.used}/{summary.execution.limit} actions
-                  <span className="text-gray-400 ml-1">({summary.execution.plan_label} plan)</span>
+                  <span className="text-muted-foreground/70 ml-1">({summary.execution.plan_label} plan)</span>
                 </span>
                 {summary.execution.upgrade_recommended ? (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">UPGRADE RECOMMENDED</span>
@@ -273,14 +273,14 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">LIMIT REACHED</span>
                 ) : null}
               </div>
-              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${summary.execution.at_limit ? "bg-amber-500" : "bg-brand-blue"}`}
                   style={{ width: `${Math.min(100, (summary.execution.used / summary.execution.limit) * 100)}%` }}
                 />
               </div>
               {summary.execution.backlog_count > 0 && (
-                <p className="text-[11px] text-gray-500 mt-1.5">{summary.execution.backlog_count} improvement{summary.execution.backlog_count !== 1 ? "s" : ""} waiting (blocked by plan limit)</p>
+                <p className="text-[11px] text-muted-foreground mt-1.5">{summary.execution.backlog_count} improvement{summary.execution.backlog_count !== 1 ? "s" : ""} waiting (blocked by plan limit)</p>
               )}
               {summary.execution.upgrade_recommended && (
                 <p className="text-[11px] text-amber-600 mt-1">This client has more issues to fix than their current plan allows. Consider upgrading.</p>
@@ -290,9 +290,9 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
 
           {/* Cost & margin summary */}
           {costData && (costData.total_cost_cents > 0 || costData.revenue_cents > 0) && (
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600">
-              {costData.revenue_cents > 0 && <span>Revenue: <span className="font-semibold text-gray-900">${(costData.revenue_cents / 100).toFixed(0)}/mo</span></span>}
-              <span>Cost: <span className="font-semibold text-gray-900">${(costData.total_cost_cents / 100).toFixed(2)}</span></span>
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground">
+              {costData.revenue_cents > 0 && <span>Revenue: <span className="font-semibold text-foreground">${(costData.revenue_cents / 100).toFixed(0)}/mo</span></span>}
+              <span>Cost: <span className="font-semibold text-foreground">${(costData.total_cost_cents / 100).toFixed(2)}</span></span>
               {costData.revenue_cents > 0 && (
                 <span>Margin: <span className={`font-semibold ${costData.margin_pct >= 50 ? "text-emerald-600" : costData.margin_pct >= 20 ? "text-amber-600" : "text-red-600"}`}>${(costData.margin_cents / 100).toFixed(2)} ({costData.margin_pct}%)</span></span>
               )}
@@ -308,7 +308,7 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
             </div>
           )}
           {summary.last_client_activity && summary.days_since_activity !== null && summary.days_since_activity <= 7 && (
-            <div className="mt-3 px-3 py-1.5 text-[11px] text-gray-400">
+            <div className="mt-3 px-3 py-1.5 text-[11px] text-muted-foreground/70">
               Last activity shown to client: {new Date(summary.last_client_activity).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ({summary.days_since_activity}d ago)
             </div>
           )}
@@ -320,7 +320,7 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
               <div className="min-w-0">
                 <p className="text-xs font-medium text-brand-blue">Next: {summary.next_recommended.title}</p>
                 {summary.next_recommended.next_step_hint && (
-                  <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">{summary.next_recommended.next_step_hint}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{summary.next_recommended.next_step_hint}</p>
                 )}
               </div>
             </div>
@@ -344,7 +344,7 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted-foreground/70">
             {filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""}
           </span>
         </div>
@@ -384,8 +384,8 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
         <div className="space-y-4">
           {sections.filter((s) => s.show).map((section) => (
             <div key={section.label}>
-              <p className="text-xs font-medium text-gray-400 mb-1.5 px-0.5">
-                {section.label} <span className="text-gray-300">({section.items.length})</span>
+              <p className="text-xs font-medium text-muted-foreground/70 mb-1.5 px-0.5">
+                {section.label} <span className="text-muted-foreground/50">({section.items.length})</span>
               </p>
               <div className="space-y-1.5">
                 {section.items.map((task) => (
@@ -475,7 +475,7 @@ function CreateTaskDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600">Task Type *</label>
+            <label className="text-xs font-medium text-muted-foreground">Task Type *</label>
             <Select value={form.task_type} onValueChange={(v) => setForm({ ...form, task_type: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -486,7 +486,7 @@ function CreateTaskDialog({
             </Select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Title *</label>
+            <label className="text-xs font-medium text-muted-foreground">Title *</label>
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -494,7 +494,7 @@ function CreateTaskDialog({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Description</label>
+            <label className="text-xs font-medium text-muted-foreground">Description</label>
             <Textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -504,7 +504,7 @@ function CreateTaskDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Priority</label>
+              <label className="text-xs font-medium text-muted-foreground">Priority</label>
               <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -517,7 +517,7 @@ function CreateTaskDialog({
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Next Step Hint</label>
+            <label className="text-xs font-medium text-muted-foreground">Next Step Hint</label>
             <Input
               value={form.next_step_hint}
               onChange={(e) => setForm({ ...form, next_step_hint: e.target.value })}
@@ -580,11 +580,11 @@ function GenerateFromAuditDialog({
           <DialogTitle>Generate Tasks from Audit</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Paste an audit report ID to automatically generate MapGuard tasks from the detected issues.
           </p>
           <div>
-            <label className="text-xs font-medium text-gray-600">Audit Report ID *</label>
+            <label className="text-xs font-medium text-muted-foreground">Audit Report ID *</label>
             <Input
               value={auditId}
               onChange={(e) => setAuditId(e.target.value.trim())}
@@ -736,21 +736,21 @@ function TaskDetailDialog({
         <div className="space-y-4">
           {/* Status + meta row */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${MG_STATUS_COLORS[t.status] || "bg-gray-100 text-gray-600"}`}>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${MG_STATUS_COLORS[t.status] || "bg-muted text-muted-foreground"}`}>
               {t.status.replace(/_/g, " ")}
             </span>
-            <span className="text-xs text-gray-400 capitalize">{t.task_type.replace(/_/g, " ")}</span>
-            <span className="text-xs text-gray-400">Priority: <span className="capitalize font-medium">{t.priority}</span></span>
+            <span className="text-xs text-muted-foreground/70 capitalize">{t.task_type.replace(/_/g, " ")}</span>
+            <span className="text-xs text-muted-foreground/70">Priority: <span className="capitalize font-medium">{t.priority}</span></span>
             {t.source_type && (
-              <span className="text-xs text-gray-400">Source: <span className="capitalize">{t.source_type}</span></span>
+              <span className="text-xs text-muted-foreground/70">Source: <span className="capitalize">{t.source_type}</span></span>
             )}
           </div>
 
           {/* Description */}
           {t.description && (
             <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">Description</p>
-              <p className="text-sm text-gray-700">{t.description}</p>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+              <p className="text-sm text-foreground">{t.description}</p>
             </div>
           )}
 
@@ -760,7 +760,7 @@ function TaskDetailDialog({
               <ArrowRight className="w-3.5 h-3.5 text-brand-blue mt-0.5 shrink-0" />
               <div>
                 <p className="text-xs font-medium text-brand-blue">Next Step</p>
-                <p className="text-xs text-gray-600 mt-0.5">{t.next_step_hint}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.next_step_hint}</p>
               </div>
             </div>
           )}
@@ -780,7 +780,7 @@ function TaskDetailDialog({
                 <p className="text-[11px] text-amber-600 ml-5">Cost: ${(t.cost_cents / 100).toFixed(2)}</p>
               )}
               {handoffNotes && (
-                <p className="text-[11px] text-gray-600 mt-1 ml-5 italic">"{handoffNotes}"</p>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-5 italic">"{handoffNotes}"</p>
               )}
             </div>
           )}
@@ -788,16 +788,16 @@ function TaskDetailDialog({
           {/* Expected output */}
           {t.expected_output && (
             <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">Expected Output</p>
-              <pre className="text-xs text-gray-600 bg-gray-50 rounded p-2 overflow-x-auto">{JSON.stringify(t.expected_output, null, 2)}</pre>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Expected Output</p>
+              <pre className="text-xs text-muted-foreground bg-muted/50 rounded p-2 overflow-x-auto">{JSON.stringify(t.expected_output, null, 2)}</pre>
             </div>
           )}
 
           {/* Validation rules */}
           {t.validation_rules && (
             <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">Validation Rules</p>
-              <pre className="text-xs text-gray-600 bg-gray-50 rounded p-2 overflow-x-auto">{JSON.stringify(t.validation_rules, null, 2)}</pre>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Validation Rules</p>
+              <pre className="text-xs text-muted-foreground bg-muted/50 rounded p-2 overflow-x-auto">{JSON.stringify(t.validation_rules, null, 2)}</pre>
             </div>
           )}
 
@@ -806,13 +806,13 @@ function TaskDetailDialog({
             <div>
               <button
                 onClick={() => setShowInputData(!showInputData)}
-                className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+                className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
               >
                 {showInputData ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 Input Data ({Object.keys(t.input_data).length} fields)
               </button>
               {showInputData && (
-                <pre className="text-xs text-gray-600 bg-gray-50 rounded p-2 mt-1 overflow-x-auto max-h-48">{JSON.stringify(t.input_data, null, 2)}</pre>
+                <pre className="text-xs text-muted-foreground bg-muted/50 rounded p-2 mt-1 overflow-x-auto max-h-48">{JSON.stringify(t.input_data, null, 2)}</pre>
               )}
             </div>
           )}
@@ -824,7 +824,7 @@ function TaskDetailDialog({
                 <FileCheck className="w-3.5 h-3.5" /> Result
               </p>
               {(t.result_data as any).summary && (
-                <p className="text-sm text-gray-700">{(t.result_data as any).summary}</p>
+                <p className="text-sm text-foreground">{(t.result_data as any).summary}</p>
               )}
               {(t.result_data as any).deliverable_url && (
                 <p className="text-xs text-emerald-700 mt-1">
@@ -832,13 +832,13 @@ function TaskDetailDialog({
                 </p>
               )}
               {(t.result_data as any).deliverable_text && (
-                <div className="mt-1 p-2 bg-white rounded text-xs text-gray-600 whitespace-pre-wrap">{(t.result_data as any).deliverable_text}</div>
+                <div className="mt-1 p-2 bg-card rounded text-xs text-muted-foreground whitespace-pre-wrap">{(t.result_data as any).deliverable_text}</div>
               )}
               {(t.result_data as any).notes && (
-                <p className="text-[11px] text-gray-500 mt-1 italic">{(t.result_data as any).notes}</p>
+                <p className="text-[11px] text-muted-foreground mt-1 italic">{(t.result_data as any).notes}</p>
               )}
               {(t.result_data as any).submitted_by && (
-                <p className="text-[11px] text-gray-400 mt-1">
+                <p className="text-[11px] text-muted-foreground/70 mt-1">
                   Submitted by {(t.result_data as any).submitted_by} on {new Date((t.result_data as any).submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </p>
               )}
@@ -850,9 +850,9 @@ function TaskDetailDialog({
             <div className="px-3 py-2 rounded-lg bg-red-50/50 border border-red-200/50">
               <p className="text-xs font-medium text-red-700 mb-1">Rejection History ({rejections.length})</p>
               {rejections.map((r: any, i: number) => (
-                <div key={i} className="text-[11px] text-gray-600 mt-1">
+                <div key={i} className="text-[11px] text-muted-foreground mt-1">
                   <span className="text-red-600 font-medium">#{i + 1}</span> {r.reason}
-                  <span className="text-gray-400 ml-1">— {r.rejected_by}, {new Date(r.rejected_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  <span className="text-muted-foreground/70 ml-1">— {r.rejected_by}, {new Date(r.rejected_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                 </div>
               ))}
             </div>
@@ -860,7 +860,7 @@ function TaskDetailDialog({
 
           {/* ─── Action Buttons Row ─── */}
           {!isTerminal && (
-            <div className="border-t border-gray-100 pt-3 space-y-3">
+            <div className="border-t border-border pt-3 space-y-3">
               {/* Quick action buttons */}
               <div className="flex flex-wrap gap-1.5">
                 {canAssign && (
@@ -912,11 +912,11 @@ function TaskDetailDialog({
 
               {/* ─── Assignment Form (collapsible) ─── */}
               {showAssign && (
-                <div className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2">
-                  <p className="text-xs font-medium text-gray-700">Assign to Supplier</p>
+                <div className="p-3 rounded-lg border border-border bg-muted/50/50 space-y-2">
+                  <p className="text-xs font-medium text-foreground">Assign to Supplier</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[11px] font-medium text-gray-500">Type *</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">Type *</label>
                       <Select value={assignForm.supplier_type} onValueChange={(v) => setAssignForm({ ...assignForm, supplier_type: v })}>
                         <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -927,22 +927,22 @@ function TaskDetailDialog({
                       </Select>
                     </div>
                     <div>
-                      <label className="text-[11px] font-medium text-gray-500">Name *</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">Name *</label>
                       <Input className="h-7 text-xs" value={assignForm.assigned_to} onChange={(e) => setAssignForm({ ...assignForm, assigned_to: e.target.value })} placeholder="e.g. john_gbp_pro" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[11px] font-medium text-gray-500">Reference</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">Reference</label>
                       <Input className="h-7 text-xs" value={assignForm.supplier_ref} onChange={(e) => setAssignForm({ ...assignForm, supplier_ref: e.target.value })} placeholder="Gig URL or ticket #" />
                     </div>
                     <div>
-                      <label className="text-[11px] font-medium text-gray-500">Cost ($)</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">Cost ($)</label>
                       <Input className="h-7 text-xs" type="number" step="0.01" value={assignForm.cost} onChange={(e) => setAssignForm({ ...assignForm, cost: e.target.value })} placeholder="0.00" />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-gray-500">Handoff Instructions</label>
+                    <label className="text-[11px] font-medium text-muted-foreground">Handoff Instructions</label>
                     <Textarea className="text-xs" rows={2} value={assignForm.handoff_notes} onChange={(e) => setAssignForm({ ...assignForm, handoff_notes: e.target.value })} placeholder="What should the supplier deliver..." />
                   </div>
                   <Button
@@ -958,15 +958,15 @@ function TaskDetailDialog({
 
               {/* ─── Result Submission Form (collapsible) ─── */}
               {showResult && (
-                <div className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2">
-                  <p className="text-xs font-medium text-gray-700">Submit Deliverable</p>
+                <div className="p-3 rounded-lg border border-border bg-muted/50/50 space-y-2">
+                  <p className="text-xs font-medium text-foreground">Submit Deliverable</p>
                   <div>
-                    <label className="text-[11px] font-medium text-gray-500">Summary *</label>
+                    <label className="text-[11px] font-medium text-muted-foreground">Summary *</label>
                     <Input className="h-7 text-xs" value={resultForm.summary} onChange={(e) => setResultForm({ ...resultForm, summary: e.target.value })} placeholder="Brief description of what was delivered" />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[11px] font-medium text-gray-500">Deliverable Type</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">Deliverable Type</label>
                       <Select value={resultForm.deliverable_type} onValueChange={(v) => setResultForm({ ...resultForm, deliverable_type: v })}>
                         <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -978,16 +978,16 @@ function TaskDetailDialog({
                       </Select>
                     </div>
                     <div>
-                      <label className="text-[11px] font-medium text-gray-500">Link / URL</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">Link / URL</label>
                       <Input className="h-7 text-xs" value={resultForm.deliverable_url} onChange={(e) => setResultForm({ ...resultForm, deliverable_url: e.target.value })} placeholder="https://..." />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-gray-500">Deliverable Text</label>
+                    <label className="text-[11px] font-medium text-muted-foreground">Deliverable Text</label>
                     <Textarea className="text-xs" rows={3} value={resultForm.deliverable_text} onChange={(e) => setResultForm({ ...resultForm, deliverable_text: e.target.value })} placeholder="Paste the deliverable content here..." />
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-gray-500">Notes</label>
+                    <label className="text-[11px] font-medium text-muted-foreground">Notes</label>
                     <Input className="h-7 text-xs" value={resultForm.notes} onChange={(e) => setResultForm({ ...resultForm, notes: e.target.value })} placeholder="Additional context..." />
                   </div>
                   <Button
@@ -1006,11 +1006,11 @@ function TaskDetailDialog({
                 <div className="p-3 rounded-lg border border-red-200 bg-red-50/30 space-y-2">
                   <p className="text-xs font-medium text-red-700">Reject Result</p>
                   <div>
-                    <label className="text-[11px] font-medium text-gray-500">Reason *</label>
+                    <label className="text-[11px] font-medium text-muted-foreground">Reason *</label>
                     <Textarea className="text-xs" rows={2} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="What's wrong with the deliverable..." />
                   </div>
-                  <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-                    <input type="checkbox" checked={rejectToSupplier} onChange={(e) => setRejectToSupplier(e.target.checked)} className="rounded border-gray-300" />
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <input type="checkbox" checked={rejectToSupplier} onChange={(e) => setRejectToSupplier(e.target.checked)} className="rounded border-input" />
                     Send back to supplier for revision
                   </label>
                   <Button
@@ -1057,8 +1057,8 @@ function TaskDetailDialog({
 
           {/* ─── Activity Log ─── */}
           {activity.length > 0 && (
-            <div className="border-t border-gray-100 pt-3">
-              <p className="text-xs font-medium text-gray-500 mb-2">Activity</p>
+            <div className="border-t border-border pt-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Activity</p>
               <div className="space-y-2">
                 {activity.map((a) => (
                   <div key={a.id} className="flex items-start gap-2 text-xs">
@@ -1070,8 +1070,8 @@ function TaskDetailDialog({
                       "bg-gray-300"
                     }`} />
                     <div className="min-w-0 flex-1">
-                      <span className="text-gray-600">{a.summary || a.action}</span>
-                      <span className="text-gray-400 ml-2">
+                      <span className="text-muted-foreground">{a.summary || a.action}</span>
+                      <span className="text-muted-foreground/70 ml-2">
                         {new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         {a.actor_name && ` · ${a.actor_name}`}
                       </span>
@@ -1115,28 +1115,28 @@ function SupplierFeedback({ task, clientId }: { task: MapguardTaskItem; clientId
   if (submitted || existingRating) {
     const r = existingRating || rating;
     return (
-      <div className="border-t border-gray-100 pt-3">
-        <p className="text-xs font-medium text-gray-500 mb-1">Supplier Rating</p>
+      <div className="border-t border-border pt-3">
+        <p className="text-xs font-medium text-muted-foreground mb-1">Supplier Rating</p>
         <div className="flex items-center gap-1">
           {[1, 2, 3, 4, 5].map(s => (
             <Star key={s} className={`w-4 h-4 ${s <= r ? "text-amber-400 fill-amber-400" : "text-gray-200"}`} />
           ))}
-          <span className="text-xs text-gray-400 ml-1">{task.assigned_to}</span>
+          <span className="text-xs text-muted-foreground/70 ml-1">{task.assigned_to}</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="border-t border-gray-100 pt-3">
-      <p className="text-xs font-medium text-gray-500 mb-2">Rate supplier quality</p>
+    <div className="border-t border-border pt-3">
+      <p className="text-xs font-medium text-muted-foreground mb-2">Rate supplier quality</p>
       <div className="flex items-center gap-1 mb-2">
         {[1, 2, 3, 4, 5].map(s => (
           <button key={s} type="button" onClick={() => setRating(s)} className="p-0.5">
-            <Star className={`w-5 h-5 transition-colors ${s <= rating ? "text-amber-400 fill-amber-400" : "text-gray-300 hover:text-amber-300"}`} />
+            <Star className={`w-5 h-5 transition-colors ${s <= rating ? "text-amber-400 fill-amber-400" : "text-muted-foreground/50 hover:text-amber-300"}`} />
           </button>
         ))}
-        {rating > 0 && <span className="text-xs text-gray-400 ml-1">{rating}/5</span>}
+        {rating > 0 && <span className="text-xs text-muted-foreground/70 ml-1">{rating}/5</span>}
       </div>
       <div className="flex items-center gap-2">
         <Input className="h-7 text-xs flex-1" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note..." />

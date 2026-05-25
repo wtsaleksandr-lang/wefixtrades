@@ -51,7 +51,7 @@ import {
 /* IDs come from shared/pricing/apiTiers.ts: free, starter, growth, scale. */
 
 const TIER_BADGE: Record<string, { label: string; bg: string; text: string }> = {
-  free:    { label: "Dev",      bg: "bg-gray-100",   text: "text-gray-600" },
+  free:    { label: "Dev",      bg: "bg-muted",   text: "text-muted-foreground" },
   starter: { label: "Starter",  bg: "bg-blue-50",    text: "text-blue-700" },
   growth:  { label: "Growth",   bg: "bg-brand-blue-50",  text: "text-brand-blue-700" },
   pro:     { label: "Pro",      bg: "bg-brand-blue-50",  text: "text-brand-blue-700" },
@@ -65,14 +65,14 @@ const SUB_STATUS_BADGE: Record<string, { label: string; bg: string; text: string
   trialing:  { label: "Trialing",  bg: "bg-blue-50",    text: "text-blue-700" },
   past_due:  { label: "Past due",  bg: "bg-amber-50",   text: "text-amber-700" },
   paused:    { label: "Paused",    bg: "bg-amber-50",   text: "text-amber-700" },
-  cancelled: { label: "Cancelled", bg: "bg-gray-100",   text: "text-gray-500" },
-  canceled:  { label: "Cancelled", bg: "bg-gray-100",   text: "text-gray-500" },
+  cancelled: { label: "Cancelled", bg: "bg-muted",   text: "text-muted-foreground" },
+  canceled:  { label: "Cancelled", bg: "bg-muted",   text: "text-muted-foreground" },
 };
 
 const KEY_STATUS_BADGE: Record<string, { label: string; bg: string; text: string }> = {
   active:   { label: "Active",   bg: "bg-emerald-50", text: "text-emerald-700" },
   disabled: { label: "Disabled", bg: "bg-amber-50",   text: "text-amber-700" },
-  revoked:  { label: "Revoked",  bg: "bg-gray-100",   text: "text-gray-500" },
+  revoked:  { label: "Revoked",  bg: "bg-muted",   text: "text-muted-foreground" },
 };
 
 function Badge({ config }: { config: { label: string; bg: string; text: string } }) {
@@ -84,13 +84,13 @@ function Badge({ config }: { config: { label: string; bg: string; text: string }
 }
 
 function tierBadge(id: string) {
-  return TIER_BADGE[id] ?? { label: id, bg: "bg-gray-100", text: "text-gray-600" };
+  return TIER_BADGE[id] ?? { label: id, bg: "bg-muted", text: "text-muted-foreground" };
 }
 function subStatusBadge(s: string) {
-  return SUB_STATUS_BADGE[s] ?? { label: s, bg: "bg-gray-100", text: "text-gray-500" };
+  return SUB_STATUS_BADGE[s] ?? { label: s, bg: "bg-muted", text: "text-muted-foreground" };
 }
 function keyStatusBadge(s: string) {
-  return KEY_STATUS_BADGE[s] ?? { label: s, bg: "bg-gray-100", text: "text-gray-500" };
+  return KEY_STATUS_BADGE[s] ?? { label: s, bg: "bg-muted", text: "text-muted-foreground" };
 }
 
 /* ─── Types — must mirror server/routes/adminApiPlatformRoutes.ts ─────── */
@@ -170,8 +170,8 @@ function TierMixBar({ counts, catalog }: { counts: Record<string, number>; catal
         {rows.map((r, i) => (
           <div key={r.id} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: SEG[i % SEG.length] }} />
-            <span className="text-xs text-gray-500">{r.label}</span>
-            <span className="text-xs font-mono font-semibold text-gray-900">{r.count}</span>
+            <span className="text-xs text-muted-foreground">{r.label}</span>
+            <span className="text-xs font-mono font-semibold text-foreground">{r.count}</span>
           </div>
         ))}
       </div>
@@ -185,7 +185,7 @@ function TierMixBar({ counts, catalog }: { counts: Record<string, number>; catal
 function MrrBars({ series }: { series: { month: string; mrr: number }[] }) {
   if (series.length === 0) {
     return (
-      <div className="h-24 flex items-center justify-center text-xs text-gray-400">
+      <div className="h-24 flex items-center justify-center text-xs text-muted-foreground/70">
         No historical data yet.
       </div>
     );
@@ -204,7 +204,7 @@ function MrrBars({ series }: { series: { month: string; mrr: number }[] }) {
             }}
             title={`${s.month}: $${s.mrr.toLocaleString()}`}
           />
-          <span className="text-[10px] text-gray-400 font-mono">{s.month.slice(5)}</span>
+          <span className="text-[10px] text-muted-foreground/70 font-mono">{s.month.slice(5)}</span>
         </div>
       ))}
     </div>
@@ -385,8 +385,8 @@ export default function ApiPlatformPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">API Platform</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">API Platform</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Manage API customers, keys, and revenue across all tiers.
           </p>
         </div>
@@ -399,10 +399,10 @@ export default function ApiPlatformPage() {
                 <UsersIcon className="w-4 h-4 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold font-mono text-gray-900">
+                <p className="text-2xl font-bold font-mono text-foreground">
                   {metricsQuery.isLoading ? <Skeleton className="h-6 w-12" /> : activeCustomerCount.toLocaleString()}
                 </p>
-                <p className="text-xs text-gray-500">API customers</p>
+                <p className="text-xs text-muted-foreground">API customers</p>
               </div>
             </div>
           </Card>
@@ -412,10 +412,10 @@ export default function ApiPlatformPage() {
                 <Activity className="w-4 h-4 text-brand-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold font-mono text-gray-900">
+                <p className="text-2xl font-bold font-mono text-foreground">
                   {metricsQuery.isLoading ? <Skeleton className="h-6 w-16" /> : (metrics?.calls_today ?? 0).toLocaleString()}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Calls today / {(metrics?.calls_this_month ?? 0).toLocaleString()} MTD
                 </p>
               </div>
@@ -427,10 +427,10 @@ export default function ApiPlatformPage() {
                 <DollarSign className="w-4 h-4 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold font-mono text-gray-900">
+                <p className="text-2xl font-bold font-mono text-foreground">
                   {metricsQuery.isLoading ? <Skeleton className="h-6 w-16" /> : `$${computedMrr.toLocaleString()}`}
                 </p>
-                <p className="text-xs text-gray-500">MRR</p>
+                <p className="text-xs text-muted-foreground">MRR</p>
               </div>
             </div>
           </Card>
@@ -440,11 +440,11 @@ export default function ApiPlatformPage() {
                 <KeyRound className="w-4 h-4 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold font-mono text-gray-900">
+                <p className="text-2xl font-bold font-mono text-foreground">
                   {metricsQuery.isLoading ? <Skeleton className="h-6 w-20" /> :
                     topTier ? topTier.name : "--"}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Top tier {topTier ? `(${topTier.count} customers)` : ""}
                 </p>
               </div>
@@ -464,7 +464,7 @@ export default function ApiPlatformPage() {
           <TabsContent value="users" className="mt-4 space-y-4">
             <div className="flex flex-col md:flex-row gap-3 md:items-center">
               <div className="relative max-w-sm flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70" />
                 <Input
                   placeholder="Search by name or email..."
                   value={userSearch}
@@ -500,24 +500,24 @@ export default function ApiPlatformPage() {
                   {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
                 </div>
               ) : users.length === 0 ? (
-                <div className="p-12 text-center text-sm text-gray-500">
-                  <Plug className="w-8 h-8 mx-auto mb-3 text-gray-300" />
-                  <p className="font-medium text-gray-700 mb-1">No API customers yet</p>
+                <div className="p-12 text-center text-sm text-muted-foreground">
+                  <Plug className="w-8 h-8 mx-auto mb-3 text-muted-foreground/50" />
+                  <p className="font-medium text-foreground mb-1">No API customers yet</p>
                   <p className="max-w-md mx-auto">
                     API customers are developers who've subscribed to the public API platform.
-                    They consume <span className="font-mono text-gray-700">api.wefixtrades.com</span> endpoints under
+                    They consume <span className="font-mono text-foreground">api.wefixtrades.com</span> endpoints under
                     a monthly call quota. Customer signups will appear here automatically.
                   </p>
                 </div>
               ) : filteredUsers.length === 0 ? (
-                <div className="p-12 text-center text-sm text-gray-500">
+                <div className="p-12 text-center text-sm text-muted-foreground">
                   No customers match your filters.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b bg-gray-50/50 text-xs font-medium uppercase tracking-wider text-gray-500">
+                      <tr className="border-b bg-muted/50/50 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                         <th className="text-left px-4 py-3">User</th>
                         <th className="text-left px-4 py-3">Tier</th>
                         <th className="text-left px-4 py-3">Status</th>
@@ -533,7 +533,7 @@ export default function ApiPlatformPage() {
                         const st = subStatusBadge(u.status);
                         const mrr = u.status === "active" ? (tierPriceById.get(u.tier) ?? 0) : 0;
                         return (
-                          <tr key={u.user_id} className="hover:bg-gray-50/50 transition-colors">
+                          <tr key={u.user_id} className="hover:bg-muted/50/50 transition-colors">
                             <td className="px-4 py-3">
                               <Link
                                 href={`/admin/api-platform/users/${u.user_id}`}
@@ -542,26 +542,26 @@ export default function ApiPlatformPage() {
                                 {u.name ?? u.email ?? `User #${u.user_id}`}
                               </Link>
                               {u.email && (
-                                <div className="text-xs text-gray-400">{u.email}</div>
+                                <div className="text-xs text-muted-foreground/70">{u.email}</div>
                               )}
                             </td>
                             <td className="px-4 py-3"><Badge config={tier} /></td>
                             <td className="px-4 py-3"><Badge config={st} /></td>
-                            <td className="px-4 py-3 text-right tabular-nums text-gray-700">{u.key_count}</td>
-                            <td className="px-4 py-3 text-right tabular-nums text-gray-700">
+                            <td className="px-4 py-3 text-right tabular-nums text-foreground">{u.key_count}</td>
+                            <td className="px-4 py-3 text-right tabular-nums text-foreground">
                               {u.monthly_calls_used.toLocaleString()}
-                              <span className="text-gray-400">
+                              <span className="text-muted-foreground/70">
                                 {" "}/ {u.monthly_call_quota.toLocaleString()}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-gray-500 text-xs">
+                            <td className="px-4 py-3 text-muted-foreground text-xs">
                               {u.last_activity_at
                                 ? new Date(u.last_activity_at).toLocaleDateString("en-US", {
                                     month: "short", day: "numeric", year: "numeric",
                                   })
                                 : "--"}
                             </td>
-                            <td className="px-4 py-3 text-right font-mono text-gray-700">
+                            <td className="px-4 py-3 text-right font-mono text-foreground">
                               ${mrr.toLocaleString()}
                             </td>
                           </tr>
@@ -595,7 +595,7 @@ export default function ApiPlatformPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500 md:ml-auto">
+              <p className="text-xs text-muted-foreground md:ml-auto">
                 Audit-logged via <code className="font-mono">admin_activity_log</code>.
               </p>
             </div>
@@ -606,20 +606,20 @@ export default function ApiPlatformPage() {
                   {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
                 </div>
               ) : keys.length === 0 ? (
-                <div className="p-12 text-center text-sm text-gray-500">
-                  <KeyRound className="w-8 h-8 mx-auto mb-3 text-gray-300" />
-                  <p className="font-medium text-gray-700 mb-1">No API keys issued</p>
+                <div className="p-12 text-center text-sm text-muted-foreground">
+                  <KeyRound className="w-8 h-8 mx-auto mb-3 text-muted-foreground/50" />
+                  <p className="font-medium text-foreground mb-1">No API keys issued</p>
                   <p>Customers haven't generated any keys yet.</p>
                 </div>
               ) : filteredKeys.length === 0 ? (
-                <div className="p-12 text-center text-sm text-gray-500">
+                <div className="p-12 text-center text-sm text-muted-foreground">
                   No keys match your filters.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b bg-gray-50/50 text-xs font-medium uppercase tracking-wider text-gray-500">
+                      <tr className="border-b bg-muted/50/50 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                         <th className="text-left px-4 py-3">Prefix</th>
                         <th className="text-left px-4 py-3">Owner</th>
                         <th className="text-left px-4 py-3">Tier</th>
@@ -635,8 +635,8 @@ export default function ApiPlatformPage() {
                         const tier = tierBadge(k.tier);
                         const st = keyStatusBadge(k.status);
                         return (
-                          <tr key={k.id} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="px-4 py-3 font-mono text-xs text-gray-700">{k.prefix}…</td>
+                          <tr key={k.id} className="hover:bg-muted/50/50 transition-colors">
+                            <td className="px-4 py-3 font-mono text-xs text-foreground">{k.prefix}…</td>
                             <td className="px-4 py-3 text-xs">
                               <Link
                                 href={`/admin/api-platform/users/${k.user_id}`}
@@ -647,13 +647,13 @@ export default function ApiPlatformPage() {
                             </td>
                             <td className="px-4 py-3"><Badge config={tier} /></td>
                             <td className="px-4 py-3"><Badge config={st} /></td>
-                            <td className="px-4 py-3 text-gray-500 text-xs">
+                            <td className="px-4 py-3 text-muted-foreground text-xs">
                               {k.created_at ? new Date(k.created_at).toLocaleDateString() : "--"}
                             </td>
-                            <td className="px-4 py-3 text-gray-500 text-xs">
+                            <td className="px-4 py-3 text-muted-foreground text-xs">
                               {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : "--"}
                             </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-gray-700">
+                            <td className="px-4 py-3 text-right tabular-nums text-foreground">
                               {k.total_calls.toLocaleString()}
                             </td>
                             <td className="px-4 py-3">
@@ -701,10 +701,10 @@ export default function ApiPlatformPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     MRR — last 6 months
                   </p>
-                  <p className="text-sm font-mono font-semibold text-gray-900">
+                  <p className="text-sm font-mono font-semibold text-foreground">
                     ${computedMrr.toLocaleString()}
                   </p>
                 </div>
@@ -713,16 +713,16 @@ export default function ApiPlatformPage() {
                 ) : (
                   <MrrBars series={mrrHistoryQuery.data?.data ?? []} />
                 )}
-                <p className="text-xs text-gray-400 mt-3">
+                <p className="text-xs text-muted-foreground/70 mt-3">
                   Best-effort historical view (created_at + current status + period_end). Exact per-month replay lands with <code className="font-mono">api_subscription_events</code>.
                 </p>
               </Card>
               <Card className="p-5">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-4">Tier mix</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">Tier mix</p>
                 {metricsQuery.isLoading ? (
                   <Skeleton className="h-10 w-full" />
                 ) : tierCatalog.length === 0 ? (
-                  <p className="text-sm text-gray-500">Tier catalog unavailable.</p>
+                  <p className="text-sm text-muted-foreground">Tier catalog unavailable.</p>
                 ) : (
                   <TierMixBar counts={metrics?.subscriptions_by_tier ?? {}} catalog={tierCatalog} />
                 )}
@@ -730,11 +730,11 @@ export default function ApiPlatformPage() {
             </div>
 
             <Card className="p-5">
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">Tier pricing</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">Tier pricing</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs font-medium uppercase tracking-wider text-gray-500 border-b">
+                    <tr className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b">
                       <th className="text-left px-3 py-2">Tier</th>
                       <th className="text-right px-3 py-2">Monthly</th>
                       <th className="text-right px-3 py-2">Annual</th>
@@ -774,7 +774,7 @@ export default function ApiPlatformPage() {
                   <AlertDialogDescription>
                     <span className="block mb-2">
                       Key <span className="font-mono">{confirm.prefix}…</span> belongs to{" "}
-                      <span className="font-medium text-gray-900">{confirm.owner}</span>.
+                      <span className="font-medium text-foreground">{confirm.owner}</span>.
                     </span>
                     {copy.body}
                   </AlertDialogDescription>
