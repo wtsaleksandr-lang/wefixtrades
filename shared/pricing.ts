@@ -638,7 +638,7 @@ export const CONTENTFLOW: ProductDef = {
         "~120 AI content pieces/month",
         "All publish channels",
         "Premium AI model",
-        "AI video generation",
+        "Early access: AI video scripts (full video clips coming soon)",
         "Priority generation & support",
       ],
     },
