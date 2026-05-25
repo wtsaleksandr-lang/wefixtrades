@@ -500,7 +500,7 @@ export default function PortalContentFlow() {
             </TabsTrigger>
             <TabsTrigger value="profile" data-testid="tab-profile">
               Business profile
-              {businessProfile && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-brand-blue" aria-hidden />}
+              {businessProfile && <span className="ml-1 inline-block h-3 w-3 rounded-full bg-brand-blue" aria-hidden />}
             </TabsTrigger>
           </TabsList>
 

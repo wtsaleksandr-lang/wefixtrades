@@ -398,8 +398,8 @@ export default function PortalContentPreferences() {
     return (
       <PortalLayout>
         <div className="max-w-xl text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
-            <Check className="h-6 w-6 text-emerald-600" />
+          <div className="mx-auto mb-4 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
+            <Check className="h-5 w-5 text-emerald-600" />
           </div>
           <h1 className="text-xl font-semibold">Your content style is set</h1>
           <p className="text-sm text-muted-foreground mt-2">
