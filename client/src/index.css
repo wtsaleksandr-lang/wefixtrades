@@ -186,6 +186,21 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
+/* Dark mode — warm grey, NOT pure black.
+ * Per product direction (Alex 2026-05-24): the canvas is #1f1f23, a warm
+ * neutral grey. Surfaces step up in lightness for cards / popovers /
+ * inputs so depth reads naturally without ever touching pure #000.
+ *
+ * HSL values picked so `hsl(var(--token))` reproduces the design hex
+ * within 1-2 perceptual units:
+ *   bg #1f1f23 -> 240 5% 13%
+ *   surface (card) #2a2a30 -> 240 6% 18%
+ *   surface-elevated (popover / sidebar-accent) #33333a -> 240 6% 22%
+ *   border #3a3a42 -> 234 6% 25%
+ *   foreground #e8e8ed -> 240 9% 92%
+ *   foreground-muted #a0a0aa -> 240 5% 65% (lifted to 70% for AA on muted
+ *     surfaces — same correction the legacy dark palette made)
+ *   primary (brand blue) slightly desaturated for dark: 222 90% 62% */
 .dark {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
@@ -193,43 +208,45 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 222 47% 8%;
-  --foreground: 210 20% 98%;
-  --border: 217 33% 17%;
-  --card: 222 47% 11%;
-  --card-foreground: 210 20% 98%;
-  --card-border: 217 33% 17%;
-  --sidebar: 222 47% 8%;
-  --sidebar-foreground: 210 20% 98%;
-  --sidebar-border: 217 33% 17%;
-  --sidebar-primary: 222 100% 59%;
+  --background: 240 5% 13%;
+  --foreground: 240 9% 92%;
+  --border: 234 6% 25%;
+  --card: 240 6% 18%;
+  --card-foreground: 240 9% 92%;
+  --card-border: 234 6% 25%;
+  --sidebar: 240 5% 13%;
+  --sidebar-foreground: 240 9% 92%;
+  --sidebar-border: 234 6% 25%;
+  --sidebar-primary: 222 90% 62%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 33% 17%;
-  --sidebar-accent-foreground: 210 20% 98%;
-  --sidebar-ring: 222 100% 59%;
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 20% 98%;
-  --popover-border: 217 33% 17%;
-  --primary: 222 100% 59%;
+  --sidebar-accent: 240 6% 22%;
+  --sidebar-accent-foreground: 240 9% 92%;
+  --sidebar-ring: 222 90% 62%;
+  --popover: 240 6% 22%;
+  --popover-foreground: 240 9% 92%;
+  --popover-border: 234 6% 25%;
+  --primary: 222 90% 62%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 20% 98%;
-  --muted: 217 33% 17%;
-  /* a11y: bumped from 215 20% 65% — passed on the base dark bg but only
-   * 5.77:1 on the darkest muted surface; 72% raises every dark surface
-   * to ≥ 6.7:1 with comfortable AA headroom. */
-  --muted-foreground: 215 20% 72%;
-  --accent: 217 33% 17%;
-  --accent-foreground: 210 20% 98%;
-  --destructive: 0 63% 31%;
+  --secondary: 240 6% 22%;
+  --secondary-foreground: 240 9% 92%;
+  --muted: 240 6% 18%;
+  /* a11y: 70% lightness keeps the muted text ≥ 6.0:1 on the warm-grey
+   * surface stack (bg 13% / card 18% / elevated 22%). */
+  --muted-foreground: 240 5% 70%;
+  --accent: 240 6% 22%;
+  --accent-foreground: 240 9% 92%;
+  --destructive: 0 63% 45%;
   --destructive-foreground: 0 0% 98%;
-  --input: 217 33% 17%;
-  --ring: 222 100% 59%;
-  --chart-1: 222 100% 59%;
-  --chart-2: 196 100% 37%;
-  --chart-3: 30 80% 55%;
-  --chart-4: 210 40% 50%;
-  --chart-5: 340 75% 55%;
+  --input: 234 6% 25%;
+  --ring: 222 90% 62%;
+  /* Chart colors — keep brand blue as primary; desaturate / lighten the
+   * remaining four so they read against warm-grey surfaces without
+   * vibrating. */
+  --chart-1: 222 90% 62%;
+  --chart-2: 196 70% 55%;
+  --chart-3: 30 75% 60%;
+  --chart-4: 210 35% 60%;
+  --chart-5: 340 65% 62%;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.2);
   --shadow-xs: 0px 1px 2px 0px rgba(0,0,0,0.3);

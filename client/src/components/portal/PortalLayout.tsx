@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import PortalChatWidget, { type PortalChatContext } from "./PortalChatWidget";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { FirstVisitTooltip } from "./FirstVisitTooltip";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
@@ -227,7 +228,10 @@ export default function PortalLayout({
 
   return (
     <OnboardingProvider>
-    <div data-theme="light" style={{ display: "contents" }}>
+    {/* Portal shell is theme-aware — the previous hardcoded data-theme="light"
+        wrapper here was removed so the customer's day/night choice (per
+        wft_theme_preference) applies to the entire portal surface. */}
+    <div style={{ display: "contents" }}>
     {/* Skip-to-content — visible only when keyboard-focused. Lets
         screen-reader / keyboard users bypass the sidebar nav and jump
         straight to the page body. */}
@@ -237,7 +241,7 @@ export default function PortalLayout({
     >
       Skip to main content
     </a>
-    <div className="flex h-screen bg-[#F6F7F9] overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Mobile overlay — semantically a button (it's clickable to
           dismiss). Keyboard users get the same dismissal via the
           ChevronLeft button inside the sidebar. */}
@@ -255,7 +259,7 @@ export default function PortalLayout({
           navigation; it just doesn't occupy layout space on small screens. */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-56 flex-col bg-white border-r border-gray-200 transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-56 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-transform lg:static lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -327,7 +331,7 @@ export default function PortalLayout({
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="flex items-center justify-between h-14 px-4 bg-white border-b border-gray-200 shrink-0">
+        <header className="flex items-center justify-between h-14 px-4 bg-card text-card-foreground border-b border-border shrink-0">
           <div className="flex items-center">
             <Button
               variant="ghost"
@@ -373,6 +377,10 @@ export default function PortalLayout({
             >
               Ask questions, get help filling out forms, and navigate the portal hands-free.
             </FirstVisitTooltip>
+            {/* Day / night / system theme toggle — placed between the AI
+             *  Copilot trigger and the user-menu avatar so the affordance
+             *  is in a predictable spot per top-nav convention. */}
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-brand-blue flex items-center justify-center hover:ring-2 hover:ring-brand-blue/20 transition-shadow">

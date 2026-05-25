@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CopilotFormProvider } from "@/context/CopilotFormContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { ImpersonateBanner } from "@/components/admin/ImpersonateBanner";
 import AppErrorBoundary from "@/components/shared/AppErrorBoundary";
 import NotFound from "@/pages/not-found";
@@ -522,18 +523,20 @@ function Router() {
 function App() {
   return (
     <AppErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <CopilotFormProvider>
-            <Toaster />
-            {/* Global impersonation banner — only renders when an admin
-                has an active "view as customer" session. Sticky top-0
-                so it appears above every route's chrome. */}
-            <ImpersonateBanner />
-            <Router />
-          </CopilotFormProvider>
-        </TooltipProvider>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <CopilotFormProvider>
+              <Toaster />
+              {/* Global impersonation banner — only renders when an admin
+                  has an active "view as customer" session. Sticky top-0
+                  so it appears above every route's chrome. */}
+              <ImpersonateBanner />
+              <Router />
+            </CopilotFormProvider>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </AppErrorBoundary>
   );
 }

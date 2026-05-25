@@ -47,6 +47,7 @@ import {
   Eye,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
@@ -1091,7 +1092,7 @@ export default function AdminLayout({
     >
       Skip to main content
     </a>
-    <div className="flex h-screen bg-[#F6F7F9] overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Mobile overlay — semantically a button. Keyboard users get
           the same dismissal via the ChevronLeft button inside the
           sidebar. */}
@@ -1107,7 +1108,7 @@ export default function AdminLayout({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-white border-r border-gray-200 transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-transform lg:static lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -1176,7 +1177,7 @@ export default function AdminLayout({
           </div>
         )}
         {/* Top bar */}
-        <header className="flex items-center justify-between h-14 px-4 bg-white border-b border-gray-200 shrink-0">
+        <header className="flex items-center justify-between h-14 px-4 bg-card text-card-foreground border-b border-border shrink-0">
           <div className="flex items-center">
             <Button
               variant="ghost"
@@ -1240,6 +1241,10 @@ export default function AdminLayout({
             >
               <Sparkles className="w-4 h-4" />
             </Button>
+            {/* Day / night / system theme toggle — sits next to the
+             *  user menu so the affordance is discoverable but doesn't
+             *  compete with the Quick Add primary CTA. */}
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="w-7 h-7 rounded-full bg-brand-blue flex items-center justify-center hover:ring-2 hover:ring-brand-blue/20 transition-shadow">

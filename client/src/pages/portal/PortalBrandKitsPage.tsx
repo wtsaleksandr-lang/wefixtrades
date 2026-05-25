@@ -224,7 +224,7 @@ export default function PortalBrandKitsPage() {
                         style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", border: "1px solid #e5e7eb" }}
                       />
                     ) : (
-                      <span style={{ width: 36, height: 36, borderRadius: 8, background: "#f1f5f9", display: "inline-block" }} />
+                      <span className="bg-muted" style={{ width: 36, height: 36, borderRadius: 8, display: "inline-block" }} />
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {isEditing ? (
