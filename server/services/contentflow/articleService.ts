@@ -31,6 +31,10 @@ import {
   loadPriorArticles,
   type ArticleQualityResult,
 } from "./qualityGate/articleQualityGate";
+import {
+  humanizeArticle,
+  type HumanizeProvider,
+} from "./qualityGate/humanizeRewrite";
 
 const log = createLogger("ArticleService");
 
@@ -208,8 +212,12 @@ function parseArticleJson(raw: string): ArticleJson | null {
 async function generateOneArticleAttempt(
   draftId: number,
   userPrompt: string,
-): Promise<{ ok: true; parsed: ArticleJson } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; parsed: ArticleJson; provider: string }
+  | { ok: false; error: string }
+> {
   let raw: string;
+  let provider: string;
   try {
     const gen = await generateContentflowText({
       system: SYSTEM_PROMPT,
@@ -217,6 +225,7 @@ async function generateOneArticleAttempt(
       maxTokens: 2000,
     });
     raw = gen.text;
+    provider = gen.provider;
     storage.addDraftGenerationCost(draftId, gen.costMicroUsd).catch(() => {});
   } catch (err: any) {
     return { ok: false, error: err?.message || String(err) };
@@ -226,7 +235,7 @@ async function generateOneArticleAttempt(
   if (!parsed) {
     return { ok: false, error: `unparseable model output (len=${raw.length})` };
   }
-  return { ok: true, parsed };
+  return { ok: true, parsed, provider };
 }
 
 /**
@@ -303,12 +312,50 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
       continue;
     }
 
-    lastAttempt = result.parsed;
     lastError = null;
 
-    // Run the 3-layer quality gate on this attempt's body.
+    // P1-1: Cross-provider humanization pass. Rewrite the draft body
+    // through the OPPOSITE provider (Claude draft → gpt-4o-mini rewrite,
+    // or vice versa) to break self-similarity before the quality gate
+    // sees it. On any failure (provider error, truncation, dropped
+    // heading) the helper returns the ORIGINAL body unchanged so the
+    // gate still runs — never double-fail the article.
+    const sourceProvider: HumanizeProvider =
+      result.provider === "openai" ? "openai" : "anthropic";
+    const humanizeRes = await humanizeArticle(result.parsed.body_md, {
+      clientId: draft.client_id,
+      brandVoice: brandLayer,
+      industry: (meta.niche as string | null) ?? tradeType ?? undefined,
+      targetWordCount: 600,
+      sourceProvider,
+    });
+    const humanizedBody = humanizeRes.humanized;
+
+    writeAudit({
+      actorType: "system",
+      action: "contentflow.article.humanize_rewrite",
+      entityType: "content_draft",
+      entityId: String(draftId),
+      metadata: {
+        attempt,
+        source_provider: sourceProvider,
+        provider_used: humanizeRes.provider_used,
+        original_length: humanizeRes.original_length,
+        final_length: humanizeRes.final_length,
+        fell_back_to_original: humanizeRes.fell_back_to_original,
+        fallback_reason: humanizeRes.fallback_reason ?? null,
+        client_id: draft.client_id,
+      },
+    });
+
+    // Persist the (possibly humanized) body onto the attempt object so
+    // a later "accept" verdict stores the right text. If humanization
+    // fell back, this is identical to the original draft.
+    lastAttempt = { ...result.parsed, body_md: humanizedBody };
+
+    // Run the 3-layer quality gate on the humanized body.
     const gate = await evaluateArticleQuality({
-      body: result.parsed.body_md,
+      body: humanizedBody,
       priorArticles,
       context: gateContext,
     });
