@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
+import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 
 export interface CheckoutIntakeModalProps {
   open: boolean;
@@ -242,6 +243,7 @@ export default function CheckoutIntakeModal({
               style={inputStyle}
               data-testid="intake-contact-phone"
             />
+            <SmsConsentDisclosure variant="inline" />
           </Field>
 
           {error && (

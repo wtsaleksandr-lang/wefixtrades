@@ -22,6 +22,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
@@ -846,6 +847,7 @@ export default function PortalReviews() {
                   onChange={(e) => setRequestForm({ ...requestForm, customer_phone: e.target.value })}
                   className="h-9 text-sm"
                 />
+                <SmsConsentDisclosure />
                 <Input
                   placeholder="Job description (optional)"
                   value={requestForm.job_label}

@@ -18,6 +18,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { WidgetTheme } from './widgetThemes';
 import AddressAutocompleteField, { type AddressSelection } from './AddressAutocompleteField';
+import { SmsConsentDisclosure } from '@/components/forms/SmsConsentDisclosure';
 
 /* ─── BD-2a-polish — Input field rules compliance ───
  *
@@ -369,6 +370,7 @@ export default function ContactStep({
         fontFamily={fontFamily}
         radiusPx={radiusPx}
       />
+      <SmsConsentDisclosure variant="inline" />
 
       {/* CTA cluster — explicit 12px gap from the input cluster above, then
           12px between buttons. Tight 2px gap is for STACKED INPUTS only;

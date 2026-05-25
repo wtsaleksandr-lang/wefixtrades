@@ -19,6 +19,7 @@ import { Link } from "wouter";
 import { ArrowRight, Phone, MessageSquare, Calendar, Star, Clock, Sparkles, Check, ChevronDown, Rocket } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
+import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { getProductBySlug } from "@/config/products";
@@ -1515,6 +1516,7 @@ function WaitlistForm({ productSlug, productName }: { productSlug: string; produ
                 style={inputStyle}
                 autoComplete="tel"
               />
+              <SmsConsentDisclosure variant="inline" />
             </div>
 
             {status === "error" && errorMsg && (

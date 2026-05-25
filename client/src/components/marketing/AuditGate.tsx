@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { trackEvent } from "@/lib/trackEvent";
 import { Lock, Send, CheckCircle2, Loader2, Shield } from "lucide-react";
+import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 
 // BE-2: ink upgraded to the locked QuoteQuick brand ink (#1E1E1E)
 const DARK = "#1E1E1E";
@@ -271,6 +272,7 @@ export default function AuditGate({
             }}
           />
         </div>
+        <SmsConsentDisclosure variant="inline" />
 
         <button
           type="submit"

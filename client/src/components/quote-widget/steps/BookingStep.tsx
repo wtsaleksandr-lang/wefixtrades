@@ -4,6 +4,7 @@ import HelpTip from '../HelpTip';
 import { useWidgetState } from '../useWidgetState';
 import { eff, stepTitleStyle, stepSubtitleStyle, inputStyle, primaryButtonStyle, labelStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
+import { SmsConsentDisclosure } from '@/components/forms/SmsConsentDisclosure';
 
 interface BookingStepProps {
   step: StepDefinition;
@@ -235,6 +236,7 @@ export default function BookingStep({ step, accentColor }: BookingStepProps) {
             onFocus={(e) => { e.currentTarget.style.borderColor = eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
+          <SmsConsentDisclosure variant="inline" />
           {error && (
             <p style={{ fontSize: '13px', color: eff.error, margin: 0 }}>{error}</p>
           )}
