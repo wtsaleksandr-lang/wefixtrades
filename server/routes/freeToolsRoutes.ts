@@ -69,6 +69,37 @@ function rateOk(tool: string, req: Request, res: Response): boolean {
   return true;
 }
 
+/**
+ * Per-minute bucket — used by Wave 6E/6F surfaces (Local SERP Checker, Local
+ * Rank Tracker) where the user is actively comparing engines/locations and
+ * the hourly bucket would feel artificially tight. 10 req / minute / IP per
+ * tool. Same in-memory shape as `rateOk`, just a 60-second window.
+ */
+const minuteBuckets = new Map<string, Bucket>();
+const RATE_MINUTE_WINDOW_MS = 60 * 1000;
+const RATE_MINUTE_MAX = 10;
+
+function rateOkPerMinute(tool: string, req: Request, res: Response): boolean {
+  const ip = (req.ip || req.socket.remoteAddress || "unknown").toString();
+  const key = `${tool}:${ip}`;
+  const now = Date.now();
+  let b = minuteBuckets.get(key);
+  if (!b || now > b.resetAt) {
+    b = { count: 0, resetAt: now + RATE_MINUTE_WINDOW_MS };
+    minuteBuckets.set(key, b);
+  }
+  b.count++;
+  if (b.count > RATE_MINUTE_MAX) {
+    res.status(429).json({
+      ok: false,
+      error: "Too many requests — please wait a moment and try again.",
+      resetIn: Math.ceil((b.resetAt - now) / 1000),
+    });
+    return false;
+  }
+  return true;
+}
+
 /* ─── Shared helpers ──────────────────────────────────────────────────── */
 
 function fetchJson(url: string, init: RequestInit, timeoutMs = 12000): Promise<any> {
@@ -689,6 +720,204 @@ async function localRankGridHandler(req: Request, res: Response) {
   });
 }
 
+/* ─── 6. Local SERP Checker (Wave 6E) ──────────────────────────────── */
+
+/**
+ * BrightLocal-parity SERP viewer. One query → either organic top-10 (Google
+ * Search) or the Local Pack (Google Maps), localized to any country +
+ * language + free-form location string. Routes through the Wave 6.5
+ * orchestrator so the marginal cost is $0 (Google CSE / Serper / Brave /
+ * ScaleSerp / SerpStack free-tier rotation, DataForSEO paid fallback).
+ *
+ * Body: { query, location, country, language, engine: "search" | "maps" }
+ * Response: { ok, organic[], localPack[], provider, cached, totalResults,
+ *             engine, country, language }
+ */
+
+const ALLOWED_COUNTRIES = new Set([
+  "us","gb","ca","au","de","fr","it","es","nl","be",
+  "mx","br","in","jp","kr","sg","nz","ie","za","ae",
+]);
+const ALLOWED_LANGUAGES = new Set([
+  "en","es","fr","de","it","pt","nl","ja","ko","zh",
+]);
+
+async function localSerpCheckHandler(req: Request, res: Response) {
+  if (!rateOkPerMinute("local-serp-check", req, res)) return;
+  const query = strField(req.body?.query, 200);
+  const location = strField(req.body?.location, 120);
+  const countryRaw = strField(req.body?.country, 4).toLowerCase();
+  const languageRaw = strField(req.body?.language, 6).toLowerCase();
+  const engineRaw = strField(req.body?.engine, 16).toLowerCase();
+  if (!query || !location) {
+    return res.status(400).json({ ok: false, error: "Both search term and location are required." });
+  }
+  const country = ALLOWED_COUNTRIES.has(countryRaw) ? countryRaw : "us";
+  const language = ALLOWED_LANGUAGES.has(languageRaw) ? languageRaw : "en";
+  const engine = engineRaw === "maps" ? "maps" : "search";
+  const serpEngine = engine === "maps" ? "google_maps" : "google_web";
+
+  try {
+    const result = await searchSerp({
+      query,
+      location,
+      country,
+      language,
+      engine: serpEngine,
+      num: 10,
+    });
+    const organic = result.organic.slice(0, 10).map((o, i) => ({
+      position: o.position ?? i + 1,
+      title: o.title || "",
+      link: o.link || "",
+      snippet: o.snippet || "",
+      displayedLink: o.displayedLink || (() => {
+        try { return new URL(o.link).hostname.replace(/^www\./, ""); } catch { return ""; }
+      })(),
+    }));
+    const localPack = (result.localPack || []).slice(0, 10).map((p, i) => ({
+      position: i + 1,
+      title: p.title || "",
+      rating: typeof p.rating === "number" ? p.rating : undefined,
+      reviewCount: typeof p.reviewCount === "number" ? p.reviewCount : undefined,
+      address: p.address || undefined,
+    }));
+    return res.json({
+      ok: true,
+      query,
+      location,
+      country,
+      language,
+      engine,
+      organic,
+      localPack,
+      provider: result.provider,
+      cached: !!result.cached,
+      totalResults: result.totalResults,
+    });
+  } catch (err: any) {
+    log.warn("[local-serp-check] orchestrator failed", { error: err?.message || String(err) });
+    return res.status(502).json({ ok: false, error: "SERP check failed. Please try again." });
+  }
+}
+
+/* ─── 7. Local Rank Tracker (Wave 6F) ──────────────────────────────── */
+
+/**
+ * Single-business, multi-engine rank checker. Fires 3 parallel SERP queries
+ * (Google Web, Brave's Bing-equivalent index, Google Maps Local Pack),
+ * fuzzy-matches the business name against each result list, and returns the
+ * position + the top 3 competitors above the business on each engine.
+ *
+ * Body: { businessName, keyword, location }
+ * Response: { ok, businessName, keyword, location,
+ *             engines: { googleWeb, braveWeb, googleMaps } }
+ */
+
+type RankEngineKey = "googleWeb" | "braveWeb" | "googleMaps";
+const RANK_ENGINES: Array<{ key: RankEngineKey; serp: "google_web" | "bing_equivalent" | "google_maps" }> = [
+  { key: "googleWeb", serp: "google_web" },
+  { key: "braveWeb", serp: "bing_equivalent" },
+  { key: "googleMaps", serp: "google_maps" },
+];
+
+interface RankEngineOutcome {
+  position: number | null;
+  totalChecked: number;
+  competitors: Array<{ position: number; title: string; rating?: number; reviewCount?: number }>;
+  provider: string;
+  cached: boolean;
+  error?: string;
+}
+
+async function localRankTrackerHandler(req: Request, res: Response) {
+  if (!rateOkPerMinute("local-rank-tracker", req, res)) return;
+  const businessName = strField(req.body?.businessName, 120);
+  const keyword = strField(req.body?.keyword, 120);
+  const location = strField(req.body?.location, 120);
+  if (!businessName || !keyword || !location) {
+    return res.status(400).json({ ok: false, error: "Business name, keyword, and location are all required." });
+  }
+
+  const outcomes = await Promise.all(
+    RANK_ENGINES.map(async ({ key, serp }): Promise<[RankEngineKey, RankEngineOutcome]> => {
+      try {
+        const result = await searchSerp({
+          query: keyword,
+          location,
+          country: "us",
+          language: "en",
+          engine: serp,
+          num: 20,
+        });
+        // For map engine, use local pack as the ranking source; for web/brave use organic.
+        const list = serp === "google_maps"
+          ? (result.localPack ?? []).map((p, i) => ({
+              position: i + 1,
+              title: p.title || "",
+              rating: typeof p.rating === "number" ? p.rating : undefined,
+              reviewCount: typeof p.reviewCount === "number" ? p.reviewCount : undefined,
+            }))
+          : result.organic.map((o, i) => ({
+              position: o.position ?? i + 1,
+              title: o.title || "",
+              rating: undefined as number | undefined,
+              reviewCount: undefined as number | undefined,
+            }));
+        const totalChecked = list.length;
+        // Fuzzy-match business name against titles using existing
+        // `looseIncludes` (lowercases, strips non-alphanumerics).
+        let position: number | null = null;
+        for (let i = 0; i < list.length; i++) {
+          if (looseIncludes(list[i].title, businessName)) {
+            position = list[i].position;
+            break;
+          }
+        }
+        // Top 3 competitors = first 3 entries ranked above the business
+        // (or first 3 overall if the business is not found / below 3).
+        const competitorsAbove = position != null
+          ? list.filter((row) => row.position < (position ?? 0)).slice(0, 3)
+          : list.slice(0, 3);
+        return [key, {
+          position,
+          totalChecked,
+          competitors: competitorsAbove,
+          provider: result.provider,
+          cached: !!result.cached,
+        }];
+      } catch (err: any) {
+        log.debug(`[local-rank-tracker] ${serp} failed`, { error: err?.message || String(err) });
+        return [key, {
+          position: null,
+          totalChecked: 0,
+          competitors: [],
+          provider: "none",
+          cached: false,
+          error: err?.message || "engine unavailable",
+        }];
+      }
+    }),
+  );
+
+  const engines = Object.fromEntries(outcomes) as Record<RankEngineKey, RankEngineOutcome>;
+
+  // If literally every engine errored we surface 502 — but if any succeeded
+  // we return 200 with the partial result so the UI can render what we have.
+  const anySuccess = Object.values(engines).some((e) => !e.error);
+  if (!anySuccess) {
+    return res.status(502).json({ ok: false, error: "All ranking engines failed. Please try again." });
+  }
+
+  return res.json({
+    ok: true,
+    businessName,
+    keyword,
+    location,
+    engines,
+  });
+}
+
 /* ─── Router registration ─────────────────────────────────────────────── */
 
 export function registerFreeToolsRoutes(app: Express): void {
@@ -698,4 +927,7 @@ export function registerFreeToolsRoutes(app: Express): void {
   app.get("/api/tools/local-rankflux", localRankfluxHandler);
   app.post("/api/tools/rankflux-subscribe", rankfluxSubscribeHandler);
   app.post("/api/tools/local-rank-grid", localRankGridHandler);
+  // Wave 6E + 6F — BrightLocal-parity SERP Checker + Rank Tracker.
+  app.post("/api/tools/local-serp-check", localSerpCheckHandler);
+  app.post("/api/tools/local-rank-tracker", localRankTrackerHandler);
 }

@@ -63,7 +63,12 @@ import ForSoloTradersPage from "@/pages/marketing/ForSoloTradersPage";
 import SitemapPage from "@/pages/marketing/SitemapPage";
 // Free Tools Wave 1 — 4 standalone /tools/* pages (Brightlocal replication).
 import GoogleReviewLinkGenerator from "@/pages/marketing/tools/GoogleReviewLinkGenerator";
-import LocalSearchChecker from "@/pages/marketing/tools/LocalSearchChecker";
+// Wave 6E — Local SERP Checker replaces the older /tools/local-search-checker
+// thin placeholder. Old slug 301s to /tools/local-serp-checker for SEO
+// continuity (see route table below).
+import LocalSerpChecker from "@/pages/marketing/tools/LocalSerpChecker";
+// Wave 6F — Local Rank Tracker (single-business multi-engine snapshot).
+import LocalRankTracker from "@/pages/marketing/tools/LocalRankTracker";
 import CitationChecker from "@/pages/marketing/tools/CitationChecker";
 import LocalRankflux from "@/pages/marketing/tools/LocalRankflux";
 // Wave 2 — Local Rank Grid (free) + Citation Builder (paid service).
@@ -512,7 +517,12 @@ function Router() {
           public lead-magnet page with its own /tools/* URL, form, result
           panel, and cross-link back to the paid Full Audit. */}
       <Route path="/tools/google-review-link-generator" component={GoogleReviewLinkGenerator} />
-      <Route path="/tools/local-search-checker" component={LocalSearchChecker} />
+      {/* Wave 6E — canonical SERP Checker. The older /tools/local-search-checker
+          301s to this URL (see legacy redirects below). */}
+      <Route path="/tools/local-serp-checker" component={LocalSerpChecker} />
+      {/* Wave 6F — multi-engine single-business rank tracker. Distinct from
+          /tools/local-rank-grid (which is a 5x5 geo-grid heatmap). */}
+      <Route path="/tools/local-rank-tracker" component={LocalRankTracker} />
       <Route path="/tools/citation-checker" component={CitationChecker} />
       <Route path="/tools/local-rankflux" component={LocalRankflux} />
       {/* Wave 2 SEO surfaces — Local Rank Grid (free) + Citation Builder (paid service). */}
@@ -545,6 +555,9 @@ function Router() {
       <Route path="/tools/map-snapshot/:tradeSlug">{() => <Redirect to="/tools/free-audit" />}</Route>
       <Route path="/tools/map-snapshot">{() => <Redirect to="/tools/free-audit" />}</Route>
       <Route path="/snapshot/:slug">{() => <Redirect to="/tools/free-audit" />}</Route>
+      {/* Wave 6E — old slug 301s to the new canonical SERP Checker URL so
+          existing inbound links + SEO equity flow to the surviving page. */}
+      <Route path="/tools/local-search-checker">{() => <Redirect to="/tools/local-serp-checker" />}</Route>
       <Route path="/tools/quote-demo">{() => <Redirect to="/products/quickquotepro/demo" />}</Route>
       <Route path="/tools/build-with-ai/preview">{() => <Redirect to="/products/quickquotepro/build-with-ai/preview" />}</Route>
       <Route path="/tools/build-with-ai">{() => <Redirect to="/products/quickquotepro/build-with-ai" />}</Route>

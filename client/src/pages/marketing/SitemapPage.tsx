@@ -101,7 +101,8 @@ const SECTIONS: SitemapSection[] = [
     entries: [
       { href: "/tools/free-audit", label: "Free Local SEO Audit" },
       { href: "/tools/google-review-link-generator", label: "Google Review Link Generator" },
-      { href: "/tools/local-search-checker", label: "Local Search Results Checker" },
+      { href: "/tools/local-serp-checker", label: "Local SERP Checker (Google + Maps)" },
+      { href: "/tools/local-rank-tracker", label: "Local Rank Tracker (Google + Brave + Maps)" },
       { href: "/tools/citation-checker", label: "Citation Checker" },
       { href: "/tools/local-rankflux", label: "Local Rankflux (Algorithm Tracker)" },
       { href: "/tools/local-rank-grid", label: "Local Rank Grid (5×5 Geo Scan)" },

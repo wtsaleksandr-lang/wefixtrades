@@ -242,7 +242,10 @@ function MarketingFooter() {
             {/* Free Tools Wave 1 — Brightlocal-style standalone tools, each
                 with its own /tools/* URL + lead-magnet page. */}
             <FtLink href="/tools/google-review-link-generator">Google Review Link Generator</FtLink>
-            <FtLink href="/tools/local-search-checker">Local Search Results Checker</FtLink>
+            {/* Wave 6E — BrightLocal-parity SERP viewer (Google + Maps, multi-country / language). */}
+            <FtLink href="/tools/local-serp-checker">Local SERP Checker</FtLink>
+            {/* Wave 6F — single-business multi-engine rank snapshot (Google + Brave + Maps). */}
+            <FtLink href="/tools/local-rank-tracker">Local Rank Tracker</FtLink>
             <FtLink href="/tools/citation-checker">Citation Checker</FtLink>
             <FtLink href="/tools/local-rankflux">Local Rankflux</FtLink>
             {/* Wave 2 — single-shot 5x5 geo-grid rank scan; upsell to MapGuard. */}
