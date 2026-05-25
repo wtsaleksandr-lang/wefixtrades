@@ -383,7 +383,7 @@ export default function PortalTradelineKnowledgePage() {
 
         {/* Preview dialog */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-auto">
             <DialogHeader>
               <DialogTitle>How your AI sees this</DialogTitle>
             </DialogHeader>

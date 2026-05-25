@@ -249,6 +249,7 @@ export default function AdminAiActivityPage() {
         {/* Playbook state */}
         <Card className="p-4 space-y-3" data-testid="card-playbooks">
           <h2 className="text-lg font-medium">Playbooks</h2>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -301,6 +302,7 @@ export default function AdminAiActivityPage() {
               })}
             </TableBody>
           </Table>
+          </div>
         </Card>
 
         {/* Pending review */}
@@ -384,6 +386,7 @@ export default function AdminAiActivityPage() {
               </select>
             </div>
           </div>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -417,6 +420,7 @@ export default function AdminAiActivityPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
     </AdminLayout>

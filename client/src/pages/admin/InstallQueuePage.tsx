@@ -228,7 +228,7 @@ function InstallDetailDialog({ id, onClose }: { id: number; onClose: () => void 
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Install request #{id}</DialogTitle>
         </DialogHeader>

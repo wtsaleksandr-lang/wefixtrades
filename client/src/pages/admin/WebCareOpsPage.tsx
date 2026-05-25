@@ -269,7 +269,7 @@ export default function WebCareOpsPage() {
       )}
 
       {/* Per-client table */}
-      <Card>
+      <Card className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

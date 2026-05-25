@@ -84,7 +84,7 @@ export default function LucideIconPicker({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-auto max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Choose an icon</DialogTitle>
         </DialogHeader>

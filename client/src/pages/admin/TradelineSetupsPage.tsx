@@ -170,7 +170,7 @@ export default function TradelineSetupsPage() {
         </div>
 
         {/* Table */}
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           {list.isLoading && (
             <div className="p-6 space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -415,7 +415,7 @@ function DetailDialog({ id, onClose, onMutate }: { id: number; onClose: () => vo
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Wizard detail #{id}</DialogTitle>
         </DialogHeader>

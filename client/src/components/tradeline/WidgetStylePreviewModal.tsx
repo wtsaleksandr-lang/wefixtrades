@@ -57,7 +57,7 @@ export default function WidgetStylePreviewModal({ style, open, onClose, onApply 
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 gap-0">
+      <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-auto max-h-[92vh] overflow-y-auto p-0 gap-0">
         {/* DialogContent renders its own close X in the top-right corner.
             Header just carries the style name + description. */}
         <DialogHeader className="space-y-0 px-5 py-3 pr-12 border-b border-gray-200">
