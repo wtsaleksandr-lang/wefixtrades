@@ -8,6 +8,7 @@
  */
 
 import { pgTable, bigserial, text, smallint, timestamp, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -43,6 +44,15 @@ export const aiResponseRatings = pgTable(
       table.rated_at,
     ),
     clientIdx: index("ai_response_ratings_client_idx").on(table.client_id, table.rated_at),
+    // migrations/0049_ai_response_ratings.sql: partial index for nightly
+    // sweep of 👎-with-comment rows fed into the conversation→KB pipeline.
+    //   ON ai_response_ratings(rated_at DESC) WHERE rating = -1 AND comment IS NOT NULL
+    // `.desc().nullsFirst()` pins to Postgres's default NULL ordering for
+    // DESC (rated_at is NOT NULL so NULL ordering is moot for data, but
+    // drizzle-kit byte-compares the index definition).
+    negativeRecentIdx: index("ai_response_ratings_negative_recent_idx")
+      .on(table.rated_at.desc().nullsFirst())
+      .where(sql`${table.rating} = -1 AND ${table.comment} IS NOT NULL`),
   }),
 );
 

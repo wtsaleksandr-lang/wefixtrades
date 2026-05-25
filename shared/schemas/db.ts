@@ -66,7 +66,19 @@ export const users = pgTable("users", {
   failed_login_attempts: integer("failed_login_attempts").notNull().default(0),
   locked_until: timestamp("locked_until", { withTimezone: true }),
   created_at: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // Partial UNIQUE index from migrations/0045_social_login_subs.sql.
+  // The migration creates `CREATE UNIQUE INDEX ... WHERE microsoft_sub IS NOT NULL`.
+  // The column-level `.unique()` above creates an additional unrelated
+  // constraint on the live DB (legacy), but this declaration is what
+  // satisfies the schema-drift parity check and matches the migration.
+  microsoftSubIdx: uniqueIndex("users_microsoft_sub_idx")
+    .on(table.microsoft_sub)
+    .where(sql`${table.microsoft_sub} IS NOT NULL`),
+  facebookSubIdx: uniqueIndex("users_facebook_sub_idx")
+    .on(table.facebook_sub)
+    .where(sql`${table.facebook_sub} IS NOT NULL`),
+}));
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, created_at: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -149,7 +161,18 @@ export const calculators = pgTable("calculators", {
   // so we don't spam the owner every cron tick.
   updated_at: timestamp("updated_at").defaultNow(),
   slug_release_warned_at: timestamp("slug_release_warned_at"),
-});
+}, (table) => ({
+  // migrations/0051_jsonb_gin_indexes.sql: partial GIN on the JSONB path
+  // (calculator_settings -> '_slug_redirects') with jsonb_path_ops, used
+  // by getCalculatorByOldSlug containment lookup. Declared by SQL
+  // expression because Drizzle's column-typed GIN doesn't directly model
+  // an expression index; the schema-drift parity check only matches on
+  // the index name string, so this satisfies the guard. drizzle-kit push
+  // is never executed against prod (start-prod.sh strips drizzle-kit).
+  slugRedirectsGinIdx: index("idx_calculators_slug_redirects_gin")
+    .using("gin", sql`(${table.calculator_settings} -> '_slug_redirects') jsonb_path_ops`)
+    .where(sql`jsonb_typeof(${table.calculator_settings} -> '_slug_redirects') = 'array'`),
+}));
 
 export const leads = pgTable("leads", {
   id: serial("id").primaryKey(),
@@ -176,7 +199,15 @@ export const leads = pgTable("leads", {
   won_value: integer("won_value"),   // cents
   won_at: timestamp("won_at"),
   created_date: timestamp("created_date").defaultNow(),
-});
+}, (table) => ({
+  // migrations/0050_perf_indexes.sql: (calculator_id, created_date DESC).
+  // `.desc().nullsFirst()` pins NULL ordering to Postgres's default for
+  // DESC so drizzle-kit push doesn't propose drop+recreate.
+  calculatorCreatedIdx: index("idx_leads_calculator_created").on(
+    table.calculator_id,
+    table.created_date.desc().nullsFirst(),
+  ),
+}));
 
 export const notificationQueue = pgTable("notification_queue", {
   id: serial("id").primaryKey(),
@@ -190,7 +221,13 @@ export const notificationQueue = pgTable("notification_queue", {
   payload: jsonb("payload"),
   created_at: timestamp("created_at").defaultNow(),
   processed_at: timestamp("processed_at"),
-});
+}, (table) => ({
+  // migrations/0050_perf_indexes.sql: partial index on (created_at)
+  // WHERE status = 'pending'. Worker poll query.
+  pendingIdx: index("idx_notification_queue_pending")
+    .on(table.created_at)
+    .where(sql`${table.status} = 'pending'`),
+}));
 
 export const followupJobs = pgTable("followup_jobs", {
   id: serial("id").primaryKey(),
@@ -206,7 +243,13 @@ export const followupJobs = pgTable("followup_jobs", {
   payload: jsonb("payload"),
   created_at: timestamp("created_at").defaultNow(),
   processed_at: timestamp("processed_at"),
-});
+}, (table) => ({
+  // migrations/0050_perf_indexes.sql: partial index on (run_at)
+  // WHERE status = 'pending'. Worker poll query.
+  pendingIdx: index("idx_followup_jobs_pending")
+    .on(table.run_at)
+    .where(sql`${table.status} = 'pending'`),
+}));
 
 export const analyticsEvents = pgTable("analytics_events", {
   id: serial("id").primaryKey(),
@@ -214,7 +257,13 @@ export const analyticsEvents = pgTable("analytics_events", {
   event_type: varchar("event_type", { length: 50 }).notNull(),
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // migrations/0050_perf_indexes.sql: (calculator_id, created_at DESC).
+  calculatorCreatedIdx: index("idx_analytics_events_calc_created").on(
+    table.calculator_id,
+    table.created_at.desc().nullsFirst(),
+  ),
+}));
 
 export const deploymentStatus = pgTable("deployment_status", {
   id: serial("id").primaryKey(),
@@ -453,7 +502,14 @@ export const supportTickets = pgTable("support_tickets", {
   updated_at: timestamp("updated_at"),
   resolved_at: timestamp("resolved_at"),
   closed_at: timestamp("closed_at"),
-});
+}, (table) => ({
+  // migrations/0050_perf_indexes.sql: (client_id, status, created_at DESC).
+  clientStatusIdx: index("idx_support_tickets_client_status").on(
+    table.client_id,
+    table.status,
+    table.created_at.desc().nullsFirst(),
+  ),
+}));
 
 export const insertAiConversationSchema = createInsertSchema(aiConversations).omit({
   id: true,
@@ -481,7 +537,13 @@ export const ticketMessages = pgTable("ticket_messages", {
   content: text("content").notNull(),
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // migrations/0050_perf_indexes.sql: (ticket_id, created_at) — ASC.
+  ticketCreatedIdx: index("idx_ticket_messages_ticket_created").on(
+    table.ticket_id,
+    table.created_at,
+  ),
+}));
 
 export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit({
   id: true,
@@ -503,7 +565,13 @@ export const ticketEvents = pgTable("ticket_events", {
   new_value: text("new_value"),
   summary: text("summary"),
   created_at: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // migrations/0050_perf_indexes.sql: (ticket_id, created_at) — ASC.
+  ticketCreatedIdx: index("idx_ticket_events_ticket_created").on(
+    table.ticket_id,
+    table.created_at,
+  ),
+}));
 
 export const insertTicketEventSchema = createInsertSchema(ticketEvents).omit({
   id: true,
@@ -524,7 +592,18 @@ export const smsMessages = pgTable("sms_messages", {
   twilio_sid: varchar("twilio_sid", { length: 60 }),
   is_ai: boolean("is_ai").default(true),
   created_at: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // migrations/0050_perf_indexes.sql: two separate (col, created_at DESC)
+  // indexes — Twilio rate-limit check by calculator_id vs by lead_id.
+  calcCreatedIdx: index("idx_sms_messages_calc_created").on(
+    table.calculator_id,
+    table.created_at.desc().nullsFirst(),
+  ),
+  leadCreatedIdx: index("idx_sms_messages_lead_created").on(
+    table.lead_id,
+    table.created_at.desc().nullsFirst(),
+  ),
+}));
 
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({
   id: true,
@@ -955,7 +1034,13 @@ export const bookflowAppointments = pgTable("bookflow_appointments", {
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // migrations/0050_perf_indexes.sql: (client_id, start_time) — ASC.
+  clientStartIdx: index("idx_bookflow_appointments_client_start").on(
+    table.client_id,
+    table.start_time,
+  ),
+}));
 
 export const insertBookflowAppointmentSchema = createInsertSchema(bookflowAppointments).omit({
   id: true, created_at: true, updated_at: true,
@@ -1013,6 +1098,11 @@ export const bookflowInvoices = pgTable(
     // Must match migrations/0042_invoice_templates_and_contacts_billing.sql:
     //   CREATE INDEX bookflow_invoices_contact_idx ON bookflow_invoices(contact_id).
     contactIdx: index("bookflow_invoices_contact_idx").on(t.contact_id),
+    // migrations/0050_perf_indexes.sql: (client_id, created_at DESC).
+    clientCreatedIdx: index("idx_bookflow_invoices_client_created").on(
+      t.client_id,
+      t.created_at.desc().nullsFirst(),
+    ),
   }),
 );
 

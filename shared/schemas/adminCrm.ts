@@ -961,7 +961,15 @@ export const tradelineCallLog = pgTable("tradeline_call_log", {
   mirrored_object_key: text("mirrored_object_key"),
   mirrored_at: timestamp("mirrored_at", { withTimezone: true }),
   created_at: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // migrations/0053_vapi_recording_mirror.sql: partial index on
+  // (created_at) WHERE recording_url IS NOT NULL AND mirrored_at IS NULL.
+  // Keeps the mirror cron's SELECT cheap — only scans pending rows; the
+  // index entry self-evicts when mirrored_at is set.
+  mirrorPendingIdx: index("idx_tradeline_call_log_mirror_pending")
+    .on(table.created_at)
+    .where(sql`${table.recording_url} IS NOT NULL AND ${table.mirrored_at} IS NULL`),
+}));
 export const insertTradelineCallLogSchema = createInsertSchema(tradelineCallLog).omit({ id: true, created_at: true });
 export type InsertTradelineCallLog = z.infer<typeof insertTradelineCallLogSchema>;
 export type TradelineCallLog = typeof tradelineCallLog.$inferSelect;
