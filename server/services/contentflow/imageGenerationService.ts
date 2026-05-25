@@ -37,6 +37,7 @@ import {
   isImageStylePresetId,
   type ImageStylePresetId,
 } from "./imageStylePresets";
+import { generateImageViaOrchestrator } from "./imageOrchestrator";
 import { writeAudit } from "../../lib/auditLog";
 
 const logger = createLogger("ImageGen");
@@ -158,7 +159,41 @@ interface OpenAiImageResponse {
  * NOTE: the IMAGE_API_BASE_OVERRIDE dev mock path is still honored by the
  * OpenAI provider inside imageRotator.ts via the same env var.
  */
-async function callImageApi(prompt: string): Promise<{ ok: true; url?: string; b64?: string; revised_prompt?: string } | { ok: false; reason: GenerateForDraftResult["reason"]; message: string }> {
+function isOrchestratorEnabled(): boolean {
+  const v = process.env.CONTENTFLOW_IMAGE_ORCHESTRATOR_ENABLED;
+  if (v === undefined || v === null || v === "") return true;
+  return !/^(false|0|off|no)$/i.test(v.trim());
+}
+
+async function callImageApi(
+  prompt: string,
+  ctx?: { customerTier?: string | null },
+): Promise<{ ok: true; url?: string; b64?: string; revised_prompt?: string; provider_used?: string; detector_score?: number; cost?: number } | { ok: false; reason: GenerateForDraftResult["reason"]; message: string }> {
+  /* Sprint 22 — multi-model orchestrator path. Tries Pollinations → HF Flux
+   * → Stability → Together → Replicate → DALL-E in order, with a detector
+   * pre-check that prefers the lower-AI-score candidate for paying tiers.
+   * Falls through to the legacy single-provider rotator on total failure. */
+  if (isOrchestratorEnabled()) {
+    try {
+      const orch = await generateImageViaOrchestrator(prompt, {
+        size: IMAGE_SIZE,
+        customerTier: ctx?.customerTier ?? null,
+      });
+      if (orch.ok) {
+        return {
+          ok: true,
+          b64: orch.imageBuffer.toString("base64"),
+          provider_used: orch.providerUsed,
+          detector_score: orch.detectorScore,
+          cost: orch.cost,
+        };
+      }
+      logger.warn(`[contentflow][image-gen] orchestrator failed (reason=${orch.reason}, chain=${orch.fallback_chain.join("->")}) — falling back to legacy rotator`);
+    } catch (err: any) {
+      logger.warn(`[contentflow][image-gen] orchestrator threw: ${err?.message || err} — falling back to legacy rotator`);
+    }
+  }
+
   try {
     const outcome = await generateImageViaRotator({
       prompt,
@@ -408,8 +443,17 @@ export async function generateForDraft(
       return { ok: false, reason: "paused", message: sysGate.reason, prompt_used: finalPrompt };
     }
 
-    /* Call image API. */
-    const apiResult = await callImageApi(finalPrompt);
+    /* Call image API. Pass customer tier so the orchestrator can choose
+     * single-candidate (Free/Creator) vs. multi-candidate (Studio/Agency).
+     * Tier lives on the client's metadata.subscription_tier when present;
+     * otherwise we leave it null and the orchestrator defaults to single. */
+    const clientMeta = (client?.metadata || {}) as Record<string, any>;
+    const customerTier: string | null =
+      (typeof clientMeta.subscription_tier === "string" && clientMeta.subscription_tier) ||
+      (typeof clientMeta.plan_tier === "string" && clientMeta.plan_tier) ||
+      (typeof clientMeta.tier === "string" && clientMeta.tier) ||
+      null;
+    const apiResult = await callImageApi(finalPrompt, { customerTier });
     if (!apiResult.ok) {
       log(`api_failed reason=${apiResult.reason} msg=${apiResult.message}`);
       /* Persist failure marker so admin can see why no image. */
