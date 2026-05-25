@@ -338,6 +338,45 @@ export default function FreeAudit() {
   const [error, setError] = useState<string | null>(null);
   const [auditUnlocked, setAuditUnlocked] = useState(false);
 
+  // Wave 3.6 — Master Audit ($9.80) post-checkout flow. Stripe redirects
+  // back to /tools/free-audit?master_session_id={CHECKOUT_SESSION_ID};
+  // we poll /api/full-audit/by-session/:id until the pipeline finishes,
+  // then redirect to the public share URL.
+  const [masterPendingBanner, setMasterPendingBanner] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = (params.get("master_session_id") || "").trim();
+    if (!sessionId) return;
+
+    setMasterPendingBanner("Payment received — running your Master Audit. This usually takes 30-60 seconds.");
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 × 5s = 150s ceiling
+    const poll = async () => {
+      if (cancelled || attempts >= maxAttempts) return;
+      attempts++;
+      try {
+        const r = await fetch(`/api/full-audit/by-session/${encodeURIComponent(sessionId)}`);
+        const data = await r.json();
+        if (data?.status === "completed" && data.share_url) {
+          window.location.href = data.share_url;
+          return;
+        }
+        if (data?.status === "failed") {
+          setMasterPendingBanner("We hit a snag running your audit. Check your inbox for the refund link, or email support@wefixtrades.com.");
+          return;
+        }
+      } catch {
+        /* swallow — try again on the next tick */
+      }
+      setTimeout(poll, 5000);
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, []);
+
   const reportRef = useRef<HTMLDivElement>(null);
 
   // Browser geolocation for search bias.
@@ -714,6 +753,43 @@ export default function FreeAudit() {
             <span style={{ margin: "0 6px" }}>/</span>
             <span style={{ color: "#111827" }}>Free Audit</span>
           </nav>
+
+          {/* Wave 3.6 — Master Audit pending banner. Renders only when
+              the page was opened from a Stripe success redirect; polls
+              /api/full-audit/by-session and auto-redirects to the share
+              URL once the pipeline lands. */}
+          {masterPendingBanner && (
+            <div
+              data-testid="master-audit-pending-banner"
+              style={{
+                marginBottom: 18,
+                padding: "12px 16px",
+                borderRadius: 12,
+                background: "rgba(13,60,252,0.06)",
+                border: "1px solid rgba(13,60,252,0.18)",
+                color: "#1E1E1E",
+                fontSize: 13,
+                fontWeight: 500,
+                lineHeight: 1.5,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 14,
+                  height: 14,
+                  border: "2px solid rgba(13,60,252,0.3)",
+                  borderTopColor: "#0d3cfc",
+                  borderRadius: "50%",
+                  animation: "spin 0.7s linear infinite",
+                  flexShrink: 0,
+                }}
+              />
+              <span>{masterPendingBanner} Your report will also be emailed to you.</span>
+            </div>
+          )}
 
           {/* ─── Header + Search (always visible) ─── */}
           <div style={{ textAlign: "center", marginBottom: reportReady ? 20 : 36 }}>
