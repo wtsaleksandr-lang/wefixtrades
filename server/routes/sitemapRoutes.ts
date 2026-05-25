@@ -107,6 +107,13 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/contentflow", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-25" },
   { loc: "/products/quickquotepro/demo", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/products/quickquotepro/build-with-ai", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
+  // Audience landing pages (Brightlocal-style) — high priority because each
+  // targets a distinct buyer persona / search intent.
+  { loc: "/for-agencies", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/for-franchises", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/for-solo-traders", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // Human-friendly HTML sitemap. Low priority — purely navigational.
+  { loc: "/sitemap", priority: "0.4", changefreq: "weekly", lastmod: "2026-05-25" },
   { loc: "/about", priority: "0.6", changefreq: "monthly", lastmod: "2026-04-01" },
   { loc: "/blog", priority: "0.7", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/case-studies", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },

@@ -1,0 +1,321 @@
+/**
+ * /sitemap — human-friendly HTML index of every public WeFixTrades page.
+ *
+ * The XML sitemap (/sitemap.xml, server/routes/sitemapRoutes.ts) is for
+ * crawlers; this page is for humans + AI assistants who land on the site
+ * and want a quick map of what's there. Organised by section, matches
+ * the visual rhythm of the rest of the marketing surface.
+ */
+import { Link } from "wouter";
+import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
+import {
+  V7Section,
+  V7Container,
+  V7PageShell,
+  V7SectionHeading,
+} from "@/components/marketing/v7";
+import { Reveal, MONO, SANS } from "@/components/effortel-blocks";
+import { mkt } from "@/theme/tokens";
+import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import { SITE_URL } from "@/lib/seo/pageMeta";
+
+interface SitemapEntry {
+  href: string;
+  label: string;
+}
+
+interface SitemapSection {
+  title: string;
+  description?: string;
+  entries: SitemapEntry[];
+}
+
+/**
+ * Single source of truth for the human-readable sitemap. Mirrors the
+ * curated public routes from sitemapRoutes.ts but in a human-friendly
+ * order, grouped for scanning. Keep in sync when public routes are added.
+ */
+const SECTIONS: SitemapSection[] = [
+  {
+    title: "Products",
+    description: "Eight core products in the WeFixTrades suite.",
+    entries: [
+      { href: "/products", label: "All Products" },
+      { href: "/products/tradeline", label: "24/7 TradeLine" },
+      { href: "/products/quickquotepro", label: "QuoteQuick" },
+      { href: "/products/mapguard", label: "MapGuard" },
+      { href: "/products/reputationshield", label: "ReputationShield" },
+      { href: "/products/socialsync", label: "SocialSync" },
+      { href: "/products/rankflow", label: "RankFlow" },
+      { href: "/products/contentflow", label: "ContentFlow" },
+      { href: "/products/webcare", label: "WebCare" },
+      { href: "/products/sitelaunch", label: "SiteLaunch" },
+      { href: "/products/webfix", label: "WebFix" },
+      { href: "/products/adflow", label: "AdFlow" },
+      { href: "/products/bookflow", label: "BookFlow" },
+    ],
+  },
+  {
+    title: "Solutions",
+    description: "Trade-specific landing pages — pick yours.",
+    entries: [
+      { href: "/solutions/for-plumbers", label: "Plumbers" },
+      { href: "/solutions/for-hvac", label: "HVAC" },
+      { href: "/solutions/for-electricians", label: "Electricians" },
+      { href: "/solutions/for-roofers", label: "Roofers" },
+      { href: "/solutions/for-cleaners", label: "Cleaners" },
+      { href: "/solutions/for-landscapers", label: "Landscapers" },
+      { href: "/solutions/for-pest-control", label: "Pest Control" },
+      { href: "/solutions/for-garage-door", label: "Garage Door" },
+      { href: "/solutions/for-locksmiths", label: "Locksmiths" },
+      { href: "/solutions/for-painters", label: "Painters" },
+      { href: "/solutions/for-remodelers", label: "Remodelers" },
+      { href: "/solutions/for-general-contractors", label: "General Contractors" },
+      { href: "/solutions/visibility", label: "Local Visibility" },
+    ],
+  },
+  {
+    title: "For You",
+    description: "Audience-specific landing pages.",
+    entries: [
+      { href: "/for-agencies", label: "For Agencies" },
+      { href: "/for-franchises", label: "For Franchises" },
+      { href: "/for-solo-traders", label: "For Solo Traders" },
+      { href: "/contentflow", label: "For Marketers (ContentFlow)" },
+    ],
+  },
+  {
+    title: "Free Tools",
+    description: "Public tools — no signup needed.",
+    entries: [
+      { href: "/tools/free-audit", label: "Free Local SEO Audit" },
+      { href: "/products/quickquotepro/demo", label: "QuoteQuick Live Demo" },
+      { href: "/products/quickquotepro/build-with-ai", label: "Build with AI (from a photo)" },
+      { href: "/tools/plumbing-ai-content-prompts", label: "Plumbing AI Content Prompts" },
+      { href: "/tools/hvac-ai-content-prompts", label: "HVAC AI Content Prompts" },
+      { href: "/tools/electrical-ai-content-prompts", label: "Electrical AI Content Prompts" },
+      { href: "/tools/roofing-ai-content-prompts", label: "Roofing AI Content Prompts" },
+      { href: "/tools/landscaping-ai-content-prompts", label: "Landscaping AI Content Prompts" },
+    ],
+  },
+  {
+    title: "Resources",
+    description: "Learn how WeFixTrades works.",
+    entries: [
+      { href: "/about", label: "About Us" },
+      { href: "/contact", label: "Contact Sales" },
+      { href: "/pricing", label: "Pricing" },
+      { href: "/pricing/quotequick", label: "QuoteQuick Pricing" },
+      { href: "/blog", label: "Blog" },
+      { href: "/case-studies", label: "Case Studies" },
+      { href: "/resources", label: "Resources" },
+      { href: "/templates", label: "Templates" },
+      { href: "/services", label: "Services" },
+      { href: "/demo", label: "Demo Centre" },
+      { href: "/demos", label: "All Demos" },
+    ],
+  },
+  {
+    title: "Documentation",
+    description: "Setup guides, API reference, and product docs.",
+    entries: [
+      { href: "/docs", label: "Docs Home" },
+      { href: "/docs/api", label: "API Docs" },
+      { href: "/docs/embed", label: "Embedding Guide" },
+      { href: "/docs/domain", label: "Custom Domain Setup" },
+      { href: "/docs/booking", label: "Booking Setup" },
+      { href: "/docs/ai", label: "AI Configuration" },
+      { href: "/docs/mapguard", label: "MapGuard Docs" },
+      { href: "/docs/reputationshield", label: "ReputationShield Docs" },
+      { href: "/docs/webhooks", label: "Webhooks" },
+      { href: "/docs/troubleshooting", label: "Troubleshooting" },
+    ],
+  },
+  {
+    title: "Features",
+    description: "Deep dives on individual capabilities.",
+    entries: [
+      { href: "/features/instant-quotes", label: "Instant Quotes" },
+      { href: "/features/booking", label: "Booking" },
+      { href: "/features/ai-employee", label: "AI Employee" },
+      { href: "/features/sms", label: "SMS" },
+      { href: "/features/calculator-engine", label: "Calculator Engine" },
+    ],
+  },
+  {
+    title: "Account",
+    description: "Get into your dashboard.",
+    entries: [
+      { href: "/login", label: "Login" },
+      { href: "/signup", label: "Sign Up" },
+      { href: "/reset-password", label: "Reset Password" },
+    ],
+  },
+  {
+    title: "Legal",
+    description: "Policies and terms.",
+    entries: [
+      { href: "/privacy", label: "Privacy Policy" },
+      { href: "/terms", label: "Terms of Service" },
+      { href: "/terms", label: "Cookie Policy" },
+    ],
+  },
+];
+
+export default function SitemapPage() {
+  useBreadcrumbSchema([
+    { name: "Home", url: SITE_URL },
+    { name: "Sitemap", url: `${SITE_URL}/sitemap` },
+  ]);
+
+  return (
+    <MarketingLayout>
+      <PageMeta
+        title="Sitemap"
+        description="Human-friendly index of every public WeFixTrades page — products, solutions, free tools, resources, documentation, and legal pages."
+        canonical="/sitemap"
+      />
+      <V7PageShell>
+        <V7Section padding="64px">
+          <V7Container maxWidth={760}>
+            <Reveal>
+              <div style={{ textAlign: "center", marginBottom: 16 }}>
+                <p
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 11,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: mkt.accent,
+                    marginBottom: 12,
+                  }}
+                >
+                  Site Index
+                </p>
+                <h1
+                  style={{
+                    fontSize: "clamp(36px, 5vw, 56px)",
+                    fontWeight: 700,
+                    color: mkt.onDark,
+                    margin: "0 0 16px",
+                    letterSpacing: "-0.025em",
+                    lineHeight: 1.1,
+                    fontFamily: SANS,
+                  }}
+                >
+                  Sitemap
+                </h1>
+                <p
+                  style={{
+                    fontSize: 16,
+                    color: mkt.onDarkMuted,
+                    lineHeight: 1.6,
+                    margin: 0,
+                  }}
+                >
+                  Everything public on wefixtrades.com, organised so you can
+                  find it. Looking for the crawler version?{" "}
+                  <a
+                    href="/sitemap.xml"
+                    style={{ color: mkt.accent, textDecoration: "none" }}
+                  >
+                    /sitemap.xml
+                  </a>
+                  .
+                </p>
+              </div>
+            </Reveal>
+          </V7Container>
+        </V7Section>
+
+        <V7Section variant="subtle" padding="64px">
+          <V7Container>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: 24,
+              }}
+            >
+              {SECTIONS.map((section, i) => (
+                <Reveal key={section.title} delay={i * 0.04}>
+                  <nav
+                    aria-label={section.title}
+                    style={{
+                      background: mkt.sectionLight,
+                      borderRadius: 18,
+                      padding: "24px 22px",
+                      border: `1px solid ${mkt.onDarkBorder}`,
+                      height: "100%",
+                    }}
+                  >
+                    <h2
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color: mkt.onDark,
+                        margin: "0 0 6px",
+                        letterSpacing: "-0.01em",
+                        fontFamily: SANS,
+                      }}
+                    >
+                      {section.title}
+                    </h2>
+                    {section.description && (
+                      <p
+                        style={{
+                          fontSize: 13,
+                          color: mkt.onDarkMuted,
+                          margin: "0 0 16px",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {section.description}
+                      </p>
+                    )}
+                    <ul
+                      style={{
+                        listStyle: "none",
+                        padding: 0,
+                        margin: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                      }}
+                    >
+                      {section.entries.map((entry) => (
+                        <li key={`${section.title}-${entry.href}-${entry.label}`}>
+                          <Link
+                            href={entry.href}
+                            style={{
+                              fontSize: 14,
+                              color: mkt.onDarkMuted,
+                              textDecoration: "none",
+                              display: "inline-block",
+                              padding: "2px 0",
+                              transition: "color 0.15s ease",
+                              fontFamily: SANS,
+                            }}
+                            onMouseEnter={(e) => {
+                              (e.currentTarget as HTMLElement).style.color = mkt.onDark;
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.currentTarget as HTMLElement).style.color = mkt.onDarkMuted;
+                            }}
+                          >
+                            {entry.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </nav>
+                </Reveal>
+              ))}
+            </div>
+          </V7Container>
+        </V7Section>
+      </V7PageShell>
+    </MarketingLayout>
+  );
+}

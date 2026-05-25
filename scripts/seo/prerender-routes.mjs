@@ -110,6 +110,13 @@ const STATIC_ROUTES = [
   "/about",
   "/blog",
   "/case-studies",
+  // Audience landing pages (Brightlocal-style) — Bing + LLM crawlers need
+  // hydrated head tags here.
+  "/for-agencies",
+  "/for-franchises",
+  "/for-solo-traders",
+  // Human-friendly HTML sitemap.
+  "/sitemap",
   "/resources",
   "/contact",
   "/privacy",
