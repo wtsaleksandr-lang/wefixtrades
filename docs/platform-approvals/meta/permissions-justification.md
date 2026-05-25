@@ -25,6 +25,11 @@ Each scope below is requested by `server/services/socialSync/facebookService.ts`
 - **Code:** `fetchFacebookPageMetadata()` and `updateFacebookPageMetadata()` in `facebookService.ts` (GET / POST `/{page-id}`). Exposed at portal routes `GET /api/portal/socialsync/facebook-page/:pageId/metadata` and `PATCH /api/portal/socialsync/facebook-page/:pageId/metadata`. Every update writes an audit-log row (`socialsync.facebook_page.metadata_update`) capturing actor, fields changed, and before/after snapshot.
 - **Reviewer test path:** Connect a Facebook Page in the portal → open "Your Social Media" → switch to the "Page Settings" tab → edit "About" → Save. The change appears on the Facebook Page within a few minutes.
 
+### `business_management` (Tech Provider tier)
+- **Why:** WeFixTrades is requesting Meta's Tech Provider tier so we can read the customer's Business Manager assets and act on their behalf for the Pages / ad accounts they own. The portal's "Business Assets" tab surfaces a read-only inventory of the customer's Meta Businesses (name, verification status, owned page count, owned ad-account count, primary page) so customers can confirm which Business WeFixTrades is operating against. The customer then clicks "Set as primary" to record an explicit Tech Provider attestation, which we persist via the audit log. We do not edit Business Manager settings, add or remove ad accounts, or onboard employees — those flows require additional OAuth scopes we are not requesting.
+- **Code:** `fetchFacebookBusinesses()` in `facebookService.ts` (GET `/me/businesses?fields=id,name,verification_status,primary_page,owned_ad_accounts.summary(true),owned_pages.summary(true)`). Exposed at portal routes `GET /api/portal/socialsync/businesses` (list) and `POST /api/portal/socialsync/tech-provider-attestation` (record attestation). The attestation route validates the customer admins the named business, then writes an audit-log row (`socialsync.facebook_business.tech_provider_attestation`) with actor, business id + name, accepted-at timestamp, and an `ownership_verified` flag.
+- **Reviewer test path:** Connect a Facebook account that admins at least one Business Manager → open "Your Social Media" → switch to the "Business Assets" tab → see the Business listed with verification badge + owned page / ad-account counts → click "Set as primary" → confirm the success toast and the audit row in `audit_log` under action `socialsync.facebook_business.tech_provider_attestation`.
+
 ## Instagram Scopes
 
 ### `instagram_basic`
@@ -42,4 +47,4 @@ To pre-empt reviewer questions: SocialSync deliberately does not request, and do
 - `pages_messaging` — we never reply to DMs.
 - `ads_*` — we do not run paid ads from this app.
 - `user_posts` / `user_photos` — we never read personal Facebook content.
-- `business_management` — we only need page-scoped access, not full business asset management.
+- `ads_management` — we do not create, edit, or pause ad accounts. The `business_management` scope is used only to *read* the customer's Business Manager inventory so we can record an explicit Tech Provider attestation.

@@ -6,6 +6,7 @@ import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import UpsellCard from "@/components/portal/UpsellCard";
 import FacebookPageSettings from "@/components/portal/FacebookPageSettings";
+import BusinessAssetsList from "@/components/portal/BusinessAssetsList";
 import {
   PortalProductPageShell,
   type ProductPortalStats,
@@ -486,6 +487,15 @@ export default function PortalSocialSync() {
               render: () => (
                 <div className="space-y-5">
                   <FacebookPageSettings />
+                </div>
+              ),
+            },
+            {
+              id: "business-assets",
+              label: "Business Assets",
+              render: () => (
+                <div className="space-y-5">
+                  <BusinessAssetsList />
                 </div>
               ),
             },
