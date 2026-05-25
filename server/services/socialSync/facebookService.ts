@@ -478,6 +478,7 @@ export interface FacebookPageMetadata {
   about: string | null;
   category: string | null;
   category_list: { id: string; name: string }[];
+  [key: string]: unknown;
 }
 
 export interface UpdateFacebookPageMetadataInput {
@@ -593,6 +594,7 @@ export interface FacebookBusinessSummary {
   primary_page: { id: string; name: string | null } | null;
   owned_ad_account_count: number;
   owned_page_count: number;
+  [key: string]: unknown;
 }
 
 /**
