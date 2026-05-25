@@ -112,6 +112,12 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/for-agencies", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/for-franchises", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/for-solo-traders", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // Competitor comparison pages — high-intent "X alternative" / "X vs Y"
+  // SEO. Priority 0.8 matches the audience landings; long-form (~2K words)
+  // with FAQPage + Article + BreadcrumbList JSON-LD per route.
+  { loc: "/wefixtrades-vs-jobber", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/wefixtrades-vs-housecall-pro", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/wefixtrades-vs-servicetitan", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   // Human-friendly HTML sitemap. Low priority — purely navigational.
   { loc: "/sitemap", priority: "0.4", changefreq: "weekly", lastmod: "2026-05-25" },
   { loc: "/about", priority: "0.6", changefreq: "monthly", lastmod: "2026-04-01" },
