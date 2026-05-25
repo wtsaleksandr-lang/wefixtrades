@@ -37,6 +37,19 @@ import {
   humanizeArticle,
   type HumanizeProvider,
 } from "./qualityGate/humanizeRewrite";
+import {
+  applyAlgorithmicHumanizationDetailed,
+  algoHumanizerEnabled,
+} from "./qualityGate/algorithmicHumanizer";
+import {
+  verifyCadence,
+  cadenceVerifyEnabled,
+} from "./qualityGate/cadenceVerifier";
+import {
+  checkDetectorScore,
+  detectorGateEnabled,
+  DETECTOR_PASS_THRESHOLD,
+} from "./qualityGate/detectorGate";
 
 const log = createLogger("ArticleService");
 
@@ -359,15 +372,16 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
     // gate still runs — never double-fail the article.
     const sourceProvider: HumanizeProvider =
       result.provider === "openai" ? "openai" : "anthropic";
+    const industryStr = (meta.niche as string | null) ?? tradeType ?? undefined;
     const humanizeRes = await humanizeArticle(result.parsed.body_md, {
       clientId: draft.client_id,
       brandVoice: brandLayer,
-      industry: (meta.niche as string | null) ?? tradeType ?? undefined,
+      industry: industryStr,
       targetWordCount: 600,
       sourceProvider,
       briefTitle: briefTitle ?? undefined,
     });
-    const humanizedBody = humanizeRes.humanized;
+    const llmHumanizedBody = humanizeRes.humanized;
 
     writeAudit({
       actorType: "system",
@@ -385,6 +399,138 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
         client_id: draft.client_id,
       },
     });
+
+    /* ── Layer 2: algorithmic humanizer ──
+     * Deterministic post-process that scrubs forbidden transitions,
+     * trims em-dashes, varies openers, prunes excess hashtags, boosts
+     * burstiness, and injects industry-aware casual phrases. */
+    const algoRes = applyAlgorithmicHumanizationDetailed(llmHumanizedBody, {
+      industry: industryStr ?? null,
+    });
+    let layeredBody = algoRes.text;
+    writeAudit({
+      actorType: "system",
+      action: "contentflow.article.detection_layer_2",
+      entityType: "content_draft",
+      entityId: String(draftId),
+      metadata: {
+        attempt,
+        enabled: algoHumanizerEnabled(),
+        client_id: draft.client_id,
+        stats: algoRes.stats,
+        chars_before: llmHumanizedBody.length,
+        chars_after: layeredBody.length,
+      },
+    });
+
+    /* ── Layer 3: cadence verification ──
+     * Computes burstiness + avg sentence length. If the rewrite still
+     * looks too uniform, re-run the LLM humanizer (with the same prompt)
+     * + algo pass up to LAYER3_RETRIES times. The detector gate below
+     * handles the harder retry-with-extra-aggressive prompt path. */
+    const LAYER3_RETRIES = 2;
+    let cadence = verifyCadence(layeredBody);
+    let cadenceRetries = 0;
+    while (!cadence.passes && cadenceRetries < LAYER3_RETRIES && cadenceVerifyEnabled()) {
+      cadenceRetries++;
+      const retryHumanize = await humanizeArticle(result.parsed.body_md, {
+        clientId: draft.client_id,
+        brandVoice: brandLayer,
+        industry: industryStr,
+        targetWordCount: 600,
+        sourceProvider,
+        briefTitle: briefTitle ?? undefined,
+      });
+      const retryAlgo = applyAlgorithmicHumanizationDetailed(
+        retryHumanize.humanized,
+        { industry: industryStr ?? null },
+      );
+      layeredBody = retryAlgo.text;
+      cadence = verifyCadence(layeredBody);
+    }
+    writeAudit({
+      actorType: "system",
+      action: "contentflow.article.detection_layer_3",
+      entityType: "content_draft",
+      entityId: String(draftId),
+      metadata: {
+        attempt,
+        enabled: cadenceVerifyEnabled(),
+        client_id: draft.client_id,
+        passes: cadence.passes,
+        burstiness: Number(cadence.burstiness.toFixed(3)),
+        avg_sentence_len: Number(cadence.avgSentenceLen.toFixed(2)),
+        sentence_count: cadence.sentenceCount,
+        retries_used: cadenceRetries,
+        reason: cadence.reason ?? null,
+      },
+    });
+
+    /* ── Layer 4: ZeroGPT pre-publish detector gate ──
+     * External ground-truth check. If still ≥ 60% AI, run ONE
+     * extra-aggressive humanization pass (different prompt) and
+     * accept the result regardless (log if still > 60). Detector
+     * outages soft-pass to avoid blocking customer content. */
+    let detector = await checkDetectorScore(layeredBody);
+    let detectorRetried = false;
+    if (
+      detectorGateEnabled() &&
+      detector.aiScore >= 0 &&
+      detector.aiScore >= DETECTOR_PASS_THRESHOLD
+    ) {
+      detectorRetried = true;
+      const extraRes = await humanizeArticle(layeredBody, {
+        clientId: draft.client_id,
+        brandVoice: brandLayer,
+        industry: industryStr,
+        targetWordCount: 600,
+        sourceProvider,
+        briefTitle: briefTitle ?? undefined,
+        extraAggressive: true,
+      });
+      const extraAlgo = applyAlgorithmicHumanizationDetailed(extraRes.humanized, {
+        industry: industryStr ?? null,
+      });
+      layeredBody = extraAlgo.text;
+      const detector2 = await checkDetectorScore(layeredBody);
+      writeAudit({
+        actorType: "system",
+        action: "contentflow.article.detection_layer_4_retry",
+        entityType: "content_draft",
+        entityId: String(draftId),
+        metadata: {
+          attempt,
+          client_id: draft.client_id,
+          first_pass_ai_score: detector.aiScore,
+          first_pass_provider: detector.provider,
+          retry_ai_score: detector2.aiScore,
+          retry_provider: detector2.provider,
+          retry_passed: detector2.passed,
+          retry_strict: detector2.strict ?? false,
+          extra_aggressive_fell_back: extraRes.fell_back_to_original,
+        },
+      });
+      detector = detector2;
+    }
+    writeAudit({
+      actorType: "system",
+      action: "contentflow.article.detection_layer_4",
+      entityType: "content_draft",
+      entityId: String(draftId),
+      metadata: {
+        attempt,
+        enabled: detectorGateEnabled(),
+        client_id: draft.client_id,
+        ai_score: detector.aiScore,
+        provider: detector.provider,
+        passed: detector.passed,
+        strict: detector.strict ?? false,
+        soft_pass_reason: detector.softPassReason ?? null,
+        retried_with_extra_aggressive: detectorRetried,
+      },
+    });
+
+    const humanizedBody = layeredBody;
 
     // Persist the (possibly humanized) body onto the attempt object so
     // a later "accept" verdict stores the right text. If humanization

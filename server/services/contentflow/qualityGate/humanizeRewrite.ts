@@ -47,6 +47,11 @@ export interface HumanizeContext {
    *  rewrite didn't drift off-topic. If provided, the longest content
    *  word from the title must appear somewhere in the rewrite. */
   briefTitle?: string;
+  /** When true, use the EXTRA-aggressive prompt variant. Triggered by the
+   *  Layer-4 detector gate when the first pass still scores ≥ 60% AI.
+   *  Pushes burstiness harder, mandates more fragments, and requires at
+   *  least one question per heading. */
+  extraAggressive?: boolean;
 }
 
 export interface HumanizeResult {
@@ -63,9 +68,11 @@ export interface HumanizeResult {
 
 /* ─── Constants ─────────────────────────────────────────────────────── */
 
-/** Default kept at 80% per spec — anything shorter than this fraction of
- *  the original is treated as a truncated rewrite. */
-const MIN_LENGTH_RATIO = 0.8;
+/** Default kept at 75% — the aggressive prompt (PR #783) allows ±15-20%
+ *  word count drift, so 80% was triggering false fallbacks on legitimate
+ *  rewrites. Anything shorter than this fraction of the original is still
+ *  treated as a truncated rewrite. */
+const MIN_LENGTH_RATIO = 0.75;
 
 /** Max output tokens — humanized rewrite shouldn't grow much beyond the
  *  original. 2000 covers ~700-word articles (the upper bound from the
@@ -76,6 +83,16 @@ const MAX_OUTPUT_TOKENS = 2000;
 
 export function humanizeEnabled(): boolean {
   const raw = process.env.CONTENTFLOW_HUMANIZE_REWRITE_ENABLED;
+  if (raw === undefined || raw === null || raw === "") return true;
+  return !/^(false|0|off|no)$/i.test(raw.trim());
+}
+
+/** Feature flag for the AGGRESSIVE prompt rewrite (the new prompt that
+ *  targets ZeroGPT < 40%). When disabled we fall back to the original
+ *  prompt — the cross-provider routing still happens but with the gentler
+ *  pre-PR-781 instruction. */
+export function aggressiveHumanizeEnabled(): boolean {
+  const raw = process.env.CONTENTFLOW_AGGRESSIVE_HUMANIZE_ENABLED;
   if (raw === undefined || raw === null || raw === "") return true;
   return !/^(false|0|off|no)$/i.test(raw.trim());
 }
@@ -212,14 +229,124 @@ function industryToneHint(industry: string | undefined): string | null {
   return `Match the natural voice of someone who actually works in ${industry}, not a generic copywriter writing about it.`;
 }
 
-export function buildHumanizePrompt(
-  draftText: string,
-  ctx: HumanizeContext,
-): { system: string; user: string } {
-  const targetWords = ctx.targetWordCount ?? 600;
-  const tone = industryToneHint(ctx.industry);
+/** Industry-aware shop-floor vocabulary hint — fed into the aggressive
+ *  prompt so the rewriter pulls in colloquialisms that match the niche. */
+function industryColloquialisms(industry: string | undefined): string {
+  if (!industry) return "the job, the customer, the work";
+  const k = industry.toLowerCase();
+  if (/plumb/.test(k)) return "the call, the job, the homeowner, the line, the leak, snake the drain";
+  if (/electric/.test(k)) return "the panel, the run, the homeowner, code, the breaker, hot/neutral";
+  if (/roof/.test(k)) return "the tear-off, the deck, shingles, flashing, the homeowner, the layer";
+  if (/hvac|heat|cool|air/.test(k)) return "the unit, the call, refrigerant, the homeowner, ductwork, the system";
+  if (/construct|contract|general/.test(k)) return "the build, the job, the crew, the site, the homeowner";
+  if (/market|agency|seo|adver|brand|content/.test(k)) return "the ad, the funnel, the brief, the campaign, the client";
+  if (/auto|mechan|car|vehicle/.test(k)) return "under the hood, the bay, the customer, the lift, the part";
+  if (/law|legal|attorn/.test(k)) return "the matter, the client, the filing, the hearing";
+  if (/med|health|dental|clinic/.test(k)) return "the visit, the patient, the chart, the follow-up";
+  return "the job, the customer, the work";
+}
 
-  const system = [
+/** Few-shot anchor — a tiny BAD/GOOD pair so the model knows what cadence
+ *  we actually want. Generic enough to apply across niches. */
+const AGGRESSIVE_FEWSHOT = [
+  "EXAMPLE — bad (AI-detectable):",
+  "When it comes to choosing a plumber, it's important to remember that quality matters significantly. Moreover, you should always ensure that the plumber you select has the necessary credentials and experience. Furthermore, asking for references from previous clients is essential to making an informed decision.",
+  "",
+  "EXAMPLE — good (human-cadence rewrite of the SAME content):",
+  "Picking a plumber is harder than it looks. Most people just grab the first name on Google. Big mistake. Here's what actually matters: credentials, real references, and someone who'll answer the phone at 9pm when the basement floods. Ask for two past customers you can call. If they hesitate? Move on.",
+].join("\n");
+
+/** AGGRESSIVE prompt — replaces the gentler pre-PR-781 instruction. Built
+ *  for ZeroGPT < 40%. The pragmatic cadence target is burstiness > 0.65,
+ *  avgSentenceLen < 16 words. Layer 2 (algorithmic) + Layer 3 (cadence
+ *  verify) will retry if the LLM doesn't comply. */
+function buildAggressiveSystemPrompt(ctx: HumanizeContext): string {
+  const colloquialisms = industryColloquialisms(ctx.industry);
+  const lines = [
+    "You are rewriting an AI-generated article to read as if a real small-business owner wrote it. Your job is to defeat AI content detectors while preserving every fact, every heading, and the customer's intent.",
+    "",
+    "CRITICAL CADENCE RULES — these are non-negotiable:",
+    "1. BURSTINESS — mix sentence lengths aggressively. Some sentences must be 3-6 words. Others 25-35 words. Never write 3 consecutive sentences within 5 words of each other.",
+    "2. AVG SENTENCE LENGTH — target 11-13 words across the article. Long sentences are AI-tell #1.",
+    "3. SENTENCE FRAGMENTS — use them. \"Critical.\" \"Not great.\" \"Worth knowing.\" Real people write fragments.",
+    "4. ONE-WORD PARAGRAPHS — occasionally use a single sentence as its own paragraph for emphasis.",
+    "5. CONTRACTIONS — use them everywhere (\"don't\", \"can't\", \"won't\", \"you're\", \"it's\"). AI writes \"do not\".",
+    "6. PARENTHETICALS — break flow with commas, dashes-but-sparingly, or asides like \"(more on this below)\".",
+    "7. QUESTIONS — pose 2-4 questions across the article. Real writing has questions.",
+    `8. INDUSTRY COLLOQUIALISMS — use shop-floor language. For this niche: ${colloquialisms}.`,
+    "",
+    "CRITICAL HEADING RULE: Reproduce every ## and ### heading EXACTLY character-for-character. The body under each heading can be fully rewritten.",
+    "",
+    "FORBIDDEN PATTERNS (these are AI-tells, never produce):",
+    "- \"Moreover\", \"Furthermore\", \"Additionally\" — use \"Plus\", \"And\", \"Also\" instead, or no transition word",
+    "- \"In conclusion\", \"To wrap up\", \"In summary\" — just end naturally",
+    "- Excessive em-dashes — at most one per 150 words",
+    "- Triple-colon lists where every entry starts the same way",
+    "- Generic openers like \"When it comes to...\" or \"Have you ever wondered...\"",
+    "- \"Whether you're...\" constructions",
+    "- \"It's important to remember that...\"",
+    "- The phrase \"let's dive in\" or \"deep dive\"",
+    "",
+    "PRESERVED INVARIANTS:",
+    "- All factual claims unchanged",
+    "- All headings exact",
+    "- All URLs/business names unchanged",
+    "- Word count ±15%",
+    "",
+    `Topic: ${ctx.briefTitle ?? "(see article body)"}`,
+    "",
+    AGGRESSIVE_FEWSHOT,
+    "",
+    "Output only the rewritten article in markdown. No preamble, no explanation, no code fence.",
+  ];
+  return lines.join("\n");
+}
+
+/** EXTRA-AGGRESSIVE variant — triggered after the Layer-4 detector gate
+ *  scores ≥ 60% on the first pass. Pushes burstiness HARDER, mandates more
+ *  fragments, and requires at least one question per heading. */
+function buildExtraAggressiveSystemPrompt(ctx: HumanizeContext): string {
+  const colloquialisms = industryColloquialisms(ctx.industry);
+  const lines = [
+    "SECOND-PASS REWRITE. Your previous output was still flagged by an AI detector. This pass is significantly more aggressive. The article below has already been humanized once — push every cadence rule HARDER.",
+    "",
+    "MANDATORY RULES (stronger than the first pass):",
+    "1. BURSTINESS HARDER — at least 30% of sentences must be ≤ 8 words. At least 10% must be ≥ 25 words. Never two consecutive sentences within 4 words of each other.",
+    "2. AVG SENTENCE LENGTH — target 10-12 words. If your prior draft averaged higher, cut it.",
+    "3. FRAGMENTS MANDATORY — at least 4 sentence fragments per 500 words. \"Critical.\" \"Doesn't work.\" \"Every time.\" Real writing uses them.",
+    "4. ONE-WORD PARAGRAPHS — at least one in the article. Drop it for emphasis.",
+    "5. CONTRACTIONS EVERYWHERE — every \"do not\" → \"don't\", every \"will not\" → \"won't\", every \"it is\" → \"it's\". No exceptions.",
+    "6. QUESTIONS — at least one question per ## heading section. Open with a question if it fits.",
+    `7. INDUSTRY COLLOQUIALISMS — pack them in. For this niche: ${colloquialisms}. Use multiple.`,
+    "8. ASIDES — at least two parenthetical asides like \"(seriously)\" or \"(more on that)\" or \"(every time)\".",
+    "9. PERSONALITY MARKERS — a casual phrase opener somewhere: \"Look,\" / \"Real talk,\" / \"Honestly,\" / \"Here's the thing,\".",
+    "",
+    "CRITICAL HEADING RULE: Reproduce every ## and ### heading EXACTLY character-for-character.",
+    "",
+    "FORBIDDEN (zero tolerance this pass):",
+    "- \"Moreover\", \"Furthermore\", \"Additionally\", \"Therefore\", \"In conclusion\"",
+    "- Em-dashes (at most one in the entire article)",
+    "- \"When it comes to\", \"Whether you're\", \"It's important to\"",
+    "- Three sentences in a row of similar length",
+    "- Any sentence longer than 35 words",
+    "",
+    "PRESERVED INVARIANTS:",
+    "- All factual claims unchanged",
+    "- All headings exact",
+    "- All URLs/business names unchanged",
+    "- Word count ±20% (slightly looser to allow restructuring)",
+    "",
+    `Topic: ${ctx.briefTitle ?? "(see article body)"}`,
+    "",
+    "Output only the rewritten article in markdown. No preamble, no explanation, no code fence.",
+  ];
+  return lines.join("\n");
+}
+
+/** Original (PR #780/#781) prompt — kept as fallback when
+ *  CONTENTFLOW_AGGRESSIVE_HUMANIZE_ENABLED=false. */
+function buildLegacySystemPrompt(): string {
+  return [
     "You are an editor rewriting an AI-generated article so it reads like a real person wrote it.",
     "Your goal is to defeat AI-detection patterns — uniform paragraph length, predictable transitions, formulaic structure — WITHOUT changing what the article says.",
     "",
@@ -238,9 +365,23 @@ export function buildHumanizePrompt(
     "",
     "Output only the rewritten article in markdown. No preamble, no explanation, no code fence.",
   ].join("\n");
+}
+
+export function buildHumanizePrompt(
+  draftText: string,
+  ctx: HumanizeContext,
+): { system: string; user: string } {
+  const targetWords = ctx.targetWordCount ?? 600;
+  const tone = industryToneHint(ctx.industry);
+
+  const system = ctx.extraAggressive
+    ? buildExtraAggressiveSystemPrompt(ctx)
+    : aggressiveHumanizeEnabled()
+      ? buildAggressiveSystemPrompt(ctx)
+      : buildLegacySystemPrompt();
 
   const userLines: string[] = [];
-  userLines.push(`Rewrite the article below to roughly ${targetWords} words (±10%).`);
+  userLines.push(`Rewrite the article below to roughly ${targetWords} words (±${ctx.extraAggressive ? 20 : 15}%).`);
   if (tone) userLines.push(`Industry tone: ${tone}`);
   if (ctx.brandVoice) {
     userLines.push(`Brand voice hint (shape the tone, do NOT invent claims from this): ${ctx.brandVoice.slice(0, 400)}`);
@@ -251,7 +392,9 @@ export function buildHumanizePrompt(
   userLines.push(draftText);
   userLines.push('"""');
   userLines.push("");
-  userLines.push("Rewrite. Markdown only.");
+  userLines.push(ctx.extraAggressive
+    ? "Rewrite with the harder rules. Markdown only."
+    : "Rewrite. Markdown only.");
 
   return { system, user: userLines.join("\n") };
 }
