@@ -423,7 +423,7 @@ function TemplateDetailDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {kind === "tradeline" ? <Phone className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}

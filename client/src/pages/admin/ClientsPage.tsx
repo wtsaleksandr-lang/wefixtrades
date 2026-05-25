@@ -499,7 +499,7 @@ export default function ClientsPage() {
         )}
 
         {/* Table */}
-        <Card>
+        <Card className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

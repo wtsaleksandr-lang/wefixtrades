@@ -208,7 +208,7 @@ export default function AuditLeadsPage() {
         )}
 
         {/* Table */}
-        <Card>
+        <Card className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

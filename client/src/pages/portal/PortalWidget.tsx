@@ -209,7 +209,7 @@ function InstallModal({ open, onOpenChange, snippet, sourcesLabel, hasConnectedS
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="max-w-2xl w-[calc(100vw-2rem)] sm:w-auto max-h-[90vh] overflow-y-auto"
         data-testid="install-instructions-modal"
       >
         <DialogHeader>

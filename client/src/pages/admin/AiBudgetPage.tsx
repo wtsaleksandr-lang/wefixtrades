@@ -339,6 +339,7 @@ export default function AiBudgetPage() {
             <h2 className="text-sm font-semibold text-gray-900">Top spenders this month</h2>
             <p className="text-xs text-gray-500">Highest cumulative AI spend right now — investigate any outliers.</p>
           </div>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -382,6 +383,7 @@ export default function AiBudgetPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
     </AdminLayout>

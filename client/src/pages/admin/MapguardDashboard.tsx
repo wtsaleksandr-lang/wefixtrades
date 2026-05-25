@@ -542,7 +542,7 @@ function SupplierPerformanceSection() {
   if (!data || data.length === 0) return null;
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-x-auto">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">Supplier Performance</h3>
       </div>
