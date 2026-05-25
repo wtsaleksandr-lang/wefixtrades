@@ -72,7 +72,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
         alignItems: "center",
         gap: 6,
         background: copied ? "#22C55E" : "#0d3cfc",
-        color: "#fff",
+        color: "rgb(255,255,255)",
         border: "none",
         padding: "8px 12px",
         borderRadius: 10,
@@ -165,7 +165,7 @@ export default function GoogleReviewLinkGenerator() {
             borderRadius: 12,
             border: "1px solid rgba(0,0,0,0.10)",
             fontSize: 14,
-            background: "#fff",
+            background: "rgb(255,255,255)",
             outline: "none",
           }}
           data-testid="input-review-business"
@@ -181,7 +181,7 @@ export default function GoogleReviewLinkGenerator() {
             borderRadius: 12,
             border: "1px solid rgba(0,0,0,0.10)",
             fontSize: 14,
-            background: "#fff",
+            background: "rgb(255,255,255)",
             outline: "none",
           }}
           data-testid="input-review-city"
@@ -197,7 +197,7 @@ export default function GoogleReviewLinkGenerator() {
           padding: "12px 16px",
           borderRadius: 12,
           background: loading ? "rgba(13,60,252,0.6)" : "#0d3cfc",
-          color: "#fff",
+          color: "rgb(255,255,255)",
           fontSize: 14,
           fontWeight: 700,
           border: "none",
@@ -216,7 +216,7 @@ export default function GoogleReviewLinkGenerator() {
 
   const resultPanel = result ? (
     <div style={{
-      background: "#fff",
+      background: "rgb(255,255,255)",
       border: "1px solid rgba(0,0,0,0.08)",
       borderRadius: 18,
       padding: 20,
