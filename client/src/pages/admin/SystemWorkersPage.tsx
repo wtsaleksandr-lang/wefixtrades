@@ -189,7 +189,7 @@ function WorkerCard({ worker }: { worker: Worker }) {
 
   return (
     <div className={cn(
-      "bg-white rounded-lg border p-4 transition-shadow hover:shadow-sm",
+      "bg-white rounded-lg border p-4",
       worker.last_status === "failed" && "border-red-200",
       worker.stale && worker.last_status !== "failed" && "border-amber-200",
     )}>
