@@ -61,6 +61,7 @@ import { registerEmailChartsRoute } from "../services/emailCharts";
 import { registerAdminSupplierRoutes } from "./adminSupplierRoutes";
 import { registerSupplierWebhookRoutes } from "./supplierWebhookRoutes";
 import { registerMetaMessagingWebhookRoutes } from "./metaMessagingWebhookRoutes";
+import { registerMetaWhatsappWebhookRoutes } from "./metaWhatsappWebhookRoutes";
 import { registerAdminServiceRoutes } from "./adminServiceRoutes";
 import { registerApprovalRoutes } from "./approvalRoutes";
 import { registerDemoRoutes } from "./demoRoutes";
@@ -192,6 +193,11 @@ export async function registerRoutes(
   // routes/metaMessagingWebhookRoutes.ts. Public (signed by Meta with
   // X-Hub-Signature-256, verified per-request).
   registerMetaMessagingWebhookRoutes(app);
+  // Meta perm #5 of 5 — whatsapp_business_messaging webhook receiver. See
+  // routes/metaWhatsappWebhookRoutes.ts. Public (signed by Meta with
+  // X-Hub-Signature-256, verified per-request). Coexists with the
+  // existing Twilio WhatsApp path on /api/twilio/*.
+  registerMetaWhatsappWebhookRoutes(app);
   registerAdminServiceRoutes(app);
   registerApprovalRoutes(app);
   registerDemoRoutes(app);

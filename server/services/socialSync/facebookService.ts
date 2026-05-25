@@ -74,6 +74,16 @@ const REQUIRED_SCOPES = [
   // replies + an inbox UI ship in follow-up PRs. Backed by
   // subscribePageToMessagingWebhooks() and sendFacebookMessengerReply().
   "pages_messaging",
+  // Lets the customer route their WhatsApp Business number through
+  // WeFixTrades via Meta's WhatsApp Cloud API. Foundation for the
+  // "AI auto-reply to WhatsApp" feature — this PR ships the inbound
+  // webhook receiver + a portal-facing send endpoint. AI-driven replies,
+  // template messages, and media support land in follow-up PRs. Backed by
+  // server/services/whatsappCloudService.ts and
+  // server/routes/metaWhatsappWebhookRoutes.ts. Coexists with the
+  // existing Twilio WhatsApp path (TWILIO_WHATSAPP_NUMBER) — customers
+  // pick which provider their number is connected to.
+  "whatsapp_business_messaging",
   // Instagram scopes — requested during the same Meta OAuth flow
   "instagram_basic",
   "instagram_content_publish",
