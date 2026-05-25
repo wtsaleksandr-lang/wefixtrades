@@ -349,13 +349,31 @@ function MarketingFooter() {
             row-gap: 28px;
           }
         }
-        /* Dashed vertical divider line between footer columns. Uses a true
-           border (not a background-image) so it always renders on the dark
-           surface. padding-left supplies the inner gap so column content
-           still breathes away from the divider. */
+        /* Vertical divider line between footer columns. Solid 1px line at 0.32
+           opacity with a soft top/bottom fade via linear-gradient — gives a
+           crisp visible blueprint-style line that doesn't feel like a hard
+           border. Implemented as a ::before pseudo so the line height is
+           independent of column content. padding-left supplies the inner
+           gap so column content breathes away from the divider. */
         .mkt-footer-grid > * + * {
-          border-left: 1px dashed rgba(255,255,255,0.22);
+          position: relative;
           padding-left: 24px;
+        }
+        .mkt-footer-grid > * + *::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 1px;
+          background: linear-gradient(
+            to bottom,
+            transparent 0%,
+            rgba(255,255,255,0.32) 15%,
+            rgba(255,255,255,0.32) 85%,
+            transparent 100%
+          );
+          pointer-events: none;
         }
         .mkt-footer-grid > * {
           padding-right: 12px;
@@ -377,8 +395,8 @@ function MarketingFooter() {
           background-position: left center, right center;
           background-size: 16px 16px, 16px 16px;
           background-image:
-            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='8' x2='14' y2='8' stroke='rgba(255,255,255,0.38)' stroke-width='1'/><line x1='8' y1='2' x2='8' y2='14' stroke='rgba(255,255,255,0.38)' stroke-width='1'/></svg>"),
-            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='8' x2='14' y2='8' stroke='rgba(255,255,255,0.38)' stroke-width='1'/><line x1='8' y1='2' x2='8' y2='14' stroke='rgba(255,255,255,0.38)' stroke-width='1'/></svg>");
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='8' x2='14' y2='8' stroke='rgba(255,255,255,0.45)' stroke-width='1'/><line x1='8' y1='2' x2='8' y2='14' stroke='rgba(255,255,255,0.45)' stroke-width='1'/></svg>"),
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='8' x2='14' y2='8' stroke='rgba(255,255,255,0.45)' stroke-width='1'/><line x1='8' y1='2' x2='8' y2='14' stroke='rgba(255,255,255,0.45)' stroke-width='1'/></svg>");
         }
         .mkt-footer-grid::before { top: -8px; }
         .mkt-footer-grid::after  { bottom: -8px; }
@@ -457,8 +475,10 @@ function MarketingFooter() {
              vertical borders between wrapped rows look chaotic. The 4 outer
              corner "+" markers stay (they're on the grid container). */
           .mkt-footer-grid > * + * {
-            border-left: none;
             padding-left: 0;
+          }
+          .mkt-footer-grid > * + *::before {
+            display: none;
           }
           .mkt-footer-grid > * {
             padding-right: 0;
