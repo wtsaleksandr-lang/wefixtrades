@@ -17,8 +17,10 @@
  * Routes intentionally EXCLUDED: /admin/*, /portal/*, /api/*, /r/:slug,
  * /pay/:token, /book/:slug, /q/:slug, /onboarding/:token, /review/*,
  * /audit/report/:id, /demo/:templateId, /compare/:slug catch-all,
- * /demos/:slug catch-all, /solutions/:slug catch-all (per-customer),
- * and the various dashboard/calculator/wizard internal paths.
+ * /demos/:slug catch-all, and the various dashboard/calculator/wizard
+ * internal paths. The 12 curated /solutions/for-* trade landings ARE
+ * included (each has a unique <PageMeta>); the /solutions/:slug param
+ * catch-all is otherwise restricted to the curated list at render time.
  */
 import type { Express } from "express";
 import { PRODUCT_PAGES } from "../../client/src/config/products";
@@ -76,6 +78,22 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/features/sms", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
   { loc: "/features/calculator-engine", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
   { loc: "/solutions/visibility", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
+  // SEO — 12 trade-specific solution landings. High intent ("for-plumbers"
+  // matches the exact query shape); each has a unique <PageMeta> with its
+  // own title, description, and canonical. Priority 0.8 so they sit above
+  // the docs pages but below the top-level marketing hubs.
+  { loc: "/solutions/for-plumbers", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-hvac", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-electricians", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-roofers", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-cleaners", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-landscapers", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-pest-control", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-garage-door", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-locksmiths", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-painters", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-remodelers", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
+  { loc: "/solutions/for-general-contractors", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-24" },
   { loc: "/tools/free-audit", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-24" },
   { loc: "/products/quickquotepro/demo", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/products/quickquotepro/build-with-ai", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
