@@ -11,13 +11,20 @@
  *   - avgSentenceLen = mean(sentenceLengths) in WORDS
  *     (long uniform sentences are AI-tell #1)
  *
- * Pass criteria — pragmatic targets the rewriter can actually hit:
- *   burstiness > 0.65 AND avgSentenceLen < 16
+ * Pass criteria (post-validation 2026-05-25 tuning):
+ *   burstiness > 0.65   (SOLE blocker — triggers retry on failure)
+ *   avgSentenceLen < 16 (reported + warned on, but does NOT trigger retry)
+ *
+ * Validation showed mid-pipeline regressions (e.g. marketing 47% → 62% AI)
+ * when the avg-length check forced a retry on text that was actually fine —
+ * a long-sentence article with high burstiness reads human. The downstream
+ * detector gate (Layer 4, ZeroGPT) is the real ground truth; here we only
+ * block on the cadence signal most strongly correlated with detection
+ * (burstiness).
  *
  * Aspirational target was 0.8 / 13 — sample-run data showed real-world LLM
- * rewriters can't always hit that. 0.65 / 16 is still a substantial
- * improvement on the 93% ZeroGPT baseline (which typically scores 0.45-0.55
- * burstiness and 18-22 word avg).
+ * rewriters can't always hit that. 0.65 burstiness is still a substantial
+ * improvement on the 93% ZeroGPT baseline (which typically scores 0.45-0.55).
  *
  * Pipeline position:
  *   humanizeArticle → applyAlgorithmicHumanization → verifyCadence (this)
@@ -53,6 +60,11 @@ export interface CadenceResult {
   sentenceCount: number;
   reason?: string;
   bypassed?: boolean;
+  /** Non-blocking observations (e.g. avg sentence length above the soft
+   *  threshold). Reported for audit but does NOT trigger a cadence retry. */
+  warnings?: string[];
+  /** Which threshold(s) failed hard (burstiness only, since 2026-05-25). */
+  failedThresholds?: ("burstiness" | "avgSentenceLen")[];
 }
 
 /* ─── Sentence extraction ───────────────────────────────────────────── */
@@ -170,18 +182,27 @@ export function verifyCadence(text: string): CadenceResult {
 
   const burstinessOk = burstiness > CADENCE_BURSTINESS_THRESHOLD;
   const avgLenOk = mean < CADENCE_AVG_LEN_THRESHOLD;
-  const passes = burstinessOk && avgLenOk;
+  // Burstiness is the SOLE blocker (validation 2026-05-25). avg-length is
+  // reported as a warning so the audit log keeps both numbers, but it
+  // does not force a retry — long sentences with high burstiness still
+  // score human on downstream detectors.
+  const passes = burstinessOk;
+
+  const failedThresholds: ("burstiness" | "avgSentenceLen")[] = [];
+  if (!burstinessOk) failedThresholds.push("burstiness");
+  if (!avgLenOk) failedThresholds.push("avgSentenceLen");
+
+  const warnings: string[] = [];
+  if (!avgLenOk) {
+    warnings.push(`avg_sentence_len_high (${mean.toFixed(1)} ≥ ${CADENCE_AVG_LEN_THRESHOLD})`);
+  }
 
   let reason: string | undefined;
   if (!passes) {
-    const parts: string[] = [];
-    if (!burstinessOk) {
-      parts.push(`burstiness ${burstiness.toFixed(2)} ≤ ${CADENCE_BURSTINESS_THRESHOLD}`);
-    }
+    reason = `burstiness ${burstiness.toFixed(2)} ≤ ${CADENCE_BURSTINESS_THRESHOLD}`;
     if (!avgLenOk) {
-      parts.push(`avgSentenceLen ${mean.toFixed(1)} ≥ ${CADENCE_AVG_LEN_THRESHOLD}`);
+      reason += `; warn: avgSentenceLen ${mean.toFixed(1)} ≥ ${CADENCE_AVG_LEN_THRESHOLD}`;
     }
-    reason = parts.join("; ");
   }
 
   return {
@@ -190,5 +211,7 @@ export function verifyCadence(text: string): CadenceResult {
     avgSentenceLen: mean,
     sentenceCount,
     reason,
+    warnings: warnings.length ? warnings : undefined,
+    failedThresholds: failedThresholds.length ? failedThresholds : undefined,
   };
 }

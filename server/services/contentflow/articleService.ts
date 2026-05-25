@@ -424,15 +424,23 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
     });
 
     /* ── Layer 3: cadence verification ──
-     * Computes burstiness + avg sentence length. If the rewrite still
-     * looks too uniform, re-run the LLM humanizer (with the same prompt)
-     * + algo pass up to LAYER3_RETRIES times. The detector gate below
-     * handles the harder retry-with-extra-aggressive prompt path. */
+     * Computes burstiness + avg sentence length. If burstiness is below
+     * the floor, re-run the LLM humanizer (same prompt) + algo pass up
+     * to LAYER3_RETRIES times. Burstiness is the SOLE blocker as of
+     * 2026-05-25 — avg-length now only warns (see cadenceVerifier.ts).
+     *
+     * Regression guard: if a retry produces WORSE burstiness than the
+     * pre-retry text, keep the pre-retry version. Validation showed
+     * cadence retries sometimes degrade mid-pipeline (e.g. marketing
+     * 47% → 62% AI) and we don't want to accept a regression. */
     const LAYER3_RETRIES = 2;
     let cadence = verifyCadence(layeredBody);
     let cadenceRetries = 0;
+    let cadenceRetryRegressions = 0;
     while (!cadence.passes && cadenceRetries < LAYER3_RETRIES && cadenceVerifyEnabled()) {
       cadenceRetries++;
+      const prevBody = layeredBody;
+      const prevBurstiness = cadence.burstiness;
       const retryHumanize = await humanizeArticle(result.parsed.body_md, {
         clientId: draft.client_id,
         brandVoice: brandLayer,
@@ -445,8 +453,20 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
         retryHumanize.humanized,
         { industry: industryStr ?? null },
       );
-      layeredBody = retryAlgo.text;
-      cadence = verifyCadence(layeredBody);
+      const candidateBody = retryAlgo.text;
+      const candidateCadence = verifyCadence(candidateBody);
+      // Regression guard — only accept the retry output if it didn't make
+      // burstiness worse than what we had going in.
+      if (candidateCadence.burstiness >= prevBurstiness) {
+        layeredBody = candidateBody;
+        cadence = candidateCadence;
+      } else {
+        cadenceRetryRegressions++;
+        // Keep prevBody / prev cadence; the outer loop will re-check and
+        // either retry again (up to LAYER3_RETRIES) or exit. layeredBody
+        // is already prevBody, so no reassignment needed.
+        layeredBody = prevBody;
+      }
     }
     writeAudit({
       actorType: "system",
@@ -462,6 +482,9 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
         avg_sentence_len: Number(cadence.avgSentenceLen.toFixed(2)),
         sentence_count: cadence.sentenceCount,
         retries_used: cadenceRetries,
+        retry_regressions_rejected: cadenceRetryRegressions,
+        failed_thresholds: cadence.failedThresholds ?? null,
+        warnings: cadence.warnings ?? null,
         reason: cadence.reason ?? null,
       },
     });

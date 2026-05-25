@@ -240,7 +240,16 @@ function industryColloquialisms(industry: string | undefined): string {
   if (/hvac|heat|cool|air/.test(k)) return "the unit, the call, refrigerant, the homeowner, ductwork, the system";
   if (/construct|contract|general/.test(k)) return "the build, the job, the crew, the site, the homeowner";
   if (/market|agency|seo|adver|brand|content/.test(k)) return "the ad, the funnel, the brief, the campaign, the client";
-  if (/auto|mechan|car|vehicle/.test(k)) return "under the hood, the bay, the customer, the lift, the part";
+  if (/auto|mechan|car|vehicle/.test(k)) {
+    // Auto industry historically over-leans into fragments (validation
+    // 2026-05-25 showed burstiness 0.52 vs target 0.65). Pair the
+    // shop-floor vocab with an explicit short+long structural example
+    // so the rewriter doesn't collapse into all-fragments shop-talk.
+    return [
+      "under the hood, the bay, the customer, the lift, the part.",
+      "Structural example — use BOTH lengths in the SAME section: a short shop-floor call like \"The compression check came back fine.\" AND a long diagnostic like \"When you've got an intermittent misfire that only shows up on cold starts and goes away once the engine reaches operating temperature, the diagnostic path narrows fast — usually it's a temperature-dependent component aging out.\"",
+    ].join(" ");
+  }
   if (/law|legal|attorn/.test(k)) return "the matter, the client, the filing, the hearing";
   if (/med|health|dental|clinic/.test(k)) return "the visit, the patient, the chart, the follow-up";
   return "the job, the customer, the work";
@@ -266,7 +275,7 @@ function buildAggressiveSystemPrompt(ctx: HumanizeContext): string {
     "You are rewriting an AI-generated article to read as if a real small-business owner wrote it. Your job is to defeat AI content detectors while preserving every fact, every heading, and the customer's intent.",
     "",
     "CRITICAL CADENCE RULES — these are non-negotiable:",
-    "1. BURSTINESS — mix sentence lengths aggressively. Some sentences must be 3-6 words. Others 25-35 words. Never write 3 consecutive sentences within 5 words of each other.",
+    "1. BURSTINESS IS NON-NEGOTIABLE. The article MUST contain BOTH: (a) at least 3 sentences of 3-6 words AND (b) at least 3 sentences of 25-35 words. Spread them across paragraphs. Never write 3 consecutive sentences within 5 words of each other. A burstiness score < 0.65 means you failed.",
     "2. AVG SENTENCE LENGTH — target 11-13 words across the article. Long sentences are AI-tell #1.",
     "3. SENTENCE FRAGMENTS — use them. \"Critical.\" \"Not great.\" \"Worth knowing.\" Real people write fragments.",
     "4. ONE-WORD PARAGRAPHS — occasionally use a single sentence as its own paragraph for emphasis.",
