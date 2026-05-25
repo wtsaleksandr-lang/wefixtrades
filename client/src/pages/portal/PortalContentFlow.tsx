@@ -49,6 +49,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TokenChip from "@/components/forms/TokenChip";
 import BusinessProfileEditor, { type ExtractedBusinessProfile } from "@/components/portal/BusinessProfileEditor";
+import QuotaBanner from "@/components/portal/QuotaBanner";
 
 /* The filter axis enums duplicated client-side so the picker can
  * render without a server round-trip. The /api/portal/contentflow/prompts
@@ -484,6 +485,13 @@ export default function PortalContentFlow() {
             60 trade-adapted prompts across 12 named patterns. Pick one, preview it filled with your brand details, then generate.
           </p>
         </div>
+
+        {/* Phase 4 wire-up: monthly usage bars (images / articles / videos).
+         * QuotaBanner self-fetches GET /api/portal/contentflow/quota and
+         * renders its own loading skeleton + graceful error card, so we
+         * just mount it here. Sits above the tabs (which include the
+         * prompt picker + business-profile editor). */}
+        <QuotaBanner />
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as "library" | "profile")}>
           <TabsList className="mb-5">
