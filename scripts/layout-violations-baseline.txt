@@ -138,11 +138,18 @@ client/src/pages/leads.tsx:118:14	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:119:26	rule-c	square w-7 h-7
 client/src/pages/leads.tsx:167:20	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:168:28	rule-c	square w-7 h-7
+client/src/pages/marketing/CitationBuilderPage.tsx:476:30	rule-c	size={13}
+client/src/pages/marketing/CitationBuilderPage.tsx:537:27	rule-c	size={18}
 client/src/pages/marketing/DesignShowcase.tsx:125:50	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:129:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:133:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:137:57	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:141:53	rule-c	size={1080}
+client/src/pages/marketing/tools/CitationChecker.tsx:203:40	rule-c	size={11}
+client/src/pages/marketing/tools/GoogleReviewLinkGenerator.tsx:87:31	rule-c	size={13}
+client/src/pages/marketing/tools/GoogleReviewLinkGenerator.tsx:87:52	rule-c	size={13}
+client/src/pages/marketing/tools/LocalSearchChecker.tsx:174:21	rule-c	size={13}
+client/src/pages/marketing/tools/LocalSearchChecker.tsx:215:19	rule-c	size={13}
 client/src/pages/portal/FreeTools/ServiceAreaMap.tsx:242:7	rule-b	<div> contains 3 cues
 client/src/pages/portal/PortalBilling.tsx:167:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBilling.tsx:178:24	rule-c	square w-9 h-9
@@ -150,7 +157,6 @@ client/src/pages/portal/PortalBilling.tsx:189:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBrandKitsPage.tsx:140:23	rule-c	size={10}
 client/src/pages/portal/PortalChatWidgetSetup.tsx:252:19	rule-c	square w-9 h-9
 client/src/pages/portal/PortalCompetitors.tsx:165:18	rule-c	square w-12 h-12
-client/src/pages/portal/PortalContentPreferences.tsx:322:16	rule-c	square w-12 h-12
 client/src/pages/portal/PortalOnboarding.tsx:427:5	rule-b	<div> contains 3 cues
 client/src/pages/portal/PortalOnboarding.tsx:428:12	rule-c	square w-12 h-12
 client/src/pages/portal/PortalRankFlow.tsx:601:14	rule-c	square w-14 h-14
