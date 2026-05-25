@@ -96,6 +96,13 @@ const STATIC_ROUTES = [
   "/solutions/for-remodelers",
   "/solutions/for-general-contractors",
   "/tools/free-audit",
+  // ContentFlow Phase 1 — 5 public prompt-library SEO landings.
+  // Bing + LLM crawlers (no JS exec) need hydrated head tags here.
+  "/tools/plumbing-ai-content-prompts",
+  "/tools/hvac-ai-content-prompts",
+  "/tools/electrical-ai-content-prompts",
+  "/tools/roofing-ai-content-prompts",
+  "/tools/landscaping-ai-content-prompts",
   "/products/quickquotepro/demo",
   "/products/quickquotepro/build-with-ai",
   "/about",
