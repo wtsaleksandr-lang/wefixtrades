@@ -29,7 +29,6 @@ import MarketingPricing from "@/pages/marketing/pricing";
 import QuoteQuickPricing from "@/pages/marketing/quotequick-pricing";
 import ProductIndex from "@/pages/product/ProductIndex";
 import MarketingServices from "@/pages/marketing/services";
-import MarketingBundles from "@/pages/marketing/bundles";
 import MarketingTemplates from "@/pages/marketing/templates";
 import MarketingTemplateDetail from "@/pages/marketing/template-detail";
 import MarketingDemo from "@/pages/marketing/demo";
