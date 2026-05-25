@@ -79,6 +79,22 @@ const STATIC_ROUTES = [
   "/features/sms",
   "/features/calculator-engine",
   "/solutions/visibility",
+  // SEO — 12 trade-specific solution landings. Each has a unique <PageMeta>
+  // (title, description, canonical) defined in client/src/pages/solutions/SolutionPage.tsx.
+  // Listed here so Bing + LLM crawlers (no JS execution) get the
+  // hydrated head tags instead of the SPA shell.
+  "/solutions/for-plumbers",
+  "/solutions/for-hvac",
+  "/solutions/for-electricians",
+  "/solutions/for-roofers",
+  "/solutions/for-cleaners",
+  "/solutions/for-landscapers",
+  "/solutions/for-pest-control",
+  "/solutions/for-garage-door",
+  "/solutions/for-locksmiths",
+  "/solutions/for-painters",
+  "/solutions/for-remodelers",
+  "/solutions/for-general-contractors",
   "/tools/free-audit",
   "/products/quickquotepro/demo",
   "/products/quickquotepro/build-with-ai",
