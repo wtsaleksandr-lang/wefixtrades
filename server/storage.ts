@@ -5,8 +5,8 @@ import {
   // Calculator + leads + analytics_events + deployment_status table objects
   // moved with impl to ./storage/calculator.ts and ./storage/leads.ts /
   // ./storage/analytics.ts. Types stay here for IStorage signatures.
-  jobLogs,
-  notificationQueue, followupJobs, bookings,
+  // jobLogs, notificationQueue, followupJobs moved with impl to ./storage/jobs.ts
+  bookings,
   users, auditSubmissions, auditFollowupEmails, demoQuoteLeads, missedCallLeads,
   systemAlerts, emailQueue,
   type SystemAlert, type InsertSystemAlert,
@@ -124,6 +124,7 @@ import * as analyticsImpl from "./storage/analytics";
 import * as fulfillmentImpl from "./storage/fulfillment";
 import * as supportImpl from "./storage/support";
 import * as calculatorImpl from "./storage/calculator";
+import * as jobsImpl from "./storage/jobs";
 import { createLogger } from "./lib/logger";
 import { kickoffMapguardService } from "./services/mapguardTaskEngine";
 import { fireSetupCompletionUpsell } from "./services/mapguardUpsell";
@@ -681,89 +682,24 @@ export class DatabaseStorage implements IStorage {
   getDailyEventCounts(calculatorId: number, date: Date): Promise<{ views: number; leads: number; quotes: number }> { return analyticsImpl.getDailyEventCounts(calculatorId, date); }
   getBestDay(calculatorId: number, since: Date): Promise<string | null> { return analyticsImpl.getBestDay(calculatorId, since); }
 
-  async createJobLog(data: InsertJobLog): Promise<JobLog> {
-    const [log] = await db.insert(jobLogs).values(data).returning();
-    return log;
-  }
-
-  async updateJobLog(id: number, updates: Partial<InsertJobLog>): Promise<void> {
-    await db.update(jobLogs).set(updates).where(eq(jobLogs.id, id));
-  }
+  createJobLog(data: InsertJobLog): Promise<JobLog> { return jobsImpl.createJobLog(data); }
+  updateJobLog(id: number, updates: Partial<InsertJobLog>): Promise<void> { return jobsImpl.updateJobLog(id, updates); }
 
   getLeadById(id: number): Promise<Lead | undefined> { return leadsImpl.getLeadById(id); }
   updateLeadStatus(id: number, status: string): Promise<Lead | undefined> { return leadsImpl.updateLeadStatus(id, status); }
   updateLead(id: number, updates: Record<string, any>): Promise<Lead | undefined> { return leadsImpl.updateLead(id, updates); }
 
-  async enqueueNotification(data: InsertNotificationQueue): Promise<NotificationQueue> {
-    const [notif] = await db.insert(notificationQueue).values(data).returning();
-    return notif;
-  }
+  enqueueNotification(data: InsertNotificationQueue): Promise<NotificationQueue> { return jobsImpl.enqueueNotification(data); }
+  fetchDueNotifications(limit = 20): Promise<NotificationQueue[]> { return jobsImpl.fetchDueNotifications(limit); }
+  updateNotification(id: number, updates: Record<string, any>): Promise<void> { return jobsImpl.updateNotification(id, updates); }
+  getNotificationLogs(calculatorId: number, limit = 50): Promise<NotificationQueue[]> { return jobsImpl.getNotificationLogs(calculatorId, limit); }
+  getRecentNotificationCount(calculatorId: number, windowMinutes: number): Promise<number> { return jobsImpl.getRecentNotificationCount(calculatorId, windowMinutes); }
 
-  async fetchDueNotifications(limit = 20): Promise<NotificationQueue[]> {
-    return db.select().from(notificationQueue)
-      .where(and(
-        eq(notificationQueue.status, 'pending'),
-        sql`${notificationQueue.attempts} < ${notificationQueue.max_attempts}`,
-      ))
-      .orderBy(notificationQueue.created_at)
-      .limit(limit);
-  }
-
-  async updateNotification(id: number, updates: Record<string, any>): Promise<void> {
-    await db.update(notificationQueue).set(updates).where(eq(notificationQueue.id, id));
-  }
-
-  async getNotificationLogs(calculatorId: number, limit = 50): Promise<NotificationQueue[]> {
-    return db.select().from(notificationQueue)
-      .where(eq(notificationQueue.calculator_id, calculatorId))
-      .orderBy(desc(notificationQueue.created_at))
-      .limit(limit);
-  }
-
-  async getRecentNotificationCount(calculatorId: number, windowMinutes: number): Promise<number> {
-    const since = new Date(Date.now() - windowMinutes * 60 * 1000);
-    const [result] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(notificationQueue)
-      .where(and(
-        eq(notificationQueue.calculator_id, calculatorId),
-        gte(notificationQueue.created_at, since),
-      ));
-    return result?.count || 0;
-  }
-
-  async enqueueFollowupJobs(data: InsertFollowupJob[]): Promise<FollowupJob[]> {
-    if (data.length === 0) return [];
-    return db.insert(followupJobs).values(data).returning();
-  }
-
-  async fetchDueFollowups(limit = 20): Promise<FollowupJob[]> {
-    const now = new Date();
-    return db.select().from(followupJobs)
-      .where(and(
-        eq(followupJobs.status, 'pending'),
-        lte(followupJobs.run_at, now),
-        sql`${followupJobs.attempts} < ${followupJobs.max_attempts}`,
-      ))
-      .orderBy(followupJobs.run_at)
-      .limit(limit);
-  }
-
-  async updateFollowupJob(id: number, updates: Record<string, any>): Promise<void> {
-    await db.update(followupJobs).set(updates).where(eq(followupJobs.id, id));
-  }
-
-  async getFollowupLogs(calculatorId: number, limit = 50): Promise<FollowupJob[]> {
-    return db.select().from(followupJobs)
-      .where(eq(followupJobs.calculator_id, calculatorId))
-      .orderBy(desc(followupJobs.created_at))
-      .limit(limit);
-  }
-
-  async cancelFollowupsForLead(leadId: number): Promise<void> {
-    await db.update(followupJobs)
-      .set({ status: 'cancelled' })
-      .where(and(eq(followupJobs.lead_id, leadId), eq(followupJobs.status, 'pending')));
-  }
+  enqueueFollowupJobs(data: InsertFollowupJob[]): Promise<FollowupJob[]> { return jobsImpl.enqueueFollowupJobs(data); }
+  fetchDueFollowups(limit = 20): Promise<FollowupJob[]> { return jobsImpl.fetchDueFollowups(limit); }
+  updateFollowupJob(id: number, updates: Record<string, any>): Promise<void> { return jobsImpl.updateFollowupJob(id, updates); }
+  getFollowupLogs(calculatorId: number, limit = 50): Promise<FollowupJob[]> { return jobsImpl.getFollowupLogs(calculatorId, limit); }
+  cancelFollowupsForLead(leadId: number): Promise<void> { return jobsImpl.cancelFollowupsForLead(leadId); }
 
   getCalculatorById(id: number): Promise<Calculator | undefined> { return calculatorImpl.getCalculatorById(id); }
 
