@@ -264,7 +264,7 @@ export default function PortalLayout({
         )}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100">
+        <div className="flex items-center justify-between h-14 px-4 border-b border-border">
           <Link href="/portal" className="flex items-center gap-2.5">
             <svg viewBox="0 0 24 24" width={24} height={24} fill="none" aria-label="WeFixTrades">
               {/* Open checkbox — top-right corner open, check exits through it */}
@@ -272,15 +272,15 @@ export default function PortalLayout({
               <path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <div className="leading-tight">
-              <span className="text-sm font-bold text-gray-900">
+              <span className="text-sm font-bold text-foreground">
                 We<span className="text-brand-blue">Fix</span>Trades
               </span>
-              <span className="text-[10px] text-gray-400 block -mt-0.5">Client Portal</span>
+              <span className="text-[10px] text-muted-foreground/70 block -mt-0.5">Client Portal</span>
             </div>
           </Link>
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden p-1 rounded hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="lg:hidden p-1 rounded hover:bg-muted min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Close navigation menu"
           >
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
@@ -311,10 +311,10 @@ export default function PortalLayout({
                       // Premium polish — whisper-light tint + 3px left-edge brand bar
                       // (via ::before) so the active row reads as "pinned" not "filled".
                       ? "relative bg-[#EEF3FF]/60 text-brand-blue font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:bg-brand-blue before:rounded-r-sm"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                 >
-                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
+                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-muted-foreground/70")} />
                   {item.label}
                 </Link>
               );
@@ -323,8 +323,8 @@ export default function PortalLayout({
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-gray-100 px-4 py-3">
-          <p className="text-[11px] text-gray-400">WeFixTrades Client Portal</p>
+        <div className="border-t border-border px-4 py-3">
+          <p className="text-[11px] text-muted-foreground/70">WeFixTrades Client Portal</p>
         </div>
       </aside>
 
@@ -342,7 +342,7 @@ export default function PortalLayout({
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </Button>
-            <h1 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+            <h1 className="text-sm font-medium text-foreground flex items-center gap-1.5">
               {breadcrumb ?? (NAV_ITEMS.find((item) => isActive(location, item.href))?.label ?? "Portal")}
             </h1>
           </div>
@@ -364,7 +364,7 @@ export default function PortalLayout({
                     "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-colors",
                     copilotOpen
                       ? "bg-brand-blue/10 text-brand-blue"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                   title="AI Copilot — your assistant"
                   aria-pressed={copilotOpen}
@@ -388,12 +388,12 @@ export default function PortalLayout({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <div className="px-3 py-2 border-b border-gray-100">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || "Client"}</p>
-                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                <div className="px-3 py-2 border-b border-border">
+                  <p className="text-sm font-medium text-foreground truncate">{user?.name || "Client"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
                 <DropdownMenuItem onClick={() => navigate("/portal/settings")}>
-                  <Settings className="w-4 h-4 mr-2 text-gray-500" /> Settings
+                  <Settings className="w-4 h-4 mr-2 text-muted-foreground" /> Settings
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                   <LogOut className="w-4 h-4 mr-2" /> Log Out

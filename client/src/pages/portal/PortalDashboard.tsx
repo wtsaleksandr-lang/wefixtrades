@@ -312,8 +312,8 @@ function PortalDashboardInner() {
                 <UserPlus className="w-5 h-5 text-amber-700" />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-gray-900">No client account linked to your admin user</h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <h2 className="text-base font-semibold text-foreground">No client account linked to your admin user</h2>
+                <p className="text-sm text-muted-foreground mt-1">
                   You're seeing the customer portal as <strong>{user?.email}</strong>, but there's no client record
                   linked to this admin user. The portal would normally show that client's dashboard, services,
                   payments, and onboarding tasks.
@@ -321,36 +321,36 @@ function PortalDashboardInner() {
               </div>
             </div>
 
-            <div className="border-t border-gray-100 pt-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">What you can do</p>
+            <div className="border-t border-border pt-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">What you can do</p>
               <div className="space-y-2">
                 <Link
                   href="/admin/crm/clients"
-                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 transition-colors group"
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-border hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 transition-colors group"
                   data-testid="empty-state-clients-link"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">Open the clients list</p>
-                    <p className="text-xs text-gray-500">Pick a real client → their portal will populate with their data</p>
+                    <p className="text-sm font-medium text-foreground">Open the clients list</p>
+                    <p className="text-xs text-muted-foreground">Pick a real client → their portal will populate with their data</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-blue shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/70 group-hover:text-brand-blue shrink-0" />
                 </Link>
                 <Link
                   href="/admin/crm"
-                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 transition-colors group"
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-border hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 transition-colors group"
                   data-testid="empty-state-admin-link"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">Return to the admin dashboard</p>
-                    <p className="text-xs text-gray-500">Exit preview mode and go back to /admin/crm</p>
+                    <p className="text-sm font-medium text-foreground">Return to the admin dashboard</p>
+                    <p className="text-xs text-muted-foreground">Exit preview mode and go back to /admin/crm</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-blue shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/70 group-hover:text-brand-blue shrink-0" />
                 </Link>
               </div>
             </div>
 
-            <p className="text-[11px] text-gray-400 border-t border-gray-100 pt-3">
-              To preview a specific client's portal you'd need a client record whose <code className="px-1 py-0.5 rounded bg-gray-100 font-mono text-[10px]">user_id</code> column matches your admin user id.
+            <p className="text-[11px] text-muted-foreground/70 border-t border-border pt-3">
+              To preview a specific client's portal you'd need a client record whose <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">user_id</code> column matches your admin user id.
             </p>
           </Card>
         </div>
@@ -358,7 +358,7 @@ function PortalDashboardInner() {
       {error && !isAdminWithoutClient && (
         <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
           <span>We hit a snag loading your dashboard. A refresh usually fixes it.</span>
-          <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+          <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-card border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
             <RefreshCw className="w-3 h-3" /> Try again
           </button>
         </div>
@@ -394,10 +394,10 @@ function PortalDashboardInner() {
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">
+            <h1 className="text-xl font-semibold text-foreground">
               Welcome{data.contact_name ? `, ${data.contact_name}` : ""}
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">{data.business_name}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{data.business_name}</p>
           </div>
 
           {/* Hero KPI strip — premium brand-tinted summary panel above
@@ -490,8 +490,8 @@ function PortalDashboardInner() {
               }
               subtitle="Waiting on you"
               icon={AlertCircle}
-              color={data.action_needed > 0 ? "text-red-600" : "text-gray-400"}
-              bgColor={data.action_needed > 0 ? "bg-red-50" : "bg-gray-50"}
+              color={data.action_needed > 0 ? "text-red-600" : "text-muted-foreground/70"}
+              bgColor={data.action_needed > 0 ? "bg-red-50" : "bg-muted/50"}
               href="/portal/services"
             />
             <StatCard
@@ -522,11 +522,11 @@ function PortalDashboardInner() {
                 <Plus className="w-5 h-5 text-brand-blue" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Add Services</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Browse available services and add them to your subscription.</p>
+                <h3 className="text-sm font-semibold text-foreground">Add Services</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Browse available services and add them to your subscription.</p>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-blue transition-colors" />
+            <ChevronRight className="w-4 h-4 text-muted-foreground/70 group-hover:text-brand-blue transition-colors" />
             </Card>
           </Link>
 
@@ -539,25 +539,25 @@ function PortalDashboardInner() {
                     <ClipboardList className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Complete your setup</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <h3 className="text-sm font-semibold text-foreground">Complete your setup</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       We need a few details before we can launch your service
                       {pendingOnboarding.submissions.length > 1 ? "s" : ""}.
                     </p>
                   </div>
                 </div>
               </div>
-              <div className="divide-y divide-gray-100 border-t border-gray-100">
+              <div className="divide-y divide-border border-t border-border">
                 {pendingOnboarding.submissions.map((sub) => (
                   <Link
                     key={sub.id}
                     href={`/portal/onboarding/${sub.id}`}
-                    className="flex items-center justify-between py-3 hover:bg-gray-50 -mx-5 px-5 transition-colors"
+                    className="flex items-center justify-between py-3 hover:bg-muted/50 -mx-5 px-5 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{sub.service_name}</p>
-                        <p className="text-[11px] text-gray-500 mt-0.5">
+                        <p className="text-sm font-medium text-foreground">{sub.service_name}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
                           {sub.has_draft ? "Draft saved — continue" : "Not started"}
                           {sub.status === "viewed" && !sub.has_draft ? " · viewed" : ""}
                         </p>
@@ -571,7 +571,7 @@ function PortalDashboardInner() {
                       }`}>
                         {sub.has_draft ? "In progress" : "Start"}
                       </span>
-                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/70" />
                     </div>
                   </Link>
                 ))}
@@ -590,7 +590,7 @@ function PortalDashboardInner() {
               ? { label: "Live", cls: "bg-emerald-50 text-emerald-700" }
               : stage === "ready_for_testing"
               ? { label: "Ready for testing", cls: "bg-amber-50 text-amber-700" }
-              : { label: "Setting up", cls: "bg-gray-100 text-gray-600" };
+              : { label: "Setting up", cls: "bg-muted text-muted-foreground" };
 
             return (
               <Card className="p-5">
@@ -600,7 +600,7 @@ function PortalDashboardInner() {
                       <PhoneCall className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900">TradeLine</h3>
+                      <h3 className="text-sm font-semibold text-foreground">TradeLine</h3>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-blue-50 text-teal-700">
                           {(tlData.config.variant ?? "").replace(/_/g, " ")}
@@ -618,7 +618,7 @@ function PortalDashboardInner() {
                   </Link>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
+                <div className="mt-4 pt-3 border-t border-border space-y-3">
                   <ModeToggle
                     currentMode={tlData.config.currentMode as any}
                     clientServiceId={tradeLineService.id}
@@ -627,15 +627,15 @@ function PortalDashboardInner() {
                   />
                   {tlData.usage ? (
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Monthly usage</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-2">Monthly usage</p>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="flex items-center gap-2">
-                          <PhoneCall className="w-3.5 h-3.5 text-gray-400" />
-                          <span className="text-sm text-gray-600">{tlData.usage.calls_count} calls</span>
+                          <PhoneCall className="w-3.5 h-3.5 text-muted-foreground/70" />
+                          <span className="text-sm text-muted-foreground">{tlData.usage.calls_count} calls</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Clock className="w-3.5 h-3.5 text-gray-400" />
-                          <span className="text-sm text-gray-600">
+                          <Clock className="w-3.5 h-3.5 text-muted-foreground/70" />
+                          <span className="text-sm text-muted-foreground">
                             {tlData.usage.voice_minutes_used} / {tlData.usage.included_minutes} minutes used
                           </span>
                         </div>
@@ -645,10 +645,10 @@ function PortalDashboardInner() {
                           {tlData.usage.overage_minutes} overage minutes
                         </p>
                       )}
-                      <p className="text-[10px] text-gray-300 mt-2">Minutes = total time your AI spends on calls this month.</p>
+                      <p className="text-[10px] text-muted-foreground/50 mt-2">Minutes = total time your AI spends on calls this month.</p>
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-400">No activity yet this month.</p>
+                    <p className="text-xs text-muted-foreground/70">No activity yet this month.</p>
                   )}
                 </div>
               </Card>
@@ -658,8 +658,8 @@ function PortalDashboardInner() {
           {ssProfile && (ssProfile.exists === false || !ssProfile.niche) && (
             <Card className="p-5 flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-900">Set up SocialSync</p>
-                <p className="text-xs text-gray-500 mt-0.5">We'll post content for your business automatically. Takes about 5 minutes.</p>
+                <p className="text-sm font-semibold text-foreground">Set up SocialSync</p>
+                <p className="text-xs text-muted-foreground mt-0.5">We'll post content for your business automatically. Takes about 5 minutes.</p>
               </div>
               <Link href="/portal/socialsync-setup" className="shrink-0 px-4 py-2 rounded-lg text-xs font-medium text-white bg-brand-blue hover:bg-brand-blue-600">
                 Get Started
@@ -669,13 +669,13 @@ function PortalDashboardInner() {
 
           {/* Recent activity */}
           <Card className="overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900">Recent Activity</h2>
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>
             </div>
             {!data.recent_activity || data.recent_activity.length === 0 ? (
               <div className="px-5 py-8 text-center">
-                <p className="text-sm font-medium text-gray-700 mb-1">Nothing happening yet</p>
-                <p className="text-xs text-gray-500 max-w-sm mx-auto mb-3">Once your services go live, task updates, call logs, and new leads will land here in real time.</p>
+                <p className="text-sm font-medium text-foreground mb-1">Nothing happening yet</p>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto mb-3">Once your services go live, task updates, call logs, and new leads will land here in real time.</p>
                 <Link href="/portal/services" className="text-sm text-brand-blue hover:underline">
                   View your services →
                 </Link>
@@ -686,13 +686,13 @@ function PortalDashboardInner() {
                   <li key={item.id} className="px-5 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${TASK_STATUS_STYLES[item.status] || "bg-gray-100 text-gray-600"}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${TASK_STATUS_STYLES[item.status] || "bg-muted text-muted-foreground"}`}
                       >
                         {statusLabel(TASK_STATUS_LABELS, item.status)}
                       </span>
-                      <span className="text-sm text-gray-700 truncate">{item.title}</span>
+                      <span className="text-sm text-foreground truncate">{item.title}</span>
                     </div>
-                    <span className="text-xs text-gray-400 whitespace-nowrap ml-3">
+                    <span className="text-xs text-muted-foreground/70 whitespace-nowrap ml-3">
                       {item.updated_at ? timeAgo(item.updated_at) : ""}
                     </span>
                   </li>
@@ -733,9 +733,9 @@ function StatCard({
           <Icon className={`w-4 h-4 ${color}`} />
         </div>
         <div>
-          <p className="text-xs text-gray-500">{label}</p>
-          <p className="text-lg font-semibold text-gray-900">{value}</p>
-          {subtitle && <p className="text-[10px] text-gray-400 -mt-0.5">{subtitle}</p>}
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-lg font-semibold text-foreground">{value}</p>
+          {subtitle && <p className="text-[10px] text-muted-foreground/70 -mt-0.5">{subtitle}</p>}
         </div>
       </div>
     </Card>

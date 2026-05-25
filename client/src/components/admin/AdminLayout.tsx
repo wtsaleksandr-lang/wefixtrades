@@ -561,10 +561,10 @@ function SidebarNav({
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
                 active
                   ? "bg-[#EEF3FF] text-brand-blue font-medium border border-brand-blue/30"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-transparent"
               )}
             >
-              <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
+              <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-muted-foreground/70")} />
               <span className="flex-1">{item.label}</span>
               {badgeCount > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
@@ -584,7 +584,7 @@ function SidebarNav({
       <NavGroup label="System" items={SYSTEM_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
 
       {/* Other */}
-      <div className="mt-4 pt-2 border-t border-gray-100">
+      <div className="mt-4 pt-2 border-t border-border">
         <div className="space-y-0.5">
           {SECONDARY_ITEMS.map((item, idx) => {
             const active = isActive(location, item.href);
@@ -595,7 +595,7 @@ function SidebarNav({
               "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
               active
                 ? "bg-[#EEF3FF] text-brand-blue font-medium"
-                : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             );
             // Q20: View-as-customer opens portal in NEW TAB so the admin's
             // primary admin session keeps working in the original window.
@@ -618,7 +618,7 @@ function SidebarNav({
                   className={className}
                   data-testid="view-as-customer"
                 >
-                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
+                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-muted-foreground/70")} />
                   {item.label}
                 </a>
               );
@@ -631,7 +631,7 @@ function SidebarNav({
                 style={rowStyle}
                 className={className}
               >
-                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
+                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-muted-foreground/70")} />
                 {item.label}
               </Link>
             );
@@ -672,30 +672,30 @@ function QuickAddClientDialog({ open, onClose }: { open: boolean; onClose: () =>
         <DialogHeader><DialogTitle>Add Client</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600">Business Name *</label>
+            <label className="text-xs font-medium text-muted-foreground">Business Name *</label>
             <Input value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Contact Name</label>
+              <label className="text-xs font-medium text-muted-foreground">Contact Name</label>
               <Input value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Phone</label>
+              <label className="text-xs font-medium text-muted-foreground">Phone</label>
               <Input value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Email</label>
+            <label className="text-xs font-medium text-muted-foreground">Email</label>
             <Input value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Trade</label>
+              <label className="text-xs font-medium text-muted-foreground">Trade</label>
               <Input value={form.trade_type} onChange={(e) => setForm({ ...form, trade_type: e.target.value })} placeholder="e.g. plumber" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Status</label>
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -773,7 +773,7 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
         <DialogHeader><DialogTitle>Add Task</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600">Client *</label>
+            <label className="text-xs font-medium text-muted-foreground">Client *</label>
             <Select value={form.client_id} onValueChange={(v) => setForm({ ...form, client_id: v, client_service_id: "" })}>
               <SelectTrigger><SelectValue placeholder="Select client..." /></SelectTrigger>
               <SelectContent>
@@ -785,7 +785,7 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
           </div>
           {showServiceSelect && (
             <div>
-              <label className="text-xs font-medium text-gray-600">Service</label>
+              <label className="text-xs font-medium text-muted-foreground">Service</label>
               <Select value={form.client_service_id} onValueChange={(v) => setForm({ ...form, client_service_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select service..." /></SelectTrigger>
                 <SelectContent>
@@ -797,12 +797,12 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
             </div>
           )}
           <div>
-            <label className="text-xs font-medium text-gray-600">Task Title *</label>
+            <label className="text-xs font-medium text-muted-foreground">Task Title *</label>
             <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Set up Google Business Profile" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Priority</label>
+              <label className="text-xs font-medium text-muted-foreground">Priority</label>
               <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -814,12 +814,12 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
               </Select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Due Date</label>
+              <label className="text-xs font-medium text-muted-foreground">Due Date</label>
               <Input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })} />
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Waiting On</label>
+            <label className="text-xs font-medium text-muted-foreground">Waiting On</label>
             <Select value={form.waiting_on} onValueChange={(v) => setForm({ ...form, waiting_on: v })}>
               <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
               <SelectContent>
@@ -885,7 +885,7 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
         <DialogHeader><DialogTitle>Add Payment</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600">Client *</label>
+            <label className="text-xs font-medium text-muted-foreground">Client *</label>
             <Select value={form.client_id} onValueChange={(v) => setForm({ ...form, client_id: v })}>
               <SelectTrigger><SelectValue placeholder="Select client..." /></SelectTrigger>
               <SelectContent>
@@ -897,11 +897,11 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Amount ($) *</label>
+              <label className="text-xs font-medium text-muted-foreground">Amount ($) *</label>
               <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0.00" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Type</label>
+              <label className="text-xs font-medium text-muted-foreground">Type</label>
               <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -914,7 +914,7 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Status</label>
+            <label className="text-xs font-medium text-muted-foreground">Status</label>
             <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -925,11 +925,11 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
             </Select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Description</label>
+            <label className="text-xs font-medium text-muted-foreground">Description</label>
             <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional" />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Due Date</label>
+            <label className="text-xs font-medium text-muted-foreground">Due Date</label>
             <Input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })} />
           </div>
         </div>
@@ -1113,7 +1113,7 @@ export default function AdminLayout({
         )}
       >
         {/* Logo area */}
-        <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100">
+        <div className="flex items-center justify-between h-14 px-4 border-b border-border">
           <Link href="/admin/crm" className="flex items-center gap-2.5">
             <svg viewBox="0 0 24 24" width={24} height={24} fill="none" aria-label="WeFixTrades">
               {/* Open checkbox — top-right corner open, check exits through it */}
@@ -1121,13 +1121,13 @@ export default function AdminLayout({
               <path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <div className="leading-tight">
-              <span className="text-sm font-bold text-gray-900">We<span className="text-brand-blue">Fix</span>Trades</span>
-              <span className="text-[10px] text-gray-400 block -mt-0.5">Admin</span>
+              <span className="text-sm font-bold text-foreground">We<span className="text-brand-blue">Fix</span>Trades</span>
+              <span className="text-[10px] text-muted-foreground/70 block -mt-0.5">Admin</span>
             </div>
           </Link>
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden p-1 rounded hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="lg:hidden p-1 rounded hover:bg-muted min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Close navigation menu"
           >
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
@@ -1144,8 +1144,8 @@ export default function AdminLayout({
 
 
         {/* Footer */}
-        <div className="border-t border-gray-100 px-4 py-3">
-          <p className="text-[11px] text-gray-400">WeFixTrades Admin v1.0</p>
+        <div className="border-t border-border px-4 py-3">
+          <p className="text-[11px] text-muted-foreground/70">WeFixTrades Admin v1.0</p>
         </div>
       </aside>
 
@@ -1188,7 +1188,7 @@ export default function AdminLayout({
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </Button>
-            <h1 className="text-sm font-medium text-gray-700">
+            <h1 className="text-sm font-medium text-foreground">
               {NAV_ITEMS.find((item) => isActive(location, item.href))?.label ??
                 OUTBOUND_ITEMS.find((item) => isActive(location, item.href))?.label ??
                 SECONDARY_ITEMS.find((item) => isActive(location, item.href))?.label ??
@@ -1221,20 +1221,20 @@ export default function AdminLayout({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem onClick={() => setQuickAdd("client")}>
-                  <UserPlus className="w-4 h-4 mr-2 text-gray-500" /> Add Client
+                  <UserPlus className="w-4 h-4 mr-2 text-muted-foreground" /> Add Client
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setQuickAdd("task")}>
-                  <ClipboardPlus className="w-4 h-4 mr-2 text-gray-500" /> Add Task
+                  <ClipboardPlus className="w-4 h-4 mr-2 text-muted-foreground" /> Add Task
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setQuickAdd("payment")}>
-                  <DollarSign className="w-4 h-4 mr-2 text-gray-500" /> Add Payment
+                  <DollarSign className="w-4 h-4 mr-2 text-muted-foreground" /> Add Payment
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 ${copilotOpen ? "bg-brand-blue/10 text-brand-blue" : "text-gray-500"}`}
+              className={`h-8 w-8 ${copilotOpen ? "bg-brand-blue/10 text-brand-blue" : "text-muted-foreground"}`}
               onClick={() => setCopilotOpen(!copilotOpen)}
               data-testid="admin-copilot-trigger"
               title="AI Copilot"
@@ -1252,18 +1252,18 @@ export default function AdminLayout({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <div className="px-3 py-2 border-b border-gray-100">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || "Admin"}</p>
-                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                <div className="px-3 py-2 border-b border-border">
+                  <p className="text-sm font-medium text-foreground truncate">{user?.name || "Admin"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
                 <DropdownMenuItem onClick={() => navigate("/admin/crm/profile")}>
-                  <User className="w-4 h-4 mr-2 text-gray-500" /> Profile
+                  <User className="w-4 h-4 mr-2 text-muted-foreground" /> Profile
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/admin/crm/settings")}>
-                  <Settings className="w-4 h-4 mr-2 text-gray-500" /> Account Settings
+                  <Settings className="w-4 h-4 mr-2 text-muted-foreground" /> Account Settings
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/admin/crm/change-password")}>
-                  <KeyRound className="w-4 h-4 mr-2 text-gray-500" /> Change Password
+                  <KeyRound className="w-4 h-4 mr-2 text-muted-foreground" /> Change Password
                 </DropdownMenuItem>
                 {/* P1 fix: admin "Preview as Pro" toggle. Stays in the
                  *  account dropdown so it's discoverable next to Profile /
@@ -1277,14 +1277,14 @@ export default function AdminLayout({
                   }}
                   data-testid="admin-preview-pro-toggle"
                 >
-                  <Eye className="w-4 h-4 mr-2 text-gray-500" />
+                  <Eye className="w-4 h-4 mr-2 text-muted-foreground" />
                   <span className="flex-1">Preview as Pro</span>
                   <span
                     className={cn(
                       "ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
                       adminProPreview
                         ? "bg-amber-100 text-amber-900"
-                        : "bg-gray-100 text-gray-500"
+                        : "bg-muted text-muted-foreground"
                     )}
                   >
                     {adminProPreview ? "On" : "Off"}
