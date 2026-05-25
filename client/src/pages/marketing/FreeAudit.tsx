@@ -80,10 +80,14 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
   return v;
 }
 
+// Bug 4 (2026-05-25): copy clarified so the user can see *why* the audit
+// can take 60–120s — the report fans out across many third-party APIs
+// (Google Maps, Outscraper, Serper, DataForSEO, website QA). The 3-step
+// granularity stays the same; only the labels are updated.
 const STEPS = [
-  "Fetching business details",
-  "Running website speed test",
-  "Generating report",
+  "Fetching business details from Google",
+  "Analyzing competitors, reviews, and search rankings",
+  "Generating your report",
 ] as const;
 
 function busyStep(busy: string | null): number {
@@ -332,15 +336,38 @@ export default function FreeAudit() {
 
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // Browser geolocation for search bias
+  // Browser geolocation for search bias.
+  // Bug 3 (customer report 2026-05-25): Alex reported auto-suggest "NOT
+  // working" on his admin machine and suspected the corp firewall was
+  // blocking location detection. Geolocation is purely an *optional bias*
+  // for the autocomplete call (the server-side search-places endpoint
+  // works fine without lat/lng), so the page must never let a slow /
+  // throwing / firewall-blocked geolocation call gate the search flow.
+  // Defensive hardening:
+  //   1. Wrap the entire getCurrentPosition call in try/catch — some
+  //      enterprise security extensions throw synchronously when the
+  //      Permissions Policy denies geolocation.
+  //   2. Tighten the timeout from 5000ms to 3000ms — we don't want to
+  //      hold the bias slot for half the user's typing window.
+  //   3. Both success and error callbacks are noop on failure; the
+  //      autocomplete falls back to IP-bias on the server.
   const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => { userCoordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
-        () => { /* silently ignore denial */ },
-        { timeout: 5000, maximumAge: 300000 }
-      );
+    try {
+      if (typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            try {
+              userCoordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            } catch { /* swallow — bias is optional */ }
+          },
+          () => { /* silently ignore denial / firewall block — search still works */ },
+          { timeout: 3000, maximumAge: 300000, enableHighAccuracy: false }
+        );
+      }
+    } catch {
+      /* swallow — geolocation API itself may be unavailable / blocked
+         by Permissions Policy; autocomplete works without coords */
     }
   }, []);
 
@@ -436,15 +463,21 @@ export default function FreeAudit() {
         body
       );
       setBusy("Generating report\u2026");
-      // B4 fix (2026-05-20): the post-deploy QA on 2026-05-20 saw a one-off
-      // "Setup might have expired. Please try again." surface from a slow
-      // /audit/generate run. Raised this call's client-side timeout from
-      // the postJSON default (30s) to 60s \u2014 /audit/generate fans out across
-      // Outscraper, Serper, DataForSEO and PageSpeed in parallel and can
-      // legitimately need ~30\u201345s under load. Server-side, see the
-      // [audit/generate] start/end timing log added in server/auditRoutes.ts
-      // so future timeouts surface a useful "where did the seconds go"
-      // breakdown.
+      // Bug 4 (customer report 2026-05-25): Alex hit "Taking longer than
+      // expected. Please try again." on a real audit run \u2014 the 60s
+      // client-side timeout was firing before the server returned. The
+      // /audit/generate route fans out to Outscraper (competitors +
+      // reviews), Serper rankings, DataForSEO volumes, Google Places
+      // enrichment, and the website QA fetch in parallel via
+      // Promise.allSettled. Each of those has its own retries; under load
+      // (cold Outscraper task, slow DataForSEO) the wall-clock can exceed
+      // 60s even though everything is healthy. Raised the client-side
+      // timeout to 180s (matches the server-side worst-case envelope).
+      // PageSpeed is intentionally NOT in this fan-out \u2014 it's polled
+      // separately in /api/audit/speed after the report renders, so the
+      // user sees the cards quickly and the speed scores backfill.
+      // Previous bumps for context:
+      //   2026-05-20 \u2014 30s \u2192 60s (B4 fix, one-off slow run).
       const rep = await postJSON<{
         ok: true;
         report_json: any;
@@ -459,7 +492,7 @@ export default function FreeAudit() {
           city: (details as any).city || "",
           tradeOverride: tradeOverride || null,
         },
-        60000
+        180000
       );
       setReport(rep.report_json);
       if (rep.reportId) setReportId(rep.reportId);
@@ -748,7 +781,16 @@ export default function FreeAudit() {
                 }}
               >
                 <span style={{ color: "#22C55E" }}>{"\u2605\u2605\u2605\u2605\u2605"}</span>
-                <span style={{ opacity: 0.65 }}>Built for plumbers, electricians, HVAC, roofers, and cleaners</span>
+                {/* Bug 1 (customer report 2026-05-25): the previous copy named
+                    only 5 trades and Alex flagged it as too narrow \u2014 "why do
+                    we limit us only with these trades???". WeFixTrades is
+                    pan-home-service: plumbing, HVAC, electrical, roofing,
+                    landscaping, cleaning, painting, garage doors, locksmiths,
+                    appliance repair, tree service, pest control, etc. New
+                    copy names a representative few then explicitly opens the
+                    door to "100+ home-service trades" so the badge reads as
+                    inclusive without losing the trade-specific signal. */}
+                <span style={{ opacity: 0.65 }}>Built for plumbing, HVAC, electrical, roofing, landscaping, cleaning, painting, and 100+ home-service trades</span>
               </div>
             )}
             {/* Prefill confirmation chip \u2014 shown when the user arrived via
@@ -809,6 +851,14 @@ export default function FreeAudit() {
                     copy referenced a website input from an earlier step; the
                     floating-label placeholder ("Type your business name +
                     city…") is now self-explanatory so no popover is needed. */}
+                {/* Bug 2 (customer report 2026-05-25): the Search icon was
+                    rendering distorted / vertically stretched on some
+                    devices. Lucide's `size` prop sets width/height SVG
+                    attributes but doesn't lock CSS dimensions, so in flex /
+                    constrained layouts the SVG could be coerced taller than
+                    its intrinsic ratio. Locking width/height/min-* + adding
+                    flexShrink:0 and `display:block` guarantees the icon
+                    renders at exactly 18×18 regardless of ambient CSS. */}
                 <Search
                   size={18}
                   strokeWidth={1.75}
@@ -817,6 +867,12 @@ export default function FreeAudit() {
                     left: 40,
                     top: "50%",
                     transform: "translateY(-50%)",
+                    width: 18,
+                    height: 18,
+                    minWidth: 18,
+                    minHeight: 18,
+                    flexShrink: 0,
+                    display: "block",
                     color: "rgba(0,0,0,0.35)",
                     pointerEvents: "none",
                     zIndex: 1,
@@ -866,11 +922,15 @@ export default function FreeAudit() {
                   aria-label="Search your business name and city"
                   style={{
                     width: "100%",
-                    minHeight: 46,
-                    height: 46,
+                    // Bug 2 (2026-05-25): bumped height 46→52 so the 18px
+                    // icon has clear top/bottom breathing room and never
+                    // touches the input border. Padding-top stays at 16 so
+                    // the floating label sits clear of the icon.
+                    minHeight: 52,
+                    height: 52,
                     borderRadius: 14,
                     border: `1px solid ${error ? "rgba(239,68,68,0.55)" : "rgba(0,0,0,0.10)"}`,
-                    padding: "16px 14px 6px 42px",
+                    padding: "18px 14px 6px 42px",
                     fontSize: 15,
                     fontWeight: 500,
                     outline: "none",
@@ -1048,10 +1108,26 @@ export default function FreeAudit() {
                   fontSize: 15,
                   fontWeight: 600,
                   color: "#1E1E1E",
-                  marginBottom: 14,
+                  marginBottom: 6,
                 }}
               >
                 Running your audit… (step {currentStep} of 3)
+              </div>
+              {/* Bug 4 (2026-05-25): reassurance line so the user knows the
+                  expected wait window and doesn't bail / hit "try again"
+                  before the report comes back. Matches the 180s frontend
+                  timeout on /audit/generate. */}
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "rgba(0,0,0,0.50)",
+                  marginBottom: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                This usually takes 30–90 seconds — we're pulling live data
+                from Google, your competitors, and the public web. Please
+                keep this tab open.
               </div>
               <div className="audit-shimmer" style={{ marginBottom: 16 }} />
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
