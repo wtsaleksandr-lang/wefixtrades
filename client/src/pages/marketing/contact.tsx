@@ -6,6 +6,12 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { mkt, radius } from "@/theme/tokens";
 import { V7Hero, V7Section, V7PageShell } from "@/components/marketing/v7";
+import {
+  FreeToolFormField,
+  FreeToolFormSelect,
+  FreeToolFormTextarea,
+  FreeToolFormFieldStyles,
+} from "@/components/marketing/FreeToolFormField";
 
 export default function ContactPage() {
   // Title + meta tags handled by <PageMeta> below.
@@ -34,26 +40,10 @@ export default function ContactPage() {
     mutation.mutate(form);
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "10px 14px",
-    borderRadius: radius.sm,
-    border: `1px solid ${mkt.onDarkBorder}`,
-    fontSize: 15,
-    color: mkt.onDark,
-    background: "rgba(255,255,255,0.04)",
-    outline: "none",
-    boxSizing: "border-box",
-    fontFamily: "Inter, system-ui, sans-serif",
-  };
-
-  const labelStyle: React.CSSProperties = {
-    display: "block",
-    fontSize: 13,
-    fontWeight: 600,
-    color: mkt.onDarkMuted,
-    marginBottom: 6,
-  };
+  // Note (2026-05-25): inputStyle / labelStyle removed. The form now uses
+  // FreeToolFormField + Select + Textarea (DESIGN-SYSTEM compliant: floating
+  // label, top-left help cue, 52px height, 2px gaps). The dark theme variant
+  // of those primitives matches the V7Section dark surface.
 
   return (
     <MarketingLayout>
@@ -224,67 +214,77 @@ export default function ContactPage() {
                   </p>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <form
+                  onSubmit={handleSubmit}
+                  // DESIGN-SYSTEM compliance (2026-05-25 audit): replaced raw
+                  // <label> + <input> pairs with FreeToolFormField primitives.
+                  // Gap drops from 20 → 2 for the input cluster. The label
+                  // background needs to match the form panel so the floated
+                  // label reads crisply against the input border — exposed
+                  // via the --ftool-label-bg custom property below.
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    ["--ftool-label-bg" as any]: mkt.sectionLight,
+                  }}
+                >
+                  <FreeToolFormFieldStyles />
                   <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.onDark, margin: "0 0 4px" }}>Send Us a Message</h2>
-                  <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: 0 }}>Fill in the form and we'll be in touch shortly.</p>
+                  <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: "0 0 6px" }}>Fill in the form and we'll be in touch shortly.</p>
 
-                  <div>
-                    <label style={labelStyle} htmlFor="contact-name">Full Name *</label>
-                    <input
-                      id="contact-name"
-                      type="text"
-                      required
-                      placeholder="John Smith"
-                      value={form.name}
-                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                      style={inputStyle}
-                      data-testid="input-contact-name"
-                    />
-                  </div>
+                  <FreeToolFormField
+                    id="contact-name"
+                    label="Full Name"
+                    value={form.name}
+                    onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+                    required
+                    autoComplete="name"
+                    testId="input-contact-name"
+                    theme="dark"
+                    helpText="Your name or your company contact name."
+                  />
 
-                  <div>
-                    <label style={labelStyle} htmlFor="contact-email">Email Address *</label>
-                    <input
-                      id="contact-email"
-                      type="email"
-                      required
-                      placeholder="john@example.com"
-                      value={form.email}
-                      onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                      style={inputStyle}
-                      data-testid="input-contact-email"
-                    />
-                  </div>
+                  <FreeToolFormField
+                    id="contact-email"
+                    label="Email Address"
+                    type="email"
+                    inputMode="email"
+                    value={form.email}
+                    onChange={(v) => setForm((f) => ({ ...f, email: v }))}
+                    required
+                    autoComplete="email"
+                    testId="input-contact-email"
+                    theme="dark"
+                    helpText="We'll reply within one business day. Used only for this conversation."
+                  />
 
-                  <div>
-                    <label style={labelStyle} htmlFor="contact-subject">Subject</label>
-                    <select
-                      id="contact-subject"
-                      value={form.subject}
-                      onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                      style={inputStyle}
-                      data-testid="select-contact-subject"
-                    >
-                      <option value="General">General</option>
-                      <option value="Sales">Sales</option>
-                      <option value="Support">Support</option>
-                      <option value="Partnership">Partnership</option>
-                    </select>
-                  </div>
+                  <FreeToolFormSelect
+                    id="contact-subject"
+                    label="Subject"
+                    value={form.subject}
+                    onChange={(v) => setForm((f) => ({ ...f, subject: v }))}
+                    testId="select-contact-subject"
+                    theme="dark"
+                    helpText="Pick the topic closest to your reason for getting in touch."
+                  >
+                    <option value="General">General</option>
+                    <option value="Sales">Sales</option>
+                    <option value="Support">Support</option>
+                    <option value="Partnership">Partnership</option>
+                  </FreeToolFormSelect>
 
-                  <div>
-                    <label style={labelStyle} htmlFor="contact-message">Message *</label>
-                    <textarea
-                      id="contact-message"
-                      required
-                      rows={5}
-                      placeholder="Tell us how we can help..."
-                      value={form.message}
-                      onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-                      style={{ ...inputStyle, resize: "vertical" }}
-                      data-testid="input-contact-message"
-                    />
-                  </div>
+                  <FreeToolFormTextarea
+                    id="contact-message"
+                    label="Message"
+                    value={form.message}
+                    onChange={(v) => setForm((f) => ({ ...f, message: v }))}
+                    required
+                    rows={5}
+                    testId="input-contact-message"
+                    theme="dark"
+                    helpText="Tell us what you need — we read every message and reply within one business day."
+                  />
 
                   <button
                     type="submit"
@@ -292,7 +292,7 @@ export default function ContactPage() {
                     style={{
                       padding: "12px 24px",
                       background: mutation.isPending ? mkt.accentHover : mkt.accent,
-                      color: "#FFFFFF",
+                      color: "rgb(255,255,255)",
                       border: "none",
                       borderRadius: radius.sm,
                       fontSize: 15,
@@ -300,6 +300,7 @@ export default function ContactPage() {
                       cursor: mutation.isPending ? "not-allowed" : "pointer",
                       transition: "background 0.15s ease",
                       width: "100%",
+                      marginTop: 2,
                       fontFamily: "Inter, system-ui, sans-serif",
                     }}
                     data-testid="button-contact-submit"
@@ -308,7 +309,7 @@ export default function ContactPage() {
                   </button>
 
                   {mutation.isError && (
-                    <p style={{ fontSize: 14, color: "#DC2626", margin: 0, textAlign: "center" }}>
+                    <p style={{ fontSize: 14, color: "rgb(220,38,38)", margin: 0, textAlign: "center" }}>
                       Something went wrong. Please try again.
                     </p>
                   )}

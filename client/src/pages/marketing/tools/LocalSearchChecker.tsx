@@ -10,6 +10,10 @@
 import { useMemo, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import FreeToolLayout from "@/components/marketing/FreeToolLayout";
+import {
+  FreeToolFormField,
+  FreeToolFormFieldStyles,
+} from "@/components/marketing/FreeToolFormField";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Search, MapPin, AlertCircle, Star } from "lucide-react";
@@ -99,38 +103,29 @@ export default function LocalSearchChecker() {
 
   const form = (
     <form onSubmit={submit}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <input
-          type="text"
+      <FreeToolFormFieldStyles />
+      {/* DESIGN-SYSTEM compliance (2026-05-25 audit). */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <FreeToolFormField
+          id="search-keyword"
+          label="Keyword"
           value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder="Keyword (e.g. emergency plumber)"
-          aria-label="Keyword"
-          style={{
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: "1px solid rgba(0,0,0,0.10)",
-            fontSize: 14,
-            background: "rgb(255,255,255)",
-            outline: "none",
-          }}
-          data-testid="input-search-keyword"
+          onChange={setKeyword}
+          required
+          placeholder="emergency plumber"
+          testId="input-search-keyword"
+          helpText="Search term your customers would Google — try the exact phrase a customer would type."
         />
-        <input
-          type="text"
+        <FreeToolFormField
+          id="search-location"
+          label="Location"
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="Location (e.g. Austin, TX)"
-          aria-label="Location"
-          style={{
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: "1px solid rgba(0,0,0,0.10)",
-            fontSize: 14,
-            background: "rgb(255,255,255)",
-            outline: "none",
-          }}
-          data-testid="input-search-location"
+          onChange={setLocation}
+          required
+          placeholder="Austin, TX"
+          autoComplete="address-level2"
+          testId="input-search-location"
+          helpText="City + state — US locale only. Local SERPs are personalised, so always test from the city you serve."
         />
       </div>
       <button
@@ -138,13 +133,13 @@ export default function LocalSearchChecker() {
         disabled={loading}
         data-testid="button-search-submit"
         style={{
-          marginTop: 12,
+          marginTop: 2,
           width: "100%",
-          padding: "12px 16px",
+          padding: "14px 16px",
           borderRadius: 12,
-          background: loading ? "rgba(13,60,252,0.6)" : "#0d3cfc",
+          background: loading ? "rgba(13,60,252,0.6)" : "rgb(13,60,252)",
           color: "rgb(255,255,255)",
-          fontSize: 14,
+          fontSize: 15,
           fontWeight: 700,
           border: "none",
           cursor: loading ? "default" : "pointer",
@@ -153,7 +148,7 @@ export default function LocalSearchChecker() {
         {loading ? "Checking results…" : "Check local rankings"}
       </button>
       {error && (
-        <div style={{ marginTop: 10, color: "#B91C1C", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ marginTop: 8, color: "rgb(185,28,28)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
           <AlertCircle size={14} /> {error}
         </div>
       )}
