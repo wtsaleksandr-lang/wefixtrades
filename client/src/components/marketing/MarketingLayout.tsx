@@ -329,59 +329,58 @@ function MarketingFooter() {
       {/* ── Footer CSS ─────────────────────────────────────────────── */}
       <style>{`
         .mkt-footer-grid {
+          position: relative;
           display: grid;
           grid-template-columns: repeat(5, 1fr);
-          gap: 28px;
+          gap: 0;
+          padding: 28px 8px;
         }
         /* At narrower desktop widths the 5-col layout starts to squeeze.
            Drop to 3 cols below 1024px so labels keep breathing room. */
         @media (max-width: 1024px) {
           .mkt-footer-grid {
             grid-template-columns: repeat(3, 1fr);
-            gap: 28px 24px;
+            row-gap: 28px;
           }
         }
-        /* Subtle dashed vertical divider between footer columns. Bumped from
-           --hairline (too faint on the dark surface) to rgba(255,255,255,0.18)
-           so the engineering-grid feel actually reads. */
+        /* Dashed vertical divider line between footer columns. Uses a true
+           border (not a background-image) so it always renders on the dark
+           surface. padding-left supplies the inner gap so column content
+           still breathes away from the divider. */
         .mkt-footer-grid > * + * {
-          background-image: linear-gradient(
-            to bottom,
-            rgba(255,255,255,0.18) 0,
-            rgba(255,255,255,0.18) 6px,
-            transparent 6px,
-            transparent 12px
-          );
-          background-repeat: repeat-y;
-          background-size: 1px 12px;
-          background-position: -16px top;
+          border-left: 1px dashed rgba(255,255,255,0.22);
+          padding-left: 24px;
+        }
+        .mkt-footer-grid > * {
+          padding-right: 12px;
         }
 
-        /* Blueprint-style "+" corner markers on each footer column.
-           Two pseudo-elements, each an SVG with two crosses positioned at
-           the corners. Inset is negative so the marks straddle the column
-           bounding box (true Krumzi/engineering-grid look). */
-        .mkt-footer-col {
-          position: relative;
-          padding: 8px 4px;
-        }
-        .mkt-footer-col::before,
-        .mkt-footer-col::after {
+        /* Blueprint-style "+" corner markers — ONLY at the 4 outer corners
+           of the entire grid container (NOT per column). Two pseudo-elements:
+           ::before covers the top row (top-left + top-right), ::after covers
+           the bottom row (bottom-left + bottom-right). */
+        .mkt-footer-grid::before,
+        .mkt-footer-grid::after {
           content: "";
           position: absolute;
-          left: -6px;
-          right: -6px;
-          height: 12px;
+          left: -8px;
+          right: -8px;
+          height: 16px;
           pointer-events: none;
           background-repeat: no-repeat;
           background-position: left center, right center;
-          background-size: 12px 12px, 12px 12px;
+          background-size: 16px 16px, 16px 16px;
           background-image:
-            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><line x1='0' y1='6' x2='12' y2='6' stroke='rgba(255,255,255,0.32)' stroke-width='1'/><line x1='6' y1='0' x2='6' y2='12' stroke='rgba(255,255,255,0.32)' stroke-width='1'/></svg>"),
-            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><line x1='0' y1='6' x2='12' y2='6' stroke='rgba(255,255,255,0.32)' stroke-width='1'/><line x1='6' y1='0' x2='6' y2='12' stroke='rgba(255,255,255,0.32)' stroke-width='1'/></svg>");
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='8' x2='14' y2='8' stroke='rgba(255,255,255,0.38)' stroke-width='1'/><line x1='8' y1='2' x2='8' y2='14' stroke='rgba(255,255,255,0.38)' stroke-width='1'/></svg>"),
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='8' x2='14' y2='8' stroke='rgba(255,255,255,0.38)' stroke-width='1'/><line x1='8' y1='2' x2='8' y2='14' stroke='rgba(255,255,255,0.38)' stroke-width='1'/></svg>");
         }
-        .mkt-footer-col::before { top: -6px; }
-        .mkt-footer-col::after  { bottom: -6px; }
+        .mkt-footer-grid::before { top: -8px; }
+        .mkt-footer-grid::after  { bottom: -8px; }
+
+        .mkt-footer-col {
+          /* No corner markers here — moved to the grid container so only the
+             4 outer corners show, not the inner column intersections. */
+        }
 
         /* Column link list — stacked, each link only as wide as its text
            so the center-out underline sits under the text. */
@@ -445,17 +444,18 @@ function MarketingFooter() {
         @media (max-width: 768px) {
           .mkt-footer-grid {
             grid-template-columns: 1fr 1fr;
-            gap: 24px 20px;
+            row-gap: 24px;
+            padding: 24px 8px;
           }
-          /* Drop the column divider when items wrap onto multiple rows */
+          /* Drop the column divider when items wrap onto multiple rows —
+             vertical borders between wrapped rows look chaotic. The 4 outer
+             corner "+" markers stay (they're on the grid container). */
           .mkt-footer-grid > * + * {
-            background-image: none;
+            border-left: none;
+            padding-left: 0;
           }
-          /* Keep the corner-cross blueprint marks visible at all sizes —
-             they still read on a 2-col stack — but tighten padding so the
-             columns aren't pushed apart. */
-          .mkt-footer-col {
-            padding: 6px 2px;
+          .mkt-footer-grid > * {
+            padding-right: 0;
           }
         }
         @media (max-width: 480px) {
@@ -463,7 +463,7 @@ function MarketingFooter() {
            * scannable, not a tall single-column stack. */
           .mkt-footer-grid {
             grid-template-columns: 1fr 1fr;
-            gap: 20px 16px;
+            row-gap: 20px;
           }
           .mkt-footer-bottom {
             flex-direction: column !important;
