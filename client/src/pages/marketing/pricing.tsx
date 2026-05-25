@@ -219,7 +219,7 @@ export default function PricingPage() {
 
             <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 44 }}>
               <Link
-                href="/Wizard"
+                href="/wizard"
                 data-testid="pricing-cta-start"
                 className="mkt-btn-primary"
                 style={{ padding: "13px 30px", fontSize: 15, textDecoration: "none", display: "inline-block" }}
@@ -390,7 +390,7 @@ export default function PricingPage() {
                         </div>
 
                         <Link
-                          href="/Wizard"
+                          href="/wizard"
                           data-testid={`button-cta-${product.id}`}
                           className="mkt-btn-primary"
                           style={{
@@ -485,7 +485,7 @@ export default function PricingPage() {
             </p>
             <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
               <Link
-                href="/Wizard"
+                href="/wizard"
                 data-testid="pricing-final-cta-start"
                 className="mkt-btn-primary"
                 style={{ display: "inline-block", padding: "15px 36px", borderRadius: 14, background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none" }}

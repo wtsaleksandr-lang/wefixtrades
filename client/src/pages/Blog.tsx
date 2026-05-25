@@ -662,7 +662,7 @@ export default function BlogPage() {
                 <p style={{ fontSize: 15, color: mkt.onDarkMuted, marginBottom: 16 }}>
                   Want help implementing these strategies for your business?
                 </p>
-                <Link href="/Wizard" style={{
+                <Link href="/wizard" style={{
                   display: "inline-flex", alignItems: "center", gap: 8,
                   padding: "12px 28px", borderRadius: 14,
                   background: mkt.accent, color: "#FFFFFF",

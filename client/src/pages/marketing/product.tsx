@@ -271,7 +271,7 @@ const DEEP_SECTIONS: DeepSection[] = [
       "Embed as hosted page, script, iframe, or button popup",
     ],
     cta: "Start Building",
-    ctaHref: "/Wizard",
+    ctaHref: "/wizard",
     labelColor: mkt.accent,
     bulletColor: mkt.accent,
     ctaColor: mkt.accent,
@@ -433,7 +433,7 @@ export default function ProductPage() {
 
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 <Link
-                  href="/Wizard"
+                  href="/wizard"
                   data-testid="product-cta-start"
                   className="mkt-btn-primary"
                   style={{
@@ -759,7 +759,7 @@ export default function ProductPage() {
             </p>
             <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
               <Link
-                href="/Wizard"
+                href="/wizard"
                 data-testid="product-cta-start-bottom"
                 className="mkt-btn-primary"
                 style={{

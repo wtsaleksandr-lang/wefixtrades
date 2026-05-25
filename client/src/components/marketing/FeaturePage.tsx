@@ -232,7 +232,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
 
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 <Link
-                  href="/Wizard"
+                  href="/wizard"
                   data-testid="feature-cta-start"
                   className="mkt-btn-primary"
                   style={{
@@ -486,7 +486,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
             </p>
             <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
               <Link
-                href="/Wizard"
+                href="/wizard"
                 data-testid="feature-cta-bottom"
                 className="mkt-btn-primary"
                 style={{

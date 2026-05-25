@@ -855,7 +855,7 @@ export default function HomePage() {
               </p>
 
               <div className="hero-enter hero-cta-row">
-                <Link href="/Wizard" className="hero-cta-primary-warm wf-cta-shimmer" data-testid="hero-cta-primary">
+                <Link href="/wizard" className="hero-cta-primary-warm wf-cta-shimmer" data-testid="hero-cta-primary">
                   {/* Wave L H1 — shortened from "Start free — no card" so it
                    * doesn't truncate on 390px mobile. The "no card required"
                    * note is still present below as `hero-cta-note`. */}

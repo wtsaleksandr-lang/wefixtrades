@@ -947,7 +947,7 @@ export default function ReputationShieldDemo() {
                         </p>
                         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
                           <Link
-                            href="/Wizard"
+                            href="/wizard"
                             style={{
                               display: "inline-flex",
                               alignItems: "center",
@@ -1024,7 +1024,7 @@ export default function ReputationShieldDemo() {
             </p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               <Link
-                href="/Wizard"
+                href="/wizard"
                 style={{
                   display: "inline-block",
                   padding: "14px 32px",

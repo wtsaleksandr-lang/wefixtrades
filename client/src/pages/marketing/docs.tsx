@@ -85,7 +85,7 @@ const GUIDES = [
 ];
 
 const QUICKSTARTS = [
-  { icon: Zap, label: "Create your first calculator", href: "/Wizard", sub: "Launch a live quote page in under 10 minutes" },
+  { icon: Zap, label: "Create your first calculator", href: "/wizard", sub: "Launch a live quote page in under 10 minutes" },
   { icon: Globe, label: "Embed on your website", href: "/docs/embed", sub: "Script, popup, or iframe — your choice" },
   { icon: Bot, label: "Set up AI Employee", href: "/docs/ai", sub: "Activate your 14-day trial and configure your AI" },
   { icon: Calendar, label: "Enable booking + deposits", href: "/docs/booking", sub: "Turn estimates into paid bookings" },

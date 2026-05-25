@@ -130,7 +130,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Your customers get instant prices on your website. You get qualified leads with every quote. Live in 5 minutes. No platform switch. Free for 14 days.",
     category: "core",
     heroVisualType: "calculator",
-    primaryCTA: { label: "Start Free \u2014 14 Days, No Card", href: "/Wizard" },
+    primaryCTA: { label: "Start Free \u2014 14 Days, No Card", href: "/wizard" },
     secondaryCTA: { label: "Try a Live Demo", href: "/products/quickquotepro/demo" },
     highlights: [
       "Customers get instant prices, 24/7 \u2014 even when you\u2019re on a job site.",
@@ -178,7 +178,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     heroVisualType: "dashboard",
     // W-AN-2 — blocked on GBP API verification + 60-day GBP account-age window.
     comingSoon: true,
-    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    primaryCTA: { label: "Get Started", href: "/wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
       "Full Google Business Profile optimization and rebuild",
@@ -219,7 +219,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Automated website health monitoring, uptime checks, security scanning, and CMS patch management. Built for trades businesses. No contracts.",
     category: "growth",
     heroVisualType: "dashboard",
-    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    primaryCTA: { label: "Get Started", href: "/wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
       "Your website stays updated and working — we handle it every month",
@@ -315,7 +315,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     heroVisualType: "social",
     // W-AN-2 \u2014 blocked on Meta App Review.
     comingSoon: true,
-    primaryCTA: { label: "Start SocialSync", href: "/Wizard" },
+    primaryCTA: { label: "Start SocialSync", href: "/wizard" },
     secondaryCTA: { label: "Try Free Demo", href: "/demos/socialsync" },
     highlights: [
       "Stay visible online without thinking about it",
@@ -362,7 +362,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     heroVisualType: "reviews",
     // W-AN-2 \u2014 blocked on Meta App Review (for Facebook review pull/response).
     comingSoon: true,
-    primaryCTA: { label: "Start Getting Reviews \u2014 Free Trial", href: "/Wizard" },
+    primaryCTA: { label: "Start Getting Reviews \u2014 Free Trial", href: "/wizard" },
     secondaryCTA: { label: "Try Free Demo", href: "/demos/reputationshield" },
     highlights: [
       "Customers get a friendly SMS or email after every job \u2014 automatically",
@@ -409,7 +409,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Done-for-you local SEO for trades businesses. We handle keyword targeting, page optimization, local listings, and monthly progress reporting so you can focus on jobs.",
     category: "growth",
     heroVisualType: "dashboard",
-    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    primaryCTA: { label: "Get Started", href: "/wizard" },
     secondaryCTA: { label: "Try Free SEO Check", href: "/demos/rankflow" },
     highlights: [
       "Keyword research targeting your services and service area",
@@ -456,7 +456,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Speed optimization, mobile responsiveness, SEO structure fixes, and security hardening — delivered in one focused sprint. Built for trades businesses. One-time fee, no subscription.",
     category: "core",
     heroVisualType: "website",
-    primaryCTA: { label: "Fix My Website", href: "/Wizard" },
+    primaryCTA: { label: "Fix My Website", href: "/wizard" },
     secondaryCTA: { label: "See What’s Included", href: "#webfix-included" },
     highlights: [
       "Page-speed audit + Core Web Vitals fixes by our specialists — faster load times mean fewer bounced visitors and better Google rankings.",
@@ -504,7 +504,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "AI-generated articles, social media posts, and Google Business Profile content — matched to your brand voice and published across all your channels automatically.",
     category: "growth",
     heroVisualType: "social",
-    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    primaryCTA: { label: "Get Started", href: "/wizard" },
     secondaryCTA: { label: "See How It Works", href: "#contentflow-how" },
     highlights: [
       "AI article generation — Blog posts, service pages, and local content written in your brand voice.",
@@ -552,7 +552,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Done-for-you Google and Meta ad campaigns, managed by our agency partners. Monthly performance reports, transparent pricing, ad spend funded separately. From $399/mo.",
     category: "growth",
     heroVisualType: "dashboard",
-    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    primaryCTA: { label: "Get Started", href: "/wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
       "Agency-managed campaigns — Our partner agency handles setup, targeting, creative, and ongoing optimization.",

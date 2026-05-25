@@ -198,7 +198,7 @@ export default function GlobeSection() {
         </div>
 
         <Link
-          href="/Wizard"
+          href="/wizard"
           className="mkt-btn-primary"
           style={{
             display: "inline-flex",

@@ -287,7 +287,7 @@ export function MarketingNav() {
                     {isAuthenticated ? "Dashboard" : "Login"}
                   </Link>
                   <Link
-                    href="/Wizard"
+                    href="/wizard"
                     className="mkt-btn-primary"
                     data-testid="nav-cta-start-free"
                     style={{
@@ -490,7 +490,7 @@ export function MarketingNav() {
             ))}
 
             <Link
-              href="/Wizard"
+              href="/wizard"
               onClick={() => setMenuOpen(false)}
               data-testid="nav-cta-start-free-mobile"
               className="wft-hover-border-blue"
