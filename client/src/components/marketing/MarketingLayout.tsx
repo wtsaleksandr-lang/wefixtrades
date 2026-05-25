@@ -204,6 +204,16 @@ function MarketingFooter() {
             ]}
           />
 
+          {/* For You — audience landing pages (Brightlocal-style). Sits
+              between Solutions and Resources because the buyer persona is
+              the next-most-specific filter after "what trade are you in". */}
+          <FooterColumn title="For You">
+            <FtLink href="/for-agencies">For Agencies</FtLink>
+            <FtLink href="/for-franchises">For Franchises</FtLink>
+            <FtLink href="/for-solo-traders">For Solo Traders</FtLink>
+            <FtLink href="/contentflow">For Marketers</FtLink>
+          </FooterColumn>
+
           {/* Resources */}
           <FooterColumn title="Resources">
             <FtLink href="/about">About Us</FtLink>
@@ -211,6 +221,7 @@ function MarketingFooter() {
             <FtLink href="/pricing">Pricing</FtLink>
             {/* AJ-7 — API developer docs */}
             <FtLink href="/docs/api">API Docs</FtLink>
+            <FtLink href="/sitemap">Sitemap</FtLink>
             {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
           </FooterColumn>
@@ -219,11 +230,12 @@ function MarketingFooter() {
               Tools-consolidation: missed-call deleted, MapSnapshot folded
               into the Free Audit "Rank Grid" tab, Quote Demo + Build-with-AI
               relocated under the QuoteQuick product family. */}
-          <FooterColumn title="Tools">
+          <FooterColumn title="Free Tools">
             <FtLink href="/tools/free-audit">Free Audit</FtLink>
             <FtLink href="/products/quickquotepro/demo">QuoteQuick Demo</FtLink>
             {/* BI-1 — anonymous AI demo: upload an invoice, AI builds your calculator. */}
             <FtLink href="/products/quickquotepro/build-with-ai">Build with AI — From a Photo</FtLink>
+            <FtLink href="/tools/plumbing-ai-content-prompts">AI Prompt Library</FtLink>
           </FooterColumn>
         </div>
       </div>
@@ -289,6 +301,8 @@ function MarketingFooter() {
             <Link href="/terms" className="mkt-ft-soft" style={legalLinkStyle}>Terms</Link>
             <span style={legalDividerStyle} />
             <Link href="/terms" className="mkt-ft-soft" style={legalLinkStyle}>Cookies</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/sitemap" className="mkt-ft-soft" style={legalLinkStyle}>Sitemap</Link>
             {isAuthenticated && (
               <>
                 <span style={legalDividerStyle} />
@@ -312,8 +326,16 @@ function MarketingFooter() {
       <style>{`
         .mkt-footer-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 32px;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 28px;
+        }
+        /* At narrower desktop widths the 5-col layout starts to squeeze.
+           Drop to 3 cols below 1024px so labels keep breathing room. */
+        @media (max-width: 1024px) {
+          .mkt-footer-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px 24px;
+          }
         }
         /* Subtle dashed vertical divider between footer columns. Bumped from
            --hairline (too faint on the dark surface) to rgba(255,255,255,0.18)

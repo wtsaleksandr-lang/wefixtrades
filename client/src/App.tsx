@@ -56,6 +56,11 @@ import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
 // AJ-7 — API developer docs
 import ApiDocsPage from "@/pages/marketing/ApiDocsPage";
 import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
+// Audience landing pages (Brightlocal-style) + HTML sitemap
+import ForAgenciesPage from "@/pages/marketing/ForAgenciesPage";
+import ForFranchisesPage from "@/pages/marketing/ForFranchisesPage";
+import ForSoloTradersPage from "@/pages/marketing/ForSoloTradersPage";
+import SitemapPage from "@/pages/marketing/SitemapPage";
 // FreeAudit lazy-loaded at top of file (embed-y / rarely visited).
 // Tools-consolidation: Missed Call Calculator deleted entirely; MapSnapshot
 // folded into FreeAudit "Rank Grid" tab; tools-hub deleted; Quote Demo +
@@ -448,6 +453,12 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/blog" component={Blog} />
       <Route path="/case-studies" component={CaseStudies} />
+      {/* Audience landing pages (Brightlocal-style) */}
+      <Route path="/for-agencies" component={ForAgenciesPage} />
+      <Route path="/for-franchises" component={ForFranchisesPage} />
+      <Route path="/for-solo-traders" component={ForSoloTradersPage} />
+      {/* Human-friendly HTML sitemap (XML lives at /sitemap.xml, server route) */}
+      <Route path="/sitemap" component={SitemapPage} />
 
       <Route path="/demo/:templateId" component={DemoTemplate} />
       <Route path="/demo" component={MarketingDemo} />
