@@ -30,6 +30,7 @@ import { generateImage as generateImageViaRotator } from "../ai/imageRotator";
 import type { ContentDraft } from "@shared/schema";
 import { readBrandProfile } from "./brandProfile";
 import { createLogger } from "../../lib/logger";
+import { postProcessAIImage, isPostProcessEnabled } from "./imagePostProcess";
 
 const logger = createLogger("ImageGen");
 
@@ -293,7 +294,7 @@ async function uploadToR2(args: { key: string; contentType: string; sourceUrl?: 
  * NEVER throws. The orchestrator must continue regardless of return
  * value — text-only publish remains the safety net.
  */
-export async function generateForDraft(draftId: number): Promise<GenerateForDraftResult> {
+export async function generateForDraft(draftId: number, opts?: { skipPostProcess?: boolean }): Promise<GenerateForDraftResult> {
   const t0 = Date.now();
   const log = (msg: string) => logger.info(`[contentflow][image-gen] draft=${draftId} ${msg} duration_ms=${Date.now() - t0}`);
 
@@ -371,9 +372,41 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
     /* gpt-image-1.x returns base64; DALL-E-style returns a CDN url.
      * Decode b64 to a Buffer and upload that directly — never persist
      * a multi-MB data URI to the DB as a fallback. */
-    const imageBuffer = apiResult.b64 ? Buffer.from(apiResult.b64, "base64") : null;
+    let imageBuffer = apiResult.b64 ? Buffer.from(apiResult.b64, "base64") : null;
     let finalUrl = apiResult.url;
     let provider: "openai" | "openai+r2" = "openai";
+
+    /* AI-image anti-detection post-processing.
+     * Runs SERVER-SIDE before R2 upload, so the bytes customers see are
+     * already processed. Opt-out via opts.skipPostProcess OR feature flag
+     * CONTENTFLOW_IMAGE_POSTPROCESS_ENABLED=false. Wrapped in try/catch so
+     * any post-process failure NEVER breaks the publish pipeline — same
+     * Sprint-11 hard rule that governs the whole image flow.
+     *
+     * Only runs when R2 is configured — we need somewhere to host the
+     * new bytes. Without R2 we'd fall back to the provider's ephemeral
+     * URL anyway, so post-processing would be discarded. */
+    if (!opts?.skipPostProcess && isPostProcessEnabled() && isR2Configured()) {
+      try {
+        const sourceForPP: Buffer | string | null =
+          imageBuffer ?? (apiResult.url ?? null);
+        if (sourceForPP) {
+          const processed = await postProcessAIImage(sourceForPP, {
+            draftId,
+            clientId: draft.client_id,
+          });
+          imageBuffer = processed;
+          /* Once we own the post-processed bytes, force R2 upload of our
+           * buffer (not the provider URL), otherwise R2 would store the
+           * un-processed CDN image. finalUrl will be overwritten by the
+           * R2 upload result below. */
+          finalUrl = undefined;
+        }
+      } catch (ppErr: any) {
+        logger.warn(`[contentflow][image-gen] draft=${draftId} post-process threw: ${ppErr?.message || ppErr} — using untouched image`);
+      }
+    }
+
     if (isR2Configured()) {
       const key = `${draft.client_id}/${draftId}/${crypto.randomBytes(6).toString("hex")}.png`;
       const upload = await uploadToR2(
@@ -388,6 +421,10 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
         logger.warn(`[contentflow][image-gen] draft=${draftId} R2 upload failed (${upload.error}) — falling back to provider URL`);
         // Fire-and-forget background re-upload (only meaningful for url responses).
         if (apiResult.url) scheduleR2Reupload(draftId, apiResult.url, key).catch(() => {});
+        /* If post-process consumed the provider URL (finalUrl=undefined)
+         * but R2 then failed, restore the original ephemeral URL so the
+         * publish flow has SOMETHING to use — un-processed beats no image. */
+        if (!finalUrl && apiResult.url) finalUrl = apiResult.url;
       }
     }
 
