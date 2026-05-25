@@ -37,18 +37,35 @@ import { execSync } from "node:child_process";
   }
 
   const project = process.env.DOPPLER_PROJECT || "wefixtrades";
-  const config = process.env.DOPPLER_CONFIG || "dev";
+  // Auto-detect config: (1) explicit env override, (2) parse from service-token
+  // format `dp.st.<config>.<id>` since service tokens are config-scoped, (3) infer
+  // from NODE_ENV in production, (4) fall back to "dev". This prevents the silent
+  // mismatch where a `dp.st.prd.X` token tries to read /wefixtrades/dev and gets
+  // 403 with the bootstrap failing quietly + all env vars empty.
+  let config = process.env.DOPPLER_CONFIG;
+  if (!config) {
+    const tokenMatch = /^dp\.st\.([a-z0-9_-]+)\./.exec(token);
+    if (tokenMatch?.[1]) {
+      config = tokenMatch[1];
+    } else if (process.env.NODE_ENV === "production") {
+      config = "prd";
+    } else {
+      config = "dev";
+    }
+  }
+  console.log(`[doppler-bootstrap] pulling ${project}/${config}`);
   const url = `https://api.doppler.com/v3/configs/config/secrets?project=${encodeURIComponent(project)}&config=${encodeURIComponent(config)}&include_dynamic_secrets=false&include_managed_secrets=false`;
 
   let raw: string;
   try {
     raw = execSync(
-      `curl -s --max-time 5 --fail -H "Authorization: Bearer ${token}" "${url}"`,
+      `curl -s --max-time 5 --fail-with-body -H "Authorization: Bearer ${token}" "${url}"`,
       { encoding: "utf8", timeout: 6000, stdio: ["ignore", "pipe", "pipe"] },
     );
   } catch (err) {
     const msg = (err as Error).message;
-    console.warn(`[doppler-bootstrap] fetch failed (${msg.split("\n")[0]}) — proceeding without Doppler`);
+    const body = (err as { stdout?: string | Buffer }).stdout?.toString().slice(0, 200) || "";
+    console.warn(`[doppler-bootstrap] fetch failed: ${msg.split("\n")[0]}${body ? ` | body=${body}` : ""}`);
     return;
   }
 
