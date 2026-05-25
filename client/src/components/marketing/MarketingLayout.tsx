@@ -73,7 +73,7 @@ function FtLink({ href, children }: { href: string; children: React.ReactNode })
 /** A plain footer column — heading + always-visible link list. */
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="mkt-footer-col">
       <div style={ftHeading}>{title}</div>
       <div className="mkt-ft-list">{children}</div>
     </div>
@@ -99,7 +99,7 @@ function ExpandableFooterColumn({
   const visible = links.slice(0, half);
   const hidden = links.slice(half);
   return (
-    <div>
+    <div className="mkt-footer-col">
       <div style={ftHeading}>{title}</div>
       {/* First half — always visible */}
       <div className="mkt-ft-list">
@@ -315,12 +315,14 @@ function MarketingFooter() {
           grid-template-columns: repeat(4, 1fr);
           gap: 32px;
         }
-        /* Subtle dashed vertical divider between footer columns. */
+        /* Subtle dashed vertical divider between footer columns. Bumped from
+           --hairline (too faint on the dark surface) to rgba(255,255,255,0.18)
+           so the engineering-grid feel actually reads. */
         .mkt-footer-grid > * + * {
           background-image: linear-gradient(
             to bottom,
-            var(--hairline) 0,
-            var(--hairline) 6px,
+            rgba(255,255,255,0.18) 0,
+            rgba(255,255,255,0.18) 6px,
             transparent 6px,
             transparent 12px
           );
@@ -328,6 +330,32 @@ function MarketingFooter() {
           background-size: 1px 12px;
           background-position: -16px top;
         }
+
+        /* Blueprint-style "+" corner markers on each footer column.
+           Two pseudo-elements, each an SVG with two crosses positioned at
+           the corners. Inset is negative so the marks straddle the column
+           bounding box (true Krumzi/engineering-grid look). */
+        .mkt-footer-col {
+          position: relative;
+          padding: 8px 4px;
+        }
+        .mkt-footer-col::before,
+        .mkt-footer-col::after {
+          content: "";
+          position: absolute;
+          left: -6px;
+          right: -6px;
+          height: 12px;
+          pointer-events: none;
+          background-repeat: no-repeat;
+          background-position: left center, right center;
+          background-size: 12px 12px, 12px 12px;
+          background-image:
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><line x1='0' y1='6' x2='12' y2='6' stroke='rgba(255,255,255,0.32)' stroke-width='1'/><line x1='6' y1='0' x2='6' y2='12' stroke='rgba(255,255,255,0.32)' stroke-width='1'/></svg>"),
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><line x1='0' y1='6' x2='12' y2='6' stroke='rgba(255,255,255,0.32)' stroke-width='1'/><line x1='6' y1='0' x2='6' y2='12' stroke='rgba(255,255,255,0.32)' stroke-width='1'/></svg>");
+        }
+        .mkt-footer-col::before { top: -6px; }
+        .mkt-footer-col::after  { bottom: -6px; }
 
         /* Column link list — stacked, each link only as wide as its text
            so the center-out underline sits under the text. */
@@ -396,6 +424,12 @@ function MarketingFooter() {
           /* Drop the column divider when items wrap onto multiple rows */
           .mkt-footer-grid > * + * {
             background-image: none;
+          }
+          /* Keep the corner-cross blueprint marks visible at all sizes —
+             they still read on a 2-col stack — but tighten padding so the
+             columns aren't pushed apart. */
+          .mkt-footer-col {
+            padding: 6px 2px;
           }
         }
         @media (max-width: 480px) {
