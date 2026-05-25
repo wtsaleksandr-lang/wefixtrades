@@ -64,6 +64,7 @@ import { registerAdminSupplierRoutes } from "./adminSupplierRoutes";
 import { registerSupplierWebhookRoutes } from "./supplierWebhookRoutes";
 import { registerMetaMessagingWebhookRoutes } from "./metaMessagingWebhookRoutes";
 import { registerMetaWhatsappWebhookRoutes } from "./metaWhatsappWebhookRoutes";
+import { registerDopplerWebhookRoutes } from "./dopplerWebhookRoutes";
 import { registerAdminServiceRoutes } from "./adminServiceRoutes";
 import { registerApprovalRoutes } from "./approvalRoutes";
 import { registerDemoRoutes } from "./demoRoutes";
@@ -203,6 +204,10 @@ export async function registerRoutes(
   // X-Hub-Signature-256, verified per-request). Coexists with the
   // existing Twilio WhatsApp path on /api/twilio/*.
   registerMetaWhatsappWebhookRoutes(app);
+  // Ops — Doppler webhook auto-redeploys Replit on `wefixtrades/prd`
+  // secret changes. See routes/dopplerWebhookRoutes.ts. Public (signed
+  // by Doppler with HMAC-SHA256, verified per-request).
+  registerDopplerWebhookRoutes(app);
   registerAdminServiceRoutes(app);
   registerApprovalRoutes(app);
   registerDemoRoutes(app);
