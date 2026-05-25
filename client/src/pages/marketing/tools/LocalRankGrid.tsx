@@ -16,6 +16,10 @@
 import { useMemo, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import FreeToolLayout from "@/components/marketing/FreeToolLayout";
+import {
+  FreeToolFormField,
+  FreeToolFormFieldStyles,
+} from "@/components/marketing/FreeToolFormField";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { AlertCircle, ArrowRight } from "lucide-react";
@@ -124,33 +128,39 @@ export default function LocalRankGrid() {
 
   const form = (
     <form onSubmit={submit}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-        <input
-          type="text"
+      <FreeToolFormFieldStyles />
+      {/* DESIGN-SYSTEM compliance (2026-05-25 audit). */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <FreeToolFormField
+          id="rankgrid-business"
+          label="Business name"
           value={businessName}
-          onChange={(e) => setBusinessName(e.target.value)}
-          placeholder="Business name"
-          aria-label="Business name"
-          style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.10)", fontSize: 14, background: "rgb(255,255,255)", outline: "none" }}
-          data-testid="input-rankgrid-business"
+          onChange={setBusinessName}
+          required
+          autoComplete="organization"
+          testId="input-rankgrid-business"
+          helpText="Your Google Business Profile name exactly — we match it inside each grid-point search to find your rank."
         />
-        <input
-          type="text"
+        <FreeToolFormField
+          id="rankgrid-city"
+          label="City"
           value={city}
-          onChange={(e) => setCity(e.target.value)}
-          placeholder="City (e.g. Denver, CO)"
-          aria-label="City"
-          style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.10)", fontSize: 14, background: "rgb(255,255,255)", outline: "none" }}
-          data-testid="input-rankgrid-city"
+          onChange={setCity}
+          required
+          placeholder="Denver, CO"
+          autoComplete="address-level2"
+          testId="input-rankgrid-city"
+          helpText="Where you operate. We anchor the 5×5 grid around this city center at ~5km radius."
         />
-        <input
-          type="text"
+        <FreeToolFormField
+          id="rankgrid-keyword"
+          label="Target keyword"
           value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder="Target keyword (e.g. plumber near me)"
-          aria-label="Target keyword"
-          style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.10)", fontSize: 14, background: "rgb(255,255,255)", outline: "none" }}
-          data-testid="input-rankgrid-keyword"
+          onChange={setKeyword}
+          required
+          placeholder="plumber near me"
+          testId="input-rankgrid-keyword"
+          helpText="Which keyword to check ranks against — e.g. 'plumber near me'."
         />
       </div>
       <button
@@ -158,13 +168,13 @@ export default function LocalRankGrid() {
         disabled={loading}
         data-testid="button-rankgrid-submit"
         style={{
-          marginTop: 12,
+          marginTop: 2,
           width: "100%",
-          padding: "12px 16px",
+          padding: "14px 16px",
           borderRadius: 12,
-          background: loading ? "rgba(13,60,252,0.6)" : "#0d3cfc",
+          background: loading ? "rgba(13,60,252,0.6)" : "rgb(13,60,252)",
           color: "rgb(255,255,255)",
-          fontSize: 14,
+          fontSize: 15,
           fontWeight: 700,
           border: "none",
           cursor: loading ? "default" : "pointer",
@@ -173,7 +183,7 @@ export default function LocalRankGrid() {
         {loading ? "Scanning 25 grid points…" : "Scan rank across 5×5 grid"}
       </button>
       {error && (
-        <div style={{ marginTop: 10, color: "#B91C1C", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ marginTop: 8, color: "rgb(185,28,28)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
           <AlertCircle size={14} /> {error}
         </div>
       )}

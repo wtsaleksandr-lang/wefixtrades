@@ -22,6 +22,10 @@ import MapSnapshotShell from "@/components/marketing/map-snapshot/MapSnapshotShe
 // use Tailwind utility classes like the portal file).
 // BG-3 fix 2: the InfoCue help-popover was removed — its copy referenced a
 // website input from an older step and confused users on the GBP search.
+// 2026-05-25 re-add: the popover is back, with corrected copy that matches
+// the floating-label placeholder. Alex flagged the removal as a regression
+// of design-rule #2 (every component has a help cue) on 2026-05-22.
+import InfoCue from "@/components/wizard/elfsight/InfoCue";
 import { OptimizedImage } from "@/components/ui/Picture";
 
 type Prediction = {
@@ -847,10 +851,18 @@ export default function FreeAudit() {
                   The relative wrapper carries the floating-label peer styles
                   via a scoped class so we don't need Tailwind on this page. */}
               <div className="audit-hero-input" style={{ position: "relative", paddingLeft: 26 }}>
-                {/* BG-3 fix 2: removed mismatched InfoCue help cue. The old
-                    copy referenced a website input from an earlier step; the
-                    floating-label placeholder ("Type your business name +
-                    city…") is now self-explanatory so no popover is needed. */}
+                {/* DESIGN-SYSTEM rule 2 (re-added 2026-05-25): every input
+                    surface gets a top-left `?` cue. The popover copy matches
+                    the floating-label placeholder so there's no contradiction
+                    with the older fix that removed the previous mismatched
+                    cue. */}
+                <div style={{ position: "absolute", top: 8, left: 4, zIndex: 2 }}>
+                  <InfoCue
+                    text="Type your business name, then your city — we use Google Places to match the exact location and run the audit."
+                    label="Help: Free Audit search"
+                    testid="audit-hero-search"
+                  />
+                </div>
                 {/* Bug 2 (customer report 2026-05-25): the Search icon was
                     rendering distorted / vertically stretched on some
                     devices. Lucide's `size` prop sets width/height SVG
