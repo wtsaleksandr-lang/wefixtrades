@@ -66,6 +66,10 @@ import GoogleReviewLinkGenerator from "@/pages/marketing/tools/GoogleReviewLinkG
 import LocalSearchChecker from "@/pages/marketing/tools/LocalSearchChecker";
 import CitationChecker from "@/pages/marketing/tools/CitationChecker";
 import LocalRankflux from "@/pages/marketing/tools/LocalRankflux";
+// Competitor comparison landing pages — "X alternative" / "X vs Y" SEO.
+import CompareVsJobber from "@/pages/marketing/compare/CompareVsJobber";
+import CompareVsHousecallPro from "@/pages/marketing/compare/CompareVsHousecallPro";
+import CompareVsServiceTitan from "@/pages/marketing/compare/CompareVsServiceTitan";
 // FreeAudit lazy-loaded at top of file (embed-y / rarely visited).
 // Tools-consolidation: Missed Call Calculator deleted entirely; MapSnapshot
 // folded into FreeAudit "Rank Grid" tab; tools-hub deleted; Quote Demo +
@@ -462,6 +466,10 @@ function Router() {
       <Route path="/for-agencies" component={ForAgenciesPage} />
       <Route path="/for-franchises" component={ForFranchisesPage} />
       <Route path="/for-solo-traders" component={ForSoloTradersPage} />
+      {/* Competitor comparison pages — "X alternative" / "X vs Y" SEO. */}
+      <Route path="/wefixtrades-vs-jobber" component={CompareVsJobber} />
+      <Route path="/wefixtrades-vs-housecall-pro" component={CompareVsHousecallPro} />
+      <Route path="/wefixtrades-vs-servicetitan" component={CompareVsServiceTitan} />
       {/* Human-friendly HTML sitemap (XML lives at /sitemap.xml, server route) */}
       <Route path="/sitemap" component={SitemapPage} />
 

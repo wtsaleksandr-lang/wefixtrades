@@ -86,6 +86,15 @@ const SECTIONS: SitemapSection[] = [
     ],
   },
   {
+    title: "Compare",
+    description: "Honest comparisons against the field-service incumbents.",
+    entries: [
+      { href: "/wefixtrades-vs-jobber", label: "WeFixTrades vs Jobber" },
+      { href: "/wefixtrades-vs-housecall-pro", label: "WeFixTrades vs Housecall Pro" },
+      { href: "/wefixtrades-vs-servicetitan", label: "WeFixTrades vs ServiceTitan" },
+    ],
+  },
+  {
     title: "Free Tools",
     description: "Public tools — no signup needed.",
     entries: [

@@ -221,6 +221,10 @@ function MarketingFooter() {
             <FtLink href="/pricing">Pricing</FtLink>
             {/* AJ-7 — API developer docs */}
             <FtLink href="/docs/api">API Docs</FtLink>
+            {/* Compare — "X alternative" / "X vs Y" SEO entries. */}
+            <FtLink href="/wefixtrades-vs-jobber">vs Jobber</FtLink>
+            <FtLink href="/wefixtrades-vs-housecall-pro">vs Housecall Pro</FtLink>
+            <FtLink href="/wefixtrades-vs-servicetitan">vs ServiceTitan</FtLink>
             <FtLink href="/sitemap">Sitemap</FtLink>
             {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}

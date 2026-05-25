@@ -122,6 +122,11 @@ const STATIC_ROUTES = [
   "/for-agencies",
   "/for-franchises",
   "/for-solo-traders",
+  // Competitor comparison pages — long-form FAQPage + Article JSON-LD needs
+  // to be hydrated for crawlers that don't execute JS.
+  "/wefixtrades-vs-jobber",
+  "/wefixtrades-vs-housecall-pro",
+  "/wefixtrades-vs-servicetitan",
   // Human-friendly HTML sitemap.
   "/sitemap",
   "/resources",
