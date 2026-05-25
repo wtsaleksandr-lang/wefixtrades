@@ -56,6 +56,7 @@ import {
   type PrefilledToken,
 } from "../../services/contentflow/profilePrefill";
 import { generateImageViaOrchestrator } from "../../services/contentflow/imageOrchestrator";
+import { generateVideoViaOrchestrator } from "../../services/contentflow/videoOrchestrator";
 import { generateContentflowText } from "../../services/contentflow/aiText";
 import { humanizeViaOrchestrator } from "../../services/contentflow/humanizationOrchestrator";
 import { writeAudit } from "../../lib/auditLog";
@@ -619,9 +620,10 @@ export function registerPortalContentflowRoutes(app: Express) {
    * Asset routing:
    *   - "image":   generateImageViaOrchestrator(rendered + style preset)
    *   - "article": generateContentflowText() → humanizeViaOrchestrator()
-   *   - "video":   402 if free/starter, 503 ("early access") otherwise.
-   *                VIDEO_GENERATION_ENABLED is off platform-wide per
-   *                PR #777 — no actual video generation today.
+   *   - "video":   402 if free/starter; Creator+ runs the multi-provider
+   *                video orchestrator (Hugging Face CogVideoX → Replicate
+   *                Wan/SVD → Google Veo → Replicate Hunyuan/ZeroScope).
+   *                Gated globally by VIDEO_GENERATION_ENABLED.
    *   - "multi":   image + article in parallel (Promise.all).
    *
    * Every generation writes a content_drafts row (surface='contentflow_portal',
@@ -660,8 +662,10 @@ export function registerPortalContentflowRoutes(app: Express) {
 
       const tier = await resolveContentflowTier(clientId);
 
-      /* ── Video: hard-stop at the tier gate (Free/Starter) and then
-       *    early-access stub at Creator+. No video pipeline today. */
+      /* ── Video: tier gate at Free/Starter (402), then run the
+       *    multi-provider orchestrator (PR follow-up to #791). Free
+       *    + Starter still get 402; Creator+ goes through the
+       *    Hugging Face → Replicate → Veo rotation. */
       if (assetType === "video") {
         if (tier === "free" || tier === "starter") {
           writeAudit({
@@ -679,18 +683,144 @@ export function registerPortalContentflowRoutes(app: Express) {
             upgrade_required: true,
           });
         }
+
+        /* Persist a draft row up front so a mid-pipeline failure still
+         * leaves a record the customer can re-run. */
+        const videoDraft = await storage.createContentDraft({
+          client_id: clientId,
+          client_service_id: null,
+          kind: "video",
+          surface: "contentflow_portal",
+          title: tmpl.title,
+          body: null,
+          excerpt: null,
+          target_platform: null,
+          target_url: null,
+          metadata: {
+            template_id: templateId,
+            pattern_id: tmpl.patternId,
+            trade: tmpl.trade,
+            goal: tmpl.goal,
+            asset: tmpl.asset,
+            tokens: Array.isArray(tokens) ? tokens : [],
+            rendered_prompt: rendered,
+            tier_at_generation: tier,
+            source: "phase3_generate_endpoint_video",
+            generation_status: "in_progress",
+          } as any,
+          quality_score: null,
+          quality_notes: null,
+          status: "draft",
+          auto_approved: false,
+          requires_admin_review: false,
+          requires_client_review: false,
+          admin_approved_at: null,
+          admin_approved_by: null,
+          client_approved_at: null,
+          rejected_at: null,
+          rejection_reason: null,
+          linked_social_post_id: null,
+          linked_task_id: null,
+          generation_cost_micro_usd: null,
+          created_by: "system",
+        } as any);
+
+        const videoDraftId = videoDraft.id;
+        const videoResult = await generateVideoViaOrchestrator(rendered, { customerTier: tier });
+
+        if (!videoResult.ok) {
+          await storage.updateContentDraft(videoDraftId, {
+            metadata: {
+              template_id: templateId,
+              tier_at_generation: tier,
+              rendered_prompt: rendered,
+              generation_status: "failed",
+              generation_errors: [`video:${videoResult.reason}`],
+              fallback_chain: videoResult.fallback_chain,
+              duration_ms: Date.now() - t0,
+            } as any,
+            status: "failed",
+          } as any);
+          writeAudit({
+            actorType: "system",
+            actorId: req.user?.id ?? null,
+            action: "contentflow.video.generated",
+            entityType: "content_draft",
+            entityId: String(videoDraftId),
+            metadata: {
+              client_id: clientId,
+              template_id: templateId,
+              succeeded: false,
+              reason: videoResult.reason,
+              fallback_chain: videoResult.fallback_chain,
+              tier,
+            },
+          });
+          return res.status(502).json({
+            ok: false,
+            draftId: videoDraftId,
+            tier,
+            errors: [videoResult.reason],
+            fallback_chain: videoResult.fallback_chain,
+            message: "Video generation failed across all providers. Try again or contact support.",
+          });
+        }
+
+        /* Some providers return URLs (Replicate, Veo); others return
+         * raw bytes (Hugging Face). For buffer-mode, encode as data URI
+         * so the browser can play directly. Future PR: persist to R2. */
+        const videoUrl = videoResult.videoUrl
+          ?? (videoResult.videoBuffer ? `data:video/mp4;base64,${videoResult.videoBuffer.toString("base64")}` : undefined);
+
+        await storage.updateContentDraft(videoDraftId, {
+          metadata: {
+            template_id: templateId,
+            pattern_id: tmpl.patternId,
+            trade: tmpl.trade,
+            goal: tmpl.goal,
+            asset: tmpl.asset,
+            tokens: Array.isArray(tokens) ? tokens : [],
+            rendered_prompt: rendered,
+            tier_at_generation: tier,
+            source: "phase3_generate_endpoint_video",
+            generation_status: "succeeded",
+            provider_used: videoResult.providerUsed,
+            fallback_chain: videoResult.fallback_chain,
+            media_plan: { video_url: videoUrl, prompt: rendered, provider: videoResult.providerUsed, resolution: videoResult.resolution, duration_sec: videoResult.durationSec },
+            duration_ms: Date.now() - t0,
+          } as any,
+          status: "draft",
+        } as any);
+
         writeAudit({
           actorType: "system",
           actorId: req.user?.id ?? null,
-          action: "contentflow.generate.video_early_access",
-          entityType: "client",
-          entityId: String(clientId),
-          metadata: { template_id: templateId, asset_type: assetType, tier },
+          action: "contentflow.video.generated",
+          entityType: "content_draft",
+          entityId: String(videoDraftId),
+          metadata: {
+            client_id: clientId,
+            template_id: templateId,
+            provider_id: videoResult.providerUsed,
+            duration_sec: videoResult.durationSec,
+            cost: videoResult.cost,
+            resolution: videoResult.resolution,
+            fallback_chain: videoResult.fallback_chain,
+            tier,
+            succeeded: true,
+          },
         });
-        return res.status(503).json({
-          error: "Video generation is in early access, scripts coming soon.",
-          code: "video_early_access",
+
+        return res.json({
+          ok: true,
+          draftId: videoDraftId,
           tier,
+          videoUrl,
+          providerUsed: videoResult.providerUsed,
+          durationSec: videoResult.durationSec,
+          resolution: videoResult.resolution,
+          cost: videoResult.cost,
+          fallback_chain: videoResult.fallback_chain,
         });
       }
 
