@@ -34,9 +34,9 @@ import {
   type ArticleQualityResult,
 } from "./qualityGate/articleQualityGate";
 import {
-  humanizeArticle,
   type HumanizeProvider,
 } from "./qualityGate/humanizeRewrite";
+import { humanizeViaOrchestrator } from "./humanizationOrchestrator";
 import {
   applyAlgorithmicHumanizationDetailed,
   algoHumanizerEnabled,
@@ -373,7 +373,7 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
     const sourceProvider: HumanizeProvider =
       result.provider === "openai" ? "openai" : "anthropic";
     const industryStr = (meta.niche as string | null) ?? tradeType ?? undefined;
-    const humanizeRes = await humanizeArticle(result.parsed.body_md, {
+    const orchRes = await humanizeViaOrchestrator(result.parsed.body_md, {
       clientId: draft.client_id,
       brandVoice: brandLayer,
       industry: industryStr,
@@ -381,7 +381,7 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
       sourceProvider,
       briefTitle: briefTitle ?? undefined,
     });
-    const llmHumanizedBody = humanizeRes.humanized;
+    const llmHumanizedBody = orchRes.humanized;
 
     writeAudit({
       actorType: "system",
@@ -391,11 +391,11 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
       metadata: {
         attempt,
         source_provider: sourceProvider,
-        provider_used: humanizeRes.provider_used,
-        original_length: humanizeRes.original_length,
-        final_length: humanizeRes.final_length,
-        fell_back_to_original: humanizeRes.fell_back_to_original,
-        fallback_reason: humanizeRes.fallback_reason ?? null,
+        provider_used: orchRes.providerUsed,
+        fell_back_to_paid: orchRes.fellBackToPaid,
+        ai_score_after: orchRes.aiScoreAfter ?? null,
+        original_length: result.parsed.body_md.length,
+        final_length: llmHumanizedBody.length,
         client_id: draft.client_id,
       },
     });
@@ -441,7 +441,7 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
       cadenceRetries++;
       const prevBody = layeredBody;
       const prevBurstiness = cadence.burstiness;
-      const retryHumanize = await humanizeArticle(result.parsed.body_md, {
+      const retryHumanize = await humanizeViaOrchestrator(result.parsed.body_md, {
         clientId: draft.client_id,
         brandVoice: brandLayer,
         industry: industryStr,
@@ -502,7 +502,7 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
       detector.aiScore >= DETECTOR_PASS_THRESHOLD
     ) {
       detectorRetried = true;
-      const extraRes = await humanizeArticle(layeredBody, {
+      const extraRes = await humanizeViaOrchestrator(layeredBody, {
         clientId: draft.client_id,
         brandVoice: brandLayer,
         industry: industryStr,
@@ -530,7 +530,7 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
           retry_provider: detector2.provider,
           retry_passed: detector2.passed,
           retry_strict: detector2.strict ?? false,
-          extra_aggressive_fell_back: extraRes.fell_back_to_original,
+          extra_aggressive_fell_back: extraRes.fellBackToPaid,
         },
       });
       detector = detector2;
