@@ -3,6 +3,7 @@ import { chatMemory } from "@shared/schema";
 import { eq, and, gt, lt, desc } from "drizzle-orm";
 import type { ChatMessage } from "./aiService";
 import type { MemoryContext, ChatSurface } from "./promptBuilder";
+import { redactPii } from "../lib/redactPii";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_STORED_MESSAGES = 40;
@@ -99,7 +100,14 @@ export async function saveMemory(
 ): Promise<void> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SEVEN_DAYS_MS);
-  const trimmedMessages = messages.slice(-MAX_STORED_MESSAGES);
+  // PII scrub on every persisted message body — chat memory rides 7 days
+  // and feeds back into future prompts. Stripping card / SSN / external
+  // emails here keeps that long tail out of durable storage and out of
+  // the model context on re-hydration.
+  const trimmedMessages = messages.slice(-MAX_STORED_MESSAGES).map((m) => ({
+    ...m,
+    content: typeof m.content === "string" ? redactPii(m.content) : m.content,
+  }));
 
   const existing = await db
     .select({ id: chatMemory.id })

@@ -1,11 +1,14 @@
 /**
- * Admin Copilot — Phase 3 auto-tier agent-loop tools (W-BA-3, W-BA-4).
+ * Admin Copilot — Phase 3 agent-loop tools (W-BA-3, W-BA-4).
  *
- * Three `auto`-tier actions registered on the `admin` surface for the BA-0
- * multi-step agent loop. They execute without a human confirm click when
- * admission criteria pass and downgrade safely when they don't.
+ * Three actions registered on the `admin` surface for the BA-0 multi-step
+ * agent loop. AI-safety audit 2026-05-24 downgraded the two
+ * customer-visible-send actions from `auto` to `low` tier — they now
+ * pause for an admin confirm click via /api/admin/tool-confirm rather
+ * than firing inside the loop. The internal `notify_admin_of_ticket`
+ * remains `auto` because it has no customer-visible side effect.
  *
- * 1. `send_support_email_reply`
+ * 1. `send_support_email_reply`  (low-tier — confirm required)
  *    Sends a customer-visible reply on an existing support ticket through
  *    the existing SendGrid path (`sendTicketReplyEmail`). Auto-tier
  *    ADMITTED only if ALL four are true:
@@ -24,14 +27,14 @@
  *    `send_support_email` action in `adminTools.ts` (different schema —
  *    that one takes `client_id`, this one takes `ticket_id`).
  *
- * 2. `notify_admin_of_ticket`
+ * 2. `notify_admin_of_ticket`  (auto — internal-only)
  *    Internal action — records an admin activity-log entry and best-effort
  *    fires a Slack ping via the existing `fireAlert()` (uses
  *    `SLACK_WEBHOOK_URL`). Always `auto`-tier: no external comms, no
  *    customer-visible side effect. Returns `tool_error` only if BOTH the
  *    activity-log write AND the Slack ping fail.
  *
- * 3. `send_admin_sms`  (W-BA-4)
+ * 3. `send_admin_sms`  (low-tier — confirm required, W-BA-4)
  *    Sends a customer-visible SMS reply on an open support ticket through
  *    Twilio (`sendSMS` in `server/twilioClient.ts`). The phone number is
  *    looked up server-side from the customer's existing SMS thread on the
@@ -75,8 +78,10 @@ import {
   type ActionTool,
   type PendingAction,
   type ActionExecutionResult,
+  type ToolCallSummary,
 } from "./copilotActionRegistry";
 import { createLogger } from "../lib/logger";
+import { redactPii } from "../lib/redactPii";
 
 const log = createLogger("AdminAgentTools");
 
@@ -231,8 +236,8 @@ async function executeSendSupportEmailReply(
       metadata: {
         ticket_id: ticketId,
         client_id: ticket.client_id,
-        subject: ticket.subject,
-        body: bodyWithFooter,
+        subject: redactPii(ticket.subject),
+        body: redactPii(bodyWithFooter),
         failed_checks: failedChecks,
         admission_context: ctx,
         session_id: action.session_id,
@@ -304,8 +309,8 @@ async function executeSendSupportEmailReply(
     metadata: {
       ticket_id: ticketId,
       client_id: ticket.client_id,
-      subject: ticket.subject,
-      body: bodyWithFooter,
+      subject: redactPii(ticket.subject),
+      body: redactPii(bodyWithFooter),
       admission_context: ctx,
       session_id: action.session_id,
     },
@@ -320,12 +325,31 @@ async function executeSendSupportEmailReply(
   };
 }
 
+/** Confirmation-card preview for send_support_email_reply. Renders the
+ *  ticket id + a body excerpt so the admin sees what's about to go out
+ *  before clicking confirm. */
+function summarizeSendSupportEmailReply(args: Record<string, unknown>): ToolCallSummary {
+  const ticketId = typeof args.ticket_id === "number" ? args.ticket_id : undefined;
+  const body = typeof args.body === "string" ? args.body.trim() : "";
+  const preview = body.length > 240 ? body.slice(0, 237) + "…" : body;
+  const lines = [
+    ticketId ? `Ticket: #${ticketId}` : "Ticket: (missing id)",
+    "Reply body:",
+    preview || "(empty)",
+  ];
+  return { title: "Send support-ticket reply", lines };
+}
+
 const SEND_SUPPORT_EMAIL_REPLY_ACTION: CopilotAction = {
   name: "send_support_email_reply",
   surface: "admin",
-  riskTier: "auto",
+  // Tier downgraded auto → low: customer-visible outbound email must
+  // pause for an admin confirm click. The agent loop short-circuits on
+  // any non-auto action and chatRoutes hands off to /api/admin/tool-confirm.
+  riskTier: "low",
   tool: SEND_SUPPORT_EMAIL_REPLY_TOOL,
   execute: executeSendSupportEmailReply,
+  summarize: summarizeSendSupportEmailReply,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -673,7 +697,7 @@ async function executeSendAdminSms(
         // Phone is intentionally omitted on draft when we couldn't
         // resolve one — including it would leak nothing useful.
         resolved_phone: resolvedPhone,
-        body: bodyWithFooter,
+        body: redactPii(bodyWithFooter),
         failed_checks: failedChecks,
         admission_context: ctx,
         session_id: action.session_id,
@@ -766,7 +790,7 @@ async function executeSendAdminSms(
       business_name: client.business_name,
       // Phone is recorded on send (audit need) but not echoed to chat.
       resolved_phone: resolvedPhone,
-      body: bodyWithFooter,
+      body: redactPii(bodyWithFooter),
       segments,
       twilio_sid: twilioSid,
       admission_context: ctx,
@@ -788,12 +812,30 @@ async function executeSendAdminSms(
   };
 }
 
+/** Confirmation-card preview for send_admin_sms. Renders the ticket id
+ *  + the body so the admin sees exactly what the customer will receive
+ *  via SMS before clicking confirm. */
+function summarizeSendAdminSms(args: Record<string, unknown>): ToolCallSummary {
+  const ticketId = typeof args.ticket_id === "number" ? args.ticket_id : undefined;
+  const body = typeof args.body === "string" ? args.body.trim() : "";
+  const preview = body.length > 240 ? body.slice(0, 237) + "…" : body;
+  const lines = [
+    ticketId ? `Ticket: #${ticketId}` : "Ticket: (missing id)",
+    "SMS body:",
+    preview || "(empty)",
+  ];
+  return { title: "Send SMS reply via Twilio", lines };
+}
+
 const SEND_ADMIN_SMS_ACTION: CopilotAction = {
   name: "send_admin_sms",
   surface: "admin",
-  riskTier: "auto",
+  // Tier downgraded auto → low: customer-visible outbound SMS must pause
+  // for an admin confirm click. Same confirm path as send_support_email_reply.
+  riskTier: "low",
   tool: SEND_ADMIN_SMS_TOOL,
   execute: executeSendAdminSms,
+  summarize: summarizeSendAdminSms,
 };
 
 /* ═══════════════════════════════════════════════════════════════════

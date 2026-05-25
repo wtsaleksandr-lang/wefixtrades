@@ -29,6 +29,7 @@ import { db } from "../db";
 import { onboardingSubmissions } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { applyOnboardingToAIConfig, type AIConfigPatch } from "./onboardingMappers";
+import { redactPii } from "../lib/redactPii";
 
 const log = createLogger("VapiService");
 
@@ -551,8 +552,18 @@ export async function extractLeadFromTranscript(transcript: string): Promise<Tra
 
     // Parse JSON from response — handle potential markdown wrapping
     const jsonStr = response.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim();
-    const parsed = JSON.parse(jsonStr);
-    return parsed as TradelineLeadData;
+    const parsed = JSON.parse(jsonStr) as TradelineLeadData;
+
+    // PII scrub before this leaves process memory — the result is persisted
+    // on `call_logs.lead_data` (see processTradeLineCallPostHook step 2).
+    // We scrub every string field rather than enumerate which ones are
+    // "risky" — false positives are harmless; missed PII is durable.
+    const scrubbed: TradelineLeadData = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      scrubbed[k as keyof TradelineLeadData] =
+        typeof v === "string" ? redactPii(v) : v;
+    }
+    return scrubbed;
   } catch (err) {
     log.error("Lead extraction from transcript failed", { error: (err as Error).message });
     return null;
