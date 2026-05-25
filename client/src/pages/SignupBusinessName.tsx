@@ -8,6 +8,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 
 /**
  * Business-name completion step for "Continue with Google" sign-up.
@@ -159,9 +160,12 @@ export default function SignupBusinessNamePage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   autoComplete="tel"
-                  style={{ ...inputStyle, marginBottom: 28 }}
+                  style={{ ...inputStyle, marginBottom: 8 }}
                   data-testid="input-phone"
                 />
+                <div style={{ marginBottom: 20 }}>
+                  <SmsConsentDisclosure variant="inline" />
+                </div>
 
                 {complete.error && (
                   <p style={{ fontSize: 13, color: mkt.danger, marginBottom: 16 }}>

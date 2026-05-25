@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { CalendarDays, Clock, Loader2, ChevronRight, Check, ChevronLeft } from 'lucide-react';
 import { eff, primaryButtonStyle, inputStyle, labelStyle } from '../designTokens';
+import { SmsConsentDisclosure } from '@/components/forms/SmsConsentDisclosure';
 
 interface BookNowInlineWidgetProps {
   calculatorId: number;
@@ -142,6 +143,7 @@ export default function BookNowInlineWidget({ calculatorId, quoteAmount }: BookN
       <p style={{ fontSize: '14px', fontWeight: 600, color: eff.text, margin: 0, fontFamily: eff.font }}>Confirm your details</p>
       <input placeholder="Name *" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
       <input placeholder="Phone *" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+      <SmsConsentDisclosure variant="inline" />
       <input placeholder="Email (optional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
       <textarea placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, height: 'auto', padding: '12px 16px', resize: 'none' as const }} onFocus={onFocus as any} onBlur={onBlur as any} />
       {error && <p style={{ fontSize: '13px', color: eff.error, margin: 0 }}>{error}</p>}

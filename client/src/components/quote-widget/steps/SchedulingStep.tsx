@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { CalendarDays, Clock, ChevronLeft, Loader2, Check } from 'lucide-react';
 import HelpTip from '../HelpTip';
+import { SmsConsentDisclosure } from '@/components/forms/SmsConsentDisclosure';
 import { useWidgetState } from '../useWidgetState';
 import {
   eff,
@@ -276,6 +277,7 @@ export default function SchedulingStep({ step }: SchedulingStepProps) {
             style={inputStyle}
             data-testid="scheduling-input-phone"
           />
+          <SmsConsentDisclosure variant="inline" />
           {error && (
             <p style={{ fontSize: 13, color: eff.error, margin: 0 }} role="alert">{error}</p>
           )}

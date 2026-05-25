@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from "react";
 import { X, Check, ArrowRight, Loader2 } from "lucide-react";
 import { mkt, shadows, typography } from "@/theme/tokens";
 import { formatPrice, yearlyMonthlyEquiv, bundleSavings, type BundleDef, type Tier, type ProductDef } from "@/config/pricing";
+import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 
 const FONT = typography.fontFamily;
 
@@ -271,6 +272,7 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
               value={phone}
               onChange={setPhone}
             />
+            <SmsConsentDisclosure variant="inline" />
 
             {error && (
               <div style={{

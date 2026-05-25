@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { trackEvent } from '@/lib/trackEvent';
 import { Send, Loader2, Lock } from 'lucide-react';
 import HelpTip from '../HelpTip';
+import { SmsConsentDisclosure } from '@/components/forms/SmsConsentDisclosure';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculateEstimate } from '@shared/calculateEstimate';
 import { useWidgetState } from '../useWidgetState';
@@ -297,6 +298,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
           {fieldErrors.phone && (
             <p style={{ fontSize: '12px', color: eff.error, margin: '4px 0 0' }}>{fieldErrors.phone}</p>
           )}
+          <SmsConsentDisclosure variant="inline" />
         </div>
 
         <div>

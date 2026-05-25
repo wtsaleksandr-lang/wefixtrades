@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRoute } from "wouter";
+import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 
 /* ─── Types ─── */
 
@@ -384,6 +385,7 @@ export default function BookingPage() {
               </FormField>
               <FormField label="Phone" required>
                 <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 123-4567" style={inputStyle} autoComplete="tel" />
+                <SmsConsentDisclosure variant="inline" />
               </FormField>
               <FormField label="Email">
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" style={inputStyle} autoComplete="email" />

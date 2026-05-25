@@ -12,6 +12,7 @@ import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import MicrosoftSignInButton from "@/components/auth/MicrosoftSignInButton";
 import FacebookSignInButton from "@/components/auth/FacebookSignInButton";
 import { ga4Event } from "@/lib/ga4";
+import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 
 export default function SignupPage() {
   const [businessName, setBusinessName] = useState("");
@@ -218,8 +219,11 @@ export default function SignupPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               autoComplete="tel"
-              style={{ ...inputStyle, marginBottom: 28 }}
+              style={{ ...inputStyle, marginBottom: 8 }}
             />
+            <div style={{ marginBottom: 20 }}>
+              <SmsConsentDisclosure variant="inline" />
+            </div>
 
             {signup.error && (
               <p style={{ fontSize: 13, color: mkt.danger, marginBottom: 16 }}>
