@@ -3,7 +3,7 @@ import { hashPassword } from "./auth";
 import { db } from "./db";
 import {
 calculators, leads, analyticsEvents, deploymentStatus,
-  calculatorAnalyticsSummary, jobLogs,
+  jobLogs,
   notificationQueue, followupJobs, bookings,
   users, auditSubmissions, auditFollowupEmails, demoQuoteLeads, missedCallLeads,
   systemAlerts, emailQueue,
@@ -118,6 +118,7 @@ import * as tradelineImpl from "./storage/tradeline";
 import * as rankflowImpl from "./storage/rankflow";
 import * as contentflowImpl from "./storage/contentflow";
 import * as reputationImpl from "./storage/reputation";
+import * as analyticsImpl from "./storage/analytics";
 import * as fulfillmentImpl from "./storage/fulfillment";
 import * as supportImpl from "./storage/support";
 import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
@@ -723,57 +724,11 @@ export class DatabaseStorage implements IStorage {
   deleteLead(id: number, calculatorId: number): Promise<void> { return leadsImpl.deleteLead(id, calculatorId); }
   getLeadCountSince(calculatorId: number, since: Date): Promise<number> { return leadsImpl.getLeadCountSince(calculatorId, since); }
 
-  async trackEvent(data: InsertAnalyticsEvent): Promise<AnalyticsEvent> {
-    const [event] = await db.insert(analyticsEvents).values(data).returning();
-    return event;
-  }
-
-  async getEventCounts(calculatorId: number, since: Date): Promise<{ views: number; leads: number; quotes: number }> {
-    const rows = await db.select({
-      event_type: analyticsEvents.event_type,
-      count: sql<number>`count(*)::int`,
-    })
-      .from(analyticsEvents)
-      .where(and(eq(analyticsEvents.calculator_id, calculatorId), gte(analyticsEvents.created_at, since)))
-      .groupBy(analyticsEvents.event_type);
-
-    const counts = { views: 0, leads: 0, quotes: 0 };
-    for (const r of rows) {
-      if (r.event_type === 'view') counts.views = r.count;
-      else if (r.event_type === 'lead') counts.leads = r.count;
-      else if (r.event_type === 'quote_generated') counts.quotes = r.count;
-    }
-    return counts;
-  }
-
-  async getWeeklyTrend(calculatorId: number): Promise<{ week: string; views: number; leads: number }[]> {
-    const eightWeeksAgo = new Date(Date.now() - 8 * 7 * 24 * 60 * 60 * 1000);
-    const rows = await db.select({
-      week: sql<string>`to_char(date_trunc('week', ${analyticsEvents.created_at}), 'YYYY-MM-DD')`,
-      event_type: analyticsEvents.event_type,
-      count: sql<number>`count(*)::int`,
-    })
-      .from(analyticsEvents)
-      .where(and(eq(analyticsEvents.calculator_id, calculatorId), gte(analyticsEvents.created_at, eightWeeksAgo)))
-      .groupBy(sql`date_trunc('week', ${analyticsEvents.created_at})`, analyticsEvents.event_type)
-      .orderBy(sql`date_trunc('week', ${analyticsEvents.created_at})`);
-
-    const weekMap = new Map<string, { views: number; leads: number }>();
-    for (const r of rows) {
-      const existing = weekMap.get(r.week) || { views: 0, leads: 0 };
-      if (r.event_type === 'view') existing.views = r.count;
-      else if (r.event_type === 'lead') existing.leads = r.count;
-      weekMap.set(r.week, existing);
-    }
-    return Array.from(weekMap.entries()).map(([week, data]) => ({ week, ...data }));
-  }
-
-  async getAvgQuoteAmount(calculatorId: number): Promise<number> {
-    const [result] = await db.select({ avg: sql<number>`coalesce(avg(${leads.quote_amount}), 0)::int` })
-      .from(leads)
-      .where(and(eq(leads.calculator_id, calculatorId), sql`${leads.quote_amount} is not null`));
-    return result?.avg || 0;
-  }
+  // ─── Analytics methods (impl in ./storage/analytics.ts) ───
+  trackEvent(data: InsertAnalyticsEvent): Promise<AnalyticsEvent> { return analyticsImpl.trackEvent(data); }
+  getEventCounts(calculatorId: number, since: Date): Promise<{ views: number; leads: number; quotes: number }> { return analyticsImpl.getEventCounts(calculatorId, since); }
+  getWeeklyTrend(calculatorId: number): Promise<{ week: string; views: number; leads: number }[]> { return analyticsImpl.getWeeklyTrend(calculatorId); }
+  getAvgQuoteAmount(calculatorId: number): Promise<number> { return analyticsImpl.getAvgQuoteAmount(calculatorId); }
 
   async getDeploymentStatus(calculatorId: number): Promise<DeploymentStatus | undefined> {
     const [ds] = await db.select().from(deploymentStatus).where(eq(deploymentStatus.calculator_id, calculatorId)).limit(1);
@@ -850,71 +805,10 @@ export class DatabaseStorage implements IStorage {
 
   markLeadReplied(leadId: number): Promise<Lead | undefined> { return leadsImpl.markLeadReplied(leadId); }
 
-  async upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary> {
-    const existing = await this.getAnalyticsSummary(data.calculator_id);
-    if (existing) {
-      const [updated] = await db.update(calculatorAnalyticsSummary)
-        .set({ ...data })
-        .where(eq(calculatorAnalyticsSummary.calculator_id, data.calculator_id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(calculatorAnalyticsSummary).values(data).returning();
-    return created;
-  }
-
-  async getAnalyticsSummary(calculatorId: number): Promise<AnalyticsSummary | undefined> {
-    const [summary] = await db.select().from(calculatorAnalyticsSummary)
-      .where(eq(calculatorAnalyticsSummary.calculator_id, calculatorId))
-      .orderBy(desc(calculatorAnalyticsSummary.period_date))
-      .limit(1);
-    return summary;
-  }
-
-  async getDailyEventCounts(calculatorId: number, date: Date): Promise<{ views: number; leads: number; quotes: number }> {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-
-    const rows = await db.select({
-      event_type: analyticsEvents.event_type,
-      count: sql<number>`count(*)::int`,
-    })
-      .from(analyticsEvents)
-      .where(and(
-        eq(analyticsEvents.calculator_id, calculatorId),
-        gte(analyticsEvents.created_at, dayStart),
-        sql`${analyticsEvents.created_at} <= ${dayEnd}`,
-      ))
-      .groupBy(analyticsEvents.event_type);
-
-    const counts = { views: 0, leads: 0, quotes: 0 };
-    for (const r of rows) {
-      if (r.event_type === 'view') counts.views = r.count;
-      else if (r.event_type === 'lead') counts.leads = r.count;
-      else if (r.event_type === 'quote_generated') counts.quotes = r.count;
-    }
-    return counts;
-  }
-
-  async getBestDay(calculatorId: number, since: Date): Promise<string | null> {
-    const rows = await db.select({
-      day: sql<string>`to_char(${analyticsEvents.created_at}::date, 'Day')`,
-      count: sql<number>`count(*)::int`,
-    })
-      .from(analyticsEvents)
-      .where(and(
-        eq(analyticsEvents.calculator_id, calculatorId),
-        gte(analyticsEvents.created_at, since),
-        eq(analyticsEvents.event_type, 'lead'),
-      ))
-      .groupBy(sql`${analyticsEvents.created_at}::date, to_char(${analyticsEvents.created_at}::date, 'Day')`)
-      .orderBy(sql`count(*) desc`)
-      .limit(1);
-
-    return rows.length > 0 ? rows[0].day.trim() : null;
-  }
+  upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary> { return analyticsImpl.upsertAnalyticsSummary(data); }
+  getAnalyticsSummary(calculatorId: number): Promise<AnalyticsSummary | undefined> { return analyticsImpl.getAnalyticsSummary(calculatorId); }
+  getDailyEventCounts(calculatorId: number, date: Date): Promise<{ views: number; leads: number; quotes: number }> { return analyticsImpl.getDailyEventCounts(calculatorId, date); }
+  getBestDay(calculatorId: number, since: Date): Promise<string | null> { return analyticsImpl.getBestDay(calculatorId, since); }
 
   async createJobLog(data: InsertJobLog): Promise<JobLog> {
     const [log] = await db.insert(jobLogs).values(data).returning();
