@@ -469,15 +469,25 @@ export default function TradelineVoicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {(clientsQ.data?.clients ?? []).map((c) => (
-                  <ClientRow
-                    key={c.client_id}
-                    row={c}
-                    voices={voices.data?.voices ?? []}
-                    onSave={(body) => saveClient.mutate({ clientId: c.client_id, body })}
-                    saving={saveClient.isPending}
-                  />
-                ))}
+                {(clientsQ.data?.clients ?? []).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-10 text-gray-500">
+                      <Mic2 className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-gray-700 mb-0.5">No TradeLine clients yet</p>
+                      <p className="text-xs text-gray-500">Per-client voice overrides and call-minute budgets appear here once clients onboard to TradeLine.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  (clientsQ.data?.clients ?? []).map((c) => (
+                    <ClientRow
+                      key={c.client_id}
+                      row={c}
+                      voices={voices.data?.voices ?? []}
+                      onSave={(body) => saveClient.mutate({ clientId: c.client_id, body })}
+                      saving={saveClient.isPending}
+                    />
+                  ))
+                )}
               </tbody>
             </table>
           </Card>
