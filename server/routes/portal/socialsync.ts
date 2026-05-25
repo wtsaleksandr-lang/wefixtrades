@@ -24,6 +24,8 @@
  *   PATCH  /api/portal/socialsync/settings
  *   GET    /api/portal/socialsync/facebook-page/:pageId/metadata
  *   PATCH  /api/portal/socialsync/facebook-page/:pageId/metadata
+ *   GET    /api/portal/socialsync/businesses
+ *   POST   /api/portal/socialsync/tech-provider-attestation
  */
 
 import type { Express, Request, Response, NextFunction } from "express";
@@ -41,6 +43,7 @@ import { portalReviewRateLimiter } from "../../services/rateLimiter";
 import { createLogger } from "../../lib/logger";
 import { writeAudit } from "../../lib/auditLog";
 import {
+  fetchFacebookBusinesses,
   fetchFacebookPageMetadata,
   updateFacebookPageMetadata,
   type UpdateFacebookPageMetadataInput,
@@ -630,6 +633,120 @@ export function registerPortalSocialsyncRoutes(app: Express) {
     } catch (err: any) {
       log.error("[portal/socialsync/facebook-page metadata PATCH] Error", { error: err.message });
       res.status(502).json({ error: err.message || "Failed to update page metadata" });
+    }
+  });
+
+  /**
+   * GET /api/portal/socialsync/businesses
+   *
+   * Returns the list of Meta Business Manager accounts the connected
+   * Facebook user admins, with summary counts of owned pages + ad
+   * accounts. Backed by the `business_management` OAuth scope.
+   *
+   * Read-only. The portal "Business Assets" tab uses this to surface
+   * which Business the customer wants WeFixTrades to act as Tech
+   * Provider for. Write operations against Business Manager are out
+   * of scope for this app.
+   */
+  app.get("/api/portal/socialsync/businesses", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const businesses = await fetchFacebookBusinesses(clientId);
+      res.json({ businesses });
+    } catch (err: any) {
+      log.error("[portal/socialsync/businesses GET] Error", { error: err.message });
+      res.status(502).json({ error: err.message || "Failed to load Business Manager accounts" });
+    }
+  });
+
+  /**
+   * POST /api/portal/socialsync/tech-provider-attestation
+   * Body: { business_id: string; accepted: true; timestamp?: string }
+   *
+   * Records the customer's explicit, timestamped acceptance that
+   * WeFixTrades acts as Tech Provider for the named Business Manager.
+   * Required by Meta's Tech Provider terms — the audit trail is what
+   * the App Review team will look for when reviewing the
+   * `business_management` scope.
+   *
+   * Persisted via writeAudit() rather than a new table so this PR can
+   * ship without a schema migration. Action key:
+   * `socialsync.facebook_business.tech_provider_attestation`.
+   */
+  app.post("/api/portal/socialsync/tech-provider-attestation", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const businessId = typeof body.business_id === "string" ? body.business_id.trim() : "";
+      const accepted = body.accepted === true;
+      const rawTimestamp = typeof body.timestamp === "string" ? body.timestamp : null;
+
+      if (!businessId) {
+        return res.status(400).json({ error: "business_id required" });
+      }
+      if (!accepted) {
+        return res.status(400).json({ error: "accepted must be true to record attestation" });
+      }
+
+      // Normalise / validate timestamp; default to now if missing or unparseable.
+      let acceptedAt: Date;
+      if (rawTimestamp) {
+        const parsed = new Date(rawTimestamp);
+        acceptedAt = isNaN(parsed.getTime()) ? new Date() : parsed;
+      } else {
+        acceptedAt = new Date();
+      }
+
+      // Confirm the customer actually admins this Business. Reading Meta
+      // here both validates ownership and gives the audit row an
+      // authoritative business-name snapshot.
+      let businessName: string | null = null;
+      try {
+        const businesses = await fetchFacebookBusinesses(clientId);
+        const match = businesses.find((b) => b.id === businessId);
+        if (!match) {
+          return res.status(403).json({ error: "You do not appear to admin this Business Manager account. Reconnect Facebook and try again." });
+        }
+        businessName = match.name || null;
+      } catch (err: any) {
+        // If we can't reach Meta we still want to allow the customer to
+        // submit the attestation — Meta's outage shouldn't block a
+        // contractual click. We mark the audit row accordingly.
+        log.warn("[tech-provider-attestation] Could not verify business ownership", { error: err.message });
+      }
+
+      await writeAudit({
+        actorId: req.user?.id ?? null,
+        actorType: "user",
+        action: "socialsync.facebook_business.tech_provider_attestation",
+        entityType: "facebook_business",
+        entityId: businessId,
+        after: {
+          business_id: businessId,
+          business_name: businessName,
+          accepted: true,
+          accepted_at: acceptedAt.toISOString(),
+        },
+        metadata: {
+          client_id: clientId,
+          ownership_verified: businessName !== null,
+        },
+        req,
+      });
+
+      res.json({
+        ok: true,
+        business_id: businessId,
+        business_name: businessName,
+        accepted_at: acceptedAt.toISOString(),
+      });
+    } catch (err: any) {
+      log.error("[portal/socialsync/tech-provider-attestation POST] Error", { error: err.message });
+      res.status(500).json({ error: err.message || "Failed to record attestation" });
     }
   });
 }

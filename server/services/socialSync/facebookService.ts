@@ -60,6 +60,13 @@ const REQUIRED_SCOPES = [
   // from the WeFixTrades portal. Read/update routes live in
   // server/routes/portal/socialsync.ts → /facebook-page/:pageId/metadata.
   "pages_manage_metadata",
+  // Tech Provider tier scope — lets WeFixTrades read the customer's
+  // Business Manager assets (owned pages, ad-account counts, verification
+  // status) so the portal can surface a "Business Assets" view and capture
+  // an explicit Tech Provider attestation. Read-only; backed by
+  // fetchFacebookBusinesses() and the /api/portal/socialsync/businesses +
+  // /api/portal/socialsync/tech-provider-attestation routes.
+  "business_management",
   // Instagram scopes — requested during the same Meta OAuth flow
   "instagram_basic",
   "instagram_content_publish",
@@ -558,4 +565,97 @@ export async function updateFacebookPageMetadata(
   }
 
   return fetchFacebookPageMetadata(clientId, pageId);
+}
+
+/* ─── Business Manager (business_management scope) ─── */
+
+export interface FacebookBusinessSummary {
+  id: string;
+  name: string;
+  verification_status: string | null;
+  primary_page: { id: string; name: string | null } | null;
+  owned_ad_account_count: number;
+  owned_page_count: number;
+}
+
+/**
+ * Decrypt the user-level Facebook access token for the given client.
+ * Returns null if no usable connection is present (no token, expired,
+ * or not in `connected` status).
+ *
+ * Kept private to this module — business endpoints use a user-level
+ * token (not page-level), so we must read it directly from the connection
+ * row rather than via getFacebookPageToken().
+ */
+async function getConnectedUserToken(
+  clientId: number,
+): Promise<{ token: string; connectionId: number } | null> {
+  const connections = await storage.listSocialSyncConnections(clientId);
+  // Prefer the connection that still holds the user-level token (the
+  // initial OAuth row). If the customer has already selected a page, the
+  // current token_ref may be a page token — but it was rotated in place
+  // and we no longer have the user token stored. Meta accepts the page
+  // token for some /me/businesses calls when the user is also a business
+  // admin, but to keep behaviour predictable we use whichever token is
+  // most recently stored on the facebook connection.
+  const fbConn = connections.find((c) => c.platform === "facebook");
+  if (!fbConn || !fbConn.token_ref) return null;
+  if (fbConn.connection_status !== "connected") return null;
+  if (fbConn.token_expires_at && new Date(fbConn.token_expires_at) < new Date()) return null;
+  try {
+    return { token: decryptToken(fbConn.token_ref), connectionId: fbConn.id };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch the list of Business Manager accounts this customer admins.
+ * Uses /me/businesses with summary-mode counts so we can render owned
+ * page / ad-account totals without a second round-trip per business.
+ *
+ * Read-only. The customer's Tech Provider attestation (see
+ * /api/portal/socialsync/tech-provider-attestation) is what gates any
+ * future write paths — this read is safe to surface as soon as the
+ * business_management scope has been granted.
+ */
+export async function fetchFacebookBusinesses(
+  clientId: number,
+): Promise<FacebookBusinessSummary[]> {
+  const conn = await getConnectedUserToken(clientId);
+  if (!conn) {
+    throw new Error("No connected Facebook account, or token expired. Reconnect required.");
+  }
+
+  const fields = [
+    "id",
+    "name",
+    "verification_status",
+    "primary_page{id,name}",
+    "owned_ad_accounts.summary(true).limit(0)",
+    "owned_pages.summary(true).limit(0)",
+  ].join(",");
+  const url = `${GRAPH_API_BASE}/me/businesses?fields=${fields}&limit=50&access_token=${conn.token}`;
+
+  const res = await fetchWithRetry(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Failed to fetch Business Manager accounts: ${(err as any)?.error?.message || res.statusText}`);
+  }
+
+  const data = (await res.json()) as any;
+  const rows: FacebookBusinessSummary[] = (data.data || []).map((b: any) => ({
+    id: String(b.id),
+    name: String(b.name ?? ""),
+    verification_status: b.verification_status ?? null,
+    primary_page: b.primary_page
+      ? { id: String(b.primary_page.id), name: b.primary_page.name ?? null }
+      : null,
+    owned_ad_account_count:
+      Number(b.owned_ad_accounts?.summary?.total_count ?? 0) || 0,
+    owned_page_count:
+      Number(b.owned_pages?.summary?.total_count ?? 0) || 0,
+  }));
+
+  return rows;
 }
