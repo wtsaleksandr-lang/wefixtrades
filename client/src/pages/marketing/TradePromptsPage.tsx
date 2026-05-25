@@ -16,6 +16,7 @@
  * each URL there).
  */
 import { useLocation, Link } from "wouter";
+import type { LucideIcon } from "lucide-react";
 import { ArrowRight, Sparkles, Camera, Film, Square, Aperture, Newspaper, Users, Package, PaintBucket, Brush, Box } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
@@ -33,7 +34,7 @@ import {
 
 /* Pattern icons — small lucide stand-ins. Same set used in the
  * portal picker so the surfaces feel coherent. */
-const PATTERN_ICON: Record<PromptPatternId, React.ComponentType<{ className?: string; size?: number }>> = {
+const PATTERN_ICON: Record<PromptPatternId, LucideIcon> = {
   contractor_pov: Users,
   ugly_ad: Sparkles,
   tool_hero: Package,
