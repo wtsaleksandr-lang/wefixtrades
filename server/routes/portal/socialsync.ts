@@ -26,6 +26,8 @@
  *   PATCH  /api/portal/socialsync/facebook-page/:pageId/metadata
  *   GET    /api/portal/socialsync/businesses
  *   POST   /api/portal/socialsync/tech-provider-attestation
+ *   POST   /api/portal/socialsync/facebook-page/:pageId/messaging/subscribe
+ *   POST   /api/portal/socialsync/facebook-page/:pageId/messaging/reply
  */
 
 import type { Express, Request, Response, NextFunction } from "express";
@@ -45,6 +47,8 @@ import { writeAudit } from "../../lib/auditLog";
 import {
   fetchFacebookBusinesses,
   fetchFacebookPageMetadata,
+  sendFacebookMessengerReply,
+  subscribePageToMessagingWebhooks,
   updateFacebookPageMetadata,
   type UpdateFacebookPageMetadataInput,
 } from "../../services/socialSync/facebookService";
@@ -749,4 +753,142 @@ export function registerPortalSocialsyncRoutes(app: Express) {
       res.status(500).json({ error: err.message || "Failed to record attestation" });
     }
   });
+
+  /**
+   * POST /api/portal/socialsync/facebook-page/:pageId/messaging/subscribe
+   *
+   * Subscribe the customer's connected Facebook Page to Messenger
+   * webhooks via Meta's /{page-id}/subscribed_apps endpoint. Required
+   * before Meta will POST inbound DMs to our /webhooks/meta/messaging
+   * receiver.
+   *
+   * Idempotent on Meta's side — safe to retry. We do not persist a
+   * `messaging_enabled` column in this PR (no migration); the customer
+   * clicks "Enable messaging" once and Meta tracks the subscription
+   * server-side. An audit row records the action so admins can see who
+   * enabled messaging for which Page.
+   *
+   * Backed by the `pages_messaging` OAuth scope.
+   */
+  app.post(
+    "/api/portal/socialsync/facebook-page/:pageId/messaging/subscribe",
+    requireClientStrict,
+    async (req: Request, res: Response) => {
+      try {
+        const clientId = await withClientId(req, res);
+        if (!clientId) return;
+
+        const pageId = String(req.params.pageId || "").trim();
+        if (!pageId) return res.status(400).json({ error: "pageId required" });
+
+        // Pre-check ownership for a cleaner 404 than the service-level error.
+        const connections = await storage.listSocialSyncConnections(clientId);
+        const owns = connections.some(
+          (c) => c.platform === "facebook" && c.external_page_id === pageId,
+        );
+        if (!owns) return res.status(404).json({ error: "Page not connected to this account" });
+
+        const result = await subscribePageToMessagingWebhooks(clientId, pageId);
+
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          actorType: "user",
+          action: "socialsync.facebook_page.messaging_subscribed",
+          entityType: "facebook_page",
+          entityId: pageId,
+          after: {
+            page_id: result.page_id,
+            subscribed_fields: result.subscribed_fields,
+          },
+          metadata: { client_id: clientId },
+          req,
+        });
+
+        res.json({
+          ok: true,
+          page_id: result.page_id,
+          subscribed_fields: result.subscribed_fields,
+        });
+      } catch (err: any) {
+        log.error("[portal/socialsync/facebook-page messaging/subscribe POST] Error", { error: err.message });
+        res.status(502).json({ error: err.message || "Failed to subscribe Page to messaging webhooks" });
+      }
+    },
+  );
+
+  /**
+   * POST /api/portal/socialsync/facebook-page/:pageId/messaging/reply
+   * Body: { recipient_psid: string, message: string }
+   *
+   * Send a manual text reply on behalf of the customer's connected
+   * Facebook Page. Used by admins to respond to customer DMs from inside
+   * the WeFixTrades portal while AI auto-reply is still gated.
+   *
+   * Meta requires the reply to be within 24h of the customer's last
+   * inbound message (the "standard messaging window") — this endpoint
+   * does not attach a message tag, so it will fail upstream if the
+   * window has expired. That's intentional for this foundation PR;
+   * tagged replies / template messages are out of scope.
+   */
+  app.post(
+    "/api/portal/socialsync/facebook-page/:pageId/messaging/reply",
+    requireClientStrict,
+    async (req: Request, res: Response) => {
+      try {
+        const clientId = await withClientId(req, res);
+        if (!clientId) return;
+
+        const pageId = String(req.params.pageId || "").trim();
+        if (!pageId) return res.status(400).json({ error: "pageId required" });
+
+        const body = (req.body ?? {}) as Record<string, unknown>;
+        const recipientPsid = typeof body.recipient_psid === "string" ? body.recipient_psid.trim() : "";
+        const message = typeof body.message === "string" ? body.message.trim() : "";
+
+        if (!recipientPsid) {
+          return res.status(400).json({ error: "recipient_psid required" });
+        }
+        if (!message) {
+          return res.status(400).json({ error: "message required" });
+        }
+        if (message.length > 2000) {
+          return res.status(400).json({ error: "message too long (max 2000 chars)" });
+        }
+
+        // Pre-check ownership.
+        const connections = await storage.listSocialSyncConnections(clientId);
+        const owns = connections.some(
+          (c) => c.platform === "facebook" && c.external_page_id === pageId,
+        );
+        if (!owns) return res.status(404).json({ error: "Page not connected to this account" });
+
+        const result = await sendFacebookMessengerReply(clientId, pageId, recipientPsid, message);
+
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          actorType: "user",
+          action: "socialsync.messenger.message_sent",
+          entityType: "facebook_page",
+          entityId: pageId,
+          after: {
+            page_id: pageId,
+            recipient_psid: recipientPsid,
+            message_id: result.message_id,
+            message_length: message.length,
+          },
+          metadata: { client_id: clientId, source: "portal_manual_reply" },
+          req,
+        });
+
+        res.json({
+          ok: true,
+          recipient_id: result.recipient_id,
+          message_id: result.message_id,
+        });
+      } catch (err: any) {
+        log.error("[portal/socialsync/facebook-page messaging/reply POST] Error", { error: err.message });
+        res.status(502).json({ error: err.message || "Failed to send Messenger reply" });
+      }
+    },
+  );
 }
