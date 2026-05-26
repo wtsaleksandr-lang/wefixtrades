@@ -37,10 +37,30 @@ export type NavItemChild = {
   icon: NavIconKey;
 };
 
+export type NavSubgroup = {
+  /** Heading shown above the sub-column on desktop and in the mobile
+   *  accordion. */
+  heading: string;
+  /** Anchor on the hub page (used by "+ N more" cap-link) — e.g. for
+   *  the AI Content column we link to /free-tools#ai-content. */
+  hubAnchor?: string;
+  /** Tools shown directly in this column. Anything beyond `maxShown` is
+   *  hidden behind a "+ N more →" link to `hubAnchor`. */
+  items: NavItemChild[];
+  /** Cap for items shown in the dropdown column before the "more" link
+   *  takes over. Defaults to 7. */
+  maxShown?: number;
+};
+
 export type NavItem = {
   label: string;
   href: string;
   children?: NavItemChild[];
+  /** When set, the desktop nav renders a multi-column mega-menu and the
+   *  mobile sheet renders nested accordions, one per subgroup. Used by
+   *  the Free Tools entry (Wave 14) so the navbar item unfolds inline
+   *  while /free-tools stays the canonical hub for SEO + full detail. */
+  subgroups?: NavSubgroup[];
 };
 
 /**
@@ -80,11 +100,52 @@ export const NAV_LINKS: NavItem[] = [
     ],
   },
   {
-    // Wave 11D D5 \u2014 Free Tools hub as a TOP-LEVEL nav item. Single link
-    // (no dropdown) \u2014 the 3 sub-categories (Local SEO / AI Content /
-    // Widgets) are sections on /free-tools, not separate menus.
+    // Wave 14 \u2014 Free Tools navbar mega-menu unfold. The hub at
+    // /free-tools stays canonical for SEO + full detail; the navbar item
+    // unfolds inline to preview the 3 sub-categories so users can jump
+    // straight to any tool. Pattern matches Linear / Stripe / BrightLocal:
+    // discoverability inside the menu, depth on the hub page.
     label: "Free Tools",
     href: "/free-tools",
+    subgroups: [
+      {
+        heading: "Local SEO Tools",
+        hubAnchor: "/free-tools#local-seo",
+        items: [
+          { label: "Free Audit", href: "/tools/free-audit", icon: "shieldCheck" },
+          { label: "Citation Checker", href: "/tools/citation-checker", icon: "search" },
+          { label: "Local Rank Grid", href: "/tools/local-rank-grid", icon: "mapPinned" },
+          { label: "Local Rank Tracker", href: "/tools/local-rank-tracker", icon: "trendingUp" },
+          { label: "Local SERP Checker", href: "/tools/local-serp-checker", icon: "search" },
+          { label: "Local Rankflux", href: "/tools/local-rankflux", icon: "trendingUp" },
+          { label: "Google Review Link Gen", href: "/tools/google-review-link-generator", icon: "shieldCheck" },
+        ],
+      },
+      {
+        heading: "AI Content Tools",
+        hubAnchor: "/free-tools#ai-content",
+        items: [
+          { label: "Plumbing Prompts", href: "/tools/plumbing-ai-content-prompts", icon: "wrench" },
+          { label: "HVAC Prompts", href: "/tools/hvac-ai-content-prompts", icon: "fan" },
+          { label: "Electrical Prompts", href: "/tools/electrical-ai-content-prompts", icon: "zap" },
+          { label: "Roofing Prompts", href: "/tools/roofing-ai-content-prompts", icon: "home" },
+          { label: "Landscaping Prompts", href: "/tools/landscaping-ai-content-prompts", icon: "trees" },
+        ],
+      },
+      {
+        heading: "Widgets",
+        hubAnchor: "/free-tools#widgets",
+        items: [
+          { label: "Schema Generator", href: "/portal/free-tools/schema", icon: "fileText" },
+          { label: "FAQ Widget", href: "/portal/free-tools/faq", icon: "messageSquare" },
+          { label: "Hours Widget", href: "/portal/free-tools/hours", icon: "layout" },
+          { label: "Trust Badges", href: "/portal/free-tools/trust-badges", icon: "shieldCheck" },
+          { label: "Review Link", href: "/portal/free-tools/review-link", icon: "sparkles" },
+          { label: "Callback Form", href: "/portal/free-tools/callback", icon: "phoneCall" },
+          { label: "Service Area Map", href: "/portal/free-tools/service-area-map", icon: "mapPinned" },
+        ],
+      },
+    ],
   },
   {
     label: "Solutions",

@@ -239,7 +239,7 @@ export function MarketingNav() {
 
             {!isMobile && (
               <Menu active={active} setActive={setActive} containerRef={innerRef}>
-                {NAV_LINKS.map(({ label, href, children: navChildren }) => (
+                {NAV_LINKS.map(({ label, href, children: navChildren, subgroups }) => (
                   <MenuItem
                     key={href}
                     setActive={setActive}
@@ -247,6 +247,7 @@ export function MarketingNav() {
                     item={label}
                     href={href}
                     children={navChildren}
+                    subgroups={subgroups}
                   />
                 ))}
               </Menu>
@@ -478,12 +479,13 @@ export function MarketingNav() {
               maxHeight: "78vh",
             }}
           >
-            {NAV_LINKS.map(({ label, href, children }) => (
+            {NAV_LINKS.map(({ label, href, children, subgroups }) => (
               <MobileNavItem
                 key={`${href}${label}-${menuEpoch}`}
                 label={label}
                 href={href}
                 children={children}
+                subgroups={subgroups}
                 isActive={isActive(href)}
                 onClose={() => setMenuOpen(false)}
               />
