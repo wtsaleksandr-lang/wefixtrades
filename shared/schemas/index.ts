@@ -27,6 +27,7 @@ export * from "./contentPipeline";
 export * from "./emailUnsubscribes";
 export * from "./smsOptOuts";
 export * from "./notificationPreferences";
+export * from "./notificationsUniversal";
 export * from "./mapguardConfig";
 export * from "./mapguardPosts";
 export * from "./tradelinePhoneSetups";

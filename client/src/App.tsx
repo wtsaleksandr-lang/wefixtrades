@@ -231,6 +231,8 @@ const AdFlowSetup = lazy(() => import("@/pages/portal/adflow/AdFlowSetup"));
 const WebCareDashboard = lazy(() => import("@/pages/portal/webcare/WebCareDashboard"));
 const WebCareNotificationSettings = lazy(() => import("@/pages/portal/webcare/NotificationSettings"));
 const WebCareSetup = lazy(() => import("@/pages/portal/webcare/WebCareSetup"));
+// Wave 32 — Universal notifications surface (consolidates Waves 27-31).
+const UniversalNotificationsPage = lazy(() => import("@/pages/portal/settings/Notifications"));
 // Wave 29 — QuoteQuick UI upgrade portal surfaces.
 const QuoteQuickDashboard = lazy(() => import("@/pages/portal/quotequick/QuoteQuickDashboard"));
 const QuoteQuickSetup = lazy(() => import("@/pages/portal/quotequick/QuoteQuickSetup"));
@@ -470,6 +472,11 @@ function Router() {
       <Route path="/portal/webcare/dashboard">{() => <RequireClient><WebCareDashboard /></RequireClient>}</Route>
       <Route path="/portal/webcare/notifications">{() => <RequireClient><WebCareNotificationSettings /></RequireClient>}</Route>
       <Route path="/portal/webcare/setup">{() => <RequireClient><WebCareSetup /></RequireClient>}</Route>
+      {/* Wave 32 — Universal notifications surface. Replaces the per-product
+          settings pages above; the old routes still resolve but redirect
+          to this one via the redirect shims in each product's
+          NotificationSettings.tsx / AlertSettings.tsx file. */}
+      <Route path="/portal/settings/notifications">{() => <RequireClient><UniversalNotificationsPage /></RequireClient>}</Route>
       <Route path="/portal/ai-insights">{() => <RequireClient><AiInsightsPage /></RequireClient>}</Route>
       <Route path="/portal/citation-tracker">{() => <RequireClient><CitationTrackerDashboard /></RequireClient>}</Route>
       <Route path="/portal/citation-builder">{() => <RequireClient><CitationBuilderDashboard /></RequireClient>}</Route>
