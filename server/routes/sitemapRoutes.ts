@@ -137,6 +137,9 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/wefixtrades-vs-jobber", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/wefixtrades-vs-housecall-pro", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/wefixtrades-vs-servicetitan", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // Wave 11D D5 — new top-level hubs.
+  { loc: "/mapguard-suite", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-25" },
+  { loc: "/free-tools", priority: "0.9", changefreq: "weekly", lastmod: "2026-05-25" },
   // Human-friendly HTML sitemap. Low priority — purely navigational.
   { loc: "/sitemap", priority: "0.4", changefreq: "weekly", lastmod: "2026-05-25" },
   { loc: "/about", priority: "0.6", changefreq: "monthly", lastmod: "2026-04-01" },

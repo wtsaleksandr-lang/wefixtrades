@@ -86,6 +86,9 @@ const ForAgenciesPage = lazy(() => import("@/pages/marketing/ForAgenciesPage"));
 const ForFranchisesPage = lazy(() => import("@/pages/marketing/ForFranchisesPage"));
 const ForSoloTradersPage = lazy(() => import("@/pages/marketing/ForSoloTradersPage"));
 const SitemapPage = lazy(() => import("@/pages/marketing/SitemapPage"));
+// Wave 11D D5 — new hub pages.
+const MapGuardSuitePage = lazy(() => import("@/pages/marketing/MapGuardSuitePage"));
+const FreeToolsHubPage = lazy(() => import("@/pages/marketing/FreeToolsHubPage"));
 
 // ── Free Tools — public marketing tools ────────────────────────────────────
 const GoogleReviewLinkGenerator = lazy(() => import("@/pages/marketing/tools/GoogleReviewLinkGenerator"));
@@ -510,6 +513,9 @@ function Router() {
       <Route path="/wefixtrades-vs-servicetitan" component={CompareVsServiceTitan} />
       {/* Human-friendly HTML sitemap (XML lives at /sitemap.xml, server route) */}
       <Route path="/sitemap" component={SitemapPage} />
+      {/* Wave 11D D5 — MapGuard Suite overview + Free Tools hub. */}
+      <Route path="/mapguard-suite" component={MapGuardSuitePage} />
+      <Route path="/free-tools" component={FreeToolsHubPage} />
 
       <Route path="/demo/:templateId" component={DemoTemplate} />
       <Route path="/demo" component={MarketingDemo} />

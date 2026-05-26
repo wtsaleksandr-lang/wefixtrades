@@ -85,6 +85,9 @@ export const SITELAUNCH: ProductDef = {
       billingPeriod: "one-time",
       highlighted: true,
       badge: "All Inclusive",
+      // Wave 11D D3 — 14-day TradeLine + QuoteQuick trial bonus DROPPED.
+      // Provisioning for the bonus does not exist; building it pre-launch
+      // is not worth it. SiteLaunch sells as the standalone $1197 build.
       features: [
         "5–7 page website",
         "Mobile optimization",
@@ -92,7 +95,6 @@ export const SITELAUNCH: ProductDef = {
         "Basic SEO",
         "Contact forms",
         "QuoteQuick embed",
-        "BONUS: 14-day free trial of TradeLine Starter + QuoteQuick",
       ],
     },
   ],
@@ -109,9 +111,13 @@ export const TRADELINE: ProductDef = {
   overageRate: 0.15,
   tiers: [
     {
+      // Wave 11D D4 — TradeLine tier pricing realigned to $99/$149/$249
+      // for mental-model consistency with MapGuard ($99/$149). 6 Stripe
+      // live prices minted 2026-05-26 (Doppler `STRIPE_PRICE_TRADELINE_*`).
+      // The 2-months-free yearly variant is resolved server-side.
       id: "tradeline-starter",
       name: "Starter",
-      price: 97,
+      price: 99,
       billingPeriod: "monthly",
       includedMins: 200,
       features: [
@@ -131,7 +137,7 @@ export const TRADELINE: ProductDef = {
     {
       id: "tradeline-pro",
       name: "Pro",
-      price: 197,
+      price: 149,
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",
@@ -151,7 +157,7 @@ export const TRADELINE: ProductDef = {
     {
       id: "tradeline-premium",
       name: "Premium",
-      price: 347,
+      price: 249,
       billingPeriod: "monthly",
       includedMins: 1500,
       features: [
@@ -884,7 +890,7 @@ export const BUNDLE_GROWTH: BundleDef = {
   highlighted: true,
   badge: "Most Popular",
   includes: [
-    { productId: "tradeline", tierId: "tradeline-starter", label: "TradeLine Starter", value: 97 },
+    { productId: "tradeline", tierId: "tradeline-starter", label: "TradeLine Starter", value: 99 },
     { productId: "socialsync", tierId: "socialsync-starter", label: "SocialSync Starter", value: 99 },
     { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro", value: 149 },
     { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro", value: 129 },
@@ -901,7 +907,7 @@ export const BUNDLE_PRO: BundleDef = {
     { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro \u2014 Managed visibility", value: 149 },
     { productId: "reputationshield", tierId: "reputationshield-pro", label: "ReputationShield Pro \u2014 Review growth", value: 129 },
     { productId: "socialsync", tierId: "socialsync-growth", label: "SocialSync Growth \u2014 Social presence", value: 149 },
-    { productId: "tradeline", tierId: "tradeline-pro", label: "TradeLine Pro \u2014 AI call answering", value: 197 },
+    { productId: "tradeline", tierId: "tradeline-pro", label: "TradeLine Pro \u2014 AI call answering", value: 149 },
   ],
 };
 

@@ -19,6 +19,7 @@ import { Link } from "wouter";
 import { ArrowRight, Phone, MessageSquare, Calendar, Star, Clock, Sparkles, Check, ChevronDown, Rocket } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
+import { SuiteBreadcrumb } from "@/components/marketing/SuiteBreadcrumb";
 import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
@@ -111,9 +112,10 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
     sub: "Google + Meta campaigns run by a vetted ad-agency partner. Weekly tuning. Plain-English reports — no agency-speak.",
   },
   bookflow: {
-    eyebrow: "Phone tag is the silent revenue killer.",
-    headline: <>Customers book themselves.<br/><span style={{ color: mkt.accent }}>You just show up.</span></>,
-    sub: "Self-service booking from your real calendar. Mobile dispatch view. Eight payment methods. Funds available next day.",
+    // Wave 11D D2 — reframed as a QuoteQuick-bundled feature, not a standalone SKU.
+    eyebrow: "Booking is part of QuoteQuick now — not a separate bill.",
+    headline: <>Booking flow.<br/><span style={{ color: mkt.accent }}>Included with QuoteQuick.</span></>,
+    sub: "Every QuoteQuick plan ships with the BookFlow scheduling experience — customers quote and book in one flow, you pay one subscription.",
   },
 };
 
@@ -181,6 +183,8 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
 
   const isTradeLine = slug === "tradeline";
   const isComingSoon = cfg.comingSoon === true;
+  // Wave 11D D5 — visual breadcrumb on MapGuard Suite member product pages.
+  const isMapGuardSuiteMember = slug === "mapguard";
 
   // W-AN-2 — when the product is in "Coming Soon" mode, the primary CTA
   // becomes "Join the waitlist" and scrolls to the waitlist form below
@@ -208,6 +212,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
       <div data-theme="dark" style={{ background: mkt.bg, color: mkt.onDark, fontFamily: SANS }}>
 
         {isComingSoon && <ComingSoonBanner />}
+        {isMapGuardSuiteMember && <SuiteBreadcrumb productName={cfg.name} variant="dark" />}
         <Hero cfg={effectiveCfg} hook={hook} slug={slug} />
         <TrustStrip cfg={cfg} />
 

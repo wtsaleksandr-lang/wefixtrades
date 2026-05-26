@@ -41,11 +41,32 @@ function getStripe(): Stripe | null {
  * Resolution order (see resolveStripePriceId): catalog stripe_price_id
  * first (sync-stripe path), then the env-var placeholder. If neither is
  * set the checkout returns a clean "contact us" error rather than failing.
+ *
+ * Wave 11D D4 — env var names realigned to `STRIPE_PRICE_TRADELINE_*` to
+ * match the canonical 2026-05-26 mint (6 live prices in Doppler prd).
+ * Tier $99/$149/$249 monthly + 2-months-free yearly. Old legacy names
+ * (STRIPE_TRADELINE_*_PRICE) are still resolved as a fallback so any
+ * stale Doppler entry continues to work; new var names take priority.
  */
-const TRADELINE_TIER_PRICE_ENV: Record<string, { monthly: string; yearly: string }> = {
-  "tradeline-starter": { monthly: "STRIPE_TRADELINE_STARTER_PRICE", yearly: "STRIPE_TRADELINE_STARTER_YEARLY_PRICE" },
-  "tradeline-pro":     { monthly: "STRIPE_TRADELINE_PRO_PRICE",     yearly: "STRIPE_TRADELINE_PRO_YEARLY_PRICE" },
-  "tradeline-premium": { monthly: "STRIPE_TRADELINE_PREMIUM_PRICE", yearly: "STRIPE_TRADELINE_PREMIUM_YEARLY_PRICE" },
+const TRADELINE_TIER_PRICE_ENV: Record<string, { monthly: string; yearly: string; monthlyLegacy?: string; yearlyLegacy?: string }> = {
+  "tradeline-starter": {
+    monthly: "STRIPE_PRICE_TRADELINE_STARTER_MONTHLY",
+    yearly:  "STRIPE_PRICE_TRADELINE_STARTER_YEARLY",
+    monthlyLegacy: "STRIPE_TRADELINE_STARTER_PRICE",
+    yearlyLegacy:  "STRIPE_TRADELINE_STARTER_YEARLY_PRICE",
+  },
+  "tradeline-pro": {
+    monthly: "STRIPE_PRICE_TRADELINE_PRO_MONTHLY",
+    yearly:  "STRIPE_PRICE_TRADELINE_PRO_YEARLY",
+    monthlyLegacy: "STRIPE_TRADELINE_PRO_PRICE",
+    yearlyLegacy:  "STRIPE_TRADELINE_PRO_YEARLY_PRICE",
+  },
+  "tradeline-premium": {
+    monthly: "STRIPE_PRICE_TRADELINE_PREMIUM_MONTHLY",
+    yearly:  "STRIPE_PRICE_TRADELINE_PREMIUM_YEARLY",
+    monthlyLegacy: "STRIPE_TRADELINE_PREMIUM_PRICE",
+    yearlyLegacy:  "STRIPE_TRADELINE_PREMIUM_YEARLY_PRICE",
+  },
 };
 
 /**
@@ -90,9 +111,19 @@ function resolveStripePriceId(svc: ServiceCatalogRow, wantsYearly: boolean): str
     ?? QUOTEQUICK_TIER_PRICE_ENV[svc.id];
   if (envKeys) {
     const envName = wantsYearly ? envKeys.yearly : envKeys.monthly;
-    if (!envName) return null;
-    const envVal = process.env[envName];
-    if (envVal && envVal.trim()) return envVal.trim();
+    if (envName) {
+      const envVal = process.env[envName];
+      if (envVal && envVal.trim()) return envVal.trim();
+    }
+    // Wave 11D D4 — fall through to the legacy env var name when the
+    // canonical one isn't set (only TradeLine tiers carry these).
+    const legacyName = wantsYearly
+      ? (envKeys as { yearlyLegacy?: string }).yearlyLegacy
+      : (envKeys as { monthlyLegacy?: string }).monthlyLegacy;
+    if (legacyName) {
+      const legacyVal = process.env[legacyName];
+      if (legacyVal && legacyVal.trim()) return legacyVal.trim();
+    }
   }
   return null;
 }

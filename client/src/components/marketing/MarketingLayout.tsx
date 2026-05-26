@@ -164,11 +164,15 @@ function MarketingFooter() {
       {/* ── Main footer grid ───────────────────────────────────────── */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px 0" }}>
         <div className="mkt-footer-grid">
-          {/* Products — first half shown, rest behind "All Products" */}
+          {/* Wave 11D D5 — MapGuard Suite + Free Tools surface at the top
+              of the Products column. BookFlow standalone link dropped (bundled
+              inside QuoteQuick per D2). */}
           <ExpandableFooterColumn
             title="Products"
             toggleLabel="All Products"
             links={[
+              { href: "/mapguard-suite", label: "MapGuard Suite™" },
+              { href: "/free-tools", label: "Free Tools (Hub)" },
               { href: "/products/tradeline", label: "24/7 TradeLine™" },
               { href: "/products/quickquotepro", label: "QuoteQuick™" },
               { href: "/products/mapguard", label: "MapGuard™" },
@@ -180,8 +184,8 @@ function MarketingFooter() {
               { href: "/products/webfix", label: "WebFix™" },
               { href: "/products/contentflow", label: "ContentFlow™" },
               { href: "/products/adflow", label: "AdFlow™" },
-              { href: "/products/bookflow", label: "BookFlow™" },
               { href: "/citation-tracker", label: "Citation Tracker" },
+              { href: "/citation-builder", label: "Citation Builder" },
             ]}
           />
 
@@ -236,8 +240,10 @@ function MarketingFooter() {
           {/* Tools — demos + free tools.
               Tools-consolidation: missed-call deleted, MapSnapshot folded
               into the Free Audit "Rank Grid" tab, Quote Demo + Build-with-AI
-              relocated under the QuoteQuick product family. */}
+              relocated under the QuoteQuick product family.
+              Wave 11D D5 — top entry now links to the /free-tools hub. */}
           <FooterColumn title="Free Tools">
+            <FtLink href="/free-tools">All Free Tools</FtLink>
             <FtLink href="/tools/free-audit">Free Audit</FtLink>
             {/* Free Tools Wave 1 — Brightlocal-style standalone tools, each
                 with its own /tools/* URL + lead-magnet page. */}

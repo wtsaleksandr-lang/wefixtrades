@@ -38,23 +38,32 @@ interface SitemapSection {
  */
 const SECTIONS: SitemapSection[] = [
   {
+    // Wave 11D D5 — MapGuard Suite groups the paid local-SEO products.
+    title: "MapGuard Suite",
+    description: "Paid local-SEO platform — 4 products under one sub-brand.",
+    entries: [
+      { href: "/mapguard-suite", label: "MapGuard Suite (Overview)" },
+      { href: "/products/mapguard", label: "MapGuard Core" },
+      { href: "/citation-tracker", label: "Citation Tracker" },
+      { href: "/citation-builder", label: "Citation Builder" },
+      { href: "/tools/free-audit", label: "Full Audit Master" },
+    ],
+  },
+  {
     title: "Products",
-    description: "Eight core products in the WeFixTrades suite.",
+    description: "Core WeFixTrades products.",
     entries: [
       { href: "/products", label: "All Products" },
       { href: "/products/tradeline", label: "24/7 TradeLine" },
-      { href: "/products/quickquotepro", label: "QuoteQuick" },
-      { href: "/products/mapguard", label: "MapGuard" },
+      { href: "/products/quickquotepro", label: "QuoteQuick (includes BookFlow)" },
+      { href: "/products/contentflow", label: "ContentFlow" },
       { href: "/products/reputationshield", label: "ReputationShield" },
       { href: "/products/socialsync", label: "SocialSync" },
       { href: "/products/rankflow", label: "RankFlow" },
-      { href: "/products/contentflow", label: "ContentFlow" },
       { href: "/products/webcare", label: "WebCare" },
       { href: "/products/sitelaunch", label: "SiteLaunch" },
       { href: "/products/webfix", label: "WebFix" },
       { href: "/products/adflow", label: "AdFlow" },
-      { href: "/citation-builder", label: "Citation Builder (One-time)" },
-      { href: "/citation-tracker", label: "Citation Tracker (Subscription)" },
     ],
   },
   {
@@ -97,8 +106,9 @@ const SECTIONS: SitemapSection[] = [
   },
   {
     title: "Free Tools",
-    description: "Public tools — no signup needed.",
+    description: "21 free tools across local SEO, AI content, and widgets.",
     entries: [
+      { href: "/free-tools", label: "Free Tools (Hub)" },
       { href: "/tools/free-audit", label: "Free Local SEO Audit" },
       { href: "/tools/google-review-link-generator", label: "Google Review Link Generator" },
       { href: "/tools/local-serp-checker", label: "Local SERP Checker (Google + Maps)" },

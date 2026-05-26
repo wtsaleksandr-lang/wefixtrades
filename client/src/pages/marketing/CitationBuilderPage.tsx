@@ -341,8 +341,11 @@ export default function CitationBuilderPage() {
         }}
       >
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          {/* Wave 11D D5 — Citation Builder is part of the MapGuard Suite. */}
           <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
             <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
+            <span style={{ margin: "0 6px" }}>/</span>
+            <Link href="/mapguard-suite" style={{ color: "#6b7280", textDecoration: "none" }}>MapGuard Suite</Link>
             <span style={{ margin: "0 6px" }}>/</span>
             <span style={{ color: "#111827" }}>Citation Builder</span>
           </nav>
