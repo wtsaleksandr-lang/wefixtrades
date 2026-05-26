@@ -55,9 +55,30 @@ function familyOf(t: TemplateConfig): CategoryStyleId {
 
 /* ─── Template card preview — uses category palette + Lucide icon ─── */
 
+/**
+ * Wave 15 — AI-generated brand thumbnails for the first row of templates
+ * on /templates. Pre-rendered PNGs live in `client/public/ai-thumbnails/
+ * templates/<id>.png` (see `scripts/generate-ai-thumbnails.mjs`). When a
+ * template id is in this set the card shows the photographic thumbnail
+ * instead of the icon-chip fallback. Wave 15.5 expands this once Alex
+ * approves the first-row style direction.
+ */
+const AI_THUMBNAIL_TEMPLATE_IDS = new Set<string>([
+  "car_towing",
+  "driveway_paving",
+  "property_cleaning",
+  "energy_upgrade",
+]);
+
+function aiThumbnailUrl(id: string): string {
+  return `/ai-thumbnails/templates/${encodeURIComponent(id)}.png`;
+}
+
 function TemplateHero({ template }: { template: TemplateConfig }) {
   const cat = getCategoryStyle(template.category);
   const Icon = getQuoteQuickIcon(template.defaultIcon);
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const hasAiThumb = AI_THUMBNAIL_TEMPLATE_IDS.has(template.id) && !thumbFailed;
 
   return (
     <div
@@ -80,10 +101,28 @@ function TemplateHero({ template }: { template: TemplateConfig }) {
           right: 0,
           height: 3,
           background: cat.heroAccent,
+          zIndex: 2,
         }}
       />
-      {/* Icon chip — visual anchor */}
-      {Icon ? (
+
+      {hasAiThumb ? (
+        /* AI-generated brand thumbnail (Wave 15 — first-row review batch).
+           `onError` falls back to the icon-chip if the PNG is missing. */
+        <img
+          src={aiThumbnailUrl(template.id)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setThumbFailed(true)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      ) : Icon ? (
         <div
           style={{
             width: 56,
@@ -132,6 +171,7 @@ function TemplateHero({ template }: { template: TemplateConfig }) {
             display: "inline-flex",
             alignItems: "center",
             gap: 4,
+            zIndex: 3,
           }}
         >
           <Sparkles size={12} /> Featured

@@ -36,6 +36,16 @@ interface FreeToolLayoutProps {
   result?: ReactNode;
   /** SEO body content + FAQ rendered below the tool. */
   children?: ReactNode;
+  /**
+   * Wave 15 — optional AI-generated brand visual rendered between the
+   * subtitle/trust strip and the form card. Absent → unchanged hero. When
+   * supplied the layout shows the image inside a soft brand-aligned frame
+   * so every tool page has a distinct visual identity that matches the
+   * marketing site palette.
+   */
+  heroImageSrc?: string;
+  /** Alt text for the hero image (required when heroImageSrc is set). */
+  heroImageAlt?: string;
 }
 
 export default function FreeToolLayout({
@@ -47,6 +57,8 @@ export default function FreeToolLayout({
   form,
   result,
   children,
+  heroImageSrc,
+  heroImageAlt,
 }: FreeToolLayoutProps) {
   useBreadcrumbSchema([
     { name: "Home", url: `${SITE_URL}/` },
@@ -150,6 +162,34 @@ export default function FreeToolLayout({
               <span>Results in seconds</span>
             </div>
           </div>
+
+          {heroImageSrc && (
+            <div
+              style={{
+                margin: "0 auto 28px",
+                maxWidth: 760,
+                borderRadius: 18,
+                overflow: "clip",
+                border: "1px solid rgba(13,60,252,0.18)",
+                background: "linear-gradient(135deg, rgba(13,60,252,0.06), rgba(13,60,252,0.02))",
+                boxShadow: "0 14px 40px rgba(13,60,252,0.10)",
+                aspectRatio: "16 / 9",
+              }}
+            >
+              <img
+                src={heroImageSrc}
+                alt={heroImageAlt ?? ""}
+                loading="lazy"
+                decoding="async"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+            </div>
+          )}
 
           <div className="ftool-card">{form}</div>
 

@@ -486,6 +486,8 @@ export default function LocalRankGrid() {
         subtitle="See where your business ranks in Google's Local Pack across a 5×5 grid around your city — find the dead zones competitors are stealing from you."
         path={TOOL_PATH}
         breadcrumbLabel="Local Rank Grid"
+        heroImageSrc="/ai-thumbnails/tools/local-rank-grid-hero.png"
+        heroImageAlt="Isometric grid heatmap with rank pins over a city map"
         form={form}
         result={resultPanel}
       >

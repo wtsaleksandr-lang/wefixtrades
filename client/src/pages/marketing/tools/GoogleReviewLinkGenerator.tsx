@@ -375,6 +375,8 @@ export default function GoogleReviewLinkGenerator() {
         subtitle="Turn your business name into a one-click Google review URL + QR code + Place ID / CID / Ludocid in seconds."
         path={TOOL_PATH}
         breadcrumbLabel="Google Review Link Generator"
+        heroImageSrc="/ai-thumbnails/tools/google-review-link-generator-hero.png"
+        heroImageAlt="Illustration of a phone showing a five-star review rating with a link icon"
         form={form}
         result={resultPanel}
       >
