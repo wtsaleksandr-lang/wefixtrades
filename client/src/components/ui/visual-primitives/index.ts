@@ -76,3 +76,12 @@ export type {
   ProgressRingColor,
   ProgressRingSize,
 } from "./ProgressRing";
+
+export { OnboardingWizard } from "./OnboardingWizard";
+export type {
+  OnboardingWizardProps,
+  OnboardingStep,
+  OnboardingProduct,
+  WizardState,
+  WizardRenderContext,
+} from "./OnboardingWizard";
