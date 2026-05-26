@@ -159,6 +159,7 @@ const AiBudgetPage = lazy(() => import("@/pages/admin/AiBudgetPage"));
 const AdminAiGatesPage = lazy(() => import("@/pages/admin/AdminAiGatesPage"));
 const AdminAiChannelsPage = lazy(() => import("@/pages/admin/AdminAiChannelsPage"));
 const AdminAiActivityPage = lazy(() => import("@/pages/admin/AdminAiActivityPage"));
+const UiPrimitivesDemo = lazy(() => import("@/pages/admin/UiPrimitivesDemo"));
 const ReviewsPage = lazy(() => import("@/pages/admin/ReviewsPage"));
 const RankFlowOpsPage = lazy(() => import("@/pages/admin/RankFlowOpsPage"));
 const AdFlowOpsPage = lazy(() => import("@/pages/admin/AdFlowOpsPage"));
@@ -382,6 +383,7 @@ function Router() {
       <Route path="/admin/crm/webcare/ops">{() => <RequirePortal><WebCareOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/ai-budget">{() => <RequirePortal><AiBudgetPage /></RequirePortal>}</Route>
       <Route path="/admin/ai-activity">{() => <RequirePortal><AdminAiActivityPage /></RequirePortal>}</Route>
+      <Route path="/admin/ui-primitives">{() => <RequirePortal><UiPrimitivesDemo /></RequirePortal>}</Route>
       <Route path="/admin/crm/reviews">{() => <RequirePortal><ReviewsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/profile">{() => <RequirePortal><ProfilePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/settings">{() => <RequirePortal><SettingsPage /></RequirePortal>}</Route>
