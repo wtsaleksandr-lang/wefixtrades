@@ -223,6 +223,7 @@ const CitationBuilderDashboard = lazy(() => import("@/pages/portal/CitationBuild
 const SocialSyncSetup = lazy(() => import("@/pages/portal/SocialSyncSetup"));
 const PortalSocialSync = lazy(() => import("@/pages/portal/PortalSocialSync"));
 const PortalRankFlow = lazy(() => import("@/pages/portal/PortalRankFlow"));
+const RankFlowDashboard = lazy(() => import("@/pages/portal/rankflow/RankFlowDashboard"));
 const PortalArticles = lazy(() => import("@/pages/portal/PortalArticles"));
 const PortalContentPreferences = lazy(() => import("@/pages/portal/PortalContentPreferences"));
 const PortalContentFlow = lazy(() => import("@/pages/portal/PortalContentFlow"));
@@ -425,6 +426,7 @@ function Router() {
       <Route path="/portal/reviews/setup">{() => <RequireClient><PortalReviewsSetup /></RequireClient>}</Route>
       <Route path="/portal/reviews/competitors">{() => <RequireClient><PortalCompetitors /></RequireClient>}</Route>
       <Route path="/portal/reviews">{() => <RequireClient><PortalReviews /></RequireClient>}</Route>
+      <Route path="/portal/rankflow/dashboard">{() => <RequireClient><RankFlowDashboard /></RequireClient>}</Route>
       <Route path="/portal/rankflow">{() => <RequireClient><PortalRankFlow /></RequireClient>}</Route>
       <Route path="/portal/articles">{() => <RequireClient><PortalArticles /></RequireClient>}</Route>
       <Route path="/portal/content-preferences">{() => <RequireClient><PortalContentPreferences /></RequireClient>}</Route>
