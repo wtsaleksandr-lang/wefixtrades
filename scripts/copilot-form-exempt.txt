@@ -145,3 +145,9 @@ client/src/pages/portal/AiInsightsPage.tsx
 #    image-style gallery, social posts, tone preview, CTA). Zero user-input
 #    fields; the only interactive element links to /portal/content-preferences.
 client/src/pages/portal/contentflow/ContentExamplesPage.tsx
+
+# ── Wave 22A — Visual primitives demo: static preview of the
+#    visual-primitives library (KpiGauge, AnimatedCounter, PipelineStrip,
+#    StatusPill, LetterGradeBadge, OnboardingWalkthrough). No fillable
+#    form fields — only retrigger buttons for the animations.
+client/src/pages/admin/UiPrimitivesDemo.tsx
