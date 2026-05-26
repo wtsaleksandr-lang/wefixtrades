@@ -276,7 +276,55 @@ const MAPGUARD: Record<string, MetricMeta> = {
     unit: "%",
   },
 };
-const REPUTATIONSHIELD: Record<string, MetricMeta> = {};
+/* Wave 28 — ReputationShield metric entries. Customer-facing labels +
+ * help cues + improvement tips the dashboard surfaces in KPI gauges and
+ * the Copilot reads from in the system prompt. */
+const REPUTATIONSHIELD: Record<string, MetricMeta> = {
+  avgRating: {
+    label: "Avg rating",
+    helpText:
+      "Average star rating across every monitored platform (Google, Yelp, Facebook, BBB). 4.7+ is the local-trades benchmark.",
+    improvementTips: [
+      "Request reviews from your last 10 jobs in one tap",
+      "Reply to every review within 48 hours",
+      "Promote your review link on invoices + signage",
+    ],
+    unit: "stars",
+  },
+  reviewVelocity: {
+    label: "Reviews this month",
+    helpText:
+      "Count of new reviews received in the last 30 days vs the prior 30. Steady velocity is what Google rewards in local rankings.",
+    improvementTips: [
+      "Run a one-click batch review request after each job",
+      "Enable SMS review requests for higher response rate",
+      "Send a friendly follow-up to non-responders at day 4",
+    ],
+    unit: "reviews",
+  },
+  daysSinceLastReview: {
+    label: "Days since last review",
+    helpText:
+      "Days since your most recent review on any platform. Stale review streaks (30+ days) cost ranking and trust.",
+    improvementTips: [
+      "Use the 1-click batch request for your last 10 completed jobs",
+      "Set up automatic post-job review prompts in onboarding",
+      "Promote QR codes on invoices + business cards",
+    ],
+    unit: "days",
+  },
+  replyRate: {
+    label: "Reply rate",
+    helpText:
+      "% of recent reviews you've responded to. Replying — especially to negative reviews — boosts local pack ranking and conversion.",
+    improvementTips: [
+      "Use the AI draft editor to reply in under 30 seconds",
+      "Enable approval-mode auto-drafts for 5-star reviews",
+      "Set up notifications for negative reviews so you can intervene early",
+    ],
+    unit: "%",
+  },
+};
 
 const REGISTRY: Record<DashboardProduct, Record<string, MetricMeta>> = {
   contentflow: CONTENTFLOW,

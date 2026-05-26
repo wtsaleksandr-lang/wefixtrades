@@ -220,6 +220,9 @@ const PortalTicketDetail = lazy(() => import("@/pages/portal/PortalTicketDetail"
 const PortalMapguard = lazy(() => import("@/pages/portal/PortalMapguard"));
 const MapGuardDashboard = lazy(() => import("@/pages/portal/mapguard/MapGuardDashboard"));
 const MapGuardAlertSettings = lazy(() => import("@/pages/portal/mapguard/AlertSettings"));
+const ReputationShieldDashboard = lazy(() => import("@/pages/portal/reputationshield/ReputationShieldDashboard"));
+const ReputationShieldNotificationSettings = lazy(() => import("@/pages/portal/reputationshield/NotificationSettings"));
+const ReputationShieldSetup = lazy(() => import("@/pages/portal/reputationshield/ReputationShieldSetup"));
 const AiInsightsPage = lazy(() => import("@/pages/portal/AiInsightsPage"));
 const CitationTrackerDashboard = lazy(() => import("@/pages/portal/CitationTrackerDashboard"));
 const CitationBuilderDashboard = lazy(() => import("@/pages/portal/CitationBuilderDashboard"));
@@ -426,6 +429,12 @@ function Router() {
       <Route path="/portal/mapguard/dashboard">{() => <RequireClient><MapGuardDashboard /></RequireClient>}</Route>
       <Route path="/portal/mapguard/alert-settings">{() => <RequireClient><MapGuardAlertSettings /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
+      {/* Wave 28: ReputationShield UI upgrade. Dashboard + setup + notification
+          settings — all mounted ABOVE the /portal/reviews legacy routes so
+          wouter resolves them first. */}
+      <Route path="/portal/reputationshield/dashboard">{() => <RequireClient><ReputationShieldDashboard /></RequireClient>}</Route>
+      <Route path="/portal/reputationshield/setup">{() => <RequireClient><ReputationShieldSetup /></RequireClient>}</Route>
+      <Route path="/portal/reputationshield/notifications">{() => <RequireClient><ReputationShieldNotificationSettings /></RequireClient>}</Route>
       <Route path="/portal/ai-insights">{() => <RequireClient><AiInsightsPage /></RequireClient>}</Route>
       <Route path="/portal/citation-tracker">{() => <RequireClient><CitationTrackerDashboard /></RequireClient>}</Route>
       <Route path="/portal/citation-builder">{() => <RequireClient><CitationBuilderDashboard /></RequireClient>}</Route>
