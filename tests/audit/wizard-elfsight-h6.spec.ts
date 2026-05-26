@@ -49,6 +49,13 @@ async function clearShellState(page: Page) {
       localStorage.removeItem('qq_step');
       localStorage.removeItem('qq_result');
       localStorage.removeItem('qq_elfsight_shell');
+      // Wave 10 — wizard preview defaults to stepper layout which routes
+      // the CTA through the contact step (different testid). Seed
+      // single-page layout so `advanced-cta` renders inline, matching the
+      // legacy flow this CTA-label test was written for.
+      localStorage.setItem('qq_elfsight_shell', JSON.stringify({
+        stepLayout: 'single',
+      }));
     } catch {}
   });
 }

@@ -25,6 +25,15 @@ async function clearShellState(page: Page) {
       localStorage.removeItem('qq_step');
       localStorage.removeItem('qq_result');
       localStorage.removeItem('qq_elfsight_shell');
+      // Wave 10 — the wizard preview now defaults to stepper mode, which
+      // routes the CTA through ContactStepInline at the final step and
+      // hides `advanced-cta` until the user clicks through. Pre-seed the
+      // shell state to single-page layout so the preview always renders
+      // the inline CTA — exercises the same accent/colour/typography
+      // wiring this suite was written to verify.
+      localStorage.setItem('qq_elfsight_shell', JSON.stringify({
+        stepLayout: 'single',
+      }));
     } catch {}
   });
 }
