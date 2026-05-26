@@ -24,7 +24,8 @@ export type DashboardProduct =
   | "tradeline"
   | "mapguard"
   | "reputationshield"
-  | "quotequick";
+  | "quotequick"
+  | "adflow";
 
 export interface MetricMeta {
   /** Customer-facing label (matches the KpiGauge label). */
@@ -377,6 +378,68 @@ const QUOTEQUICK: Record<string, MetricMeta> = {
   },
 };
 
+/* Wave 30 — AdFlow metric entries. Trade-first nouns (Money Spent, Jobs
+ * Booked, Customers Reached) hide the Google Ads / Meta Ads jargon by
+ * default. Power-user toggle in settings unlocks PMAX / CPA / ROAS / CTR
+ * labels in a follow-up wave. */
+const ADFLOW: Record<string, MetricMeta> = {
+  moneySpent: {
+    label: "Money spent",
+    helpText:
+      "Total ad spend across every platform in the last 30 days. Spending less while bookings stay flat is GOOD.",
+    improvementTips: [
+      "Pause the lowest-grade campaign first — most spend goes there",
+      "Shift budget to your top-grade campaign (1-click action)",
+      "Set a daily spend cap in notification settings",
+    ],
+    format: (v) => `$${(Number(v) / 100).toFixed(2)}`,
+  },
+  jobsBooked: {
+    label: "Jobs booked",
+    helpText:
+      "Bookings attributable to your ads in the last 30 days. The number that actually matters.",
+    improvementTips: [
+      "Boost the campaign with the best cost-per-booking score",
+      "Refresh ad copy on campaigns that haven't booked in 14 days",
+      "Expand winning Google campaigns to Meta for new audience reach",
+    ],
+    unit: "bookings",
+  },
+  revenueEarned: {
+    label: "Revenue earned",
+    helpText:
+      "Estimated revenue tied to ad-driven bookings in the last 30 days.",
+    improvementTips: [
+      "Raise ticket size on high-grade campaigns with package upsells",
+      "Pause campaigns with high spend but low revenue",
+      "Tie new ad tests to your highest-margin services",
+    ],
+    format: (v) => `$${(Number(v) / 100).toFixed(2)}`,
+  },
+  customersReached: {
+    label: "Customers reached",
+    helpText:
+      "Total people who saw your ads in the last 30 days. Reach without bookings = wrong audience or wrong ad.",
+    improvementTips: [
+      "Tighten the service-area radius if reach is high but bookings are low",
+      "Try the AI ad-copy composer if reach is fine but click-through lags",
+      "Add Meta to your platform mix if Google reach has plateaued",
+    ],
+    unit: "people",
+  },
+  costPerBooking: {
+    label: "Cost per booking",
+    helpText:
+      "What each new booking costs you in ad spend. Lower is better. Trades industry average = $150.",
+    improvementTips: [
+      "Pause campaigns above $200 per booking",
+      "Swap ad copy on campaigns above $150 per booking",
+      "Boost campaigns below $80 per booking — they're already winning",
+    ],
+    format: (v) => `$${(Number(v) / 100).toFixed(2)}`,
+  },
+};
+
 const REGISTRY: Record<DashboardProduct, Record<string, MetricMeta>> = {
   contentflow: CONTENTFLOW,
   rankflow: RANKFLOW,
@@ -385,6 +448,7 @@ const REGISTRY: Record<DashboardProduct, Record<string, MetricMeta>> = {
   mapguard: MAPGUARD,
   reputationshield: REPUTATIONSHIELD,
   quotequick: QUOTEQUICK,
+  adflow: ADFLOW,
 };
 
 /* ─── Public API ──────────────────────────────────────────────────────── */
@@ -426,5 +490,6 @@ export function productFromPagePath(pagePath: string | undefined | null): Dashbo
   if (pagePath.startsWith("/portal/mapguard") || pagePath.startsWith("/admin/mapguard")) return "mapguard";
   if (pagePath.startsWith("/portal/reputationshield") || pagePath.startsWith("/admin/reputationshield")) return "reputationshield";
   if (pagePath.startsWith("/portal/quotequick") || pagePath.startsWith("/admin/quotequick")) return "quotequick";
+  if (pagePath.startsWith("/portal/adflow") || pagePath.startsWith("/admin/adflow") || pagePath.startsWith("/admin/crm/adflow")) return "adflow";
   return undefined;
 }

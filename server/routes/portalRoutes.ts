@@ -27,6 +27,7 @@ import { registerPortalOnboardingRoutes } from "./portal/onboarding";
 import { registerPortalReviewQueueRoutes } from "./portal/review-queue";
 import { registerPortalContentflowRoutes } from "./portal/contentflow";
 import { registerPortalContentflowDashboardRoutes } from "./portal/contentflowDashboard";
+import { registerPortalAdflowDashboardRoutes } from "./portal/adflow/index";
 import { registerPortalMapguardRoutes } from "./portal/mapguard";
 import { registerPortalMapguardDashboardRoutes } from "./portal/mapguard/index";
 import { registerPortalReputationshieldDashboardRoutes } from "./portal/reputationshield/index";
@@ -92,6 +93,11 @@ export function registerPortalRoutes(app: Express) {
   registerPortalReviewQueueRoutes(app);
   registerPortalContentflowRoutes(app);
   registerPortalContentflowDashboardRoutes(app);
+  // Wave 30: AdFlow dashboard sub-registrar mounts BEFORE the legacy
+  // /api/portal/adflow/:csId/reports route so the new dashboard-kpis,
+  // campaigns, copy, anomalies, run-action, notification-settings, and
+  // heatmaps endpoints take precedence — same pattern as Waves 27–29.
+  registerPortalAdflowDashboardRoutes(app);
   // Wave 27: dashboard sub-registrar mounts BEFORE the legacy mapguard
   // registrar so the new /dashboard-kpis, /competitor-alerts, /run-action,
   // /notification-settings paths take precedence over any parameterized

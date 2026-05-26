@@ -28,6 +28,7 @@ import { computeContentflowDashboardKpis } from "../../routes/portal/contentflow
 import { computeRankflowDashboardKpis } from "../../routes/portal/rankflow/dashboardKpis";
 import { computeSocialsyncDashboardKpis } from "../../routes/portal/socialsync/dashboardKpis";
 import { computeTradelineDashboardKpis } from "../../routes/portal/tradeline/dashboardKpis";
+import { computeAdflowDashboardKpis } from "../../routes/portal/adflow/dashboardKpis";
 import { createLogger } from "../../lib/logger";
 
 const log = createLogger("CopilotMetricsContext");
@@ -131,6 +132,17 @@ async function buildTradelineMetrics(clientId: number): Promise<DashboardMetric[
   ].filter((m): m is DashboardMetric => m !== null);
 }
 
+async function buildAdflowMetrics(clientId: number): Promise<DashboardMetric[]> {
+  const { kpis } = await computeAdflowDashboardKpis(clientId);
+  return [
+    buildMetric("adflow", "moneySpent", kpis.moneySpent.thisMonth),
+    buildMetric("adflow", "jobsBooked", kpis.jobsBooked.thisMonth),
+    buildMetric("adflow", "revenueEarned", kpis.revenueEarned),
+    buildMetric("adflow", "customersReached", kpis.customersReached),
+    buildMetric("adflow", "costPerBooking", kpis.costPerBooking),
+  ].filter((m): m is DashboardMetric => m !== null);
+}
+
 /* ─── Public API ──────────────────────────────────────────────────────── */
 
 /**
@@ -165,10 +177,15 @@ export async function buildDashboardContext(
       case "tradeline":
         metrics = await buildTradelineMetrics(clientId);
         break;
+      case "adflow":
+        metrics = await buildAdflowMetrics(clientId);
+        break;
       case "mapguard":
       case "reputationshield":
-        // Not yet instrumented — registry maps are empty. Returning undefined
-        // lets the caller fall back to a no-context prompt.
+      case "quotequick":
+        // Not yet instrumented in metricsContext — registry maps exist but
+        // these products use their own dashboard-kpis routes. Returning
+        // undefined lets the caller fall back to a no-context prompt.
         return undefined;
     }
   } catch (err) {
@@ -211,6 +228,8 @@ export function resolveProduct(
       "tradeline",
       "mapguard",
       "reputationshield",
+      "quotequick",
+      "adflow",
     ];
     if ((valid as string[]).includes(declared)) {
       const d = declared as DashboardProduct;
@@ -237,6 +256,7 @@ export function renderDashboardContextBlock(ctx: DashboardContext): string {
     mapguard: "MapGuard",
     reputationshield: "ReputationShield",
     quotequick: "QuoteQuick",
+    adflow: "AdFlow",
   };
 
   const lines: string[] = [

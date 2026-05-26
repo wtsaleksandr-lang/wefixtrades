@@ -223,6 +223,10 @@ const MapGuardAlertSettings = lazy(() => import("@/pages/portal/mapguard/AlertSe
 const ReputationShieldDashboard = lazy(() => import("@/pages/portal/reputationshield/ReputationShieldDashboard"));
 const ReputationShieldNotificationSettings = lazy(() => import("@/pages/portal/reputationshield/NotificationSettings"));
 const ReputationShieldSetup = lazy(() => import("@/pages/portal/reputationshield/ReputationShieldSetup"));
+// Wave 30 — AdFlow UI upgrade portal surfaces.
+const AdFlowDashboard = lazy(() => import("@/pages/portal/adflow/AdFlowDashboard"));
+const AdFlowNotificationSettings = lazy(() => import("@/pages/portal/adflow/NotificationSettings"));
+const AdFlowSetup = lazy(() => import("@/pages/portal/adflow/AdFlowSetup"));
 // Wave 29 — QuoteQuick UI upgrade portal surfaces.
 const QuoteQuickDashboard = lazy(() => import("@/pages/portal/quotequick/QuoteQuickDashboard"));
 const QuoteQuickSetup = lazy(() => import("@/pages/portal/quotequick/QuoteQuickSetup"));
@@ -449,6 +453,13 @@ function Router() {
       <Route path="/portal/quotequick/brand">{() => <RequireClient><QuoteQuickBrandSettings /></RequireClient>}</Route>
       <Route path="/portal/quotequick/builder">{() => <RequireClient><QuoteQuickFormBuilderPage /></RequireClient>}</Route>
       <Route path="/portal/quotequick/notifications">{() => <RequireClient><QuoteQuickNotificationSettings /></RequireClient>}</Route>
+      {/* Wave 30 — AdFlow UI upgrade routes. Trade-first dashboard,
+          3-question setup wizard, notification preferences. Mounted above
+          the legacy /portal/services/:id route which would otherwise
+          catch /portal/adflow/* paths. */}
+      <Route path="/portal/adflow/dashboard">{() => <RequireClient><AdFlowDashboard /></RequireClient>}</Route>
+      <Route path="/portal/adflow/notifications">{() => <RequireClient><AdFlowNotificationSettings /></RequireClient>}</Route>
+      <Route path="/portal/adflow/setup">{() => <RequireClient><AdFlowSetup /></RequireClient>}</Route>
       <Route path="/portal/ai-insights">{() => <RequireClient><AiInsightsPage /></RequireClient>}</Route>
       <Route path="/portal/citation-tracker">{() => <RequireClient><CitationTrackerDashboard /></RequireClient>}</Route>
       <Route path="/portal/citation-builder">{() => <RequireClient><CitationBuilderDashboard /></RequireClient>}</Route>
