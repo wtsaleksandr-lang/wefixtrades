@@ -165,3 +165,11 @@ client/src/pages/portal/contentflow/PortalContentFlowDashboard.tsx
 #    No user-fillable form fields live on this page — onboarding is still
 #    served from PortalRankFlow.tsx, which is the wizard.
 client/src/pages/portal/rankflow/RankFlowDashboard.tsx
+
+# ── Wave 25 — SocialSync dashboard: Gmail-style ApprovalInbox, drag-drop
+#    VisualCalendar, KPI gauges, PlatformPreview + PlatformGauge, and the
+#    ChannelPicker (read-only here). User editing happens via the
+#    AIDraftEditor modal (which handles its own text input) — there is no
+#    persistent fillable form on the dashboard itself. Profile/cadence
+#    setup remains in SocialSyncSetup.tsx, which is the wizard.
+client/src/pages/portal/socialsync/SocialSyncDashboard.tsx

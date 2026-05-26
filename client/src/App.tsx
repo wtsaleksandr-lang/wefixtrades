@@ -222,6 +222,7 @@ const CitationTrackerDashboard = lazy(() => import("@/pages/portal/CitationTrack
 const CitationBuilderDashboard = lazy(() => import("@/pages/portal/CitationBuilderDashboard"));
 const SocialSyncSetup = lazy(() => import("@/pages/portal/SocialSyncSetup"));
 const PortalSocialSync = lazy(() => import("@/pages/portal/PortalSocialSync"));
+const SocialSyncDashboard = lazy(() => import("@/pages/portal/socialsync/SocialSyncDashboard"));
 const PortalRankFlow = lazy(() => import("@/pages/portal/PortalRankFlow"));
 const RankFlowDashboard = lazy(() => import("@/pages/portal/rankflow/RankFlowDashboard"));
 const PortalArticles = lazy(() => import("@/pages/portal/PortalArticles"));
@@ -437,6 +438,7 @@ function Router() {
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
       <Route path="/portal/help/tickets/:id">{() => <RequireClient><PortalTicketDetail /></RequireClient>}</Route>
       <Route path="/portal/socialsync-setup">{() => <RequireClient><SocialSyncSetup /></RequireClient>}</Route>
+      <Route path="/portal/socialsync/dashboard">{() => <RequireClient><SocialSyncDashboard /></RequireClient>}</Route>
       <Route path="/portal/socialsync">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>
       <Route path="/portal/reputation">{() => <Redirect to="/portal/reviews" />}</Route>
       <Route path="/portal/dispatch">{() => <RequireClient><DispatchPage /></RequireClient>}</Route>
