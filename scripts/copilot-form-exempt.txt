@@ -214,3 +214,26 @@ client/src/pages/portal/reputationshield/NotificationSettings.tsx
 #    choices (trade picker, platform toggles, Google connect button). No
 #    free-text input fields for the copilot to fill.
 client/src/pages/portal/reputationshield/ReputationShieldSetup.tsx
+
+# ── Wave 29 — QuoteQuick dashboard: KPI tiles + ConversionGauge cards +
+#    quick-action buttons. No persistent fillable form on the dashboard.
+client/src/pages/portal/quotequick/QuoteQuickDashboard.tsx
+
+# ── Wave 29 — QuoteQuick notifications: Switch-only event × channel
+#    matrix (quote_viewed / quote_started / quote_completed / deposit_paid
+#    / quote_expired × email / sms). No free-text fields — toggles only.
+client/src/pages/portal/quotequick/NotificationSettings.tsx
+
+# ── Wave 29 — QuoteQuick 3-question setup wizard: trade picker + name /
+#    phone / city inputs + embed snippet copy. The flow is wizard-step-
+#    driven with button advancement, not a single persistent form. Inputs
+#    are pipe-through to the existing onboarding endpoint; the copilot
+#    fills the underlying onboarding form there, not on this wizard.
+client/src/pages/portal/quotequick/QuoteQuickSetup.tsx
+
+# ── Wave 29 — QuoteQuick form builder host page: drag-and-drop builder
+#    that mutates a JSON field array. The "form" being built IS the
+#    content — there is no persistent settings form on this page itself.
+#    The copilot already has fill-paths for the customer-facing widget
+#    form via the widget runtime; the builder itself is a designer.
+client/src/pages/portal/quotequick/FormBuilderPage.tsx

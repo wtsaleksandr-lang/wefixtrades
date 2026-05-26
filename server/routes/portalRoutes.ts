@@ -16,6 +16,7 @@ import { createLogger } from "../lib/logger";
 import { saveFile, deleteFile } from "../services/fileStorage";
 import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
 import { registerPortalQuotequickRoutes } from "./portal/quotequick";
+import { registerPortalQuotequickDashboardRoutes } from "./portal/quotequick/index";
 import { registerPortalReputationRoutes } from "./portal/reputation";
 import { registerPortalBillingRoutes } from "./portal/billing";
 import { registerPortalServicesRoutes } from "./portal/services";
@@ -71,6 +72,12 @@ async function withClientId(
 export function registerPortalRoutes(app: Express) {
   // Sub-registrars (portal sub-modules extracted from this file).
   // Adding new ones here keeps routes/index.ts unchanged.
+  // Wave 29: QuoteQuick dashboard sub-registrar mounts BEFORE the legacy
+  // /api/portal/quotequick/* routes so the new dashboard-kpis, brand-settings,
+  // run-action, notification-settings, and conversion endpoints take
+  // precedence — same pattern as Wave 27 (MapGuard) and Wave 28
+  // (ReputationShield).
+  registerPortalQuotequickDashboardRoutes(app);
   registerPortalQuotequickRoutes(app);
   registerPortalReputationRoutes(app);
   registerPortalBillingRoutes(app);

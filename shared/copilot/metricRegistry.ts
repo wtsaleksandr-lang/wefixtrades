@@ -23,7 +23,8 @@ export type DashboardProduct =
   | "socialsync"
   | "tradeline"
   | "mapguard"
-  | "reputationshield";
+  | "reputationshield"
+  | "quotequick";
 
 export interface MetricMeta {
   /** Customer-facing label (matches the KpiGauge label). */
@@ -326,6 +327,56 @@ const REPUTATIONSHIELD: Record<string, MetricMeta> = {
   },
 };
 
+/* Wave 29 — QuoteQuick metric entries. Customer-facing labels + help cues
+ * + improvement tips the dashboard surfaces in KPI gauges and the Copilot
+ * reads from in the system prompt. */
+const QUOTEQUICK: Record<string, MetricMeta> = {
+  quotesSent: {
+    label: "Quotes sent",
+    helpText:
+      "Total quotes sent in the last 30 days across every embedded widget. Higher = more top-of-funnel lead flow.",
+    improvementTips: [
+      "Embed the widget on every service page, not just the home page",
+      "Add a floating-button embed for sticky cross-page exposure",
+      "Drive paid traffic to a landing page with the widget above the fold",
+    ],
+    unit: "quotes",
+  },
+  avgDepositPaidRate: {
+    label: "Deposit-paid rate",
+    helpText:
+      "% of sent quotes that result in a paid deposit. Industry avg for trades = 5%. 8%+ is best-in-class.",
+    improvementTips: [
+      "Add good/better/best package variants to the acceptance flow",
+      "Reduce friction in the signature + payment steps",
+      "Nudge stalled customers with the 1-click follow-up action",
+    ],
+    unit: "%",
+  },
+  revenueThisMonth: {
+    label: "Revenue this month",
+    helpText:
+      "Total deposit revenue collected via Stripe Connect in the last 30 days.",
+    improvementTips: [
+      "Raise minimum deposit % on high-ticket calculators",
+      "Enable the 10% same-day discount nudge for stale quotes",
+      "Promote your shareable quote URL via SMS + email follow-ups",
+    ],
+    format: (v) => `$${(Number(v) / 100).toFixed(2)}`,
+  },
+  activeEmbeds: {
+    label: "Active embeds",
+    helpText:
+      "Number of configured calculators with a live public slug. Each one is a working embed site.",
+    improvementTips: [
+      "Publish trade-specific landing pages with their own slug",
+      "Embed on partner sites + supplier directories",
+      "Activate any draft calculators that are sitting unused",
+    ],
+    unit: "sites",
+  },
+};
+
 const REGISTRY: Record<DashboardProduct, Record<string, MetricMeta>> = {
   contentflow: CONTENTFLOW,
   rankflow: RANKFLOW,
@@ -333,6 +384,7 @@ const REGISTRY: Record<DashboardProduct, Record<string, MetricMeta>> = {
   tradeline: TRADELINE,
   mapguard: MAPGUARD,
   reputationshield: REPUTATIONSHIELD,
+  quotequick: QUOTEQUICK,
 };
 
 /* ─── Public API ──────────────────────────────────────────────────────── */
@@ -373,5 +425,6 @@ export function productFromPagePath(pagePath: string | undefined | null): Dashbo
   if (pagePath.startsWith("/portal/tradeline") || pagePath.startsWith("/admin/tradeline")) return "tradeline";
   if (pagePath.startsWith("/portal/mapguard") || pagePath.startsWith("/admin/mapguard")) return "mapguard";
   if (pagePath.startsWith("/portal/reputationshield") || pagePath.startsWith("/admin/reputationshield")) return "reputationshield";
+  if (pagePath.startsWith("/portal/quotequick") || pagePath.startsWith("/admin/quotequick")) return "quotequick";
   return undefined;
 }

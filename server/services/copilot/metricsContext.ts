@@ -236,6 +236,7 @@ export function renderDashboardContextBlock(ctx: DashboardContext): string {
     tradeline: "TradeLine",
     mapguard: "MapGuard",
     reputationshield: "ReputationShield",
+    quotequick: "QuoteQuick",
   };
 
   const lines: string[] = [
