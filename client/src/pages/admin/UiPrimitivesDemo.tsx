@@ -34,6 +34,7 @@ import {
   buildEntryDate,
   ApprovalInbox,
   AIDraftEditor,
+  AIActionCard,
   Sparkline,
   ProgressRing,
   type WalkthroughStep,
@@ -912,6 +913,23 @@ export default function UiPrimitivesDemo() {
             <OnboardingWizardDemo />
           </div>
         </Section>
+
+        <Section title="AIActionCard (Wave 34)">
+          <div className="w-full space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Universal "AI says do X, click to approve" card. Reads the
+              shared registry at{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                @shared/aiActions
+              </code>{" "}
+              for label, description, icon, and confirmation level. Used by
+              every product's AI Insights surface AND the admin alerts table.
+              Three confirmation strengths + destructive variant + loading /
+              success / failure states below.
+            </p>
+            <AIActionCardDemo />
+          </div>
+        </Section>
       </div>
 
       <OnboardingWalkthrough
@@ -1059,5 +1077,167 @@ function OnboardingWizardDemo() {
         </div>
       )}
     />
+  );
+}
+
+/* ─── Wave 34: AIActionCard demo ─────────────────────────────────────── */
+/**
+ * Demonstrates the universal AI-action-with-approval card primitive in
+ * the four key states:
+ *   1. confirmationLevel: "none"  — fires immediately
+ *   2. confirmationLevel: "soft"  — 2-step inline confirm
+ *   3. confirmationLevel: "hard"  — modal confirmation
+ *   4. destructive variant        — red-tinted, modal, click-only
+ * Plus a forced-failure card so reviewers can see the error-restore path,
+ * and an admin-context card so reviewers can see it works for both
+ * portal AND admin surfaces (Alex's 2026-05-26 directive).
+ *
+ * onApprove is mocked in-page (no real network) — clicking "Working…"
+ * resolves after 800ms with success, except for "force-fail" which
+ * resolves with success=false so the error toast is visible.
+ */
+function AIActionCardDemo() {
+  // Each preset mirrors a real registered entry from
+  // shared/aiActions/actionRegistry.ts. The card resolves the registry
+  // entry itself from (product, context, actionKey).
+  const presets: Array<{
+    label: string;
+    description: string;
+    rec: import("@/components/ui/visual-primitives").AIActionRecommendation;
+    forceFail?: boolean;
+  }> = [
+    {
+      label: "confirmationLevel: none",
+      description: "Acknowledge — fires immediately on click.",
+      rec: {
+        id: "demo-rec-1",
+        title: "You have one unread recommendation",
+        reasoning:
+          "AI noticed this insight has been pending for 7 days. Acknowledging clears it.",
+        actionKey: "acknowledge",
+        product: "mapguard",
+        context: "portal",
+      },
+    },
+    {
+      label: "confirmationLevel: soft",
+      description: "Request reviews — 2-step inline confirm (4s window).",
+      rec: {
+        id: "demo-rec-2",
+        title: "Send review requests to recent jobs",
+        reasoning:
+          "Your last 10 completed jobs haven't been asked to leave a review. The average customer is most willing within 72h of completion.",
+        actionKey: "request-reviews-batch",
+        product: "reputationshield",
+        context: "portal",
+      },
+    },
+    {
+      label: "confirmationLevel: hard",
+      description: "Harden security — modal confirm, click only.",
+      rec: {
+        id: "demo-rec-3",
+        title: "Enable recommended security defaults",
+        reasoning:
+          "Your site lacks 2FA, login throttling, and file-edit lockdown. Together they prevent 89% of brute-force attempts.",
+        actionKey: "harden-security",
+        product: "webcare",
+        context: "portal",
+      },
+    },
+    {
+      label: "destructive (forced hard + red)",
+      description: "Pause campaign — destructive, modal, Enter-key blocked.",
+      rec: {
+        id: "demo-rec-4",
+        title: "Pause underperforming campaign",
+        reasoning:
+          "Costs $80/booking vs your $45 target. 14-day window. Pausing won't refund already-spent budget.",
+        actionKey: "pause-underperforming-campaign",
+        product: "adflow",
+        context: "portal",
+        actionParams: { campaignName: "Spring boiler promo" },
+      },
+    },
+    {
+      label: "failure-restore (forced)",
+      description: "Forced error so you can see the red-toast + button restored.",
+      rec: {
+        id: "demo-rec-5",
+        title: "Nudge customer who didn't book",
+        reasoning:
+          "Customer started a quote 6 days ago but didn't complete. A 1-tap nudge brings ~22% back.",
+        actionKey: "nudge-customer",
+        product: "quotequick",
+        context: "portal",
+      },
+      forceFail: true,
+    },
+    {
+      label: "admin context",
+      description: "Wave 12D admin alert — same primitive, admin role.",
+      rec: {
+        id: "demo-rec-6",
+        title: "Vapi assistant provisioning failed for client #42",
+        reasoning:
+          "The provisioning call returned 429. Most common fix: re-run the request — Vapi was rate-limiting.",
+        actionKey: "retry-vapi-assistant",
+        product: "system",
+        context: "admin",
+        actionParams: { alertId: 9999 },
+      },
+    },
+  ];
+
+  const [log, setLog] = useState<string[]>([]);
+
+  async function mockApprove(
+    actionKey: string,
+    params: Record<string, unknown>,
+    forceFail: boolean,
+  ) {
+    await new Promise((r) => window.setTimeout(r, 800));
+    if (forceFail) {
+      setLog((l) =>
+        [`failed ${actionKey} ${JSON.stringify(params)}`, ...l].slice(0, 6),
+      );
+      return { success: false, message: "Demo: forced failure for QA." };
+    }
+    setLog((l) =>
+      [`ok ${actionKey} ${JSON.stringify(params)}`, ...l].slice(0, 6),
+    );
+    return { success: true, message: "Demo: action completed." };
+  }
+
+  return (
+    <div className="grid w-full grid-cols-1 gap-3 lg:grid-cols-2">
+      {presets.map((p) => (
+        <div key={p.rec.id} className="space-y-1">
+          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {p.label}
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {p.description}
+          </div>
+          <AIActionCard
+            recommendation={p.rec}
+            onApprove={(k, params) => mockApprove(k, params, !!p.forceFail)}
+            onDismiss={() => {
+              setLog((l) =>
+                [`dismissed ${p.rec.id}`, ...l].slice(0, 6),
+              );
+            }}
+          />
+        </div>
+      ))}
+      <div className="col-span-full">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Last 6 events
+        </div>
+        <pre className="mt-1 overflow-x-auto rounded-md border bg-muted/40 p-3 text-[11px]">
+          {log.length ? log.join("\n") : "(none yet — click an action above)"}
+        </pre>
+      </div>
+    </div>
   );
 }

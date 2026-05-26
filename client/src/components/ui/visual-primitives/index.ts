@@ -85,3 +85,10 @@ export type {
   WizardState,
   WizardRenderContext,
 } from "./OnboardingWizard";
+
+export { AIActionCard } from "./AIActionCard";
+export type {
+  AIActionCardProps,
+  AIActionRecommendation,
+  AIActionApproveResult,
+} from "./AIActionCard";

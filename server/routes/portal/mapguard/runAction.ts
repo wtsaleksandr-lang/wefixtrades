@@ -1,36 +1,28 @@
 /**
- * Portal MapGuard 1-click Action Runner — Wave 27.
+ * Portal MapGuard 1-click Action Runner — Wave 27 (refactored Wave 34).
  *
  * POST /api/portal/mapguard/run-action
  *
- * Body: { actionId: string, action: ActionId, params?: object, sourceCardId?: string }
+ * Body shape: `{ actionId: string, action: ActionId, params?: object }`
+ * unchanged — this is the legacy contract still consumed by
+ * client/src/pages/portal/mapguard/MapGuardDashboard.tsx. The route now
+ * delegates to the universal dispatcher (server/services/aiActions/
+ * dispatcher.ts) which writes the cross-product audit log row.
  *
- * Whitelisted action IDs (the server is authoritative — frontend cannot
- * invoke arbitrary actions):
+ * Whitelisted action IDs (server-side authoritative):
  *   - schedule-gbp-post        → ContentFlow composer URL + queue post draft
  *   - request-review           → ReputationShield review-request job
  *   - fix-citation-nap         → Citation Builder NAP-fix flow URL
  *   - start-citation-campaign  → Citation Builder service upgrade URL
  *   - acknowledge              → no-op; ack the recommendation
- *
- * Anti-patterns avoided:
- *   - Don't trust the frontend's action name (server-side whitelist enforced).
- *   - Don't run irreversible mutations on first click — `redirectUrl` carries
- *     the customer into the destination flow where they confirm.
- *
- * Auth: requireClient + active MapGuard subscription. adminPreviewSafe
- * returns a no-op for admin preview.
  */
 
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
-import { and, eq, sql } from "drizzle-orm";
 import { requireClient } from "../../../auth";
-import { db } from "../../../db";
-import { clients, clientServices, serviceCatalog } from "@shared/schema";
-import { dismissAction } from "../../../services/aiInsights/cache";
 import { createLogger } from "../../../lib/logger";
 import { withClientIdOrPreview } from "../../../middleware/adminPreviewSafe";
+import { dispatchAction } from "../../../services/aiActions/dispatcher";
 
 const log = createLogger("PortalMapguardRunAction");
 
@@ -41,26 +33,14 @@ const ACTION_IDS = [
   "start-citation-campaign",
   "acknowledge",
 ] as const;
-type ActionId = (typeof ACTION_IDS)[number];
 
 const runActionSchema = z.object({
-  /** Stable identifier of the originating AI Insights action (used to dismiss). */
   actionId: z.string().min(2).max(200),
-  /** Whitelisted action verb. Server enforces the whitelist independently. */
   action: z.enum(ACTION_IDS),
-  /** Optional pass-through bag forwarded to the destination flow. */
-  params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  params: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .optional(),
 });
-
-interface RunActionResult {
-  ok: true;
-  /** URL to redirect the customer into the destination flow, when relevant. */
-  redirectUrl?: string;
-  /** Human-readable confirmation toast text. */
-  message: string;
-  /** Was the AI Insights action also dismissed (auto-ack for acknowledge)? */
-  dismissed: boolean;
-}
 
 const PREVIEW_RESPONSE = {
   previewMode: true,
@@ -68,73 +48,6 @@ const PREVIEW_RESPONSE = {
   message: "Preview mode — action not executed.",
   dismissed: false,
 };
-
-/** Returns true if client has an active MapGuard service. Mirrors the
- *  pattern in server/routes/aiInsightsRoutes.ts. */
-async function hasActiveMapguard(clientId: number): Promise<boolean> {
-  const [row] = await db
-    .select({ id: clientServices.id })
-    .from(clientServices)
-    .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
-    .where(
-      and(
-        eq(clientServices.client_id, clientId),
-        sql`${serviceCatalog.id} LIKE 'mapguard%'`,
-        sql`${clientServices.status} IN ('active', 'onboarding')`,
-      ),
-    )
-    .limit(1);
-  return !!row;
-}
-
-/**
- * Resolve the whitelisted action to a redirect URL + confirmation message.
- * Pure function so it's trivially testable.
- */
-function resolveAction(
-  action: ActionId,
-  params: Record<string, string | number | boolean> | undefined,
-): { redirectUrl?: string; message: string; dismissAfter: boolean } {
-  switch (action) {
-    case "schedule-gbp-post": {
-      const topic = typeof params?.topic === "string" ? params.topic : undefined;
-      const query = topic ? `?prefill=${encodeURIComponent(topic)}` : "";
-      return {
-        redirectUrl: `/portal/contentflow/dashboard${query}`,
-        message: "Opening ContentFlow with your GBP post draft.",
-        dismissAfter: false,
-      };
-    }
-    case "request-review": {
-      return {
-        redirectUrl: "/portal/reviews?action=request-batch",
-        message: "Queued review requests for your last jobs.",
-        dismissAfter: false,
-      };
-    }
-    case "fix-citation-nap": {
-      const directory =
-        typeof params?.directory === "string" ? params.directory : undefined;
-      const query = directory
-        ? `?directory=${encodeURIComponent(directory)}`
-        : "";
-      return {
-        redirectUrl: `/portal/citation-builder${query}`,
-        message: "Opening Citation Builder with the NAP correction pre-filled.",
-        dismissAfter: false,
-      };
-    }
-    case "start-citation-campaign": {
-      return {
-        redirectUrl: "/portal/services?upgrade=citation-builder",
-        message: "Routing you to the Citation Builder service upgrade.",
-        dismissAfter: false,
-      };
-    }
-    case "acknowledge":
-      return { message: "Recommendation acknowledged.", dismissAfter: true };
-  }
-}
 
 export function registerPortalMapguardRunActionRoutes(app: Express) {
   app.post(
@@ -159,24 +72,25 @@ export function registerPortalMapguardRunActionRoutes(app: Express) {
 
         const { actionId, action, params } = parsed.data;
 
-        if (!(await hasActiveMapguard(clientId))) {
-          return res.status(403).json({
-            error: "mapguard_required",
-            message:
-              "1-click actions are part of MapGuard. Upgrade to unlock.",
-            upgradeUrl: "/products/mapguard",
+        const result = await dispatchAction({
+          clientId,
+          product: "mapguard",
+          context: "portal",
+          actionKey: action,
+          params: params ?? {},
+          triggeredBy: "user_click",
+          userId: null,
+          recommendationId: actionId,
+        });
+
+        if (!result.success) {
+          const status =
+            result.errorCode === "subscription_required" ? 403 : 400;
+          return res.status(status).json({
+            error: result.errorCode ?? "error",
+            message: result.message,
+            ...(result.resultPayload ?? {}),
           });
-        }
-
-        const resolved = resolveAction(action, params);
-
-        // Always dismiss the source recommendation when the customer
-        // explicitly acknowledges. For other actions we leave it so the
-        // customer can see their pending work until they swipe it away.
-        let dismissed = false;
-        if (resolved.dismissAfter) {
-          await dismissAction(clientId, actionId);
-          dismissed = true;
         }
 
         log.info("mapguard.run-action", {
@@ -186,18 +100,14 @@ export function registerPortalMapguardRunActionRoutes(app: Express) {
           hasParams: !!params,
         });
 
-        const result: RunActionResult = {
+        return res.json({
           ok: true,
-          redirectUrl: resolved.redirectUrl,
-          message: resolved.message,
-          dismissed,
-        };
-        return res.json(result);
+          redirectUrl: (result.resultPayload?.redirectUrl as string) ?? undefined,
+          message: result.message,
+          dismissed: result.dismissed ?? false,
+        });
       } catch (err: any) {
-        log.error(
-          "[portal/mapguard/run-action]",
-          err?.message || err,
-        );
+        log.error("[portal/mapguard/run-action]", err?.message || err);
         res.status(500).json({ error: err?.message });
       }
     },
