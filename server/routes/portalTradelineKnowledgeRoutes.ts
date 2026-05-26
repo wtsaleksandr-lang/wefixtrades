@@ -33,6 +33,7 @@ import { requireClient } from "../auth";
 import { createLogger } from "../lib/logger";
 import { generateCuid } from "../lib/apiKeys";
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
+import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
 
 const log = createLogger("PortalTradelineKnowledge");
 
@@ -84,13 +85,16 @@ async function resolveClientId(userId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-async function withClientId(req: Request, res: Response): Promise<number | null> {
-  const clientId = await resolveClientId(req.user!.id);
-  if (!clientId) {
-    res.status(403).json({ error: "no_client_linked" });
-    return null;
-  }
-  return clientId;
+/**
+ * Wave 12C: admin users without a linked clients row receive 200 with
+ * `{previewMode:true, persisted:false, ...previewShape}` instead of 403.
+ */
+async function withClientId(
+  req: Request,
+  res: Response,
+  previewShape: Record<string, unknown> = {},
+): Promise<number | null> {
+  return withClientIdOrPreview(req, res, { previewShape });
 }
 
 export function registerPortalTradelineKnowledgeRoutes(app: Express): void {

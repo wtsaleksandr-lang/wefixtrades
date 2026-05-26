@@ -30,6 +30,7 @@ import {
   getTradeLineReadiness,
 } from "@shared/schema";
 import { createLogger } from "../../lib/logger";
+import { withClientIdOrPreview } from "../../middleware/adminPreviewSafe";
 
 const log = createLogger("PortalTradeline");
 
@@ -43,14 +44,16 @@ async function resolveClientId(userId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-/** Middleware-style helper: resolve client_id or return 403. */
-async function withClientId(req: Request, res: Response): Promise<number | null> {
-  const clientId = await resolveClientId(req.user!.id);
-  if (!clientId) {
-    res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
-    return null;
-  }
-  return clientId;
+/**
+ * Wave 12C: admin users without a linked clients row receive 200 with
+ * `{previewMode:true, persisted:false, ...previewShape}` instead of 403.
+ */
+async function withClientId(
+  req: Request,
+  res: Response,
+  previewShape: Record<string, unknown> = {},
+): Promise<number | null> {
+  return withClientIdOrPreview(req, res, { previewShape });
 }
 
 /** Verify a TradeLine client_service belongs to the authenticated client. */

@@ -42,6 +42,7 @@ import {
 } from "../../services/contentflow/approvalService";
 import { portalReviewRateLimiter } from "../../services/rateLimiter";
 import { createLogger } from "../../lib/logger";
+import { withClientIdOrPreview } from "../../middleware/adminPreviewSafe";
 
 const log = createLogger("PortalReviewQueue");
 
@@ -55,14 +56,20 @@ async function resolveClientId(userId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-/** Middleware-style helper: resolve client_id or return 403. */
-async function withClientId(req: Request, res: Response): Promise<number | null> {
-  const clientId = await resolveClientId(req.user!.id);
-  if (!clientId) {
-    res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
-    return null;
-  }
-  return clientId;
+/**
+ * Middleware-style helper: resolve client_id or send a response and return null.
+ *
+ * Wave 12C: admin users without a linked clients row receive 200 with
+ * `{previewMode:true, persisted:false, ...previewShape}` so the portal page
+ * renders an empty state instead of a red "Failed to load" boundary. Real
+ * customers still get 403 `no_client_linked` — no security weakening.
+ */
+async function withClientId(
+  req: Request,
+  res: Response,
+  previewShape: Record<string, unknown> = {},
+): Promise<number | null> {
+  return withClientIdOrPreview(req, res, { previewShape });
 }
 
 export function registerPortalReviewQueueRoutes(app: Express) {
@@ -120,7 +127,7 @@ export function registerPortalReviewQueueRoutes(app: Express) {
    */
   app.get("/api/portal/articles", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { articles: [], count: 0 });
       if (!clientId) return;
 
       const drafts = await db.select({
@@ -299,7 +306,7 @@ export function registerPortalReviewQueueRoutes(app: Express) {
    */
   app.get("/api/portal/review-replies", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { replies: [], count: 0 });
       if (!clientId) return;
 
       const drafts = await db.select({
@@ -335,7 +342,7 @@ export function registerPortalReviewQueueRoutes(app: Express) {
    */
   app.get("/api/portal/review-replies/pending", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { replies: [], count: 0 });
       if (!clientId) return;
 
       const drafts = await db.select({
