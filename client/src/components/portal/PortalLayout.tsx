@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   Menu,
   LogOut,
+  ArrowLeft,
   TrendingUp,
   Star,
   FileText,
@@ -348,6 +349,19 @@ export default function PortalLayout({
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </Button>
+            {/* Wave 12B Bug #1 — quick exit back to marketing site. Sits
+             *  immediately after the mobile menu button so it reads as
+             *  part of the top-bar nav. Border-highlight on hover (not a
+             *  shift) per Wave 11A rule. Session is preserved — clicking
+             *  doesn't log the user out, the marketing site just opens. */}
+            <Link
+              href="/"
+              className="hidden sm:inline-flex items-center gap-1.5 mr-3 px-2 py-1 text-xs text-muted-foreground rounded-md border border-transparent hover:border-border hover:text-foreground transition-colors"
+              data-testid="portal-back-to-website"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              Back to website
+            </Link>
             <h1 className="text-sm font-medium text-foreground flex items-center gap-1.5">
               {breadcrumb ?? (NAV_ITEMS.find((item) => isActive(location, item.href))?.label ?? "Portal")}
             </h1>
