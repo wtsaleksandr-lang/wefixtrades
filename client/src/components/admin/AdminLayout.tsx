@@ -969,6 +969,30 @@ export default function AdminLayout({
     setCopilotOpenState(next);
     saveCopilotOpenState(next);
   };
+
+  /* Wave 12D — Allow other admin pages (notably SystemAlertsPage) to open
+   * the AI Copilot programmatically by dispatching a "copilot:open" event.
+   * Optional `detail.seedText` is forwarded to a follow-up
+   * "copilot:seed-and-send" event after a tick — the AdminCopilot is
+   * already mounted (always renders, just hidden when closed) and listens
+   * for the second event to auto-send the message. */
+  useEffect(() => {
+    function onOpen(ev: Event) {
+      const detail = (ev as CustomEvent).detail;
+      setCopilotOpen(true);
+      if (detail && typeof detail.seedText === "string" && detail.seedText.trim()) {
+        // Slight delay so the panel mount + open transition completes
+        // before the message is injected. 80ms is enough to clear React's
+        // commit + the existing open-handler focus timer (100ms in
+        // AdminCopilot, but the seed-and-send handler is independent).
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("copilot:seed-and-send", { detail: { text: detail.seedText } }));
+        }, 80);
+      }
+    }
+    window.addEventListener("copilot:open", onOpen as EventListener);
+    return () => window.removeEventListener("copilot:open", onOpen as EventListener);
+  }, []);
   const breadcrumbItems = useBreadcrumbs();
 
   /* Page-context sync — every route change pushes a fresh snapshot onto

@@ -1,16 +1,27 @@
 /**
  * Admin Alert Routes -- CRUD for system alerts + unified inbox endpoint.
+ *
+ * Wave 12D — adds POST /api/admin/alerts/run-fix for the AI Diagnosis
+ * Panel's "Run fix" buttons. Dispatch is whitelisted server-side; see
+ * server/services/alertFixActions.ts for the whitelist + audit log.
  */
 
 import type { Express, Request, Response } from "express";
+import { z } from "zod";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
 import { jobLogs, fulfillmentTasks, supportTickets, clients } from "@shared/schema";
 import { eq, desc, and, gte, or } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
+import { runAlertFix, listAlertActions, ALERT_FIX_ACTIONS } from "../services/alertFixActions";
 
 const log = createLogger("AdminAlerts");
+
+const runFixSchema = z.object({
+  alertId: z.number().int().positive(),
+  action: z.enum(ALERT_FIX_ACTIONS),
+});
 
 export function registerAdminAlertRoutes(app: Express): void {
 
@@ -50,6 +61,53 @@ export function registerAdminAlertRoutes(app: Express): void {
       res.json({ count: alertCount });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to get alert count" });
+    }
+  });
+
+  /**
+   * Wave 12D — Run a whitelisted fix action against an alert. Body:
+   *   { alertId: number, action: "acknowledge" | "retry-vapi-assistant"
+   *                            | "retry-mapguard-scan" | "mark-known-issue" }
+   * The AI Copilot SUGGESTS one of these via a [BUTTON: …] marker; the
+   * operator clicks it explicitly, so there is a human approval gate
+   * between the LLM and the actual write.
+   *
+   * Whitelist enforcement is server-side via Zod + the action handler
+   * map in alertFixActions.ts — do not trust the frontend to send only
+   * valid names. Each call is recorded in alert_actions_log regardless
+   * of success or failure.
+   */
+  app.post("/api/admin/alerts/run-fix", requireAdmin, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.id;
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+    const parsed = runFixSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request", issues: parsed.error.issues });
+    }
+    try {
+      const result = await runAlertFix({
+        alertId: parsed.data.alertId,
+        action: parsed.data.action,
+        adminUserId: userId,
+      });
+      res.json(result);
+    } catch (err: any) {
+      log.error("Run-fix failed", { alertId: parsed.data.alertId, action: parsed.data.action, error: err.message });
+      const status = /not on the whitelist|not found|does not include/i.test(err.message) ? 400 : 500;
+      res.status(status).json({ error: err.message ?? "Failed to run fix" });
+    }
+  });
+
+  /** Audit history for an alert — surface previous fix attempts in the UI. */
+  app.get("/api/admin/alerts/:id/actions", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(String(req.params.id));
+      if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: "Invalid alert id" });
+      const entries = await listAlertActions(id, 20);
+      res.json({ data: entries });
+    } catch (err: any) {
+      log.error("Failed to list alert actions", { error: err.message });
+      res.status(500).json({ error: "Failed to list alert actions" });
     }
   });
 
