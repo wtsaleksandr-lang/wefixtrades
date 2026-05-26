@@ -29,6 +29,7 @@ import {
   StatusPill,
   LetterGradeBadge,
   OnboardingWalkthrough,
+  OnboardingWizard,
   VisualCalendar,
   buildEntryDate,
   ApprovalInbox,
@@ -40,7 +41,17 @@ import {
   type CalendarEntry,
   type InboxItem,
   type InboxAction,
+  type OnboardingStep,
+  type WizardState,
 } from "@/components/ui/visual-primitives";
+import {
+  TradePickerStep,
+  validateTradePicker,
+  ServiceAreaStep,
+  validateServiceArea,
+  renderPlatformConnect,
+  validatePlatformConnect,
+} from "@/components/onboarding/steps";
 import {
   METRIC_REGISTRY,
   type DashboardProduct,
@@ -885,6 +896,22 @@ export default function UiPrimitivesDemo() {
             Click <em>Replay walkthrough</em> in the top-right to see it again.
           </p>
         </Section>
+
+        <Section title="OnboardingWizard (Wave 33)">
+          <div className="w-full space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Universal 3-question setup scaffold for every product. Consumes
+              the shared step renderers in
+              <code className="mx-1 rounded bg-muted px-1 py-0.5 text-xs">
+                @/components/onboarding/steps
+              </code>
+              . The 5 existing product wizards (TradeLine excluded —
+              multi-mode), ContentFlow, RankFlow, SocialSync, and MapGuard
+              all mount this same primitive.
+            </p>
+            <OnboardingWizardDemo />
+          </div>
+        </Section>
       </div>
 
       <OnboardingWalkthrough
@@ -970,5 +997,67 @@ function CopilotMetricsPreview() {
         {JSON.stringify(previewPayload, null, 2)}
       </pre>
     </div>
+  );
+}
+
+/* ─── Wave 33: OnboardingWizard interactive demo ─────────────────────── */
+/**
+ * Mounts a 3-step sample wizard wired to the live shared step renderers.
+ * Persistence is a no-op (logs to console) so the demo is safe to click
+ * through repeatedly. Reset clears the localStorage draft.
+ */
+function OnboardingWizardDemo() {
+  const steps: OnboardingStep[] = [
+    {
+      id: "trade",
+      title: "What's your trade?",
+      description: "TradePickerStep — shared across every product.",
+      render: TradePickerStep,
+      validate: validateTradePicker,
+    },
+    {
+      id: "area",
+      title: "Where do you serve?",
+      description: "ServiceAreaStep — business name, ZIP, radius.",
+      render: ServiceAreaStep,
+      validate: validateServiceArea,
+    },
+    {
+      id: "platforms",
+      title: "Which platforms are we monitoring?",
+      description: "PlatformConnectStep (reviews mode).",
+      render: renderPlatformConnect("reviews"),
+      validate: validatePlatformConnect,
+    },
+  ];
+
+  async function onComplete(state: WizardState) {
+
+    console.info("[demo] OnboardingWizard complete", state);
+  }
+
+  return (
+    <OnboardingWizard
+      product="reputationshield"
+      productLabel="Demo product"
+      steps={steps}
+      onComplete={onComplete}
+      onSkip={() => console.info("[demo] OnboardingWizard skipped")}
+      conciergeHref="/contact?topic=demo"
+      livePreview={(state) => (
+        <div className="rounded-md border border-border bg-muted/30 p-3">
+          <p className="text-xs font-semibold text-foreground">
+            {(state.businessName as string) || "Your business"}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {(state.tradeName as string) ?? "Pick a trade →"}
+            {state.zip ? ` • ${state.zip as string}` : ""}
+          </p>
+          <pre className="mt-2 overflow-x-auto rounded bg-card p-2 text-[10px] text-muted-foreground">
+            {JSON.stringify(state, null, 2)}
+          </pre>
+        </div>
+      )}
+    />
   );
 }

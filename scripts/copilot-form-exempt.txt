@@ -279,3 +279,16 @@ client/src/pages/portal/webcare/WebCareSetup.tsx
 #    matrix across all 9 products + quiet-hours window + push subscribe
 #    button. No copilot-fillable free-text fields.
 client/src/pages/portal/settings/Notifications.tsx
+
+# ── Wave 33 — Universal 5-min onboarding wizards built on the shared
+#    OnboardingWizard primitive. All 4 new product wizards are
+#    wizard-step-driven with button advancement; the small free-text
+#    fields they do contain (business name, ZIP, website URL, keyword)
+#    pipe through the existing onboarding endpoint which the copilot
+#    already has fill-paths for. Matches the precedent for the 5 existing
+#    Setup wizards (QuoteQuick, AdFlow, WebCare, ReputationShield,
+#    SocialSync) which were exempted in Waves 28-31.
+client/src/pages/portal/contentflow/ContentFlowSetup.tsx
+client/src/pages/portal/rankflow/RankFlowSetup.tsx
+client/src/pages/portal/SocialSyncSetupV2.tsx
+client/src/pages/portal/mapguard/MapGuardSetup.tsx

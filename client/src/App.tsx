@@ -243,10 +243,15 @@ const AiInsightsPage = lazy(() => import("@/pages/portal/AiInsightsPage"));
 const CitationTrackerDashboard = lazy(() => import("@/pages/portal/CitationTrackerDashboard"));
 const CitationBuilderDashboard = lazy(() => import("@/pages/portal/CitationBuilderDashboard"));
 const SocialSyncSetup = lazy(() => import("@/pages/portal/SocialSyncSetup"));
+const SocialSyncSetupV2 = lazy(() => import("@/pages/portal/SocialSyncSetupV2"));
 const PortalSocialSync = lazy(() => import("@/pages/portal/PortalSocialSync"));
 const SocialSyncDashboard = lazy(() => import("@/pages/portal/socialsync/SocialSyncDashboard"));
 const PortalRankFlow = lazy(() => import("@/pages/portal/PortalRankFlow"));
 const RankFlowDashboard = lazy(() => import("@/pages/portal/rankflow/RankFlowDashboard"));
+const RankFlowSetup = lazy(() => import("@/pages/portal/rankflow/RankFlowSetup"));
+// Wave 33 — universal 5-min onboarding scaffold + new product setups.
+const ContentFlowSetup = lazy(() => import("@/pages/portal/contentflow/ContentFlowSetup"));
+const MapGuardSetup = lazy(() => import("@/pages/portal/mapguard/MapGuardSetup"));
 const PortalArticles = lazy(() => import("@/pages/portal/PortalArticles"));
 const PortalContentPreferences = lazy(() => import("@/pages/portal/PortalContentPreferences"));
 const PortalContentFlow = lazy(() => import("@/pages/portal/PortalContentFlow"));
@@ -444,6 +449,8 @@ function Router() {
           /portal/mapguard route — wouter matches first-hit. */}
       <Route path="/portal/mapguard/dashboard">{() => <RequireClient><MapGuardDashboard /></RequireClient>}</Route>
       <Route path="/portal/mapguard/alert-settings">{() => <RequireClient><MapGuardAlertSettings /></RequireClient>}</Route>
+      {/* Wave 33 — MapGuard 3-question customer-facing setup wizard. */}
+      <Route path="/portal/mapguard/setup">{() => <RequireClient><MapGuardSetup /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
       {/* Wave 28: ReputationShield UI upgrade. Dashboard + setup + notification
           settings — all mounted ABOVE the /portal/reviews legacy routes so
@@ -487,17 +494,23 @@ function Router() {
       <Route path="/portal/reviews/competitors">{() => <RequireClient><PortalCompetitors /></RequireClient>}</Route>
       <Route path="/portal/reviews">{() => <RequireClient><PortalReviews /></RequireClient>}</Route>
       <Route path="/portal/rankflow/dashboard">{() => <RequireClient><RankFlowDashboard /></RequireClient>}</Route>
+      {/* Wave 33 — RankFlow 3-question customer-facing setup wizard. */}
+      <Route path="/portal/rankflow/setup">{() => <RequireClient><RankFlowSetup /></RequireClient>}</Route>
       <Route path="/portal/rankflow">{() => <RequireClient><PortalRankFlow /></RequireClient>}</Route>
       <Route path="/portal/articles">{() => <RequireClient><PortalArticles /></RequireClient>}</Route>
       <Route path="/portal/content-preferences">{() => <RequireClient><PortalContentPreferences /></RequireClient>}</Route>
       {/* ContentFlow Phase 1 — prompt-library picker. */}
       <Route path="/portal/contentflow/examples">{() => <RequireClient><ContentExamplesPage /></RequireClient>}</Route>
       <Route path="/portal/contentflow/dashboard">{() => <RequireClient><PortalContentFlowDashboard /></RequireClient>}</Route>
+      {/* Wave 33 — ContentFlow 3-question customer-facing setup wizard. */}
+      <Route path="/portal/contentflow/setup">{() => <RequireClient><ContentFlowSetup /></RequireClient>}</Route>
       <Route path="/portal/contentflow">{() => <RequireClient><PortalContentFlow /></RequireClient>}</Route>
       <Route path="/portal/billing">{() => <RequireClient><PortalBilling /></RequireClient>}</Route>
       <Route path="/portal/help/tickets/:id">{() => <RequireClient><PortalTicketDetail /></RequireClient>}</Route>
       <Route path="/portal/socialsync-setup">{() => <RequireClient><SocialSyncSetup /></RequireClient>}</Route>
       <Route path="/portal/socialsync/dashboard">{() => <RequireClient><SocialSyncDashboard /></RequireClient>}</Route>
+      {/* Wave 33 — SocialSync 3-question setup (v2 — replaces the legacy 5-step wizard above). */}
+      <Route path="/portal/socialsync/setup">{() => <RequireClient><SocialSyncSetupV2 /></RequireClient>}</Route>
       <Route path="/portal/socialsync">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>
       <Route path="/portal/reputation">{() => <Redirect to="/portal/reviews" />}</Route>
       <Route path="/portal/dispatch">{() => <RequireClient><DispatchPage /></RequireClient>}</Route>
