@@ -83,9 +83,22 @@ const CATEGORY_STYLES: Record<CatalogService["category"], string> = {
   automation: "bg-pink-50 text-pink-700",
 };
 
+/* Wave 12B Bug #4a — the previous implementation produced a top-level
+ * route (`/${slug}`) which 404s because every marketing product page
+ * lives at `/products/<slug>` (see App.tsx line 473: `Route path="/products/:slug"`).
+ * It also rewrote `reputationshield` → `reputation-shield`, but the
+ * canonical product slug is `reputationshield` (see config/products.ts).
+ * The `quotequick` service.id maps to the URL slug `quickquotepro`. */
 function productPageUrl(serviceId: string): string {
-  const slug = serviceId.replace(/-setup$|-ongoing$/, "").replace(/^reputationshield$/, "reputation-shield");
-  return `/${slug}`;
+  // Strip the setup/ongoing suffix that the service catalog uses to split
+  // one product into two SKUs (e.g. mapguard-setup vs mapguard-ongoing).
+  const base = serviceId.replace(/-setup$|-ongoing$/, "");
+  // Map the few service.ids that don't match their product-page slug.
+  const slugByServiceId: Record<string, string> = {
+    quotequick: "quickquotepro",
+  };
+  const slug = slugByServiceId[base] ?? base;
+  return `/products/${slug}`;
 }
 
 export default function PortalCatalog() {

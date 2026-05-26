@@ -184,8 +184,11 @@ export const MenuItem = ({
               {item === "Tools" ? (
                 /* Effortel-style rich layout — only used for Tools (3
                    items, so each card has full real estate for a
-                   heading + subtitle + an inline product preview SVG). */
-                <ToolsRichCards items={children!} />
+                   heading + subtitle + an inline product preview SVG).
+                   Wave 12B Bug #3: pass onNavigate so each card click
+                   closes the dropdown immediately (the menu used to
+                   linger open after navigating). */
+                <ToolsRichCards items={children!} onNavigate={() => setActive(null)} />
               ) : (
                 <motion.div layout style={{ display: "contents" }}>
                   {children!.map(
@@ -194,6 +197,11 @@ export const MenuItem = ({
                         key={childHref + label}
                         href={childHref}
                         className="mkt-menu-card"
+                        // Wave 12B Bug #3 — close the mega-menu the moment
+                        // a product link is clicked. Without this the
+                        // dropdown stays open after route change and
+                        // covers the page the user just navigated to.
+                        onClick={() => setActive(null)}
                       >
                         <div
                           className="mkt-menu-card-icon"

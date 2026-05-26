@@ -45,6 +45,7 @@ import {
   ShieldOff,
   Radio,
   Eye,
+  ArrowLeft,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -1188,6 +1189,18 @@ export default function AdminLayout({
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </Button>
+            {/* Wave 12B Bug #1 — quick exit back to marketing site. Admin
+             *  session is preserved (clicking just navigates to /). Hidden
+             *  on the smallest mobile breakpoint to leave room for the
+             *  page title + Quick Add CTA on tiny screens. */}
+            <Link
+              href="/"
+              className="hidden sm:inline-flex items-center gap-1.5 mr-3 px-2 py-1 text-xs text-muted-foreground rounded-md border border-transparent hover:border-border hover:text-foreground transition-colors"
+              data-testid="admin-back-to-website"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              Back to website
+            </Link>
             <h1 className="text-sm font-medium text-foreground">
               {NAV_ITEMS.find((item) => isActive(location, item.href))?.label ??
                 OUTBOUND_ITEMS.find((item) => isActive(location, item.href))?.label ??

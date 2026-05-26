@@ -118,32 +118,37 @@ export function FirstVisitTooltip({
             "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-200",
           ].join(" ")}
         >
-          <div className="flex items-start gap-2.5">
-            <div className="flex-1 min-w-0 space-y-1">
-              {title && (
-                <p
-                  className="text-sm font-semibold leading-snug text-white"
-                  style={{ textWrap: "balance" }}
-                >
-                  {title}
-                </p>
-              )}
+          {/* Wave 12B Bug #2 — close button is anchored to the top-right
+           *  corner of the bubble (absolute) so it's always discoverable,
+           *  not buried inside the flex row. Visible slate-200 fill on a
+           *  hover-darker surface so users on both light + dark themes
+           *  can find it. 6px inset from the bubble edge. */}
+          <button
+            type="button"
+            onClick={dismiss}
+            className="absolute top-1.5 right-1.5 flex items-center justify-center w-6 h-6 rounded-md text-slate-200 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Dismiss tip"
+            data-testid={`first-visit-tooltip-dismiss-${storageKey}`}
+          >
+            <X className="w-4 h-4" />
+          </button>
+          {/* Body content — reserve right-side padding so the long title
+           *  never collides with the absolutely-positioned close button. */}
+          <div className="pr-6 space-y-1">
+            {title && (
               <p
-                className="text-xs leading-relaxed text-slate-200"
-                style={{ textWrap: "pretty" }}
+                className="text-sm font-semibold leading-snug text-white"
+                style={{ textWrap: "balance" }}
               >
-                {children}
+                {title}
               </p>
-            </div>
-            <button
-              type="button"
-              onClick={dismiss}
-              className="flex-shrink-0 text-slate-400 hover:text-white p-1 -m-1 rounded transition-colors"
-              aria-label="Dismiss tip"
-              data-testid={`first-visit-tooltip-dismiss-${storageKey}`}
+            )}
+            <p
+              className="text-xs leading-relaxed text-slate-200"
+              style={{ textWrap: "pretty" }}
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
+              {children}
+            </p>
           </div>
           {/* Pointer triangle — sized via inline style because Tailwind's
               tiny 8px square would trip the icon-size lint (w-2/h-2 is

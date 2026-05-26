@@ -256,7 +256,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "What kind of updates are included?", a: "Security patches, plugin and theme updates, content changes (text, images, hours, pricing), and performance checks." },
       { q: "How quickly do you respond to requests?", a: "Basic plan: within 2 business days. Pro plan: within 24 hours for priority requests." },
     ],
-    pricingSection: buildPricingSection(WEBCARE, "No contracts. Cancel anytime."),
+    pricingSection: buildPricingSection(WEBCARE, "No contracts. Cancel anytime.", { checkout: true }),
     related: ["rankflow", "mapguard", "sitelaunch"],
   },
   {
@@ -447,7 +447,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need to give website access?", a: "For the best results, yes. We need CMS access to implement optimizations. If that\u2019s not possible, we\u2019ll work with what\u2019s available." },
       { q: "Do you write the content?", a: "Yes. On Growth and Pro plans, we create SEO-optimized service and location pages targeting your services and area." },
     ],
-    pricingSection: buildPricingSection(RANKFLOW),
+    pricingSection: buildPricingSection(RANKFLOW, undefined, { checkout: true }),
     related: ["mapguard", "socialsync"],
   },
   {
@@ -495,7 +495,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I own the changes?", a: "Absolutely. Everything we fix stays on your website. It’s your site, your content, your improvements." },
       { q: "What CMS or platforms do you support?", a: "Our specialists handle WordPress, Wix, Squarespace, Shopify, and Webflow using your CMS login. We run an automated audit first, then our team makes the fixes by hand — no AI guessing on your site." },
     ],
-    pricingSection: buildPricingSection(WEBFIX, "One-time fee. No subscription. No hidden costs."),
+    pricingSection: buildPricingSection(WEBFIX, "One-time fee. No subscription. No hidden costs.", { checkout: true }),
     related: ["webcare", "rankflow", "sitelaunch"],
   },
   {
@@ -589,7 +589,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Can I cancel anytime?", a: "Yes. No long-term contracts. Your ad accounts and data stay yours if you cancel." },
       { q: "How quickly will I see leads?", a: "Paid ads can generate leads within days of launch. Most clients see meaningful results within the first 2–4 weeks." },
     ],
-    pricingSection: buildPricingSection(ADFLOW, "Ad spend is funded separately — you pay the ad platforms directly."),
+    pricingSection: buildPricingSection(ADFLOW, "Ad spend is funded separately — you pay the ad platforms directly.", { checkout: true }),
     related: ["tradeline", "rankflow", "mapguard"],
   },
   {
