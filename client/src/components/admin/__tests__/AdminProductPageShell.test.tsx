@@ -79,11 +79,14 @@ test('renders product name + Active pill when isActive=true', () => {
     }),
   );
   assert.ok(html.includes('QuoteQuick'), `expected product name in html`);
-  assert.ok(html.includes('Active'), `expected Active pill text`);
+  // Wave 11A: pill text renamed Active→Live / Inactive→Paused so it doesn't
+  // collide with the "Active" toggle below. data-product-shell-pill marker
+  // is unchanged for backward compat.
+  assert.ok(html.includes('Live'), `expected Live pill text`);
   assert.ok(html.includes('data-product-shell-pill="active"'), `expected active pill marker`);
 });
 
-test('renders Inactive pill when isActive=false', () => {
+test('renders Paused pill when isActive=false', () => {
   const html = renderToStaticMarkup(
     React.createElement(AdminProductPageShell, {
       productId: 'x',
@@ -96,7 +99,7 @@ test('renders Inactive pill when isActive=false', () => {
       onToggleHidden: () => {},
     }),
   );
-  assert.ok(html.includes('Inactive'), `expected Inactive label`);
+  assert.ok(html.includes('Paused'), `expected Paused pill label`);
   assert.ok(html.includes('data-product-shell-pill="inactive"'), `expected inactive pill marker`);
 });
 

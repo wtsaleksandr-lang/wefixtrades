@@ -279,52 +279,57 @@ export default function MapguardDashboard() {
    * MRR card, which is now shown in the shell's KPI strip above. */
   const overviewBody = (
     <div className="space-y-5">
-      {/* Stat Cards (portfolio-instance health — separate from the shell's MRR/subs strip above) */}
+      {/* Stat Cards (portfolio-instance health — separate from the shell's MRR/subs strip above).
+       *
+       * Wave 11A (2026-05-26): merged the two-row 5+3 layout into a single
+       * 7-card row at xl, gracefully collapsing at smaller breakpoints
+       * (xl:grid-cols-7 lg:grid-cols-4 md:grid-cols-2 grid-cols-1). The
+       * `!` overrides the shared StatCardGrid's lg:grid-cols-4 default so
+       * our explicit lg/xl values win on cascade order. */}
       {isLoading ? (
-        <StatCardGrid className="md:grid-cols-5 mb-0">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <StatCardGrid className="grid-cols-1 md:!grid-cols-2 lg:!grid-cols-4 xl:!grid-cols-7 mb-0">
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <Card key={i} className="h-full p-4"><Skeleton className="h-14 w-full" /></Card>
           ))}
         </StatCardGrid>
       ) : metrics && (
-        <>
-          <StatCardGrid className="md:grid-cols-5 mb-0">
-            <StatCard label="Active Clients" value={metrics.total_clients} icon={Users} color="bg-brand-blue" />
-            <StatCard label="At Risk" value={metrics.at_risk + metrics.significant_drops} icon={AlertTriangle} color={metrics.at_risk > 0 ? "bg-red-500" : "bg-gray-400"} />
-            <StatCard label="Improved" value={metrics.improved} icon={TrendingUp} color={metrics.improved > 0 ? "bg-emerald-500" : "bg-gray-400"} />
-            <StatCard
-              label="Avg Score"
-              value={metrics.avg_score !== null ? metrics.avg_score : "—"}
-              icon={Zap}
-              color="bg-blue-500"
-            />
-            <StatCard label="Upgrade Opps" value={metrics.upgrade_opportunities} icon={TrendingUp} color={metrics.upgrade_opportunities > 0 ? "bg-amber-500" : "bg-gray-400"} />
-          </StatCardGrid>
+        <StatCardGrid className="grid-cols-1 md:!grid-cols-2 lg:!grid-cols-4 xl:!grid-cols-7 mb-0">
+          <StatCard label="Active Clients" value={metrics.total_clients} icon={Users} color="bg-brand-blue" />
+          <StatCard label="At Risk" value={metrics.at_risk + metrics.significant_drops} icon={AlertTriangle} color={metrics.at_risk > 0 ? "bg-red-500" : "bg-gray-400"} />
+          <StatCard label="Improved" value={metrics.improved} icon={TrendingUp} color={metrics.improved > 0 ? "bg-emerald-500" : "bg-gray-400"} />
+          <StatCard
+            label="Avg Score"
+            value={metrics.avg_score !== null ? metrics.avg_score : "—"}
+            icon={Zap}
+            color="bg-blue-500"
+          />
+          <StatCard
+            label="Tier Mix"
+            value={`${metrics.basic_count}B · ${metrics.pro_count}P`}
+            icon={Users}
+            color="bg-blue-600"
+          />
+          <StatCard
+            label="GBP Posts (30d)"
+            value={metrics.posts_published_30d}
+            icon={Zap}
+            color={metrics.posts_published_30d > 0 ? "bg-brand-blue" : "bg-gray-400"}
+          />
+          <StatCard
+            label="Replies (30d)"
+            value={metrics.reviews_replied_30d}
+            icon={CheckCircle}
+            color={metrics.reviews_replied_30d > 0 ? "bg-brand-blue" : "bg-gray-400"}
+          />
+        </StatCardGrid>
+      )}
 
-          {/* Automation-delivery proof row. MRR is shown by the shell's KPI
-              strip above; the 30d counters show whether the post + review
-              automation is actually firing for paying customers. */}
-          <StatCardGrid className="md:grid-cols-3 mb-0 mt-3">
-            <StatCard
-              label="Tier Mix"
-              value={`${metrics.basic_count}B · ${metrics.pro_count}P`}
-              icon={Users}
-              color="bg-blue-600"
-            />
-            <StatCard
-              label="GBP Posts (30d)"
-              value={metrics.posts_published_30d}
-              icon={Zap}
-              color={metrics.posts_published_30d > 0 ? "bg-brand-blue" : "bg-gray-400"}
-            />
-            <StatCard
-              label="Replies (30d)"
-              value={metrics.reviews_replied_30d}
-              icon={CheckCircle}
-              color={metrics.reviews_replied_30d > 0 ? "bg-brand-blue" : "bg-gray-400"}
-            />
-          </StatCardGrid>
-        </>
+      {/* Upgrade Opps lives standalone — it's an action surface, not a KPI.
+       * Wave 11A: kept as separate accent row beneath the unified 7-card grid. */}
+      {metrics && metrics.upgrade_opportunities > 0 && (
+        <StatCardGrid className="grid-cols-1 md:!grid-cols-2 lg:!grid-cols-4 xl:!grid-cols-7 mb-0 mt-3">
+          <StatCard label="Upgrade Opps" value={metrics.upgrade_opportunities} icon={TrendingUp} color="bg-amber-500" />
+        </StatCardGrid>
       )}
 
       {/* Secondary metrics row */}
