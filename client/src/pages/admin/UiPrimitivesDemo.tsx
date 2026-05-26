@@ -19,8 +19,11 @@ import {
   StatusPill,
   LetterGradeBadge,
   OnboardingWalkthrough,
+  VisualCalendar,
+  buildEntryDate,
   type WalkthroughStep,
   type PipelineStripStage,
+  type CalendarEntry,
 } from "@/components/ui/visual-primitives";
 
 const WALKTHROUGH_STEPS: WalkthroughStep[] = [
@@ -56,11 +59,100 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function buildCalendarSeed(): CalendarEntry[] {
+  const today = new Date();
+  return [
+    {
+      id: "ce-1",
+      date: buildEntryDate(today, 9, 0),
+      title: "Spring boiler maintenance promo",
+      status: "scheduled",
+      contentType: "article",
+      channelColor: "hsl(var(--chart-1))",
+    },
+    {
+      id: "ce-2",
+      date: buildEntryDate(today, 14, 30),
+      title: "Twitter thread — heat-pump rebates 2026",
+      status: "draft",
+      contentType: "social",
+      channelColor: "hsl(var(--chart-4))",
+    },
+    {
+      id: "ce-3",
+      date: buildEntryDate(new Date(today.getTime() + 1 * 86400000), 10, 0),
+      title: "Reels short — emergency plumber call-out",
+      status: "in_progress",
+      contentType: "video",
+      channelColor: "hsl(var(--chart-2))",
+    },
+    {
+      id: "ce-4",
+      date: buildEntryDate(new Date(today.getTime() + 2 * 86400000), 11, 30),
+      title: "LinkedIn — case study, 27 vans saved fuel",
+      status: "approved",
+      contentType: "article",
+      channelColor: "hsl(var(--chart-1))",
+    },
+    {
+      id: "ce-5",
+      date: buildEntryDate(new Date(today.getTime() + 3 * 86400000), 8, 0),
+      title: "Instagram carousel — before/after kitchens",
+      status: "scheduled",
+      contentType: "image",
+      channelColor: "hsl(var(--chart-3))",
+    },
+    {
+      id: "ce-6",
+      date: buildEntryDate(new Date(today.getTime() + 4 * 86400000), 13, 0),
+      title: "Blog — top 7 trades to outsource in 2026",
+      status: "published",
+      contentType: "article",
+      channelColor: "hsl(var(--chart-1))",
+    },
+    {
+      id: "ce-7",
+      date: buildEntryDate(new Date(today.getTime() + 5 * 86400000), 15, 45),
+      title: "TikTok — drain unblocking timelapse",
+      status: "draft",
+      contentType: "video",
+      channelColor: "hsl(var(--chart-2))",
+    },
+    {
+      id: "ce-8",
+      date: buildEntryDate(new Date(today.getTime() + 7 * 86400000), 9, 30),
+      title: "Newsletter — boiler grants closing soon",
+      status: "scheduled",
+      contentType: "article",
+      channelColor: "hsl(var(--chart-1))",
+    },
+    {
+      id: "ce-9",
+      date: buildEntryDate(new Date(today.getTime() + 8 * 86400000), 12, 0),
+      title: "Threads — 'AI gave my plumber a 5-star year'",
+      status: "draft",
+      contentType: "social",
+      channelColor: "hsl(var(--chart-4))",
+    },
+    {
+      id: "ce-10",
+      date: buildEntryDate(new Date(today.getTime() + 10 * 86400000), 16, 30),
+      title: "Press release — Series A WeFixTrades close",
+      status: "approved",
+      contentType: "article",
+      channelColor: "hsl(var(--chart-5))",
+    },
+  ];
+}
+
 export default function UiPrimitivesDemo() {
   const [counter, setCounter] = useState<number>(42);
   const [gaugeValue, setGaugeValue] = useState<number>(72);
   const [stageCounts, setStageCounts] = useState<number[]>([12, 4, 2, 1]);
   const [restartTour, setRestartTour] = useState<number>(0);
+  const [calendarEntries, setCalendarEntries] = useState<CalendarEntry[]>(() =>
+    buildCalendarSeed()
+  );
 
   const stages: PipelineStripStage[] = [
     {
@@ -228,6 +320,48 @@ export default function UiPrimitivesDemo() {
             <LetterGradeBadge score={97} size="sm" />
             <LetterGradeBadge score={87} size="md" showScore />
             <LetterGradeBadge score={77} size="lg" showScore />
+          </div>
+        </Section>
+
+        <Section title="VisualCalendar">
+          <div className="w-full space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Drag-and-drop content calendar. 3 view modes (month / week / day),
+              thumbnails, channel-color dots, status pills, filter chips.
+              Shared by Wave 23 (ContentFlow) + Wave 25 (SocialSync).
+            </p>
+            <VisualCalendar
+              entries={calendarEntries}
+              filters={{
+                contentTypes: ["article", "social", "image", "video"],
+                statuses: ["draft", "scheduled", "approved"],
+              }}
+              onEntryReschedule={async (id, newDate) => {
+                setCalendarEntries((prev) =>
+                  prev.map((e) =>
+                    e.id === id
+                      ? {
+                          ...e,
+                          date: new Date(
+                            newDate.getFullYear(),
+                            newDate.getMonth(),
+                            newDate.getDate(),
+                            e.date.getHours(),
+                            e.date.getMinutes()
+                          ),
+                        }
+                      : e
+                  )
+                );
+              }}
+              onEntryClick={(e) => {
+                // demo: no-op
+                void e;
+              }}
+              onSlotClick={(d) => {
+                void d;
+              }}
+            />
           </div>
         </Section>
 

@@ -29,3 +29,12 @@ export type {
   OnboardingWalkthroughProps,
   WalkthroughStep,
 } from "./OnboardingWalkthrough";
+
+export { VisualCalendar, buildEntryDate } from "./VisualCalendar";
+export type {
+  VisualCalendarProps,
+  CalendarView,
+  CalendarEntry,
+  CalendarEntryStatus,
+  CalendarFilters,
+} from "./VisualCalendar";
