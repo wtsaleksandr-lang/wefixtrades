@@ -77,6 +77,7 @@ import { registerBookingApiRoutes } from "./bookingApiRoutes";
 import { registerBookflowRoutes } from "./bookflowRoutes";
 import { registerInvoiceTemplateRoutes } from "./invoiceTemplateRoutes";
 import { registerAdminAlertRoutes } from "./adminAlertRoutes";
+import { registerAiActionsRoutes } from "./aiActionsRoutes";
 import { registerAdminContentPipelineRoutes } from "./adminContentPipelineRoutes";
 import { registerChatAttachmentRoutes } from "./chatAttachmentRoutes";
 import { registerTradelineSetupRoutes } from "./tradelineSetupRoutes";
@@ -228,6 +229,8 @@ export async function registerRoutes(
   registerBookflowRoutes(app);
   registerInvoiceTemplateRoutes(app);
   registerAdminAlertRoutes(app);
+  // Wave 34 — universal AI-action dispatcher + cross-product audit log.
+  registerAiActionsRoutes(app);
   registerAdminContentPipelineRoutes(app);
   registerChatAttachmentRoutes(app);
   registerTradelineSetupRoutes(app);
