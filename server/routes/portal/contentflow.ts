@@ -114,8 +114,34 @@ export function registerPortalContentflowRoutes(app: Express) {
    */
   app.patch("/api/portal/contentflow/brand-profile", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
+      /* Wave 11B Issue 9 — admin-preview mode soft-success.
+       *
+       * `requireClient` lets admins through to the portal so they can
+       * preview the customer surface, but `resolveClientId` returns null
+       * because the admin user has no linked clients row. Pre-Wave 11B
+       * the handler then returned 403 `no_client_linked`, which the
+       * ContentStyleWizard surfaced as a red error toast. That made
+       * "preview the wizard end-to-end" impossible.
+       *
+       * Fix: when the caller is an admin AND no client record is linked,
+       * SILENTLY no-op the save and return 200 with `previewMode:true,
+       * persisted:false` so the wizard can mark the step complete with a
+       * "Preview mode — preferences not persisted" toast. Real customers
+       * (role !== 'admin' OR linked client row present) go through the
+       * normal path; no security weakening.
+       */
+      const clientId = await resolveClientId(req.user!.id);
+      if (!clientId) {
+        if (req.user!.role === "admin") {
+          return res.json({
+            ok: true,
+            previewMode: true,
+            persisted: false,
+            brand_profile: null,
+          });
+        }
+        return res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
+      }
       const patch = sanitizeBrandProfilePatch(req.body, "client");
       const updated = await mergeBrandProfile(clientId, patch);
       res.json({ ok: true, brand_profile: updated });

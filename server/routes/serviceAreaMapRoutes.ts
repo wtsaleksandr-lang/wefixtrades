@@ -55,8 +55,36 @@ function getCacheDir(): string {
   return dir;
 }
 
+/**
+ * Resolve the Google Maps API key from env.
+ *
+ * Wave 11B Issue 8 — false-negative fix. The original implementation only
+ * read GOOGLE_MAPS_API_KEY and did not trim, so a value with surrounding
+ * whitespace (Doppler → Replit shells have occasionally inserted a
+ * trailing newline) would still be truthy on `process.env[name]` but the
+ * downstream geocode/static-maps fetch would 400. Now:
+ *   - Reads GOOGLE_MAPS_API_KEY first (canonical), then falls back to
+ *     GOOGLE_API_KEY / VITE_GOOGLE_MAPS_API_KEY (the same variants
+ *     healthz.ts already accepts).
+ *   - Trims whitespace.
+ *   - Returns null on empty/whitespace-only — so apiKeyConfigured is a
+ *     truthful boolean, not just !!process.env[name].
+ *
+ * NEVER logs the value. Only the variant name is logged on a hit.
+ */
 function getMapsApiKey(): string | null {
-  return process.env.GOOGLE_MAPS_API_KEY || null;
+  const candidates = [
+    process.env.GOOGLE_MAPS_API_KEY,
+    process.env.GOOGLE_API_KEY,
+    process.env.VITE_GOOGLE_MAPS_API_KEY,
+  ];
+  for (const raw of candidates) {
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (trimmed.length > 0) return trimmed;
+    }
+  }
+  return null;
 }
 
 /* ─── helpers ─── */
