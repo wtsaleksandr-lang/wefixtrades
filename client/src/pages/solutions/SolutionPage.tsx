@@ -1,9 +1,10 @@
-import { useEffect } from "react";
 import { useParams, Link } from "wouter";
-import { Check, ArrowRight, Phone, Wrench, Zap, Home, Sparkles, Fan, Trees, Bug, Warehouse, KeyRound, PaintBucket, Hammer, Building2 } from "lucide-react";
+import { ArrowRight, Wrench, Zap, Home, Sparkles, Fan, Trees, Bug, Warehouse, KeyRound, PaintBucket, Hammer, Building2 } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
-import { V7Hero, V7PageShell } from "@/components/marketing/v7";
+import { V7PageShell } from "@/components/marketing/v7";
+import SplitHero from "@/components/marketing/SplitHero";
+import { TradeHeroAnimation } from "@/components/marketing/heroAnimations/registry";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { IconBadge } from "@/components/IconBadge";
 import NotFound from "@/pages/not-found";
@@ -373,8 +374,6 @@ export default function SolutionPage() {
 
   if (!solution) return <NotFound />;
 
-  const HeroIcon = solution.heroIcon;
-
   return (
     <MarketingLayout>
       <PageMeta
@@ -384,14 +383,17 @@ export default function SolutionPage() {
       />
       <V7PageShell>
       <div data-testid={`solution-page-${solution.slug}`}>
-        <V7Hero
-          productName={`For ${solution.trade}`}
-          headline={solution.headline}
-          sub={solution.subheadline}
-          ctas={[
-            { label: "See Pricing", href: "/pricing" },
-            { label: "Watch Demos", href: "/demos" },
-          ]}
+        {/* Wave 13 — split-layout hero with per-trade animated visual.
+            Chip is FOR {TRADE} in white, title lifted, tagline removed,
+            subtitle kept to one line. Trade slug routes the registry to
+            the correct animation; unknown trades get the generic fallback. */}
+        <SplitHero
+          chip={`For ${solution.trade}`.toUpperCase()}
+          title={solution.headline}
+          subtitle={solution.subheadline}
+          ctaPrimary={{ label: "See Pricing", href: "/pricing" }}
+          ctaSecondary={{ label: "Watch Demos", href: "/demos" }}
+          animation={<TradeHeroAnimation slug={solution.slug} />}
         />
 
         <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="solution-pain-points">

@@ -42,6 +42,8 @@ import { getProductTestimonials } from "@/config/product-testimonials";
 import TradeLineHeroPhone from "@/components/marketing/TradeLineHeroPhone";
 import TradeLineDemoLauncher from "@/components/marketing/TradeLineDemoLauncher";
 import { HorizontalCarousel } from "@/components/marketing/HorizontalCarousel";
+import SplitHero from "@/components/marketing/SplitHero";
+import { ProductHeroAnimation } from "@/components/marketing/heroAnimations/registry";
 import NotFound from "@/pages/not-found";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import type { CalculatorData } from "@/components/quote-widget/types";
@@ -489,58 +491,22 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
     );
   }
 
-  // Default centered hero for all other products
-  const isQQ = slug === "quickquotepro";
+  // Wave 13 — split-layout hero (BrightLocal/Rekord pattern) with per-product
+  // animated visual on the right. Replaces the legacy centered text-only hero.
+  // Polish per Alex 2026-05-26:
+  //   - WHITE top-left product chip (out of the way of the title)
+  //   - LIFTED title (SplitHero uses 64px top padding vs the old 88px)
+  //   - TAGLINE removed (hook.eyebrow no longer rendered in the hero)
+  //   - Subtitle kept (1 line)
   return (
-    <section style={{ padding: "88px 24px 56px", position: "relative", overflow: "hidden" }}>
-      <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.08) 0%, transparent 60%)",
-      }} />
-      {isQQ && (
-        <span style={{ position: "absolute", top: 24, left: 24, fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent }}>
-          {cfg.name}
-        </span>
-      )}
-      <div style={{ maxWidth: 1180, margin: "0 auto", position: "relative", textAlign: "center" }}>
-        {!isQQ && (
-          <Reveal>
-            <span style={{ display: "inline-block", fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 16 }}>
-              {cfg.name}
-            </span>
-          </Reveal>
-        )}
-        {hook?.eyebrow && (
-          <Reveal delay={0.04}>
-            <p style={{ fontSize: 14, color: mkt.onDarkFaint, fontStyle: "italic", marginBottom: 18, maxWidth: 540, margin: "0 auto 18px" }}>
-              {hook.eyebrow}
-            </p>
-          </Reveal>
-        )}
-        <Reveal delay={0.08}>
-          <h1 style={{ fontSize: isQQ ? "clamp(35px, 5.2vw, 64px)" : "clamp(44px, 6.5vw, 80px)", fontWeight: 700, lineHeight: 0.98, letterSpacing: "-0.03em", color: mkt.onDark, marginBottom: 24, maxWidth: 920, margin: "0 auto 24px" }}>
-            {hook?.headline ?? cfg.shortTagline}
-          </h1>
-        </Reveal>
-        <Reveal delay={0.12}>
-          <p style={{ fontSize: 18, lineHeight: 1.5, color: mkt.onDarkMuted, maxWidth: 580, margin: "0 auto 36px" }}>
-            {hook?.sub ?? cfg.seoDescription}
-          </p>
-        </Reveal>
-        <Reveal delay={0.16}>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <CtaLink href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
-              {cfg.primaryCTA.label} <ArrowRight size={16} />
-            </CtaLink>
-            {cfg.secondaryCTA && (
-              <CtaLink href={cfg.secondaryCTA.href} className="wft-hover-border-white" style={ctaGhost}>
-                {cfg.secondaryCTA.label}
-              </CtaLink>
-            )}
-          </div>
-        </Reveal>
-      </div>
-    </section>
+    <SplitHero
+      chip={cfg.name}
+      title={hook?.headline ?? cfg.shortTagline}
+      subtitle={hook?.sub ?? cfg.seoDescription}
+      ctaPrimary={cfg.primaryCTA}
+      ctaSecondary={cfg.secondaryCTA}
+      animation={<ProductHeroAnimation slug={slug} />}
+    />
   );
 }
 
