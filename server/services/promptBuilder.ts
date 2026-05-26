@@ -1,7 +1,11 @@
 import { compileKnowledge, formatRecommendedServices, getRecommendedServices } from "./knowledgeBase";
 import type { TradelineConfig } from "@shared/schema";
 import { TRADELINE_DEMO_PROMPT } from "@shared/prompts/tradelineDemoPrompt";
-import { COPILOT_PROMPT_INSTRUCTION } from "@shared/copilotProtocol";
+import {
+  COPILOT_PROMPT_INSTRUCTION,
+  COPILOT_CARDS_INSTRUCTION,
+  COPILOT_GUIDED_TOUR_PREAMBLE,
+} from "@shared/copilotProtocol";
 import { buildConciergeAddendum } from "./portalConciergeTemplates";
 import type { AIConfigPatch } from "./onboardingMappers";
 
@@ -631,6 +635,20 @@ Rules:
   // question with AI-generated buttons (+ optional free-text). Shared verbatim
   // with the portal copilot.
   parts.push(COPILOT_PROMPT_INSTRUCTION);
+  // Wave 12A: brevity preamble + COPILOT_CARDS recommendation tiles. Shared
+  // verbatim across all copilot surfaces so the operator gets the same
+  // guided-tour experience as the portal customer.
+  parts.push(COPILOT_GUIDED_TOUR_PREAMBLE);
+  parts.push(COPILOT_CARDS_INSTRUCTION);
+  // Wave 12A: tighten admin tone to "terse, action-oriented" so the
+  // guided-tour buttons + cards do the heavy lifting instead of prose.
+  parts.push(`
+
+== ADMIN TONE ==
+You are talking to the WeFixTrades operator. Be terse + action-oriented:
+- 1-2 sentences default. Skip filler ("I'd be happy to...", "Great question!").
+- When the operator asks about alerts, issues, blocked items, or overdue work — answer with the COUNT first, then offer ACTION buttons via ACTION_PROPOSAL (e.g. navigate to the page) or COPILOT_PROMPT (e.g. "Acknowledge all 3?").
+- Never list more than 3 items in prose; instead offer a "show all" navigate button.`);
 
   return parts.join("\n");
 }

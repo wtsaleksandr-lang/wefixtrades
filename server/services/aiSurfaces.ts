@@ -39,6 +39,10 @@ export const AI_SURFACES = {
   // action recommendations from MapGuard/CT signals. 24h cache keeps
   // monthly spend low (~$0.10/customer/mo at full utilization).
   ai_insights: "ai_insights",
+  // Wave 12A — anonymous marketing chat widget on wefixtrades.com. Visitor
+  // qualification + product recommendation + lead capture. Per-IP rate-
+  // limited (20 msgs/min); per-session message cap enforced server-side.
+  wft_marketing_chat: "wft_marketing_chat",
 } as const;
 
 export type AiSurface = (typeof AI_SURFACES)[keyof typeof AI_SURFACES];
@@ -74,6 +78,10 @@ export const DEFAULT_BUDGET_CENTS: Record<AiSurface, number | null> = {
   // 24h cache + max 1 refresh/hr/customer keeps spend bounded. Conservative
   // monthly cap; gate row will lazy-create on first call.
   ai_insights: 2000,
+  // Wave 12A — anonymous marketing chat. Per-IP 20/min limiter + per-
+  // session 30-message cap keeps abuse contained. $20/mo soft cap pauses
+  // the surface if it ever runs hot before launch.
+  wft_marketing_chat: 2000,
 };
 
 /** Human-readable display label used in the admin gates dashboard. */
@@ -98,4 +106,5 @@ export const AI_SURFACE_LABELS: Record<AiSurface, string> = {
   ops_engine: "Ops Engine Summary",
   demo: "Public Demos",
   ai_insights: "AI Insights (MapGuard)",
+  wft_marketing_chat: "Marketing Chat Widget (Anonymous)",
 };

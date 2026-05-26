@@ -12,7 +12,8 @@ import ChatAttachmentInput, {
 import { loadPortalMessages, savePortalMessages, readSSEStream } from "@/lib/chatHelpers";
 import { useToast } from "@/hooks/use-toast";
 import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
-import type { CopilotPromptRequest } from "@shared/copilotProtocol";
+import CopilotCards from "@/components/shared/CopilotCards";
+import type { CopilotPromptRequest, CopilotCard } from "@shared/copilotProtocol";
 import { useActiveCopilotForm } from "@/context/CopilotFormContext";
 import { getNavigationTrail } from "@/lib/chat/pageContext";
 
@@ -307,7 +308,7 @@ export default function PortalChatWidget({
 
   // Q24: persist messages across page navigations + page reloads via localStorage.
   // Backend chat_memory table is also linked via session id once the user logs in.
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; actions?: ActionProposal[] }[]>(
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; actions?: ActionProposal[]; cards?: CopilotCard[] }[]>(
     () => {
       const saved = loadPortalMessages();
       return saved.length > 0 ? saved.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })) : [];
@@ -532,6 +533,12 @@ export default function PortalChatWidget({
 
       const replyText = meta && typeof meta.reply === "string" ? meta.reply : streamedText;
 
+      // Wave 12A: recommendation cards. Server-side sanitizeCopilotCards
+      // already enforces safe hrefs/images, so we trust the shape here.
+      const safeCards: CopilotCard[] | undefined = meta && Array.isArray(meta.cards) && meta.cards.length > 0
+        ? (meta.cards as CopilotCard[]).slice(0, 3)
+        : undefined;
+
       if (toolCallEvent) {
         /* The copilot proposed an action. Keep the assistant's lead-in text
          * only when non-empty; the confirmation card renders separately from
@@ -545,6 +552,7 @@ export default function PortalChatWidget({
                 role: "assistant" as const,
                 content: replyText,
                 actions: safeActions && safeActions.length > 0 ? safeActions : undefined,
+                cards: safeCards,
               }]
             : [...updated],
         );
@@ -561,6 +569,7 @@ export default function PortalChatWidget({
           role: "assistant" as const,
           content: replyText || "Sorry, something went wrong.",
           actions: safeActions && safeActions.length > 0 ? safeActions : undefined,
+          cards: safeCards,
         }]);
 
         // Handle escalation draft (only for help surface)
@@ -915,6 +924,27 @@ export default function PortalChatWidget({
                     ? m.content
                     : <Loader2 className="w-4 h-4 animate-spin text-muted-foreground/70" />}
                 </div>
+                {m.role === "assistant" && m.cards && m.cards.length > 0 && (
+                  <div className="mt-1.5 w-full max-w-[85%]" data-testid={`chat-cards-${i}`}>
+                    <CopilotCards
+                      cards={m.cards}
+                      variant="portal"
+                      onSelect={(card) => {
+                        if (card.href && card.href.startsWith("/portal/")) {
+                          setLocation(card.href);
+                          onClose();
+                          return;
+                        }
+                        if (card.href && (card.href.startsWith("/") || card.href.startsWith("https://"))) {
+                          window.open(card.href, card.href.startsWith("/") ? "_self" : "_blank", "noopener");
+                          return;
+                        }
+                        // No href — treat as "tell me more about this" by sending the title.
+                        send(`Tell me more about ${card.title}`);
+                      }}
+                    />
+                  </div>
+                )}
                 {m.role === "assistant" && m.actions && m.actions.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[85%]" data-testid={`chat-actions-${i}`}>
                     {m.actions.map((a, j) => (

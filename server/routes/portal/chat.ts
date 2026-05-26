@@ -23,7 +23,13 @@ import { chat as aiChat, streamChat, getModel } from "../../services/aiService";
 import { logUsage } from "../../services/usageTracker";
 import { getBudgetBandForPortalUser, modelOverrideForBand } from "../../services/aiBudget";
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../../services/threadService";
-import { COPILOT_PROMPT_INSTRUCTION, extractCopilotPrompt } from "@shared/copilotProtocol";
+import {
+  COPILOT_PROMPT_INSTRUCTION,
+  COPILOT_CARDS_INSTRUCTION,
+  COPILOT_GUIDED_TOUR_PREAMBLE,
+  extractCopilotPrompt,
+  extractCopilotCards,
+} from "@shared/copilotProtocol";
 import { getMemory, saveMemory } from "../../services/chatMemory";
 import {
   getCopilotAction,
@@ -204,8 +210,9 @@ Your job:
 - Answer questions about how services work
 - Explain billing, onboarding, and service delivery
 - Help clients understand their portal and dashboard
-- Keep answers short and practical (2-4 sentences)
+- Keep answers SHORT — 1-3 sentences by default. Only expand into bullets when the user explicitly asks ("compare", "list everything", "give me detail").
 - Use Australian English
+- When a customer says they want to set up / configure / change something, walk them through one step at a time with a COPILOT_PROMPT block (one question + buttons per turn). Never dump a multi-step checklist as prose.
 
 When you CANNOT resolve the customer's issue (e.g. it requires account-specific action, is about something broken, or you've already tried and failed to help), offer to create a support ticket so a human can assist. Do this naturally in your reply — just suggest it as an option.
 
@@ -218,7 +225,7 @@ Do NOT:
 - Make up account-specific details (balances, dates, statuses)
 - Provide legal or financial advice
 - Discuss internal pricing or margins
-- Create tickets automatically — always offer first and let the user decide${actionProposalBlock}${formFillInstruction}${COPILOT_PROMPT_INSTRUCTION}${pageContextBlock}`;
+- Create tickets automatically — always offer first and let the user decide${COPILOT_GUIDED_TOUR_PREAMBLE}${actionProposalBlock}${formFillInstruction}${COPILOT_PROMPT_INSTRUCTION}${COPILOT_CARDS_INSTRUCTION}${pageContextBlock}`;
       } else {
         // Onboarding context — no escalation
         const fieldList = (context?.fields ?? [])
@@ -274,7 +281,7 @@ Rules for proposing fills:
 - value must be a string. For booleans use "true" / "false". For multi-select, comma-separated.
 - One proposal block per reply, max 3 fills inside.
 - Include a human-readable sentence in your reply BEFORE the FORM_FILL block — e.g. "Here's what I'll fill in — review and confirm below." The block itself is invisible to the customer; they see Apply/Skip buttons rendered from it.
-- If you're not ready to propose, just keep chatting — no FORM_FILL block.${actionProposalBlock}${COPILOT_PROMPT_INSTRUCTION}${pageContextBlock}`;
+- If you're not ready to propose, just keep chatting — no FORM_FILL block.${COPILOT_GUIDED_TOUR_PREAMBLE}${actionProposalBlock}${COPILOT_PROMPT_INSTRUCTION}${COPILOT_CARDS_INSTRUCTION}${pageContextBlock}`;
       }
 
       // Stream the assistant reply over SSE. Headers go out before the first
@@ -509,6 +516,11 @@ Rules for proposing fills:
       const { cleanedText: replyAfterPrompt, prompt: promptRequest } = extractCopilotPrompt(reply);
       reply = replyAfterPrompt;
 
+      // Wave 12A: extract COPILOT_CARDS recommendation tiles. Server-side
+      // sanitizer already enforces relative-or-https hrefs + 3-card cap.
+      const { cleanedText: replyAfterCards, cards: copilotCards } = extractCopilotCards(reply);
+      reply = replyAfterCards;
+
       // ─── Structured escalation detection ───
       // A lightweight AI classification decides whether the reply offers to
       // escalate to human support; if so, a second call extracts a ticket
@@ -586,7 +598,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       // stripped) plus any structured cards. The client snaps the streamed
       // bubble to `reply` and renders the cards from this payload.
       res.write(
-        `data: ${JSON.stringify({ meta: { reply, escalation_draft: escalationDraft, proposal, actions, prompt_request: promptRequest } })}\n\n`,
+        `data: ${JSON.stringify({ meta: { reply, escalation_draft: escalationDraft, proposal, actions, prompt_request: promptRequest, cards: copilotCards } })}\n\n`,
       );
       res.write("data: [DONE]\n\n");
       res.end();
