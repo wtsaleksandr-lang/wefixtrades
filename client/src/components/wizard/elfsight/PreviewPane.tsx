@@ -160,6 +160,24 @@ const MIN_H = 320;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 2.0;
 const ZOOM_STEP = 0.1;
+// Wave 18 — Canva-level alignment snap. When the widget center comes within
+// this many CSS pixels of the canvas center (horizontal or vertical), the
+// alignment guide line appears and the position snaps to perfect-center.
+const ALIGN_SNAP_PX = 6;
+// Wave 18 — keyboard nudge sizes. Arrow keys move the selected widget by
+// NUDGE_PX (1 px). Shift + Arrow moves by NUDGE_PX_LARGE (10 px). Matches
+// Canva / Figma defaults so the muscle memory transfers.
+const NUDGE_PX = 1;
+const NUDGE_PX_LARGE = 10;
+// Wave 18 — drag-inertia constants. After pointerup, if the user's pointer
+// was moving above MOMENTUM_MIN_VELOCITY (px / ms), the bezel coasts for
+// MOMENTUM_DURATION_MS milliseconds using an ease-out curve. Disabled under
+// prefers-reduced-motion. Velocity is sampled from the last ~80ms of move
+// events so a slow-and-stop release doesn't get false momentum.
+const MOMENTUM_MIN_VELOCITY = 0.4; // px/ms in pane CSS px
+const MOMENTUM_DURATION_MS = 360;
+const MOMENTUM_SAMPLE_WINDOW_MS = 80;
+const MOMENTUM_MAX_OFFSET_PX = 96; // never throw the widget more than this in one fling
 // Drag-bug fix — vertical reserve (in pane CSS pixels) kept clear above the
 // bezel so the 28-px drag handle never scrolls/clips above the canvas
 // viewport top. 32 leaves a 4-px breathing strip above the handle.
@@ -254,6 +272,29 @@ export default function PreviewPane({
   // clicked the widget chrome (drag handle or empty space) — surfaces the
   // resize handles. Cleared by clicking the canvas background.
   const [widgetSelected, setWidgetSelected] = useState(false);
+  // Wave 18 — Canva-level hover affordance. When the mouse is over the bezel
+  // (but the widget isn't yet selected) the resize handles fade to ~40%
+  // opacity so users can see "this is grabbable" before they click. Bezel +
+  // canvas mouseenter/leave drive the flag. Touch devices don't toggle it
+  // (no hover state); they rely on tap-to-select.
+  const [widgetHover, setWidgetHover] = useState(false);
+  // Wave 18 — dimension tooltip shown while resizing. `null` = not resizing.
+  // The W × H number tracks `widgetSize` (or the bezel natural size when no
+  // override is set); we surface it in pane CSS pixels next to the dragged
+  // handle.
+  const [resizeDims, setResizeDims] = useState<{
+    w: number; h: number; clientX: number; clientY: number;
+  } | null>(null);
+  // Wave 18 — alignment guides shown while dragging. Each guide is one of
+  // the canvas axes (horizontal centerline or vertical centerline). When the
+  // widget center aligns with the canvas center (within ALIGN_SNAP_PX), the
+  // guide line appears and the widget snaps to perfect alignment. Empty
+  // array = no guides visible. Coords are in pane CSS pixels.
+  const [guides, setGuides] = useState<Array<{
+    kind: 'vertical' | 'horizontal';
+    /** Pane CSS-px position along the perpendicular axis. */
+    pos: number;
+  }>>([]);
   // BD-3b — zoom level (0.25 .. 2.0). Persisted to sessionStorage.
   const [zoom, setZoom] = useState<number>(() => loadZoom(sessionId));
 
@@ -270,9 +311,69 @@ export default function PreviewPane({
   }, [zoom, sessionId]);
 
   // ── Drag state ────────────────────────────────────────────────────────
+  // Wave 18 — `samples` is a circular buffer of recent pointer positions
+  // used to estimate release velocity for the inertia / momentum coast.
   const dragStateRef = useRef<{
     startX: number; startY: number; baseX: number; baseY: number; pointerId: number;
+    samples: Array<{ t: number; x: number; y: number }>;
   } | null>(null);
+  // Wave 18 — animation frame id for the inertia coast so we can cancel it
+  // when the user grabs the widget again mid-coast (matches Canva).
+  const momentumRafRef = useRef<number | null>(null);
+
+  // prefers-reduced-motion — used by both inertia (skip coast) and the
+  // selection outline transition. Tracked as a ref so handlers don't need a
+  // re-render to read it.
+  const reduceMotionRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => { reduceMotionRef.current = mq.matches; };
+    update();
+    mq.addEventListener?.('change', update);
+    return () => { mq.removeEventListener?.('change', update); };
+  }, []);
+
+  /**
+   * Wave 18 — snap the widget center to the canvas center when within
+   * ALIGN_SNAP_PX. Returns the (possibly-snapped) offset PLUS the alignment
+   * guides to visualise. Coordinates are in stage CSS px (same units as
+   * widgetOffset). Called from `onHandlePointerMove`.
+   */
+  const applyAlignSnap = useCallback((
+    rawX: number, rawY: number,
+  ): { x: number; y: number; guides: Array<{ kind: 'vertical' | 'horizontal'; pos: number }> } => {
+    const pane = paneRef.current;
+    const bezel = bezelMeasureRef.current;
+    if (!pane || !bezel) return { x: rawX, y: rawY, guides: [] };
+    const paneRect = pane.getBoundingClientRect();
+    const bezelRect = bezel.getBoundingClientRect();
+    // The bezel's current visible left/top in pane-CSS-px (post-transform).
+    const bezelLeft = bezelRect.left - paneRect.left;
+    const bezelTop = bezelRect.top - paneRect.top;
+    const bezelW = bezelRect.width;
+    const bezelH = bezelRect.height;
+    // Pane center & widget center.
+    const paneCenterX = paneRect.width / 2;
+    const paneCenterY = paneRect.height / 2;
+    const widgetCenterX = bezelLeft + bezelW / 2;
+    const widgetCenterY = bezelTop + bezelH / 2;
+    // dx required (in pane-CSS-px) to perfectly center horizontally / vertically.
+    const dxPane = paneCenterX - widgetCenterX;
+    const dyPane = paneCenterY - widgetCenterY;
+    const out = { x: rawX, y: rawY };
+    const g: Array<{ kind: 'vertical' | 'horizontal'; pos: number }> = [];
+    if (Math.abs(dxPane) <= ALIGN_SNAP_PX) {
+      // Convert pane delta → stage delta (divide by zoom). Snap on X axis.
+      out.x = rawX + dxPane / zoom;
+      g.push({ kind: 'vertical', pos: paneCenterX });
+    }
+    if (Math.abs(dyPane) <= ALIGN_SNAP_PX) {
+      out.y = rawY + dyPane / zoom;
+      g.push({ kind: 'horizontal', pos: paneCenterY });
+    }
+    return { x: out.x, y: out.y, guides: g };
+  }, [zoom]);
 
   /**
    * BD-3b — start a widget drag from the top-bar handle. The handle covers
@@ -289,10 +390,17 @@ export default function PreviewPane({
     e.stopPropagation();
     const handle = e.currentTarget;
     handle.setPointerCapture(e.pointerId);
+    // Wave 18 — cancel any in-flight inertia coast. Grabbing mid-coast
+    // should immediately yield control to the new pointer (Canva behaviour).
+    if (momentumRafRef.current != null) {
+      cancelAnimationFrame(momentumRafRef.current);
+      momentumRafRef.current = null;
+    }
     dragStateRef.current = {
       startX: e.clientX, startY: e.clientY,
       baseX: widgetOffset.x, baseY: widgetOffset.y,
       pointerId: e.pointerId,
+      samples: [{ t: performance.now(), x: e.clientX, y: e.clientY }],
     };
     if (paneRef.current) paneRef.current.dataset.dragging = '1';
     setWidgetSelected(true);
@@ -332,9 +440,21 @@ export default function PreviewPane({
     const maxDy = (paneRect.bottom - VISIBLE_MIN - naturalTop) / zoom;
     const rawX = Math.max(minDx, Math.min(maxDx, st.baseX + dx));
     const rawY = Math.max(minDy, Math.min(maxDy, st.baseY + dy));
-    // Snap to 24px grid (matches BD-3a square grid background).
-    setWidgetOffset({ x: snap(rawX), y: snap(rawY) });
-  }, [widgetOffset.x, widgetOffset.y, zoom]);
+    // Record velocity sample for the post-release momentum coast.
+    st.samples.push({ t: performance.now(), x: e.clientX, y: e.clientY });
+    // Trim samples older than the sample window so the velocity estimate
+    // reflects the *recent* motion, not the full drag history.
+    const cutoff = performance.now() - MOMENTUM_SAMPLE_WINDOW_MS * 2;
+    while (st.samples.length > 2 && st.samples[0].t < cutoff) st.samples.shift();
+    // Snap to 24px grid first (matches BD-3a square grid background), then
+    // overlay Canva-level alignment-to-canvas-center snap. The alignment
+    // snap wins because it's the finer adjustment the user actually wants.
+    const gridX = snap(rawX);
+    const gridY = snap(rawY);
+    const aligned = applyAlignSnap(gridX, gridY);
+    setWidgetOffset({ x: aligned.x, y: aligned.y });
+    setGuides(aligned.guides);
+  }, [widgetOffset.x, widgetOffset.y, zoom, applyAlignSnap]);
 
   const onHandlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = dragStateRef.current;
@@ -342,6 +462,11 @@ export default function PreviewPane({
     const handle = e.currentTarget;
     try { handle.releasePointerCapture(e.pointerId); } catch {}
     if (paneRef.current) delete paneRef.current.dataset.dragging;
+    // Wave 18 — clear alignment guides on release.
+    setGuides([]);
+    // Wave 18 — capture the velocity samples BEFORE we null out drag state
+    // so the post-release inertia coast can read them.
+    const releaseSamples = st.samples.slice();
     dragStateRef.current = null;
 
     // Drag-bug fix — snap-back. If the user releases with less than
@@ -380,10 +505,109 @@ export default function PreviewPane({
       }
     }
 
+    // Wave 18 — drag inertia / momentum coast.
+    //
+    // Compute the recent velocity from the last MOMENTUM_SAMPLE_WINDOW_MS of
+    // pointer samples. If the user released while still moving above the
+    // velocity threshold, coast the widget by (vx, vy) * MOMENTUM_DURATION
+    // along an ease-out curve. This matches Canva / Figma's "throw" feel
+    // and prevents abrupt stops on release. Disabled when:
+    //  - prefers-reduced-motion is set
+    //  - the snap-back already corrected the offset (the coast would fight)
+    //  - velocity is below MOMENTUM_MIN_VELOCITY
+    const coastFromOffset = finalOffset;
+    let nextOffset = finalOffset;
+    if (
+      !reduceMotionRef.current
+      && releaseSamples.length >= 2
+    ) {
+      const now = performance.now();
+      // Find the oldest sample still inside the window.
+      let i = releaseSamples.length - 1;
+      while (i > 0 && now - releaseSamples[i].t < MOMENTUM_SAMPLE_WINDOW_MS) i--;
+      const a = releaseSamples[i];
+      const b = releaseSamples[releaseSamples.length - 1];
+      const dt = Math.max(1, b.t - a.t);
+      const vx = (b.x - a.x) / dt; // px/ms in client coords
+      const vy = (b.y - a.y) / dt;
+      const speed = Math.hypot(vx, vy);
+      if (speed >= MOMENTUM_MIN_VELOCITY) {
+        // Translate fling velocity into a stage-CSS-px coast delta.
+        // The 0.5 multiplier yields the right "throw distance" feel after
+        // ease-out integration — calibrated to Canva (a 1px/ms swipe
+        // travels ~180px post-release at scale 1).
+        const coastScale = MOMENTUM_DURATION_MS * 0.5 / zoom;
+        let deltaX = vx * coastScale;
+        let deltaY = vy * coastScale;
+        // Cap the absolute distance per fling so a fast swipe can't
+        // throw the widget completely off the canvas.
+        const cap = MOMENTUM_MAX_OFFSET_PX;
+        const mag = Math.hypot(deltaX, deltaY);
+        if (mag > cap) { deltaX = deltaX * cap / mag; deltaY = deltaY * cap / mag; }
+        // Pre-clamp against pane bounds so the coast respects the same
+        // visibility minimum as the active drag did.
+        const pane = paneRef.current;
+        const stage = stageRef.current;
+        if (pane && stage) {
+          const paneRect = pane.getBoundingClientRect();
+          const stageRect = stage.getBoundingClientRect();
+          const naturalLeft = stageRect.left - widgetOffset.x * zoom;
+          const naturalTop = stageRect.top - widgetOffset.y * zoom;
+          const VISIBLE_MIN = 80;
+          const minX = (paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width)) / zoom;
+          const maxX = (paneRect.right - VISIBLE_MIN - naturalLeft) / zoom;
+          const bezel = bezelMeasureRef.current;
+          const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
+          const bezelTopOffset = (bezelRect.top - stageRect.top) / zoom;
+          const minY = (paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop) / zoom - bezelTopOffset;
+          const maxY = (paneRect.bottom - VISIBLE_MIN - naturalTop) / zoom;
+          const targetX = Math.max(minX, Math.min(maxX, coastFromOffset.x + deltaX));
+          const targetY = Math.max(minY, Math.min(maxY, coastFromOffset.y + deltaY));
+          const startTs = performance.now();
+          const startX = coastFromOffset.x;
+          const startY = coastFromOffset.y;
+          const finalX = snap(targetX);
+          const finalY = snap(targetY);
+          nextOffset = { x: finalX, y: finalY };
+          // Ease-out cubic — Canva's curve.
+          const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+          const step = () => {
+            const elapsed = performance.now() - startTs;
+            const t = Math.min(1, elapsed / MOMENTUM_DURATION_MS);
+            const k = easeOutCubic(t);
+            const x = startX + (finalX - startX) * k;
+            const y = startY + (finalY - startY) * k;
+            setWidgetOffset({ x, y });
+            if (t < 1) {
+              momentumRafRef.current = requestAnimationFrame(step);
+            } else {
+              momentumRafRef.current = null;
+              // Persist the post-coast resting position.
+              try {
+                localStorage.setItem(
+                  `${WIDGET_OFFSET_KEY}_${device}`,
+                  JSON.stringify({ x: finalX, y: finalY }),
+                );
+              } catch {}
+            }
+          };
+          momentumRafRef.current = requestAnimationFrame(step);
+        }
+      }
+    }
     try {
-      localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(finalOffset));
+      localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(nextOffset));
     } catch {}
   }, [device, widgetOffset, zoom]);
+
+  // Wave 18 — clean up any in-flight momentum animation on unmount so we
+  // don't end up scheduling state updates after the component is gone.
+  useEffect(() => () => {
+    if (momentumRafRef.current != null) {
+      cancelAnimationFrame(momentumRafRef.current);
+      momentumRafRef.current = null;
+    }
+  }, []);
 
   const resetWidgetOffset = useCallback(() => {
     setWidgetOffset({ x: 0, y: 0 });
@@ -512,6 +736,9 @@ export default function PreviewPane({
 
     setWidgetSize({ w, h });
     setWidgetOffset({ x: ox, y: oy });
+    // Wave 18 — Canva-level "240 × 120" tooltip while resizing. Track the
+    // pointer location so the tooltip can render near the active handle.
+    setResizeDims({ w: Math.round(w), h: Math.round(h), clientX: e.clientX, clientY: e.clientY });
   }, [zoom]);
 
   const onResizePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -520,6 +747,8 @@ export default function PreviewPane({
     const handle = e.currentTarget;
     try { handle.releasePointerCapture(e.pointerId); } catch {}
     resizeStateRef.current = null;
+    // Wave 18 — hide the dimension tooltip on release.
+    setResizeDims(null);
     try {
       if (widgetSize) {
         localStorage.setItem(`${WIDGET_SIZE_KEY}_${device}`, JSON.stringify(widgetSize));
@@ -628,6 +857,49 @@ export default function PreviewPane({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [zoomIn, zoomOut, zoomReset]);
+
+  // Wave 18 — Canva-level keyboard nudge.
+  //
+  // When the widget is selected and the user is not editing a form control:
+  //  Arrow keys        → move by 1 px (NUDGE_PX)
+  //  Shift + Arrow     → move by 10 px (NUDGE_PX_LARGE)
+  //  Escape            → deselect (matches Figma + Canva)
+  //
+  // The nudge respects the same pane bounds as the active drag, so a
+  // long press of Right doesn't fling the widget off-canvas. Persists the
+  // new offset to localStorage on every change (cheap; debouncing a per-px
+  // setItem is unnecessary at the user-interactive scale).
+  useEffect(() => {
+    if (!widgetSelected) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as Element | null;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+      if (target instanceof HTMLElement && target.isContentEditable) return;
+      // Skip when the user is inside the bezel chrome (might be filling in
+      // a calculator field — they shouldn't accidentally nudge the widget).
+      if (target instanceof HTMLElement && target.closest('select')) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setWidgetSelected(false);
+        return;
+      }
+      const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key);
+      if (!isArrow) return;
+      e.preventDefault();
+      const step = e.shiftKey ? NUDGE_PX_LARGE : NUDGE_PX;
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      setWidgetOffset((prev) => {
+        const next = { x: prev.x + dx, y: prev.y + dy };
+        try {
+          localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [widgetSelected, device]);
 
   // Pinch-to-zoom on touch devices. Tracks two-finger distance.
   useEffect(() => {
@@ -1160,13 +1432,22 @@ export default function PreviewPane({
   // the same draggable/resizable bezel as Style / Build / Settings.
 
   // BD-3b — render the resize handles around the bezel. Eight handles total.
+  //
+  // Wave 18 — Canva-level hover preview: when the user hovers the widget
+  // (but hasn't yet selected it), render the handles in a "preview" state
+  // (40% opacity, see CSS). The user can still grab them — the pointerdown
+  // on a handle promotes the widget to selected as a side effect of
+  // beginResize. When prefers-reduced-motion is on we don't show the
+  // hover-preview handles (no fade) but the selected state still surfaces
+  // them fully.
   const HANDLE_DIRS: HandleDir[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-  const resizeHandles = widgetSelected ? (
+  const showHandlesPreview = widgetHover && !widgetSelected;
+  const resizeHandles = (widgetSelected || showHandlesPreview) ? (
     <>
       {HANDLE_DIRS.map((dir) => (
         <div
           key={dir}
-          className={`qq-widget-resize-handle qq-widget-resize-handle--${dir}`}
+          className={`qq-widget-resize-handle qq-widget-resize-handle--${dir}${showHandlesPreview ? ' is-preview' : ''}`}
           data-testid={`preview-resize-handle-${dir}`}
           onPointerDown={beginResize(dir)}
           onPointerMove={onResizePointerMove}
@@ -1338,6 +1619,8 @@ export default function PreviewPane({
             // shrunk to its minimum size.
             <div
               className="qq-canvas-stage"
+              onPointerEnter={(e) => { if (e.pointerType === 'mouse') setWidgetHover(true); }}
+              onPointerLeave={(e) => { if (e.pointerType === 'mouse') setWidgetHover(false); }}
               style={{
                 position: 'relative',
                 width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH.mobile,
@@ -1433,6 +1716,8 @@ export default function PreviewPane({
             // so the resize handles survive `overflow: clip` on the bezel.
             <div
               className="qq-canvas-stage"
+              onPointerEnter={(e) => { if (e.pointerType === 'mouse') setWidgetHover(true); }}
+              onPointerLeave={(e) => { if (e.pointerType === 'mouse') setWidgetHover(false); }}
               style={{
                 position: 'relative',
                 width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH[device],
@@ -1623,6 +1908,43 @@ export default function PreviewPane({
           <Crosshair size={14} aria-hidden="true" />
         </button>
       </div>
+
+      {/* Wave 18 — alignment guides. Rendered as absolute lines spanning the
+       *  pane along the relevant axis. Only visible during an active drag
+       *  when the widget center is within ALIGN_SNAP_PX of the pane center
+       *  (see applyAlignSnap). Brand-blue, 1px, 60% opacity to read as a
+       *  helper not a heavyweight grid line. */}
+      {guides.map((g, i) => (
+        <div
+          key={`align-${g.kind}-${i}`}
+          className={`qq-align-guide qq-align-guide--${g.kind}`}
+          data-testid={`preview-align-guide-${g.kind}`}
+          style={g.kind === 'vertical'
+            ? { left: g.pos, top: 0, bottom: 0, width: 1 }
+            : { top: g.pos, left: 0, right: 0, height: 1 }}
+          aria-hidden="true"
+        />
+      ))}
+
+      {/* Wave 18 — dimension tooltip during resize. Shows the current
+       *  widgetSize in pixels next to the active resize handle. Coordinates
+       *  are kept in pane-relative CSS px so the tooltip tracks the pointer
+       *  even when the stage is zoomed. Hidden as soon as the user releases. */}
+      {resizeDims && paneRef.current && (() => {
+        const paneRect = paneRef.current.getBoundingClientRect();
+        const left = Math.max(8, Math.min(paneRect.width - 80, resizeDims.clientX - paneRect.left + 14));
+        const top = Math.max(8, Math.min(paneRect.height - 32, resizeDims.clientY - paneRect.top + 14));
+        return (
+          <div
+            className="qq-resize-dims"
+            data-testid="preview-resize-dims"
+            style={{ left, top }}
+            aria-live="polite"
+          >
+            {resizeDims.w} × {resizeDims.h}
+          </div>
+        );
+      })()}
 
       {undo && (
         <div
@@ -1941,9 +2263,23 @@ export default function PreviewPane({
         }
 
         /* BD-3b — selected widget gets a subtle accent outline so the
-         * resize handles read as a coordinated tool. */
+         * resize handles read as a coordinated tool. Wave 18 — added a
+         * smoothed transition so the outline animates in/out instead of
+         * snapping. Reduced-motion users get the snap (see @media block). */
         .qq-bezel.is-selected {
           outline: 2px solid ${p.colors.accent};
+          outline-offset: 2px;
+          transition: outline-color 140ms ease-out, outline-offset 140ms ease-out;
+        }
+        /* Wave 18 — hover-preview outline. Faint 1px accent outline appears
+         *  when the mouse is over the bezel but no selection. Tells the user
+         *  "click to select" without committing to the heavier 2px frame.
+         *  Suppressed when the user is already mid-drag (the data-dragging
+         *  attribute is set on the pane) because the heavier selection
+         *  outline already kicks in. */
+        .qq-preview-pane:not([data-dragging="1"])
+          .qq-canvas-stage:hover .qq-bezel:not(.is-selected):not(.is-drop-target) {
+          outline: 1px solid rgba(13, 60, 252, 0.45);
           outline-offset: 2px;
         }
 
@@ -2001,6 +2337,33 @@ export default function PreviewPane({
         }
         .qq-widget-resize-handle:hover {
           background: ${p.colors.accentLighter};
+          /* Wave 18 — small grow-on-hover so the handle reads as live the
+           *  instant the cursor reaches it. Subtle (~14% scale-up) so the
+           *  visual square doesn't drift far from the corner anchor. */
+          transform: scale(1.14);
+        }
+        /* Centre-edge handles already carry a translate(-50%) to sit on the
+         *  edge midpoint; preserve it while also growing. */
+        .qq-widget-resize-handle--n:hover,
+        .qq-widget-resize-handle--s:hover { transform: translateX(-50%) scale(1.14); }
+        .qq-widget-resize-handle--e:hover,
+        .qq-widget-resize-handle--w:hover { transform: translateY(-50%) scale(1.14); }
+        /* Wave 18 — hover-preview state. When the widget is hovered but not
+         *  yet selected, the 8 handles fade in at 45% opacity. Hovering an
+         *  individual handle promotes it to full visibility so the user can
+         *  see the affordance. transition keeps it smooth. */
+        .qq-widget-resize-handle {
+          opacity: 1;
+          transition:
+            opacity 120ms ease-out,
+            transform 120ms ease-out,
+            background-color 120ms ease-out;
+        }
+        .qq-widget-resize-handle.is-preview {
+          opacity: 0.45;
+        }
+        .qq-widget-resize-handle.is-preview:hover {
+          opacity: 1;
         }
         .qq-widget-resize-handle--nw { top: -7px;    left: -7px;    cursor: nw-resize; }
         .qq-widget-resize-handle--n  { top: -7px;    left: 50%;     transform: translateX(-50%); cursor: n-resize; }
@@ -2036,6 +2399,45 @@ export default function PreviewPane({
           .qq-widget-drag-handle {
             height: 44px;
           }
+        }
+
+        /* ── Wave 18 — Canva-level interaction polish ─────────────────────
+         *
+         * Three new helpers paint on top of the existing bezel:
+         *
+         *  1. .qq-align-guide   — purple/brand alignment line shown when the
+         *                         widget center aligns with the canvas
+         *                         centerline during a drag.
+         *  2. .qq-resize-dims   — small "240 × 120" tooltip rendered next to
+         *                         the active resize pointer.
+         *  3. The selection outline gets a subtle pulse animation while the
+         *     widget is selected to draw the eye to "this is editable".
+         */
+        .qq-align-guide {
+          position: absolute;
+          background: ${p.colors.accent};
+          opacity: 0.7;
+          pointer-events: none;
+          z-index: 12;
+          box-shadow: 0 0 0 1px rgba(13, 60, 252, 0.25);
+          animation: qq-align-guide-in 80ms ease-out;
+        }
+        @keyframes qq-align-guide-in {
+          from { opacity: 0; }
+          to   { opacity: 0.7; }
+        }
+        .qq-resize-dims {
+          position: absolute;
+          z-index: 13;
+          pointer-events: none;
+          font: 700 11px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          letter-spacing: 0.02em;
+          padding: 5px 8px;
+          background: ${p.colors.accent};
+          color: #fff;
+          border-radius: 6px;
+          box-shadow: 0 4px 12px rgba(15,23,42,0.20);
+          white-space: nowrap;
         }
 
         /* BD-3b — zoom toolbar pill, bottom-right of the canvas. Floats
@@ -2166,10 +2568,31 @@ export default function PreviewPane({
           .qq-widget-drag-handle,
           .qq-zoom-btn,
           .qq-zoom-label,
-          .qq-preview-undo-toast {
+          .qq-preview-undo-toast,
+          /* Wave 18 — also silence the polish animations under
+           *  prefers-reduced-motion. The drag-inertia coast is gated in JS
+           *  via reduceMotionRef so it doesn't even start; here we kill the
+           *  CSS-side niceties (selection outline transition, alignment
+           *  guide fade-in, handle grow-on-hover). The functional behaviour
+           *  is preserved — only the motion is dropped. */
+          .qq-widget-resize-handle,
+          .qq-align-guide,
+          .qq-bezel.is-selected,
+          .qq-resize-dims {
             transition: none !important;
             animation: none !important;
           }
+          .qq-widget-resize-handle:hover,
+          .qq-widget-resize-handle--n:hover,
+          .qq-widget-resize-handle--s:hover,
+          .qq-widget-resize-handle--e:hover,
+          .qq-widget-resize-handle--w:hover {
+            transform: none !important;
+          }
+          .qq-widget-resize-handle--n:hover,
+          .qq-widget-resize-handle--s:hover { transform: translateX(-50%) !important; }
+          .qq-widget-resize-handle--e:hover,
+          .qq-widget-resize-handle--w:hover { transform: translateY(-50%) !important; }
           .qq-preview-stage {
             transition: none !important;
           }
