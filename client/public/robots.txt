@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /portal/
+Disallow: /api/
+Disallow: /r/
+Disallow: /pay/
+Disallow: /book/
+Disallow: /q/
+Disallow: /onboarding/
+Disallow: /review/
+Disallow: /audit/report/
+Disallow: /dashboard
+Disallow: /Dashboard
+Disallow: /leads
+Disallow: /Leads
+Disallow: /calculator
+Disallow: /Calculator
+Disallow: /edit-calculator
+Disallow: /EditCalculator
+Disallow: /wizard
+Disallow: /Wizard
+Disallow: /internal/
+
+Sitemap: https://wefixtrades.com/sitemap.xml
