@@ -274,3 +274,8 @@ client/src/pages/portal/webcare/NotificationSettings.tsx
 #    with button advancement; piped through the existing onboarding
 #    endpoint which the copilot already has fill-paths for.
 client/src/pages/portal/webcare/WebCareSetup.tsx
+
+# ── Wave 32 — Universal notifications page: switch-only event × channel
+#    matrix across all 9 products + quiet-hours window + push subscribe
+#    button. No copilot-fillable free-text fields.
+client/src/pages/portal/settings/Notifications.tsx

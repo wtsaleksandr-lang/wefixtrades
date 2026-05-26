@@ -39,6 +39,7 @@ import { registerPortalRankflowDashboardRoutes } from "./portal/rankflow/index";
 import { registerPortalCatalogRoutes } from "./portal/catalog";
 import { registerPortalTicketsRoutes } from "./portal/tickets";
 import { registerPortalSettingsRoutes } from "./portal/settings";
+import { registerPortalUniversalNotificationsRoutes } from "./portal/notifications";
 
 const log = createLogger("Portal");
 
@@ -120,6 +121,11 @@ export function registerPortalRoutes(app: Express) {
   registerPortalCatalogRoutes(app);
   registerPortalTicketsRoutes(app);
   registerPortalSettingsRoutes(app);
+  // Wave 32: universal notifications surface — central registry +
+  // dispatcher + web-push channel. Coexists with the per-product
+  // notification-settings routes shipped in Waves 27-31; the unified
+  // /api/portal/notifications endpoints are the new source of truth.
+  registerPortalUniversalNotificationsRoutes(app);
 
   /**
    * GET /api/portal/overview
