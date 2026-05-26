@@ -29,6 +29,20 @@
 
 import { execSync } from "node:child_process";
 
+// Doppler CLI / bootstrap bookkeeping vars — these are how the bootstrap
+// itself is configured, not runtime app secrets, so we never inject them
+// into process.env. Any other `DOPPLER_*`-prefixed key in the config (e.g.
+// `DOPPLER_WEBHOOK_SECRET` used by server/routes/dopplerWebhookRoutes.ts to
+// verify HMAC signatures on inbound webhooks) IS a legitimate runtime
+// secret and must be injected.
+const DOPPLER_BOOKKEEPING = new Set([
+  "DOPPLER_TOKEN",
+  "DOPPLER_PROJECT",
+  "DOPPLER_CONFIG",
+  "DOPPLER_ENVIRONMENT",
+  "DOPPLER_OVERRIDE_KEYS",
+]);
+
 (() => {
   const token = process.env.DOPPLER_TOKEN;
   if (!token) {
@@ -102,7 +116,7 @@ import { execSync } from "node:child_process";
 
   for (const [key, value] of Object.entries(secrets)) {
     // Doppler bookkeeping vars — never inject these into the app
-    if (key.startsWith("DOPPLER_") || key === "NAME") continue;
+    if (DOPPLER_BOOKKEEPING.has(key) || key === "NAME") continue;
 
     const force = overrideKeys.has(key);
     const hasRuntime = process.env[key] !== undefined && process.env[key] !== "";
