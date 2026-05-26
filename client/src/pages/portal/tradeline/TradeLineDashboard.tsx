@@ -50,7 +50,6 @@ import { Button } from "@/components/ui/button";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  AnimatedCounter,
   KpiGauge,
   StatusPill,
 } from "@/components/ui/visual-primitives";
@@ -231,7 +230,7 @@ export default function TradeLineDashboard() {
           </div>
         </div>
 
-        {/* ─── Hero KPI row ───────────────────────────────────────────── */}
+        {/* ─── Hero KPI row (Wave 26.5 — KpiGauge w/ helpText + palette rotation) ── */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <CallVolumeCard
             value={kpis?.callsToday ?? 0}
@@ -239,29 +238,47 @@ export default function TradeLineDashboard() {
             sameTimeLastWeek={kpis?.callsSameTimeLastWeek ?? 0}
           />
           <Card
-            className="flex flex-col gap-0.5 p-3"
+            className="flex flex-col items-center justify-center gap-0.5 p-3"
             data-testid="kpi-answered-today"
           >
-            <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              <PhoneIncoming className="h-3 w-3" aria-hidden="true" /> Answered today
-            </span>
-            <span className="text-2xl font-semibold tabular-nums text-foreground">
-              <AnimatedCounter value={kpis?.answeredToday ?? 0} />
-            </span>
+            <KpiGauge
+              value={kpis?.answeredToday ?? 0}
+              min={0}
+              max={Math.max(20, (kpis?.callsToday ?? 0) + 5)}
+              label="Answered today"
+              size="sm"
+              palette="emerald"
+              helpText="Calls today answered by your AI receptionist. Higher means fewer missed customers."
+              improvementTips={[
+                "Promote your phone number on every page of your site",
+                "Add click-to-call buttons to MapGuard listings",
+                "Run AdFlow campaigns with the phone CTA",
+              ]}
+              emptyState={(kpis?.answeredToday ?? 0) === 0}
+            />
             <span className="text-[10px] text-muted-foreground/80">
               vs {kpis?.missedToday ?? 0} missed
             </span>
           </Card>
           <Card
-            className="flex flex-col gap-0.5 p-3"
+            className="flex flex-col items-center justify-center gap-0.5 p-3"
             data-testid="kpi-bookings-month"
           >
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Bookings this month
-            </span>
-            <span className="text-2xl font-semibold tabular-nums text-foreground">
-              <AnimatedCounter value={kpis?.bookingsThisMonth ?? 0} />
-            </span>
+            <KpiGauge
+              value={kpis?.bookingsThisMonth ?? 0}
+              min={0}
+              max={Math.max(30, (kpis?.bookingsThisMonth ?? 0) + 5)}
+              label="Bookings this month"
+              size="sm"
+              palette="violet"
+              helpText="Calls that ended with a confirmed appointment booking."
+              improvementTips={[
+                "Review voice persona for warmth",
+                "Check booking funnel for biggest dropoff stage",
+                "Adjust quote calculator integration in QuoteQuick",
+              ]}
+              emptyState={(kpis?.bookingsThisMonth ?? 0) === 0}
+            />
             <span className="text-[10px] text-muted-foreground/80">
               From AI-handled calls
             </span>
@@ -348,22 +365,44 @@ function CallVolumeCard({
   sameTimeLastWeek: number;
 }) {
   const delta = sameTimeLastWeek > 0 ? value - sameTimeLastWeek : 0;
+  // Wave 26.5: Calls Today now uses KpiGauge so it gets help popover + boot
+  // animation + palette rotation matching the rest of the row. Delta context
+  // remains as the small caption below.
   return (
     <Card
-      className="flex flex-col gap-0.5 p-3"
+      className="flex flex-col items-center justify-center gap-0.5 p-3"
       data-testid="kpi-calls-today"
     >
-      <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        <Phone className="h-3 w-3" aria-hidden="true" /> Calls today
-      </span>
-      <span className="text-2xl font-semibold tabular-nums text-foreground">
-        <AnimatedCounter
-          value={value}
-          deltaIndicator={{ previous: sameTimeLastWeek, showArrow: delta !== 0 }}
-        />
-      </span>
-      <span className="text-[10px] text-muted-foreground/80">
-        Yesterday: {yesterday} · 7d ago at this time: {sameTimeLastWeek}
+      <KpiGauge
+        value={value}
+        min={0}
+        max={Math.max(20, value + 5, sameTimeLastWeek + 5)}
+        label="Calls today"
+        size="sm"
+        palette="sapphire"
+        helpText="Inbound calls answered by your AI receptionist today."
+        improvementTips={[
+          "Promote your phone number on every page of your site",
+          "Add click-to-call buttons to MapGuard listings",
+          "Run AdFlow campaigns with the phone CTA",
+        ]}
+        emptyState={value === 0}
+      />
+      <span className="text-[10px] text-muted-foreground/80 flex items-center gap-1">
+        <Phone className="h-3 w-3" aria-hidden="true" />
+        Yesterday: {yesterday} · 7d ago: {sameTimeLastWeek}
+        {delta !== 0 && (
+          <span
+            className={
+              delta > 0
+                ? "text-[hsl(var(--gauge-emerald))]"
+                : "text-[hsl(var(--gauge-crimson))]"
+            }
+          >
+            ({delta > 0 ? "+" : ""}
+            {delta})
+          </span>
+        )}
       </span>
     </Card>
   );
@@ -396,26 +435,28 @@ function CostPerBookingCard({
       <span className="self-start text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         Cost per booking
       </span>
-      {hasData ? (
-        <KpiGauge
-          value={cost}
-          min={0}
-          max={gaugeMax}
-          label="$ per booking"
-          unit=""
-          targetThreshold={target}
-          size="sm"
-          color="auto"
-        />
-      ) : (
-        <div className="flex flex-1 flex-col items-center justify-center py-2">
-          <span className="text-xs text-muted-foreground/80">
-            No bookings yet this month
-          </span>
-          <span className="mt-0.5 text-[10px] text-muted-foreground/60">
-            ${subscriptionCost}/mo subscription
-          </span>
-        </div>
+      <KpiGauge
+        value={hasData ? cost : 0}
+        min={0}
+        max={gaugeMax}
+        label="$ per booking"
+        unit=""
+        targetThreshold={target}
+        size="sm"
+        palette="crimson"
+        helpText="What each new booking costs via TradeLine. Lower is better."
+        improvementTips={[
+          "Increase call volume (top of funnel)",
+          "Improve booking conversion (qualified → booked)",
+          "Compare against your average job value",
+        ]}
+        emptyState={!hasData}
+        emptyStateMessage="Awaiting first booking — updates as bookings come in"
+      />
+      {!hasData && (
+        <span className="mt-0.5 text-[10px] text-muted-foreground/60">
+          ${subscriptionCost}/mo subscription
+        </span>
       )}
       {estimatedMissedRevenue > 0 && (
         <span className="text-[10px] text-muted-foreground/80">

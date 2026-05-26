@@ -9,7 +9,12 @@ export { AnimatedCounter } from "./AnimatedCounter";
 export type { AnimatedCounterProps } from "./AnimatedCounter";
 
 export { KpiGauge } from "./KpiGauge";
-export type { KpiGaugeProps, KpiGaugeColor, KpiGaugeSize } from "./KpiGauge";
+export type {
+  KpiGaugeProps,
+  KpiGaugeColor,
+  KpiGaugeSize,
+  KpiGaugePalette,
+} from "./KpiGauge";
 
 export { PipelineStrip } from "./PipelineStrip";
 export type {
