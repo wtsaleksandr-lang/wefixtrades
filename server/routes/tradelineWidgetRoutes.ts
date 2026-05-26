@@ -24,6 +24,7 @@ import { assistantSync } from "../services/assistant";
 import { selectTemplate } from "../services/tradelineTemplates";
 import { aiChannelGateOn } from "../services/aiChannelGate";
 import { createLogger } from "../lib/logger";
+import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
 
 const log = createLogger("Widget");
 
@@ -35,13 +36,16 @@ function generateSiteKey(): string {
   return crypto.randomBytes(16).toString("hex");
 }
 
-async function clientIdFromUser(req: Request, res: Response): Promise<number | null> {
-  const [row] = await db.select({ id: clients.id }).from(clients).where(eq(clients.user_id, req.user!.id)).limit(1);
-  if (!row) {
-    res.status(403).json({ error: "No client record linked", code: "no_client_linked" });
-    return null;
-  }
-  return row.id;
+/**
+ * Wave 12C: admin users without a linked clients row receive 200 with
+ * `{previewMode:true, persisted:false, ...previewShape}` instead of 403.
+ */
+async function clientIdFromUser(
+  req: Request,
+  res: Response,
+  previewShape: Record<string, unknown> = {},
+): Promise<number | null> {
+  return withClientIdOrPreview(req, res, { previewShape });
 }
 
 async function getOrCreateSite(clientId: number, businessName: string) {
@@ -72,7 +76,7 @@ export function registerTradelineWidgetRoutes(app: Express) {
   /* ─── PORTAL: get / update widget settings ─── */
   app.get("/api/portal/widget/site", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await clientIdFromUser(req, res);
+      const clientId = await clientIdFromUser(req, res, { site: null, tradeType: null });
       if (!clientId) return;
       const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
       if (!client) return res.status(404).json({ error: "Client not found" });

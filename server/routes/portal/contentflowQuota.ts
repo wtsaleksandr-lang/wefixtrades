@@ -40,6 +40,20 @@ export function registerPortalContentflowQuotaRoutes(app: Express) {
       try {
         const clientId = await resolveClientId(req.user!.id);
         if (!clientId) {
+          // Wave 12C: admin previewing the portal — return zero-quota envelope
+          // so QuotaBanner renders an empty state instead of a 403 red error.
+          if (req.user!.role === "admin") {
+            return res.json({
+              previewMode: true,
+              persisted: false,
+              tier: "starter",
+              cycle_start: null,
+              cycle_end: null,
+              usage: { posts: 0, articles: 0, videos: 0 },
+              caps: { posts: 0, articles: 0, videos: 0 },
+              remaining: { posts: 0, articles: 0, videos: 0 },
+            });
+          }
           return res
             .status(403)
             .json({ error: "No client record linked to this account", code: "no_client_linked" });

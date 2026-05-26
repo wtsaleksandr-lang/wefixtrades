@@ -54,6 +54,7 @@ import {
   type UpdateFacebookPageMetadataInput,
 } from "../../services/socialSync/facebookService";
 import { sendWhatsappMessage } from "../../services/whatsappCloudService";
+import { withClientIdOrPreview } from "../../middleware/adminPreviewSafe";
 
 const log = createLogger("PortalSocialsync");
 
@@ -67,14 +68,18 @@ async function resolveClientId(userId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-/** Middleware-style helper: resolve client_id or return 403. */
-async function withClientId(req: Request, res: Response): Promise<number | null> {
-  const clientId = await resolveClientId(req.user!.id);
-  if (!clientId) {
-    res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
-    return null;
-  }
-  return clientId;
+/**
+ * Wave 12C: admin users without a linked clients row get 200 with
+ * `{previewMode:true, persisted:false, ...previewShape}` instead of 403, so the
+ * portal page renders an empty state for admin preview. Real customers still
+ * get 403 `no_client_linked` — no security weakening.
+ */
+async function withClientId(
+  req: Request,
+  res: Response,
+  previewShape: Record<string, unknown> = {},
+): Promise<number | null> {
+  return withClientIdOrPreview(req, res, { previewShape });
 }
 
 /**
@@ -163,7 +168,7 @@ export function registerPortalSocialsyncRoutes(app: Express) {
    */
   app.get("/api/portal/socialsync/posts", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { posts: [] });
       if (!clientId) return;
 
       const rows = await db.select({
@@ -195,7 +200,7 @@ export function registerPortalSocialsyncRoutes(app: Express) {
    */
   app.get("/api/portal/socialsync/pending", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { posts: [] });
       if (!clientId) return;
 
       const rows = await db.select({

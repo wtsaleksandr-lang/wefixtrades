@@ -61,6 +61,7 @@ import { generateContentflowText } from "../../services/contentflow/aiText";
 import { humanizeViaOrchestrator } from "../../services/contentflow/humanizationOrchestrator";
 import { writeAudit } from "../../lib/auditLog";
 import { createLogger } from "../../lib/logger";
+import { withClientIdOrPreview } from "../../middleware/adminPreviewSafe";
 
 const log = createLogger("PortalContentflow");
 
@@ -74,14 +75,24 @@ async function resolveClientId(userId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-/** Middleware-style helper: resolve client_id or return 403. */
-async function withClientId(req: Request, res: Response): Promise<number | null> {
-  const clientId = await resolveClientId(req.user!.id);
-  if (!clientId) {
-    res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
-    return null;
-  }
-  return clientId;
+/**
+ * Middleware-style helper: resolve client_id or send a response and return null.
+ *
+ * Wave 12C: admin users without a linked clients row are in "preview mode".
+ * Instead of 403 (which the UI shows as a red "Failed to load" boundary), we
+ * send 200 with `{previewMode:true, persisted:false, ...previewShape}` so the
+ * portal page renders its empty state. Real customers still get 403.
+ *
+ * `previewShape` defaults to {} — routes that need a richer empty shape (e.g.
+ * `{ articles: [] }`) pass it explicitly.
+ */
+async function withClientId(
+  req: Request,
+  res: Response,
+  previewShape: Record<string, unknown> = {},
+  mode: "read" | "write" = "read",
+): Promise<number | null> {
+  return withClientIdOrPreview(req, res, { previewShape, mode });
 }
 
 export function registerPortalContentflowRoutes(app: Express) {
@@ -114,34 +125,22 @@ export function registerPortalContentflowRoutes(app: Express) {
    */
   app.patch("/api/portal/contentflow/brand-profile", requireClient, async (req: Request, res: Response) => {
     try {
-      /* Wave 11B Issue 9 — admin-preview mode soft-success.
+      /* Wave 11B Issue 9 + Wave 12C — admin-preview mode soft-success.
        *
        * `requireClient` lets admins through to the portal so they can
-       * preview the customer surface, but `resolveClientId` returns null
-       * because the admin user has no linked clients row. Pre-Wave 11B
-       * the handler then returned 403 `no_client_linked`, which the
-       * ContentStyleWizard surfaced as a red error toast. That made
-       * "preview the wizard end-to-end" impossible.
-       *
-       * Fix: when the caller is an admin AND no client record is linked,
-       * SILENTLY no-op the save and return 200 with `previewMode:true,
-       * persisted:false` so the wizard can mark the step complete with a
-       * "Preview mode — preferences not persisted" toast. Real customers
-       * (role !== 'admin' OR linked client row present) go through the
-       * normal path; no security weakening.
+       * preview the customer surface, but admins have no linked clients
+       * row. The shared `withClientIdOrPreview` helper (Wave 12C) returns
+       * 200 `{previewMode:true, persisted:false, brand_profile:null}` for
+       * admins without a client, and 403 `no_client_linked` for real
+       * customers whose account is broken — no security weakening.
        */
-      const clientId = await resolveClientId(req.user!.id);
-      if (!clientId) {
-        if (req.user!.role === "admin") {
-          return res.json({
-            ok: true,
-            previewMode: true,
-            persisted: false,
-            brand_profile: null,
-          });
-        }
-        return res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
-      }
+      const clientId = await withClientId(
+        req,
+        res,
+        { ok: true, brand_profile: null },
+        "write",
+      );
+      if (!clientId) return;
       const patch = sanitizeBrandProfilePatch(req.body, "client");
       const updated = await mergeBrandProfile(clientId, patch);
       res.json({ ok: true, brand_profile: updated });

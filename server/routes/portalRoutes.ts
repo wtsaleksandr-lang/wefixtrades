@@ -14,6 +14,7 @@ import {
 
 import { createLogger } from "../lib/logger";
 import { saveFile, deleteFile } from "../services/fileStorage";
+import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
 import { registerPortalQuotequickRoutes } from "./portal/quotequick";
 import { registerPortalReputationRoutes } from "./portal/reputation";
 import { registerPortalBillingRoutes } from "./portal/billing";
@@ -44,16 +45,19 @@ async function resolveClientId(userId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-/** Middleware-style helper: resolve client_id or return 403. */
-async function withClientId(req: Request, res: Response): Promise<number | null> {
-  const clientId = await resolveClientId(req.user!.id);
-  if (!clientId) {
-    // Q20a: stable error code so the portal UI can show an admin-friendly
-    // empty state instead of a generic "Failed to load" red box.
-    res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
-    return null;
-  }
-  return clientId;
+/**
+ * Middleware-style helper: resolve client_id or send a response and return null.
+ *
+ * Wave 12C: admin users without a linked clients row receive 200 with
+ * `{previewMode:true, persisted:false, ...previewShape}` so the portal page
+ * renders an empty state. Real customers still get 403 `no_client_linked`.
+ */
+async function withClientId(
+  req: Request,
+  res: Response,
+  previewShape: Record<string, unknown> = {},
+): Promise<number | null> {
+  return withClientIdOrPreview(req, res, { previewShape });
 }
 
 /* ─── Routes ─── */
@@ -83,7 +87,13 @@ export function registerPortalRoutes(app: Express) {
    */
   app.get("/api/portal/overview", requireClient, async (req: Request, res: Response) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, {
+        client: null,
+        active_services: 0,
+        pending_onboarding: 0,
+        recent_tasks: [],
+        recent_payments: [],
+      });
       if (!clientId) return;
 
       // Client info

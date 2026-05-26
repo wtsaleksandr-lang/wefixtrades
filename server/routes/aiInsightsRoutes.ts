@@ -40,6 +40,14 @@ import { createLogger } from "../lib/logger";
 
 const log = createLogger("AiInsightsRoutes");
 
+/** Wave 12C: empty AI insights envelope returned for admin-preview mode. */
+const PREVIEW_INSIGHTS_EMPTY = {
+  insights: [],
+  actions: [],
+  generated_at: null,
+  signals: { reviews_30d: 0, posts_30d: 0, drafts_pending: 0 },
+};
+
 const REFRESH_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 
 /** Resolve client_id from the authenticated user's id. */
@@ -85,6 +93,16 @@ export function registerAiInsightsRoutes(app: Express) {
     try {
       const clientId = await resolveClientId(req.user!.id);
       if (!clientId) {
+        // Wave 12C: admin previewing the portal — return empty envelope so the
+        // AI Insights tab renders an empty state instead of a 403 red boundary.
+        if (req.user!.role === "admin") {
+          return res.json({
+            previewMode: true,
+            persisted: false,
+            cached: false,
+            ...PREVIEW_INSIGHTS_EMPTY,
+          });
+        }
         return res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
       }
 
@@ -130,6 +148,16 @@ export function registerAiInsightsRoutes(app: Express) {
     try {
       const clientId = await resolveClientId(req.user!.id);
       if (!clientId) {
+        // Wave 12C: admin previewing the portal — return empty envelope so the
+        // AI Insights tab renders an empty state instead of a 403 red boundary.
+        if (req.user!.role === "admin") {
+          return res.json({
+            previewMode: true,
+            persisted: false,
+            cached: false,
+            ...PREVIEW_INSIGHTS_EMPTY,
+          });
+        }
         return res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
       }
 
@@ -179,6 +207,16 @@ export function registerAiInsightsRoutes(app: Express) {
     try {
       const clientId = await resolveClientId(req.user!.id);
       if (!clientId) {
+        // Wave 12C: admin previewing the portal — return empty envelope so the
+        // AI Insights tab renders an empty state instead of a 403 red boundary.
+        if (req.user!.role === "admin") {
+          return res.json({
+            previewMode: true,
+            persisted: false,
+            cached: false,
+            ...PREVIEW_INSIGHTS_EMPTY,
+          });
+        }
         return res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
       }
 

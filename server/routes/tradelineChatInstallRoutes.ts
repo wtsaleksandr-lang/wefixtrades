@@ -23,16 +23,20 @@ import { and, desc, eq } from "drizzle-orm";
 import { requireClient, requireAdmin } from "../auth";
 import { clientHasProAccessForRequest } from "../lib/clientProAccess";
 import { createLogger } from "../lib/logger";
+import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
 
 const log = createLogger("ChatInstall");
 
-async function clientIdFromUser(req: Request, res: Response): Promise<number | null> {
-  const [row] = await db.select({ id: clients.id }).from(clients).where(eq(clients.user_id, req.user!.id)).limit(1);
-  if (!row) {
-    res.status(403).json({ error: "No client record linked", code: "no_client_linked" });
-    return null;
-  }
-  return row.id;
+/**
+ * Wave 12C: admin users without a linked clients row receive 200 with
+ * `{previewMode:true, persisted:false, ...previewShape}` instead of 403.
+ */
+async function clientIdFromUser(
+  req: Request,
+  res: Response,
+  previewShape: Record<string, unknown> = {},
+): Promise<number | null> {
+  return withClientIdOrPreview(req, res, { previewShape });
 }
 
 const STRIPE_PRICE_ENV = "STRIPE_CHAT_INSTALL_PRICE_ID";
