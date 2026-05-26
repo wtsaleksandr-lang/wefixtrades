@@ -151,3 +151,10 @@ client/src/pages/portal/contentflow/ContentExamplesPage.tsx
 #    StatusPill, LetterGradeBadge, OnboardingWalkthrough). No fillable
 #    form fields — only retrigger buttons for the animations.
 client/src/pages/admin/UiPrimitivesDemo.tsx
+
+# ── Wave 23 — ContentFlow dashboard: KPI gauges, pipeline strip, calendar,
+#    recent-creations grid, and template-gallery hint. All interactive
+#    elements are buttons or drag-drop reschedule. No user-fillable form
+#    fields live on this page — the AI co-pilot suggestions panel that
+#    edits drafts lives inside PortalArticles' Sheet.
+client/src/pages/portal/contentflow/PortalContentFlowDashboard.tsx
