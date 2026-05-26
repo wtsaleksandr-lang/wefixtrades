@@ -182,6 +182,16 @@ function buildUserPrompt(input: {
   location: string | null;
   brandLayer?: string;
   performanceFeedback?: string;
+  /** Wave 21 — SERP-grounded brief from SerpAwareGenerator. When present,
+   *  the must-include terms, common headings, and target word count are
+   *  woven in as soft constraints. The brain is still responsible for the
+   *  hard quality gate; this just steers the first draft. */
+  serpBrief?: {
+    avgWordCount?: number;
+    nlpTerms?: Array<{ term: string; recommendedCount: number }>;
+    commonHeadingPatterns?: string[];
+    topQuestions?: string[];
+  } | null;
 }): string {
   const lines: string[] = [];
 
@@ -218,6 +228,31 @@ function buildUserPrompt(input: {
     lines.push("");
     lines.push(`Previous articles with similar topics performed well. Maintain this style: ${input.performanceFeedback}`);
   }
+
+  // Wave 21 — SERP-aware constraints.
+  const brief = input.serpBrief;
+  if (brief) {
+    lines.push("");
+    lines.push("SEO brief (informed by top-10 ranking competitors — treat as soft constraints):");
+    if (brief.avgWordCount && brief.avgWordCount > 0) {
+      lines.push(`- Target length: ~${brief.avgWordCount} words (±15%).`);
+    }
+    if (Array.isArray(brief.nlpTerms) && brief.nlpTerms.length > 0) {
+      const terms = brief.nlpTerms.slice(0, 12)
+        .map((t) => `"${t.term}" (~${t.recommendedCount}x)`)
+        .join(", ");
+      lines.push(`- Weave in naturally: ${terms}. Do NOT keyword-stuff or list — use real sentences.`);
+    }
+    if (Array.isArray(brief.commonHeadingPatterns) && brief.commonHeadingPatterns.length > 0) {
+      const headings = brief.commonHeadingPatterns.slice(0, 6).join(" • ");
+      lines.push(`- Sections competitors cover (use the ones that fit, skip the rest): ${headings}`);
+    }
+    if (Array.isArray(brief.topQuestions) && brief.topQuestions.length > 0) {
+      const qs = brief.topQuestions.slice(0, 4).join(" • ");
+      lines.push(`- Questions in this SERP (answer inline if they fit the angle): ${qs}`);
+    }
+  }
+
   lines.push("");
   lines.push("Write the article. Output JSON only.");
   return lines.join("\n");
@@ -321,6 +356,12 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
     draft.title ||
     null;
 
+  // Wave 21 — pick up the SERP-aware brief if the dispatcher stashed one.
+  const serpBrief =
+    meta.serp_brief && typeof meta.serp_brief === "object"
+      ? (meta.serp_brief as Record<string, any>)
+      : null;
+
   const userPrompt = buildUserPrompt({
     briefTitle,
     primaryKeyword: meta.primary_keyword ?? null,
@@ -330,6 +371,16 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
     location: meta.location ?? null,
     brandLayer,
     performanceFeedback,
+    serpBrief: serpBrief
+      ? {
+          avgWordCount: typeof serpBrief.avgWordCount === "number" ? serpBrief.avgWordCount : undefined,
+          nlpTerms: Array.isArray(serpBrief.nlpTerms) ? serpBrief.nlpTerms : undefined,
+          commonHeadingPatterns: Array.isArray(serpBrief.commonHeadingPatterns)
+            ? serpBrief.commonHeadingPatterns
+            : undefined,
+          topQuestions: Array.isArray(serpBrief.topQuestions) ? serpBrief.topQuestions : undefined,
+        }
+      : null,
   });
 
   // Pre-load prior articles ONCE — they're per-client and don't change

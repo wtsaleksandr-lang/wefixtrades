@@ -21,8 +21,24 @@ import { storage } from "../../storage";
 import { generateArticleBody, createDraftFromRankflowTask } from "./articleService";
 import { getContent, markStage, type ContentError } from "./api";
 import { createLogger } from "../../lib/logger";
+import { buildBrief, scoreContent, autoOptimize } from "./serpAwareGenerator";
 
 const log = createLogger("ContentFlow:DispatchArticle");
+
+const SEO_AUTO_OPTIMIZE_TARGET = 75;
+
+function deriveKeywordFromTopic(topic: string | null | undefined): string | null {
+  if (!topic) return null;
+  const trimmed = topic.trim();
+  if (!trimmed) return null;
+  // Strip leading "How to / What is / Why" etc. and trailing punctuation
+  // — leaves a more keyword-y core. Defensive; the model still gets the
+  // full title as TOPIC inside buildUserPrompt.
+  return trimmed
+    .replace(/^(how to|what is|why|when|where|who|which|can|should|do|does)\s+/i, "")
+    .replace(/[?.!]+$/g, "")
+    .trim() || trimmed;
+}
 
 export async function dispatchArticleRequest(requestId: string): Promise<void> {
   const req = await getContent(requestId);
@@ -95,6 +111,39 @@ export async function dispatchArticleRequest(requestId: string): Promise<void> {
     draftId = created.id;
   }
 
+  /* ───── Wave 21: SerpAwareGenerator — PRE-generation brief ─────
+   * Build a SERP-grounded brief from the top-10 ranking competitors and
+   * stash it on draft.metadata.serp_brief BEFORE article generation runs.
+   * articleService picks the brief up via metadata and folds the must-
+   * include terms / heading patterns into the LLM prompt. Failure here is
+   * non-fatal — we just generate without the SEO awareness layer. */
+  try {
+    const draftBefore = await storage.getContentDraftById(draftId);
+    const meta = (draftBefore?.metadata || {}) as Record<string, any>;
+    const targetKeyword: string | null =
+      (typeof meta.primary_keyword === "string" && meta.primary_keyword.trim()) ||
+      (typeof meta.brief_title === "string" && deriveKeywordFromTopic(meta.brief_title)) ||
+      deriveKeywordFromTopic(req.topic);
+
+    if (targetKeyword && !meta.serp_brief) {
+      const brief = await buildBrief({
+        targetKeyword,
+        location: typeof meta.location === "string" ? meta.location : null,
+        topicHint: typeof meta.brief_title === "string" ? meta.brief_title : null,
+      });
+      await storage.updateContentDraft(draftId, {
+        metadata: { ...meta, serp_brief: brief },
+      });
+      log.info(
+        `[serpaware] brief built for draft ${draftId} kw="${targetKeyword}" topResults=${brief.topResults.length} nlpTerms=${brief.nlpTerms.length} avgWordCount=${brief.avgWordCount}`,
+      );
+    }
+  } catch (err: any) {
+    log.warn(
+      `[serpaware] brief build failed for draft ${draftId}: ${err?.message || String(err)} — continuing without brief`,
+    );
+  }
+
   // Mark request as in quality-check stage while generateArticleBody runs.
   await markStage(requestId, "quality_check", { draftId });
 
@@ -110,8 +159,65 @@ export async function dispatchArticleRequest(requestId: string): Promise<void> {
     return;
   }
 
+  /* ───── Wave 21: SerpAwareGenerator — POST-generation scoring ─────
+   * Score the generated article against the cached brief. If it lands
+   * below target, run a SINGLE auto-optimize pass through free-tier
+   * providers (no paid fallback — cost guard). Skip entirely when no
+   * brief was attached pre-generation. */
+  let finalDraft = result.draft;
+  try {
+    const draftPost = await storage.getContentDraftById(draftId);
+    const postMeta = (draftPost?.metadata || {}) as Record<string, any>;
+    const brief = postMeta.serp_brief;
+    const body = draftPost?.body ?? "";
+
+    if (brief && body) {
+      const score = scoreContent(body, brief as any);
+      let finalArticle = body;
+      let finalScore = score;
+      let optimized: any = null;
+
+      if (score.overall < SEO_AUTO_OPTIMIZE_TARGET) {
+        optimized = await autoOptimize({
+          article: body,
+          brief: brief as any,
+          score,
+          targetScore: SEO_AUTO_OPTIMIZE_TARGET,
+          clientId: draftPost?.client_id ?? null,
+        });
+        if (optimized.rewriteApplied) {
+          finalArticle = optimized.optimized;
+          finalScore = optimized.newScore;
+        }
+      }
+
+      finalDraft = await storage.updateContentDraft(draftId, {
+        body: optimized?.rewriteApplied ? finalArticle : draftPost?.body,
+        metadata: {
+          ...postMeta,
+          serp_score: {
+            overall: finalScore.overall,
+            breakdown: finalScore.breakdown,
+            missingTermsCount: finalScore.missingTerms.length,
+            missingHeadingsCount: finalScore.missingHeadings.length,
+            autoOptimized: !!optimized?.rewriteApplied,
+            optimizerProvider: optimized?.providerUsed ?? null,
+            scoredAt: new Date().toISOString(),
+          },
+        },
+      });
+      log.info(
+        `[serpaware] draft ${draftId} scored ${score.overall}/100${optimized?.rewriteApplied ? ` -> optimized to ${finalScore.overall}/100` : ""}`,
+      );
+    }
+  } catch (err: any) {
+    log.warn(
+      `[serpaware] scoring/optimization failed for draft ${draftId}: ${err?.message || String(err)} — keeping unscored draft`,
+    );
+  }
+
   // Persist the successful payload + quality score back onto the request.
-  const draft = result.draft;
+  const draft = finalDraft;
   await markStage(requestId, "approved", {
     draftId,
     qualityScore: draft?.quality_score ?? null,
