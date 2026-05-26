@@ -10,9 +10,10 @@ import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { Link } from "wouter";
 import { Plus } from "lucide-react";
-import type { NavItemChild } from "@/site/navigation";
+import type { NavItemChild, NavSubgroup } from "@/site/navigation";
 import { NavIcon } from "@/components/marketing/navigation/NavIcon";
 import { ToolsRichCards } from "@/components/marketing/navigation/ToolsRichCards";
+import { FreeToolsMegaPanel } from "@/components/marketing/navigation/FreeToolsMegaPanel";
 import { mkt } from "@/theme/tokens";
 import type { CSSProperties } from "react";
 
@@ -71,6 +72,7 @@ export const MenuItem = ({
   item,
   href,
   children,
+  subgroups,
   placement = "below",
 }: {
   setActive: (item: string | null) => void;
@@ -78,12 +80,17 @@ export const MenuItem = ({
   item: string;
   href?: string;
   children?: NavItemChild[];
+  /** Wave 14 — when set, the dropdown renders a multi-column mega-menu
+   *  (FreeToolsMegaPanel) instead of the default icon-grid. Used by the
+   *  Free Tools nav item so the navbar unfolds inline. */
+  subgroups?: NavSubgroup[];
   /** Where the dropdown panel renders relative to the trigger row.
    *  "below" (default) is used by the top nav; "above" is used by the
    *  bottom sticky toolbar so the panel rises from the bar instead. */
   placement?: "below" | "above";
 }) => {
-  const hasChildren = !!(children && children.length > 0);
+  const hasSubgroups = !!(subgroups && subgroups.length > 0);
+  const hasChildren = !!(children && children.length > 0) || hasSubgroups;
   const isOpen = active === item;
   const ctx = useContext(MenuContext);
   const [rect, setRect] = useState<DOMRect | null>(null);
@@ -163,7 +170,13 @@ export const MenuItem = ({
                 ? { bottom: Math.max(0, vh - rect.top + 6) }
                 : { top: rect.bottom + 6 }),
               transform: "translateX(-50%)",
-              width: Math.min(1080, rect.width),
+              // Wave 14: Free Tools mega-menu fixes a 720px width so the
+              // 3 sub-category columns each have ~220px of headroom
+              // without sprawling across the whole viewport. Other menus
+              // continue to inherit the trigger-row width.
+              width: hasSubgroups
+                ? Math.min(720, Math.max(rect.width, 720))
+                : Math.min(1080, rect.width),
               maxWidth: "calc(100vw - 24px)",
               zIndex: 9999,
             }}
@@ -173,15 +186,25 @@ export const MenuItem = ({
               layoutId="active"
               className="mkt-dropdown-tray"
               style={{
-                padding: item === "Tools" ? 12 : 10,
-                display: item === "Tools" ? "block" : "grid",
-                ...(item === "Tools"
+                padding: item === "Tools" || hasSubgroups ? 16 : 10,
+                display: item === "Tools" || hasSubgroups ? "block" : "grid",
+                ...(item === "Tools" || hasSubgroups
                   ? {}
                   : { gridTemplateColumns: "repeat(3, 1fr)", gridAutoFlow: "row", gap: 8 }),
                 boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
               }}
             >
-              {item === "Tools" ? (
+              {hasSubgroups ? (
+                /* Wave 14: Free Tools mega-menu unfold panel — 3 columns
+                   (Local SEO / AI Content / Widgets) + "See all" link.
+                   Hub page /free-tools stays canonical for SEO + full
+                   detail; this panel is purely a navigational preview. */
+                <FreeToolsMegaPanel
+                  subgroups={subgroups!}
+                  hubHref={href || "/free-tools"}
+                  onNavigate={() => setActive(null)}
+                />
+              ) : item === "Tools" ? (
                 /* Effortel-style rich layout — only used for Tools (3
                    items, so each card has full real estate for a
                    heading + subtitle + an inline product preview SVG).
