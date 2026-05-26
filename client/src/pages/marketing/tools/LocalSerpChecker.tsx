@@ -454,6 +454,8 @@ export default function LocalSerpChecker() {
         subtitle="Check Google SERPs for any keyword. View localized search results for any country, city, or ZIP code on Google and Google Maps."
         path={TOOL_PATH}
         breadcrumbLabel="Local SERP Checker"
+        heroImageSrc="/ai-thumbnails/tools/local-serp-checker-hero.png"
+        heroImageAlt="Illustration of a search results page with a location pin and globe icon"
         form={form}
         result={resultPanel}
       >

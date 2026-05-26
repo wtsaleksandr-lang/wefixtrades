@@ -243,6 +243,8 @@ export default function CitationChecker() {
         subtitle="See if your business is listed on the 10 most important citation directories — Yelp, BBB, Angi, Thumbtack, YellowPages + more."
         path={TOOL_PATH}
         breadcrumbLabel="Citation Checker"
+        heroImageSrc="/ai-thumbnails/tools/citation-checker-hero.png"
+        heroImageAlt="Illustration of directory listings being scanned for business citations"
         form={form}
         result={resultPanel}
       >

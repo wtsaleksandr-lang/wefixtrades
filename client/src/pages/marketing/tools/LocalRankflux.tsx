@@ -257,6 +257,8 @@ export default function LocalRankflux() {
         subtitle="A daily index of how much Google's local search algorithm is shuffling rankings — so you know whether your ranking drop is you, or everyone."
         path={TOOL_PATH}
         breadcrumbLabel="Local Rankflux"
+        heroImageSrc="/ai-thumbnails/tools/local-rankflux-hero.png"
+        heroImageAlt="Semicircular gauge dial showing local search volatility"
         form={form}
       >
         {/* Borrowed-credibility band — per Alex Q3, NO fake testimonials,
