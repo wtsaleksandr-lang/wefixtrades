@@ -617,6 +617,137 @@ export async function humanizeViaOrchestrator(
   return fallbackToPaid(draft, ctx, startedAt);
 }
 
+/* ─── Generic prompt runner (Wave 21) ───────────────────────────────── */
+
+export interface GenericPromptResult {
+  /** Trimmed text returned by the first successful free-tier provider, or
+   *  empty string if every provider failed. Callers MUST treat empty as
+   *  "no rewrite happened". */
+  text: string;
+  providerUsed: string;
+  fellBackToPaid: boolean;
+  /** True if every free-tier provider failed AND no paid fallback was
+   *  attempted (the generic runner DOES NOT call paid by default — caller
+   *  decides). */
+  noProviderSucceeded: boolean;
+}
+
+/**
+ * Run an arbitrary system/user prompt through the free-tier provider
+ * rotation. Used by SerpAwareGenerator's auto-optimizer (Wave 21) for a
+ * targeted SEO rewrite pass — the humanization-specific prompt that
+ * `humanizeViaOrchestrator` bakes in is not appropriate there.
+ *
+ * Behavior:
+ *   - Iterates eligible free-tier providers in priority order.
+ *   - On 429 / 5xx / timeout, trips the same circuit-breaker that
+ *     `humanizeViaOrchestrator` uses, then moves on.
+ *   - Truncation is NOT enforced here (the caller may legitimately want a
+ *     shorter output, e.g. a heading rewrite). The caller validates.
+ *   - Does NOT fall back to the paid path. If every free provider fails
+ *     the caller receives `noProviderSucceeded=true` and can decide.
+ *
+ * Audit: writes one row per attempt with action
+ * `contentflow.serpaware.provider_call` so spend tracking can attribute.
+ */
+export async function runPromptViaOrchestrator(input: {
+  system: string;
+  user: string;
+  maxTokens?: number;
+  clientId?: number | null;
+  /** Free-form label written to audit. e.g. "serpaware.autoOptimize". */
+  purpose?: string;
+}): Promise<GenericPromptResult> {
+  const callOpts: ProviderCallOpts = {
+    system: input.system,
+    user: input.user,
+    maxTokens: input.maxTokens ?? MAX_OUTPUT_TOKENS,
+  };
+
+  if (!orchestratorEnabled()) {
+    return {
+      text: "",
+      providerUsed: "none",
+      fellBackToPaid: false,
+      noProviderSucceeded: true,
+    };
+  }
+
+  const candidates = eligibleCandidates();
+  if (candidates.length === 0) {
+    return {
+      text: "",
+      providerUsed: "none",
+      fellBackToPaid: false,
+      noProviderSucceeded: true,
+    };
+  }
+
+  for (const { provider } of candidates) {
+    const startedAt = Date.now();
+    let raw: string;
+    try {
+      raw = await dispatchProviderCall(provider.id, callOpts);
+      incrementUsage(provider.id);
+    } catch (err: any) {
+      const elapsed = Date.now() - startedAt;
+      const status = err?.status as number | undefined;
+      const message = err?.message || String(err);
+      const transient =
+        !status || status === 429 || status >= 500 || /abort|timeout/i.test(message);
+      if (transient) tripCircuit(provider.id);
+      writeAudit({
+        actorType: "system",
+        action: "contentflow.serpaware.provider_call",
+        entityType: "content_draft",
+        entityId: input.clientId != null ? String(input.clientId) : "unknown",
+        metadata: {
+          provider_id: provider.id,
+          purpose: input.purpose ?? "generic",
+          response_time_ms: elapsed,
+          outcome: "error",
+          error: message.slice(0, 200),
+          status: status ?? null,
+        },
+      });
+      continue;
+    }
+
+    const cleaned = stripCodeFence(raw).trim();
+    const elapsed = Date.now() - startedAt;
+    writeAudit({
+      actorType: "system",
+      action: "contentflow.serpaware.provider_call",
+      entityType: "content_draft",
+      entityId: input.clientId != null ? String(input.clientId) : "unknown",
+      metadata: {
+        provider_id: provider.id,
+        purpose: input.purpose ?? "generic",
+        response_time_ms: elapsed,
+        outcome: cleaned ? "success" : "empty",
+        output_length: cleaned.length,
+      },
+    });
+
+    if (cleaned.length > 0) {
+      return {
+        text: cleaned,
+        providerUsed: provider.id,
+        fellBackToPaid: false,
+        noProviderSucceeded: false,
+      };
+    }
+    // Empty output — try next provider.
+  }
+
+  return {
+    text: "",
+    providerUsed: "none",
+    fellBackToPaid: false,
+    noProviderSucceeded: true,
+  };
+}
+
 /* ─── Test / admin helpers ──────────────────────────────────────────── */
 
 /** Reset in-process state. Exposed for tests only. */

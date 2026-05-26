@@ -62,3 +62,4 @@ export * from "./fullAuditMaster";
 export * from "./rankfluxSubscriptions";
 export * from "./serpQuotaState";
 export * from "./aiInsights";
+export * from "./serpAwareGenerator";
