@@ -336,6 +336,24 @@ export default function ContentFlowQueuePage() {
     },
   });
 
+  /* Wave 11B Issue 7 — regenerate a failed/missing preview image. The
+   * server route clears media_plan.image_url + re-runs generateForDraft
+   * synchronously, so a successful response means a fresh image is on
+   * disk; the queue refetch picks up the new URL. */
+  const regenerateImageMutation = useMutation({
+    mutationFn: async (draftId: number) => {
+      const res = await apiRequest("POST", `/api/admin/contentflow/drafts/${draftId}/regenerate-image`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Image regenerated", description: "Preview refreshed." });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+    },
+    onError: (e: any) => {
+      toast({ variant: "destructive", title: "Could not regenerate image", description: e?.message || "Unknown error" });
+    },
+  });
+
   const bulkQueueMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/admin/contentflow/bulk-queue", {
@@ -719,6 +737,7 @@ export default function ContentFlowQueuePage() {
                               }
                               kind={previewKindFor(d)}
                               onClick={() => openPreview(d)}
+                              onRegenerate={() => regenerateImageMutation.mutate(d.id)}
                             />
                             <PreviewTypeBadge kind={previewKindFor(d)} />
                           </div>

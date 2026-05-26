@@ -232,6 +232,57 @@ export function registerContentFlowRoutes(app: Express): void {
   );
 
   /**
+   * POST /api/admin/contentflow/drafts/:id/regenerate-image  (Wave 11B)
+   *
+   * Re-runs image generation for an existing draft whose previous image
+   * either failed to generate, failed to upload to R2, or 404s in the
+   * client. Clears media_plan.image_url + .public_image_url so the
+   * existing idempotency check in generateForDraft does not no-op, then
+   * synchronously calls the orchestrator. Returns the fresh draft on
+   * success or a 422 with the orchestrator reason on failure.
+   *
+   * Same admin gate as regenerate-article. Customer-facing portal
+   * surfaces should call this via the queue UI (admin) or via the
+   * imageOrchestrator path that already runs at draft-creation time.
+   */
+  app.post(
+    "/api/admin/contentflow/drafts/:id/regenerate-image",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const draftId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(draftId)) {
+          return res.status(400).json({ error: "id must be a number" });
+        }
+        const draft = await storage.getContentDraftById(draftId);
+        if (!draft) return res.status(404).json({ error: "draft not found" });
+
+        /* Clear the existing image URLs so generateForDraft's idempotency
+         * check does not short-circuit with "skipped_already_has_image". */
+        const meta = ((draft.metadata as Record<string, any>) || {});
+        const mediaPlan = ((meta.media_plan as Record<string, any>) || {});
+        const { image_url: _img, public_image_url: _pub, ...mediaPlanWithoutImage } = mediaPlan;
+        const nextMeta = { ...meta, media_plan: mediaPlanWithoutImage };
+        await storage.updateContentDraft(draftId, { metadata: nextMeta as any });
+
+        const { generateForDraft } = await import("../services/contentflow/imageGenerationService");
+        const result = await generateForDraft(draftId);
+        if (!result.ok) {
+          return res.status(422).json({
+            error: result.message || result.reason || "image generation failed",
+            reason: result.reason,
+          });
+        }
+        const fresh = await storage.getContentDraftById(draftId);
+        res.json({ ok: true, draft: fresh });
+      } catch (err: any) {
+        log.error("[regenerate-image] error:", err?.message || err);
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  /**
    * GET /api/admin/contentflow/drafts/:id/export.md
    *
    * Returns a markdown document for a RankFlow article draft. Includes a

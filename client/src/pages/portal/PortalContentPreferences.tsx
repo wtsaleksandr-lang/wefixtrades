@@ -308,8 +308,18 @@ export default function PortalContentPreferences() {
       const res = await apiRequest("PATCH", "/api/portal/contentflow/brand-profile", payload);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (body: any) => {
       qc.invalidateQueries({ queryKey: ["/api/portal/contentflow/brand-profile"] });
+      /* Wave 11B Issue 9 — admin-preview mode soft-success. Server now
+       * returns `previewMode:true, persisted:false` when an admin saves
+       * the wizard without a linked client. Surface that as an info
+       * toast instead of pretending the values landed in Postgres. */
+      if (body?.previewMode) {
+        toast({
+          title: "Preview mode",
+          description: "Preferences not persisted — log in as a real client to save.",
+        });
+      }
       setDone(true);
     },
     onError: (e: any) => {

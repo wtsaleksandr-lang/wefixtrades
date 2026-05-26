@@ -990,6 +990,14 @@ When the user messages you, follow these priorities:
 4. GUIDE THE NEXT STEP — after answering, suggest what to do next if relevant
 5. SUGGEST SERVICES (ONLY IF ASKED) — only mention additional services if the user's question naturally leads there`);
 
+  // Wave 11B — content examples deep-link hint. If the user asks "what
+  // does ContentFlow generate?" / "show me an example article" / similar,
+  // point them at /portal/contentflow/examples instead of hand-writing a
+  // sample (the page has a full sample article, 6 image styles, 3 social
+  // posts, and a 4-tone preview already curated for trades).
+  parts.push(`\n=== CONTENTFLOW SAMPLES ===
+If the user asks what ContentFlow generates, what its content looks like, or for an example article / image / social post, link them to /portal/contentflow/examples. That page has a full sample article, six image-style presets, three platform-specific social posts, and a 4-tone preview — all trade-aligned, no hand-written examples needed.`);
+
   return parts.join("\n");
 }
 

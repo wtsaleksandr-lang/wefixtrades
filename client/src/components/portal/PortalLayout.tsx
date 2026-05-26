@@ -25,6 +25,7 @@ import {
   Calculator,
   Gift,
   FileCode2,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
@@ -119,6 +120,7 @@ function buildNavItems(active: Set<string>): NavItem[] {
        of "Today's jobs", "Invoices", "Billing", "Add Services". ContentFlow Phase B7. */
     { label: "ContentFlow", href: "/portal/articles", icon: FileText },
     { label: "Content Style", href: "/portal/content-preferences", icon: Sparkles, indent: true },
+    { label: "Content Examples", href: "/portal/contentflow/examples", icon: ImageIcon, indent: true },
     { label: "MapGuard", href: "/portal/mapguard", icon: MapPin, requires: "mapguard" },
     /* Wave 7 — AI Insights bundled with MapGuard ($99/$149/mo). Indented as
        a MapGuard sub-tab; same `requires` gate so the nav entry hides for

@@ -12,6 +12,7 @@
  * No new deps — uses the existing shadcn Dialog + brand utility classes.
  * Designed to be opened from ContentFlowQueuePage row "Preview" buttons.
  */
+import { useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -19,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Facebook, Instagram, Globe, Mail, Linkedin, Youtube, Pin,
   ImageIcon, Video as VideoIcon, FileText, Megaphone, ExternalLink,
+  ImageOff, RefreshCw,
 } from "lucide-react";
 
 export type PreviewKind = "post" | "article" | "image" | "video";
@@ -368,18 +370,37 @@ const TYPE_BADGE: Record<PreviewKind, { label: string; icon: React.ReactNode; cl
   video: { label: "Video", icon: <VideoIcon className="h-3 w-3" />, className: "border-red-200 bg-red-50 text-red-700" },
 };
 
-/** Tiny thumbnail (used in row when an image is available). */
+/**
+ * Tiny thumbnail (used in row when an image is available).
+ *
+ * Three visual states (Wave 11B — Issue 7):
+ *   1. No imageUrl     → kind icon (still-generating placeholder, neutral)
+ *   2. imageUrl loads  → actual image preview
+ *   3. imageUrl 404s   → ImageOff icon + "click to regenerate" affordance
+ *
+ * The browser's default broken-image glyph never renders because we swap to
+ * the failed-state UI on the <img> onError event.
+ */
 export function PreviewThumb({
-  imageUrl, kind, onClick,
-}: { imageUrl: string | null; kind: PreviewKind; onClick: () => void }) {
+  imageUrl, kind, onClick, onRegenerate,
+}: {
+  imageUrl: string | null;
+  kind: PreviewKind;
+  onClick: () => void;
+  /** Optional — if provided, the failed-image state offers a click-to-retry. */
+  onRegenerate?: () => void;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  // State 1: no image URL at all — still-generating placeholder.
   if (!imageUrl) {
     return (
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onClick(); }}
-        className="inline-flex h-8 w-8 items-center justify-center rounded border bg-gray-50 text-gray-400 hover:bg-gray-100"
-        title="Preview"
-        aria-label="Preview"
+        className="inline-flex h-8 w-8 items-center justify-center rounded border border-border bg-muted/40 text-muted-foreground hover:bg-muted/60"
+        title="Preview (image still generating)"
+        aria-label="Preview — image still generating"
       >
         {kind === "video" ? <VideoIcon className="h-3.5 w-3.5" /> :
          kind === "article" ? <FileText className="h-3.5 w-3.5" /> :
@@ -388,15 +409,48 @@ export function PreviewThumb({
       </button>
     );
   }
+
+  // State 3: image URL set but failed to load — failed-state UI.
+  if (failed) {
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onRegenerate) {
+        setFailed(false);
+        onRegenerate();
+      } else {
+        onClick();
+      }
+    };
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        className="relative inline-flex h-8 w-8 items-center justify-center rounded border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
+        title={onRegenerate ? "Image failed to load — click to regenerate" : "Image failed to load — click to preview"}
+        aria-label="Image failed to load — click to regenerate"
+        data-testid="preview-thumb-failed"
+      >
+        {onRegenerate ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageOff className="h-3.5 w-3.5" />}
+      </button>
+    );
+  }
+
+  // State 2: image URL set and loading/loaded.
   return (
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="relative inline-block h-8 w-8 overflow-hidden rounded border bg-gray-100 hover:ring-2 hover:ring-brand-blue-400"
+      className="relative inline-block h-8 w-8 overflow-hidden rounded border border-border bg-muted hover:ring-2 hover:ring-brand-blue-400"
       title="Preview"
       aria-label="Preview"
     >
-      <img src={imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+      <img
+        src={imageUrl}
+        alt=""
+        className="h-full w-full object-cover"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
       {kind === "video" && (
         <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
           <VideoIcon className="h-3.5 w-3.5" />

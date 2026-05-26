@@ -139,3 +139,8 @@ client/src/pages/portal/PortalContentFlow.tsx
 #    prioritized actions surfaced as cards with dismiss/refresh buttons.
 #    No user-fillable form fields exist on this page.
 client/src/pages/portal/AiInsightsPage.tsx
+
+# ── Wave 11B — Content Examples is a static showcase page (sample article,
+#    image-style gallery, social posts, tone preview, CTA). Zero user-input
+#    fields; the only interactive element links to /portal/content-preferences.
+client/src/pages/portal/contentflow/ContentExamplesPage.tsx
