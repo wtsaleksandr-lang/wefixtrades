@@ -29,6 +29,64 @@ import { db } from "../db";
 import { onboardingSubmissions } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { applyOnboardingToAIConfig, type AIConfigPatch } from "./onboardingMappers";
+import { z } from "zod";
+
+/* ─── Wave 12D — Zod schema for the Vapi assistant create/update payload ───
+ *
+ * Catches the `model.model must be a string` class of bug at the boundary
+ * (before we POST to Vapi) instead of after a 400 response. Mirrors only the
+ * fields Vapi has historically rejected for type errors — we don't try to
+ * reproduce Vapi's full schema, just enough to catch the silent regressions.
+ *
+ * Vapi requires for `custom-llm` provider:
+ *   - model.provider: string
+ *   - model.model: NON-EMPTY STRING (this is the silent-failure surface)
+ *   - model.url: a fully-qualified https URL — relative paths are rejected
+ */
+export const vapiAssistantPayloadSchema = z.object({
+  name: z.string().min(1, "assistant name is required"),
+  model: z.object({
+    provider: z.string().min(1),
+    // The exact bug Alex hit on 2026-05-25/26: a payload where `model.model`
+    // was an object / undefined / empty got HTTP 400 from Vapi. Zod's
+    // .min(1) catches the empty-string regression too.
+    model: z.string().min(1, "model.model must be a non-empty string"),
+    url: z.string().url("model.url must be a fully-qualified URL"),
+    messages: z.array(z.object({
+      role: z.string(),
+      content: z.string(),
+    })).optional(),
+  }),
+  voice: z.object({
+    provider: z.string(),
+    voiceId: z.string(),
+  }),
+  firstMessage: z.string().optional(),
+  transcriber: z.object({
+    provider: z.string(),
+    model: z.string(),
+    language: z.string().optional(),
+  }).optional(),
+  serverUrl: z.string().url().optional(),
+  metadata: z.record(z.unknown()).optional(),
+}).passthrough();
+
+export type VapiAssistantPayload = z.infer<typeof vapiAssistantPayloadSchema>;
+
+/**
+ * Validate a Vapi assistant payload before POST/PATCH. Throws a descriptive
+ * error if `model.model` is not a string (or any other contract is broken),
+ * so the failure is caught at our boundary instead of as an opaque 400 from
+ * Vapi.
+ */
+export function validateVapiAssistantPayload(payload: unknown): VapiAssistantPayload {
+  const parsed = vapiAssistantPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map(i => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
+    throw new Error(`Vapi assistant payload validation failed: ${issues}`);
+  }
+  return parsed.data;
+}
 
 const log = createLogger("VapiService");
 
@@ -853,6 +911,16 @@ export async function upsertVapiAssistant(
     serverUrl: `${config.serverUrl}/api/vapi/webhook`,
     metadata: { client_service_id: String(clientServiceId), source: "tradeline_template_engine" },
   };
+
+  // Wave 12D — validate at our boundary so a regression that drops or
+  // mistypes model.model is caught HERE (with a clear error) instead of
+  // as a vague "Vapi 400: model.model must be a string" downstream.
+  try {
+    validateVapiAssistantPayload(payload);
+  } catch (validationErr: any) {
+    log.error("Vapi assistant payload failed local validation", { clientServiceId, error: validationErr.message });
+    throw new Error(`Vapi assistant creation failed: ${validationErr.message}`);
+  }
 
   if (existingId) {
     try {

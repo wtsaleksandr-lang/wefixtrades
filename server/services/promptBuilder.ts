@@ -416,6 +416,54 @@ ${PII_GUARD}`;
 }
 
 /* ─── Admin surface builder ─── */
+/* ─── Wave 12D — Alert investigation mode reference data ───
+ *
+ * Pre-fed to the admin copilot so it recognizes common alert patterns and
+ * can recommend the right whitelisted fix action. Add a new pattern HERE
+ * (NOT in the AI's training data) when a new alert category shows up
+ * repeatedly so the diagnosis stays accurate.
+ *
+ * KEEP THIS LIST FACTUAL. Anything we put here flows into the operator's
+ * Copilot and shapes the diagnosis text shown next to a "Run fix" button.
+ */
+const ALERT_KNOWN_ISSUES = `
+- tradeline_assistant_failed_permanent / tradeline_assistant_failed: Vapi 400 "model.model must be a string" was the silent-failure root cause. Wave 12D added a Zod schema check at the boundary so this exact regression can no longer ship. Most stale alerts of this category are old — recommend a retry with action retry-vapi-assistant to verify, then acknowledge if it succeeds.
+- worker_failed: a cron worker threw an exception in the last 24h. Check the error message before recommending anything — usually a transient upstream timeout. Acknowledge if the most recent run succeeded.
+- mapguard scan timeout / mapguard_scan_failed: usually a Serper rate limit. retry-mapguard-scan re-runs the scan for a single client (the client_id is in alert.metadata).
+- stripe_error / stripe webhook 401: webhook secret mismatch. CANNOT be fixed from this UI — flag for the engineering team to verify STRIPE_BILLING_WEBHOOK_SECRET in Doppler. Recommend mark-known-issue while the engineer investigates.
+- oauth_expiry: a third-party OAuth token expired. CANNOT be auto-fixed — the customer needs to re-authorize from their portal. Recommend acknowledge after the re-auth event lands in the audit log.
+- email_failed: a transactional email bounced or 4xx'd. Acknowledge if isolated; flag the queue worker if it's hitting the same recipient repeatedly.
+- payment_at_risk: a recurring charge will retry in the next 24h. Surface in the UI but do NOT auto-act — let the dunning flow handle it.
+`.trim();
+
+const ALERT_INVESTIGATION_INSTRUCTIONS = `
+=== ALERT INVESTIGATION MODE (Wave 12D) ===
+You are in ALERT INVESTIGATION mode whenever the operator's most recent message starts with "System alert detected:". Respond ONLY in this shape:
+
+1. DIAGNOSIS — one or two sentences naming the likely root cause + scope.
+2. RECOMMENDED ACTION — one sentence. If the fix is deterministic and on the whitelist below, end your reply with EXACTLY ONE button marker. Otherwise say "This requires a code change — flag it for the engineering team" or "This requires manual investigation in Doppler / the registrar UI / the third-party dashboard".
+
+Whitelisted button markers (use the bracketed shape verbatim — the UI parses it):
+- [BUTTON: Acknowledge alert | action: acknowledge | alertId: <id>]
+- [BUTTON: Retry assistant creation | action: retry-vapi-assistant | alertId: <id>]
+- [BUTTON: Retry MapGuard scan | action: retry-mapguard-scan | alertId: <id>]
+- [BUTTON: Mark as known issue | action: mark-known-issue | alertId: <id>]
+
+ABSOLUTE RULES:
+- Emit AT MOST one button marker per reply. If you can't choose between two, suggest the safer one (usually acknowledge or mark-known-issue).
+- NEVER invent a new action name. The whitelist above is exhaustive — anything else will be rejected.
+- NEVER suggest the operator run a curl, hit an API directly, edit Doppler secrets, or run a script. If the right fix is one of those, say so in prose and stop.
+- NEVER write code, generate scripts, or compose Doppler commands. You diagnose; the operator (or eng team) acts.
+- NEVER recommend a retry-vapi-assistant or retry-mapguard-scan unless the alert metadata includes a valid client_service_id (Vapi) or client_id (MapGuard). If the ID is missing, just acknowledge or mark-known-issue.
+- Be terse. No reassurance, no hedging. Two short paragraphs max.
+- After emitting the button marker, STOP. Do not also emit ACTION_PROPOSAL / FORM_FILL / COPILOT_PROMPT / COPILOT_CARDS blocks.
+
+KNOWN ALERT PATTERNS (use these to ground your diagnosis):
+${ALERT_KNOWN_ISSUES}
+
+If the alert category isn't in the known list, say "Unfamiliar alert category — recommend the engineering team review" and offer mark-known-issue as a holding action.
+`.trim();
+
 function buildAdminPrompt(ctx: PageContext, memory?: MemoryContext): string {
   const parts: string[] = [];
 
@@ -649,6 +697,13 @@ You are talking to the WeFixTrades operator. Be terse + action-oriented:
 - 1-2 sentences default. Skip filler ("I'd be happy to...", "Great question!").
 - When the operator asks about alerts, issues, blocked items, or overdue work — answer with the COUNT first, then offer ACTION buttons via ACTION_PROPOSAL (e.g. navigate to the page) or COPILOT_PROMPT (e.g. "Acknowledge all 3?").
 - Never list more than 3 items in prose; instead offer a "show all" navigate button.`);
+
+  // Wave 12D — alert-investigation mode. The instructions tell the model
+  // how to recognize the "System alert detected:" sentinel and to respond
+  // with a diagnosis + a single whitelisted button marker. Always included
+  // in the admin prompt; the AI ignores it unless the trigger string is
+  // present in the most recent user message.
+  parts.push("\n" + ALERT_INVESTIGATION_INSTRUCTIONS);
 
   return parts.join("\n");
 }

@@ -1175,6 +1175,34 @@ export const insertSystemAlertSchema = createInsertSchema(systemAlerts).omit({ i
 export type InsertSystemAlert = z.infer<typeof insertSystemAlertSchema>;
 export type SystemAlert = typeof systemAlerts.$inferSelect;
 
+/* ─── Alert Actions Log (Wave 12D — Admin AI Diagnosis Panel) ───
+ *
+ * Every "Run fix" button press from the System Alerts page is recorded here
+ * for audit purposes. Action names come from a server-side whitelist
+ * (see server/services/alertFixActions.ts); the AI Copilot can SUGGEST
+ * fixes but the admin operator clicks the button explicitly — no LLM-
+ * driven writes in Phase 1.
+ */
+export const alertActionsLog = pgTable("alert_actions_log", {
+  id: serial("id").primaryKey(),
+  alert_id: integer("alert_id").notNull(),
+  admin_user_id: integer("admin_user_id"),
+  action: text("action").notNull(),
+  params: jsonb("params"),
+  result: jsonb("result"),
+  success: boolean("success").notNull().default(false),
+  error_message: text("error_message"),
+  executed_at: timestamp("executed_at").defaultNow(),
+}, (t) => ({
+  // Names must match migrations/0062_alert_actions_log.sql so drizzle-kit
+  // push doesn't propose to DROP them on the next deploy.
+  alertIdIdx: index("idx_alert_actions_log_alert_id").on(t.alert_id),
+  executedAtIdx: index("idx_alert_actions_log_executed_at").on(t.executed_at),
+}));
+export const insertAlertActionLogSchema = createInsertSchema(alertActionsLog).omit({ id: true, executed_at: true });
+export type InsertAlertActionLog = z.infer<typeof insertAlertActionLogSchema>;
+export type AlertActionLog = typeof alertActionsLog.$inferSelect;
+
 /* ─── Email Queue ─── */
 export const emailQueue = pgTable("email_queue", {
   id: serial("id").primaryKey(),

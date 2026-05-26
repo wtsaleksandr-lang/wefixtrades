@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, CheckCircle, Info, Shield, Clock } from "lucide-react";
+import { AlertTriangle, CheckCircle, Info, Shield, Clock, Sparkles } from "lucide-react";
 
 interface SystemAlert {
   id: number;
@@ -85,6 +85,32 @@ export default function SystemAlertsPage() {
 
   const alerts = data?.data ?? [];
   const unackedCount = data?.unacknowledged_count ?? 0;
+
+  /* Wave 12D — open the AI Copilot panel pre-loaded with this alert's
+   * context as the first user message. The Copilot's specialized
+   * ALERT_INVESTIGATION mode (server-side prompt) responds with a 1-2
+   * sentence diagnosis + optional [BUTTON: …] marker that renders as a
+   * "Run fix" CTA. The fix dispatch goes through /api/admin/alerts/run-fix
+   * with a server-side action whitelist — no LLM-driven writes. */
+  function investigateWithAI(alert: SystemAlert) {
+    const meta = (alert.metadata ?? {}) as Record<string, unknown>;
+    const serviceId = meta["client_service_id"] ?? meta["service_id"] ?? null;
+    const clientId = meta["client_id"] ?? null;
+    const seedLines = [
+      `System alert detected: ${alert.category}`,
+      alert.title ? `Title: ${alert.title}` : null,
+      serviceId != null ? `Service ID: ${serviceId}` : null,
+      clientId != null ? `Client ID: ${clientId}` : null,
+      `Alert ID: ${alert.id}`,
+      `Severity: ${alert.severity}`,
+      alert.details ? `Error / details: ${alert.details.slice(0, 600)}` : null,
+      `First occurred: ${alert.created_at}`,
+      "",
+      "Investigate this issue and recommend a fix.",
+    ].filter((x): x is string => Boolean(x));
+    const seedText = seedLines.join("\n");
+    window.dispatchEvent(new CustomEvent("copilot:open", { detail: { seedText } }));
+  }
 
   return (
     <AdminLayout>
@@ -181,16 +207,33 @@ export default function SystemAlertsPage() {
                       </p>
                     )}
                   </div>
-                  {!alert.acknowledged && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Wave 12D — opens the AI Copilot panel pre-loaded
+                        with this alert's context. The Copilot diagnoses
+                        and surfaces a whitelisted "Run fix" CTA when one
+                        applies. Available even on acknowledged alerts so
+                        the operator can investigate after the fact. */}
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => acknowledge.mutate(alert.id)}
-                      disabled={acknowledge.isPending}
+                      onClick={() => investigateWithAI(alert)}
+                      data-testid={`button-investigate-alert-${alert.id}`}
+                      className="gap-1"
                     >
-                      Acknowledge
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Investigate with AI
                     </Button>
-                  )}
+                    {!alert.acknowledged && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => acknowledge.mutate(alert.id)}
+                        disabled={acknowledge.isPending}
+                      >
+                        Acknowledge
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Card>
             ))}

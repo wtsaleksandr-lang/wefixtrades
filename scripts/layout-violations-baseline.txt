@@ -3,8 +3,8 @@
 # refactor the file so the rule passes, then delete the matching line
 # here and re-run `npm run check:layout-rules` to confirm.
 # Format: <file>:<line>:<col>\t<kind>\t<snippet>
-client/src/components/admin/AdminCopilot.tsx:1347:13	rule-c	square w-9 h-9
-client/src/components/admin/AdminLayout.tsx:1263:25	rule-c	square w-7 h-7
+client/src/components/admin/AdminCopilot.tsx:1504:13	rule-c	square w-9 h-9
+client/src/components/admin/AdminLayout.tsx:1287:25	rule-c	square w-7 h-7
 client/src/components/admin/LucideIconPicker.tsx:159:32	rule-c	square w-2.5 h-2.5
 client/src/components/admin/LucideIconPicker.tsx:163:23	rule-c	square w-12 h-12
 client/src/components/admin/MapguardTaskCard.tsx:189:17	rule-c	square w-7 h-7
@@ -110,7 +110,7 @@ client/src/pages/admin/QuoteQuickTradesPage.tsx:353:32	rule-c	size={18}
 client/src/pages/admin/ReviewsPage.tsx:485:5	rule-b	<div> contains 3 cues
 client/src/pages/admin/ReviewsPage.tsx:673:29	rule-c	square w-2 h-2
 client/src/pages/admin/SupportTicketDetailPage.tsx:288:39	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/SystemAlertsPage.tsx:156:26	rule-c	square w-10 h-10
+client/src/pages/admin/SystemAlertsPage.tsx:182:26	rule-c	square w-10 h-10
 client/src/pages/admin/SystemWorkersPage.tsx:199:16	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/SystemWorkersPage.tsx:405:31	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/TradeLineOpsPage.tsx:63:71	rule-c	square w-10 h-10

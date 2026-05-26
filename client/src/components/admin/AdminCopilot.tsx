@@ -489,7 +489,13 @@ type ToolCallMessage = {
 
 /* Q30b admin: assistant messages can carry parsed ACTION_PROPOSAL buttons.
  * Extends ChatMessage locally so the shared lib type stays minimal. */
-type AssistantMessageWithActions = ChatMessage & { actions?: ActionProposal[]; cards?: CopilotCard[] };
+type AssistantMessageWithActions = ChatMessage & {
+  actions?: ActionProposal[];
+  cards?: CopilotCard[];
+  /* Wave 12D — alert investigation "Run fix" buttons parsed from the
+   * [BUTTON: …] markers in the assistant reply. */
+  alertFixButtons?: AlertFixButton[];
+};
 type CopilotMessage = AssistantMessageWithActions | ToolCallMessage;
 
 /* Q30b admin: parse + sanitize ACTION_PROPOSAL block out of the assembled
@@ -498,6 +504,44 @@ type CopilotMessage = AssistantMessageWithActions | ToolCallMessage;
 const ACTION_BLOCK_RE = /<<<ACTION_PROPOSAL>>>([\s\S]*?)<<<END_ACTION_PROPOSAL>>>/;
 const FORM_FILL_BLOCK_RE = /<<<FORM_FILL>>>([\s\S]*?)<<<END_FORM_FILL>>>/;
 const TEST_ID_RE = /^[a-z0-9_-]+$/i;
+
+/* Wave 12D — Alert investigation "[BUTTON: <label> | action: <name> | alertId: <id>]"
+ * marker emitted by the AI when in ALERT INVESTIGATION mode. The marker is
+ * parsed client-side, stripped from the visible message, and rendered as a
+ * styled "Run fix" button. Clicking POSTs to /api/admin/alerts/run-fix —
+ * the server validates the action against its OWN whitelist. The client
+ * whitelist below is a UX guard so we don't render a button for an action
+ * the server will reject. */
+const ALERT_FIX_BUTTON_RE = /\[BUTTON:\s*([^|\]]+?)\s*\|\s*action:\s*([a-z0-9-]+)\s*\|\s*alertId:\s*(\d+)\s*\]/gi;
+const ALERT_FIX_ACTION_WHITELIST = new Set([
+  "acknowledge",
+  "retry-vapi-assistant",
+  "retry-mapguard-scan",
+  "mark-known-issue",
+]);
+interface AlertFixButton {
+  label: string;
+  action: string;
+  alertId: number;
+}
+
+function extractAlertFixButtons(fullText: string): { cleanedText: string; buttons?: AlertFixButton[] } {
+  const buttons: AlertFixButton[] = [];
+  const re = new RegExp(ALERT_FIX_BUTTON_RE.source, "gi");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(fullText)) !== null) {
+    const label = m[1].trim().slice(0, 60);
+    const action = m[2].trim().toLowerCase();
+    const alertId = parseInt(m[3], 10);
+    if (!ALERT_FIX_ACTION_WHITELIST.has(action)) continue;
+    if (!Number.isFinite(alertId) || alertId <= 0) continue;
+    // Hard rule from the wave spec: AT MOST one button per reply.
+    if (buttons.length >= 1) continue;
+    buttons.push({ label, action, alertId });
+  }
+  const cleanedText = fullText.replace(ALERT_FIX_BUTTON_RE, "").replace(/\n{3,}/g, "\n\n").trim();
+  return { cleanedText, buttons: buttons.length > 0 ? buttons : undefined };
+}
 
 /* Q30c: parse FORM_FILL block out of the assembled stream + validate
  * against the field list the page declared. Returns sanitized fills. */
@@ -733,6 +777,10 @@ export default function AdminCopilot({
     resizeRef.current = null;
   };
   const [input, setInput] = useState("");
+  /* Wave 12D — per-button local state for the "Run fix" CTAs rendered next
+   * to assistant messages. Keyed by `${messageIndex}-${alertId}-${action}`. */
+  const [alertFixState, setAlertFixState] = useState<Record<string, "idle" | "running" | "done" | "error">>({});
+  const [alertFixResults, setAlertFixResults] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const attachmentInputRef = useRef<ChatAttachmentInputHandle | null>(null);
   const [streaming, setStreaming] = useState(false);
@@ -831,11 +879,68 @@ export default function AdminCopilot({
     }
   }, [messages, streaming]);
 
+  /* Wave 12D — POST a whitelisted Run-fix action against an alert. Both the
+   * client-side button (which only renders for whitelisted action names) and
+   * the server route enforce the whitelist; the server is the authority. */
+  async function runFixAction(messageIndex: number, btn: AlertFixButton) {
+    const key = `${messageIndex}-${btn.alertId}-${btn.action}`;
+    setAlertFixState((s) => ({ ...s, [key]: "running" }));
+    try {
+      const res = await fetch("/api/admin/alerts/run-fix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ alertId: btn.alertId, action: btn.action }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Failed" }));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const { message } = await res.json();
+      setAlertFixState((s) => ({ ...s, [key]: "done" }));
+      setAlertFixResults((s) => ({ ...s, [key]: message || "Fix ran successfully." }));
+      toast({ title: "Fix ran", description: message || "Action completed." });
+      // Invalidate alert lists so the page refreshes counts / state.
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/inbox"] });
+    } catch (err: any) {
+      setAlertFixState((s) => ({ ...s, [key]: "error" }));
+      setAlertFixResults((s) => ({ ...s, [key]: err?.message || "Failed to run fix" }));
+      toast({ title: "Fix failed", description: err?.message || "Action did not complete.", variant: "destructive" });
+    }
+  }
+
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open]);
+
+  /* Wave 12D — Alert Investigation Panel.
+   *
+   * Other admin pages (SystemAlertsPage) dispatch
+   *   window.dispatchEvent(new CustomEvent("copilot:seed-and-send", { detail: { text } }))
+   * to programmatically open the Copilot with a pre-filled investigation
+   * prompt. We listen here so the dispatch site doesn't need a ref to this
+   * component. The seed text becomes the next user message and is sent
+   * immediately, without going through the input box.
+   *
+   * Guarded: only fires when the panel is open AND nothing is streaming —
+   * otherwise the event is dropped to avoid clobbering an in-flight turn.
+   */
+  const sendMessageRef = useRef<((text: string) => void) | null>(null);
+  useEffect(() => {
+    function handler(ev: Event) {
+      const detail = (ev as CustomEvent).detail;
+      const text = typeof detail?.text === "string" ? detail.text : null;
+      if (!text || !text.trim()) return;
+      if (!open) return; // parent must open the panel first
+      if (streaming || hasPendingToolCall) return;
+      sendMessageRef.current?.(text);
+    }
+    window.addEventListener("copilot:seed-and-send", handler as EventListener);
+    return () => window.removeEventListener("copilot:seed-and-send", handler as EventListener);
+  }, [open, streaming, hasPendingToolCall]);
 
   async function sendMessage(text: string) {
     /* Allow attachment-only sends — text may be empty if the operator
@@ -972,9 +1077,12 @@ export default function AdminCopilot({
       const afterPrompt = extractCopilotPrompt(afterFills.cleanedText);
       // Wave 12A: extract COPILOT_CARDS recommendation tiles.
       const afterCards = extractCopilotCards(afterPrompt.cleanedText);
-      const cleanedText = afterCards.cleanedText;
+      // Wave 12D: extract alert-investigation Run-fix buttons.
+      const afterAlertButtons = extractAlertFixButtons(afterCards.cleanedText);
+      const cleanedText = afterAlertButtons.cleanedText;
       const actions = afterActions.actions;
       const cards = afterCards.cards;
+      const alertFixButtons = afterAlertButtons.buttons;
       if (afterFills.fills && afterFills.fills.length > 0) {
         setPendingFormFill(afterFills.fills);
       }
@@ -985,10 +1093,10 @@ export default function AdminCopilot({
       if (toolCallReceived) {
         // Save only the text portion; tool_call cards are transient
         const persistable: CopilotMessage[] = [...updated];
-        if (cleanedText) persistable.push({ role: "assistant" as const, content: cleanedText, actions, cards });
+        if (cleanedText) persistable.push({ role: "assistant" as const, content: cleanedText, actions, cards, alertFixButtons });
         saveCopilotMessages(persistable);
       } else {
-        const final: CopilotMessage[] = [...updated, { role: "assistant" as const, content: cleanedText, actions, cards }];
+        const final: CopilotMessage[] = [...updated, { role: "assistant" as const, content: cleanedText, actions, cards, alertFixButtons }];
         setMessages(final);
         saveCopilotMessages(final);
       }
@@ -1001,6 +1109,10 @@ export default function AdminCopilot({
       setStreaming(false);
     }
   }
+
+  // Wave 12D — Keep the ref pointed at the freshest sendMessage closure so
+  // the copilot:seed-and-send event handler can call it without remounting.
+  sendMessageRef.current = sendMessage;
 
   function handleClear() {
     setMessages([] as CopilotMessage[]);
@@ -1150,6 +1262,7 @@ export default function AdminCopilot({
           const assistantMsg = msg as AssistantMessageWithActions;
           const actions = msg.role === "assistant" ? assistantMsg.actions : undefined;
           const cards = msg.role === "assistant" ? assistantMsg.cards : undefined;
+          const alertFixButtons = msg.role === "assistant" ? assistantMsg.alertFixButtons : undefined;
           return (
             <div
               key={i}
@@ -1222,6 +1335,50 @@ export default function AdminCopilot({
                       <span aria-hidden="true">{a.intent === "navigate" ? "→" : "✓"}</span>
                     </button>
                   ))}
+                </div>
+              )}
+              {/* Wave 12D — Alert investigation "Run fix" CTA buttons.
+                  Each maps to a whitelisted server-side handler. We render
+                  AT MOST ONE per message (spec) — the AI is also instructed
+                  to emit at most one marker. State is local; results stay
+                  visible after success so the operator sees what ran. */}
+              {alertFixButtons && alertFixButtons.length > 0 && (
+                <div className="mt-2 w-full max-w-[92%] space-y-1.5" data-testid={`copilot-alert-fix-${i}`}>
+                  {alertFixButtons.map((btn, j) => {
+                    const key = `${i}-${btn.alertId}-${btn.action}`;
+                    const state = alertFixState[key] ?? "idle";
+                    const result = alertFixResults[key];
+                    return (
+                      <div key={j} className="rounded-md border border-amber-200 bg-amber-50 overflow-hidden">
+                        <div className="px-3 py-1.5 bg-amber-100 border-b border-amber-200">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                            Suggested fix — alert #{btn.alertId}
+                          </span>
+                        </div>
+                        <div className="px-3 py-2 flex items-center justify-between gap-2">
+                          <span className="text-xs text-gray-700 truncate">{btn.label}</span>
+                          {state === "done" ? (
+                            <span className="text-[11px] text-green-600 font-medium shrink-0">Done ✓</span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={state === "running"}
+                              onClick={() => runFixAction(i, btn)}
+                              className="px-3 py-1 text-xs font-medium text-white bg-brand-blue hover:bg-brand-blue-600 rounded disabled:opacity-60 shrink-0"
+                              data-testid={`copilot-alert-fix-run-${i}-${j}`}
+                            >
+                              {state === "running" ? "Running…" : state === "error" ? "Retry" : "Run fix"}
+                            </button>
+                          )}
+                        </div>
+                        {result && (
+                          <p className={`px-3 pb-2 text-[11px] ${state === "error" ? "text-red-600" : "text-gray-600"}`}>
+                            {result}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
