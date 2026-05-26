@@ -315,7 +315,7 @@ export default function ContentExamplesPage() {
               return (
                 <Card key={sample.preset} className="p-4">
                   <div className="mb-3 flex aspect-video items-center justify-center rounded-md border border-border bg-muted/40">
-                    <Icon className="h-10 w-10 text-muted-foreground/70" aria-hidden="true" />
+                    <Icon className="h-8 w-8 text-muted-foreground/70" aria-hidden="true" />
                   </div>
                   <h3 className="mb-1 text-sm font-semibold text-foreground">{sample.preset}</h3>
                   <p className="mb-2 text-xs text-muted-foreground">{sample.description}</p>
