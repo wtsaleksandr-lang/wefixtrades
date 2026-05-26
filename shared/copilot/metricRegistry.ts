@@ -228,9 +228,54 @@ const TRADELINE: Record<string, MetricMeta> = {
   },
 };
 
-/* MapGuard + ReputationShield are placeholder maps for now — these
- * products plug in via the same registry when their dashboards land. */
-const MAPGUARD: Record<string, MetricMeta> = {};
+/* Wave 27 — MapGuard metric entries (heatmap pulse + Citation Health + GBP
+ * trend + avg-rank gauge). Customer-facing labels, hover-ready help, and
+ * 2-4 improvement tips per metric so Copilot can coach the operator. */
+const MAPGUARD: Record<string, MetricMeta> = {
+  avgRank: {
+    label: "Avg rank",
+    helpText:
+      "Average Google position across every keyword × pin on your weekly rank-grid scan. Lower is better.",
+    improvementTips: [
+      "Publish locally-targeted articles via RankFlow",
+      "Add city + service photos to your GBP profile",
+      "Fix NAP inconsistencies surfaced in Citation Health",
+    ],
+    unit: "position",
+  },
+  top3Coverage: {
+    label: "Top 3 coverage",
+    helpText:
+      "Percentage of the 25 grid pins where you rank in Google's local 3-pack. The Map Pack is what drives calls.",
+    improvementTips: [
+      "Run a Citation Builder campaign on missing directories",
+      "Request fresh reviews via ReputationShield",
+      "Post weekly GBP updates from ContentFlow",
+    ],
+    unit: "%",
+  },
+  citationHealth: {
+    label: "Citation health",
+    helpText:
+      "Letter grade based on Found vs Missing vs Inconsistent listings across 50+ directories. A = 90%+ healthy.",
+    improvementTips: [
+      "Upgrade to Citation Builder to add missing directories",
+      "Fix NAP-mismatched listings (one-click action available)",
+      "Republish to top-10 industry directories monthly",
+    ],
+  },
+  gbpHealth: {
+    label: "GBP health",
+    helpText:
+      "Google Business Profile completeness — photos, description, hours, services, posts. 100% = every field populated.",
+    improvementTips: [
+      "Upload 5+ fresh photos per week",
+      "Schedule weekly GBP posts from ContentFlow",
+      "Keep services + categories aligned with your trade type",
+    ],
+    unit: "%",
+  },
+};
 const REPUTATIONSHIELD: Record<string, MetricMeta> = {};
 
 const REGISTRY: Record<DashboardProduct, Record<string, MetricMeta>> = {
