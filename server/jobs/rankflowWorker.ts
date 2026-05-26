@@ -4,7 +4,8 @@ import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { runQA } from "../services/rankflow/qaService";
 import { autoBatchUnbatchedTasks } from "../services/rankflow/batchService";
 import { WORKER_LIMITS, prioritizeProfiles } from "../services/rankflow/scalingConfig";
-import { createDraftFromRankflowTask, generateArticleBody } from "../services/contentflow/articleService";
+import { createDraftFromRankflowTask } from "../services/contentflow/articleService";
+import { requestContent } from "../services/contentflow/api";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("RankflowWorker");
@@ -50,9 +51,24 @@ export async function processRankFlowPlans(): Promise<{
           const task = await storage.createRankFlowTask(t as any);
           if (task.type === "page_create") {
             try {
+              // Wave 20: route through unified ContentFlow API. The draft
+              // row is created up-front (cheap DB insert, idempotent) so
+              // RankFlow's task → draft cross-link is back-filled
+              // synchronously; the body generation runs async inside the
+              // ContentFlow dispatcher and logs every stage transition to
+              // content_pipeline_log for the admin dashboard.
               const draft = await createDraftFromRankflowTask({ task, profile });
-              generateArticleBody(draft.id).catch((err) =>
-                log.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
+              requestContent({
+                source: "rankflow",
+                type: "article",
+                clientId: task.client_id,
+                topic: task.title,
+                metadata: {
+                  draftId: draft.id,
+                  rankflowTaskId: task.id,
+                },
+              }).catch((err) =>
+                log.error(`[contentflow] requestContent failed for draft ${draft.id}:`, err?.message),
               );
             } catch (hookErr: any) {
               log.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);

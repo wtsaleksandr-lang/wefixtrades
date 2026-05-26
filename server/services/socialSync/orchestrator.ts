@@ -6,6 +6,7 @@ import { createDraftFromSocialPost } from "../contentflow/draftService";
 import { autoApproveDraft } from "../contentflow/approvalService";
 import { enqueueSocialSyncDraft } from "../contentflow/wordpressQueue";
 import { generateForDraft as generateImageForDraft } from "../contentflow/imageGenerationService";
+import { recordCompletedRequest } from "../contentflow/api";
 import type { SocialSyncProfile, SocialSyncTopic } from "@shared/schema";
 import { createLogger } from "../../lib/logger";
 
@@ -243,10 +244,51 @@ export async function generateWeekForClient(
     if (!genResult?.post) {
       if (genResult?.rejectionReason) result.errors.push(`Post rejected: ${genResult.rejectionReason}`);
       else if (genResult?.error) result.errors.push(genResult.error);
+      // Wave 20: record the failure in the unified pipeline so admin
+      // dashboard + per-client portal surface every social-post miss.
+      recordCompletedRequest({
+        source: "socialsync",
+        type: "social_post",
+        clientId,
+        topic: topic.title,
+        metadata: { platform, topicId: topic.id, profileId: profile.id },
+        outcome: {
+          ok: false,
+          errors: [
+            {
+              stage: genResult?.rejected ? "quality_gate" : "llm_generation",
+              message: genResult?.rejectionReason ?? genResult?.error ?? "post not produced",
+              retryable: !genResult?.rejected,
+            },
+          ],
+        },
+      }).catch(() => {});
       continue;
     }
 
     result.posts_generated++;
+
+    // Wave 20: record successful generation in the unified pipeline.
+    recordCompletedRequest({
+      source: "socialsync",
+      type: "social_post",
+      clientId,
+      topic: topic.title,
+      metadata: { platform, topicId: topic.id, profileId: profile.id, postId: genResult.post.id },
+      outcome: {
+        ok: true,
+        qualityScore: genResult.post.quality_score ?? null,
+        payload: {
+          article: genResult.post.post_text,
+          excerpt: genResult.post.caption ?? undefined,
+          metadata: {
+            platform,
+            postId: genResult.post.id,
+            hashtags: genResult.post.hashtags,
+          },
+        },
+      },
+    }).catch(() => {});
 
     // Sprint 10: route through ContentFlow's unified publish queue.
     // Replaces the legacy socialsync_publish_queue insert.
