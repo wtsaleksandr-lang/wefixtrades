@@ -116,11 +116,12 @@ client/src/pages/admin/SystemWorkersPage.tsx:405:31	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/TradeLineOpsPage.tsx:63:71	rule-c	square w-10 h-10
 client/src/pages/admin/TradeLineOpsPage.tsx:147:90	rule-c	square w-10 h-10
 client/src/pages/admin/TradelineLearningPage.tsx:282:32	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/TradelineTemplatesPage.tsx:289:15	rule-c	square w-7 h-7
-client/src/pages/admin/TradelineTemplatesPage.tsx:304:15	rule-c	square w-7 h-7
-client/src/pages/admin/TradelineTemplatesPage.tsx:686:27	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/TradelineTemplatesPage.tsx:687:27	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/TradelineTemplatesPage.tsx:688:27	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/TradelineTemplatesPage.tsx:290:15	rule-c	square w-7 h-7
+client/src/pages/admin/TradelineTemplatesPage.tsx:307:15	rule-c	square w-7 h-7
+client/src/pages/admin/TradelineTemplatesPage.tsx:315:15	rule-c	square w-7 h-7
+client/src/pages/admin/TradelineTemplatesPage.tsx:697:27	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/TradelineTemplatesPage.tsx:698:27	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/TradelineTemplatesPage.tsx:699:27	rule-c	square w-1.5 h-1.5
 client/src/pages/calculator.tsx:162:22	rule-c	square w-10 h-10
 client/src/pages/demos/RankFlowDemo.tsx:700:72	rule-c	size={90}
 client/src/pages/demos/RankFlowDemo.tsx:701:74	rule-c	size={90}

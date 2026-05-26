@@ -29,6 +29,11 @@ import {
 } from "../lib/applyTemplateOverrides";
 import { TEMPLATE_KIND_VALUES, type TemplateKind } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import {
+  getOrCreateSampleForText,
+  isPreviewAvailable,
+  pickOpenAIVoice,
+} from "../lib/voicePreview";
 
 const log = createLogger("AdminTradelineTemplates");
 
@@ -79,6 +84,79 @@ function emptyConciergeDefault(templateId: string): ConciergeTemplate {
     toolingHints: "",
     escalationToHuman: "",
   };
+}
+
+/* ─── Voice-preview helpers ──────────────────────────────────────────
+ * Build a short tone-flavored greeting from the merged template + use a
+ * deterministic OpenAI TTS preset so the same (tone, kind, name) always
+ * sounds the same on replay. The audio cache itself lives on disk via
+ * voicePreview.ts; this layer only chooses the text + voice. */
+
+const DEFAULT_SAMPLE_TEXT =
+  "Hi, thanks for calling. How can I help with your job today?";
+
+function buildPreviewGreeting(
+  kind: TemplateKind,
+  effective: Record<string, unknown>,
+  customSample?: string,
+): string {
+  // Admin-supplied sample wins, capped at 200 chars to limit TTS cost.
+  if (customSample && customSample.trim()) {
+    return customSample.trim().slice(0, 200);
+  }
+  const name = String(effective.name ?? "").trim();
+  const tone = String(effective.defaultTone ?? "professional").toLowerCase();
+  // Concierge is portal-internal — the AI greets the trade, not a caller.
+  if (kind === "concierge") {
+    if (tone === "casual") {
+      return name
+        ? `Hey — I'm your ${name} concierge. What do you want to dig into today?`
+        : "Hey — I'm your portal concierge. What do you want to dig into today?";
+    }
+    if (tone === "friendly") {
+      return name
+        ? `Hi there, I'm your ${name} concierge. What can I help you with today?`
+        : "Hi there, I'm your portal concierge. What can I help you with today?";
+    }
+    return name
+      ? `Hello, I'm your ${name} concierge — happy to help anytime.`
+      : "Hello, I'm your portal concierge — happy to help anytime.";
+  }
+  // TradeLine receptionist — greets the end-customer who just dialed in.
+  if (tone === "casual") {
+    return name
+      ? `Hey, you've reached ${name}. What's going on today?`
+      : DEFAULT_SAMPLE_TEXT;
+  }
+  if (tone === "friendly") {
+    return name
+      ? `Hi there, you've reached ${name}. How can I help you today?`
+      : DEFAULT_SAMPLE_TEXT;
+  }
+  return name
+    ? `Hello, you've reached ${name} — how can I help today?`
+    : DEFAULT_SAMPLE_TEXT;
+}
+
+/* Simple in-memory rate limit: max 30 voice-preview hits per minute per
+ * actor. Pure-memory window is fine — voice previews are admin-only and
+ * the route just protects against an open `for` loop spending OpenAI
+ * credits, not against distributed abuse. */
+const VOICE_PREVIEW_WINDOW_MS = 60_000;
+const VOICE_PREVIEW_MAX_PER_WINDOW = 30;
+const voicePreviewHits = new Map<string, number[]>();
+
+function checkVoicePreviewRate(key: string): boolean {
+  const now = Date.now();
+  const arr = voicePreviewHits.get(key) ?? [];
+  const fresh = arr.filter((ts) => now - ts < VOICE_PREVIEW_WINDOW_MS);
+  if (fresh.length >= VOICE_PREVIEW_MAX_PER_WINDOW) {
+    voicePreviewHits.set(key, fresh);
+    return false;
+  }
+  fresh.push(now);
+  voicePreviewHits.set(key, fresh);
+  return true;
 }
 
 export function registerAdminTradelineTemplatesRoutes(app: Express) {
@@ -371,6 +449,100 @@ export function registerAdminTradelineTemplatesRoutes(app: Express) {
       } catch (err) {
         log.error("duplicate failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Failed to duplicate template" });
+      }
+    },
+  );
+
+  /* ─── GET /:kind/:templateId/voice-sample — TTS preview MP3 ───────────
+   * Streams a short cached MP3 spoken by an OpenAI TTS voice picked
+   * deterministically from the template's tone + id, so the admin can
+   * hear roughly what the assistant sounds like before committing.
+   *
+   * Cache lives on disk via voicePreview.cachePathForText, keyed by
+   * (templateId, openaiVoice, sha256(text)) — re-clicking is instant
+   * and edits to the template name/tone produce a fresh synthesis.
+   *
+   * Returns 503 when OpenAI is unconfigured or generation fails so the
+   * frontend can toast "Voice preview unavailable" instead of crashing.
+   *
+   * Optional `?sample=` query (admin-supplied custom sentence, max 200
+   * chars) overrides the auto-built greeting.
+   * ──────────────────────────────────────────────────────────────── */
+  app.get(
+    "/api/admin/tradeline/templates/:kind/:templateId/voice-sample",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      const parseKind = kindParam.safeParse(req.params.kind);
+      if (!parseKind.success) {
+        return res.status(400).json({ error: "invalid_kind" });
+      }
+      const kind = parseKind.data;
+      const templateId = String(req.params.templateId);
+      if (!/^[a-z0-9][a-z0-9_-]*$/i.test(templateId)) {
+        return res.status(400).json({ error: "invalid_template_id" });
+      }
+
+      // Per-actor rate limit (admin id when known, IP otherwise).
+      const rateKey = `voice-preview:${req.user?.id ?? req.ip ?? "anon"}`;
+      if (!checkVoicePreviewRate(rateKey)) {
+        return res.status(429).json({ error: "rate_limited" });
+      }
+
+      if (!isPreviewAvailable()) {
+        return res.status(503).json({ error: "preview_unavailable" });
+      }
+
+      try {
+        // Resolve the template's effective fields (code default + override).
+        const codeDefault = findCodeDefault(kind, templateId);
+        const overrideRow = await getOverride(kind, templateId);
+        if (!codeDefault && !overrideRow) {
+          return res.status(404).json({ error: "template_not_found" });
+        }
+        const base =
+          codeDefault ??
+          (kind === "tradeline"
+            ? emptyTradelineDefault(templateId)
+            : emptyConciergeDefault(templateId));
+        const effective = applyOverrides(
+          base,
+          overrideRow?.overrides ?? null,
+        ) as unknown as Record<string, unknown>;
+
+        // Custom sample sentence (optional, capped + sanitized).
+        const customRaw = req.query.sample;
+        const customSample =
+          typeof customRaw === "string" ? customRaw : undefined;
+        const text = buildPreviewGreeting(kind, effective, customSample);
+
+        // Deterministic OpenAI voice — folds the template id + tone into
+        // the pickOpenAIVoice hash so each template keeps a stable timbre.
+        const tone = String(effective.defaultTone ?? "professional");
+        const voiceSeed = `${templateId}:${tone}`;
+        // No gender on templates → null means pickOpenAIVoice samples from
+        // the full 6-voice pool deterministically by hash.
+        const openaiVoice = pickOpenAIVoice(voiceSeed, null);
+
+        const cachePrefix = `tpl_${kind}_${templateId}_${tone}`.toLowerCase();
+        const buf = await getOrCreateSampleForText(
+          cachePrefix,
+          openaiVoice,
+          text,
+        );
+        if (!buf) {
+          return res.status(503).json({ error: "preview_unavailable" });
+        }
+        res.setHeader("Content-Type", "audio/mpeg");
+        res.setHeader("Cache-Control", "private, max-age=86400");
+        res.setHeader("Content-Length", String(buf.length));
+        return res.end(buf);
+      } catch (err: any) {
+        log.error("template voice-sample failed", {
+          error: err?.message,
+          kind,
+          templateId,
+        });
+        return res.status(503).json({ error: "preview_unavailable" });
       }
     },
   );
