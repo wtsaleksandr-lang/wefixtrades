@@ -19,7 +19,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, CheckCircle2, MessageSquareWarning, XCircle, FileText, ExternalLink, Clock, Share2, Instagram, Facebook, Globe, Mail, Calendar, Video } from "lucide-react";
+import { Loader2, CheckCircle2, MessageSquareWarning, XCircle, FileText, ExternalLink, Clock, Share2, Instagram, Facebook, Globe, Mail, Calendar, Video, Sparkles, Wand2, MapPin, Megaphone, Type } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,6 +96,119 @@ function formatRelative(iso: string): string {
 
 function uniqueSorted(arr: string[]): string[] {
   return Array.from(new Set(arr.filter(Boolean))).sort();
+}
+
+/* ─── AI Co-pilot Panel (Wave 23) ──────────────────────────────────── */
+
+type CopilotAction = "tighten_intro" | "add_cta" | "localize" | "match_voice";
+
+interface SuggestResponse {
+  ok: boolean;
+  action: CopilotAction;
+  original: string;
+  suggestion: string;
+  providerUsed: string;
+}
+
+const COPILOT_ACTIONS: Array<{ id: CopilotAction; label: string; icon: any; help: string }> = [
+  { id: "tighten_intro", label: "Tighten intro", icon: Type, help: "Cut filler from the first paragraph." },
+  { id: "add_cta", label: "Add CTA", icon: Megaphone, help: "Append a natural call-to-action." },
+  { id: "localize", label: "Localize", icon: MapPin, help: "Add city/region references." },
+  { id: "match_voice", label: "Match brand voice", icon: Wand2, help: "Rewrite in your defined tone." },
+];
+
+function AICopilotPanel({ draftId, draftBody }: { draftId: number | null; draftBody: string }) {
+  const { toast } = useToast();
+  const [running, setRunning] = useState<CopilotAction | null>(null);
+  const [result, setResult] = useState<SuggestResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runAction(action: CopilotAction) {
+    if (!draftId) return;
+    setRunning(action);
+    setResult(null);
+    setError(null);
+    try {
+      const res = await apiRequest("POST", `/api/portal/contentflow/draft/${draftId}/suggest`, { action });
+      const json = (await res.json()) as SuggestResponse | { error?: string };
+      if (!res.ok || !(json as SuggestResponse).ok) {
+        setError((json as any)?.error || "Couldn't generate a suggestion right now.");
+        return;
+      }
+      setResult(json as SuggestResponse);
+    } catch (e: any) {
+      setError(e?.message || "Network error");
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  function copySuggestion() {
+    if (!result) return;
+    try {
+      void navigator.clipboard?.writeText(result.suggestion);
+      toast({ title: "Copied", description: "Suggestion copied to clipboard." });
+    } catch {
+      /* clipboard may be unavailable; silently ignore */
+    }
+  }
+
+  return (
+    <div className="rounded border bg-card p-3 space-y-3" data-testid="ai-copilot-panel">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-[hsl(var(--chart-1))]" />
+        <div className="text-sm font-medium">AI suggestions</div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {COPILOT_ACTIONS.map((a) => {
+          const Icon = a.icon;
+          const isRunning = running === a.id;
+          return (
+            <Button
+              key={a.id}
+              variant="outline"
+              size="sm"
+              disabled={!draftId || !draftBody || running !== null}
+              onClick={() => runAction(a.id)}
+              title={a.help}
+              data-testid={`copilot-${a.id}`}
+              className="justify-start"
+            >
+              {isRunning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Icon className="h-4 w-4 mr-2" />}
+              {a.label}
+            </Button>
+          );
+        })}
+      </div>
+
+      {error && (
+        <div className="text-xs text-[hsl(var(--destructive))]">{error}</div>
+      )}
+
+      {result && (
+        <div className="space-y-2 border-t pt-3">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground flex items-center justify-between">
+            <span>Suggested rewrite</span>
+            <Button variant="ghost" size="sm" onClick={copySuggestion} data-testid="copilot-copy">
+              Copy
+            </Button>
+          </div>
+          <div className="rounded border bg-muted/30 p-2 text-xs max-h-48 overflow-y-auto whitespace-pre-wrap">
+            {result.suggestion}
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            Generated via {result.providerUsed}. Review before applying.
+          </div>
+        </div>
+      )}
+
+      {!result && !error && (
+        <div className="text-xs text-muted-foreground">
+          Pick an action to rewrite the draft. Suggestions are advisory — nothing is saved until you approve.
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ─── Page ────────────────────────────────────────────────────────── */
@@ -459,6 +572,11 @@ export default function PortalArticles() {
                   <div className="font-medium mb-1">Your note</div>
                   <div className="whitespace-pre-wrap">{detail.metadata.client_review.note}</div>
                 </div>
+              )}
+
+              {/* Wave 23 — AI co-pilot suggestions panel */}
+              {detailIsActionable && detail.body && (
+                <AICopilotPanel draftId={detail.id} draftBody={detail.body} />
               )}
 
               {detailIsActionable && (

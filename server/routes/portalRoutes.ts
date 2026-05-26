@@ -24,6 +24,7 @@ import { registerPortalChatRoutes } from "./portal/chat";
 import { registerPortalOnboardingRoutes } from "./portal/onboarding";
 import { registerPortalReviewQueueRoutes } from "./portal/review-queue";
 import { registerPortalContentflowRoutes } from "./portal/contentflow";
+import { registerPortalContentflowDashboardRoutes } from "./portal/contentflowDashboard";
 import { registerPortalMapguardRoutes } from "./portal/mapguard";
 import { registerPortalSocialsyncRoutes } from "./portal/socialsync";
 import { registerPortalRankflowRoutes } from "./portal/rankflow";
@@ -74,6 +75,7 @@ export function registerPortalRoutes(app: Express) {
   registerPortalOnboardingRoutes(app);
   registerPortalReviewQueueRoutes(app);
   registerPortalContentflowRoutes(app);
+  registerPortalContentflowDashboardRoutes(app);
   registerPortalMapguardRoutes(app);
   registerPortalSocialsyncRoutes(app);
   registerPortalRankflowRoutes(app);
