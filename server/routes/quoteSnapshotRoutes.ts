@@ -36,6 +36,7 @@ import {
   OWNER_EDIT_TOKEN_BYTES,
 } from "@shared/quoteSnapshot";
 import { createLogger } from "../lib/logger";
+import { publishQuoteUpdate } from "./portal/quotequick/liveStream";
 
 const log = createLogger("QuoteSnapshot");
 
@@ -278,6 +279,18 @@ export function registerQuoteSnapshotRoutes(app: Express): void {
         .returning();
 
       log.info("Edited snapshot", { snapshot_slug: slug });
+
+      // Wave 29 — broadcast a live-edit event to any /q/:slug viewer
+      // subscribed via the SSE stream. Non-fatal if the publish throws.
+      try {
+        publishQuoteUpdate(slug);
+      } catch (publishErr: any) {
+        log.warn("publishQuoteUpdate failed", {
+          snapshot_slug: slug,
+          error: publishErr?.message,
+        });
+      }
+
       return res.json({ snapshot: toPublicSnapshot(updated) });
     } catch (err: any) {
       log.error("PATCH /api/q/:slug failed", { error: err?.message });

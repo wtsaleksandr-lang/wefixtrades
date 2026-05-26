@@ -223,6 +223,12 @@ const MapGuardAlertSettings = lazy(() => import("@/pages/portal/mapguard/AlertSe
 const ReputationShieldDashboard = lazy(() => import("@/pages/portal/reputationshield/ReputationShieldDashboard"));
 const ReputationShieldNotificationSettings = lazy(() => import("@/pages/portal/reputationshield/NotificationSettings"));
 const ReputationShieldSetup = lazy(() => import("@/pages/portal/reputationshield/ReputationShieldSetup"));
+// Wave 29 — QuoteQuick UI upgrade portal surfaces.
+const QuoteQuickDashboard = lazy(() => import("@/pages/portal/quotequick/QuoteQuickDashboard"));
+const QuoteQuickSetup = lazy(() => import("@/pages/portal/quotequick/QuoteQuickSetup"));
+const QuoteQuickBrandSettings = lazy(() => import("@/pages/portal/quotequick/BrandSettings"));
+const QuoteQuickFormBuilderPage = lazy(() => import("@/pages/portal/quotequick/FormBuilderPage"));
+const QuoteQuickNotificationSettings = lazy(() => import("@/pages/portal/quotequick/NotificationSettings"));
 const AiInsightsPage = lazy(() => import("@/pages/portal/AiInsightsPage"));
 const CitationTrackerDashboard = lazy(() => import("@/pages/portal/CitationTrackerDashboard"));
 const CitationBuilderDashboard = lazy(() => import("@/pages/portal/CitationBuilderDashboard"));
@@ -435,6 +441,14 @@ function Router() {
       <Route path="/portal/reputationshield/dashboard">{() => <RequireClient><ReputationShieldDashboard /></RequireClient>}</Route>
       <Route path="/portal/reputationshield/setup">{() => <RequireClient><ReputationShieldSetup /></RequireClient>}</Route>
       <Route path="/portal/reputationshield/notifications">{() => <RequireClient><ReputationShieldNotificationSettings /></RequireClient>}</Route>
+      {/* Wave 29 — QuoteQuick UI upgrade routes. Dashboard, 3-question
+          setup wizard, white-label brand settings, Elfsight-grade form
+          builder, push-notification preferences. */}
+      <Route path="/portal/quotequick/dashboard">{() => <RequireClient><QuoteQuickDashboard /></RequireClient>}</Route>
+      <Route path="/portal/quotequick/setup">{() => <RequireClient><QuoteQuickSetup /></RequireClient>}</Route>
+      <Route path="/portal/quotequick/brand">{() => <RequireClient><QuoteQuickBrandSettings /></RequireClient>}</Route>
+      <Route path="/portal/quotequick/builder">{() => <RequireClient><QuoteQuickFormBuilderPage /></RequireClient>}</Route>
+      <Route path="/portal/quotequick/notifications">{() => <RequireClient><QuoteQuickNotificationSettings /></RequireClient>}</Route>
       <Route path="/portal/ai-insights">{() => <RequireClient><AiInsightsPage /></RequireClient>}</Route>
       <Route path="/portal/citation-tracker">{() => <RequireClient><CitationTrackerDashboard /></RequireClient>}</Route>
       <Route path="/portal/citation-builder">{() => <RequireClient><CitationBuilderDashboard /></RequireClient>}</Route>

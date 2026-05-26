@@ -916,6 +916,7 @@ function CopilotMetricsPreview() {
     tradeline: { answeredToday: 14, callsToday: 17, bookingsThisMonth: 22, costPerBooking: 24.5, estimatedMissedRevenue: 0 },
     mapguard: {},
     reputationshield: {},
+    quotequick: { quotesSent: 42, avgDepositPaidRate: 8, revenueThisMonth: 0, activeEmbeds: 2 },
   };
 
   const productMeta = METRIC_REGISTRY[selected] ?? {};
