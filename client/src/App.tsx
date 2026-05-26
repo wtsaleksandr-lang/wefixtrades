@@ -9,227 +9,248 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ImpersonateBanner } from "@/components/admin/ImpersonateBanner";
 import AppErrorBoundary from "@/components/shared/AppErrorBoundary";
 import NotFound from "@/pages/not-found";
-/**
- * Embed-y / iframe-loaded routes are code-split so the host page's iframe
- * (or rarely-visited tool surface) pulls only its own chunk instead of the
- * full 1.5-3 MB SPA bundle. Audit PR #724 flagged the embedded calculator
- * shipping the whole admin/portal tree as a P0 perf issue.
- */
-const Wizard = lazy(() => import("@/pages/wizard"));
-const WizardLegacy = lazy(() => import("@/pages/wizard-legacy"));
-const Calculator = lazy(() => import("@/pages/calculator"));
-const FreeAudit = lazy(() => import("@/pages/marketing/FreeAudit"));
-const TradePromptsPage = lazy(() => import("@/pages/marketing/TradePromptsPage"));
-const ContentFlowStandalone = lazy(() => import("@/pages/marketing/ContentFlowStandalone"));
-import EditCalculator from "@/pages/edit-calculator";
-import LeadsPage from "@/pages/leads";
-import Dashboard from "@/pages/dashboard";
-import LoginPage from "@/pages/login";
-import MarketingHome from "@/pages/marketing/home";
 import { hostedSlugFromHost } from "@shared/slugUtils";
+
+/**
+ * Wave 9 — route-based code-splitting.
+ *
+ * Strategy:
+ *   - Keep STATIC (in marketing critical path so LCP not blocked by chunk fetch):
+ *       MarketingHome, MarketingPricing, PricingUnified, ProductIndex,
+ *       MarketingProduct, MarketingServices, MarketingTemplates,
+ *       EffortelProductPage, NotFound.
+ *   - LAZY-LOAD everything else: admin/*, portal/*, tools/*, audit, wizard,
+ *     compare/*, demos/*, docs sub-pages, dev/*, free-tools/*, etc.
+ *
+ * The Suspense boundary wraps the entire <Switch> so any lazy chunk shows
+ * the spinner during fetch. Pre-Wave-9, only Wizard / Calculator / FreeAudit
+ * / TradePromptsPage / ContentFlowStandalone were lazy.
+ *
+ * Prerender (77 routes) keeps working: per-route hydration uses headless
+ * Chromium and waits for PageMeta, so the lazy chunk loads before snapshot.
+ */
+
+// ── Critical-path (static) marketing routes ────────────────────────────────
+import MarketingHome from "@/pages/marketing/home";
 import MarketingProduct from "@/pages/marketing/product";
 import MarketingPricing from "@/pages/marketing/pricing";
 import QuoteQuickPricing from "@/pages/marketing/quotequick-pricing";
 import ProductIndex from "@/pages/product/ProductIndex";
 import MarketingServices from "@/pages/marketing/services";
 import MarketingTemplates from "@/pages/marketing/templates";
-import MarketingTemplateDetail from "@/pages/marketing/template-detail";
-import MarketingDemo from "@/pages/marketing/demo";
-import MarketingDocs from "@/pages/marketing/docs";
-import MarketingContact from "@/pages/marketing/contact";
-import MarketingPrivacy from "@/pages/marketing/privacy";
-import MarketingTerms from "@/pages/marketing/terms";
-import FeatureInstantQuotes from "@/pages/marketing/features/instant-quotes";
-import FeatureBooking from "@/pages/marketing/features/booking";
-import FeatureAiEmployee from "@/pages/marketing/features/ai-employee";
-import FeatureSms from "@/pages/marketing/features/sms";
-import FeatureCalculatorEngine from "@/pages/marketing/features/calculator-engine";
-import DemoTemplate from "@/pages/marketing/demo-template";
-import DocsEmbed from "@/pages/marketing/docs/embed";
-import DocsDomain from "@/pages/marketing/docs/domain";
-import DocsBooking from "@/pages/marketing/docs/booking";
-import DocsAi from "@/pages/marketing/docs/ai";
-import DocsMapguard from "@/pages/marketing/docs/mapguard";
-import DocsReputationShield from "@/pages/marketing/docs/reputationshield";
-import DocsWebhooks from "@/pages/marketing/docs/webhooks";
-import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
-// AJ-7 — API developer docs
-import ApiDocsPage from "@/pages/marketing/ApiDocsPage";
-import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
-// Audience landing pages (Brightlocal-style) + HTML sitemap
-import ForAgenciesPage from "@/pages/marketing/ForAgenciesPage";
-import ForFranchisesPage from "@/pages/marketing/ForFranchisesPage";
-import ForSoloTradersPage from "@/pages/marketing/ForSoloTradersPage";
-import SitemapPage from "@/pages/marketing/SitemapPage";
-// Free Tools Wave 1 — 4 standalone /tools/* pages (Brightlocal replication).
-import GoogleReviewLinkGenerator from "@/pages/marketing/tools/GoogleReviewLinkGenerator";
-// Wave 6E — Local SERP Checker replaces the older /tools/local-search-checker
-// thin placeholder. Old slug 301s to /tools/local-serp-checker for SEO
-// continuity (see route table below).
-import LocalSerpChecker from "@/pages/marketing/tools/LocalSerpChecker";
-// Wave 6F — Local Rank Tracker (single-business multi-engine snapshot).
-import LocalRankTracker from "@/pages/marketing/tools/LocalRankTracker";
-import CitationChecker from "@/pages/marketing/tools/CitationChecker";
-import LocalRankflux from "@/pages/marketing/tools/LocalRankflux";
-// Wave 2 — Local Rank Grid (free) + Citation Builder (paid service).
-import LocalRankGrid from "@/pages/marketing/tools/LocalRankGrid";
-import CitationBuilderPage from "@/pages/marketing/CitationBuilderPage";
-// Competitor comparison landing pages — "X alternative" / "X vs Y" SEO.
-import CompareVsJobber from "@/pages/marketing/compare/CompareVsJobber";
-import CompareVsHousecallPro from "@/pages/marketing/compare/CompareVsHousecallPro";
-import CompareVsServiceTitan from "@/pages/marketing/compare/CompareVsServiceTitan";
-// FreeAudit lazy-loaded at top of file (embed-y / rarely visited).
-// Tools-consolidation: Missed Call Calculator deleted entirely; MapSnapshot
-// folded into FreeAudit "Rank Grid" tab; tools-hub deleted; Quote Demo +
-// Build-with-AI relocated under the QuoteQuick product family. Legacy
-// /tools/* paths 301 to the surviving surfaces below.
-import QuoteCalculatorDemo from "@/pages/products/quotequick/demo";
-import BuildWithAi from "@/pages/products/quotequick/BuildWithAi";
-import BuildWithAiPreview from "@/pages/products/quotequick/BuildWithAiPreview";
-import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
-import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
-import ComparisonPage from "@/pages/marketing/ComparisonPage";
 import EffortelProductPage from "@/pages/products/EffortelProductPage";
-import SolutionPage from "@/pages/solutions/SolutionPage";
-import DemoCenter from "@/pages/demos/DemoCenter";
-import DemoPage from "@/pages/demos/DemoPage";
-import SocialSyncDemo from "@/pages/demos/SocialSyncDemo";
-import RankFlowDemo from "@/pages/demos/RankFlowDemo";
-import ReputationShieldDemo from "@/pages/demos/ReputationShieldDemo";
-import Plans from "@/pages/Plans";
 import PricingUnified from "@/pages/PricingUnified";
-import CheckoutSuccess from "@/pages/CheckoutSuccess";
-import CheckoutCancelled from "@/pages/CheckoutCancelled";
-import Resources from "@/pages/Resources";
-import DesignShowcase from "@/pages/marketing/DesignShowcase";
-import About from "@/pages/About";
-import Blog from "@/pages/Blog";
-import CaseStudies from "@/pages/CaseStudies";
-import PrimitivesPage from "@/pages/dev/primitives";
-import DemoCanvas from "@/pages/dev/DemoCanvas";
+import LoginPage from "@/pages/login";
+
+// ── Auth wrappers (small, used widely; keep static) ────────────────────────
 import RequirePortal from "@/components/auth/RequirePortal";
-import AiDashboard from "@/pages/admin/AiDashboard";
-import CrmOverview from "@/pages/admin/CrmOverview";
-import ClientsPage from "@/pages/admin/ClientsPage";
-import ClientDetailPage from "@/pages/admin/ClientDetailPage";
-import SuppliersPage from "@/pages/admin/SuppliersPage";
-import InboxPage from "@/pages/admin/InboxPage";
-import CommunicationsPage from "@/pages/admin/CommunicationsPage";
-import SystemAlertsPage from "@/pages/admin/SystemAlertsPage";
-import AdminAuditLogPage from "@/pages/admin/AdminAuditLogPage";
-import WaitlistPage from "@/pages/admin/WaitlistPage";
-/* AI-3c audit log */
-import AuditLogPage from "@/pages/admin/AuditLogPage";
-import AuditLeadsPage from "@/pages/admin/AuditLeadsPage";
-import AdminChatHistoryPage from "@/pages/admin/AdminChatHistoryPage";
-import PortalChatHistoryPage from "@/pages/portal/PortalChatHistoryPage";
-import IntegrationHealthPage from "@/pages/admin/IntegrationHealthPage";
-import SeoIntegrationsPage from "@/pages/admin/SeoIntegrationsPage";
-import BillingPage from "@/pages/admin/BillingPage";
-import ServicesPage from "@/pages/admin/ServicesPage";
-import ProductDetailPage from "@/pages/admin/ProductDetailPage";
-import ServiceOpsPage from "@/pages/admin/ServiceOpsPage";
-import MapguardDashboard from "@/pages/admin/MapguardDashboard";
-import MapguardOpsPage from "@/pages/admin/MapguardOpsPage";
-import WebCareOpsPage from "@/pages/admin/WebCareOpsPage";
-import AiBudgetPage from "@/pages/admin/AiBudgetPage";
-import AdminAiGatesPage from "@/pages/admin/AdminAiGatesPage";
-import AdminAiChannelsPage from "@/pages/admin/AdminAiChannelsPage";
-import AdminAiActivityPage from "@/pages/admin/AdminAiActivityPage";
-import ReviewsPage from "@/pages/admin/ReviewsPage";
-import RankFlowOpsPage from "@/pages/admin/RankFlowOpsPage";
-import AdFlowOpsPage from "@/pages/admin/AdFlowOpsPage";
-import ProfilePage from "@/pages/admin/ProfilePage";
-import SettingsPage from "@/pages/admin/SettingsPage";
-import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
-import ProspectsPage from "@/pages/admin/outbound/ProspectsPage";
-import CampaignsPage from "@/pages/admin/outbound/CampaignsPage";
-import PipelinePage from "@/pages/admin/outbound/PipelinePage";
-import SequencesPage from "@/pages/admin/outbound/SequencesPage";
-import SocialSyncOpsPage from "@/pages/admin/SocialSyncOpsPage";
-import ContentFlowQueuePage from "@/pages/admin/ContentFlowQueuePage";
-import SalesPipelinePage from "@/pages/admin/SalesPipelinePage";
-import OnboardingForm from "@/pages/OnboardingForm";
-import ReviewFunnel from "@/pages/ReviewFunnel";
-import ReviewQrLanding from "@/pages/ReviewQrLanding";
 import RequireClient from "@/components/auth/RequireClient";
-import PortalDashboard from "@/pages/portal/PortalDashboard";
-import PortalCalculatorAnalytics from "@/pages/portal/PortalCalculatorAnalytics";
-import PortalServices from "@/pages/portal/PortalServices";
-import PortalReviews from "@/pages/portal/PortalReviews";
-import PortalCompetitors from "@/pages/portal/PortalCompetitors";
-import PortalWidget from "@/pages/portal/PortalWidget";
-import PortalReviewsSetup from "@/pages/portal/PortalReviewsSetup";
-import PortalServiceDetail from "@/pages/portal/PortalServiceDetail";
-import PortalBilling from "@/pages/portal/PortalBilling";
-import PortalSettings from "@/pages/portal/PortalSettings";
-import PortalOnboarding from "@/pages/portal/PortalOnboarding";
-import TradelineSetupPage from "@/pages/portal/TradelineSetup";
-import PortalTradelineKnowledgePage from "@/pages/portal/PortalTradelineKnowledgePage";
-import PortalTradelineVoicePage from "@/pages/portal/PortalTradelineVoicePage";
-import PortalEmailDomainSetup from "@/pages/portal/PortalEmailDomainSetup";
-import ChatWidgetInstallEntry from "@/pages/portal/ChatWidgetInstallEntry";
-import ChatWidgetInstallOnboarding from "@/pages/portal/ChatWidgetInstallOnboarding";
-import InstallQueuePage from "@/pages/admin/InstallQueuePage";
-import PortalChatWidgetSetup from "@/pages/portal/PortalChatWidgetSetup";
-import PortalHelp from "@/pages/portal/PortalHelp";
-import PortalTicketDetail from "@/pages/portal/PortalTicketDetail";
-import SupportInboxPage from "@/pages/admin/SupportInboxPage";
-import SupportTicketDetailPage from "@/pages/admin/SupportTicketDetailPage";
-import AdminNoticesPage from "@/pages/admin/AdminNoticesPage";
-import PortalMapguard from "@/pages/portal/PortalMapguard";
-import AiInsightsPage from "@/pages/portal/AiInsightsPage";
-import CitationTrackerDashboard from "@/pages/portal/CitationTrackerDashboard";
-import CitationTrackerPage from "@/pages/marketing/CitationTrackerPage";
-import CitationBuilderDashboard from "@/pages/portal/CitationBuilderDashboard";
-import SocialSyncSetup from "@/pages/portal/SocialSyncSetup";
-import PortalSocialSync from "@/pages/portal/PortalSocialSync";
-import PortalRankFlow from "@/pages/portal/PortalRankFlow";
-import PortalArticles from "@/pages/portal/PortalArticles";
-import PortalContentPreferences from "@/pages/portal/PortalContentPreferences";
-import PortalContentFlow from "@/pages/portal/PortalContentFlow";
-import ResetPasswordPage from "@/pages/ResetPassword";
-import SignupPage from "@/pages/Signup";
-import SignupBusinessNamePage from "@/pages/SignupBusinessName";
-import BookingCalendarPage from "@/pages/admin/BookingCalendarPage";
-import SystemJobsPage from "@/pages/admin/SystemJobsPage";
-import SystemWorkersPage from "@/pages/admin/SystemWorkersPage";
-import SystemAvailabilityPage from "@/pages/admin/SystemAvailabilityPage";
-import TradeLineOpsPage from "@/pages/admin/TradeLineOpsPage";
-import TradelineSetupsPage from "@/pages/admin/TradelineSetupsPage";
-import TradelineTemplatesPage from "@/pages/admin/TradelineTemplatesPage";
-import TradelineLearningPage from "@/pages/admin/TradelineLearningPage";
-import TradelineVoicesPage from "@/pages/admin/TradelineVoicesPage";
-import MobilePreviewPage from "@/pages/admin/MobilePreview";
-import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
-import QuoteQuickTradesPage from "@/pages/admin/QuoteQuickTradesPage";
-import QuoteQuickTradeDetailPage from "@/pages/admin/QuoteQuickTradeDetailPage";
-import QuoteQuickTemplatesPage from "@/pages/admin/QuoteQuickTemplatesPage";
-import QuoteQuickTemplateDetailPage from "@/pages/admin/QuoteQuickTemplateDetailPage";
-/* AJ-4 API platform admin */
-import ApiPlatformPage from "@/pages/admin/ApiPlatformPage";
-import ApiPlatformUserDetailPage from "@/pages/admin/ApiPlatformUserDetailPage";
-import BookingPage from "@/pages/public/BookingPage";
-import PayInvoicePage from "@/pages/public/PayInvoicePage";
-import QuoteSnapshotPage from "@/pages/quote-snapshot";
-import DispatchPage from "@/pages/portal/DispatchPage";
-import InvoicesPage from "@/pages/portal/InvoicesPage";
-import InvoiceDetailPage from "@/pages/portal/InvoiceDetailPage";
-import PaymentMethodsPage from "@/pages/portal/PaymentMethodsPage";
-import BookFlowSetupPage from "@/pages/portal/BookFlowSetupPage";
-import PortalCatalog from "@/pages/portal/PortalCatalog";
-import PortalApiAccessPage from "@/pages/portal/PortalApiAccessPage";
-import PortalBrandKitsPage from "@/pages/portal/PortalBrandKitsPage";
-import FreeToolsIndex from "@/pages/portal/FreeTools";
-import SchemaGenerator from "@/pages/portal/FreeTools/SchemaGenerator";
-import FaqWidget from "@/pages/portal/FreeTools/FaqWidget";
-import HoursWidget from "@/pages/portal/FreeTools/HoursWidget";
-import TrustBadges from "@/pages/portal/FreeTools/TrustBadges";
-import ReviewLink from "@/pages/portal/FreeTools/ReviewLink";
-import CallbackForm from "@/pages/portal/FreeTools/CallbackForm";
-import ServiceAreaMap from "@/pages/portal/FreeTools/ServiceAreaMap";
-import ReviewSlugLanding from "@/pages/ReviewSlugLanding";
-import InternalTemplateRender from "@/pages/InternalTemplateRender";
+
+// ── Wizard/calculator/audit family (already lazy pre-Wave-9) ───────────────
+const Wizard = lazy(() => import("@/pages/wizard"));
+const WizardLegacy = lazy(() => import("@/pages/wizard-legacy"));
+const Calculator = lazy(() => import("@/pages/calculator"));
+const FreeAudit = lazy(() => import("@/pages/marketing/FreeAudit"));
+const TradePromptsPage = lazy(() => import("@/pages/marketing/TradePromptsPage"));
+const ContentFlowStandalone = lazy(() => import("@/pages/marketing/ContentFlowStandalone"));
+
+// ── Newly lazy in Wave 9: editor / legacy app pages ────────────────────────
+const EditCalculator = lazy(() => import("@/pages/edit-calculator"));
+const LeadsPage = lazy(() => import("@/pages/leads"));
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+
+// ── Marketing — secondary pages ────────────────────────────────────────────
+const MarketingTemplateDetail = lazy(() => import("@/pages/marketing/template-detail"));
+const MarketingDemo = lazy(() => import("@/pages/marketing/demo"));
+const MarketingDocs = lazy(() => import("@/pages/marketing/docs"));
+const MarketingContact = lazy(() => import("@/pages/marketing/contact"));
+const MarketingPrivacy = lazy(() => import("@/pages/marketing/privacy"));
+const MarketingTerms = lazy(() => import("@/pages/marketing/terms"));
+const FeatureInstantQuotes = lazy(() => import("@/pages/marketing/features/instant-quotes"));
+const FeatureBooking = lazy(() => import("@/pages/marketing/features/booking"));
+const FeatureAiEmployee = lazy(() => import("@/pages/marketing/features/ai-employee"));
+const FeatureSms = lazy(() => import("@/pages/marketing/features/sms"));
+const FeatureCalculatorEngine = lazy(() => import("@/pages/marketing/features/calculator-engine"));
+const DemoTemplate = lazy(() => import("@/pages/marketing/demo-template"));
+const DocsEmbed = lazy(() => import("@/pages/marketing/docs/embed"));
+const DocsDomain = lazy(() => import("@/pages/marketing/docs/domain"));
+const DocsBooking = lazy(() => import("@/pages/marketing/docs/booking"));
+const DocsAi = lazy(() => import("@/pages/marketing/docs/ai"));
+const DocsMapguard = lazy(() => import("@/pages/marketing/docs/mapguard"));
+const DocsReputationShield = lazy(() => import("@/pages/marketing/docs/reputationshield"));
+const DocsWebhooks = lazy(() => import("@/pages/marketing/docs/webhooks"));
+const DocsTroubleshooting = lazy(() => import("@/pages/marketing/docs/troubleshooting"));
+const ApiDocsPage = lazy(() => import("@/pages/marketing/ApiDocsPage"));
+const SolutionsVisibility = lazy(() => import("@/pages/marketing/solutions-visibility"));
+const ForAgenciesPage = lazy(() => import("@/pages/marketing/ForAgenciesPage"));
+const ForFranchisesPage = lazy(() => import("@/pages/marketing/ForFranchisesPage"));
+const ForSoloTradersPage = lazy(() => import("@/pages/marketing/ForSoloTradersPage"));
+const SitemapPage = lazy(() => import("@/pages/marketing/SitemapPage"));
+
+// ── Free Tools — public marketing tools ────────────────────────────────────
+const GoogleReviewLinkGenerator = lazy(() => import("@/pages/marketing/tools/GoogleReviewLinkGenerator"));
+const LocalSerpChecker = lazy(() => import("@/pages/marketing/tools/LocalSerpChecker"));
+const LocalRankTracker = lazy(() => import("@/pages/marketing/tools/LocalRankTracker"));
+const CitationChecker = lazy(() => import("@/pages/marketing/tools/CitationChecker"));
+const LocalRankflux = lazy(() => import("@/pages/marketing/tools/LocalRankflux"));
+const LocalRankGrid = lazy(() => import("@/pages/marketing/tools/LocalRankGrid"));
+const CitationBuilderPage = lazy(() => import("@/pages/marketing/CitationBuilderPage"));
+
+// ── Compare / SEO landing pages ────────────────────────────────────────────
+const CompareVsJobber = lazy(() => import("@/pages/marketing/compare/CompareVsJobber"));
+const CompareVsHousecallPro = lazy(() => import("@/pages/marketing/compare/CompareVsHousecallPro"));
+const CompareVsServiceTitan = lazy(() => import("@/pages/marketing/compare/CompareVsServiceTitan"));
+const CompareNiceJob = lazy(() => import("@/pages/marketing/CompareNiceJob"));
+const ComparisonPage = lazy(() => import("@/pages/marketing/ComparisonPage"));
+
+// ── QuoteQuick product surfaces ────────────────────────────────────────────
+const QuoteCalculatorDemo = lazy(() => import("@/pages/products/quotequick/demo"));
+const BuildWithAi = lazy(() => import("@/pages/products/quotequick/BuildWithAi"));
+const BuildWithAiPreview = lazy(() => import("@/pages/products/quotequick/BuildWithAiPreview"));
+
+// ── Shared / public ───────────────────────────────────────────────────────
+const SharedAuditReport = lazy(() => import("@/pages/marketing/SharedAuditReport"));
+const CitationTrackerPage = lazy(() => import("@/pages/marketing/CitationTrackerPage"));
+const SolutionPage = lazy(() => import("@/pages/solutions/SolutionPage"));
+const DemoCenter = lazy(() => import("@/pages/demos/DemoCenter"));
+const DemoPage = lazy(() => import("@/pages/demos/DemoPage"));
+const SocialSyncDemo = lazy(() => import("@/pages/demos/SocialSyncDemo"));
+const RankFlowDemo = lazy(() => import("@/pages/demos/RankFlowDemo"));
+const ReputationShieldDemo = lazy(() => import("@/pages/demos/ReputationShieldDemo"));
+const Plans = lazy(() => import("@/pages/Plans"));
+const CheckoutSuccess = lazy(() => import("@/pages/CheckoutSuccess"));
+const CheckoutCancelled = lazy(() => import("@/pages/CheckoutCancelled"));
+const Resources = lazy(() => import("@/pages/Resources"));
+const DesignShowcase = lazy(() => import("@/pages/marketing/DesignShowcase"));
+const About = lazy(() => import("@/pages/About"));
+const Blog = lazy(() => import("@/pages/Blog"));
+const CaseStudies = lazy(() => import("@/pages/CaseStudies"));
+const PrimitivesPage = lazy(() => import("@/pages/dev/primitives"));
+const DemoCanvas = lazy(() => import("@/pages/dev/DemoCanvas"));
+
+// ── Admin (heavy, rarely-loaded by public) ─────────────────────────────────
+const AiDashboard = lazy(() => import("@/pages/admin/AiDashboard"));
+const CrmOverview = lazy(() => import("@/pages/admin/CrmOverview"));
+const ClientsPage = lazy(() => import("@/pages/admin/ClientsPage"));
+const ClientDetailPage = lazy(() => import("@/pages/admin/ClientDetailPage"));
+const SuppliersPage = lazy(() => import("@/pages/admin/SuppliersPage"));
+const InboxPage = lazy(() => import("@/pages/admin/InboxPage"));
+const CommunicationsPage = lazy(() => import("@/pages/admin/CommunicationsPage"));
+const SystemAlertsPage = lazy(() => import("@/pages/admin/SystemAlertsPage"));
+const AdminAuditLogPage = lazy(() => import("@/pages/admin/AdminAuditLogPage"));
+const WaitlistPage = lazy(() => import("@/pages/admin/WaitlistPage"));
+const AuditLogPage = lazy(() => import("@/pages/admin/AuditLogPage"));
+const AuditLeadsPage = lazy(() => import("@/pages/admin/AuditLeadsPage"));
+const AdminChatHistoryPage = lazy(() => import("@/pages/admin/AdminChatHistoryPage"));
+const IntegrationHealthPage = lazy(() => import("@/pages/admin/IntegrationHealthPage"));
+const SeoIntegrationsPage = lazy(() => import("@/pages/admin/SeoIntegrationsPage"));
+const BillingPage = lazy(() => import("@/pages/admin/BillingPage"));
+const ServicesPage = lazy(() => import("@/pages/admin/ServicesPage"));
+const ProductDetailPage = lazy(() => import("@/pages/admin/ProductDetailPage"));
+const ServiceOpsPage = lazy(() => import("@/pages/admin/ServiceOpsPage"));
+const MapguardDashboard = lazy(() => import("@/pages/admin/MapguardDashboard"));
+const MapguardOpsPage = lazy(() => import("@/pages/admin/MapguardOpsPage"));
+const WebCareOpsPage = lazy(() => import("@/pages/admin/WebCareOpsPage"));
+const AiBudgetPage = lazy(() => import("@/pages/admin/AiBudgetPage"));
+const AdminAiGatesPage = lazy(() => import("@/pages/admin/AdminAiGatesPage"));
+const AdminAiChannelsPage = lazy(() => import("@/pages/admin/AdminAiChannelsPage"));
+const AdminAiActivityPage = lazy(() => import("@/pages/admin/AdminAiActivityPage"));
+const ReviewsPage = lazy(() => import("@/pages/admin/ReviewsPage"));
+const RankFlowOpsPage = lazy(() => import("@/pages/admin/RankFlowOpsPage"));
+const AdFlowOpsPage = lazy(() => import("@/pages/admin/AdFlowOpsPage"));
+const ProfilePage = lazy(() => import("@/pages/admin/ProfilePage"));
+const SettingsPage = lazy(() => import("@/pages/admin/SettingsPage"));
+const ChangePasswordPage = lazy(() => import("@/pages/admin/ChangePasswordPage"));
+const ProspectsPage = lazy(() => import("@/pages/admin/outbound/ProspectsPage"));
+const CampaignsPage = lazy(() => import("@/pages/admin/outbound/CampaignsPage"));
+const PipelinePage = lazy(() => import("@/pages/admin/outbound/PipelinePage"));
+const SequencesPage = lazy(() => import("@/pages/admin/outbound/SequencesPage"));
+const SocialSyncOpsPage = lazy(() => import("@/pages/admin/SocialSyncOpsPage"));
+const ContentFlowQueuePage = lazy(() => import("@/pages/admin/ContentFlowQueuePage"));
+const SalesPipelinePage = lazy(() => import("@/pages/admin/SalesPipelinePage"));
+const BookingCalendarPage = lazy(() => import("@/pages/admin/BookingCalendarPage"));
+const SystemJobsPage = lazy(() => import("@/pages/admin/SystemJobsPage"));
+const SystemWorkersPage = lazy(() => import("@/pages/admin/SystemWorkersPage"));
+const SystemAvailabilityPage = lazy(() => import("@/pages/admin/SystemAvailabilityPage"));
+const TradeLineOpsPage = lazy(() => import("@/pages/admin/TradeLineOpsPage"));
+const TradelineSetupsPage = lazy(() => import("@/pages/admin/TradelineSetupsPage"));
+const TradelineTemplatesPage = lazy(() => import("@/pages/admin/TradelineTemplatesPage"));
+const TradelineLearningPage = lazy(() => import("@/pages/admin/TradelineLearningPage"));
+const TradelineVoicesPage = lazy(() => import("@/pages/admin/TradelineVoicesPage"));
+const MobilePreviewPage = lazy(() => import("@/pages/admin/MobilePreview"));
+const QuoteQuickPage = lazy(() => import("@/pages/admin/QuoteQuickPage"));
+const QuoteQuickTradesPage = lazy(() => import("@/pages/admin/QuoteQuickTradesPage"));
+const QuoteQuickTradeDetailPage = lazy(() => import("@/pages/admin/QuoteQuickTradeDetailPage"));
+const QuoteQuickTemplatesPage = lazy(() => import("@/pages/admin/QuoteQuickTemplatesPage"));
+const QuoteQuickTemplateDetailPage = lazy(() => import("@/pages/admin/QuoteQuickTemplateDetailPage"));
+const ApiPlatformPage = lazy(() => import("@/pages/admin/ApiPlatformPage"));
+const ApiPlatformUserDetailPage = lazy(() => import("@/pages/admin/ApiPlatformUserDetailPage"));
+const SupportInboxPage = lazy(() => import("@/pages/admin/SupportInboxPage"));
+const SupportTicketDetailPage = lazy(() => import("@/pages/admin/SupportTicketDetailPage"));
+const AdminNoticesPage = lazy(() => import("@/pages/admin/AdminNoticesPage"));
+const InstallQueuePage = lazy(() => import("@/pages/admin/InstallQueuePage"));
+
+// ── Portal (auth-gated client area) ────────────────────────────────────────
+const PortalDashboard = lazy(() => import("@/pages/portal/PortalDashboard"));
+const PortalCalculatorAnalytics = lazy(() => import("@/pages/portal/PortalCalculatorAnalytics"));
+const PortalServices = lazy(() => import("@/pages/portal/PortalServices"));
+const PortalReviews = lazy(() => import("@/pages/portal/PortalReviews"));
+const PortalCompetitors = lazy(() => import("@/pages/portal/PortalCompetitors"));
+const PortalWidget = lazy(() => import("@/pages/portal/PortalWidget"));
+const PortalReviewsSetup = lazy(() => import("@/pages/portal/PortalReviewsSetup"));
+const PortalServiceDetail = lazy(() => import("@/pages/portal/PortalServiceDetail"));
+const PortalBilling = lazy(() => import("@/pages/portal/PortalBilling"));
+const PortalSettings = lazy(() => import("@/pages/portal/PortalSettings"));
+const PortalOnboarding = lazy(() => import("@/pages/portal/PortalOnboarding"));
+const TradelineSetupPage = lazy(() => import("@/pages/portal/TradelineSetup"));
+const PortalTradelineKnowledgePage = lazy(() => import("@/pages/portal/PortalTradelineKnowledgePage"));
+const PortalTradelineVoicePage = lazy(() => import("@/pages/portal/PortalTradelineVoicePage"));
+const PortalEmailDomainSetup = lazy(() => import("@/pages/portal/PortalEmailDomainSetup"));
+const ChatWidgetInstallEntry = lazy(() => import("@/pages/portal/ChatWidgetInstallEntry"));
+const ChatWidgetInstallOnboarding = lazy(() => import("@/pages/portal/ChatWidgetInstallOnboarding"));
+const PortalChatWidgetSetup = lazy(() => import("@/pages/portal/PortalChatWidgetSetup"));
+const PortalHelp = lazy(() => import("@/pages/portal/PortalHelp"));
+const PortalTicketDetail = lazy(() => import("@/pages/portal/PortalTicketDetail"));
+const PortalMapguard = lazy(() => import("@/pages/portal/PortalMapguard"));
+const AiInsightsPage = lazy(() => import("@/pages/portal/AiInsightsPage"));
+const CitationTrackerDashboard = lazy(() => import("@/pages/portal/CitationTrackerDashboard"));
+const CitationBuilderDashboard = lazy(() => import("@/pages/portal/CitationBuilderDashboard"));
+const SocialSyncSetup = lazy(() => import("@/pages/portal/SocialSyncSetup"));
+const PortalSocialSync = lazy(() => import("@/pages/portal/PortalSocialSync"));
+const PortalRankFlow = lazy(() => import("@/pages/portal/PortalRankFlow"));
+const PortalArticles = lazy(() => import("@/pages/portal/PortalArticles"));
+const PortalContentPreferences = lazy(() => import("@/pages/portal/PortalContentPreferences"));
+const PortalContentFlow = lazy(() => import("@/pages/portal/PortalContentFlow"));
+const PortalChatHistoryPage = lazy(() => import("@/pages/portal/PortalChatHistoryPage"));
+const DispatchPage = lazy(() => import("@/pages/portal/DispatchPage"));
+const InvoicesPage = lazy(() => import("@/pages/portal/InvoicesPage"));
+const InvoiceDetailPage = lazy(() => import("@/pages/portal/InvoiceDetailPage"));
+const PaymentMethodsPage = lazy(() => import("@/pages/portal/PaymentMethodsPage"));
+const BookFlowSetupPage = lazy(() => import("@/pages/portal/BookFlowSetupPage"));
+const PortalCatalog = lazy(() => import("@/pages/portal/PortalCatalog"));
+const PortalApiAccessPage = lazy(() => import("@/pages/portal/PortalApiAccessPage"));
+const PortalBrandKitsPage = lazy(() => import("@/pages/portal/PortalBrandKitsPage"));
+const FreeToolsIndex = lazy(() => import("@/pages/portal/FreeTools"));
+const SchemaGenerator = lazy(() => import("@/pages/portal/FreeTools/SchemaGenerator"));
+const FaqWidget = lazy(() => import("@/pages/portal/FreeTools/FaqWidget"));
+const HoursWidget = lazy(() => import("@/pages/portal/FreeTools/HoursWidget"));
+const TrustBadges = lazy(() => import("@/pages/portal/FreeTools/TrustBadges"));
+const ReviewLink = lazy(() => import("@/pages/portal/FreeTools/ReviewLink"));
+const CallbackForm = lazy(() => import("@/pages/portal/FreeTools/CallbackForm"));
+const ServiceAreaMap = lazy(() => import("@/pages/portal/FreeTools/ServiceAreaMap"));
+
+// ── Public / shareable artifacts ───────────────────────────────────────────
+const OnboardingForm = lazy(() => import("@/pages/OnboardingForm"));
+const ReviewFunnel = lazy(() => import("@/pages/ReviewFunnel"));
+const ReviewQrLanding = lazy(() => import("@/pages/ReviewQrLanding"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPassword"));
+const SignupPage = lazy(() => import("@/pages/Signup"));
+const SignupBusinessNamePage = lazy(() => import("@/pages/SignupBusinessName"));
+const BookingPage = lazy(() => import("@/pages/public/BookingPage"));
+const PayInvoicePage = lazy(() => import("@/pages/public/PayInvoicePage"));
+const QuoteSnapshotPage = lazy(() => import("@/pages/quote-snapshot"));
+const ReviewSlugLanding = lazy(() => import("@/pages/ReviewSlugLanding"));
+const InternalTemplateRender = lazy(() => import("@/pages/InternalTemplateRender"));
 
 /**
  * Snapshot pipeline — Playwright-only render route.
