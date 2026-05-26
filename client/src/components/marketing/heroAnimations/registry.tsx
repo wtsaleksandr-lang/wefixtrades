@@ -32,6 +32,7 @@ const PRODUCT_ANIMATIONS: Record<string, ReturnType<typeof lazy>> = {
 /* ─── Per-trade animations ───────────────────────────────────── */
 const TRADE_ANIMATIONS: Record<string, ReturnType<typeof lazy>> = {
   // Solution slugs use the `for-<trade>` form.
+  // Wave 13 — top-12 trade animations.
   "for-plumbers": lazy(() => import("./trades/PlumbingHeroAnimation")),
   "for-hvac": lazy(() => import("./trades/HvacHeroAnimation")),
   "for-electricians": lazy(() => import("./trades/ElectricalHeroAnimation")),
@@ -46,6 +47,36 @@ const TRADE_ANIMATIONS: Record<string, ReturnType<typeof lazy>> = {
   "for-pest-control": lazy(() => import("./trades/PestControlHeroAnimation")),
   // Painter/remodeler/GC sister slugs map to the closest match.
   "for-remodelers": lazy(() => import("./trades/GeneralContractorHeroAnimation")),
+
+  // Wave 16 — long-tail bespoke trade animations.
+  "for-carpenters": lazy(() => import("./trades/CarpenterHeroAnimation")),
+  "for-cabinet-installers": lazy(() => import("./trades/CabinetInstallerHeroAnimation")),
+  "for-chimney-sweeps": lazy(() => import("./trades/ChimneySweepHeroAnimation")),
+  "for-concrete": lazy(() => import("./trades/ConcreteHeroAnimation")),
+  "for-countertop-installers": lazy(() => import("./trades/CountertopInstallerHeroAnimation")),
+  "for-deck-builders": lazy(() => import("./trades/DeckBuilderHeroAnimation")),
+  "for-door-installers": lazy(() => import("./trades/DoorInstallerHeroAnimation")),
+  "for-drywall": lazy(() => import("./trades/DrywallHeroAnimation")),
+  "for-fencing": lazy(() => import("./trades/FencingContractorHeroAnimation")),
+  "for-flooring": lazy(() => import("./trades/FlooringHeroAnimation")),
+  "for-foundation-repair": lazy(() => import("./trades/FoundationRepairHeroAnimation")),
+  "for-gutter-services": lazy(() => import("./trades/GutterServicesHeroAnimation")),
+  "for-insulation": lazy(() => import("./trades/InsulationContractorHeroAnimation")),
+  "for-masonry": lazy(() => import("./trades/MasonryHeroAnimation")),
+  "for-mold-remediation": lazy(() => import("./trades/MoldRemediationHeroAnimation")),
+  "for-moving-services": lazy(() => import("./trades/MovingServicesHeroAnimation")),
+  "for-pool-service": lazy(() => import("./trades/PoolServiceHeroAnimation")),
+  "for-septic-services": lazy(() => import("./trades/SepticServicesHeroAnimation")),
+  "for-siding": lazy(() => import("./trades/SidingContractorHeroAnimation")),
+  "for-solar": lazy(() => import("./trades/SolarInstallerHeroAnimation")),
+  "for-tile-installers": lazy(() => import("./trades/TileInstallerHeroAnimation")),
+  "for-tree-service": lazy(() => import("./trades/TreeServiceHeroAnimation")),
+  "for-water-damage-restoration": lazy(() => import("./trades/WaterDamageRestorationHeroAnimation")),
+  "for-waterproofing": lazy(() => import("./trades/WaterproofingHeroAnimation")),
+  "for-well-water": lazy(() => import("./trades/WellWaterHeroAnimation")),
+  "for-window-installers": lazy(() => import("./trades/WindowInstallerHeroAnimation")),
+  "for-appliance-repair": lazy(() => import("./trades/ApplianceRepairHeroAnimation")),
+  "for-junk-removal": lazy(() => import("./trades/JunkRemovalHeroAnimation")),
 };
 
 /* ─── Fallback frame ─────────────────────────────────────────── */
