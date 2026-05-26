@@ -59,6 +59,10 @@ const EMPTY_KPIS = {
   approvalRate: 0,
   detectionScore: 0,
   distributionReach: 0,
+  // Wave 26.7: 14-day daily count for the Sparkline on the "Articles This
+  // Month" tile. Empty array on preview / empty state — frontend omits the
+  // sparkline rather than faking flat zeros.
+  articlesHistory: [] as number[],
 };
 
 const EMPTY_DASHBOARD_RESPONSE = {
@@ -233,6 +237,9 @@ export async function computeContentflowDashboardKpis(clientId: number) {
     );
   const articlesThisMonth = Number(articlesRow[0]?.n ?? 0);
 
+  // Wave 26.7: 14-day article counts for the Sparkline.
+  const articlesHistory = await computeArticlesHistory(clientId, 14);
+
   const approvedRow = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(contentDrafts)
@@ -312,10 +319,53 @@ export async function computeContentflowDashboardKpis(clientId: number) {
       approvalRate,
       detectionScore,
       distributionReach,
+      articlesHistory,
     },
     pipeline,
     recent,
   };
+}
+
+/**
+ * Wave 26.7 — last N days of "article approved/published" counts per day,
+ * oldest first. Used to power the Sparkline on the Articles This Month tile.
+ *
+ * Returns [] (frontend omits the spark) if there's no history at all. If
+ * there's any activity, we always return exactly N points so the chart
+ * always has the same width.
+ */
+async function computeArticlesHistory(clientId: number, days: number): Promise<number[]> {
+  const start = new Date();
+  start.setUTCHours(0, 0, 0, 0);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+
+  const rows = await db
+    .select({
+      day: sql<string>`to_char(${contentDrafts.created_at}, 'YYYY-MM-DD')`,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(contentDrafts)
+    .where(
+      and(
+        eq(contentDrafts.client_id, clientId),
+        eq(contentDrafts.kind, "article"),
+        inArray(contentDrafts.status, ["approved", "published", "delivered"]),
+        gte(contentDrafts.created_at, start),
+      ),
+    )
+    .groupBy(sql`to_char(${contentDrafts.created_at}, 'YYYY-MM-DD')`);
+
+  if (rows.length === 0) return [];
+
+  const byDay = new Map(rows.map((r) => [r.day, Number(r.n) || 0]));
+  const out: number[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start);
+    d.setUTCDate(d.getUTCDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    out.push(byDay.get(key) ?? 0);
+  }
+  return out;
 }
 
 export function registerPortalContentflowDashboardRoutes(app: Express) {

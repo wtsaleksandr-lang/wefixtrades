@@ -60,7 +60,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ApprovalInbox,
   AIDraftEditor,
+  AnimatedCounter,
   KpiGauge,
+  ProgressRing,
   StatusPill,
   VisualCalendar,
   type CalendarEntry,
@@ -476,21 +478,27 @@ export default function SocialSyncDashboard() {
           </div>
         </div>
 
-        {/* ─── Hero KPI row (Wave 26.5 — KpiGauge with helpText + palette rotation) ── */}
+        {/* ─── Hero KPI row (Wave 26.7 polish-mix — varied primitives) ── */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Card className="p-3 flex items-center justify-center" data-testid="kpi-posts-this-week">
-            <KpiGauge
-              value={kpis?.postsThisWeek ?? 0}
-              min={0}
-              max={Math.max(20, (kpis?.postsThisWeek ?? 0) + 5)}
-              label={META.postsThisWeek.label}
-              size="sm"
-              palette="sapphire"
-              helpText={META.postsThisWeek.helpText}
-              improvementTips={META.postsThisWeek.improvementTips}
-              emptyState={(kpis?.postsThisWeek ?? 0) === 0}
-            />
+          {/* Posts This Week → AnimatedCounter (total count). Sparkline
+              omitted until we ship daily-history series (Wave 26.8+). */}
+          <Card
+            className="p-3 flex flex-col items-center justify-center min-h-[120px]"
+            data-testid="kpi-posts-this-week"
+            title={META.postsThisWeek.helpText ?? undefined}
+          >
+            <div
+              className="text-3xl font-semibold tabular-nums"
+              style={{ color: "hsl(var(--gauge-sapphire))" }}
+            >
+              <AnimatedCounter value={kpis?.postsThisWeek ?? 0} />
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground text-center">
+              {META.postsThisWeek.label}
+            </div>
           </Card>
+
+          {/* Engagement % → KpiGauge (single percentage, keep semi-circular) */}
           <Card className="p-3 flex items-center justify-center" data-testid="kpi-avg-engagement">
             <KpiGauge
               value={kpis?.avgEngagementRate ?? 0}
@@ -505,19 +513,23 @@ export default function SocialSyncDashboard() {
               emptyState={!kpis || kpis.avgEngagementRate === 0}
             />
           </Card>
+
+          {/* Approval Backlog → ProgressRing (X of typical max) */}
           <Card className="p-3 flex items-center justify-center" data-testid="kpi-approval-backlog">
-            <KpiGauge
+            <ProgressRing
               value={kpis?.approvalBacklog ?? 0}
-              min={0}
               max={Math.max(20, (kpis?.approvalBacklog ?? 0) + 5)}
+              unit="pending"
               label={META.approvalBacklog.label}
               size="sm"
-              palette="amber"
+              color="amber"
               helpText={META.approvalBacklog.helpText}
               improvementTips={META.approvalBacklog.improvementTips}
               emptyState={(kpis?.approvalBacklog ?? 0) === 0 && (!kpis || kpis.postsThisWeek === 0)}
             />
           </Card>
+
+          {/* WhatsApp Messages → KpiGauge violet (variety in the row already) */}
           <Card className="p-3 flex items-center justify-center" data-testid="kpi-whatsapp-this-week">
             <KpiGauge
               value={kpis?.whatsappMessagesThisWeek ?? 0}

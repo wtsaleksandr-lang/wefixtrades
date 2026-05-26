@@ -37,10 +37,15 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
+  AnimatedCounter,
   KpiGauge,
+  LetterGradeBadge,
   PipelineStrip,
+  ProgressRing,
+  Sparkline,
   StatusPill,
   VisualCalendar,
   OnboardingWalkthrough,
@@ -72,6 +77,8 @@ interface DashboardKpisResponse {
     approvalRate: number;          // 0..100
     detectionScore: number;        // 0..100 (already inverted: higher = safer)
     distributionReach: number;     // platform count last 30d
+    /** Wave 26.7 — 14 daily counts (oldest first) for the Sparkline. */
+    articlesHistory?: number[];
   };
   pipeline: {
     requested: number;
@@ -330,18 +337,39 @@ export default function PortalContentFlowDashboard() {
               <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
                 Last 30 days
               </div>
+              {/* Wave 26.7 polish-mix: 4 different primitives across the row
+                  for visual rhythm — counter+spark / gauge / grade / ring. */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <KpiGauge
-                  value={kpis?.articlesThisMonth ?? 0}
-                  max={Math.max(kpis?.articlesQuota ?? 10, kpis?.articlesThisMonth ?? 0, 1)}
-                  label={META.articlesThisMonth.label}
-                  size="md"
-                  palette="sapphire"
-                  targetThreshold={kpis?.articlesQuota}
-                  helpText={META.articlesThisMonth.helpText}
-                  improvementTips={META.articlesThisMonth.improvementTips}
-                  emptyState={(kpis?.articlesThisMonth ?? 0) === 0}
-                />
+                {/* Articles This Month → AnimatedCounter + Sparkline */}
+                <div
+                  className="flex flex-col items-center justify-center text-center gap-2 min-h-[140px]"
+                  data-testid="cf-tile-articles"
+                >
+                  <div
+                    className="text-3xl font-semibold tabular-nums"
+                    style={{ color: "hsl(var(--gauge-sapphire))" }}
+                  >
+                    <AnimatedCounter value={kpis?.articlesThisMonth ?? 0} />
+                  </div>
+                  {(kpis?.articlesHistory?.length ?? 0) > 0 && (
+                    <Sparkline
+                      values={kpis!.articlesHistory!}
+                      width={120}
+                      height={28}
+                      color="auto"
+                      variant="area"
+                      ariaLabel={`${META.articlesThisMonth.label} — 14-day trend`}
+                    />
+                  )}
+                  <div className="text-xs text-muted-foreground px-1">
+                    {META.articlesThisMonth.label}
+                    {kpis?.articlesQuota
+                      ? ` (quota ${kpis.articlesQuota})`
+                      : ""}
+                  </div>
+                </div>
+
+                {/* Approval Rate → KpiGauge (kept semi-circular) */}
                 <KpiGauge
                   value={kpis?.approvalRate ?? 0}
                   max={100}
@@ -354,27 +382,46 @@ export default function PortalContentFlowDashboard() {
                   improvementTips={META.approvalRate.improvementTips}
                   emptyState={(kpis?.approvalRate ?? 0) === 0}
                 />
-                <KpiGauge
-                  value={kpis?.detectionScore ?? 0}
-                  max={100}
-                  label={META.detectionScore.label}
-                  size="md"
-                  palette="amber"
-                  targetThreshold={80}
-                  helpText={META.detectionScore.helpText}
-                  improvementTips={META.detectionScore.improvementTips}
-                  emptyState={(kpis?.detectionScore ?? 0) === 0}
-                />
-                <KpiGauge
-                  value={kpis?.distributionReach ?? 0}
-                  max={Math.max(kpis?.distributionReach ?? 5, 5)}
-                  label={META.distributionReach.label}
-                  size="md"
-                  palette="violet"
-                  helpText={META.distributionReach.helpText}
-                  improvementTips={META.distributionReach.improvementTips}
-                  emptyState={(kpis?.distributionReach ?? 0) === 0}
-                />
+
+                {/* AI-Detection Score → LetterGradeBadge + numeric score */}
+                <div
+                  className={cn(
+                    "flex flex-col items-center justify-center text-center gap-2 min-h-[140px]",
+                    (kpis?.detectionScore ?? 0) === 0 && "opacity-60",
+                  )}
+                  data-testid="cf-tile-detection"
+                  title={META.detectionScore.helpText ?? undefined}
+                >
+                  <LetterGradeBadge
+                    score={kpis?.detectionScore ?? 0}
+                    size="lg"
+                    showScore={false}
+                  />
+                  <div className="text-xs tabular-nums text-muted-foreground">
+                    <AnimatedCounter
+                      value={kpis?.detectionScore ?? 0}
+                      suffix=" / 100"
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground px-1">
+                    {META.detectionScore.label}
+                  </div>
+                </div>
+
+                {/* Distribution Reach → ProgressRing (X of Y platforms) */}
+                <div className="flex justify-center">
+                  <ProgressRing
+                    value={kpis?.distributionReach ?? 0}
+                    max={Math.max(kpis?.distributionReach ?? 5, 5)}
+                    unit=""
+                    label={META.distributionReach.label}
+                    size="md"
+                    color="violet"
+                    helpText={META.distributionReach.helpText}
+                    improvementTips={META.distributionReach.improvementTips}
+                    emptyState={(kpis?.distributionReach ?? 0) === 0}
+                  />
+                </div>
               </div>
             </Card>
 

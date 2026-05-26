@@ -60,3 +60,19 @@ export type {
   AIDraftEditorProps,
   AIDraftEditorContext,
 } from "./AIDraftEditor";
+
+export { Sparkline } from "./Sparkline";
+export type {
+  SparklineProps,
+  SparklinePalette,
+  SparklineColor,
+  SparklineVariant,
+} from "./Sparkline";
+
+export { ProgressRing } from "./ProgressRing";
+export type {
+  ProgressRingProps,
+  ProgressRingPalette,
+  ProgressRingColor,
+  ProgressRingSize,
+} from "./ProgressRing";
