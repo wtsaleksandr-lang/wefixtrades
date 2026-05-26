@@ -113,6 +113,18 @@
   --chart-4: 36 93% 44%;
   --chart-5: 0 84% 60%;
 
+  /* Wave 26.5 — gauge palette tokens (Alex 2026-05-26).
+   * KpiGauge can accept an explicit palette for visual rotation across
+   * dashboard rows (premium feel, not monotone). Aligned with the existing
+   * chart palette; emerald and violet are net-new since chart-2 is teal-cyan
+   * and there is no purple in the base chart set. */
+  --gauge-sapphire: 222 100% 59%;   /* brand blue (chart-1) */
+  --gauge-emerald: 152 65% 40%;     /* trade-green */
+  --gauge-amber: 36 93% 44%;        /* warm yellow (chart-4) */
+  --gauge-crimson: 0 84% 60%;       /* red-warning (chart-5) */
+  --gauge-violet: 262 70% 56%;      /* purple accent */
+  --gauge-teal: 196 100% 37%;       /* cyan accent (chart-2) */
+
   --font-sans: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
@@ -253,6 +265,16 @@
   --chart-3: 30 75% 60%;
   --chart-4: 210 35% 60%;
   --chart-5: 340 65% 62%;
+
+  /* Wave 26.5 gauge palette — dark-mode (Alex 2026-05-26).
+   * Slightly lifted lightness / lower saturation so the colors read on the
+   * warm-grey canvas without vibrating. */
+  --gauge-sapphire: 222 90% 62%;
+  --gauge-emerald: 152 55% 55%;
+  --gauge-amber: 36 80% 60%;
+  --gauge-crimson: 0 70% 62%;
+  --gauge-violet: 262 60% 68%;
+  --gauge-teal: 196 70% 55%;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.2);
   --shadow-xs: 0px 1px 2px 0px rgba(0,0,0,0.3);

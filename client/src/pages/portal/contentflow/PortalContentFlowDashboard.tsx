@@ -326,8 +326,15 @@ export default function PortalContentFlowDashboard() {
                   max={Math.max(kpis?.articlesQuota ?? 10, kpis?.articlesThisMonth ?? 0, 1)}
                   label="Articles this month"
                   size="md"
-                  color="auto"
+                  palette="sapphire"
                   targetThreshold={kpis?.articlesQuota}
+                  helpText="Total approved articles in the last 30 days."
+                  improvementTips={[
+                    "Approve drafts faster from the inbox",
+                    "Set content style preferences for higher first-pass approval",
+                    "Increase tier to raise monthly quota",
+                  ]}
+                  emptyState={(kpis?.articlesThisMonth ?? 0) === 0}
                 />
                 <KpiGauge
                   value={kpis?.approvalRate ?? 0}
@@ -335,23 +342,44 @@ export default function PortalContentFlowDashboard() {
                   unit="%"
                   label="Approval rate"
                   size="md"
-                  color="auto"
+                  palette="emerald"
                   targetThreshold={80}
+                  helpText="% of AI drafts you approve vs reject."
+                  improvementTips={[
+                    "Refine content style preferences",
+                    "Use AI co-pilot Tighten/Add CTA suggestions",
+                    "Train the AI on your voice via Brand Voice settings",
+                  ]}
+                  emptyState={(kpis?.approvalRate ?? 0) === 0}
                 />
                 <KpiGauge
                   value={kpis?.detectionScore ?? 0}
                   max={100}
                   label="Human-likeness"
                   size="md"
-                  color="auto"
+                  palette="amber"
                   targetThreshold={80}
+                  helpText="Inverse of ZeroGPT AI-detection probability. Higher = more human-like."
+                  improvementTips={[
+                    "Run articles through humanization pass",
+                    "Add personal anecdotes via Localize action",
+                    "Increase brand voice training data",
+                  ]}
+                  emptyState={(kpis?.detectionScore ?? 0) === 0}
                 />
                 <KpiGauge
                   value={kpis?.distributionReach ?? 0}
                   max={Math.max(kpis?.distributionReach ?? 5, 5)}
                   label="Distribution reach"
                   size="md"
-                  color="blue"
+                  palette="violet"
+                  helpText="Number of distinct platforms posted to in last 30 days."
+                  improvementTips={[
+                    "Connect more social accounts in SocialSync",
+                    "Enable auto-publish on RankFlow",
+                    "Upgrade tier to increase platform allowance",
+                  ]}
+                  emptyState={(kpis?.distributionReach ?? 0) === 0}
                 />
               </div>
             </Card>

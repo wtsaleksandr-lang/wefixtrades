@@ -58,7 +58,6 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
-  AnimatedCounter,
   ApprovalInbox,
   AIDraftEditor,
   KpiGauge,
@@ -468,40 +467,77 @@ export default function SocialSyncDashboard() {
           </div>
         </div>
 
-        {/* ─── Hero KPI row ───────────────────────────────────────────── */}
+        {/* ─── Hero KPI row (Wave 26.5 — KpiGauge with helpText + palette rotation) ── */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KpiCard
-            label="Posts this week"
-            value={kpis?.postsThisWeek ?? 0}
-            unit=""
-            color="blue"
-          />
-          <KpiCard
-            label="Avg engagement"
-            value={kpis?.avgEngagementRate ?? 0}
-            unit="%"
-            color="green"
-            empty={!kpis || kpis.avgEngagementRate === 0}
-          />
-          <KpiCard
-            label="Approval backlog"
-            value={kpis?.approvalBacklog ?? 0}
-            unit=""
-            color={
-              (kpis?.approvalBacklog ?? 0) > 10
-                ? "red"
-                : (kpis?.approvalBacklog ?? 0) > 3
-                ? "amber"
-                : "green"
-            }
-            invertColor
-          />
-          <KpiCard
-            label="WhatsApp this week"
-            value={kpis?.whatsappMessagesThisWeek ?? 0}
-            unit=""
-            color="green"
-          />
+          <Card className="p-3 flex items-center justify-center" data-testid="kpi-posts-this-week">
+            <KpiGauge
+              value={kpis?.postsThisWeek ?? 0}
+              min={0}
+              max={Math.max(20, (kpis?.postsThisWeek ?? 0) + 5)}
+              label="Posts this week"
+              size="sm"
+              palette="sapphire"
+              helpText="Approved + scheduled posts across all platforms."
+              improvementTips={[
+                "Approve pending drafts faster",
+                "Connect more social accounts to spread content",
+                "Enable auto-schedule from ContentFlow",
+              ]}
+              emptyState={(kpis?.postsThisWeek ?? 0) === 0}
+            />
+          </Card>
+          <Card className="p-3 flex items-center justify-center" data-testid="kpi-avg-engagement">
+            <KpiGauge
+              value={kpis?.avgEngagementRate ?? 0}
+              min={0}
+              max={10}
+              unit="%"
+              label="Avg engagement"
+              size="sm"
+              palette="emerald"
+              helpText="Likes + comments + shares / impressions across the last 30 days. Empty until impressions data is collected."
+              improvementTips={[
+                "Post during best-time slots (gauge in calendar)",
+                "Use platform-specific previews to optimize per-channel",
+                "Add hashtag suggestions via AI co-pilot",
+              ]}
+              emptyState={!kpis || kpis.avgEngagementRate === 0}
+            />
+          </Card>
+          <Card className="p-3 flex items-center justify-center" data-testid="kpi-approval-backlog">
+            <KpiGauge
+              value={kpis?.approvalBacklog ?? 0}
+              min={0}
+              max={Math.max(20, (kpis?.approvalBacklog ?? 0) + 5)}
+              label="Approval backlog"
+              size="sm"
+              palette="amber"
+              helpText="Pending posts awaiting your approval. Low is good."
+              improvementTips={[
+                "Use bulk approve on similar drafts",
+                "Refine ContentFlow style settings to reduce rejection rate",
+                "Set up auto-approve rules for trusted draft types",
+              ]}
+              emptyState={(kpis?.approvalBacklog ?? 0) === 0 && (!kpis || kpis.postsThisWeek === 0)}
+            />
+          </Card>
+          <Card className="p-3 flex items-center justify-center" data-testid="kpi-whatsapp-this-week">
+            <KpiGauge
+              value={kpis?.whatsappMessagesThisWeek ?? 0}
+              min={0}
+              max={Math.max(50, (kpis?.whatsappMessagesThisWeek ?? 0) + 10)}
+              label="WhatsApp this week"
+              size="sm"
+              palette="violet"
+              helpText="Direct customer messages received via WhatsApp Business this week."
+              improvementTips={[
+                "Promote WhatsApp on your website + business cards",
+                "Enable AI auto-reply for common questions",
+                "Add WhatsApp link to email signatures",
+              ]}
+              emptyState={(kpis?.whatsappMessagesThisWeek ?? 0) === 0}
+            />
+          </Card>
         </div>
 
         {/* ─── Tab nav ────────────────────────────────────────────────── */}
@@ -580,54 +616,10 @@ export default function SocialSyncDashboard() {
 
 /* ─── Subcomponents ──────────────────────────────────────────────────── */
 
-function KpiCard({
-  label,
-  value,
-  unit,
-  color,
-  empty,
-  invertColor,
-}: {
-  label: string;
-  value: number;
-  unit?: string;
-  color: "blue" | "green" | "amber" | "red";
-  empty?: boolean;
-  invertColor?: boolean;
-}) {
-  // For backlog: lower is better → flip green/red mapping when invertColor.
-  const effectiveColor = invertColor ? color : color;
-  return (
-    <Card className="flex flex-col gap-1 p-3" data-testid={`kpi-${label.toLowerCase().replace(/\s+/g, "-")}`}>
-      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <div className="flex items-end gap-1">
-        <span className="text-2xl font-bold text-foreground">
-          {empty ? (
-            <span className="text-muted-foreground/60">—</span>
-          ) : (
-            <AnimatedCounter value={value} />
-          )}
-        </span>
-        {unit && !empty ? (
-          <span className="pb-0.5 text-xs text-muted-foreground">{unit}</span>
-        ) : null}
-      </div>
-      <span
-        className={`h-1 w-12 rounded-full bg-[hsl(var(--chart-${
-          effectiveColor === "blue"
-            ? 1
-            : effectiveColor === "green"
-            ? 2
-            : effectiveColor === "amber"
-            ? 4
-            : 5
-        }))]`}
-      />
-    </Card>
-  );
-}
+// Wave 26.5 (Alex 2026-05-26): KpiCard was replaced by KpiGauge in the hero
+// KPI row so it could carry helpText + improvementTips + emptyState messaging
+// like the other dashboards. The component definition was removed because it
+// is no longer referenced anywhere in the file.
 
 function TabButton({
   id,

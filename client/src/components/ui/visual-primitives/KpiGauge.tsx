@@ -10,17 +10,43 @@
  * marker + crisp scaling). 180-degree arc, needle pivots from min to value,
  * value text + label below, optional target threshold triangle marker.
  *
- * Animation: needle sweep on mount, 800ms ease-out. Value counts up via
- * AnimatedCounter. Respects `prefers-reduced-motion` — snaps to target.
+ * Wave 26.5 polish (Alex 2026-05-26):
+ *  - Full-cycle boot animation (min → max → value) so the gauge "warms up"
+ *    on mount before settling on its reading. Total ~1.5s.
+ *  - Premium palette tokens (sapphire / emerald / amber / crimson / violet /
+ *    teal) so dashboards can rotate brand-aligned colors across a 4-gauge
+ *    row instead of looking monotone.
+ *  - Hover (desktop) / long-press (touch) help popover with helpText +
+ *    bulleted improvementTips. Built on Radix Popover (already in tree).
+ *  - Empty-state messaging: when value=0 with `emptyState`, gauge is dimmed
+ *    at 0 and shows "Awaiting data — updates as activity begins" below.
+ *  - Keyboard accessible: Tab to gauge → Space/Enter opens popover.
  *
- * No raw hex — uses chart tokens. Semantic tokens only.
+ * All animations respect `prefers-reduced-motion`. No raw hex — semantic
+ * tokens only. No new npm dependencies.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { Clock3, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AnimatedCounter } from "./AnimatedCounter";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
+export type KpiGaugePalette =
+  | "sapphire"
+  | "emerald"
+  | "amber"
+  | "crimson"
+  | "violet"
+  | "teal";
+
+// Legacy semantic colors — kept for back-compat with existing dashboard usages
+// (`color="blue"` / `"green"` / `"amber"` / `"red"` / `"auto"`).
 export type KpiGaugeColor = "blue" | "green" | "amber" | "red" | "auto";
 export type KpiGaugeSize = "sm" | "md" | "lg";
 
@@ -32,8 +58,25 @@ export type KpiGaugeProps = {
   unit?: string;
   targetThreshold?: number;
   size?: KpiGaugeSize;
+  /** Threshold-based color. `auto` picks green/amber/red by `pct`. */
   color?: KpiGaugeColor;
+  /**
+   * Brand-aligned palette override. When set, takes precedence over `color`
+   * regardless of value. Use this to rotate palettes across a dashboard row
+   * (e.g. sapphire / emerald / amber / violet).
+   */
+  palette?: KpiGaugePalette;
   animate?: boolean;
+  /** Tooltip body — 1-2 sentence metric explanation. */
+  helpText?: string;
+  /** 2-4 bullets on how to improve this metric. */
+  improvementTips?: string[];
+  /**
+   * Explicit "no data yet" flag. When true, the gauge stays dimmed at min
+   * and shows `emptyStateMessage` below the label.
+   */
+  emptyState?: boolean;
+  emptyStateMessage?: string;
   className?: string;
 };
 
@@ -43,13 +86,22 @@ const SIZE_PX: Record<KpiGaugeSize, number> = {
   lg: 220,
 };
 
-// Map color name -> chart token. chart-1=brand blue, chart-2=teal,
-// chart-4=amber, chart-5=red destructive.
+// Map color name -> chart token (legacy mode).
 const COLOR_VAR: Record<Exclude<KpiGaugeColor, "auto">, string> = {
   blue: "var(--chart-1)",
   green: "var(--chart-2)",
   amber: "var(--chart-4)",
   red: "var(--chart-5)",
+};
+
+// Wave 26.5 palette tokens.
+const PALETTE_VAR: Record<KpiGaugePalette, string> = {
+  sapphire: "var(--gauge-sapphire)",
+  emerald: "var(--gauge-emerald)",
+  amber: "var(--gauge-amber)",
+  crimson: "var(--gauge-crimson)",
+  violet: "var(--gauge-violet)",
+  teal: "var(--gauge-teal)",
 };
 
 function autoColor(pct: number): Exclude<KpiGaugeColor, "auto"> {
@@ -74,6 +126,11 @@ function arcPath(cx: number, cy: number, r: number, startAngle: number, endAngle
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} ${sweep} ${end.x} ${end.y}`;
 }
 
+// Boot-animation phase durations (ms). Total ~1.5s.
+const BOOT_PHASE_1 = 600; // min -> max (ease-out)
+const BOOT_PHASE_2 = 200; // pause at max
+const BOOT_PHASE_3 = 700; // max -> value (ease-in-out)
+
 export function KpiGauge({
   value,
   min = 0,
@@ -83,7 +140,12 @@ export function KpiGauge({
   targetThreshold,
   size = "md",
   color = "auto",
+  palette,
   animate = true,
+  helpText,
+  improvementTips,
+  emptyState = false,
+  emptyStateMessage = "Awaiting data — updates as activity begins",
   className,
 }: KpiGaugeProps) {
   const reduceMotion = useReducedMotion();
@@ -103,13 +165,24 @@ export function KpiGauge({
   const clamped = Math.min(max, Math.max(min, value));
   const pct = ((clamped - min) / range) * 100;
 
-  const resolvedColor = color === "auto" ? autoColor(pct) : color;
-  const colorVar = COLOR_VAR[resolvedColor];
+  // Resolve display color. `palette` wins over `color` (override). When in
+  // empty-state, we fall through to the resolved color but render at 50%
+  // opacity via the wrapper.
+  let colorVar: string;
+  if (palette) {
+    colorVar = PALETTE_VAR[palette];
+  } else {
+    const resolvedColor = color === "auto" ? autoColor(pct) : color;
+    colorVar = COLOR_VAR[resolvedColor];
+  }
 
   // Angle ranges: gauge starts at 180deg (left) and sweeps to 0deg (right).
   const startAngle = 180;
   const endAngle = 0;
-  const valueAngle = useMemo(() => startAngle - (pct / 100) * (startAngle - endAngle), [pct]);
+  const valueAngle = useMemo(
+    () => startAngle - (pct / 100) * (startAngle - endAngle),
+    [pct]
+  );
 
   const bgPath = useMemo(() => arcPath(cx, cy, r, startAngle, endAngle), []);
 
@@ -135,27 +208,127 @@ export function KpiGauge({
     void tip;
   }
 
-  // Needle tip
-  const needleTip = polar(cx, cy, r - stroke / 2 - 4, shouldAnimate ? startAngle : valueAngle);
-  const targetNeedleTip = polar(cx, cy, r - stroke / 2 - 4, valueAngle);
-
-  // Foreground arc: animate stroke-dashoffset from full to (full - filled).
-  // Half-circumference = pi * r.
+  // Wave 26.5 — full-cycle boot animation.
+  // Phase 1 (600ms): min -> max
+  // Phase 2 (200ms): hold at max
+  // Phase 3 (700ms): max -> value
+  // We drive the foreground arc + needle + counter from a single "displayed
+  // pct" state so they all stay in sync.
   const halfC = Math.PI * r;
-  const filled = (pct / 100) * halfC;
+  const [bootPct, setBootPct] = useState<number>(shouldAnimate && !emptyState ? 0 : pct);
+  const bootStartedRef = useRef(false);
 
-  return (
+  useEffect(() => {
+    if (!shouldAnimate || emptyState) {
+      setBootPct(pct);
+      return;
+    }
+    if (bootStartedRef.current) {
+      // Subsequent value changes (after the initial boot) — just go straight
+      // to the new value with a short animation, no full cycle.
+      setBootPct(pct);
+      return;
+    }
+    bootStartedRef.current = true;
+    setBootPct(0);
+    const t1 = setTimeout(() => setBootPct(100), 20);
+    const t2 = setTimeout(() => {
+      // Stay at 100 for BOOT_PHASE_2 (handled by the transition delay below).
+      setBootPct(pct);
+    }, BOOT_PHASE_1 + BOOT_PHASE_2);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAnimate, emptyState]);
+
+  // When value prop changes after boot, re-sync.
+  useEffect(() => {
+    if (bootStartedRef.current && !emptyState) {
+      setBootPct(pct);
+    }
+  }, [pct, emptyState]);
+
+  // Computed displayed pct/angle for needle + arc.
+  const displayedPct = emptyState ? 0 : bootPct;
+  const displayedAngle = startAngle - (displayedPct / 100) * (startAngle - endAngle);
+  const displayedNeedleTip = polar(cx, cy, r - stroke / 2 - 4, displayedAngle);
+  const filled = (displayedPct / 100) * halfC;
+  // Counter follows the displayed pct so it counts up alongside the needle.
+  const displayedValue = min + (displayedPct / 100) * range;
+
+  // Decide boot-phase transition timing — slower on phase 1, snappier on phase 3.
+  const isBootPhase1 = shouldAnimate && bootPct === 100 && !bootStartedRef.current;
+  void isBootPhase1; // currently informational
+
+  const hasHelp = Boolean(helpText) || (improvementTips && improvementTips.length > 0);
+  // Track open state so we can debounce hover (500ms) but open immediately on
+  // click/keyboard. Radix's `open` prop combined with our own setState is the
+  // cleanest way to wire a hover delay without forking the primitive.
+  const [open, setOpen] = useState(false);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimers = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const handleEnter = () => {
+    if (!hasHelp) return;
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    hoverTimerRef.current = setTimeout(() => setOpen(true), 500);
+  };
+  const handleLeave = () => {
+    if (!hasHelp) return;
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    closeTimerRef.current = setTimeout(() => setOpen(false), 100);
+  };
+  useEffect(() => () => clearTimers(), []);
+
+  // Long-press on touch — also gated by 500ms.
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleTouchStart = () => {
+    if (!hasHelp) return;
+    pressTimerRef.current = setTimeout(() => setOpen(true), 500);
+  };
+  const handleTouchEnd = () => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  };
+
+  const gaugeBody = (
     <div
-      className={cn("inline-flex flex-col items-center", className)}
+      className={cn(
+        "inline-flex flex-col items-center select-none",
+        emptyState && "opacity-60",
+        className
+      )}
       style={{ width: px }}
       data-testid="kpi-gauge"
+      data-empty-state={emptyState ? "true" : undefined}
     >
       <svg
         viewBox={`0 0 ${VB_W} ${VB_H}`}
         width={px}
         height={px * (VB_H / VB_W)}
         role="img"
-        aria-label={`${label}: ${value}${unit}`}
+        aria-label={`${label}: ${emptyState ? "no data yet" : `${value}${unit}`}`}
       >
         {/* Background ring */}
         <path
@@ -166,7 +339,7 @@ export function KpiGauge({
           strokeWidth={stroke}
           strokeLinecap="round"
         />
-        {/* Foreground sweep */}
+        {/* Foreground sweep — driven by `filled` derived from `bootPct`. */}
         <motion.path
           d={bgPath}
           fill="none"
@@ -174,24 +347,26 @@ export function KpiGauge({
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={`${halfC} ${halfC}`}
-          initial={{ strokeDashoffset: shouldAnimate ? halfC : halfC - filled }}
           animate={{ strokeDashoffset: halfC - filled }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          transition={{
+            duration: shouldAnimate ? 0.6 : 0,
+            ease: [0.16, 1, 0.3, 1],
+          }}
         />
         {/* Target marker (rendered above arc) */}
         {targetMarker}
-        {/* Needle — line from centre to tip, with circle at pivot */}
+        {/* Needle — animates with the same timing as the arc. */}
         <motion.line
           x1={cx}
           y1={cy}
-          x2={needleTip.x}
-          y2={needleTip.y}
+          animate={{ x2: displayedNeedleTip.x, y2: displayedNeedleTip.y }}
+          transition={{
+            duration: shouldAnimate ? 0.6 : 0,
+            ease: [0.16, 1, 0.3, 1],
+          }}
           stroke="hsl(var(--foreground))"
           strokeWidth={size === "sm" ? 2 : 3}
           strokeLinecap="round"
-          initial={false}
-          animate={{ x2: targetNeedleTip.x, y2: targetNeedleTip.y }}
-          transition={{ duration: shouldAnimate ? 0.8 : 0, ease: [0.16, 1, 0.3, 1] }}
         />
         <circle
           cx={cx}
@@ -212,15 +387,15 @@ export function KpiGauge({
           style={{ color: `hsl(${colorVar})` }}
         >
           <AnimatedCounter
-            value={clamped}
-            duration={shouldAnimate ? 800 : 0}
+            value={emptyState ? min : displayedValue}
+            duration={shouldAnimate ? 400 : 0}
             decimals={0}
             suffix={unit}
           />
         </div>
         <div
           className={cn(
-            "text-muted-foreground",
+            "text-muted-foreground text-center px-1",
             size === "sm" && "text-[10px]",
             size === "md" && "text-xs",
             size === "lg" && "text-sm"
@@ -228,8 +403,105 @@ export function KpiGauge({
         >
           {label}
         </div>
+        {emptyState && (
+          <div
+            className={cn(
+              "mt-1 flex items-center gap-1 text-muted-foreground/80 text-center px-1",
+              size === "sm" ? "text-[9px]" : "text-[10px]"
+            )}
+            data-testid="kpi-gauge-empty-state"
+          >
+            <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span>{emptyStateMessage}</span>
+          </div>
+        )}
       </div>
     </div>
+  );
+
+  if (!hasHelp) {
+    return gaugeBody;
+  }
+
+  // With help text: wrap in Radix Popover. Trigger is a button so the gauge
+  // becomes keyboard-focusable (Tab to gauge, Space/Enter opens popover).
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex flex-col items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+          aria-label={`${label} — show metric details`}
+          data-testid="kpi-gauge-trigger"
+          style={{
+            // Keep tap-target ≥ 44px tall even at size="sm" (px=80 with
+            // VB_H/VB_W ratio gives ~52px svg, but the value+label stack
+            // adds another ~24-36px so we're already above 44px).
+            minHeight: 44,
+          }}
+        >
+          {gaugeBody}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="center"
+        collisionPadding={12}
+        className="w-72 p-3 space-y-2"
+        onMouseEnter={() => {
+          if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+            closeTimerRef.current = null;
+          }
+        }}
+        onMouseLeave={handleLeave}
+        data-testid="kpi-gauge-popover"
+      >
+        <div className="flex items-start gap-2">
+          <Info
+            className="h-4 w-4 mt-0.5 shrink-0"
+            style={{ color: `hsl(${colorVar})` }}
+            aria-hidden="true"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold">{label}</div>
+            {helpText && (
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                {helpText}
+              </p>
+            )}
+          </div>
+        </div>
+        {improvementTips && improvementTips.length > 0 && (
+          <div className="border-t pt-2">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+              How to improve
+            </div>
+            <ul className="space-y-1 text-xs text-foreground/90">
+              {improvementTips.slice(0, 4).map((tip, i) => (
+                <li key={i} className="flex items-start gap-1.5">
+                  <span
+                    className="mt-0.5 inline-block rounded-full shrink-0"
+                    style={{
+                      background: `hsl(${colorVar})`,
+                      width: 6,
+                      height: 6,
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 

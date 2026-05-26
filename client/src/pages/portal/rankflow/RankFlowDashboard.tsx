@@ -372,7 +372,14 @@ export default function RankFlowDashboard() {
                 max={50}
                 label="Average position"
                 size="md"
-                color="auto"
+                palette="sapphire"
+                helpText="Average rank across tracked keywords on Google."
+                improvementTips={[
+                  "Publish more SEO-aware articles",
+                  "Improve content score on existing articles",
+                  "Build citations via Citation Builder",
+                ]}
+                emptyState={(kpis?.avgPosition ?? 0) === 0}
               />
               <KpiGauge
                 value={kpis?.keywordsImproved ?? 0}
@@ -380,15 +387,29 @@ export default function RankFlowDashboard() {
                 max={Math.max(10, (kpis?.keywordsTracked ?? 10) / 2)}
                 label="Improved this month"
                 size="md"
-                color="blue"
+                palette="emerald"
+                helpText="Keywords that climbed in rank this month."
+                improvementTips={[
+                  "Focus on near-page-1 keywords (positions 8-15) for quickest wins",
+                  "Auto-Optimize underperforming articles",
+                  "Check competitor cards for content gaps",
+                ]}
+                emptyState={(kpis?.keywordsImproved ?? 0) === 0}
               />
               <KpiGauge
                 value={kpis?.seoScore ?? 0}
                 max={100}
                 label="Site SEO score"
                 size="md"
-                color="auto"
+                palette="amber"
                 targetThreshold={80}
+                helpText="Aggregated SEO health across all tracked pages."
+                improvementTips={[
+                  "Fix meta gaps highlighted by AI Brain panel",
+                  "Add internal links between content cluster articles",
+                  "Improve page speed via WebFix",
+                ]}
+                emptyState={(kpis?.seoScore ?? 0) === 0}
               />
             </div>
           </Card>

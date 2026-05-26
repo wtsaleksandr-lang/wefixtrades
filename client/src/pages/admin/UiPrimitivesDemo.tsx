@@ -408,6 +408,124 @@ export default function UiPrimitivesDemo() {
             </Button>
             <span className="text-xs text-muted-foreground">Click to retrigger the needle sweep.</span>
           </div>
+
+          {/* Wave 26.5 — 6 brand palettes (Alex 2026-05-26).
+              Hover any gauge for >500ms (or long-press on touch) to see the
+              help popover with helpText + improvementTips. Boot animation
+              runs a full min→max→value cycle on mount. */}
+          <div className="mt-6 border-t pt-4">
+            <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Wave 26.5 — Premium palettes + hover help + empty-state
+            </div>
+            <div className="flex flex-wrap items-end gap-8">
+              <KpiGauge
+                value={72}
+                label="Sapphire"
+                unit="%"
+                size="md"
+                palette="sapphire"
+                helpText="Brand-blue gauge. The default palette across primary KPIs."
+                improvementTips={[
+                  "Hover for ~500ms to see this popover",
+                  "Tab to focus, then press Space/Enter",
+                  "Mobile: long-press to reveal",
+                ]}
+              />
+              <KpiGauge
+                value={88}
+                label="Emerald"
+                unit="%"
+                size="md"
+                palette="emerald"
+                targetThreshold={80}
+                helpText="Trade-green palette. Used for success / growth KPIs."
+                improvementTips={[
+                  "Use on metrics where higher = better",
+                  "Rotate alongside sapphire in 4-gauge rows",
+                ]}
+              />
+              <KpiGauge
+                value={54}
+                label="Amber"
+                unit="%"
+                size="md"
+                palette="amber"
+                helpText="Warm yellow palette. For watch-list / neutral KPIs."
+                improvementTips={[
+                  "Use on metrics that need attention but aren't critical",
+                  "Pairs well with emerald + crimson in a single row",
+                ]}
+              />
+              <KpiGauge
+                value={28}
+                label="Crimson"
+                unit="%"
+                size="md"
+                palette="crimson"
+                helpText="Red-warning palette. For cost / risk / churn KPIs."
+                improvementTips={[
+                  "Use when lower = better (e.g. cost per booking)",
+                  "Pair with target threshold marker",
+                ]}
+              />
+              <KpiGauge
+                value={66}
+                label="Violet"
+                unit="%"
+                size="md"
+                palette="violet"
+                helpText="Purple accent palette. For premium / engagement KPIs."
+                improvementTips={[
+                  "Use sparingly — one gauge per row at most",
+                  "Great for highlighting differentiators",
+                ]}
+              />
+              <KpiGauge
+                value={45}
+                label="Teal"
+                unit="%"
+                size="md"
+                palette="teal"
+                helpText="Cyan accent palette. For technical / system KPIs."
+                improvementTips={[
+                  "Use on infra / latency / cache hit rate",
+                  "Reads cleanly on both light and dark themes",
+                ]}
+              />
+            </div>
+            <div className="mt-6 flex flex-wrap items-end gap-8">
+              <KpiGauge
+                value={0}
+                max={100}
+                label="Empty state"
+                unit="%"
+                size="md"
+                palette="sapphire"
+                emptyState
+                helpText="Shown when there's no data yet — gauge is dimmed at 0 and a clock icon + caption appears below the label."
+                improvementTips={[
+                  "Useful for new accounts pre-onboarding",
+                  "Stays consistent with populated gauges (no layout shift)",
+                ]}
+              />
+              <KpiGauge
+                value={73}
+                max={100}
+                label="With popover"
+                unit="%"
+                size="md"
+                palette="emerald"
+                targetThreshold={80}
+                helpText="Hover this gauge for 500ms to see the full help card with bulleted improvement tips."
+                improvementTips={[
+                  "Refine your campaign targeting",
+                  "Increase budget on top-performing ads",
+                  "A/B test creative against control",
+                  "Review competitor benchmarks",
+                ]}
+              />
+            </div>
+          </div>
         </Section>
 
         <Section title="AnimatedCounter">
