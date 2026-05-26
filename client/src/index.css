@@ -170,6 +170,12 @@
   --hairline-strong:  rgba(133, 128, 123, 0.32);
   --hairline-dashed:  rgba(133, 128, 123, 0.08);
 
+  /* Wave 11A: minimalist scrollbar tokens (Alex 2026-05-26).
+   * Light-mode default is a warm grey thumb that reads on white/cream
+   * surfaces without being heavy. Dark mode overrides below. */
+  --scrollbar-thumb: rgba(120, 120, 120, 0.45);
+  --scrollbar-thumb-hover: rgba(120, 120, 120, 0.75);
+
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-accent-border: hsl(var(--sidebar-accent));
@@ -256,6 +262,10 @@
   --shadow-lg: 0 12px 30px rgba(0,0,0,0.35);
   --shadow-xl: 0 16px 40px rgba(0,0,0,0.4);
   --shadow-2xl: 0px 25px 50px -12px rgba(0,0,0,0.5);
+
+  /* Wave 11A: dark-mode scrollbar — lighter alpha on warm-grey canvas. */
+  --scrollbar-thumb: rgba(200, 200, 210, 0.25);
+  --scrollbar-thumb-hover: rgba(200, 200, 210, 0.55);
 }
 
 @layer base {
@@ -265,6 +275,34 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  /* ─── Wave 11A: minimalist scrollbar site-wide (Alex 2026-05-26) ───
+     Thin track with no background, soft warm-grey thumb. Tokens
+     `--scrollbar-thumb` / `--scrollbar-thumb-hover` are declared in
+     `:root` (light) and `.dark` (dark) so the thumb adapts per theme.
+
+     The `.qq-fade-scroll-row` utility for horizontal review/testimonial
+     scrollers still wins via class-level `scrollbar-width: none` +
+     `::-webkit-scrollbar { display: none }` (more specific selector). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
   }
 
   /* ─── Accessibility: keyboard-focus visibility ────────────────────
@@ -1576,18 +1614,23 @@
 .animate-modal-content { animation: modalScaleIn 0.3s cubic-bezier(0.32, 0.72, 0, 1) both; }
 .animate-modal-sheet { animation: modalSlideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) both; }
 
+/* Wave 11A: container hover-shift removed (Alex 2026-05-26).
+ * Containers no longer scale/translate on hover — replaced with a subtle
+ * outline highlight using hsl(var(--border)) so card position stays stable.
+ * Buttons (.mkt-btn-*, .btn-primary-premium) still animate. */
 .category-card {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease, background 0.2s ease;
+  transition: outline-color 0.2s ease, box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease, background 0.2s ease;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
 }
 
 .category-card:hover {
-  transform: scale(1.04);
+  outline-color: hsl(var(--border));
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .category-card:active {
-  transform: scale(1.01);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
@@ -1869,10 +1912,11 @@
   z-index: 0;
 }
 .mkt-feature-card:hover {
-  transform: translateY(-2px);
+  /* Wave 11A: removed transform: translateY(-2px) — container no longer
+   * lifts on hover. Border highlight + glow still convey hoverability. */
   box-shadow: var(--shadow-hover);
   border-color: var(--hover-border-bright) !important;
-  will-change: transform, box-shadow;
+  will-change: box-shadow;
 }
 .mkt-feature-card:hover::before { opacity: 1; }
 .mkt-feature-card > * { position: relative; z-index: 1; }
@@ -1889,10 +1933,10 @@
     border-color var(--dur) var(--ease-out);
 }
 .mkt-tile:hover {
+  /* Wave 11A: removed transform: translateY(-2px) — container stays still. */
   border-color: var(--hover-border-bright);
   box-shadow: var(--shadow-hover);
-  transform: translateY(-2px);
-  will-change: transform, box-shadow;
+  will-change: box-shadow;
 }
 
 /* Arrow link hover slide */
@@ -2250,8 +2294,11 @@
 }
 
 .wft-lift:hover {
-  transform: translateY(-2px);
+  /* Wave 11A: container hover-shift removed. Shadow + outline highlight
+   * convey hover state without shifting layout. */
   box-shadow: var(--shadow-hover);
+  outline: 1px solid hsl(var(--border));
+  outline-offset: -1px;
 }
 
 .wft-press:active {
@@ -2491,9 +2538,9 @@
 
 /* Card hover */
 .mkt-menu-card:hover {
+  /* Wave 11A: removed transform: translateY(-2px). */
   background: #1c2221;
   border-color: var(--hover-border-bright);
-  transform: translateY(-2px);
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
 }
 

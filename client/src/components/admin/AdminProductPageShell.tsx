@@ -25,6 +25,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as Sentry from '@sentry/react';
 import { Link } from 'wouter';
 import { ExternalLink, Eye, EyeOff, Home, Info, Pencil, Settings, AlertTriangle } from 'lucide-react';
+// `Pencil` is still used by ProductSettingsMenu's "Edit product" item.
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -184,6 +185,10 @@ export interface AdminProductPageShellProps {
 
 function StatusPill({ active }: { active: boolean }) {
   // Rule 4 — outline + tinted bg, never bright fill.
+  // Wave 11A: pill renamed "Live"/"Paused" so it doesn't collide with the
+  // "Active" toggle below (Alex 2026-05-26). The pill reflects operational
+  // state of the product; the toggle is the control. Different words for
+  // different jobs.
   return (
     <span
       data-product-shell-pill={active ? 'active' : 'inactive'}
@@ -193,7 +198,7 @@ function StatusPill({ active }: { active: boolean }) {
           : 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border border-slate-300/60 bg-slate-50/60 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300 dark:border-slate-700/50'
       }
     >
-      {active ? 'Active' : 'Inactive'}
+      {active ? 'Live' : 'Paused'}
     </span>
   );
 }
@@ -327,17 +332,18 @@ export function AdminProductPageShell({
           <div className="min-w-0">
             <Cluster gap="normal" align="center">
               <h1 className="text-2xl font-bold text-foreground truncate">{productName}</h1>
-              {/* Edit-copy access lives right next to the title — pencil icon makes
-                  the affordance obvious. The full button (with label) still ships
-                  in the right cluster for users who haven't internalised the icon. */}
+              {/* Wave 11A: pencil icon replaced with gear/cog (Settings).
+                  Pencil implied "rename only"; gear correctly signals "open
+                  full product settings panel". Click still navigates to the
+                  same `/admin/products/:id` editor — only the icon changed. */}
               <Link
                 href={editHref}
                 className="inline-flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
-                aria-label="Edit product"
-                title="Edit product"
+                aria-label="Product settings"
+                title="Product settings"
                 data-testid="product-shell-edit-icon"
               >
-                <Pencil size={16} />
+                <Settings size={16} />
               </Link>
               <StatusPill active={isActive} />
               {hidden && <HiddenChip />}
@@ -350,16 +356,27 @@ export function AdminProductPageShell({
               productName={productName}
               editHref={editHref}
             />
-            <label className="inline-flex items-center gap-2 text-sm cursor-pointer" data-testid="product-shell-active-toggle-label">
+            {/* Wave 11A: tooltips clarify Active vs Hidden semantics (Alex 2026-05-26).
+                Active = operational on/off (cron + automated actions for all
+                customers). Hidden = visibility in portal/marketing/signup. */}
+            <label
+              className="inline-flex items-center gap-2 text-sm cursor-pointer"
+              data-testid="product-shell-active-toggle-label"
+              title="When ON, this product is actively running for all subscribed customers. Turn OFF to pause all automated actions across the product."
+            >
               <span className="text-muted-foreground">Active</span>
               <Switch
                 checked={isActive}
                 onCheckedChange={(next) => onToggleActive(next)}
-                aria-label="Toggle product active"
+                aria-label="When ON, this product is actively running for all subscribed customers. Turn OFF to pause all automated actions across the product."
                 data-testid="product-shell-active-toggle"
               />
             </label>
-            <label className="inline-flex items-center gap-2 text-sm cursor-pointer" data-testid="product-shell-hidden-toggle-label">
+            <label
+              className="inline-flex items-center gap-2 text-sm cursor-pointer"
+              data-testid="product-shell-hidden-toggle-label"
+              title="When ON, this product is hidden from customer-facing UI (portal, marketing, signup). Existing customers keep access if Active."
+            >
               <span className="text-muted-foreground inline-flex items-center gap-1">
                 {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
                 Hidden
@@ -367,7 +384,7 @@ export function AdminProductPageShell({
               <Switch
                 checked={hidden}
                 onCheckedChange={(next) => onToggleHidden(next)}
-                aria-label="Toggle product hidden"
+                aria-label="When ON, this product is hidden from customer-facing UI (portal, marketing, signup). Existing customers keep access if Active."
                 data-testid="product-shell-hidden-toggle"
               />
             </label>

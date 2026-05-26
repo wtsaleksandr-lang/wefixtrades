@@ -126,7 +126,7 @@ export default function TrustStrip() {
               role="button"
               tabIndex={0}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleRestart(); }}
-              className="relative overflow-hidden rounded-2xl p-4 sm:p-5 backdrop-blur-xl cursor-pointer select-none transition-all duration-200 hover:-translate-y-0.5"
+              className="relative overflow-hidden rounded-2xl p-4 sm:p-5 backdrop-blur-xl cursor-pointer select-none transition-[outline-color,box-shadow,border-color] duration-200 outline outline-1 outline-transparent hover:outline-white/20"
               style={{
                 background: mkt.cardBg,
                 border: `1px solid ${mkt.cardBorder}`,

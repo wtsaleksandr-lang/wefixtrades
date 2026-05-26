@@ -483,8 +483,11 @@ export default function ReviewsPage() {
 
   const overviewBody = (
     <div className="space-y-4">
-      {/* Stats */}
-      <StatCardGrid className="md:grid-cols-5 lg:grid-cols-5 mb-0">
+      {/* Stats — Wave 11A: enforce equal widths with !important so the shared
+          StatCardGrid's lg:grid-cols-4 default doesn't override our 5-col
+          layout (Alex 2026-05-26 screenshot). min-w-0 on children +
+          auto-rows-fr (inherited from shared grid) keeps heights equal too. */}
+      <StatCardGrid className="md:!grid-cols-5 lg:!grid-cols-5 mb-0 [&>*]:min-w-0">
         <StatCard label="Total Reviews" value={stats?.total ?? "—"} icon={Star} color="bg-blue-500" />
         <StatCard label="Avg Rating" value={stats ? `${stats.averageRating}★` : "—"} icon={TrendingUp} color="bg-emerald-500" />
         <HelpCue text="Reviews detected by monitoring that haven't been acknowledged by admin yet.">

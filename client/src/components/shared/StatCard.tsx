@@ -36,13 +36,20 @@ export function StatCard({ label, value, suffix, hint, tone = 'default', classNa
   );
 }
 
-/** Canonical KPI strip grid. Wraps 2-6 StatCards in a responsive grid. */
+/** Canonical KPI strip grid. Wraps 2-6 StatCards in a responsive grid.
+ *
+ * Wave 11A (2026-05-26): `[&>*]:min-w-0` added so grid children honour the
+ * `1fr` track width even when their content is naturally wide (long numbers,
+ * help-cue clusters). Without this, an intrinsic min-content width on a
+ * single card was sometimes pushing one card wider than its siblings,
+ * producing the uneven-widths visual Alex flagged on ReputationShield. */
 export function StatCardGrid({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn(
       'grid gap-3 mb-6',
       'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
       'auto-rows-fr',
+      '[&>*]:min-w-0',
       className
     )}>
       {children}
