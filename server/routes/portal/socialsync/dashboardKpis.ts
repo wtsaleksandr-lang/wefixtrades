@@ -74,6 +74,81 @@ function endOfIsoWeek(now = new Date()): Date {
   return e;
 }
 
+/**
+ * Wave 26.6 — pure compute path for the SocialSync dashboard KPIs. Extracted
+ * from the route handler so the Copilot metricsContext can reuse it.
+ */
+export async function computeSocialsyncDashboardKpis(clientId: number) {
+  const weekStart = startOfIsoWeek();
+  const weekEnd = endOfIsoWeek();
+
+  const postsThisWeekRow = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(socialsyncPosts)
+    .where(
+      and(
+        eq(socialsyncPosts.client_id, clientId),
+        sql`status IN ('queued', 'ready', 'publishing', 'published')`,
+        sql`scheduled_for >= ${weekStart}`,
+        sql`scheduled_for < ${weekEnd}`,
+      ),
+    );
+  const postsThisWeek = Number(postsThisWeekRow[0]?.n ?? 0);
+
+  const backlogRow = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(socialsyncPosts)
+    .where(
+      and(
+        eq(socialsyncPosts.client_id, clientId),
+        eq(socialsyncPosts.status, "pending_approval"),
+      ),
+    );
+  const approvalBacklog = Number(backlogRow[0]?.n ?? 0);
+
+  const waRow = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(socialsyncActivityLogs)
+    .where(
+      and(
+        eq(socialsyncActivityLogs.client_id, clientId),
+        sql`action IN ('whatsapp.message_received', 'whatsapp.message_sent')`,
+        gte(socialsyncActivityLogs.created_at, weekStart),
+      ),
+    );
+  const whatsappMessagesThisWeek = Number(waRow[0]?.n ?? 0);
+
+  const connRows = await db
+    .select({
+      platform: socialsyncPlatformConnections.platform,
+      status: socialsyncPlatformConnections.connection_status,
+    })
+    .from(socialsyncPlatformConnections)
+    .where(eq(socialsyncPlatformConnections.client_id, clientId));
+
+  const connections = { facebook: false, instagram: false, linkedin: false, whatsapp: false };
+  for (const row of connRows) {
+    const isOk = row.status === "connected" || row.status === "expiring_soon";
+    if (row.platform === "facebook") connections.facebook = isOk;
+    else if (row.platform === "instagram") connections.instagram = isOk;
+    else if (row.platform === "linkedin") connections.linkedin = isOk;
+    else if (row.platform === "whatsapp" || row.platform === "whatsapp_business") {
+      connections.whatsapp = isOk;
+    }
+  }
+
+  return {
+    kpis: {
+      postsThisWeek,
+      avgEngagementRate: 0,
+      approvalBacklog,
+      whatsappMessagesThisWeek,
+    },
+    perPlatform: EMPTY_PER_PLATFORM,
+    connections,
+  };
+}
+
 export function registerPortalSocialsyncDashboardKpisRoutes(app: Express) {
   app.get(
     "/api/portal/socialsync/dashboard-kpis",
@@ -85,80 +160,8 @@ export function registerPortalSocialsyncDashboardKpisRoutes(app: Express) {
         });
         if (clientId === null) return;
 
-        const weekStart = startOfIsoWeek();
-        const weekEnd = endOfIsoWeek();
-
-        /* ─── postsThisWeek: approved + scheduled within current week ──── */
-        const postsThisWeekRow = await db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(socialsyncPosts)
-          .where(
-            and(
-              eq(socialsyncPosts.client_id, clientId),
-              sql`status IN ('queued', 'ready', 'publishing', 'published')`,
-              sql`scheduled_for >= ${weekStart}`,
-              sql`scheduled_for < ${weekEnd}`,
-            ),
-          );
-        const postsThisWeek = Number(postsThisWeekRow[0]?.n ?? 0);
-
-        /* ─── approvalBacklog: pending_approval count ───────────────────── */
-        const backlogRow = await db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(socialsyncPosts)
-          .where(
-            and(
-              eq(socialsyncPosts.client_id, clientId),
-              eq(socialsyncPosts.status, "pending_approval"),
-            ),
-          );
-        const approvalBacklog = Number(backlogRow[0]?.n ?? 0);
-
-        /* ─── whatsappMessagesThisWeek: from activity logs ──────────────── */
-        const waRow = await db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(socialsyncActivityLogs)
-          .where(
-            and(
-              eq(socialsyncActivityLogs.client_id, clientId),
-              sql`action IN ('whatsapp.message_received', 'whatsapp.message_sent')`,
-              gte(socialsyncActivityLogs.created_at, weekStart),
-            ),
-          );
-        const whatsappMessagesThisWeek = Number(waRow[0]?.n ?? 0);
-
-        /* ─── connection map ────────────────────────────────────────────── */
-        const connRows = await db
-          .select({
-            platform: socialsyncPlatformConnections.platform,
-            status: socialsyncPlatformConnections.connection_status,
-          })
-          .from(socialsyncPlatformConnections)
-          .where(eq(socialsyncPlatformConnections.client_id, clientId));
-
-        const connections = { facebook: false, instagram: false, linkedin: false, whatsapp: false };
-        for (const row of connRows) {
-          const isOk = row.status === "connected" || row.status === "expiring_soon";
-          if (row.platform === "facebook") connections.facebook = isOk;
-          else if (row.platform === "instagram") connections.instagram = isOk;
-          else if (row.platform === "linkedin") connections.linkedin = isOk;
-          else if (row.platform === "whatsapp" || row.platform === "whatsapp_business") {
-            connections.whatsapp = isOk;
-          }
-        }
-
-        // Engagement metrics aren't persisted yet — surface empty per the
-        // anti-pattern rule "don't show metrics that don't exist yet".
-        res.json({
-          kpis: {
-            postsThisWeek,
-            avgEngagementRate: 0,
-            approvalBacklog,
-            whatsappMessagesThisWeek,
-          },
-          perPlatform: EMPTY_PER_PLATFORM,
-          connections,
-        });
+        const payload = await computeSocialsyncDashboardKpis(clientId);
+        res.json(payload);
       } catch (err: any) {
         log.error("[portal/socialsync/dashboard-kpis]", err?.message || err);
         res.status(500).json({ error: err?.message });

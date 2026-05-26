@@ -75,6 +75,140 @@ function startOfMonth(d = new Date()): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
+/**
+ * Wave 26.6 — pure compute path for the TradeLine dashboard KPIs. Extracted
+ * from the route handler so the Copilot metricsContext can reuse it.
+ *
+ * Returns `{ kpis, empty? }` matching the route shape.
+ */
+export async function computeTradelineDashboardKpis(clientId: number): Promise<
+  { kpis: typeof EMPTY_KPIS; empty?: boolean }
+> {
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  const monthStart = startOfMonth(now);
+
+  const lastWeekStart = new Date(now);
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  const lastWeekDayStart = startOfDay(lastWeekStart);
+
+  const csRows = await db
+    .select({ id: clientServices.id })
+    .from(clientServices)
+    .where(
+      and(
+        eq(clientServices.client_id, clientId),
+        sql`${clientServices.service_id} LIKE 'tradeline%'`,
+      ),
+    );
+
+  const csIds = csRows.map((r) => r.id);
+
+  if (csIds.length === 0) {
+    return { kpis: EMPTY_KPIS, empty: true };
+  }
+
+  const csInList = sql`${tradelineCallLog.client_service_id} IN (${sql.join(csIds.map((id) => sql`${id}`), sql`, `)})`;
+
+  const todayRows = await db
+    .select({
+      n: sql<number>`count(*)::int`,
+      answered: sql<number>`count(*) FILTER (WHERE outcome IN ('answered','transferred'))::int`,
+      missed: sql<number>`count(*) FILTER (WHERE outcome IN ('missed','voicemail','failed'))::int`,
+    })
+    .from(tradelineCallLog)
+    .where(
+      and(
+        csInList,
+        gte(tradelineCallLog.created_at, todayStart),
+      ),
+    );
+  const callsToday = Number(todayRows[0]?.n ?? 0);
+  const answeredToday = Number(todayRows[0]?.answered ?? 0);
+  const missedToday = Number(todayRows[0]?.missed ?? 0);
+
+  const yRows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(tradelineCallLog)
+    .where(
+      and(
+        csInList,
+        gte(tradelineCallLog.created_at, yesterdayStart),
+        lt(tradelineCallLog.created_at, todayStart),
+      ),
+    );
+  const callsYesterday = Number(yRows[0]?.n ?? 0);
+
+  const lwRows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(tradelineCallLog)
+    .where(
+      and(
+        csInList,
+        gte(tradelineCallLog.created_at, lastWeekDayStart),
+        lt(tradelineCallLog.created_at, lastWeekStart),
+      ),
+    );
+  const callsSameTimeLastWeek = Number(lwRows[0]?.n ?? 0);
+
+  const bookRows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(tradelineCallLog)
+    .where(
+      and(
+        csInList,
+        gte(tradelineCallLog.created_at, monthStart),
+        sql`(transcript_json->>'booking_created' = 'true' OR summary ILIKE '%booked%' OR summary ILIKE '%appointment%' OR summary ILIKE '%scheduled%')`,
+      ),
+    );
+  const bookingsThisMonth = Number(bookRows[0]?.n ?? 0);
+
+  const TIER_PRICE: Record<string, number> = {
+    "tradeline-starter": 99,
+    "tradeline-pro": 149,
+    "tradeline-elite": 249,
+    "tradeline-business": 249,
+  };
+  const tierRows = await db
+    .select({ service_id: clientServices.service_id })
+    .from(clientServices)
+    .where(
+      and(
+        eq(clientServices.client_id, clientId),
+        sql`${clientServices.service_id} LIKE 'tradeline%'`,
+      ),
+    );
+  let monthSubscriptionCost = 0;
+  for (const r of tierRows) {
+    const price = TIER_PRICE[r.service_id] ?? 99;
+    if (price > monthSubscriptionCost) monthSubscriptionCost = price;
+  }
+
+  const costPerBooking = bookingsThisMonth > 0
+    ? Math.round((monthSubscriptionCost / bookingsThisMonth) * 100) / 100
+    : 0;
+
+  const avgJobValue = 0;
+  const estimatedMissedRevenue = 0;
+
+  return {
+    kpis: {
+      callsToday,
+      callsYesterday,
+      callsSameTimeLastWeek,
+      answeredToday,
+      missedToday,
+      monthSubscriptionCost,
+      bookingsThisMonth,
+      costPerBooking,
+      avgJobValue,
+      estimatedMissedRevenue,
+    },
+  };
+}
+
 export function registerPortalTradelineDashboardKpisRoutes(app: Express) {
   app.get(
     "/api/portal/tradeline/dashboard-kpis",
@@ -86,141 +220,8 @@ export function registerPortalTradelineDashboardKpisRoutes(app: Express) {
         });
         if (clientId === null) return;
 
-        const now = new Date();
-        const todayStart = startOfDay(now);
-        const yesterdayStart = new Date(todayStart);
-        yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-        const monthStart = startOfMonth(now);
-
-        const lastWeekStart = new Date(now);
-        lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-        const lastWeekDayStart = startOfDay(lastWeekStart);
-
-        // Resolve client's TradeLine client_services
-        const csRows = await db
-          .select({ id: clientServices.id })
-          .from(clientServices)
-          .where(
-            and(
-              eq(clientServices.client_id, clientId),
-              sql`${clientServices.service_id} LIKE 'tradeline%'`,
-            ),
-          );
-
-        const csIds = csRows.map((r) => r.id);
-
-        if (csIds.length === 0) {
-          // Customer has no TradeLine — return zeros with empty=true semantics.
-          return res.json({ kpis: EMPTY_KPIS, empty: true });
-        }
-
-        const csInList = sql`${tradelineCallLog.client_service_id} IN (${sql.join(csIds.map((id) => sql`${id}`), sql`, `)})`;
-
-        /* ─── callsToday / answered / missed ──────────────────────────── */
-        const todayRows = await db
-          .select({
-            n: sql<number>`count(*)::int`,
-            answered: sql<number>`count(*) FILTER (WHERE outcome IN ('answered','transferred'))::int`,
-            missed: sql<number>`count(*) FILTER (WHERE outcome IN ('missed','voicemail','failed'))::int`,
-          })
-          .from(tradelineCallLog)
-          .where(
-            and(
-              csInList,
-              gte(tradelineCallLog.created_at, todayStart),
-            ),
-          );
-        const callsToday = Number(todayRows[0]?.n ?? 0);
-        const answeredToday = Number(todayRows[0]?.answered ?? 0);
-        const missedToday = Number(todayRows[0]?.missed ?? 0);
-
-        /* ─── callsYesterday ──────────────────────────────────────────── */
-        const yRows = await db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(tradelineCallLog)
-          .where(
-            and(
-              csInList,
-              gte(tradelineCallLog.created_at, yesterdayStart),
-              lt(tradelineCallLog.created_at, todayStart),
-            ),
-          );
-        const callsYesterday = Number(yRows[0]?.n ?? 0);
-
-        /* ─── callsSameTimeLastWeek ───────────────────────────────────── */
-        const lwRows = await db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(tradelineCallLog)
-          .where(
-            and(
-              csInList,
-              gte(tradelineCallLog.created_at, lastWeekDayStart),
-              lt(tradelineCallLog.created_at, lastWeekStart),
-            ),
-          );
-        const callsSameTimeLastWeek = Number(lwRows[0]?.n ?? 0);
-
-        /* ─── bookingsThisMonth (heuristic via summary JSON) ──────────── */
-        const bookRows = await db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(tradelineCallLog)
-          .where(
-            and(
-              csInList,
-              gte(tradelineCallLog.created_at, monthStart),
-              sql`(transcript_json->>'booking_created' = 'true' OR summary ILIKE '%booked%' OR summary ILIKE '%appointment%' OR summary ILIKE '%scheduled%')`,
-            ),
-          );
-        const bookingsThisMonth = Number(bookRows[0]?.n ?? 0);
-
-        /* ─── monthSubscriptionCost: flat tier pricing ────────────────── */
-        // Pricing constants mirror config/products.ts TRADELINE plans
-        // ($99 / $149 / $249). We use the highest active service tier the
-        // customer has — most customers have one TradeLine service.
-        const TIER_PRICE: Record<string, number> = {
-          "tradeline-starter": 99,
-          "tradeline-pro": 149,
-          "tradeline-elite": 249,
-          "tradeline-business": 249,
-        };
-        const tierRows = await db
-          .select({ service_id: clientServices.service_id })
-          .from(clientServices)
-          .where(
-            and(
-              eq(clientServices.client_id, clientId),
-              sql`${clientServices.service_id} LIKE 'tradeline%'`,
-            ),
-          );
-        let monthSubscriptionCost = 0;
-        for (const r of tierRows) {
-          const price = TIER_PRICE[r.service_id] ?? 99;
-          if (price > monthSubscriptionCost) monthSubscriptionCost = price;
-        }
-
-        const costPerBooking = bookingsThisMonth > 0
-          ? Math.round((monthSubscriptionCost / bookingsThisMonth) * 100) / 100
-          : 0;
-
-        // Avg job value estimate — surfaces only if we have any insight.
-        // For now we expose 0 (the dashboard will hide the comparison row).
-        const avgJobValue = 0;
-        const estimatedMissedRevenue = 0;
-
-        res.json({
-          kpis: {
-            callsToday,
-            callsYesterday,
-            callsSameTimeLastWeek,
-            answeredToday,
-            missedToday,
-            monthSubscriptionCost,
-            bookingsThisMonth,
-            costPerBooking,
-            avgJobValue,
-            estimatedMissedRevenue,
-          },
-        });
+        const payload = await computeTradelineDashboardKpis(clientId);
+        return res.json(payload);
       } catch (err: any) {
         log.error("[portal/tradeline/dashboard-kpis]", err?.message || err);
         res.status(500).json({ error: err?.message });

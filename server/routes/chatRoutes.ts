@@ -144,6 +144,32 @@ async function parseAssistantRequest(req: Request): Promise<
     });
   }
 
+  /* Wave 26.6: admin Copilot dashboard-metrics enrichment. When the
+   * operator is on a per-client product page (clientId in pageContext)
+   * AND the path is one of the product dashboards, pre-build the live
+   * KPI block so buildAdminPrompt can append it. Skipped silently if
+   * compute fails — the rest of the prompt still ships. */
+  let adminDashboardMetricsBlock: string | undefined;
+  if (surface === "admin" && clientPageCtx && typeof clientPageCtx === "object") {
+    const adminClientId = (clientPageCtx as any).clientId;
+    const adminRoute = typeof (clientPageCtx as any).route === "string"
+      ? (clientPageCtx as any).route
+      : undefined;
+    if (typeof adminClientId === "number" && adminRoute) {
+      try {
+        const { resolveProduct: _rp, buildDashboardContext: _bdc, renderDashboardContextBlock: _rdcb } =
+          await import("../services/copilot/metricsContext");
+        const product = _rp(adminRoute);
+        if (product) {
+          const ctx = await _bdc(product, adminClientId, adminRoute);
+          if (ctx) adminDashboardMetricsBlock = _rdcb(ctx);
+        }
+      } catch (err) {
+        log.warn("[chat] admin dashboard metrics injection failed:", { error: String(err) });
+      }
+    }
+  }
+
   return {
     ok: true,
     assistantReq: {
@@ -155,6 +181,7 @@ async function parseAssistantRequest(req: Request): Promise<
       pageContext: (surface === "admin" || surface === "website") && clientPageCtx
         ? {
             ...clientPageCtx,
+            dashboardMetricsBlock: adminDashboardMetricsBlock,
             // Untyped DOM snapshot — admin: supplements the typed context;
             // website: the live page the visitor is reading, so the chat
             // assistant stays current with whatever was just published.

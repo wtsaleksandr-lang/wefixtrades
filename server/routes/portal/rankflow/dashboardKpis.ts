@@ -67,10 +67,6 @@ function startOfThisMonth(): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-function thirtyDaysAgo(): Date {
-  return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-}
-
 /**
  * Compute an aggregate 0..100 site-wide SEO score from rankflow_signals.
  *
@@ -98,6 +94,117 @@ function computeSeoScore(input: {
   return Math.round(blended * 100);
 }
 
+/**
+ * Wave 26.6 — pure compute path for the RankFlow dashboard KPIs. Extracted
+ * from the route handler so the Copilot metricsContext can reuse it.
+ */
+export async function computeRankflowDashboardKpis(clientId: number) {
+  const requestStageRows = await db
+    .select({
+      stage: contentRequests.current_stage,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(contentRequests)
+    .where(
+      and(
+        eq(contentRequests.client_id, clientId),
+        eq(contentRequests.source, "rankflow"),
+      ),
+    )
+    .groupBy(contentRequests.current_stage);
+
+  const pipeline = { ...EMPTY_PIPELINE };
+  for (const row of requestStageRows) {
+    const s = row.stage as string;
+    const n = Number(row.n) || 0;
+    if (s === "requested") pipeline.queued += n;
+    else if (s === "generating") pipeline.generating += n;
+    else if (s === "quality_check") pipeline.review += n;
+    else if (s === "approved") pipeline.published += n;
+    else if (s === "failed") pipeline.review += n;
+  }
+
+  const pagesRows = await db
+    .select({
+      indexed: sql<number>`count(*) filter (where indexed = true)::int`,
+      total: sql<number>`count(*)::int`,
+    })
+    .from(rankflowPages)
+    .where(eq(rankflowPages.client_id, clientId));
+  const pagesIndexed = Number(pagesRows[0]?.indexed ?? 0);
+  const pagesTotal = Number(pagesRows[0]?.total ?? 0);
+  pipeline.published = Math.max(pipeline.published, pagesIndexed);
+
+  const trackingRows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(rankflowKeywords)
+    .where(eq(rankflowKeywords.client_id, clientId));
+  pipeline.tracking = Number(trackingRows[0]?.n ?? 0);
+
+  const [signals] = await db
+    .select()
+    .from(rankflowSignals)
+    .where(eq(rankflowSignals.client_id, clientId))
+    .limit(1);
+
+  const keywordsTracked = Number(signals?.total_keywords ?? pipeline.tracking ?? 0);
+  const keywordsTop10 = Number(signals?.keywords_top_10 ?? 0);
+  const keywordsTop20 = Number(signals?.keywords_top_20 ?? 0);
+  const keywordsImproved = Number(signals?.keywords_improved ?? 0);
+  const avgPositionRaw = signals?.avg_position;
+  const avgPosition =
+    avgPositionRaw == null ? 0 : Math.round(Number(avgPositionRaw) * 10) / 10;
+
+  const seoScore = computeSeoScore({
+    total: keywordsTracked,
+    top10: keywordsTop10,
+    top20: keywordsTop20,
+    pagesIndexed,
+    pagesTotal,
+  });
+
+  const monthStart = startOfThisMonth();
+  const completedBeforeMonth = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(rankflowTasks)
+    .where(
+      and(
+        eq(rankflowTasks.client_id, clientId),
+        sql`completed_at < ${monthStart}`,
+      ),
+    );
+  const completedRows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(rankflowTasks)
+    .where(
+      and(
+        eq(rankflowTasks.client_id, clientId),
+        sql`completed_at is not null`,
+      ),
+    );
+  const totalCompleted = Number(completedRows[0]?.n ?? 0);
+  const beforeCount = Number(completedBeforeMonth[0]?.n ?? 0);
+  const previousSeoScore =
+    totalCompleted > 0
+      ? Math.round((beforeCount / totalCompleted) * seoScore)
+      : seoScore;
+
+  return {
+    kpis: {
+      keywordsTracked,
+      keywordsTop10,
+      keywordsTop20,
+      keywordsImproved,
+      avgPosition,
+      pagesIndexed,
+      pagesTotal,
+      seoScore,
+      previousSeoScore,
+    },
+    pipeline,
+  };
+}
+
 export function registerPortalRankflowDashboardKpisRoutes(app: Express) {
   app.get(
     "/api/portal/rankflow/dashboard-kpis",
@@ -109,127 +216,8 @@ export function registerPortalRankflowDashboardKpisRoutes(app: Express) {
         });
         if (clientId === null) return;
 
-        /* ─── Pipeline stage counts ──────────────────────────────────────
-           Stages derive from two sources:
-             1. content_requests source=rankflow → Queued/Generating/Review
-             2. rankflow_pages.indexed=true → Published (page on Google)
-             3. rankflow_keywords (active tracking) → Tracking
-        */
-        const requestStageRows = await db
-          .select({
-            stage: contentRequests.current_stage,
-            n: sql<number>`count(*)::int`,
-          })
-          .from(contentRequests)
-          .where(
-            and(
-              eq(contentRequests.client_id, clientId),
-              eq(contentRequests.source, "rankflow"),
-            ),
-          )
-          .groupBy(contentRequests.current_stage);
-
-        const pipeline = { ...EMPTY_PIPELINE };
-        for (const row of requestStageRows) {
-          const s = row.stage as string;
-          const n = Number(row.n) || 0;
-          if (s === "requested") pipeline.queued += n;
-          else if (s === "generating") pipeline.generating += n;
-          else if (s === "quality_check") pipeline.review += n;
-          else if (s === "approved") pipeline.published += n;
-          else if (s === "failed") pipeline.review += n; // surface failures into review for action
-        }
-
-        // Pages indexed → "Published" count (already-live pages)
-        const pagesRows = await db
-          .select({
-            indexed: sql<number>`count(*) filter (where indexed = true)::int`,
-            total: sql<number>`count(*)::int`,
-          })
-          .from(rankflowPages)
-          .where(eq(rankflowPages.client_id, clientId));
-        const pagesIndexed = Number(pagesRows[0]?.indexed ?? 0);
-        const pagesTotal = Number(pagesRows[0]?.total ?? 0);
-        pipeline.published = Math.max(pipeline.published, pagesIndexed);
-
-        // Tracking = active keywords being monitored
-        const trackingRows = await db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(rankflowKeywords)
-          .where(eq(rankflowKeywords.client_id, clientId));
-        pipeline.tracking = Number(trackingRows[0]?.n ?? 0);
-
-        /* ─── Signal summary (keyword + position aggregates) ─────────── */
-        const [signals] = await db
-          .select()
-          .from(rankflowSignals)
-          .where(eq(rankflowSignals.client_id, clientId))
-          .limit(1);
-
-        const keywordsTracked = Number(signals?.total_keywords ?? pipeline.tracking ?? 0);
-        const keywordsTop10 = Number(signals?.keywords_top_10 ?? 0);
-        const keywordsTop20 = Number(signals?.keywords_top_20 ?? 0);
-        const keywordsImproved = Number(signals?.keywords_improved ?? 0);
-        const avgPositionRaw = signals?.avg_position;
-        const avgPosition =
-          avgPositionRaw == null ? 0 : Math.round(Number(avgPositionRaw) * 10) / 10;
-
-        const seoScore = computeSeoScore({
-          total: keywordsTracked,
-          top10: keywordsTop10,
-          top20: keywordsTop20,
-          pagesIndexed,
-          pagesTotal,
-        });
-
-        // Previous score: approximate by counting rankflow tasks that
-        // completed *before* the start of this month as a stand-in for
-        // "where you were before this month's work". This keeps the delta
-        // arrow live without a new tracking-history column.
-        const monthStart = startOfThisMonth();
-        const since30 = thirtyDaysAgo();
-        void since30;
-        const completedBeforeMonth = await db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(rankflowTasks)
-          .where(
-            and(
-              eq(rankflowTasks.client_id, clientId),
-              sql`completed_at < ${monthStart}`,
-            ),
-          );
-        // Crude previous-score estimate: scale seoScore by ratio of completed
-        // tasks before the month to current. If unknown, leave equal to score.
-        const completedRows = await db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(rankflowTasks)
-          .where(
-            and(
-              eq(rankflowTasks.client_id, clientId),
-              sql`completed_at is not null`,
-            ),
-          );
-        const totalCompleted = Number(completedRows[0]?.n ?? 0);
-        const beforeCount = Number(completedBeforeMonth[0]?.n ?? 0);
-        const previousSeoScore =
-          totalCompleted > 0
-            ? Math.round((beforeCount / totalCompleted) * seoScore)
-            : seoScore;
-
-        res.json({
-          kpis: {
-            keywordsTracked,
-            keywordsTop10,
-            keywordsTop20,
-            keywordsImproved,
-            avgPosition,
-            pagesIndexed,
-            pagesTotal,
-            seoScore,
-            previousSeoScore,
-          },
-          pipeline,
-        });
+        const payload = await computeRankflowDashboardKpis(clientId);
+        res.json(payload);
       } catch (err: any) {
         log.error("[portal/rankflow/dashboard-kpis]", err?.message || err);
         res.status(500).json({ error: err?.message });

@@ -16,6 +16,7 @@ import CopilotCards from "@/components/shared/CopilotCards";
 import type { CopilotPromptRequest, CopilotCard } from "@shared/copilotProtocol";
 import { useActiveCopilotForm } from "@/context/CopilotFormContext";
 import { getNavigationTrail } from "@/lib/chat/pageContext";
+import { productFromPagePath } from "@shared/copilot/metricRegistry";
 
 const LAST_OPEN_KEY = "wft_portal_chat_last_open";
 const OPACITY_KEY = "wft_portal_chat_opacity";
@@ -374,6 +375,10 @@ export default function PortalChatWidget({
     const page_path = typeof window !== "undefined" ? location : undefined;
     const page_title = typeof document !== "undefined" ? document.title : undefined;
     const page_content = readPageContentSnapshot();
+    /* Wave 26.6: when the customer is on a product dashboard, declare the
+     * product so the server's metricsContext can fetch the right live KPI
+     * set. The server also infers from the path (defense in depth). */
+    const product = productFromPagePath(page_path);
     /* Persistent-chat addition: recent navigation trail (last 5 routes
      * the user moved through since the panel mounted/since the last
      * message). The server folds this into the assistant's next system
@@ -400,6 +405,7 @@ export default function PortalChatWidget({
         page_title,
         page_content,
         recent_navigation,
+        product,
       };
     }
     return {
@@ -409,6 +415,7 @@ export default function PortalChatWidget({
       page_title,
       page_content,
       recent_navigation,
+      product,
       // A registered form makes form-fill available on any page, not just onboarding.
       ...(formFields && formFields.length > 0
         ? { fields: formFields, current_responses: formValues }
