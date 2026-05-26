@@ -18,6 +18,7 @@
  * layer turns that into a 503 + frontend toast.
  */
 
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,6 +34,29 @@ const SAMPLE_TEXT =
 /** Absolute path to the cache file for a given voice slug. */
 export function cachePathFor(voiceId: string): string {
   return join(CACHE_DIR, `${voiceId}.mp3`);
+}
+
+/**
+ * Cache path for an arbitrary (voice, text) pair. Used by the template
+ * voice-preview route — the cache key folds in the OpenAI voice + a text
+ * hash so the same (template, tone, sample sentence) tuple always returns
+ * the same MP3, while edits to the template name/tone produce a fresh
+ * synthesis on next click.
+ */
+export function cachePathForText(
+  keyPrefix: string,
+  openaiVoice: string,
+  text: string,
+): string {
+  const textHash = createHash("sha256")
+    .update(text)
+    .digest("hex")
+    .slice(0, 12);
+  const safePrefix = keyPrefix.replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
+  return join(
+    CACHE_DIR,
+    `${safePrefix}_${openaiVoice}_${textHash}.mp3`,
+  );
 }
 
 /** True when an OpenAI key is configured somewhere in env. */
@@ -97,6 +121,72 @@ export async function getOrCreateSample(
     return buf;
   } catch (err: any) {
     log.error("openai tts failed", { voiceId, error: err?.message });
+    return null;
+  }
+}
+
+/**
+ * Synthesize MP3 bytes for an arbitrary text in a given OpenAI voice,
+ * cached on disk by (keyPrefix, openaiVoice, sha256(text)). Used by
+ * the TradeLine template voice-preview route so a tone-flavored greeting
+ * derived from the template (name + tone) is generated once and reused.
+ *
+ * @param keyPrefix  — short slug used as the filename prefix (e.g.
+ *                     "tpl_plumber_friendly"); must be filesystem-safe
+ *                     (the helper sanitizes it).
+ * @param openaiVoice — OpenAI TTS preset name.
+ * @param text        — sentence to synthesize (kept short — admin previews).
+ * @returns Buffer of audio/mpeg bytes, or null if synthesis failed.
+ */
+export async function getOrCreateSampleForText(
+  keyPrefix: string,
+  openaiVoice: string,
+  text: string,
+): Promise<Buffer | null> {
+  const path = cachePathForText(keyPrefix, openaiVoice, text);
+
+  // Fast path — cached file already on disk.
+  try {
+    const s = await stat(path);
+    if (s.isFile() && s.size > 0) {
+      return await readFile(path);
+    }
+  } catch {
+    // Cache miss; fall through to generate.
+  }
+
+  if (!isPreviewAvailable()) {
+    log.warn("preview unavailable — no OpenAI key", { keyPrefix });
+    return null;
+  }
+
+  try {
+    await mkdir(CACHE_DIR, { recursive: true });
+    const client = getOpenAI();
+    const resp = await client.audio.speech.create({
+      model: "tts-1",
+      voice: openaiVoice as
+        | "alloy"
+        | "echo"
+        | "fable"
+        | "onyx"
+        | "nova"
+        | "shimmer",
+      input: text,
+      response_format: "mp3",
+    });
+    const buf = Buffer.from(await resp.arrayBuffer());
+    if (buf.length === 0) {
+      log.error("openai tts returned empty buffer", { keyPrefix });
+      return null;
+    }
+    await writeFile(path, buf);
+    return buf;
+  } catch (err: any) {
+    log.error("openai tts (text) failed", {
+      keyPrefix,
+      error: err?.message,
+    });
     return null;
   }
 }

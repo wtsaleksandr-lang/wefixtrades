@@ -47,6 +47,7 @@ import {
   Copy,
   Plus,
 } from "lucide-react";
+import VoicePreviewButton from "@/components/tradeline/VoicePreviewButton";
 
 type TemplateKind = "tradeline" | "concierge";
 
@@ -291,12 +292,22 @@ function TemplateGrid({
                 e.stopPropagation();
                 onPreview(t);
               }}
-              title="Play preview"
+              title="Play preview (chat script)"
               aria-label="Play preview"
               data-testid={`template-preview-${t.kind}-${t.templateId}`}
             >
               <Play className="w-3.5 h-3.5" />
             </Button>
+            {/* Voice preview — direct audible cue without opening dialog */}
+            <VoicePreviewButton
+              url={`/api/admin/tradeline/templates/${t.kind}/${t.templateId}/voice-sample`}
+              iconOnly
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-gray-500 hover:text-brand-blue-700"
+              title="Hear voice"
+              testId={`template-voice-${t.kind}-${t.templateId}`}
+            />
             <Button
               type="button"
               variant="ghost"
@@ -694,6 +705,15 @@ function PlayPreviewDialog({ template, onClose }: { template: TemplateSummary; o
         </div>
 
         <DialogFooter className="gap-2">
+          {/* Hear-voice preview — streams a tone-flavored greeting MP3
+              via OpenAI TTS so Alex (or any admin) can confirm what the
+              assistant actually sounds like before committing. */}
+          <VoicePreviewButton
+            url={`/api/admin/tradeline/templates/${template.kind}/${template.templateId}/voice-sample`}
+            label="Hear voice"
+            testId={`preview-voice-${template.kind}-${template.templateId}`}
+            className="mr-auto"
+          />
           <Button variant="outline" size="sm" onClick={() => start()} data-testid="preview-replay">
             <RotateCcw className="w-3.5 h-3.5 mr-1" /> Replay
           </Button>
