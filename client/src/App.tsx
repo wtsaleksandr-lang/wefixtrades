@@ -218,6 +218,8 @@ const PortalChatWidgetSetup = lazy(() => import("@/pages/portal/PortalChatWidget
 const PortalHelp = lazy(() => import("@/pages/portal/PortalHelp"));
 const PortalTicketDetail = lazy(() => import("@/pages/portal/PortalTicketDetail"));
 const PortalMapguard = lazy(() => import("@/pages/portal/PortalMapguard"));
+const MapGuardDashboard = lazy(() => import("@/pages/portal/mapguard/MapGuardDashboard"));
+const MapGuardAlertSettings = lazy(() => import("@/pages/portal/mapguard/AlertSettings"));
 const AiInsightsPage = lazy(() => import("@/pages/portal/AiInsightsPage"));
 const CitationTrackerDashboard = lazy(() => import("@/pages/portal/CitationTrackerDashboard"));
 const CitationBuilderDashboard = lazy(() => import("@/pages/portal/CitationBuilderDashboard"));
@@ -419,6 +421,10 @@ function Router() {
       <Route path="/portal/tradeline/chat-widget">{() => <RequireClient><PortalChatWidgetSetup /></RequireClient>}</Route>
       <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
+      {/* Wave 27: dashboard + alert-settings must mount BEFORE the parent
+          /portal/mapguard route — wouter matches first-hit. */}
+      <Route path="/portal/mapguard/dashboard">{() => <RequireClient><MapGuardDashboard /></RequireClient>}</Route>
+      <Route path="/portal/mapguard/alert-settings">{() => <RequireClient><MapGuardAlertSettings /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
       <Route path="/portal/ai-insights">{() => <RequireClient><AiInsightsPage /></RequireClient>}</Route>
       <Route path="/portal/citation-tracker">{() => <RequireClient><CitationTrackerDashboard /></RequireClient>}</Route>

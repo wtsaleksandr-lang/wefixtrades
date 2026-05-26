@@ -181,3 +181,17 @@ client/src/pages/portal/socialsync/SocialSyncDashboard.tsx
 #    persistent fillable form on the dashboard itself — voice / knowledge /
 #    setup all live on their own dedicated pages.
 client/src/pages/portal/tradeline/TradeLineDashboard.tsx
+
+# ── Wave 27 — MapGuard dashboard: KpiGauge / ProgressRing / LetterGradeBadge
+#    / Sparkline hero row, RankGridPulse 5×5 heatmap, CitationHealthRing
+#    donut, CompetitorAlertFeed timeline, and an ActionsStack swipe pile.
+#    Read-only — every interaction is a button click (run-action / dismiss
+#    / drill into a pin). Notification opt-ins live on AlertSettings.tsx
+#    below. Per-account MapGuard config still lives in PortalMapguard.tsx.
+client/src/pages/portal/mapguard/MapGuardDashboard.tsx
+
+# ── Wave 27 — MapGuard alert-settings: Switch-only event × channel matrix
+#    (rank_drop_top3 / citation_nap_mismatch / new_negative_review /
+#    competitor_outranked × email / sms). No free-text fields for the
+#    copilot to fill — boolean toggles only.
+client/src/pages/portal/mapguard/AlertSettings.tsx

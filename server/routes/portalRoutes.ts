@@ -27,6 +27,7 @@ import { registerPortalReviewQueueRoutes } from "./portal/review-queue";
 import { registerPortalContentflowRoutes } from "./portal/contentflow";
 import { registerPortalContentflowDashboardRoutes } from "./portal/contentflowDashboard";
 import { registerPortalMapguardRoutes } from "./portal/mapguard";
+import { registerPortalMapguardDashboardRoutes } from "./portal/mapguard/index";
 import { registerPortalSocialsyncRoutes } from "./portal/socialsync";
 import { registerPortalSocialsyncDashboardRoutes } from "./portal/socialsync/index";
 import { registerPortalRankflowRoutes } from "./portal/rankflow";
@@ -83,6 +84,11 @@ export function registerPortalRoutes(app: Express) {
   registerPortalReviewQueueRoutes(app);
   registerPortalContentflowRoutes(app);
   registerPortalContentflowDashboardRoutes(app);
+  // Wave 27: dashboard sub-registrar mounts BEFORE the legacy mapguard
+  // registrar so the new /dashboard-kpis, /competitor-alerts, /run-action,
+  // /notification-settings paths take precedence over any parameterized
+  // routes defined in the parent file.
+  registerPortalMapguardDashboardRoutes(app);
   registerPortalMapguardRoutes(app);
   registerPortalSocialsyncRoutes(app);
   registerPortalSocialsyncDashboardRoutes(app);
