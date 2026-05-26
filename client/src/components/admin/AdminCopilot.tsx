@@ -9,7 +9,8 @@ import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatH
 import { getNavigationTrail } from "@/lib/chat/pageContext";
 import { useToast } from "@/hooks/use-toast";
 import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
-import { extractCopilotPrompt, type CopilotPromptRequest } from "@shared/copilotProtocol";
+import CopilotCards from "@/components/shared/CopilotCards";
+import { extractCopilotPrompt, extractCopilotCards, type CopilotPromptRequest, type CopilotCard } from "@shared/copilotProtocol";
 import { useActiveCopilotForm } from "@/context/CopilotFormContext";
 
 /* Q30b admin: lightweight action-button protocol shared shape (mirrors
@@ -488,7 +489,7 @@ type ToolCallMessage = {
 
 /* Q30b admin: assistant messages can carry parsed ACTION_PROPOSAL buttons.
  * Extends ChatMessage locally so the shared lib type stays minimal. */
-type AssistantMessageWithActions = ChatMessage & { actions?: ActionProposal[] };
+type AssistantMessageWithActions = ChatMessage & { actions?: ActionProposal[]; cards?: CopilotCard[] };
 type CopilotMessage = AssistantMessageWithActions | ToolCallMessage;
 
 /* Q30b admin: parse + sanitize ACTION_PROPOSAL block out of the assembled
@@ -967,10 +968,13 @@ export default function AdminCopilot({
       const allowedKeys = new Set((effectivePageContext.formFillFields ?? []).map((f) => f.key));
       const afterActions = extractActionProposals(assistantText);
       const afterFills = extractFormFill(afterActions.cleanedText, allowedKeys);
-      // Phase 0: extract the COPILOT_PROMPT block last, from the already-cleaned text.
+      // Phase 0: extract the COPILOT_PROMPT block, then the CARDS block.
       const afterPrompt = extractCopilotPrompt(afterFills.cleanedText);
-      const cleanedText = afterPrompt.cleanedText;
+      // Wave 12A: extract COPILOT_CARDS recommendation tiles.
+      const afterCards = extractCopilotCards(afterPrompt.cleanedText);
+      const cleanedText = afterCards.cleanedText;
       const actions = afterActions.actions;
+      const cards = afterCards.cards;
       if (afterFills.fills && afterFills.fills.length > 0) {
         setPendingFormFill(afterFills.fills);
       }
@@ -981,10 +985,10 @@ export default function AdminCopilot({
       if (toolCallReceived) {
         // Save only the text portion; tool_call cards are transient
         const persistable: CopilotMessage[] = [...updated];
-        if (cleanedText) persistable.push({ role: "assistant" as const, content: cleanedText, actions });
+        if (cleanedText) persistable.push({ role: "assistant" as const, content: cleanedText, actions, cards });
         saveCopilotMessages(persistable);
       } else {
-        const final: CopilotMessage[] = [...updated, { role: "assistant" as const, content: cleanedText, actions }];
+        const final: CopilotMessage[] = [...updated, { role: "assistant" as const, content: cleanedText, actions, cards }];
         setMessages(final);
         saveCopilotMessages(final);
       }
@@ -1145,6 +1149,7 @@ export default function AdminCopilot({
           }
           const assistantMsg = msg as AssistantMessageWithActions;
           const actions = msg.role === "assistant" ? assistantMsg.actions : undefined;
+          const cards = msg.role === "assistant" ? assistantMsg.cards : undefined;
           return (
             <div
               key={i}
@@ -1167,6 +1172,24 @@ export default function AdminCopilot({
                   </span>
                 )}
               </div>
+              {cards && cards.length > 0 && (
+                <div className="mt-1.5 w-full max-w-[92%]" data-testid={`copilot-cards-${i}`}>
+                  <CopilotCards
+                    cards={cards}
+                    variant="admin"
+                    onSelect={(card) => {
+                      if (card.href && card.href.startsWith("/admin/")) {
+                        setLocation(card.href);
+                        onClose();
+                        return;
+                      }
+                      if (card.href && (card.href.startsWith("/") || card.href.startsWith("https://"))) {
+                        window.open(card.href, card.href.startsWith("/") ? "_self" : "_blank", "noopener");
+                      }
+                    }}
+                  />
+                </div>
+              )}
               {actions && actions.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[92%]" data-testid={`copilot-actions-${i}`}>
                   {actions.map((a, j) => (

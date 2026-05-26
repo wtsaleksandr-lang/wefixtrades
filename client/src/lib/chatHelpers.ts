@@ -24,6 +24,38 @@ export function getSessionId(): string {
   return id;
 }
 
+/* ─── Marketing-chat UUID session ─── */
+/* Wave 12A: the anonymous marketing widget's /api/marketing/chat endpoint
+ * requires a real uuid (the DB column is UUID-typed). Kept separate from
+ * the legacy getSessionId() so the existing /api/chat widget keeps working
+ * with its short opaque id. */
+const MARKETING_SESSION_KEY = "wft_marketing_chat_session";
+
+function generateUuidV4(): string {
+  // Prefer the Web Crypto API where available (all evergreen browsers).
+  // Fallback: RFC 4122 v4 from Math.random — fine for an analytics session
+  // id (not used for security).
+  const c = typeof crypto !== "undefined" ? crypto : undefined;
+  if (c && typeof (c as Crypto & { randomUUID?: () => string }).randomUUID === "function") {
+    return (c as Crypto & { randomUUID: () => string }).randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (ch) => {
+    const r = (Math.random() * 16) | 0;
+    const v = ch === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export function getMarketingChatSessionId(): string {
+  let id: string | null = null;
+  try { id = localStorage.getItem(MARKETING_SESSION_KEY); } catch { /* noop */ }
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+    id = generateUuidV4();
+    try { localStorage.setItem(MARKETING_SESSION_KEY, id); } catch { /* noop */ }
+  }
+  return id;
+}
+
 /* ─── Message persistence (survives page navigation) ─── */
 export function loadMessages(): ChatMessage[] {
   try {

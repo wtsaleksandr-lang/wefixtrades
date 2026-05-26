@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { Send, X, MessageCircle } from "lucide-react";
 import {
-  getSessionId, readSSEStream, sendChatMessage,
+  getMarketingChatSessionId,
   loadMessages, saveMessages, loadOpenState, saveOpenState,
   type ChatMessage,
 } from "@/lib/chatHelpers";
@@ -10,10 +10,29 @@ import { SERVICES, type Service } from "@shared/services";
 import { parseRecommendations } from "@/lib/recommendations";
 import { RecommendationCard } from "@/components/RecommendationCard";
 import CheckoutModal from "@/components/CheckoutModal";
+import CopilotCards from "@/components/shared/CopilotCards";
+import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
+import type { CopilotCard, CopilotPromptRequest } from "@shared/copilotProtocol";
 
-const GREETING: ChatMessage = {
+/* Wave 12A: assistant messages on this surface can carry guided-tour
+ * extras emitted by the new /api/marketing/chat endpoint. cards = product
+ * recommendation tiles; prompt = AI-generated buttons for the next turn. */
+type MarketingChatMessage = ChatMessage & { cards?: CopilotCard[]; prompt?: CopilotPromptRequest };
+
+const GREETING: MarketingChatMessage = {
   role: "assistant",
-  content: "Hey! I'm here if you have any questions about growing your trades business online. What can I help you with?",
+  content: "Hey! I'm here to help you grow your trade business online. What brings you here today?",
+  prompt: {
+    prompt: "Pick the one that sounds most like you:",
+    options: [
+      { label: "More bookings", value: "I want more bookings" },
+      { label: "Higher Google ranking", value: "I want to rank higher on Google" },
+      { label: "Better reviews", value: "I want more 5-star reviews" },
+      { label: "Save time on content", value: "I want to save time on social/content" },
+      { label: "Just exploring", value: "Just exploring for now" },
+    ],
+    allow_custom: true,
+  },
 };
 
 /**
@@ -31,7 +50,7 @@ function capturePageSnapshot(): string {
 
 export default function SiteChatWidget() {
   const [open, setOpen] = useState(() => loadOpenState());
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+  const [messages, setMessages] = useState<MarketingChatMessage[]>(() => {
     const saved = loadMessages();
     return saved.length > 0 ? saved : [GREETING];
   });
@@ -40,7 +59,10 @@ export default function SiteChatWidget() {
   const [showDot, setShowDot] = useState(() => loadMessages().length <= 1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const sessionId = useRef(getSessionId());
+  /* Wave 12A: uuid-formed session id for /api/marketing/chat. Persists in
+   * localStorage so a returning visitor's conversation continues server-side
+   * (the row keeps growing in marketing_chat_sessions). */
+  const sessionId = useRef(getMarketingChatSessionId());
   const [checkoutService, setCheckoutService] = useState<Service | null>(null);
   const [location] = useLocation();
 
@@ -80,9 +102,14 @@ export default function SiteChatWidget() {
     setShowDot(false);
   }
 
-  async function handleSend() {
-    const text = input.trim();
-    if (!text || streaming) return;
+  /* Wave 12A: switched from /api/chat (legacy, streaming, generic) to the
+   * new /api/marketing/chat endpoint. Non-streaming JSON makes it easy to
+   * deliver the structured CARDS + PROMPT alongside the reply. The legacy
+   * recommendation parser (parseRecommendations / SERVICES) still runs as
+   * a fallback so the widget keeps showing product tiles even if the new
+   * endpoint is down or returns no CARDS for a given turn. */
+  async function sendMessage(text: string) {
+    if (!text.trim() || streaming) return;
     setInput("");
 
     if (!open) {
@@ -90,52 +117,71 @@ export default function SiteChatWidget() {
       setShowDot(false);
     }
 
-    const newMessages: ChatMessage[] = [...messages, { role: "user", content: text }];
+    // capturePageSnapshot is currently unused on this path because the new
+    // endpoint focuses on guided qualification rather than page-aware Q&A.
+    // Keeping the helper available — referenced as void below to satisfy
+    // TS no-unused-locals if it ever drifts to no caller.
+    void capturePageSnapshot;
+
+    const newMessages: MarketingChatMessage[] = [
+      ...messages,
+      { role: "user", content: text.trim() },
+    ];
     setMessages(newMessages);
     setStreaming(true);
 
     try {
-      const res = await sendChatMessage({
-        surface: "website",
-        messages: newMessages,
-        sessionId: sessionId.current,
-        // Live page context — the assistant can answer about the page the
-        // visitor is on, always current with whatever is published.
-        pageContext: { route: location, page: location },
-        pageContentSnapshot: capturePageSnapshot(),
+      const res = await fetch("/api/marketing/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId.current,
+          // Server keeps a server-side transcript; sending the recent
+          // client-side history makes the AI's context match what the user
+          // sees in the panel even after a refresh.
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          landing_path: location,
+        }),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: err.error || "Sorry, I'm having trouble connecting right now. Please try again in a moment.",
-        }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content:
+              err.error ||
+              "Sorry, I'm having trouble connecting right now. Please try again in a moment.",
+          },
+        ]);
         setStreaming(false);
         return;
       }
-
-      setMessages(prev => [...prev, { role: "assistant", content: "" }]);
-      await readSSEStream(res, (fullText) => {
-        setMessages(prev => {
-          const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", content: fullText };
-          return copy;
-        });
-      });
+      const data = (await res.json()) as {
+        reply: string;
+        cards?: CopilotCard[];
+        prompt_request?: CopilotPromptRequest;
+      };
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.reply || " ",
+          cards: data.cards && data.cards.length > 0 ? data.cards : undefined,
+          prompt: data.prompt_request,
+        },
+      ]);
     } catch {
-      setMessages(prev => {
-        const copy = [...prev];
-        const last = copy[copy.length - 1];
-        if (last && last.role === "assistant" && !last.content) {
-          copy[copy.length - 1] = { role: "assistant", content: "Something went wrong. Please try again." };
-        } else {
-          copy.push({ role: "assistant", content: "Something went wrong. Please try again." });
-        }
-        return copy;
-      });
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Something went wrong. Please try again." },
+      ]);
     }
     setStreaming(false);
+  }
+
+  async function handleSend() {
+    await sendMessage(input);
   }
 
   return (
@@ -308,12 +354,17 @@ export default function SiteChatWidget() {
                   </div>
                 );
               }
-              // Assistant \u2014 strip any recommendation block, render product
-              // cards for the services it named.
+              // Assistant \u2014 strip any legacy recommendation block (kept as
+              // a fallback for turns where the new endpoint didn't emit
+              // structured CARDS), then render the cleaned text + cards +
+              // prompt-card the new endpoint may have returned.
               const { cleanText, serviceIds } = parseRecommendations(msg.content);
               const recs = serviceIds
                 .map((id) => SERVICES.find((s) => s.id === id))
                 .filter((s): s is Service => !!s);
+              const cards = msg.cards;
+              const prompt = msg.prompt;
+              const isLastMessage = i === messages.length - 1;
               return (
                 <div
                   key={i}
@@ -325,7 +376,7 @@ export default function SiteChatWidget() {
                     gap: 8,
                   }}
                 >
-                  {(cleanText.trim() || recs.length === 0) && (
+                  {(cleanText.trim() || (recs.length === 0 && !cards && !prompt)) && (
                     <div
                       style={{
                         padding: "10px 14px",
@@ -342,9 +393,38 @@ export default function SiteChatWidget() {
                       {cleanText || "\u00A0"}
                     </div>
                   )}
+                  {/* Wave 12A: structured product / next-step cards. */}
+                  {cards && cards.length > 0 && (
+                    <CopilotCards
+                      cards={cards}
+                      variant="widget"
+                      onSelect={(card) => {
+                        if (card.href && card.href.startsWith("https://")) {
+                          window.open(card.href, "_blank", "noopener");
+                          return;
+                        }
+                        if (card.href && card.href.startsWith("/")) {
+                          window.location.assign(card.href);
+                        }
+                      }}
+                    />
+                  )}
+                  {/* Legacy: parseRecommendations fallback for any older
+                      response format. New endpoint returns structured
+                      CARDS via the block above instead. */}
                   {recs.map((s) => (
                     <RecommendationCard key={s.id} service={s} onAddToPackage={setCheckoutService} />
                   ))}
+                  {/* Wave 12A: AI-generated quick-reply buttons. Only render
+                      on the LAST assistant message \u2014 older prompts have
+                      already been answered. */}
+                  {prompt && isLastMessage && (
+                    <CopilotPromptCard
+                      request={prompt}
+                      disabled={streaming}
+                      onRespond={(v) => sendMessage(v)}
+                    />
+                  )}
                 </div>
               );
             })}
