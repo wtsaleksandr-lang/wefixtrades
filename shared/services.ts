@@ -155,8 +155,9 @@ export const SERVICES: Service[] = [
     id: "sitelaunch",
     name: SITELAUNCH.name,
     tagline: SITELAUNCH.tagline,
+    // Wave 11D D3 — 14-day TradeLine + QuoteQuick trial bonus DROPPED.
     description:
-      "A fast, mobile-first, SEO-ready website designed to convert visitors into leads. 5–7 pages with mobile optimization, speed optimization, basic SEO, contact forms, and QuoteQuick embed. Includes 14-day free trial of TradeLine Starter + QuoteQuick.",
+      "A fast, mobile-first, SEO-ready website designed to convert visitors into leads. 5–7 pages with mobile optimization, speed optimization, basic SEO, contact forms, and QuoteQuick embed.",
     price: SITELAUNCH.tiers[0].price,
     priceLabel: `${formatPrice(SITELAUNCH.tiers[0].price)} one-time`,
     billingPeriod: "one-time",

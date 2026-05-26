@@ -56,22 +56,35 @@ export const NAV_MOBILE_BREAKPOINT = 1024;
 
 export const NAV_LINKS: NavItem[] = [
   {
+    // Wave 11D D5 \u2014 MapGuard Suite group surfaces FIRST in the dropdown so
+    // the 4 paid local-SEO products are visible together. Free Tools is now
+    // a separate top-level nav item (parallel to Products), not a sub-item
+    // here. BookFlow removed as standalone (bundled into QuoteQuick per D2).
     label: "Products",
     href: "/products/tradeline",
     children: [
+      { label: "MapGuard Suite\u2122", href: "/mapguard-suite", description: "Local SEO platform \u2014 4 paid products.", icon: "mapPinned" },
+      { label: "MapGuard\u2122", href: "/products/mapguard", description: "Managed Google Maps visibility.", icon: "mapPinned" },
+      { label: "Citation Tracker", href: "/citation-tracker", description: "Monitor citations across directories.", icon: "search" },
+      { label: "Citation Builder", href: "/citation-builder", description: "One-time citation submission service.", icon: "layers" },
       { label: "24/7 TradeLine\u2122", href: "/products/tradeline", description: "Always-on lead handling system.", icon: "workflow" },
-      { label: "QuoteQuick\u2122", href: "/products/quickquotepro", description: "Instant quotes on your site.", icon: "calculator" },
-      { label: "MapGuard\u2122", href: "/products/mapguard", description: "Google Maps optimization.", icon: "mapPinned" },
+      { label: "QuoteQuick\u2122", href: "/products/quickquotepro", description: "Instant quotes + booking on your site.", icon: "calculator" },
+      { label: "ContentFlow\u2122", href: "/products/contentflow", description: "AI content creation engine.", icon: "sparkles" },
       { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: "shieldCheck" },
       { label: "SocialSync\u2122", href: "/products/socialsync", description: "Social media automation.", icon: "share2" },
       { label: "RankFlow\u2122", href: "/products/rankflow", description: "Ongoing SEO for trades.", icon: "trendingUp" },
       { label: "SiteLaunch\u2122", href: "/products/sitelaunch", description: "High-converting websites.", icon: "layout" },
       { label: "WebCare\u2122", href: "/products/webcare", description: "Website maintenance & monitoring.", icon: "wrench" },
       { label: "WebFix\u2122", href: "/products/webfix", description: "One-time website fixes.", icon: "hammer" },
-      { label: "ContentFlow\u2122", href: "/products/contentflow", description: "AI content creation engine.", icon: "sparkles" },
       { label: "AdFlow\u2122", href: "/products/adflow", description: "Managed ad campaigns.", icon: "target" },
-      { label: "BookFlow\u2122", href: "/products/bookflow", description: "Simple online booking.", icon: "layers" },
     ],
+  },
+  {
+    // Wave 11D D5 \u2014 Free Tools hub as a TOP-LEVEL nav item. Single link
+    // (no dropdown) \u2014 the 3 sub-categories (Local SEO / AI Content /
+    // Widgets) are sections on /free-tools, not separate menus.
+    label: "Free Tools",
+    href: "/free-tools",
   },
   {
     label: "Solutions",
@@ -91,15 +104,10 @@ export const NAV_LINKS: NavItem[] = [
       { label: "For General Contractors", href: "/solutions/for-general-contractors", description: "Organize leads & follow-ups.", icon: "building2" },
     ],
   },
-  // Tools-consolidation: the marketing nav "Tools" dropdown collapsed into a
-  // single top-level "Free Audit" link pointing at the surviving surface.
-  // The audit now hosts the GBP rank-grid (Rank Grid tab) and the related
-  // ROI helpers (Missed Call Calculator deleted; Quote Demo + Build-with-AI
-  // moved under /products/quickquotepro/).
-  {
-    label: "Free Audit",
-    href: "/tools/free-audit",
-  },
+  // Wave 11D D5 — top-level "Free Audit" entry removed; the audit now lives
+  // as one entry inside the Free Tools hub (/free-tools, with sections for
+  // Local SEO / AI Content / Widgets). The /tools/free-audit page itself
+  // is unchanged.
   { label: "Templates", href: "/templates" },
   { label: "Pricing", href: "/pricing" },
   {

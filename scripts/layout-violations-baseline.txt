@@ -139,8 +139,8 @@ client/src/pages/leads.tsx:118:14	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:119:26	rule-c	square w-7 h-7
 client/src/pages/leads.tsx:167:20	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:168:28	rule-c	square w-7 h-7
-client/src/pages/marketing/CitationBuilderPage.tsx:511:30	rule-c	size={13}
-client/src/pages/marketing/CitationBuilderPage.tsx:572:27	rule-c	size={18}
+client/src/pages/marketing/CitationBuilderPage.tsx:514:30	rule-c	size={13}
+client/src/pages/marketing/CitationBuilderPage.tsx:575:27	rule-c	size={18}
 client/src/pages/marketing/DesignShowcase.tsx:125:50	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:129:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:133:52	rule-c	size={720}

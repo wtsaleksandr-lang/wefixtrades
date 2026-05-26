@@ -13,6 +13,7 @@
  */
 import { useMemo, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { SuiteBreadcrumb } from "@/components/marketing/SuiteBreadcrumb";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { useFaqSchema } from "@/lib/useFaqSchema";
@@ -121,6 +122,7 @@ export default function CitationTrackerPage() {
       />
 
       <div data-theme="light">
+        <SuiteBreadcrumb productName="Citation Tracker" variant="light" />
         <CitationTrackerHero />
         <CitationTrackerThreeColumnHelps />
         <CitationTrackerFeatures />
