@@ -28,6 +28,7 @@ import { registerPortalReviewQueueRoutes } from "./portal/review-queue";
 import { registerPortalContentflowRoutes } from "./portal/contentflow";
 import { registerPortalContentflowDashboardRoutes } from "./portal/contentflowDashboard";
 import { registerPortalAdflowDashboardRoutes } from "./portal/adflow/index";
+import { registerPortalWebcareDashboardRoutes } from "./portal/webcare/index";
 import { registerPortalMapguardRoutes } from "./portal/mapguard";
 import { registerPortalMapguardDashboardRoutes } from "./portal/mapguard/index";
 import { registerPortalReputationshieldDashboardRoutes } from "./portal/reputationshield/index";
@@ -98,6 +99,10 @@ export function registerPortalRoutes(app: Express) {
   // campaigns, copy, anomalies, run-action, notification-settings, and
   // heatmaps endpoints take precedence — same pattern as Waves 27–29.
   registerPortalAdflowDashboardRoutes(app);
+  // Wave 31: WebCare dashboard sub-registrar — mounts the new
+  // /api/portal/webcare/dashboard-kpis, /maintenance-log,
+  // /site-inventory, /run-action, /notification-settings endpoints.
+  registerPortalWebcareDashboardRoutes(app);
   // Wave 27: dashboard sub-registrar mounts BEFORE the legacy mapguard
   // registrar so the new /dashboard-kpis, /competitor-alerts, /run-action,
   // /notification-settings paths take precedence over any parameterized

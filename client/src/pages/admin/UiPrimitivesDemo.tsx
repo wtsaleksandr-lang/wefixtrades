@@ -918,6 +918,7 @@ function CopilotMetricsPreview() {
     reputationshield: {},
     quotequick: { quotesSent: 42, avgDepositPaidRate: 8, revenueThisMonth: 0, activeEmbeds: 2 },
     adflow: { moneySpent: 147_000, jobsBooked: 18, revenueEarned: 450_000, customersReached: 12_400, costPerBooking: 8_200 },
+    webcare: { securityGrade: 92, uptimePct: 99.97, daysWithoutIncident: 47, performanceScore: 86, pendingUpdates: 2 },
   };
 
   const productMeta = METRIC_REGISTRY[selected] ?? {};

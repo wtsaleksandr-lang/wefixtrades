@@ -45,6 +45,7 @@ import { processAutoActivation } from "./autoActivationWorker";
 import { processRecurringTasks } from "./recurringTaskWorker";
 import { processUpsellEmails } from "./upsellWorker";
 import { processWebcareMaintenance } from "./webcareMaintenanceWorker";
+import { processWebcareMonthlyDigest } from "./webcareMonthlyDigest";
 import { processRetention } from "./retentionWorker";
 import { processTradeLineModeSync } from "./tradelineModeWorker";
 import { processTradeLineRetries } from "./tradelineRetryWorker";
@@ -867,6 +868,27 @@ export function initScheduler() {
       log.error("webcare_monthly_maintenance cron handler error", { error: err.message });
     } finally {
       webcareMaintenanceRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Wave 31 — WebCare monthly digest email (5-number report).
+  // Runs on the 1st of each month at 09:00 UTC, after the maintenance
+  // job has had time to settle (which runs at 03:00 same day).
+  // Idempotent per month via client_service.metadata.last_webcare_digest_at.
+  let webcareDigestRunning = false;
+  cron.schedule("0 9 1 * *", async () => {
+    if (webcareDigestRunning) {
+      log.debug("webcare_monthly_digest skipped — previous run still active");
+      return;
+    }
+    webcareDigestRunning = true;
+    log.info("Running WebCare monthly digest...");
+    try {
+      await runJob("webcare_monthly_digest", processWebcareMonthlyDigest);
+    } catch (err: any) {
+      log.error("webcare_monthly_digest cron handler error", { error: err.message });
+    } finally {
+      webcareDigestRunning = false;
     }
   }, { timezone: "UTC" });
 

@@ -25,7 +25,8 @@ export type DashboardProduct =
   | "mapguard"
   | "reputationshield"
   | "quotequick"
-  | "adflow";
+  | "adflow"
+  | "webcare";
 
 export interface MetricMeta {
   /** Customer-facing label (matches the KpiGauge label). */
@@ -440,6 +441,64 @@ const ADFLOW: Record<string, MetricMeta> = {
   },
 };
 
+const WEBCARE: Record<string, MetricMeta> = {
+  securityGrade: {
+    label: "Security grade",
+    helpText:
+      "A-F letter grade summarising malware scans, SSL, WP-core/plugin patch level, 2FA, and password hygiene. A or better is safe.",
+    improvementTips: [
+      "Enable admin 2FA in account settings (biggest single grade boost)",
+      "Approve pending plugin & theme updates from the Maintenance Log",
+      "Rotate any password flagged in the last weekly scan",
+    ],
+    unit: "/100",
+  },
+  uptimePct: {
+    label: "Uptime",
+    helpText:
+      "Rolling 90-day percentage of successful uptime checks. 99.9% is the industry-standard target — anything lower means real incidents.",
+    improvementTips: [
+      "Move to a CDN-fronted host if drops cluster around traffic spikes",
+      "Investigate the most recent fulfillment incident task",
+      "Tighten the health-check cooldown so issues are caught sooner",
+    ],
+    unit: "%",
+  },
+  daysWithoutIncident: {
+    label: "Days without incident",
+    helpText:
+      "Days since the last security or uptime incident. Resets on any new incident; your best streak is tracked.",
+    improvementTips: [
+      "Approve hardening recommendations the moment they appear",
+      "Keep auto-backups daily so a single bad update can't extend the incident",
+      "Subscribe to security-incident push notifications so you act faster",
+    ],
+    unit: "days",
+  },
+  performanceScore: {
+    label: "Performance score",
+    helpText:
+      "Google Lighthouse 0-100 score, averaged daily across mobile + desktop. Above 80 is good, above 90 is great.",
+    improvementTips: [
+      "Run the 1-click Optimize performance action — handles image + CSS compression",
+      "Remove any unused plugins flagged red in the Site Inventory",
+      "Move to a faster host tier if scores plateau under 70",
+    ],
+    unit: "/100",
+  },
+  pendingUpdates: {
+    label: "Pending updates",
+    helpText:
+      "Plugin, theme, and WordPress core updates available right now. Security patches are flagged separately.",
+    improvementTips: [
+      "Approve 'Apply all pending updates' to clear them in one click",
+      "Enable auto-apply for minor / security updates",
+      "Remove abandoned plugins that show repeated 'update available' churn",
+    ],
+    unit: "updates",
+  },
+};
+
 const REGISTRY: Record<DashboardProduct, Record<string, MetricMeta>> = {
   contentflow: CONTENTFLOW,
   rankflow: RANKFLOW,
@@ -449,6 +508,7 @@ const REGISTRY: Record<DashboardProduct, Record<string, MetricMeta>> = {
   reputationshield: REPUTATIONSHIELD,
   quotequick: QUOTEQUICK,
   adflow: ADFLOW,
+  webcare: WEBCARE,
 };
 
 /* ─── Public API ──────────────────────────────────────────────────────── */
@@ -491,5 +551,6 @@ export function productFromPagePath(pagePath: string | undefined | null): Dashbo
   if (pagePath.startsWith("/portal/reputationshield") || pagePath.startsWith("/admin/reputationshield")) return "reputationshield";
   if (pagePath.startsWith("/portal/quotequick") || pagePath.startsWith("/admin/quotequick")) return "quotequick";
   if (pagePath.startsWith("/portal/adflow") || pagePath.startsWith("/admin/adflow") || pagePath.startsWith("/admin/crm/adflow")) return "adflow";
+  if (pagePath.startsWith("/portal/webcare") || pagePath.startsWith("/admin/crm/webcare") || pagePath.startsWith("/admin/webcare")) return "webcare";
   return undefined;
 }
