@@ -47,6 +47,7 @@ import {
   AnimatedCounter,
   KpiGauge,
   PipelineStrip,
+  ProgressRing,
   StatusPill,
   type PipelineStripStage,
   type PipelineStripStatus,
@@ -385,17 +386,20 @@ export default function RankFlowDashboard() {
                 improvementTips={META.avgPosition.improvementTips}
                 emptyState={(kpis?.avgPosition ?? 0) === 0}
               />
-              <KpiGauge
-                value={kpis?.keywordsImproved ?? 0}
-                min={0}
-                max={Math.max(10, (kpis?.keywordsTracked ?? 10) / 2)}
-                label={META.keywordsImproved.label}
-                size="md"
-                palette="emerald"
-                helpText={META.keywordsImproved.helpText}
-                improvementTips={META.keywordsImproved.improvementTips}
-                emptyState={(kpis?.keywordsImproved ?? 0) === 0}
-              />
+              {/* Wave 26.7 polish-mix: "X of Y" pattern → ProgressRing */}
+              <div className="flex justify-center" data-testid="rf-tile-keywords-improved">
+                <ProgressRing
+                  value={kpis?.keywordsImproved ?? 0}
+                  max={Math.max(1, kpis?.keywordsTracked ?? 10)}
+                  unit={`of ${kpis?.keywordsTracked ?? 0}`}
+                  label={META.keywordsImproved.label}
+                  size="md"
+                  color="emerald"
+                  helpText={META.keywordsImproved.helpText}
+                  improvementTips={META.keywordsImproved.improvementTips}
+                  emptyState={(kpis?.keywordsImproved ?? 0) === 0}
+                />
+              </div>
               <KpiGauge
                 value={kpis?.seoScore ?? 0}
                 max={100}

@@ -51,6 +51,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { apiRequest } from "@/lib/queryClient";
 import {
   KpiGauge,
+  ProgressRing,
   StatusPill,
 } from "@/components/ui/visual-primitives";
 import { BookingFunnel } from "@/components/tradeline/BookingFunnel";
@@ -246,17 +247,18 @@ export default function TradeLineDashboard() {
             yesterday={kpis?.callsYesterday ?? 0}
             sameTimeLastWeek={kpis?.callsSameTimeLastWeek ?? 0}
           />
+          {/* Wave 26.7 polish-mix: "X of callsToday" → ProgressRing */}
           <Card
             className="flex flex-col items-center justify-center gap-0.5 p-3"
             data-testid="kpi-answered-today"
           >
-            <KpiGauge
+            <ProgressRing
               value={kpis?.answeredToday ?? 0}
-              min={0}
-              max={Math.max(20, (kpis?.callsToday ?? 0) + 5)}
+              max={Math.max(1, kpis?.callsToday ?? 1)}
+              unit={`of ${kpis?.callsToday ?? 0}`}
               label={META.answeredToday.label}
               size="sm"
-              palette="emerald"
+              color="emerald"
               helpText={META.answeredToday.helpText}
               improvementTips={META.answeredToday.improvementTips}
               emptyState={(kpis?.answeredToday ?? 0) === 0}

@@ -33,6 +33,8 @@ import {
   buildEntryDate,
   ApprovalInbox,
   AIDraftEditor,
+  Sparkline,
+  ProgressRing,
   type WalkthroughStep,
   type PipelineStripStage,
   type CalendarEntry,
@@ -576,6 +578,137 @@ export default function UiPrimitivesDemo() {
             <Button size="sm" variant="outline" onClick={() => setCounter((n) => Math.max(0, n - 13))}>
               −13
             </Button>
+          </div>
+        </Section>
+
+        <Section title="Sparkline (Wave 26.7)">
+          <div className="w-full space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Tiny inline trend chart. ~50 LOC pure SVG. The{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                color="auto"
+              </code>{" "}
+              picker reads trend direction — rising = emerald, falling =
+              crimson, flat = sapphire. No hover popover (too small);
+              context lives on the parent tile.
+            </p>
+            <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-col items-center gap-1">
+                <Sparkline values={[3, 4, 4, 6, 8, 10, 12]} color="sapphire" />
+                <span className="text-[10px] text-muted-foreground">sapphire / line</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Sparkline
+                  values={[12, 10, 11, 8, 7, 5, 4]}
+                  color="emerald"
+                  variant="area"
+                />
+                <span className="text-[10px] text-muted-foreground">emerald / area</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Sparkline
+                  values={[8, 8.2, 8.1, 8, 8.3, 8.1, 8]}
+                  color="amber"
+                />
+                <span className="text-[10px] text-muted-foreground">amber / flat</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Sparkline
+                  values={[20, 18, 15, 10, 12, 6, 4]}
+                  color="crimson"
+                  variant="area"
+                />
+                <span className="text-[10px] text-muted-foreground">crimson / falling</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Sparkline
+                  values={[5, 9, 3, 12, 2, 14, 7, 11, 4, 13]}
+                  color="violet"
+                />
+                <span className="text-[10px] text-muted-foreground">violet / volatile</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Sparkline
+                  values={[2, 4, 5, 7, 9, 12, 16, 19, 22]}
+                  color="teal"
+                  variant="area"
+                />
+                <span className="text-[10px] text-muted-foreground">teal / rising</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Sparkline
+                  values={[10, 12, 14, 13, 16, 18, 21, 24]}
+                  color="auto"
+                />
+                <span className="text-[10px] text-muted-foreground">auto → emerald</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Sparkline values={[]} ariaLabel="No data sparkline" />
+                <span className="text-[10px] text-muted-foreground">empty</span>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="ProgressRing (Wave 26.7)">
+          <div className="w-full space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Apple-Watch-style full ring. Best for "X of Y" or "% of quota"
+              metrics. Same hover popover pattern as KpiGauge (500ms delay,
+              long-press on touch). Boot animation matches KpiGauge — 0 →
+              max → settles at value (~1.5s).
+            </p>
+            <div className="flex flex-wrap items-start gap-8">
+              <ProgressRing
+                value={10}
+                max={100}
+                unit="%"
+                label="Just started"
+                color="crimson"
+              />
+              <ProgressRing
+                value={45}
+                max={100}
+                unit="%"
+                label="On track"
+                color="amber"
+              />
+              <ProgressRing
+                value={78}
+                max={100}
+                unit="%"
+                label="Healthy"
+                color="emerald"
+              />
+              <ProgressRing
+                value={100}
+                max={100}
+                unit="%"
+                label="Complete"
+                color="sapphire"
+              />
+              <ProgressRing
+                value={4}
+                max={6}
+                unit="of 6"
+                label="Distribution reach"
+                color="violet"
+                helpText="Number of distribution platforms currently receiving your content. Each platform expands your reach to a unique audience."
+                improvementTips={[
+                  "Connect at least 3 channels to start (Twitter, LinkedIn, Medium).",
+                  "Enable WordPress auto-publish if you operate a blog.",
+                  "Add the Google Business Profile connector for local reach.",
+                ]}
+              />
+              <ProgressRing
+                value={0}
+                max={100}
+                unit="%"
+                label="Quota usage"
+                color="teal"
+                emptyState
+              />
+            </div>
           </div>
         </Section>
 
