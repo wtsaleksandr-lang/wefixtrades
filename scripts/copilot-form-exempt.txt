@@ -255,3 +255,22 @@ client/src/pages/portal/adflow/NotificationSettings.tsx
 #    button advancement; inputs pipe through to the existing onboarding
 #    endpoint which the copilot already has fill-paths for.
 client/src/pages/portal/adflow/AdFlowSetup.tsx
+
+# ── Wave 31 — WebCare dashboard: SecurityScoreCard + KpiGauge tiles +
+#    DaysWithoutIncident counter + ProgressRing performance + Maintenance
+#    Log Inbox + BackupTimeline + SiteInventory + quick-action buttons.
+#    No persistent free-text form — all interactive surfaces are mutations
+#    through /run-action or read-only data.
+client/src/pages/portal/webcare/WebCareDashboard.tsx
+
+# ── Wave 31 — WebCare notifications: Switch-only event × channel matrix
+#    (security_incident / backup_failed / site_went_down / vulnerability_detected
+#    / maintenance_complete / monthly_digest_ready × email / sms / web_push).
+#    Toggles only — no free-text fields.
+client/src/pages/portal/webcare/NotificationSettings.tsx
+
+# ── Wave 31 — WebCare 3-question setup wizard: URL input + auto-detected
+#    platform picker + access-mode toggle + SSL choice. Wizard-step-driven
+#    with button advancement; piped through the existing onboarding
+#    endpoint which the copilot already has fill-paths for.
+client/src/pages/portal/webcare/WebCareSetup.tsx

@@ -29,6 +29,7 @@ import { computeRankflowDashboardKpis } from "../../routes/portal/rankflow/dashb
 import { computeSocialsyncDashboardKpis } from "../../routes/portal/socialsync/dashboardKpis";
 import { computeTradelineDashboardKpis } from "../../routes/portal/tradeline/dashboardKpis";
 import { computeAdflowDashboardKpis } from "../../routes/portal/adflow/dashboardKpis";
+import { computeWebcareDashboardKpis } from "../../routes/portal/webcare/dashboardKpis";
 import { createLogger } from "../../lib/logger";
 
 const log = createLogger("CopilotMetricsContext");
@@ -143,6 +144,17 @@ async function buildAdflowMetrics(clientId: number): Promise<DashboardMetric[]> 
   ].filter((m): m is DashboardMetric => m !== null);
 }
 
+async function buildWebcareMetrics(clientId: number): Promise<DashboardMetric[]> {
+  const { kpis } = await computeWebcareDashboardKpis(clientId);
+  return [
+    buildMetric("webcare", "securityGrade", kpis.securityGrade.score),
+    buildMetric("webcare", "uptimePct", kpis.uptimePct),
+    buildMetric("webcare", "daysWithoutIncident", kpis.daysWithoutIncident),
+    buildMetric("webcare", "performanceScore", kpis.performanceScore.avg),
+    buildMetric("webcare", "pendingUpdates", kpis.pendingUpdates),
+  ].filter((m): m is DashboardMetric => m !== null);
+}
+
 /* ─── Public API ──────────────────────────────────────────────────────── */
 
 /**
@@ -179,6 +191,9 @@ export async function buildDashboardContext(
         break;
       case "adflow":
         metrics = await buildAdflowMetrics(clientId);
+        break;
+      case "webcare":
+        metrics = await buildWebcareMetrics(clientId);
         break;
       case "mapguard":
       case "reputationshield":
@@ -230,6 +245,7 @@ export function resolveProduct(
       "reputationshield",
       "quotequick",
       "adflow",
+      "webcare",
     ];
     if ((valid as string[]).includes(declared)) {
       const d = declared as DashboardProduct;
@@ -257,6 +273,7 @@ export function renderDashboardContextBlock(ctx: DashboardContext): string {
     reputationshield: "ReputationShield",
     quotequick: "QuoteQuick",
     adflow: "AdFlow",
+    webcare: "WebCare",
   };
 
   const lines: string[] = [

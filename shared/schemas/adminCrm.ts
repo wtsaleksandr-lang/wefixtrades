@@ -1137,6 +1137,44 @@ export type InsertAdflowReport = z.infer<typeof insertAdflowReportSchema>;
 export type AdflowReport = typeof adflowReports.$inferSelect;
 
 
+/* ─── WebCare Action Log (Wave 31) ─────────────────────────────────
+   Live in-app maintenance feed — the structural moat per the
+   competitive research. No competitor exposes individual actions in
+   real time; they batch to monthly PDFs only.
+
+   `event_type` is a short bucket key used for filtering on the
+   client (updates / security / performance / backups). `severity`
+   colors the row icon. `technical_summary` is the raw maintenance
+   action; `plain_language_summary` is the customer-facing translation
+   that drives the "translate-to-plain-English" rule. `expanded_detail`
+   carries optional structured key→value pairs surfaced on hover.
+   ────────────────────────────────────────────────────────────────── */
+export const webcareActionLog = pgTable("webcare_action_log", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull(),
+  client_service_id: integer("client_service_id"),
+  // updates | security | performance | backups | uptime | other
+  event_type: varchar("event_type", { length: 32 }).notNull(),
+  // success | warning | failed | info
+  severity: varchar("severity", { length: 16 }).notNull().default("info"),
+  technical_summary: text("technical_summary").notNull(),
+  plain_language_summary: text("plain_language_summary").notNull(),
+  expanded_detail: jsonb("expanded_detail"),
+  recorded_at: timestamp("recorded_at").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_webcare_action_log_client_recorded")
+    .on(table.client_id, table.recorded_at),
+  index("idx_webcare_action_log_event_type").on(table.event_type),
+]);
+export const insertWebcareActionLogSchema = createInsertSchema(webcareActionLog).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertWebcareActionLog = z.infer<typeof insertWebcareActionLogSchema>;
+export type WebcareActionLog = typeof webcareActionLog.$inferSelect;
+
+
 /* ─── Brand-availability + escalation singleton ────────────────────
    Single-row table holding the operating brand's "are we available"
    state. When `is_available = false` the AI assistant uses
