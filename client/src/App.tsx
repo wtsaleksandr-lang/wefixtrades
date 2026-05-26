@@ -208,6 +208,7 @@ const PortalBilling = lazy(() => import("@/pages/portal/PortalBilling"));
 const PortalSettings = lazy(() => import("@/pages/portal/PortalSettings"));
 const PortalOnboarding = lazy(() => import("@/pages/portal/PortalOnboarding"));
 const TradelineSetupPage = lazy(() => import("@/pages/portal/TradelineSetup"));
+const TradeLineDashboard = lazy(() => import("@/pages/portal/tradeline/TradeLineDashboard"));
 const PortalTradelineKnowledgePage = lazy(() => import("@/pages/portal/PortalTradelineKnowledgePage"));
 const PortalTradelineVoicePage = lazy(() => import("@/pages/portal/PortalTradelineVoicePage"));
 const PortalEmailDomainSetup = lazy(() => import("@/pages/portal/PortalEmailDomainSetup"));
@@ -407,6 +408,7 @@ function Router() {
       <Route path="/admin/outbound">{() => <Redirect to="/admin/outbound/prospects" />}</Route>
 
       {/* Client portal */}
+      <Route path="/portal/tradeline/dashboard">{() => <RequireClient><TradeLineDashboard /></RequireClient>}</Route>
       <Route path="/portal/tradeline/setup">{() => <RequireClient><TradelineSetupPage /></RequireClient>}</Route>
       <Route path="/portal/tradeline/knowledge">{() => <RequireClient><PortalTradelineKnowledgePage /></RequireClient>}</Route>
       <Route path="/portal/tradeline/voice">{() => <RequireClient><PortalTradelineVoicePage /></RequireClient>}</Route>
