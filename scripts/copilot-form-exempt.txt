@@ -237,3 +237,21 @@ client/src/pages/portal/quotequick/QuoteQuickSetup.tsx
 #    The copilot already has fill-paths for the customer-facing widget
 #    form via the widget runtime; the builder itself is a designer.
 client/src/pages/portal/quotequick/FormBuilderPage.tsx
+
+# ── Wave 30 — AdFlow dashboard: KPI tiles + ROIFunnel + AnomalyBanner +
+#    CampaignCard grid + AdCopyComposer + heatmaps + quick-action
+#    buttons. The "What trade?" + "Offer" inputs inside AdCopyComposer
+#    are wizard-style, not a persistent settings form on this page.
+client/src/pages/portal/adflow/AdFlowDashboard.tsx
+
+# ── Wave 30 — AdFlow notifications: Switch-only event × channel matrix
+#    (anomaly_detected / daily_spend_exceeded / campaign_paused /
+#    new_lead_from_ad / weekly_report_ready × email / sms). Toggles
+#    only — no free-text fields.
+client/src/pages/portal/adflow/NotificationSettings.tsx
+
+# ── Wave 30 — AdFlow 3-question setup wizard: trade picker + budget
+#    preset + service-area input. The flow is wizard-step-driven with
+#    button advancement; inputs pipe through to the existing onboarding
+#    endpoint which the copilot already has fill-paths for.
+client/src/pages/portal/adflow/AdFlowSetup.tsx
