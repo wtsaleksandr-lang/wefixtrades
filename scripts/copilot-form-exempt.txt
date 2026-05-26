@@ -19,6 +19,7 @@ client/src/pages/admin/AuditLeadsPage.tsx
 client/src/pages/admin/BillingPage.tsx
 client/src/pages/admin/BookingCalendarPage.tsx
 client/src/pages/admin/ClientsPage.tsx
+client/src/pages/admin/ContentPipelinePage.tsx
 client/src/pages/admin/ContentFlowQueuePage.tsx
 client/src/pages/admin/CrmOverview.tsx
 client/src/pages/admin/InboxPage.tsx

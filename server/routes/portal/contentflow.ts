@@ -58,6 +58,7 @@ import {
 import { generateImageViaOrchestrator } from "../../services/contentflow/imageOrchestrator";
 import { generateVideoViaOrchestrator } from "../../services/contentflow/videoOrchestrator";
 import { generateContentflowText } from "../../services/contentflow/aiText";
+import { listPending as listPipelineForClient } from "../../services/contentflow/api";
 import { humanizeViaOrchestrator } from "../../services/contentflow/humanizationOrchestrator";
 import { writeAudit } from "../../lib/auditLog";
 import { createLogger } from "../../lib/logger";
@@ -1202,6 +1203,32 @@ export function registerPortalContentflowRoutes(app: Express) {
       res.json({ ok: true, deleted_id: id, remaining: next.length });
     } catch (err: any) {
       log.error("[portal/custom-prompts][delete]", err?.message || err);
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  /* ─── Wave 20: per-client content pipeline view ──────────────────── */
+
+  /**
+   * GET /api/portal/contentflow/pipeline
+   * Returns the calling client's recent content requests across
+   * RankFlow + SocialSync + standalone ContentFlow. Used by the
+   * portal banner that surfaces "Generation failed — retry?" and
+   * by the in-portal approval queue.
+   */
+  app.get("/api/portal/contentflow/pipeline", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res, { items: [] });
+      if (!clientId) return;
+      const stage = (req.query.stage as string | undefined) ?? undefined;
+      const items = await listPipelineForClient({
+        clientId,
+        currentStage: stage as any,
+        limit: 100,
+      });
+      res.json({ items });
+    } catch (err: any) {
+      log.error("[portal/contentflow/pipeline]", err?.message || err);
       res.status(500).json({ error: err?.message });
     }
   });

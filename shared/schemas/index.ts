@@ -23,6 +23,7 @@ export * from "./marketingChatSessions";
 export * from "./rankflow";
 export * from "./contentflow";
 export * from "./contentflowSettings";
+export * from "./contentPipeline";
 export * from "./emailUnsubscribes";
 export * from "./smsOptOuts";
 export * from "./notificationPreferences";

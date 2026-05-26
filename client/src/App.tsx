@@ -140,6 +140,7 @@ const SuppliersPage = lazy(() => import("@/pages/admin/SuppliersPage"));
 const InboxPage = lazy(() => import("@/pages/admin/InboxPage"));
 const CommunicationsPage = lazy(() => import("@/pages/admin/CommunicationsPage"));
 const SystemAlertsPage = lazy(() => import("@/pages/admin/SystemAlertsPage"));
+const ContentPipelinePage = lazy(() => import("@/pages/admin/ContentPipelinePage"));
 const AdminAuditLogPage = lazy(() => import("@/pages/admin/AdminAuditLogPage"));
 const WaitlistPage = lazy(() => import("@/pages/admin/WaitlistPage"));
 const AuditLogPage = lazy(() => import("@/pages/admin/AuditLogPage"));
@@ -336,6 +337,7 @@ function Router() {
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/communications">{() => <RequirePortal><CommunicationsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/alerts">{() => <RequirePortal><SystemAlertsPage /></RequirePortal>}</Route>
+      <Route path="/admin/content-pipeline">{() => <RequirePortal><ContentPipelinePage /></RequirePortal>}</Route>
       {/* Wave Q: short alias the docs / audits / Copilot deeplinks already
           reference. Mirrors the /admin/contentflow → /admin/crm/contentflow
           pattern above. */}
