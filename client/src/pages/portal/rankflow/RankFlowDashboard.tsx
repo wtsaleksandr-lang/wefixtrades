@@ -62,6 +62,14 @@ import {
   AIBrainPanel,
   type AIBrainRecommendation,
 } from "@/components/rankflow/AIBrainPanel";
+import { getMetricMeta } from "@shared/copilot/metricRegistry";
+
+/* Wave 26.6: registry-driven gauge meta. Same strings the Copilot reads. */
+const META = {
+  avgPosition: getMetricMeta("rankflow", "avgPosition")!,
+  keywordsImproved: getMetricMeta("rankflow", "keywordsImproved")!,
+  seoScore: getMetricMeta("rankflow", "seoScore")!,
+};
 
 /* ─── API shapes ─────────────────────────────────────────────────────── */
 
@@ -370,45 +378,33 @@ export default function RankFlowDashboard() {
                 value={Math.round((kpis?.avgPosition ?? 0) * 10) / 10}
                 min={1}
                 max={50}
-                label="Average position"
+                label={META.avgPosition.label}
                 size="md"
                 palette="sapphire"
-                helpText="Average rank across tracked keywords on Google."
-                improvementTips={[
-                  "Publish more SEO-aware articles",
-                  "Improve content score on existing articles",
-                  "Build citations via Citation Builder",
-                ]}
+                helpText={META.avgPosition.helpText}
+                improvementTips={META.avgPosition.improvementTips}
                 emptyState={(kpis?.avgPosition ?? 0) === 0}
               />
               <KpiGauge
                 value={kpis?.keywordsImproved ?? 0}
                 min={0}
                 max={Math.max(10, (kpis?.keywordsTracked ?? 10) / 2)}
-                label="Improved this month"
+                label={META.keywordsImproved.label}
                 size="md"
                 palette="emerald"
-                helpText="Keywords that climbed in rank this month."
-                improvementTips={[
-                  "Focus on near-page-1 keywords (positions 8-15) for quickest wins",
-                  "Auto-Optimize underperforming articles",
-                  "Check competitor cards for content gaps",
-                ]}
+                helpText={META.keywordsImproved.helpText}
+                improvementTips={META.keywordsImproved.improvementTips}
                 emptyState={(kpis?.keywordsImproved ?? 0) === 0}
               />
               <KpiGauge
                 value={kpis?.seoScore ?? 0}
                 max={100}
-                label="Site SEO score"
+                label={META.seoScore.label}
                 size="md"
                 palette="amber"
                 targetThreshold={80}
-                helpText="Aggregated SEO health across all tracked pages."
-                improvementTips={[
-                  "Fix meta gaps highlighted by AI Brain panel",
-                  "Add internal links between content cluster articles",
-                  "Improve page speed via WebFix",
-                ]}
+                helpText={META.seoScore.helpText}
+                improvementTips={META.seoScore.improvementTips}
                 emptyState={(kpis?.seoScore ?? 0) === 0}
               />
             </div>

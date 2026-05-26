@@ -39,6 +39,10 @@ import {
   type InboxItem,
   type InboxAction,
 } from "@/components/ui/visual-primitives";
+import {
+  METRIC_REGISTRY,
+  type DashboardProduct,
+} from "@shared/copilot/metricRegistry";
 
 const WALKTHROUGH_STEPS: WalkthroughStep[] = [
   {
@@ -526,6 +530,18 @@ export default function UiPrimitivesDemo() {
               />
             </div>
           </div>
+
+          {/* Wave 26.6 — Copilot metric-reader preview (Alex 2026-05-26).
+              Shows the live JSON payload the Copilot would receive when the
+              customer opens it from a product dashboard. Helps verify the
+              metric registry has accurate helpText for every gauge across
+              the 4 instrumented dashboards. */}
+          <div className="mt-6 border-t pt-4">
+            <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Wave 26.6 — Copilot metric-reader context preview
+            </div>
+            <CopilotMetricsPreview />
+          </div>
         </Section>
 
         <Section title="AnimatedCounter">
@@ -744,5 +760,79 @@ export default function UiPrimitivesDemo() {
         storageKey="ui-primitives-tour-v1"
       />
     </AdminLayout>
+  );
+}
+
+/* ─── Wave 26.6: Copilot metric-reader context preview ──────────────── */
+/**
+ * Shows the JSON payload structure the Copilot receives when the customer
+ * opens it from a product dashboard. Sample values are illustrative — the
+ * helpText + improvementTips strings are the LIVE registry data, so this
+ * panel doubles as an audit tool: if a gauge's strings are stale, they
+ * show up wrong here too (single source of truth).
+ */
+function CopilotMetricsPreview() {
+  const products: DashboardProduct[] = ["contentflow", "rankflow", "socialsync", "tradeline"];
+  const [selected, setSelected] = useState<DashboardProduct>("contentflow");
+
+  // Sample illustrative values — purely for the preview JSON.
+  const SAMPLE: Record<DashboardProduct, Record<string, number | string>> = {
+    contentflow: { articlesThisMonth: 47, approvalRate: 87, detectionScore: 92, distributionReach: 4 },
+    rankflow: { avgPosition: 11.4, keywordsImproved: 9, seoScore: 72 },
+    socialsync: { postsThisWeek: 12, avgEngagementRate: 0, approvalBacklog: 3, whatsappMessagesThisWeek: 18 },
+    tradeline: { answeredToday: 14, callsToday: 17, bookingsThisMonth: 22, costPerBooking: 24.5, estimatedMissedRevenue: 0 },
+    mapguard: {},
+    reputationshield: {},
+  };
+
+  const productMeta = METRIC_REGISTRY[selected] ?? {};
+  const sampleValues = SAMPLE[selected];
+  const previewPayload = {
+    product: selected,
+    pagePath: `/portal/${selected}/dashboard`,
+    metrics: Object.entries(productMeta).map(([key, meta]) => {
+      const value = sampleValues[key] ?? 0;
+      return {
+        key,
+        label: meta.label,
+        value,
+        display: meta.unit ? `${value} ${meta.unit}` : String(value),
+        unit: meta.unit ?? null,
+        emptyState: value === 0 || value === "",
+        helpText: meta.helpText,
+        improvementTips: meta.improvementTips,
+      };
+    }),
+    generatedAt: new Date().toISOString(),
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">Product:</span>
+        {products.map((p) => (
+          <Button
+            key={p}
+            size="sm"
+            variant={selected === p ? "default" : "outline"}
+            onClick={() => setSelected(p)}
+            data-testid={`copilot-preview-product-${p}`}
+          >
+            {p}
+          </Button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        This is the metric block injected into the Copilot system prompt when the customer is on{" "}
+        <code className="rounded bg-muted px-1 py-0.5 text-[11px]">/portal/{selected}/dashboard</code>.
+        Values shown here are sample illustrations; helpText and improvementTips are pulled live from the shared registry.
+      </p>
+      <pre
+        className="overflow-x-auto rounded-md border bg-muted/40 p-3 text-[11px] leading-relaxed"
+        data-testid="copilot-preview-json"
+      >
+        {JSON.stringify(previewPayload, null, 2)}
+      </pre>
+    </div>
   );
 }

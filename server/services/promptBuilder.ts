@@ -118,6 +118,13 @@ export interface PageContext {
     required?: boolean;
     currentValue?: string | number | boolean | null;
   }>;
+  /* Wave 26.6: pre-rendered dashboard-metrics block. When the admin
+   * operator is on a product dashboard (/admin/contentflow, etc.) the
+   * route pre-builds the live KPI + registry-meta block and stashes it
+   * here so buildAdminPrompt can append it verbatim. Kept as an opaque
+   * string so the prompt builder doesn't need to re-import the metrics
+   * service (and so promptBuilder stays synchronous). */
+  dashboardMetricsBlock?: string;
 }
 
 export interface MemoryContext {
@@ -704,6 +711,14 @@ You are talking to the WeFixTrades operator. Be terse + action-oriented:
   // in the admin prompt; the AI ignores it unless the trigger string is
   // present in the most recent user message.
   parts.push("\n" + ALERT_INVESTIGATION_INSTRUCTIONS);
+
+  // Wave 26.6: when the admin operator is on a product dashboard, append
+  // the live metric block (label + value + helpText + improvementTips per
+  // KPI). Same registry the customer portal uses, so the admin Copilot
+  // explains metrics with identical wording.
+  if (ctx.dashboardMetricsBlock && ctx.dashboardMetricsBlock.trim().length > 0) {
+    parts.push("\n" + ctx.dashboardMetricsBlock);
+  }
 
   return parts.join("\n");
 }

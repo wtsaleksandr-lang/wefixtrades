@@ -77,6 +77,15 @@ import { PlatformPreview } from "@/components/socialsync/PlatformPreview";
 import { PlatformGauge } from "@/components/socialsync/PlatformGauge";
 import { PostScoreOverlay } from "@/components/socialsync/PostScoreOverlay";
 import { ChannelPicker } from "@/components/socialsync/ChannelPicker";
+import { getMetricMeta } from "@shared/copilot/metricRegistry";
+
+/* Wave 26.6: registry-driven gauge meta. Same strings the Copilot reads. */
+const META = {
+  postsThisWeek: getMetricMeta("socialsync", "postsThisWeek")!,
+  avgEngagementRate: getMetricMeta("socialsync", "avgEngagementRate")!,
+  approvalBacklog: getMetricMeta("socialsync", "approvalBacklog")!,
+  whatsappMessagesThisWeek: getMetricMeta("socialsync", "whatsappMessagesThisWeek")!,
+};
 
 /* ─── API shapes ─────────────────────────────────────────────────────── */
 
@@ -474,15 +483,11 @@ export default function SocialSyncDashboard() {
               value={kpis?.postsThisWeek ?? 0}
               min={0}
               max={Math.max(20, (kpis?.postsThisWeek ?? 0) + 5)}
-              label="Posts this week"
+              label={META.postsThisWeek.label}
               size="sm"
               palette="sapphire"
-              helpText="Approved + scheduled posts across all platforms."
-              improvementTips={[
-                "Approve pending drafts faster",
-                "Connect more social accounts to spread content",
-                "Enable auto-schedule from ContentFlow",
-              ]}
+              helpText={META.postsThisWeek.helpText}
+              improvementTips={META.postsThisWeek.improvementTips}
               emptyState={(kpis?.postsThisWeek ?? 0) === 0}
             />
           </Card>
@@ -492,15 +497,11 @@ export default function SocialSyncDashboard() {
               min={0}
               max={10}
               unit="%"
-              label="Avg engagement"
+              label={META.avgEngagementRate.label}
               size="sm"
               palette="emerald"
-              helpText="Likes + comments + shares / impressions across the last 30 days. Empty until impressions data is collected."
-              improvementTips={[
-                "Post during best-time slots (gauge in calendar)",
-                "Use platform-specific previews to optimize per-channel",
-                "Add hashtag suggestions via AI co-pilot",
-              ]}
+              helpText={META.avgEngagementRate.helpText}
+              improvementTips={META.avgEngagementRate.improvementTips}
               emptyState={!kpis || kpis.avgEngagementRate === 0}
             />
           </Card>
@@ -509,15 +510,11 @@ export default function SocialSyncDashboard() {
               value={kpis?.approvalBacklog ?? 0}
               min={0}
               max={Math.max(20, (kpis?.approvalBacklog ?? 0) + 5)}
-              label="Approval backlog"
+              label={META.approvalBacklog.label}
               size="sm"
               palette="amber"
-              helpText="Pending posts awaiting your approval. Low is good."
-              improvementTips={[
-                "Use bulk approve on similar drafts",
-                "Refine ContentFlow style settings to reduce rejection rate",
-                "Set up auto-approve rules for trusted draft types",
-              ]}
+              helpText={META.approvalBacklog.helpText}
+              improvementTips={META.approvalBacklog.improvementTips}
               emptyState={(kpis?.approvalBacklog ?? 0) === 0 && (!kpis || kpis.postsThisWeek === 0)}
             />
           </Card>
@@ -526,15 +523,11 @@ export default function SocialSyncDashboard() {
               value={kpis?.whatsappMessagesThisWeek ?? 0}
               min={0}
               max={Math.max(50, (kpis?.whatsappMessagesThisWeek ?? 0) + 10)}
-              label="WhatsApp this week"
+              label={META.whatsappMessagesThisWeek.label}
               size="sm"
               palette="violet"
-              helpText="Direct customer messages received via WhatsApp Business this week."
-              improvementTips={[
-                "Promote WhatsApp on your website + business cards",
-                "Enable AI auto-reply for common questions",
-                "Add WhatsApp link to email signatures",
-              ]}
+              helpText={META.whatsappMessagesThisWeek.helpText}
+              improvementTips={META.whatsappMessagesThisWeek.improvementTips}
               emptyState={(kpis?.whatsappMessagesThisWeek ?? 0) === 0}
             />
           </Card>

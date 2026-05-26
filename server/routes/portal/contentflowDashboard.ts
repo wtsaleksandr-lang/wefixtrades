@@ -191,6 +191,133 @@ function buildSuggestionPrompt(action: SuggestAction, draft: string, ctx: {
   }
 }
 
+/**
+ * Wave 26.6 — pure compute path for the ContentFlow dashboard KPIs. Extracted
+ * from the route handler so the Copilot metricsContext can reuse it without
+ * issuing an internal HTTP fetch (avoids re-auth, cookies, double rate-limit).
+ *
+ * Returns the same shape the route returns minus `previewMode`.
+ */
+export async function computeContentflowDashboardKpis(clientId: number) {
+  const tier = await resolveTier(clientId);
+  const articlesQuota = ARTICLE_QUOTA_BY_TIER[tier] ?? 2;
+
+  const monthStart = startOfThisMonth();
+  const since30 = thirtyDaysAgo();
+
+  const stageRows = await db
+    .select({
+      stage: contentRequests.current_stage,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(contentRequests)
+    .where(eq(contentRequests.client_id, clientId))
+    .groupBy(contentRequests.current_stage);
+
+  const pipeline = { ...EMPTY_PIPELINE };
+  for (const row of stageRows) {
+    const s = row.stage as keyof typeof pipeline;
+    if (s in pipeline) pipeline[s] = Number(row.n) || 0;
+  }
+
+  const articlesRow = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(contentDrafts)
+    .where(
+      and(
+        eq(contentDrafts.client_id, clientId),
+        eq(contentDrafts.kind, "article"),
+        inArray(contentDrafts.status, ["approved", "published", "delivered"]),
+        gte(contentDrafts.created_at, monthStart),
+      ),
+    );
+  const articlesThisMonth = Number(articlesRow[0]?.n ?? 0);
+
+  const approvedRow = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(contentDrafts)
+    .where(
+      and(
+        eq(contentDrafts.client_id, clientId),
+        inArray(contentDrafts.status, ["approved", "published", "delivered"]),
+        gte(contentDrafts.created_at, since30),
+      ),
+    );
+  const rejectedRow = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(contentDrafts)
+    .where(
+      and(
+        eq(contentDrafts.client_id, clientId),
+        eq(contentDrafts.status, "rejected"),
+        gte(contentDrafts.created_at, since30),
+      ),
+    );
+  const approvedCount = Number(approvedRow[0]?.n ?? 0);
+  const rejectedCount = Number(rejectedRow[0]?.n ?? 0);
+  const total = approvedCount + rejectedCount;
+  const approvalRate = total === 0 ? 0 : Math.round((approvedCount / total) * 100);
+
+  const detectorDrafts = await storage.listContentDrafts({
+    client_id: clientId,
+    limit: 200,
+  });
+  const within30 = detectorDrafts.filter((d: any) => {
+    const t = d.created_at ? new Date(d.created_at).getTime() : 0;
+    return t >= since30.getTime();
+  });
+  const humanScores = within30
+    .map(readAiScoreFromDraft)
+    .filter((n): n is number => n != null)
+    .map((s) => Math.max(0, Math.min(100, 100 - s)));
+  const detectionScore = humanScores.length === 0
+    ? 0
+    : Math.round(humanScores.reduce((a, b) => a + b, 0) / humanScores.length);
+
+  const platformRows = await db
+    .selectDistinct({ p: contentDrafts.target_platform })
+    .from(contentDrafts)
+    .where(
+      and(
+        eq(contentDrafts.client_id, clientId),
+        inArray(contentDrafts.status, ["published", "delivered"]),
+        gte(contentDrafts.created_at, since30),
+      ),
+    );
+  const distributionReach = platformRows.filter((r) => !!r.p).length;
+
+  const recentDrafts = await storage.listContentDrafts({
+    client_id: clientId,
+    limit: 8,
+  });
+  const recent = recentDrafts.map((d: any) => {
+    const aiScore = readAiScoreFromDraft(d);
+    return {
+      id: d.id,
+      title: (d.title as string | null) || (d.excerpt as string | null)?.slice(0, 80) || "(untitled)",
+      thumbnailUrl: readThumbnailFromDraft(d),
+      contentType: d.kind as string,
+      status: d.status as string,
+      trade: readTradeFromDraft(d),
+      aiDetectionScore: toHumanLikeness(aiScore),
+      createdAt: d.created_at ? new Date(d.created_at).toISOString() : new Date().toISOString(),
+      scheduledFor: (d.metadata as any)?.scheduled_for ?? null,
+    };
+  });
+
+  return {
+    kpis: {
+      articlesThisMonth,
+      articlesQuota,
+      approvalRate,
+      detectionScore,
+      distributionReach,
+    },
+    pipeline,
+    recent,
+  };
+}
+
 export function registerPortalContentflowDashboardRoutes(app: Express) {
   /**
    * GET /api/portal/contentflow/dashboard-kpis
@@ -203,129 +330,8 @@ export function registerPortalContentflowDashboardRoutes(app: Express) {
       });
       if (!clientId) return;
 
-      const tier = await resolveTier(clientId);
-      const articlesQuota = ARTICLE_QUOTA_BY_TIER[tier] ?? 2;
-
-      const monthStart = startOfThisMonth();
-      const since30 = thirtyDaysAgo();
-
-      /* ─── Pipeline stage counts (all-time current state) ─── */
-      const stageRows = await db
-        .select({
-          stage: contentRequests.current_stage,
-          n: sql<number>`count(*)::int`,
-        })
-        .from(contentRequests)
-        .where(eq(contentRequests.client_id, clientId))
-        .groupBy(contentRequests.current_stage);
-
-      const pipeline = { ...EMPTY_PIPELINE };
-      for (const row of stageRows) {
-        const s = row.stage as keyof typeof pipeline;
-        if (s in pipeline) pipeline[s] = Number(row.n) || 0;
-      }
-
-      /* ─── Articles this month (content_drafts kind=article, this calendar month) ─── */
-      const articlesRow = await db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(contentDrafts)
-        .where(
-          and(
-            eq(contentDrafts.client_id, clientId),
-            eq(contentDrafts.kind, "article"),
-            inArray(contentDrafts.status, ["approved", "published", "delivered"]),
-            gte(contentDrafts.created_at, monthStart),
-          ),
-        );
-      const articlesThisMonth = Number(articlesRow[0]?.n ?? 0);
-
-      /* ─── Approval rate (last 30 days, all kinds) ─── */
-      const approvedRow = await db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(contentDrafts)
-        .where(
-          and(
-            eq(contentDrafts.client_id, clientId),
-            inArray(contentDrafts.status, ["approved", "published", "delivered"]),
-            gte(contentDrafts.created_at, since30),
-          ),
-        );
-      const rejectedRow = await db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(contentDrafts)
-        .where(
-          and(
-            eq(contentDrafts.client_id, clientId),
-            eq(contentDrafts.status, "rejected"),
-            gte(contentDrafts.created_at, since30),
-          ),
-        );
-      const approvedCount = Number(approvedRow[0]?.n ?? 0);
-      const rejectedCount = Number(rejectedRow[0]?.n ?? 0);
-      const total = approvedCount + rejectedCount;
-      const approvalRate = total === 0 ? 0 : Math.round((approvedCount / total) * 100);
-
-      /* ─── Human-likeness average (last 30 days) ─── */
-      const detectorDrafts = await storage.listContentDrafts({
-        client_id: clientId,
-        limit: 200,
-      });
-      const within30 = detectorDrafts.filter((d: any) => {
-        const t = d.created_at ? new Date(d.created_at).getTime() : 0;
-        return t >= since30.getTime();
-      });
-      const humanScores = within30
-        .map(readAiScoreFromDraft)
-        .filter((n): n is number => n != null)
-        .map((s) => Math.max(0, Math.min(100, 100 - s))); // invert
-      const detectionScore = humanScores.length === 0
-        ? 0
-        : Math.round(humanScores.reduce((a, b) => a + b, 0) / humanScores.length);
-
-      /* ─── Distribution reach (distinct target_platform last 30 days) ─── */
-      const platformRows = await db
-        .selectDistinct({ p: contentDrafts.target_platform })
-        .from(contentDrafts)
-        .where(
-          and(
-            eq(contentDrafts.client_id, clientId),
-            inArray(contentDrafts.status, ["published", "delivered"]),
-            gte(contentDrafts.created_at, since30),
-          ),
-        );
-      const distributionReach = platformRows.filter((r) => !!r.p).length;
-
-      /* ─── Recent creations (last 8 drafts of any kind) ─── */
-      const recentDrafts = await storage.listContentDrafts({
-        client_id: clientId,
-        limit: 8,
-      });
-      const recent = recentDrafts.map((d: any) => {
-        const aiScore = readAiScoreFromDraft(d);
-        return {
-          id: d.id,
-          title: (d.title as string | null) || (d.excerpt as string | null)?.slice(0, 80) || "(untitled)",
-          thumbnailUrl: readThumbnailFromDraft(d),
-          contentType: d.kind as string,
-          status: d.status as string,
-          trade: readTradeFromDraft(d),
-          aiDetectionScore: toHumanLikeness(aiScore),
-          createdAt: d.created_at ? new Date(d.created_at).toISOString() : new Date().toISOString(),
-          scheduledFor: (d.metadata as any)?.scheduled_for ?? null,
-        };
-      });
-
-      res.json({
-        kpis: {
-          articlesThisMonth,
-          articlesQuota,
-          approvalRate,
-          detectionScore,
-          distributionReach,
-        },
-        pipeline,
-        recent,
-      });
+      const payload = await computeContentflowDashboardKpis(clientId);
+      res.json(payload);
     } catch (err: any) {
       log.error("[portal/contentflow/dashboard-kpis]", err?.message || err);
       res.status(500).json({ error: err?.message });

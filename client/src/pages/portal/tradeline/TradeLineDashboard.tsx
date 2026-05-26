@@ -62,6 +62,15 @@ import {
   SentimentHeatmap,
   type SentimentSegment,
 } from "@/components/tradeline/SentimentHeatmap";
+import { getMetricMeta } from "@shared/copilot/metricRegistry";
+
+/* Wave 26.6: registry-driven gauge meta. Same strings the Copilot reads. */
+const META = {
+  answeredToday: getMetricMeta("tradeline", "answeredToday")!,
+  bookingsThisMonth: getMetricMeta("tradeline", "bookingsThisMonth")!,
+  callsToday: getMetricMeta("tradeline", "callsToday")!,
+  costPerBooking: getMetricMeta("tradeline", "costPerBooking")!,
+};
 
 /* ─── API shapes ─────────────────────────────────────────────────────── */
 
@@ -245,15 +254,11 @@ export default function TradeLineDashboard() {
               value={kpis?.answeredToday ?? 0}
               min={0}
               max={Math.max(20, (kpis?.callsToday ?? 0) + 5)}
-              label="Answered today"
+              label={META.answeredToday.label}
               size="sm"
               palette="emerald"
-              helpText="Calls today answered by your AI receptionist. Higher means fewer missed customers."
-              improvementTips={[
-                "Promote your phone number on every page of your site",
-                "Add click-to-call buttons to MapGuard listings",
-                "Run AdFlow campaigns with the phone CTA",
-              ]}
+              helpText={META.answeredToday.helpText}
+              improvementTips={META.answeredToday.improvementTips}
               emptyState={(kpis?.answeredToday ?? 0) === 0}
             />
             <span className="text-[10px] text-muted-foreground/80">
@@ -268,15 +273,11 @@ export default function TradeLineDashboard() {
               value={kpis?.bookingsThisMonth ?? 0}
               min={0}
               max={Math.max(30, (kpis?.bookingsThisMonth ?? 0) + 5)}
-              label="Bookings this month"
+              label={META.bookingsThisMonth.label}
               size="sm"
               palette="violet"
-              helpText="Calls that ended with a confirmed appointment booking."
-              improvementTips={[
-                "Review voice persona for warmth",
-                "Check booking funnel for biggest dropoff stage",
-                "Adjust quote calculator integration in QuoteQuick",
-              ]}
+              helpText={META.bookingsThisMonth.helpText}
+              improvementTips={META.bookingsThisMonth.improvementTips}
               emptyState={(kpis?.bookingsThisMonth ?? 0) === 0}
             />
             <span className="text-[10px] text-muted-foreground/80">
@@ -377,15 +378,11 @@ function CallVolumeCard({
         value={value}
         min={0}
         max={Math.max(20, value + 5, sameTimeLastWeek + 5)}
-        label="Calls today"
+        label={META.callsToday.label}
         size="sm"
         palette="sapphire"
-        helpText="Inbound calls answered by your AI receptionist today."
-        improvementTips={[
-          "Promote your phone number on every page of your site",
-          "Add click-to-call buttons to MapGuard listings",
-          "Run AdFlow campaigns with the phone CTA",
-        ]}
+        helpText={META.callsToday.helpText}
+        improvementTips={META.callsToday.improvementTips}
         emptyState={value === 0}
       />
       <span className="text-[10px] text-muted-foreground/80 flex items-center gap-1">
@@ -444,12 +441,8 @@ function CostPerBookingCard({
         targetThreshold={target}
         size="sm"
         palette="crimson"
-        helpText="What each new booking costs via TradeLine. Lower is better."
-        improvementTips={[
-          "Increase call volume (top of funnel)",
-          "Improve booking conversion (qualified → booked)",
-          "Compare against your average job value",
-        ]}
+        helpText={META.costPerBooking.helpText}
+        improvementTips={META.costPerBooking.improvementTips}
         emptyState={!hasData}
         emptyStateMessage="Awaiting first booking — updates as bookings come in"
       />
