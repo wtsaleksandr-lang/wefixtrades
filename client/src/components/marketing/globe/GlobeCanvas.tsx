@@ -7,7 +7,11 @@ import { GLOBE_ARCS } from "./globeData";
 
 /* ── Config ─────────────────────────────────────────────────────────── */
 
-const LAND_DATA_URL = "//cdn.jsdelivr.net/npm/world-atlas/land-110m.json";
+// Wave Q: use explicit https:// — protocol-relative resolves to http:// in
+// dev, and jsdelivr only serves the CORS Access-Control-Allow-Origin header
+// on the https endpoint. http:// → CORS-blocked → unhandled rejection →
+// vite runtime-error overlay on every homepage load.
+const LAND_DATA_URL = "https://cdn.jsdelivr.net/npm/world-atlas/land-110m.json";
 const ACCENT = "#0d3cfc";
 const ACCENT_RGB = "102,232,250";
 const SITE_BG = "#181D1F";
@@ -183,8 +187,16 @@ export default function GlobeCanvas({
     });
 
     // ── Load land data → dotted texture ─────────────────────────────
+    // Wave Q: swallow fetch failures (offline, CORS, jsdelivr outage). The
+    // dotted-earth texture is a visual enhancement; without it the globe
+    // still renders a plain emissive sphere, which is fine. Letting the
+    // rejection propagate caused the vite runtime-error overlay to surface
+    // on every homepage load during local dev.
     fetch(LAND_DATA_URL)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`world-atlas fetch HTTP ${res.status}`);
+        return res.json();
+      })
       .then((landTopo) => {
         const land = topojson.feature(
           landTopo,
@@ -210,6 +222,10 @@ export default function GlobeCanvas({
         });
 
         globe.globeMaterial(material);
+      })
+      .catch((err) => {
+        // Non-fatal: globe keeps its default emissive material.
+        console.warn("[GlobeCanvas] dotted-earth texture skipped:", err?.message || err);
       });
 
     // ── Arcs ────────────────────────────────────────────────────────

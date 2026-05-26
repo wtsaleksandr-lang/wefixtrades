@@ -285,6 +285,11 @@ const cspDirectives = {
   // frame-ancestors NOT set — let X-Frame-Options per-route handle clickjacking
   // (CSP frame-ancestors would shadow our per-route X-Frame-Options DENY on /admin).
   reportUri: ["/api/csp-report"],
+  // Wave Q: helmet adds `upgrade-insecure-requests` by default. Browsers
+  // ignore that directive in report-only mode and log a console error on
+  // every page load. Disable it here; when we graduate to enforce mode
+  // we'll re-add it explicitly.
+  upgradeInsecureRequests: null,
 };
 app.use(
   helmet.contentSecurityPolicy({

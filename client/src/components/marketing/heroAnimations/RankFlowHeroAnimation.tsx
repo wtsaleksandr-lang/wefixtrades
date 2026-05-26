@@ -74,12 +74,16 @@ export default function RankFlowHeroAnimation() {
                 animate={animate ? { pathLength: [0, 1] } : { pathLength: 1 }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
               />
-              {/* Latest point dot */}
+              {/* Latest point dot. Wave Q: SVG `r` is not in motion's
+                  default initial-snapshot list — without an explicit
+                  `initial`, the first paint passes `undefined` to the DOM
+                  attribute and the browser logs an SVG error. */}
               <motion.circle
                 cx={w}
                 cy={(POINTS[POINTS.length - 1] / maxRank) * (h - 10) + 5}
                 r={4}
                 fill={mkt.accent}
+                initial={{ r: 4 }}
                 animate={animate ? { r: [4, 6, 4] } : { r: 4 }}
                 transition={{ duration: 1.8, repeat: Infinity }}
               />
