@@ -158,3 +158,10 @@ client/src/pages/admin/UiPrimitivesDemo.tsx
 #    fields live on this page — the AI co-pilot suggestions panel that
 #    edits drafts lives inside PortalArticles' Sheet.
 client/src/pages/portal/contentflow/PortalContentFlowDashboard.tsx
+
+# ── Wave 24 — RankFlow dashboard: PipelineStrip, KPI gauges, animated
+#    counter tiles, competitor cards, keyword heatmap, AI brain panel,
+#    and activity feed. All interactive elements are buttons / link cards.
+#    No user-fillable form fields live on this page — onboarding is still
+#    served from PortalRankFlow.tsx, which is the wizard.
+client/src/pages/portal/rankflow/RankFlowDashboard.tsx

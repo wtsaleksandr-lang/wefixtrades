@@ -28,6 +28,7 @@ import { registerPortalContentflowDashboardRoutes } from "./portal/contentflowDa
 import { registerPortalMapguardRoutes } from "./portal/mapguard";
 import { registerPortalSocialsyncRoutes } from "./portal/socialsync";
 import { registerPortalRankflowRoutes } from "./portal/rankflow";
+import { registerPortalRankflowDashboardRoutes } from "./portal/rankflow/index";
 import { registerPortalCatalogRoutes } from "./portal/catalog";
 import { registerPortalTicketsRoutes } from "./portal/tickets";
 import { registerPortalSettingsRoutes } from "./portal/settings";
@@ -79,6 +80,7 @@ export function registerPortalRoutes(app: Express) {
   registerPortalMapguardRoutes(app);
   registerPortalSocialsyncRoutes(app);
   registerPortalRankflowRoutes(app);
+  registerPortalRankflowDashboardRoutes(app);
   registerPortalCatalogRoutes(app);
   registerPortalTicketsRoutes(app);
   registerPortalSettingsRoutes(app);
