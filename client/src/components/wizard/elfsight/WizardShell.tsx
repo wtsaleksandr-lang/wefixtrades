@@ -2351,6 +2351,18 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-body.is-mobile-sheet .qq-editor-left {
                 display: none !important;
               }
+              /* Wave 10 fix — when the mobile bottom-sheet is open (half/full),
+               * its backdrop (.qq-sheet-backdrop, z-index: 9997) covers the
+               * entire viewport including the editor chrome above. That blocks
+               * pointer events on the editor topbar — tabs (editor-tab-*),
+               * fold-toggle, theme/help/close icons — even though they remain
+               * visually unobscured. Lift the sticky topbar above the backdrop
+               * so the chrome stays interactive while the sheet is visible.
+               * Backdrop click still collapses the sheet (taps below the
+               * topbar continue to hit it). */
+              .qq-editor-topbar {
+                z-index: 9999;
+              }
               .qq-editor-body.is-mobile-sheet {
                 /* Sheet is fixed-position — only the canvas stays in flow. */
                 flex-direction: column;
@@ -2439,6 +2451,14 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-device button { width: 28px; height: 22px; }
               /* Keep tap target >= 28px even at narrow widths. */
               .qq-editor-icon-btn { width: 28px; height: 28px; }
+              /* Wave 10 — the fold/unfold toggle is a primary mobile action
+               * (collapses the preview pane). Per the global ≥44px tap
+               * target rule it needs more padding than the other icon-btns
+               * (theme/help/close are secondary and stay 28×28 to keep the
+               * topbar tight). */
+              .qq-editor-icon-btn.qq-editor-fold {
+                min-width: 44px; min-height: 44px;
+              }
               /* BH-1 — device preset switcher is hidden on phone-sized
                * wizard windows. A user editing on their phone doesn't
                * need a device-preset switcher (they ARE on a phone). The

@@ -2196,11 +2196,18 @@ export default function AdvancedCalculator({
             className={`${gridId}-fields`}
             style={{ minWidth: 0 }}
           >
+            {/* Wave 10 — `display: contents` so this wrapper carries the
+             *  data-component / step-enter / stagger-parent attributes
+             *  without breaking the parent grid layout. Without it, the
+             *  wrapper would be the ONLY grid child (spanning full
+             *  width), forcing every field-row onto its own line and
+             *  defeating `data-colspan="1"` half-width pairs. */}
             <div
               data-component-name="Fields"
               data-component-type="fields-section"
               data-qq-step-enter
               data-qq-stagger-parent
+              style={{ display: 'contents' }}
             >
               {/* P2 UX — empty-state cleanup. The wizard preview shows
                   PreviewEmptyState (a dashed-container "Add your first field"

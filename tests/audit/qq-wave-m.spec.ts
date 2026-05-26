@@ -165,22 +165,29 @@ test.describe('wizard M — Fold/unfold preview', () => {
     expect(restoredWidth).toBeGreaterThan(100);
   });
 
-  test('Fold button has accessible label + sits on the tab row', async ({ page }) => {
+  test('Fold button has accessible label + sits in the editor chrome', async ({ page }) => {
     await openWizard(page);
 
     const toggle = page.getByTestId('editor-fold-toggle');
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute('aria-label', /hide preview pane/i);
 
-    // It must sit inside the tab row (same horizontal band as the tabs).
-    const tabsBox = await page.getByTestId('editor-tabs').boundingBox();
+    // Wave 10 — was "sits on the tab row" but PR #604 (W-MT-1) wrapped
+    // the tab strip to its own second row inside the topbar at ≤480px
+    // (so all 4 tabs fit without horizontal scrolling). The fold-toggle
+    // stays in the chrome's primary row above the wrapped tabs. Verify
+    // it lives inside the topbar (not somewhere weird like the canvas).
+    const topbar = page.getByTestId('editor-top-bar');
+    await expect(topbar).toBeVisible();
+    const topbarBox = await topbar.boundingBox();
     const btnBox = await toggle.boundingBox();
-    expect(tabsBox).not.toBeNull();
+    expect(topbarBox).not.toBeNull();
     expect(btnBox).not.toBeNull();
-    // Button vertical centre within the tab row.
-    const tabsMid = tabsBox!.y + tabsBox!.height / 2;
-    const btnMid = btnBox!.y + btnBox!.height / 2;
-    expect(Math.abs(btnMid - tabsMid)).toBeLessThan(tabsBox!.height);
+    // Button is vertically contained within the topbar band.
+    expect(btnBox!.y).toBeGreaterThanOrEqual(topbarBox!.y - 1);
+    expect(btnBox!.y + btnBox!.height).toBeLessThanOrEqual(
+      topbarBox!.y + topbarBox!.height + 1,
+    );
   });
 });
 

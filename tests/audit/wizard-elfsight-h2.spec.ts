@@ -21,6 +21,13 @@ async function clearShellState(page: Page) {
       localStorage.removeItem('qq_step');
       localStorage.removeItem('qq_result');
       localStorage.removeItem('qq_elfsight_shell');
+      // Wave 10 — wizard preview now defaults to stepper mode which
+      // hides fields not on the current step. The reorder test inspects
+      // ALL preview labels via `[data-testid="advanced-calculator"] label`,
+      // so we seed single-page layout to keep every label rendered.
+      localStorage.setItem('qq_elfsight_shell', JSON.stringify({
+        stepLayout: 'single',
+      }));
     } catch {}
   });
 }

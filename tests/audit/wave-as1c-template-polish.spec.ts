@@ -24,10 +24,14 @@ import fs from 'fs';
 
 const OUT_DIR = path.join(process.cwd(), 'tests/audit/_screenshots');
 
+// Per-template expected bgMode — derived from each template's own AS-1c
+// style block in shared/templatePresets.ts. junk/mold use a gradient outer
+// canvas; window_replacement intentionally uses a solid slate canvas with
+// the vivid colour reserved for the inner result panel.
 const TEMPLATES = [
-  'junk_removal_quote',
-  'window_replacement_quote',
-  'mold_remediation_quote',
+  { id: 'junk_removal_quote', bgMode: 'gradient' },
+  { id: 'window_replacement_quote', bgMode: 'solid' },
+  { id: 'mold_remediation_quote', bgMode: 'gradient' },
 ] as const;
 
 test.beforeAll(() => {
@@ -47,7 +51,7 @@ async function clearShellState(page: Page) {
   });
 }
 
-async function openWizardAndApply(page: Page, templateId: string) {
+async function openWizardAndApply(page: Page, templateId: string, expectedBgMode: string) {
   await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1400);
   await expect(page.getByTestId('quotequick-editor-shell')).toBeVisible();
@@ -63,7 +67,7 @@ async function openWizardAndApply(page: Page, templateId: string) {
 
   await expect(modal).toBeHidden({ timeout: 4000 });
   await expect(
-    page.locator('[data-testid="advanced-calculator"][data-bg-mode="gradient"]')
+    page.locator(`[data-testid="advanced-calculator"][data-bg-mode="${expectedBgMode}"]`)
   ).toBeVisible({ timeout: 6000 });
   await page.waitForTimeout(900);
 }
@@ -74,9 +78,9 @@ test.describe('W-AS-1c — post-polish per-template identity', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
   });
 
-  for (const id of TEMPLATES) {
+  for (const { id, bgMode } of TEMPLATES) {
     test(`renders post-polish widget identity — ${id}`, async ({ page }) => {
-      await openWizardAndApply(page, id);
+      await openWizardAndApply(page, id, bgMode);
 
       const pane = page.getByTestId('editor-preview-pane');
       await expect(pane).toBeVisible();

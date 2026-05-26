@@ -4335,8 +4335,12 @@ export function shouldDefaultRangeMode(category: string | undefined): boolean {
  */
 export function deriveStyleFromCategory(t: Pick<TemplateConfig, 'id' | 'category'>): AdvStyle {
   const palette = DERIVED_CATEGORY_PALETTES[resolveDerivedCategoryId(t.category)];
+  // Wave 10 — AI-generated templates (replace_template tool) may omit `id`,
+  // and partial preset objects from older save formats may too. Guard
+  // indexFromId so the gradient direction picker doesn't crash the page
+  // with "Cannot read properties of undefined (reading 'length')".
   const direction =
-    GRADIENT_DIRECTION_ROTATION[indexFromId(t.id) % GRADIENT_DIRECTION_ROTATION.length];
+    GRADIENT_DIRECTION_ROTATION[indexFromId(t.id ?? '') % GRADIENT_DIRECTION_ROTATION.length];
   // BD-2a-polish — range-pricing default is OPT-IN by category.
   // High-variance: Construction / Emergency / Home Improvement → on.
   // Commodity / flat-fee: Cleaning / Outdoor / Professional / Automotive → off.
