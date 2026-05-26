@@ -38,20 +38,28 @@ export default function SiteLaunchDemo() {
             </div>
           </div>
 
-          {/* Hero block */}
+          {/* Hero block. Wave Q: animating to a linear-gradient is not
+              supported by Framer Motion — both stops here are the same
+              brand colour anyway, so a flat `#0d3cfc` produces the same
+              visual without the warning. */}
           <motion.div
             animate={{
-              background: s >= 1 ? "linear-gradient(135deg, #0d3cfc 0%, #0d3cfc 100%)" : "rgba(255,255,255,0.06)",
+              background: s >= 1 ? "#0d3cfc" : "rgba(255,255,255,0.06)",
             }}
             transition={{ duration: 0.5 }}
             style={{ height: 110, padding: 18, display: "flex", flexDirection: "column", justifyContent: "center", gap: 8 }}
           >
-            {/* Heading skeleton → real text */}
+            {/* Heading skeleton → real text. Wave Q: replace `transparent`
+                with explicit 0-alpha rgba so Framer can interpolate. */}
             <motion.div
-              animate={{ width: s >= 2 ? "70%" : "50%", opacity: 1, color: s >= 1 ? "#0d1514" : mkt.onDarkFaint }}
+              animate={{
+                width: s >= 2 ? "70%" : "50%",
+                opacity: 1,
+                color: s >= 1 ? "#0d1514" : "rgba(245,252,255,0)",
+                backgroundColor: s >= 2 ? "rgba(255,255,255,0)" : "rgba(255,255,255,0.18)",
+              }}
               style={{
                 height: s >= 2 ? "auto" : 14,
-                background: s >= 2 ? "transparent" : "rgba(255,255,255,0.18)",
                 borderRadius: 4,
                 fontSize: 16, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.02em",
               }}
@@ -60,12 +68,15 @@ export default function SiteLaunchDemo() {
             </motion.div>
             {/* Subhead skeleton → real text */}
             <motion.div
-              animate={{ width: s >= 2 ? "85%" : "70%" }}
+              animate={{
+                width: s >= 2 ? "85%" : "70%",
+                color: s >= 1 ? "rgba(13,21,20,0.7)" : "rgba(13,21,20,0)",
+                backgroundColor: s >= 2 ? "rgba(255,255,255,0)" : "rgba(255,255,255,0.12)",
+              }}
               style={{
                 height: s >= 2 ? "auto" : 8,
-                background: s >= 2 ? "transparent" : "rgba(255,255,255,0.12)",
                 borderRadius: 4,
-                fontSize: 11, color: s >= 1 ? "rgba(13,21,20,0.7)" : "transparent",
+                fontSize: 11,
               }}
             >
               {s >= 2 ? "Designed for plumbers, electricians, and roofers." : ""}
@@ -74,7 +85,7 @@ export default function SiteLaunchDemo() {
             <motion.div
               animate={{
                 background: s >= 3 ? mkt.dark : "rgba(255,255,255,0.18)",
-                color: s >= 3 ? mkt.accent : "transparent",
+                color: s >= 3 ? mkt.accent : "rgba(0,0,0,0)",
                 width: s >= 3 ? 110 : 80,
               }}
               style={{

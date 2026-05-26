@@ -100,10 +100,16 @@ export default function TradeLineChatDemo() {
             {visible.map((b, i) => (
               <motion.div
                 key={i}
-                initial={showAll ? false : { opacity: 0, y: 8, scale: 0.96 }}
+                /* Wave Q: passing `initial={false}` while `animate` interpolates
+                   opacity makes Framer log "animate from undefined" on first
+                   mount. Always provide a concrete initial; when showAll the
+                   initial matches `animate` so there's no visible enter. */
+                initial={showAll
+                  ? { opacity: 1, y: 0, scale: 1 }
+                  : { opacity: 0, y: 8, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: showAll ? 0 : 0.32, ease: [0.22, 1, 0.36, 1] }}
               >
                 {b.who === "system" ? <SystemPill text={b.text} /> : <ChatBubble who={b.who} text={b.text} />}
               </motion.div>
@@ -118,9 +124,11 @@ export default function TradeLineChatDemo() {
           {/* Footer summary — appears after final frame */}
           {(showAll || step === SCRIPT.length - 1) && (
             <motion.div
-              initial={showAll ? false : { opacity: 0, y: 4 }}
+              initial={showAll
+                ? { opacity: 1, y: 0 }
+                : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.4 }}
+              transition={{ delay: showAll ? 0 : 0.2, duration: showAll ? 0 : 0.4 }}
               style={{ marginTop: "auto", paddingTop: 12, borderTop: `1px solid ${mkt.onDarkBorder}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}
             >
               <div style={{ fontSize: 11, color: mkt.onDarkFaint, fontFamily: "monospace" }}>2:47 AM • Auto-handled</div>

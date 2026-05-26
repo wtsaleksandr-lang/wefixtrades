@@ -336,6 +336,10 @@ function Router() {
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/communications">{() => <RequirePortal><CommunicationsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/alerts">{() => <RequirePortal><SystemAlertsPage /></RequirePortal>}</Route>
+      {/* Wave Q: short alias the docs / audits / Copilot deeplinks already
+          reference. Mirrors the /admin/contentflow → /admin/crm/contentflow
+          pattern above. */}
+      <Route path="/admin/system-alerts">{() => <Redirect to="/admin/crm/alerts" />}</Route>
       <Route path="/admin/crm/audit-log">{() => <RequirePortal><AdminAuditLogPage /></RequirePortal>}</Route>
       {/* AI-3c audit log */}
       <Route path="/admin/audit-log">{() => <RequirePortal><AuditLogPage /></RequirePortal>}</Route>
