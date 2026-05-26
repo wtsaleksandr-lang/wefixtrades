@@ -173,3 +173,11 @@ client/src/pages/portal/rankflow/RankFlowDashboard.tsx
 #    persistent fillable form on the dashboard itself. Profile/cadence
 #    setup remains in SocialSyncSetup.tsx, which is the wizard.
 client/src/pages/portal/socialsync/SocialSyncDashboard.tsx
+
+# ── Wave 26 — TradeLine dashboard: animated KPI tiles, BookingFunnel,
+#    LiveCallMonitor (live waveform + transcript), SentimentHeatmap, and a
+#    cost-per-booking gauge. All interactive elements are read-only buttons
+#    (call selection) or external links ("Listen in" admin-only). No
+#    persistent fillable form on the dashboard itself — voice / knowledge /
+#    setup all live on their own dedicated pages.
+client/src/pages/portal/tradeline/TradeLineDashboard.tsx

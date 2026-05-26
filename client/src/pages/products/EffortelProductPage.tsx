@@ -288,6 +288,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
           pricing={cfg.pricingSection}
           primaryCta={effectiveCfg.primaryCTA}
           comingSoon={isComingSoon}
+          slug={slug}
         />
         {isComingSoon && (
           <WaitlistForm productSlug={cfg.slug} productName={cfg.name} />
@@ -585,7 +586,7 @@ function HowItWorks({ steps }: { steps?: { title: string; desc: string }[] }) {
 /* ════════════════════════════════════════════════════════════════
    SECTION: PRICING
    ════════════════════════════════════════════════════════════════ */
-function Pricing({ pricing, primaryCta, comingSoon }: { pricing?: { plans: any[]; note?: string; checkoutEnabled?: boolean }; primaryCta: { label: string; href: string }; comingSoon?: boolean }) {
+function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans: any[]; note?: string; checkoutEnabled?: boolean }; primaryCta: { label: string; href: string }; comingSoon?: boolean; slug?: string }) {
   // When checkoutEnabled, each tier card opens CheckoutIntakeModal
   // pre-loaded with that tier's SKU. `checkoutTier` = the open plan
   // (null = closed). Products without checkoutEnabled keep the
@@ -605,6 +606,34 @@ function Pricing({ pricing, primaryCta, comingSoon }: { pricing?: { plans: any[]
             <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
               Pick a tier. Cancel any time.
             </h2>
+            {/* Wave 26 — TradeLine flat-pricing wedge vs competitors. Per
+                competitive-tradeline-research.md: per-minute pricing is the
+                #1 surprise-bill driver in this category. Surface the
+                differentiator at the moment buyers decide. */}
+            {slug === "tradeline" && (
+              <span
+                title="Unlike competitors who charge per minute or per caller, TradeLine includes everything in your subscription. No surprise bills."
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginTop: 16,
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  background: "rgba(34, 197, 94, 0.12)",
+                  color: "#22c55e",
+                  border: "1px solid rgba(34, 197, 94, 0.4)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: "0.02em",
+                  cursor: "help",
+                }}
+                data-testid="badge-no-overage"
+              >
+                <Check size={14} strokeWidth={3} aria-hidden="true" />
+                Flat pricing — no overage surprises
+              </span>
+            )}
           </div>
         </Reveal>
         <div style={{

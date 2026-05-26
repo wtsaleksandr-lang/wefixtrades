@@ -20,6 +20,7 @@ import { registerPortalReputationRoutes } from "./portal/reputation";
 import { registerPortalBillingRoutes } from "./portal/billing";
 import { registerPortalServicesRoutes } from "./portal/services";
 import { registerPortalTradelineRoutes } from "./portal/tradeline";
+import { registerPortalTradelineDashboardRoutes } from "./portal/tradeline/index";
 import { registerPortalChatRoutes } from "./portal/chat";
 import { registerPortalOnboardingRoutes } from "./portal/onboarding";
 import { registerPortalReviewQueueRoutes } from "./portal/review-queue";
@@ -72,6 +73,10 @@ export function registerPortalRoutes(app: Express) {
   registerPortalReputationRoutes(app);
   registerPortalBillingRoutes(app);
   registerPortalServicesRoutes(app);
+  // Wave 26: dashboard sub-registrar must mount BEFORE the parameterized
+  // tradeline registrar — the latter defines GET /api/portal/tradeline/:clientServiceId
+  // which would otherwise swallow /dashboard-kpis, /active-calls, /funnel.
+  registerPortalTradelineDashboardRoutes(app);
   registerPortalTradelineRoutes(app);
   registerPortalChatRoutes(app);
   registerPortalOnboardingRoutes(app);
