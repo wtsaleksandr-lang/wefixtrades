@@ -195,3 +195,22 @@ client/src/pages/portal/mapguard/MapGuardDashboard.tsx
 #    competitor_outranked × email / sms). No free-text fields for the
 #    copilot to fill — boolean toggles only.
 client/src/pages/portal/mapguard/AlertSettings.tsx
+
+# ── Wave 28 — ReputationShield dashboard: KpiGauge + AnimatedCounter +
+#    Sparkline hero, PlatformScorecard, SentimentHeatmap, DaysSinceGauge,
+#    RequestFunnel, and the Wave 22C ApprovalInbox + AIDraftEditor (which
+#    owns its own textarea — not a dashboard form field). All other
+#    interactions are buttons (reply / escalate / archive / request batch).
+#    No persistent fillable form lives on the dashboard itself.
+client/src/pages/portal/reputationshield/ReputationShieldDashboard.tsx
+
+# ── Wave 28 — ReputationShield notifications: Switch-only event × channel
+#    matrix (new_review / negative_review / five_star_review / no_reviews_7d
+#    / no_reviews_14d × email / sms). No free-text fields — boolean toggles
+#    only. Mirrors the Wave 27 MapGuard AlertSettings pattern.
+client/src/pages/portal/reputationshield/NotificationSettings.tsx
+
+# ── Wave 28 — ReputationShield 3-question setup wizard: button-driven
+#    choices (trade picker, platform toggles, Google connect button). No
+#    free-text input fields for the copilot to fill.
+client/src/pages/portal/reputationshield/ReputationShieldSetup.tsx

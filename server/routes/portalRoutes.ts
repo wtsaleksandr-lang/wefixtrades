@@ -28,6 +28,7 @@ import { registerPortalContentflowRoutes } from "./portal/contentflow";
 import { registerPortalContentflowDashboardRoutes } from "./portal/contentflowDashboard";
 import { registerPortalMapguardRoutes } from "./portal/mapguard";
 import { registerPortalMapguardDashboardRoutes } from "./portal/mapguard/index";
+import { registerPortalReputationshieldDashboardRoutes } from "./portal/reputationshield/index";
 import { registerPortalSocialsyncRoutes } from "./portal/socialsync";
 import { registerPortalSocialsyncDashboardRoutes } from "./portal/socialsync/index";
 import { registerPortalRankflowRoutes } from "./portal/rankflow";
@@ -90,6 +91,10 @@ export function registerPortalRoutes(app: Express) {
   // routes defined in the parent file.
   registerPortalMapguardDashboardRoutes(app);
   registerPortalMapguardRoutes(app);
+  // Wave 28: ReputationShield dashboard sub-registrar mounts BEFORE the
+  // legacy /api/portal/reputation/* routes so the new endpoints are
+  // separate namespaces and don't collide.
+  registerPortalReputationshieldDashboardRoutes(app);
   registerPortalSocialsyncRoutes(app);
   registerPortalSocialsyncDashboardRoutes(app);
   registerPortalRankflowRoutes(app);
