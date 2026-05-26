@@ -11,7 +11,17 @@ import { useState } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sparkles, FileText, ListChecks, Send, CheckCircle2 } from "lucide-react";
+import {
+  Sparkles,
+  FileText,
+  ListChecks,
+  Send,
+  CheckCircle2,
+  Archive,
+  Check,
+  Edit3,
+  CalendarClock,
+} from "lucide-react";
 import {
   AnimatedCounter,
   KpiGauge,
@@ -21,9 +31,13 @@ import {
   OnboardingWalkthrough,
   VisualCalendar,
   buildEntryDate,
+  ApprovalInbox,
+  AIDraftEditor,
   type WalkthroughStep,
   type PipelineStripStage,
   type CalendarEntry,
+  type InboxItem,
+  type InboxAction,
 } from "@/components/ui/visual-primitives";
 
 const WALKTHROUGH_STEPS: WalkthroughStep[] = [
@@ -145,6 +159,90 @@ function buildCalendarSeed(): CalendarEntry[] {
   ];
 }
 
+function buildInboxSeed(): InboxItem[] {
+  const now = Date.now();
+  return [
+    {
+      id: "inb-1",
+      kind: "review_reply",
+      createdAt: new Date(now - 12 * 60_000),
+      status: "unread",
+      authorName: "Sarah K.",
+      title: "5-star Google review — boiler swap",
+      preview:
+        "Absolutely brilliant service from start to finish. Came out same day, sorted the boiler in under two hours, and even tidied up. Couldn't ask for more.",
+      channelBadge: "Google",
+      channelColor: "hsl(var(--chart-1))",
+      rating: 5,
+      sentiment: "positive",
+    },
+    {
+      id: "inb-2",
+      kind: "social_post",
+      createdAt: new Date(now - 45 * 60_000),
+      status: "starred",
+      authorName: "AI Draft",
+      title: "Instagram — heat-pump rebate carousel",
+      preview:
+        "Heat-pump grants are still open — but the window is closing. Tap in to see if your home qualifies. #HeatPump #UKGrants2026",
+      channelBadge: "Instagram",
+      channelColor: "hsl(var(--chart-3))",
+    },
+    {
+      id: "inb-3",
+      kind: "review_reply",
+      createdAt: new Date(now - 3 * 3_600_000),
+      status: "unread",
+      authorName: "Mark T.",
+      title: "2-star Yelp review — late arrival",
+      preview:
+        "Engineer arrived 90 minutes late and didn't call ahead. The work itself was fine, but the experience left a sour taste.",
+      channelBadge: "Yelp",
+      channelColor: "hsl(var(--destructive))",
+      rating: 2,
+      sentiment: "negative",
+    },
+    {
+      id: "inb-4",
+      kind: "social_post",
+      createdAt: new Date(now - 6 * 3_600_000),
+      status: "replied",
+      authorName: "AI Draft",
+      title: "Facebook — emergency call-out testimonial",
+      preview:
+        "When you've got water pouring through the ceiling at midnight, you don't want voicemail. You want an engineer. We answered 387 emergency calls last month — zero went unanswered.",
+      channelBadge: "Facebook",
+      channelColor: "hsl(var(--chart-4))",
+    },
+    {
+      id: "inb-5",
+      kind: "article",
+      createdAt: new Date(now - 22 * 3_600_000),
+      status: "approved",
+      authorName: "AI Draft",
+      title: "Blog — top 7 trades to outsource in 2026",
+      preview:
+        "From plumbing emergencies to boiler servicing — the seven trades UK homeowners overwhelmingly say they wish they'd outsourced sooner.",
+      channelBadge: "Blog",
+      channelColor: "hsl(var(--chart-5))",
+    },
+    {
+      id: "inb-6",
+      kind: "review_reply",
+      createdAt: new Date(now - 2 * 24 * 3_600_000),
+      status: "unread",
+      authorName: "Priya R.",
+      title: "4-star Google review — heat pump install",
+      preview:
+        "Mostly happy with the install. Team was professional, system runs quietly. Took a day longer than quoted, but that's typical for the industry.",
+      channelBadge: "Google",
+      channelColor: "hsl(var(--chart-1))",
+      rating: 4,
+      sentiment: "neutral",
+    },
+  ];
+}
+
 export default function UiPrimitivesDemo() {
   const [counter, setCounter] = useState<number>(42);
   const [gaugeValue, setGaugeValue] = useState<number>(72);
@@ -153,6 +251,85 @@ export default function UiPrimitivesDemo() {
   const [calendarEntries, setCalendarEntries] = useState<CalendarEntry[]>(() =>
     buildCalendarSeed()
   );
+  const [inboxItems, setInboxItems] = useState<InboxItem[]>(() =>
+    buildInboxSeed()
+  );
+  const [inboxLog, setInboxLog] = useState<string[]>([]);
+  const [savedDraft, setSavedDraft] = useState<string | null>(null);
+
+  const inboxActions: InboxAction[] = [
+    {
+      id: "approve",
+      label: "Approve",
+      icon: <Check className="h-3.5 w-3.5" />,
+      shortcut: "a",
+      variant: "primary",
+      handler: (item) => {
+        setInboxItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, status: "approved" } : i
+          )
+        );
+        setInboxLog((l) => [`approved ${item.id}`, ...l].slice(0, 5));
+      },
+    },
+    {
+      id: "edit",
+      label: "Edit",
+      icon: <Edit3 className="h-3.5 w-3.5" />,
+      shortcut: "e",
+      variant: "secondary",
+      handler: (item) => {
+        setInboxLog((l) => [`edit ${item.id}`, ...l].slice(0, 5));
+      },
+    },
+    {
+      id: "reschedule",
+      label: "Reschedule",
+      icon: <CalendarClock className="h-3.5 w-3.5" />,
+      shortcut: "r",
+      variant: "secondary",
+      handler: (item) => {
+        setInboxLog((l) => [`reschedule ${item.id}`, ...l].slice(0, 5));
+      },
+    },
+    {
+      id: "archive",
+      label: "Archive",
+      icon: <Archive className="h-3.5 w-3.5" />,
+      shortcut: "x",
+      variant: "ghost",
+      handler: (item) => {
+        setInboxItems((prev) => prev.filter((i) => i.id !== item.id));
+        setInboxLog((l) => [`archived ${item.id}`, ...l].slice(0, 5));
+      },
+    },
+  ];
+
+  const bulkInboxActions: InboxAction[] = [
+    {
+      id: "approve-all",
+      label: "Approve all",
+      icon: <Check className="h-3.5 w-3.5" />,
+      variant: "primary",
+      handler: (item) => {
+        setInboxItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, status: "approved" } : i
+          )
+        );
+      },
+    },
+    {
+      id: "archive-all",
+      label: "Archive",
+      icon: <Archive className="h-3.5 w-3.5" />,
+      variant: "ghost",
+      handler: (item) => {
+        setInboxItems((prev) => prev.filter((i) => i.id !== item.id));
+      },
+    },
+  ];
 
   const stages: PipelineStripStage[] = [
     {
@@ -192,12 +369,13 @@ export default function UiPrimitivesDemo() {
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight inline-flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-[hsl(var(--chart-1))]" />
-              Visual primitives (Wave 22A)
+              Visual primitives (Waves 22A / 22B / 22C)
             </h1>
             <p className="text-sm text-muted-foreground max-w-2xl">
-              Six reusable components — built once, consumed by Waves 23
-              (ContentFlow), 24 (RankFlow), 25 (SocialSync). All animations
-              respect prefers-reduced-motion. No raw hex; semantic tokens only.
+              Shared components — built once, consumed by Waves 23
+              (ContentFlow), 24 (RankFlow), 25 (SocialSync), 28
+              (ReputationShield). All animations respect prefers-reduced-motion.
+              No raw hex; semantic tokens only.
             </p>
           </div>
           <Button
@@ -362,6 +540,74 @@ export default function UiPrimitivesDemo() {
                 void d;
               }}
             />
+          </div>
+        </Section>
+
+        <Section title="ApprovalInbox (Wave 22C)">
+          <div className="w-full space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Gmail-style 2-pane triage queue. Shared by Wave 25 (SocialSync)
+              and Wave 28 (ReputationShield). Keyboard:{" "}
+              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">j/k</kbd>{" "}
+              navigate,{" "}
+              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Enter</kbd>{" "}
+              focus detail,{" "}
+              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">Esc</kbd>{" "}
+              clear,{" "}
+              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">A/E/R/X</kbd>{" "}
+              per-item actions. Shift-click or Cmd/Ctrl-click for multi-select.
+            </p>
+            <ApprovalInbox
+              items={inboxItems}
+              actions={inboxActions}
+              bulkActions={bulkInboxActions}
+              emptyStateMessage="Inbox zero. Take a breath."
+            />
+            {inboxLog.length ? (
+              <div className="rounded-md border bg-muted/30 p-2 text-xs font-mono text-muted-foreground">
+                <div className="mb-1 font-sans font-medium not-italic text-foreground">
+                  Recent actions
+                </div>
+                {inboxLog.map((entry, i) => (
+                  <div key={i}>{entry}</div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </Section>
+
+        <Section title="AIDraftEditor (Wave 22C)">
+          <div className="w-full space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Side-by-side diff editor for AI-generated drafts. Left pane =
+              AI's version (strikethrough = removed). Right pane = user's
+              edit (brand-blue underline = added). Pure-JS word-level LCS
+              diff — no new deps. Keyboard:{" "}
+              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">⌘↵</kbd>{" "}
+              save,{" "}
+              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-mono">⌘R</kbd>{" "}
+              regenerate.
+            </p>
+            <AIDraftEditor
+              aiDraft="Thank you for your wonderful feedback! We're thrilled to hear you had a positive experience."
+              initialUserEdit="Thanks so much, Sarah — really glad the boiler swap went smoothly. We'll let the team know you noticed the tidy-up!"
+              context={{ kind: "review_reply" }}
+              maxLength={500}
+              onSave={async (text) => {
+                await new Promise((r) => setTimeout(r, 600));
+                setSavedDraft(text);
+              }}
+              onRegenerate={async () => {
+                await new Promise((r) => setTimeout(r, 700));
+                return "Thank you so much for the kind review! We're delighted you had a great experience with our team.";
+              }}
+            />
+            {savedDraft ? (
+              <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Last saved:</span>{" "}
+                {savedDraft}
+              </div>
+            ) : null}
           </div>
         </Section>
 

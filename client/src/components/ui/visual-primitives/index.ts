@@ -38,3 +38,20 @@ export type {
   CalendarEntryStatus,
   CalendarFilters,
 } from "./VisualCalendar";
+
+export { ApprovalInbox } from "./ApprovalInbox";
+export type {
+  ApprovalInboxProps,
+  ApprovalInboxFilters,
+  InboxItem,
+  InboxItemKind,
+  InboxItemStatus,
+  InboxItemSentiment,
+  InboxAction,
+} from "./ApprovalInbox";
+
+export { AIDraftEditor } from "./AIDraftEditor";
+export type {
+  AIDraftEditorProps,
+  AIDraftEditorContext,
+} from "./AIDraftEditor";
