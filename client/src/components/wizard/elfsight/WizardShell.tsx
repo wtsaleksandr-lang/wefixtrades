@@ -670,6 +670,18 @@ export default function WizardShell({ embed = false }: Props) {
   const removeField = useCallback((fieldId: string) => {
     setState((s) => ({ ...s, fields: s.fields.filter((f) => f.id !== fieldId) }));
   }, []);
+  // Wave 61 — partial update for a single field by id. Drives the
+  // floating <InlineStyleToolbar /> in PreviewPane: every toolbar click
+  // (Bold / Italic / Colour / Font size / Alignment / …) flows through
+  // here so the existing setFields-based undo stack picks up cosmetic
+  // edits the same way left-pane edits do.
+  const updateField = useCallback((fieldId: string, partial: Partial<TemplateField>) => {
+    setState((s) => ({
+      ...s,
+      fields: s.fields.map((f) => (f.id === fieldId ? { ...f, ...partial } : f)),
+    }));
+  }, []);
+
   const addField = useCallback((publicType: PublicFieldType, atIndex?: number) => {
     setState((s) => {
       const next = [...s.fields];
@@ -1399,6 +1411,9 @@ export default function WizardShell({ embed = false }: Props) {
                   }
                   onRemoveField={removeField}
                   onAddField={addField}
+                  /* Wave 61 — wires the floating <InlineStyleToolbar /> to
+                     the existing setFields-based undo stack. */
+                  onUpdateField={updateField}
                   /* Wave P — when the Install tab is active, render the
                    * widget inside the user's chosen hosted-page chrome so
                    * the preview matches what visitors at {slug}.your-quote

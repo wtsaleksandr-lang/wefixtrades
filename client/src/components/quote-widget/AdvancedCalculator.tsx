@@ -19,6 +19,7 @@ import {
   type AdvStepTransition,
   type TemplateStep,
   resolveTieredConfig,
+  inlineElementStyleToCss,
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -254,6 +255,13 @@ interface AdvField {
   imageUrl?: string;
   imageCaption?: string;
   imageAlt?: string;
+  /**
+   * Wave 61 — per-element cosmetic style overrides. Authored via the
+   * floating <InlineStyleToolbar /> in the wizard preview. The renderer
+   * spreads `inlineElementStyleToCss(f.inlineStyle)` into the field
+   * wrapper's inline style; sub-fields are independently optional.
+   */
+  inlineStyle?: import('@shared/templatePresets').InlineElementStyle;
 }
 interface AdvCalc {
   id: string; name: string; formula: string;
@@ -2322,6 +2330,12 @@ export default function AdvancedCalculator({
                     // by `.qq-stagger-in` keyframes. No-op when the pack
                     // is off (CSS rule doesn't match).
                     ['--qq-i' as string]: String(Math.min(idx, 7)),
+                    // Wave 61 — per-element cosmetic overrides driven by
+                    // the floating <InlineStyleToolbar />. Sub-fields are
+                    // optional; when absent the field inherits the
+                    // resolved widget style (theme + AdvStyle tokens).
+                    // Spread last so explicit overrides win over base.
+                    ...inlineElementStyleToCss(f.inlineStyle),
                   }}
                 >
                   <FieldInput
