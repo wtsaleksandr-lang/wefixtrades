@@ -70,6 +70,7 @@ import {
   type InventoryEntry,
 } from "@/components/webcare/SiteInventory";
 import { DaysWithoutIncident } from "@/components/webcare/DaysWithoutIncident";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
 
 const META = {
   securityGrade: getMetricMeta("webcare", "securityGrade")!,
@@ -242,20 +243,23 @@ export default function WebCareDashboard() {
               backups, and every maintenance action in plain English.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild data-testid="link-webcare-notifications">
-              <Link href="/portal/webcare/notifications">
-                <Bell className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                Notifications
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild data-testid="link-webcare-setup">
-              <Link href="/portal/webcare/setup">
-                <SettingsIcon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                Setup wizard
-              </Link>
-            </Button>
-          </div>
+          {/* Wave 36 — Notifications/Setup demoted to Advanced (Wave 32 centralized prefs). */}
+          <AdvancedOnly product="webcare">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" asChild data-testid="link-webcare-notifications">
+                <Link href="/portal/webcare/notifications">
+                  <Bell className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                  Notifications
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild data-testid="link-webcare-setup">
+                <Link href="/portal/webcare/setup">
+                  <SettingsIcon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                  Setup wizard
+                </Link>
+              </Button>
+            </div>
+          </AdvancedOnly>
         </div>
 
         {/* Hero strip — mixed primitives */}
@@ -291,22 +295,25 @@ export default function WebCareDashboard() {
             bestStreak={kpis?.bestStreakDays ?? 0}
             emptyState={isEmptyState}
           />
-          <Card className="flex flex-col items-center justify-center gap-1 p-3" data-testid="webcare-performance-ring">
-            <ProgressRing
-              value={k?.performanceScore.avg ?? 0}
-              max={100}
-              unit="/100"
-              label={META.performanceScore.label}
-              size="md"
-              color="auto"
-              helpText={META.performanceScore.helpText}
-              improvementTips={META.performanceScore.improvementTips}
-              emptyState={kpisLoading || (k?.performanceScore.avg ?? 0) === 0}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Mobile {k?.performanceScore.mobile ?? 0} · Desktop {k?.performanceScore.desktop ?? 0}
-            </p>
-          </Card>
+          {/* Performance gauge — power-user (Wave 36). */}
+          <AdvancedOnly product="webcare">
+            <Card className="flex flex-col items-center justify-center gap-1 p-3" data-testid="webcare-performance-ring">
+              <ProgressRing
+                value={k?.performanceScore.avg ?? 0}
+                max={100}
+                unit="/100"
+                label={META.performanceScore.label}
+                size="md"
+                color="auto"
+                helpText={META.performanceScore.helpText}
+                improvementTips={META.performanceScore.improvementTips}
+                emptyState={kpisLoading || (k?.performanceScore.avg ?? 0) === 0}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Mobile {k?.performanceScore.mobile ?? 0} · Desktop {k?.performanceScore.desktop ?? 0}
+              </p>
+            </Card>
+          </AdvancedOnly>
         </div>
 
         {/* Quick-action row */}
@@ -363,14 +370,17 @@ export default function WebCareDashboard() {
           onFilterChange={setFilter}
         />
 
-        {/* Backup timeline */}
-        <BackupTimeline
-          entries={kpis?.backupTimeline30d ?? []}
-          isMutating={runAction.isPending}
-          onRunBackupNow={() => runAction.mutate({ action: "run-backup-now" })}
-        />
+        {/* Backup timeline — power-user (Wave 36). */}
+        <AdvancedOnly product="webcare">
+          <BackupTimeline
+            entries={kpis?.backupTimeline30d ?? []}
+            isMutating={runAction.isPending}
+            onRunBackupNow={() => runAction.mutate({ action: "run-backup-now" })}
+          />
+        </AdvancedOnly>
 
-        {/* Pending updates KPI + Site inventory */}
+        {/* Pending updates KPI + Site inventory — power-user. */}
+        <AdvancedOnly product="webcare">
         <div className="grid gap-3 lg:grid-cols-[260px_1fr]">
           <Card className="flex flex-col items-center justify-center gap-1 p-3" data-testid="webcare-pending-updates-gauge">
             <KpiGauge
@@ -404,6 +414,7 @@ export default function WebCareDashboard() {
             onApplyAllUpdates={() => runAction.mutate({ action: "apply-all-pending-updates" })}
           />
         </div>
+        </AdvancedOnly>
 
         {/* Empty-state footer CTA */}
         {!hasService && (

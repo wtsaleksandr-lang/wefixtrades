@@ -68,8 +68,10 @@ import {
   SentimentHeatmap,
   type HeatmapCell,
 } from "@/components/reputationshield/SentimentHeatmap";
-import { RequestFunnel, type FunnelStage } from "@/components/reputationshield/RequestFunnel";
+// Wave 36 — RequestFunnel removed (audit: internal-team UI; deliberately deleted).
+import type { FunnelStage } from "@/components/reputationshield/RequestFunnel";
 import { DaysSinceGauge } from "@/components/reputationshield/DaysSinceGauge";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
 
 const META = {
@@ -415,20 +417,24 @@ export default function ReputationShieldDashboard() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Link href="/portal/reputationshield/notifications">
-              <Button variant="outline" size="sm">
-                <Bell className="mr-1 h-3.5 w-3.5" />
-                Notifications
-              </Button>
-            </Link>
-            <Link href="/portal/reviews">
-              <Button variant="ghost" size="sm">
-                <SettingsIcon className="mr-1 h-3.5 w-3.5" />
-                Settings
-              </Button>
-            </Link>
-          </div>
+          {/* Wave 36 — per-product Notifications + Settings demoted; global prefs
+              live at /portal/settings#notifications. */}
+          <AdvancedOnly product="reputationshield">
+            <div className="flex items-center gap-2">
+              <Link href="/portal/reputationshield/notifications">
+                <Button variant="outline" size="sm">
+                  <Bell className="mr-1 h-3.5 w-3.5" />
+                  Notifications
+                </Button>
+              </Link>
+              <Link href="/portal/reviews">
+                <Button variant="ghost" size="sm">
+                  <SettingsIcon className="mr-1 h-3.5 w-3.5" />
+                  Settings
+                </Button>
+              </Link>
+            </div>
+          </AdvancedOnly>
         </div>
 
         {previewMode && (
@@ -467,7 +473,8 @@ export default function ReputationShieldDashboard() {
             </span>
           </Card>
 
-          {/* 2. Review velocity — AnimatedCounter + Sparkline + MoM delta */}
+          {/* 2. Review velocity — power-user (Wave 36: analyst-speak). */}
+          <AdvancedOnly product="reputationshield">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="reputationshield-kpi-velocity"
@@ -506,8 +513,11 @@ export default function ReputationShieldDashboard() {
               </span>
             </span>
           </Card>
+          </AdvancedOnly>
 
-          {/* 3. Days since last review — short summary card; full gauge below */}
+          {/* 3. Days since last review — power-user; AI Copilot can surface
+              urgency proactively via push notifications instead. */}
+          <AdvancedOnly product="reputationshield">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="reputationshield-kpi-days-since"
@@ -539,8 +549,10 @@ export default function ReputationShieldDashboard() {
                 : "days · pulse threshold 30+"}
             </span>
           </Card>
+          </AdvancedOnly>
 
-          {/* 4. Reply rate — AnimatedCounter % */}
+          {/* 4. Reply rate — power-user (internal QA metric). */}
+          <AdvancedOnly product="reputationshield">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="reputationshield-kpi-reply-rate"
@@ -566,41 +578,42 @@ export default function ReputationShieldDashboard() {
                   : "Reply to more reviews"}
             </span>
           </Card>
+          </AdvancedOnly>
         </div>
 
-        {/* Platform scorecard with deltas */}
-        <PlatformScorecard
-          data={
-            kpisQuery.data?.scorecard ?? {
-              google: { rating: 0, count: 0, recentCount: 0, delta30d: 0 },
-              yelp: { rating: 0, count: 0, recentCount: 0, delta30d: 0 },
-              facebook: { rating: 0, count: 0, recentCount: 0, delta30d: 0 },
-              bbb: { rating: 0, count: 0, recentCount: 0, delta30d: 0 },
+        {/* Platform scorecard with deltas — power-user (per-platform breakdown). */}
+        <AdvancedOnly product="reputationshield">
+          <PlatformScorecard
+            data={
+              kpisQuery.data?.scorecard ?? {
+                google: { rating: 0, count: 0, recentCount: 0, delta30d: 0 },
+                yelp: { rating: 0, count: 0, recentCount: 0, delta30d: 0 },
+                facebook: { rating: 0, count: 0, recentCount: 0, delta30d: 0 },
+                bbb: { rating: 0, count: 0, recentCount: 0, delta30d: 0 },
+              }
             }
-          }
-        />
+          />
+        </AdvancedOnly>
 
-        {/* Days-since urgency gauge + Request funnel */}
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {/* Wave 36 — RequestFunnel deleted (internal-team UI per audit).
+            DaysSinceGauge remains because it carries the 1-click "request reviews"
+            action, but only in Advanced mode (hero already shows the metric). */}
+        <AdvancedOnly product="reputationshield">
           <DaysSinceGauge
             days={kpis?.daysSinceLastReview ?? null}
             onRequestBatch={requestBatch}
             requesting={runAction.isPending}
             emptyState={previewMode}
           />
-          <RequestFunnel
-            stages={funnelQuery.data?.stages ?? []}
-            windowDays={funnelWindow}
-            onWindowChange={setFunnelWindow}
-            hasOpenTracking={funnelQuery.data?.hasOpenTracking ?? false}
-          />
-        </div>
+        </AdvancedOnly>
 
-        {/* Sentiment heatmap */}
-        <SentimentHeatmap
-          cells={kpisQuery.data?.heatmap ?? []}
-          emptyState={previewMode || (kpisQuery.data?.heatmap?.length ?? 0) === 0}
-        />
+        {/* Sentiment heatmap — power-user analyst tool. */}
+        <AdvancedOnly product="reputationshield">
+          <SentimentHeatmap
+            cells={kpisQuery.data?.heatmap ?? []}
+            emptyState={previewMode || (kpisQuery.data?.heatmap?.length ?? 0) === 0}
+          />
+        </AdvancedOnly>
 
         {/* Inbox (Wave 22C ApprovalInbox) + AI draft editor pane */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_460px]">

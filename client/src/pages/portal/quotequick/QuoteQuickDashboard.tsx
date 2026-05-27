@@ -49,6 +49,14 @@ import {
 } from "@/components/ui/visual-primitives";
 import { ConversionGauge } from "@/components/quotequick/ConversionGauge";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 
 const META = {
   quotesSent: getMetricMeta("quotequick", "quotesSent")!,
@@ -203,31 +211,10 @@ export default function QuoteQuickDashboard() {
               Live conversion funnel + 1-click actions for every embedded widget.
             </p>
           </div>
+          {/* Wave 36 — Brand settings + Notifications collapsed into overflow menu
+              (audit: 3 buttons = too many). Form builder stays as primary. */}
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
-              asChild
-              data-testid="link-brand-settings"
-            >
-              <Link href="/portal/quotequick/brand">
-                <Brush className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                Brand settings
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              data-testid="link-notification-settings"
-            >
-              <Link href="/portal/quotequick/notifications">
-                <Bell className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                Notifications
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
               size="sm"
               asChild
               data-testid="link-form-builder"
@@ -237,6 +224,30 @@ export default function QuoteQuickDashboard() {
                 Form builder
               </Link>
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" aria-label="More QuoteQuick actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/portal/quotequick/brand" data-testid="link-brand-settings">
+                    <Brush className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                    Brand settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/portal/quotequick/notifications" data-testid="link-notification-settings">
+                    <Bell className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                    Notifications
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/portal/settings?tab=display">Show advanced</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -298,18 +309,21 @@ export default function QuoteQuickDashboard() {
             </p>
           </Card>
 
-          <Card className="flex flex-col items-center justify-center gap-2 p-4" data-testid="kpi-active-embeds">
-            <ProgressRing
-              value={k?.activeEmbeds.active ?? 0}
-              max={Math.max(1, k?.activeEmbeds.configured ?? 1)}
-              label={`${k?.activeEmbeds.active ?? 0} of ${k?.activeEmbeds.configured ?? 0}`}
-              size="md"
-              color="sapphire"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Active embed sites
-            </p>
-          </Card>
+          {/* Active embeds — install-status; 1-time check belongs on Form Builder. */}
+          <AdvancedOnly product="quotequick">
+            <Card className="flex flex-col items-center justify-center gap-2 p-4" data-testid="kpi-active-embeds">
+              <ProgressRing
+                value={k?.activeEmbeds.active ?? 0}
+                max={Math.max(1, k?.activeEmbeds.configured ?? 1)}
+                label={`${k?.activeEmbeds.active ?? 0} of ${k?.activeEmbeds.configured ?? 0}`}
+                size="md"
+                color="sapphire"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Active embed sites
+              </p>
+            </Card>
+          </AdvancedOnly>
         </div>
 
         {/* 1-click action row */}
@@ -369,31 +383,26 @@ export default function QuoteQuickDashboard() {
               </Button>
             </Card>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
-              {templates.map((t) => (
-                <ConversionGaugeFetcher key={t.id} template={t} />
-              ))}
-            </div>
+            // Wave 36 — single-template case is the common one; per-template
+            // ConversionGauge grid moves to Advanced when multiple templates exist.
+            templates.length === 1 ? (
+              <div className="grid gap-3 lg:grid-cols-2">
+                <ConversionGaugeFetcher key={templates[0].id} template={templates[0]} />
+              </div>
+            ) : (
+              <AdvancedOnly product="quotequick">
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {templates.map((t) => (
+                    <ConversionGaugeFetcher key={t.id} template={t} />
+                  ))}
+                </div>
+              </AdvancedOnly>
+            )
           )}
         </div>
 
-        {/* Embed install link */}
-        <Card className="flex items-center justify-between gap-2 p-3">
-          <div className="flex flex-col">
-            <p className="text-sm font-medium text-foreground">
-              Embed snippet + floating-button mode
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              Inline or floating launcher — pick per page in the install snippet.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" asChild data-testid="link-embed-install">
-            <Link href="/portal/chat-widget/install">
-              <ExternalLink className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-              View install
-            </Link>
-          </Button>
-        </Card>
+        {/* Wave 36 — embed-install link card deleted (audit: duplicate of Form Builder).
+            Installation belongs on the Form Builder page itself. */}
       </div>
     </PortalLayout>
   );

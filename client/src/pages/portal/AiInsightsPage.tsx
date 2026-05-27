@@ -20,9 +20,9 @@
  *   - selected tab = outline, not bright fill
  *   - help cue (info icon + text) top-left of the page
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -191,6 +191,14 @@ function UpgradeGate({ upgradeUrl }: { upgradeUrl: string }) {
 /* ─── Page ─── */
 export default function AiInsightsPage() {
   usePageTitle("AI Insights");
+  // Wave 36 — Tesla Simplification. AI Insights is now an inline Action Stack
+  // on the home dashboard + every product dashboard. The standalone page
+  // redirects to /portal so deep links keep working without exposing the
+  // legacy surface in the nav.
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    navigate("/portal", { replace: true });
+  }, [navigate]);
   const { toast } = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState<TabKey>("all");

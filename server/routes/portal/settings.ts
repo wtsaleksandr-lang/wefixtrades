@@ -30,8 +30,14 @@ import {
   notificationPreferencesSchema,
   DEFAULT_NOTIFICATION_PREFERENCES,
 } from "@shared/schema";
+import {
+  DEFAULT_DISPLAY_PREFERENCES,
+  displayPreferencesPatchSchema,
+  parseDisplayPreferences,
+} from "@shared/userPreferences/displayMode";
 import { createLogger } from "../../lib/logger";
 import { authRateLimiter } from "../../services/rateLimiter";
+import { withClientIdOrPreview } from "../../middleware/adminPreviewSafe";
 
 const log = createLogger("PortalSettings");
 
@@ -235,6 +241,79 @@ export function registerPortalSettingsRoutes(app: Express) {
     } catch (err) {
       log.error("Portal notification prefs PUT error:", { error: String(err) });
       res.status(500).json({ error: "Failed to update preferences" });
+    }
+  });
+
+  /**
+   * GET /api/portal/settings/display
+   * Wave 36 — Tesla Simplification.
+   *
+   * Returns the current Display preferences (Simple/Advanced mode +
+   * per-product visibility toggles). Admins previewing the portal see
+   * defaults. Stored at `clients.metadata.display_preferences`.
+   */
+  app.get("/api/portal/settings/display", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientIdOrPreview(req, res, {
+        previewShape: { preferences: DEFAULT_DISPLAY_PREFERENCES, defaults: DEFAULT_DISPLAY_PREFERENCES },
+      });
+      if (!clientId) return;
+
+      const [client] = await db
+        .select({ metadata: clients.metadata })
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+      const md = (client?.metadata ?? {}) as Record<string, unknown>;
+      const prefs = parseDisplayPreferences(md.display_preferences);
+      res.json({ preferences: prefs, defaults: DEFAULT_DISPLAY_PREFERENCES });
+    } catch (err) {
+      log.error("Portal display prefs GET error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to load display preferences" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/settings/display
+   * Wave 36 — Partial update of Display preferences. Body fields are
+   * all optional; only sent fields overwrite. Persisted under
+   * `clients.metadata.display_preferences`.
+   */
+  app.patch("/api/portal/settings/display", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientIdOrPreview(req, res, {
+        previewShape: { ok: true, persisted: false, preferences: DEFAULT_DISPLAY_PREFERENCES },
+        mode: "write",
+        action: "settings.display.patch",
+      });
+      if (!clientId) return;
+
+      const parsed = displayPreferencesPatchSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid display preferences payload", details: parsed.error.flatten() });
+      }
+
+      const [existing] = await db
+        .select({ metadata: clients.metadata })
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+      const prevMetadata = (existing?.metadata ?? {}) as Record<string, unknown>;
+      const prevPrefs = parseDisplayPreferences(prevMetadata.display_preferences);
+      const merged = { ...prevPrefs, ...parsed.data };
+      const newMetadata = { ...prevMetadata, display_preferences: merged };
+
+      const [updated] = await db
+        .update(clients)
+        .set({ metadata: newMetadata, updated_at: new Date() })
+        .where(eq(clients.id, clientId))
+        .returning({ metadata: clients.metadata });
+
+      const md = (updated?.metadata ?? {}) as Record<string, unknown>;
+      res.json({ preferences: parseDisplayPreferences(md.display_preferences) });
+    } catch (err) {
+      log.error("Portal display prefs PATCH error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to update display preferences" });
     }
   });
 

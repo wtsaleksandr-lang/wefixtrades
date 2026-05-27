@@ -125,6 +125,25 @@ export function Sparkline({
     };
   }, [values, width, height]);
 
+  // Wave 36 — Tesla simplification: hide entirely when the trend is flat
+  // (all values equal or variation under 5% of the mean). A flat sparkline
+  // adds visual noise without communicating anything; the surrounding tile
+  // already shows today's number. Empty/no-data still renders the dashed
+  // placeholder so users see the placeholder during loading.
+  const isFlat = (() => {
+    if (values.length < 2) return false;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    if (max === min) return true;
+    const meanAbs = Math.abs(values.reduce((s, v) => s + v, 0) / values.length);
+    const range = max - min;
+    if (meanAbs === 0) return range < 0.0001;
+    return range / meanAbs < 0.05;
+  })();
+  if (hasData && isFlat) {
+    return null;
+  }
+
   if (!hasData) {
     return (
       <svg

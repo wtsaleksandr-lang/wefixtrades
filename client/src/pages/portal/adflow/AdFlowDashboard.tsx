@@ -71,6 +71,7 @@ import {
 } from "@/components/adflow/AnomalyBanner";
 import { ProfitableTradeHeatmap } from "@/components/adflow/ProfitableTradeHeatmap";
 import { DayPartingHeatmap } from "@/components/adflow/DayPartingHeatmap";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
 
 const META = {
   moneySpent: getMetricMeta("adflow", "moneySpent")!,
@@ -344,30 +345,34 @@ export default function AdFlowDashboard() {
               earned. Jargon hidden by default.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              data-testid="link-adflow-notifications"
-            >
-              <Link href="/portal/adflow/notifications">
-                <Bell className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                Notifications
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              data-testid="link-adflow-setup"
-            >
-              <Link href="/portal/adflow/setup">
-                <SettingsIcon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                Setup wizard
-              </Link>
-            </Button>
-          </div>
+          {/* Wave 36 — header buttons demoted; per cross-cutting cleanup #2
+              the Notifications button routes to the global prefs page. */}
+          <AdvancedOnly product="adflow">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                data-testid="link-adflow-notifications"
+              >
+                <Link href="/portal/adflow/notifications">
+                  <Bell className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                  Notifications
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                data-testid="link-adflow-setup"
+              >
+                <Link href="/portal/adflow/setup">
+                  <SettingsIcon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                  Setup wizard
+                </Link>
+              </Button>
+            </div>
+          </AdvancedOnly>
         </div>
 
         {/* Anomaly banner */}
@@ -427,48 +432,52 @@ export default function AdFlowDashboard() {
               conversionRates={kpis?.funnel.conversionRates}
             />
           </div>
-          <div className="flex flex-col gap-3">
-            <Card
-              className="flex flex-col items-center justify-center gap-2 p-4"
-              data-testid="kpi-cost-per-booking"
-            >
-              <KpiGauge
-                value={Math.round((k?.costPerBooking ?? 0) / 100)}
-                max={300}
-                label={META.costPerBooking.label}
-                unit="$"
-                size="md"
-                color="auto"
-                helpText={META.costPerBooking.helpText}
-                improvementTips={META.costPerBooking.improvementTips}
-                emptyState={kpisLoading || (k?.costPerBooking ?? 0) === 0}
-              />
-            </Card>
-            <Card className="flex flex-col gap-1 p-3" data-testid="kpi-jobs-booked">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {META.jobsBooked.label}
-              </p>
-              <div className="flex items-baseline gap-2">
-                <AnimatedCounter
-                  value={k?.jobsBooked.thisMonth ?? 0}
-                  className="text-2xl font-semibold text-foreground"
+          {/* Wave 36 — cost-per-booking + jobs-booked sidebars hidden in Simple
+              mode. Audit verdict: "already implied by funnel". */}
+          <AdvancedOnly product="adflow">
+            <div className="flex flex-col gap-3">
+              <Card
+                className="flex flex-col items-center justify-center gap-2 p-4"
+                data-testid="kpi-cost-per-booking"
+              >
+                <KpiGauge
+                  value={Math.round((k?.costPerBooking ?? 0) / 100)}
+                  max={300}
+                  label={META.costPerBooking.label}
+                  unit="$"
+                  size="md"
+                  color="auto"
+                  helpText={META.costPerBooking.helpText}
+                  improvementTips={META.costPerBooking.improvementTips}
+                  emptyState={kpisLoading || (k?.costPerBooking ?? 0) === 0}
                 />
-                <span
-                  className={
-                    (k?.jobsBooked.deltaPct ?? 0) >= 0
-                      ? "text-[11px] font-medium text-[hsl(var(--chart-2))]"
-                      : "text-[11px] font-medium text-[hsl(var(--destructive))]"
-                  }
-                >
-                  {(k?.jobsBooked.deltaPct ?? 0) >= 0 ? "+" : ""}
-                  {k?.jobsBooked.deltaPct ?? 0}%
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                vs last 30 days
-              </p>
-            </Card>
-          </div>
+              </Card>
+              <Card className="flex flex-col gap-1 p-3" data-testid="kpi-jobs-booked">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {META.jobsBooked.label}
+                </p>
+                <div className="flex items-baseline gap-2">
+                  <AnimatedCounter
+                    value={k?.jobsBooked.thisMonth ?? 0}
+                    className="text-2xl font-semibold text-foreground"
+                  />
+                  <span
+                    className={
+                      (k?.jobsBooked.deltaPct ?? 0) >= 0
+                        ? "text-[11px] font-medium text-[hsl(var(--chart-2))]"
+                        : "text-[11px] font-medium text-[hsl(var(--destructive))]"
+                    }
+                  >
+                    {(k?.jobsBooked.deltaPct ?? 0) >= 0 ? "+" : ""}
+                    {k?.jobsBooked.deltaPct ?? 0}%
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  vs last 30 days
+                </p>
+              </Card>
+            </div>
+          </AdvancedOnly>
         </div>
 
         {/* Quick-action row */}
@@ -568,19 +577,23 @@ export default function AdFlowDashboard() {
           )}
         </div>
 
-        {/* AI ad-copy composer */}
-        <AdCopyComposer
-          defaultTrade="plumbing"
-          onUseVariant={async (v) => {
-            await runAction.mutateAsync({
-              action: "swap-ad-copy",
-              actionId: `composer-${v.id}`,
-              params: { variantId: v.id, headline: v.headline },
-            });
-          }}
-        />
+        {/* AI ad-copy composer — Wave 36: demoted to Advanced. The Copilot is
+            the canonical surface for generating ad copy now. */}
+        <AdvancedOnly product="adflow">
+          <AdCopyComposer
+            defaultTrade="plumbing"
+            onUseVariant={async (v) => {
+              await runAction.mutateAsync({
+                action: "swap-ad-copy",
+                actionId: `composer-${v.id}`,
+                params: { variantId: v.id, headline: v.headline },
+              });
+            }}
+          />
+        </AdvancedOnly>
 
-        {/* Profitable-trade heatmap (whitespace per research) */}
+        {/* Power-analyst heatmaps — Wave 36: hidden by default. */}
+        <AdvancedOnly product="adflow">
         <ProfitableTradeHeatmap
           rows={tradeHeatmap?.rows ?? []}
           columns={tradeHeatmap?.columns ?? ["google", "meta", "bing"]}
@@ -588,12 +601,12 @@ export default function AdFlowDashboard() {
           hasData={tradeHeatmap?.hasData ?? false}
         />
 
-        {/* Day-parting heatmap */}
         <DayPartingHeatmap
           cells={dayParting?.cells ?? []}
           hasEnoughData={dayParting?.hasEnoughData ?? false}
           daysOfData={dayParting?.daysOfData ?? 0}
         />
+        </AdvancedOnly>
       </div>
     </PortalLayout>
   );

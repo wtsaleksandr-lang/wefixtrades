@@ -64,6 +64,7 @@ import {
   type SentimentSegment,
 } from "@/components/tradeline/SentimentHeatmap";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
 
 /* Wave 26.6: registry-driven gauge meta. Same strings the Copilot reads. */
 const META = {
@@ -286,12 +287,15 @@ export default function TradeLineDashboard() {
               From AI-handled calls
             </span>
           </Card>
-          <CostPerBookingCard
-            cost={kpis?.costPerBooking ?? 0}
-            avgJobValue={kpis?.avgJobValue ?? 0}
-            estimatedMissedRevenue={kpis?.estimatedMissedRevenue ?? 0}
-            subscriptionCost={kpis?.monthSubscriptionCost ?? 0}
-          />
+          {/* Cost-per-booking — power-user (Wave 36). */}
+          <AdvancedOnly product="tradeline">
+            <CostPerBookingCard
+              cost={kpis?.costPerBooking ?? 0}
+              avgJobValue={kpis?.avgJobValue ?? 0}
+              estimatedMissedRevenue={kpis?.estimatedMissedRevenue ?? 0}
+              subscriptionCost={kpis?.monthSubscriptionCost ?? 0}
+            />
+          </AdvancedOnly>
         </div>
 
         {/* ─── Two-col layout: main + live monitor ────────────────────── */}
@@ -327,20 +331,19 @@ export default function TradeLineDashboard() {
               />
             </Card>
 
-            {/* Sentiment heatmap */}
-            {selectedCallId != null && (
-              <SentimentHeatmap
-                segments={sentimentQuery.data?.segments ?? []}
-                durationSeconds={sentimentQuery.data?.durationSeconds ?? 0}
-                onSeek={(sec) => {
-                  // Audio playback is out of scope for this PR — surface
-                  // the seek intent as a no-op so the UX is consistent.
-                  // Wave 26+: wire to the mirrored recording player.
-                  // eslint-disable-next-line no-console
-                  console.info("[TradeLine] seek requested", { sec, callId: selectedCallId });
-                }}
-              />
-            )}
+            {/* Sentiment heatmap — power-user analyst tool. */}
+            <AdvancedOnly product="tradeline">
+              {selectedCallId != null && (
+                <SentimentHeatmap
+                  segments={sentimentQuery.data?.segments ?? []}
+                  durationSeconds={sentimentQuery.data?.durationSeconds ?? 0}
+                  onSeek={(sec) => {
+                    // eslint-disable-next-line no-console
+                    console.info("[TradeLine] seek requested", { sec, callId: selectedCallId });
+                  }}
+                />
+              )}
+            </AdvancedOnly>
           </div>
 
           {/* Right-rail: live monitor */}

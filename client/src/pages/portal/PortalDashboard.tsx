@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import { Wrench, ClipboardList, AlertCircle, CreditCard, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus, Sparkles, LifeBuoy } from "lucide-react";
@@ -8,6 +8,7 @@ import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/po
 import ModeToggle from "@/components/portal/ModeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { TradelineSetupBanner } from "./TradelineSetup/DashboardBanner";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
 // BG-3: canonical elevation primitive — uses --shadow-card token + bg-card/border-card-border
 // so cards inherit the design-system soft-card shadow and respond to dark mode.
 import { Card } from "@/components/ui/card";
@@ -451,6 +452,9 @@ function PortalDashboardInner() {
             Lead counts, billing, and open tickets all live here. Refreshes every minute.
           </FirstVisitTooltip>
 
+          {/* Wave 36 — Tesla Simplification migration banner. Shown once per user. */}
+          <SimplifiedDashboardBanner />
+
           {/* Tradeline setup banner — hidden once setup is complete */}
           <TradelineSetupBanner />
 
@@ -654,20 +658,11 @@ function PortalDashboardInner() {
               </Card>
             );
           })()}
-          {/* SocialSync CTA */}
-          {ssProfile && (ssProfile.exists === false || !ssProfile.niche) && (
-            <Card className="p-5 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Set up SocialSync</p>
-                <p className="text-xs text-muted-foreground mt-0.5">We'll post content for your business automatically. Takes about 5 minutes.</p>
-              </div>
-              <Link href="/portal/socialsync-setup" className="shrink-0 px-4 py-2 rounded-lg text-xs font-medium text-white bg-brand-blue hover:bg-brand-blue-600">
-                Get Started
-              </Link>
-            </Card>
-          )}
+          {/* Wave 36 — SocialSync setup CTA deleted (audit: duplicates Services catalogue + nav). */}
 
-          {/* Recent activity */}
+          {/* Recent activity — Wave 36: hidden in Simple mode. Ask the
+              AI Copilot "what changed?" to surface this. */}
+          <AdvancedOnly product="portal">
           <Card className="overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>
@@ -700,6 +695,7 @@ function PortalDashboardInner() {
               </ul>
             )}
           </Card>
+          </AdvancedOnly>
         </div>
       )}
       {/* IA-1 — floating "resume editing" badge. Renders only when a
@@ -742,4 +738,53 @@ function StatCard({
   );
   if (href) return <Link href={href}>{card}</Link>;
   return card;
+}
+
+/* ─── Wave 36 — Tesla simplification migration banner ─────────────────── */
+
+const SIMPLIFIED_BANNER_KEY = "portal-simplified-dashboard-banner-v1";
+
+function SimplifiedDashboardBanner() {
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      return window.localStorage.getItem(SIMPLIFIED_BANNER_KEY) === "1";
+    } catch {
+      return true;
+    }
+  });
+  if (dismissed) return null;
+  return (
+    <Card
+      className="flex items-start justify-between gap-3 border-blue-200 bg-blue-50 p-3 text-xs text-blue-900"
+      data-testid="simplified-dashboard-banner"
+    >
+      <div className="flex-1">
+        <p className="font-medium">We simplified your dashboard.</p>
+        <p className="mt-0.5 text-blue-900/80">
+          Ask the AI Copilot anything — it runs your dashboard, your settings, and your actions.
+          Want the deeper analytics? Enable advanced features in{" "}
+          <Link href="/portal/settings?tab=display" className="underline font-medium">
+            Settings → Display
+          </Link>{" "}
+          anytime.
+        </p>
+      </div>
+      <button
+        type="button"
+        className="shrink-0 rounded p-1 text-blue-900/70 hover:bg-blue-100 hover:text-blue-900"
+        aria-label="Dismiss banner"
+        onClick={() => {
+          try {
+            window.localStorage.setItem(SIMPLIFIED_BANNER_KEY, "1");
+          } catch {
+            /* localStorage unavailable — banner stays dismissed for this session */
+          }
+          setDismissed(true);
+        }}
+      >
+        <span aria-hidden="true">×</span>
+      </button>
+    </Card>
+  );
 }
