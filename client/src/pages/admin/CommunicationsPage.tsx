@@ -470,6 +470,8 @@ function ThreadView({
   const [confirmThreadDelete, setConfirmThreadDelete] = useState(false);
   const [saveContactOpen, setSaveContactOpen] = useState(false);
   const [editContactOpen, setEditContactOpen] = useState(false);
+  // Wave 39 — replaces window.confirm for per-message deletion.
+  const [pendingDeleteMessageSid, setPendingDeleteMessageSid] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery<{ messages: TwilioMessage[]; contact: string }>({
@@ -640,11 +642,7 @@ function ThreadView({
             <Bubble
               key={m.sid}
               message={m}
-              onDelete={() => {
-                if (window.confirm("Delete this message? This removes it from Twilio permanently.")) {
-                  deleteMessageMutation.mutate(m.sid);
-                }
-              }}
+              onDelete={() => setPendingDeleteMessageSid(m.sid)}
             />
           ))
         )}
@@ -657,6 +655,18 @@ function ThreadView({
         pending={deleteThreadMutation.isPending}
         title="Delete this conversation?"
         description={`This permanently removes every message between your Twilio number and ${formatPhone(contact)}. Cannot be undone.`}
+      />
+      {/* Wave 39 — per-message delete confirmation (replaces window.confirm). */}
+      <ConfirmDeleteDialog
+        open={pendingDeleteMessageSid !== null}
+        onClose={() => setPendingDeleteMessageSid(null)}
+        onConfirm={() => {
+          if (pendingDeleteMessageSid) deleteMessageMutation.mutate(pendingDeleteMessageSid);
+          setPendingDeleteMessageSid(null);
+        }}
+        pending={deleteMessageMutation.isPending}
+        title="Delete this message?"
+        description="This removes it from Twilio permanently."
       />
       <ContactFormDialog
         open={saveContactOpen}

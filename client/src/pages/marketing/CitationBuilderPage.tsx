@@ -12,13 +12,24 @@
  *
  * Per-PR-#814 color guard: inline styles use rgb(255,255,255) — NOT #fff.
  */
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Check, ArrowRight, ListChecks, ShieldCheck, Send, FileText } from "lucide-react";
 import { Link } from "wouter";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const PAGE_PATH = "/citation-builder";
 const SITE_URL = "https://wefixtrades.com";
@@ -186,20 +197,25 @@ function mailto(tierName: string): string {
  * Wave 3.5 launch-wiring — drives the tier CTA to Stripe Checkout via
  * /api/citation-builder/checkout. Mailto fallback retained for legacy
  * customers / when JS is disabled.
+ *
+ * Wave 39 — collects business name + email through a combined in-page
+ * dialog (see <CheckoutDetailsDialog>) instead of two stacked
+ * window.prompt() calls. The network shape is unchanged.
  */
-async function startCheckout(tierSlug: "starter" | "pro" | "premium", tierName: string): Promise<void> {
+async function startCheckout(
+  tierSlug: "starter" | "pro" | "premium",
+  tierName: string,
+  businessName: string,
+  email: string,
+): Promise<void> {
   try {
-    const businessName = window.prompt("Business name (we'll collect the rest after payment):") || "";
-    if (!businessName.trim()) return;
-    const email = window.prompt("Best email for the order receipt + completion report:") || undefined;
-
     const res = await fetch("/api/citation-builder/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         tier: tierSlug,
         business_info: { name: businessName.trim() },
-        email: email?.trim() || undefined,
+        email: email.trim() || undefined,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -215,7 +231,13 @@ async function startCheckout(tierSlug: "starter" | "pro" | "premium", tierName: 
   }
 }
 
-function TierCard({ tier }: { tier: TierDef }) {
+function TierCard({
+  tier,
+  onSelect,
+}: {
+  tier: TierDef;
+  onSelect: (tier: TierDef) => void;
+}) {
   const isHighlighted = !!tier.highlighted;
   return (
     <div
@@ -282,7 +304,7 @@ function TierCard({ tier }: { tier: TierDef }) {
 
       <button
         type="button"
-        onClick={() => startCheckout(tier.id, tier.name)}
+        onClick={() => onSelect(tier)}
         data-testid={`button-tier-${tier.id}-cta`}
         style={{
           display: "inline-flex",
@@ -310,6 +332,110 @@ function TierCard({ tier }: { tier: TierDef }) {
   );
 }
 
+/**
+ * Wave 39 — checkout-details dialog. Collects business name + email in a
+ * single combined form (was two stacked window.prompt() calls). Follows
+ * the locked input-field rules: <Label> sits top-left of the field, gap
+ * is 2px, no native browser dialogs anywhere in the flow.
+ */
+function CheckoutDetailsDialog({
+  tier,
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  tier: TierDef | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (businessName: string, email: string) => void;
+}) {
+  const [businessName, setBusinessName] = useState("");
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // Reset fields whenever the dialog opens for a new tier.
+  const tierId = tier?.id ?? null;
+  useEffect(() => {
+    if (open) {
+      setBusinessName("");
+      setEmail("");
+      setSubmitting(false);
+    }
+  }, [open, tierId]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessName.trim()) return;
+    setSubmitting(true);
+    onSubmit(businessName.trim(), email.trim());
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-testid="citation-checkout-dialog">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>
+              Start Citation Builder{tier ? ` · ${tier.name}` : ""}
+            </DialogTitle>
+            <DialogDescription>
+              We just need a name to put on the order. The rest of your
+              business details (website, phone, address) are collected
+              after payment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-3">
+            <div className="flex flex-col" style={{ gap: 2 }}>
+              <Label htmlFor="citation-business-name" className="text-xs text-muted-foreground">
+                Business name
+              </Label>
+              <Input
+                id="citation-business-name"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="e.g. Acme Plumbing"
+                autoFocus
+                required
+                data-testid="citation-business-name-input"
+              />
+            </div>
+            <div className="flex flex-col" style={{ gap: 2 }}>
+              <Label htmlFor="citation-email" className="text-xs text-muted-foreground">
+                Email for receipt + completion report (optional)
+              </Label>
+              <Input
+                id="citation-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                data-testid="citation-email-input"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={!businessName.trim() || submitting}
+              data-testid="citation-checkout-submit"
+            >
+              {submitting ? "Loading…" : tier ? `Continue · $${tier.price}` : "Continue"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function CitationBuilderPage() {
   useBreadcrumbSchema([
     { name: "Home", url: `${SITE_URL}/` },
@@ -320,6 +446,9 @@ export default function CitationBuilderPage() {
     [],
   );
   useFaqSchema(faqSchemaItems);
+
+  // Wave 39 — replaces the two stacked window.prompt() calls in startCheckout.
+  const [activeTier, setActiveTier] = useState<TierDef | null>(null);
 
   return (
     <MarketingLayout>
@@ -463,7 +592,7 @@ export default function CitationBuilderPage() {
             }}
           >
             {TIERS.map((t) => (
-              <TierCard key={t.id} tier={t} />
+              <TierCard key={t.id} tier={t} onSelect={setActiveTier} />
             ))}
           </div>
         </div>
@@ -672,6 +801,16 @@ export default function CitationBuilderPage() {
           </a>
         </div>
       </section>
+
+      <CheckoutDetailsDialog
+        tier={activeTier}
+        open={activeTier !== null}
+        onOpenChange={(o) => { if (!o) setActiveTier(null); }}
+        onSubmit={(businessName, email) => {
+          if (!activeTier) return;
+          void startCheckout(activeTier.id, activeTier.name, businessName, email);
+        }}
+      />
     </MarketingLayout>
   );
 }

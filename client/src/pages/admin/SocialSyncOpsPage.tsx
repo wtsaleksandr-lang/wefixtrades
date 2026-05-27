@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RefreshCw, AlertTriangle, ExternalLink, Zap, Facebook, Instagram, Globe, ShieldAlert, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -122,6 +123,8 @@ export default function SocialSyncOpsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [filter, setFilter] = useState<string>("all");
+  // Wave 39 — replaces window.confirm for "Generate All Due".
+  const [generateAllConfirmOpen, setGenerateAllConfirmOpen] = useState(false);
   const [lastExpiryCheck, setLastExpiryCheck] = useState<number | null>(() => {
     const v = typeof localStorage !== "undefined" ? localStorage.getItem("ss_last_expiry_check") : null;
     return v ? Number(v) : null;
@@ -334,11 +337,7 @@ export default function SocialSyncOpsPage() {
           size="sm"
           variant="outline"
           className="border-brand-blue text-brand-blue hover:bg-[#EEF3FF]"
-          onClick={() => {
-            if (window.confirm("Generate posts for ALL due autopilot clients now? This runs AI generation and may incur cost.")) {
-              generateAllDue.mutate();
-            }
-          }}
+          onClick={() => setGenerateAllConfirmOpen(true)}
           disabled={generateAllDue.isPending}
         >
           {generateAllDue.isPending
@@ -601,6 +600,20 @@ export default function SocialSyncOpsPage() {
         ]}
         onToggleActive={(next) => activeToggle.mutate(next)}
         onToggleHidden={(next) => hiddenToggle.mutate(next)}
+      />
+
+      {/* Wave 39 — confirm bulk AI generation (replaces window.confirm). */}
+      <ConfirmDialog
+        open={generateAllConfirmOpen}
+        onOpenChange={setGenerateAllConfirmOpen}
+        title="Generate posts for ALL due autopilot clients now?"
+        description="This runs AI generation and may incur cost."
+        confirmLabel="Generate all"
+        pending={generateAllDue.isPending}
+        onConfirm={() => {
+          setGenerateAllConfirmOpen(false);
+          generateAllDue.mutate();
+        }}
       />
     </AdminLayout>
   );

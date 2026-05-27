@@ -71,9 +71,9 @@ client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h
 client/src/pages/admin/BookingCalendarPage.tsx:53:16	rule-c	square w-10 h-10
 client/src/pages/admin/BookingCalendarPage.tsx:138:24	rule-c	square w-10 h-10
 client/src/pages/admin/ClientDetailPage.tsx:779:7	rule-b	<div> contains 2 cues
-client/src/pages/admin/CommunicationsPage.tsx:1113:21	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/CommunicationsPage.tsx:1118:21	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/CommunicationsPage.tsx:1221:23	rule-c	square w-2 h-2
+client/src/pages/admin/CommunicationsPage.tsx:1123:21	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/CommunicationsPage.tsx:1128:21	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/CommunicationsPage.tsx:1231:23	rule-c	square w-2 h-2
 client/src/pages/admin/ContentFlowQueuePage.tsx:1052:33	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/ContentFlowQueuePage.tsx:1058:33	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/ContentFlowQueuePage.tsx:1064:33	rule-c	square w-1.5 h-1.5
@@ -93,7 +93,7 @@ client/src/pages/admin/MapguardDashboard.tsx:138:14	rule-c	square w-9 h-9
 client/src/pages/admin/MapguardDashboard.tsx:375:19	rule-c	square w-10 h-10
 client/src/pages/admin/MobilePreview/PreviewScreens.tsx:960:9	rule-c	square w-7 h-7
 client/src/pages/admin/MobilePreview/PreviewScreens.tsx:1039:58	rule-c	square w-10 h-10
-client/src/pages/admin/ProductDetailPage.tsx:646:33	rule-c	square w-2.5 h-2.5
+client/src/pages/admin/ProductDetailPage.tsx:662:33	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/ProfilePage.tsx:106:18	rule-c	square w-14 h-14
 client/src/pages/admin/QuoteQuickPage.tsx:80:32	rule-c	square w-28 h-28
 client/src/pages/admin/QuoteQuickPage.tsx:113:19	rule-c	square w-2 h-2
@@ -139,8 +139,8 @@ client/src/pages/leads.tsx:118:14	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:119:26	rule-c	square w-7 h-7
 client/src/pages/leads.tsx:167:20	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:168:28	rule-c	square w-7 h-7
-client/src/pages/marketing/CitationBuilderPage.tsx:514:30	rule-c	size={13}
-client/src/pages/marketing/CitationBuilderPage.tsx:575:27	rule-c	size={18}
+client/src/pages/marketing/CitationBuilderPage.tsx:643:30	rule-c	size={13}
+client/src/pages/marketing/CitationBuilderPage.tsx:704:27	rule-c	size={18}
 client/src/pages/marketing/DesignShowcase.tsx:125:50	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:129:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:133:52	rule-c	size={720}
