@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors } from "@/theme/tokens";
@@ -7,12 +7,54 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import TrustStrip from "@/components/marketing/TrustStrip";
-import { ArrowRight, Play, ChevronDown } from "lucide-react";
+import { ArrowRight, Play, ChevronDown, Home, Hammer } from "lucide-react";
 
 /* ─── Page constants ─── */
 
 const BASE = "https://wefixtrades.com";
-const DEMO_VIDEO_PATH = "/videos/quotequick-demo-loop.mp4";
+
+// Wave 52 — two POV videos. The MP4 files are dropped in by Alex post-PR.
+// Until they land, the <video> element emits an error and we swap to the
+// black placeholder with play-icon overlay (see videoFailed state below).
+const VIDEO_PATHS = {
+  homeowner: "/videos/quotequick-tour-homeowner.mp4",
+  trade: "/videos/quotequick-tour-trade.mp4",
+} as const;
+
+const POSTER_PATHS = {
+  homeowner: "/videos/quotequick-tour-homeowner-poster.jpg",
+  trade: "/videos/quotequick-tour-trade-poster.jpg",
+} as const;
+
+const VIDEO_CAPTIONS = {
+  homeowner: "60-second tour of the customer experience",
+  trade: "60-second tour of the trade setup flow",
+} as const;
+
+const TAB_CAPTIONS = {
+  homeowner: "See what your customers experience — quote, deposit, booking.",
+  trade: "See how fast you can set this up — template, wizard, install.",
+} as const;
+
+// Wave 52 — 4 badge slots per POV. Copy is TODO for Alex; positions are
+// fixed (tl/tr/bl/br) and rendered as empty div hooks the same way Wave 51
+// shipped. Activation = add .is-visible + drop copy in between the tags.
+const BADGE_COPY = {
+  homeowner: [
+    { position: "tl", text: "" /* TODO Alex: e.g. "2-4× more leads" */ },
+    { position: "tr", text: "" /* TODO Alex: e.g. "$XX avg deposit" */ },
+    { position: "bl", text: "" /* TODO Alex: e.g. "Books while you sleep" */ },
+    { position: "br", text: "" /* TODO Alex: e.g. "Zero employee time" */ },
+  ],
+  trade: [
+    { position: "tl", text: "" /* TODO Alex: e.g. "Setup in 60s" */ },
+    { position: "tr", text: "" /* TODO Alex: e.g. "No coding" */ },
+    { position: "bl", text: "" /* TODO Alex: e.g. "Works on any site" */ },
+    { position: "br", text: "" /* TODO Alex: e.g. "Drag-drop simple" */ },
+  ],
+} as const;
+
+type Pov = "homeowner" | "trade";
 
 /* ─── Page Component ─── */
 //
@@ -40,6 +82,33 @@ export default function QuoteCalculatorDemo() {
   // so the page still looks intentional.
   const [videoFailed, setVideoFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Wave 52 — POV tabs. Default homeowner; ?tab=trade deep-links to the
+  // trade view. URL is rewritten via replaceState on tab change so deep
+  // sharing works without a full reload.
+  const [pov, setPov] = useState<Pov>("homeowner");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab === "trade") setPov("trade");
+    else if (tab === "homeowner") setPov("homeowner");
+  }, []);
+
+  // Reset the graceful-failure state when the POV changes so a failed
+  // homeowner video doesn't blank the trade panel (or vice versa).
+  useEffect(() => {
+    setVideoFailed(false);
+  }, [pov]);
+
+  const switchTab = (next: Pov) => {
+    setPov(next);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", next);
+    window.history.replaceState({}, "", url.toString());
+  };
 
   return (
     <MarketingLayout>
@@ -194,8 +263,99 @@ export default function QuoteCalculatorDemo() {
             </p>
           </div>
 
+          {/* ─── Wave 52 — POV tab switcher ─── */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              marginBottom: "clamp(16px, 2.5vw, 24px)",
+            }}
+          >
+            <div
+              role="tablist"
+              aria-label="Choose perspective"
+              style={{
+                display: "inline-flex",
+                alignSelf: "center",
+                margin: "0 auto 12px",
+                padding: 4,
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.04)",
+                border: `1px solid ${mkt.onDarkBorder}`,
+                gap: 2,
+              }}
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={pov === "homeowner"}
+                aria-controls="tour-video-panel"
+                onClick={() => switchTab("homeowner")}
+                data-testid="tour-tab-homeowner"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 20px",
+                  borderRadius: 999,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: pov === "homeowner" ? mkt.accent : "transparent",
+                  color: pov === "homeowner" ? "#fff" : mkt.onDarkMuted,
+                  transition: "background 0.18s ease, color 0.18s ease",
+                }}
+              >
+                <Home size={14} aria-hidden="true" />
+                Homeowner POV
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={pov === "trade"}
+                aria-controls="tour-video-panel"
+                onClick={() => switchTab("trade")}
+                data-testid="tour-tab-trade"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 20px",
+                  borderRadius: 999,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: pov === "trade" ? mkt.accent : "transparent",
+                  color: pov === "trade" ? "#fff" : mkt.onDarkMuted,
+                  transition: "background 0.18s ease, color 0.18s ease",
+                }}
+              >
+                <Hammer size={14} aria-hidden="true" />
+                Trade POV
+              </button>
+            </div>
+            <p
+              data-testid="tour-tab-caption"
+              style={{
+                fontSize: 13,
+                color: mkt.onDarkMuted,
+                textAlign: "center",
+                margin: 0,
+                maxWidth: 480,
+              }}
+            >
+              {TAB_CAPTIONS[pov]}
+            </p>
+          </div>
+
           {/* ─── Looped video (16:9, centered) with badge overlay slots ─── */}
           <div
+            id="tour-video-panel"
+            role="tabpanel"
+            aria-label={pov === "homeowner" ? "Homeowner perspective" : "Trade perspective"}
             style={{
               maxWidth: 720,
               margin: "0 auto clamp(20px, 3vw, 28px)",
@@ -215,7 +375,9 @@ export default function QuoteCalculatorDemo() {
               {!videoFailed && (
                 <video
                   ref={videoRef}
-                  src={DEMO_VIDEO_PATH}
+                  key={pov}
+                  src={VIDEO_PATHS[pov]}
+                  poster={POSTER_PATHS[pov]}
                   autoPlay
                   loop
                   muted
@@ -257,37 +419,23 @@ export default function QuoteCalculatorDemo() {
                 </div>
               )}
 
-              {/* Wave 51 — Tour badge slots. 4 positioned overlays Alex will
-                  populate with copy + timed reveal once the actual MP4 is in
-                  place. CSS in <style> above handles positioning + fade hooks.
-                  To activate any badge: add className="tour-badge is-visible"
-                  and drop copy between the tags. */}
-              {/* TODO Alex: fill copy + show */}
-              <div
-                className="tour-badge tour-badge--tl"
-                data-testid="tour-badge-1"
-                aria-hidden="true"
-              />
-              {/* TODO Alex: fill copy + show */}
-              <div
-                className="tour-badge tour-badge--tr"
-                data-testid="tour-badge-2"
-                aria-hidden="true"
-              />
-              {/* TODO Alex: fill copy + show */}
-              <div
-                className="tour-badge tour-badge--bl"
-                data-testid="tour-badge-3"
-                aria-hidden="true"
-              />
-              {/* TODO Alex: fill copy + show */}
-              <div
-                className="tour-badge tour-badge--br"
-                data-testid="tour-badge-4"
-                aria-hidden="true"
-              />
+              {/* Wave 52 — Per-POV badge slots. 4 positioned overlays for the
+                  active POV. Copy lives in BADGE_COPY above; activation =
+                  add .is-visible + render the .text. CSS in <style> handles
+                  positioning + fade hooks. */}
+              {BADGE_COPY[pov].map((badge, i) => (
+                <div
+                  key={`${pov}-${badge.position}`}
+                  className={`tour-badge tour-badge--${badge.position}`}
+                  data-testid={`tour-badge-${pov}-${i + 1}`}
+                  aria-hidden="true"
+                >
+                  {badge.text}
+                </div>
+              ))}
             </div>
             <p
+              data-testid="tour-video-caption"
               style={{
                 fontSize: 13,
                 color: mkt.onDarkMuted,
@@ -295,7 +443,7 @@ export default function QuoteCalculatorDemo() {
                 margin: "10px 0 0",
               }}
             >
-              60-second tour of the customer experience
+              {VIDEO_CAPTIONS[pov]}
             </p>
           </div>
 
@@ -330,6 +478,31 @@ export default function QuoteCalculatorDemo() {
             >
               Free · No signup · 60 seconds to build yours
             </p>
+            {pov === "trade" && (
+              <button
+                type="button"
+                onClick={() => switchTab("homeowner")}
+                data-testid="tour-secondary-switch-homeowner"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginTop: 14,
+                  padding: 0,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  color: mkt.onDarkMuted,
+                  textDecoration: "underline",
+                  textDecorationColor: mkt.onDarkBorder,
+                  textUnderlineOffset: 3,
+                }}
+              >
+                Already using QuoteQuick? See live customer flow
+                <ArrowRight size={12} aria-hidden="true" />
+              </button>
+            )}
           </div>
 
           {/* ─── Cross-tool suggestions ─── */}
