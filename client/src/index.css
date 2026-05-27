@@ -616,8 +616,15 @@
 .qq-w-float > input.qq-w-input,
 .qq-w-float > select.qq-w-input,
 .qq-w-float > textarea.qq-w-input {
-  padding-top: 20px;
-  padding-bottom: 6px;
+  /* Wave 59 — bumped padding-top 20→24px so the floated label
+   * (spanning ~y=4-15) has ~9px breathing room before the value text.
+   * Previously the gap was ~4px and the label felt visually glued to
+   * the value text (Alex's "label sits too close to the value"
+   * report — e.g. "Which sides should we clean?" / "Exterior only").
+   * Total input height stays 44px; padding-bottom drops 6→4px to keep
+   * the value vertically centered in the remaining content box. */
+  padding-top: 24px;
+  padding-bottom: 4px;
 }
 .qq-w-float > label {
   position: absolute;
@@ -632,12 +639,16 @@
   padding: 0 2px;
   line-height: 1;
 }
-/* Text/number/textarea: `:placeholder-shown` drives the resting state. */
+/* Text/number/textarea: `:placeholder-shown` drives the resting state.
+ * Wave 59 — floated label moved 5→4px from the top so the label sits
+ * cleanly in the top-left corner; paired with the input's 24px top
+ * padding this gives ~9px of breathing room between label and value
+ * (was ~4px; Alex's title-in-field "too close" feedback). */
 .qq-w-float > input.qq-w-input:focus + label,
 .qq-w-float > input.qq-w-input:not(:placeholder-shown) + label,
 .qq-w-float > textarea.qq-w-input:focus + label,
 .qq-w-float > textarea.qq-w-input:not(:placeholder-shown) + label {
-  top: 5px;
+  top: 4px;
   font-size: 11px;
   font-weight: 600;
   color: var(--qq-w-label-focus, #0d3cfc);
@@ -649,7 +660,7 @@
   padding-right: 30px;
 }
 .qq-w-float > select.qq-w-input + label {
-  top: 5px;
+  top: 4px;
   font-size: 11px;
   font-weight: 600;
   color: var(--qq-w-label-focus, #0d3cfc);
