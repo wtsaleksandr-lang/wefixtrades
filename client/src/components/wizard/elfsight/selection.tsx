@@ -96,6 +96,24 @@ export function SelectionProvider({ children }: ProviderProps) {
   );
 
   // On selection change, scroll both sides into view (best-effort).
+  //
+  // Wave 60 — three enhancements on top of the original scroll sync:
+  //   1. Dispatch `quotequick:goto-field` so a multi-step widget preview can
+  //      auto-advance to the step that contains the selected field. The
+  //      AdvancedCalculator listens and seeks its stepIdx. Previously a
+  //      field on step 2 (e.g. "Roadside Add-ons" — auto-grouped as a
+  //      modifier step by the renderer) appeared "missing" from the
+  //      preview because the user was still on step 1; clicking its
+  //      editor row now flips the preview to the step that shows it.
+  //   2. Pulse the pane row with `is-just-clicked` for 600 ms so the
+  //      user immediately sees where the matching edit controls landed
+  //      after the cross-pane jump (eliminates the "search for the right
+  //      tab" friction Alex flagged).
+  //   3. If the pane row is inside a collapsed [data-collapsed] ancestor,
+  //      remove that attribute first so the scroll target is actually
+  //      visible. The current FieldsPanel is flat (no accordion) but we
+  //      keep this for forward-compatibility with the BuildTab sections
+  //      that wrap field/calc/header lists in collapsible containers.
   useEffect(() => {
     if (!selected) return;
     const k = keyOf(selected);
@@ -106,8 +124,45 @@ export function SelectionProvider({ children }: ProviderProps) {
       ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
       : false;
     const behavior: ScrollBehavior = reduce ? 'auto' : 'smooth';
+
+    // Wave 60 — preview goto-field broadcast. The widget listens and
+    // advances its internal stepIdx so a selected field becomes visible
+    // even when the multi-step renderer would otherwise hide it.
+    if (typeof window !== 'undefined' && selected.kind === 'field') {
+      try {
+        window.dispatchEvent(new CustomEvent('quotequick:goto-field', {
+          detail: { fieldId: selected.id },
+        }));
+      } catch {}
+    }
+
     if (paneEl) {
+      // Wave 60 — auto-expand any collapsed ancestor so the scroll target
+      // is laid out before we try to bring it into view.
+      let cursor: HTMLElement | null = paneEl.parentElement;
+      while (cursor) {
+        if (cursor.hasAttribute('data-collapsed')) {
+          cursor.removeAttribute('data-collapsed');
+        }
+        cursor = cursor.parentElement;
+      }
       try { paneEl.scrollIntoView({ block: 'center', behavior }); } catch {}
+      // Wave 60 — flash pulse so the user spots where the edit row landed.
+      // Skipped under prefers-reduced-motion (the CSS rule below also
+      // suppresses the keyframes — belt + braces).
+      if (!reduce) {
+        paneEl.classList.remove('qq-selection-flash');
+        // Force a reflow so adding the class on the next line restarts
+        // the animation even if it was mid-flight from a previous click.
+        void paneEl.offsetWidth;
+        paneEl.classList.add('qq-selection-flash');
+        const t = window.setTimeout(() => {
+          paneEl.classList.remove('qq-selection-flash');
+        }, 650);
+        // Best-effort cleanup if selection changes again before the
+        // timeout fires — the next iteration will retrigger.
+        return () => window.clearTimeout(t);
+      }
     }
     if (previewEl) {
       try { previewEl.scrollIntoView({ block: 'center', behavior }); } catch {}

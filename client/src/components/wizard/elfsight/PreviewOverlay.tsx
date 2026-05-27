@@ -53,7 +53,21 @@ interface FieldBox {
   height: number;
 }
 
-/** Read all rendered preview field nodes and map them 1:1 to shell fields. */
+/** Read all rendered preview field nodes and map them to shell fields BY ID.
+ *
+ * Wave 60 — switched from positional-index mapping to a stable ID lookup.
+ * Previously this iterated `fieldNodes` and `fields` in lockstep, assigning
+ * `fields[i].id` to `fieldNodes[i]`. That assumption broke once the multi-
+ * step renderer filtered `visibleFields → renderedFields` (the widget only
+ * paints the current step's fields, so DOM node `i` could correspond to
+ * `fields[i + k]` for some offset `k`). Clicking the second visible widget
+ * field in the preview therefore selected the wrong editor row.
+ *
+ * AdvancedCalculator now emits `data-shell-field-id={f.id}` on each rendered
+ * field wrapper; we read that attribute and resolve the matching
+ * `TemplateField` from the shell's `fields[]` by id. Nodes without a known
+ * id are skipped (e.g. legacy seed placeholders the shell doesn't track).
+ */
 function measureFields(
   container: HTMLElement,
   fields: TemplateField[],
@@ -65,14 +79,15 @@ function measureFields(
   const fieldNodes = calc.querySelectorAll<HTMLElement>('[data-colspan]');
   const containerRect = container.getBoundingClientRect();
   const out: FieldBox[] = [];
-  // Map by index up to min(fieldNodes, fields). Fields after the last shell
-  // field (if any DOM nodes leak through) are ignored.
-  const count = Math.min(fieldNodes.length, fields.length);
-  for (let i = 0; i < count; i++) {
+  // Build an O(1) lookup so each DOM node's id check is constant-time.
+  const knownIds = new Set(fields.map((f) => f.id));
+  for (let i = 0; i < fieldNodes.length; i++) {
     const node = fieldNodes[i];
+    const fieldId = node.getAttribute('data-shell-field-id');
+    if (!fieldId || !knownIds.has(fieldId)) continue;
     const r = node.getBoundingClientRect();
     out.push({
-      fieldId: fields[i].id,
+      fieldId,
       left: r.left - containerRect.left,
       top: r.top - containerRect.top,
       width: r.width,

@@ -675,6 +675,26 @@ export default function FieldRow({
           border-color: ${p.colors.accent};
           box-shadow: 0 0 0 2px ${p.colors.accentLighter};
         }
+        /* Wave 60 — selection-flash pulse.
+         *
+         * SelectionProvider toggles the .qq-selection-flash class on the
+         * pane node for ~600 ms after every cross-pane click so the user
+         * immediately sees where the matching edit row landed in the
+         * editor list. The pulse uses a background-color tween rather
+         * than box-shadow so it stacks cleanly over the existing
+         * .is-selected outline without double-shadowing. Disabled under
+         * prefers-reduced-motion. */
+        @keyframes qq-selection-flash {
+          0%   { background: ${p.colors.accentLight}; }
+          60%  { background: ${p.colors.accentLighter}; }
+          100% { background: #fff; }
+        }
+        .qq-field-row.qq-selection-flash {
+          animation: qq-selection-flash 600ms ease-out 1;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-field-row.qq-selection-flash { animation: none; }
+        }
         .qq-field-row-head {
           display: flex; align-items: center; gap: 6px;
           padding: 8px 10px;

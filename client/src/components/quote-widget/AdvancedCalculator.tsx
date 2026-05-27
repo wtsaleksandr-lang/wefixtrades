@@ -1693,6 +1693,40 @@ export default function AdvancedCalculator({
     }));
   }, [useStepper, stepIdx, totalSteps]);
 
+  /* Wave 60 — `quotequick:goto-field` listener.
+   *
+   * The wizard editor's SelectionProvider dispatches this event whenever
+   * the user clicks a field row in the left pane (or selects a field via
+   * any other path). When the widget is rendered in multi-step mode the
+   * field may live on a step that isn't currently visible — without this
+   * listener the user would think the field is "missing" from the
+   * preview (Alex's Issue 2 — "Roadside Add-ons" field exists in editor
+   * but not visible in widget). We resolve the field's owning step and
+   * advance `stepIdx` so the preview matches the editor selection. */
+  useEffect(() => {
+    if (typeof window === 'undefined' || !useStepper) return;
+    const onGoto = (e: Event) => {
+      const ce = e as CustomEvent<{ fieldId?: string }>;
+      const fieldId = ce.detail?.fieldId;
+      if (!fieldId) return;
+      // Resolve the data-step that contains this field. Match by id OR by
+      // name because the explicit-steps path stores `fieldIds` populated
+      // from either source (see dataSteps construction above).
+      const ownerIdx = dataSteps.findIndex(
+        (s) => s.fieldIds.includes(fieldId) || s.fieldIds.some((k) => {
+          const f = visibleFields.find((v) => v.id === fieldId);
+          return f ? k === f.name : false;
+        }),
+      );
+      if (ownerIdx >= 0 && ownerIdx !== stepIdx) {
+        setFlipDir(ownerIdx > stepIdx ? 'forward' : 'back');
+        setStepIdx(ownerIdx);
+      }
+    };
+    window.addEventListener('quotequick:goto-field', onGoto as EventListener);
+    return () => window.removeEventListener('quotequick:goto-field', onGoto as EventListener);
+  }, [useStepper, dataSteps, visibleFields, stepIdx]);
+
   const stepperList = useMemo(() => {
     if (!useStepper) return [];
     return [
@@ -2273,6 +2307,13 @@ export default function AdvancedCalculator({
                 <div
                   key={f.id}
                   data-colspan={f.colSpan === 1 ? '1' : '2'}
+                  /* Wave 60 — stable shell-field id so PreviewOverlay can map
+                   * a rendered DOM node back to the editor's TemplateField by
+                   * ID rather than by array index. Index-based mapping broke
+                   * the highlight sync when the multi-step renderer filtered
+                   * `visibleFields` → `renderedFields` (only the current
+                   * step's fields render, so DOM node N ≠ fields[N]). */
+                  data-shell-field-id={f.id}
                   data-component-name={`Field: ${f.label || f.name || f.type}`}
                   data-component-type={`field-${f.type}`}
                   style={{

@@ -295,6 +295,20 @@ export default function CalculationRow({
           border-color: ${p.colors.accent};
           box-shadow: 0 0 0 2px ${p.colors.accentLighter};
         }
+        /* Wave 60 — selection-flash pulse. Same treatment as FieldRow so
+         * calc-row clicks from the preview's result panel also pulse
+         * their matching edit row in the left pane. */
+        @keyframes qq-calc-selection-flash {
+          0%   { background: ${p.colors.accentLight}; }
+          60%  { background: ${p.colors.accentLighter}; }
+          100% { background: #fff; }
+        }
+        .qq-calc-row.qq-selection-flash {
+          animation: qq-calc-selection-flash 600ms ease-out 1;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-calc-row.qq-selection-flash { animation: none; }
+        }
         .qq-calc-row-head {
           display: flex; align-items: center; gap: 6px;
           padding: 8px 10px;
