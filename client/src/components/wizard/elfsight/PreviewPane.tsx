@@ -29,7 +29,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus, Crosshair, Calculator } from 'lucide-react';
+import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus, Crosshair, Calculator, X } from 'lucide-react';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -446,12 +446,13 @@ export default function PreviewPane({
     // reflects the *recent* motion, not the full drag history.
     const cutoff = performance.now() - MOMENTUM_SAMPLE_WINDOW_MS * 2;
     while (st.samples.length > 2 && st.samples[0].t < cutoff) st.samples.shift();
-    // Snap to 24px grid first (matches BD-3a square grid background), then
-    // overlay Canva-level alignment-to-canvas-center snap. The alignment
-    // snap wins because it's the finer adjustment the user actually wants.
-    const gridX = snap(rawX);
-    const gridY = snap(rawY);
-    const aligned = applyAlignSnap(gridX, gridY);
+    // Wave 54 — free 1:1 drag with sub-pixel precision. Removed the 24-px
+    // grid snap (`snap(rawX)` / `snap(rawY)`) that Alex flagged as making
+    // the widget "stop at each grid corner" instead of following the cursor.
+    // The Wave 18 alignment-guide center-snap (6 px to canvas centerline)
+    // remains the only snap — that's the Canva-level helper, NOT the
+    // coarse grid snap. Drag now feels fluid like Canva / Figma.
+    const aligned = applyAlignSnap(rawX, rawY);
     setWidgetOffset({ x: aligned.x, y: aligned.y });
     setGuides(aligned.guides);
   }, [widgetOffset.x, widgetOffset.y, zoom, applyAlignSnap]);
@@ -664,18 +665,36 @@ export default function PreviewPane({
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     e.stopPropagation();
-    // P1 fix: lock auto-zoom BEFORE we mutate widgetSize. The
-    // ResizeObserver-driven fit-to-canvas (see useLayoutEffect below)
-    // checks this flag and skips when locked, so the resize gesture
-    // can shrink/grow the widget without auto-zoom fighting back. The
-    // lock stays on after onPointerUp — user has defined their size.
+    // Wave 54 — lock auto-zoom BEFORE measuring anything. The
+    // ResizeObserver-driven fit-to-canvas (useLayoutEffect below) reads
+    // this flag and skips when locked, so the resize gesture can shrink/
+    // grow the widget without auto-zoom fighting back AND mis-reporting
+    // the bezel's natural width on the first mousemove (which used to
+    // cause the "jump to large size" bug — auto-fit would re-tick mid-
+    // gesture, change zoom, and the rect.width/zoom math read a stale
+    // size). The lock stays on after onPointerUp — user has defined
+    // their size; the Fit button or device-preset switch clears it.
     userZoomLockedRef.current = true;
+    // Cancel any in-flight momentum coast so the resize doesn't fight
+    // with a setWidgetOffset RAF still firing.
+    if (momentumRafRef.current != null) {
+      cancelAnimationFrame(momentumRafRef.current);
+      momentumRafRef.current = null;
+    }
     const stage = stageRef.current;
     const bezel = stage?.querySelector<HTMLElement>('[data-testid^="preview-bezel"]');
     if (!bezel) return;
-    const rect = bezel.getBoundingClientRect();
-    const baseW = widgetSize?.w ?? rect.width / zoom;
-    const baseH = widgetSize?.h ?? rect.height / zoom;
+    // Wave 54 — measure the bezel's NATURAL (unscaled) dimensions, not the
+    // post-transform rect divided by zoom. Using clientWidth/clientHeight
+    // sidesteps the parent's `scale()` (clientWidth ignores transforms),
+    // so the baseline is correct even if the bezel was being auto-fitted
+    // moments before the user grabbed a handle. Previously `rect.width /
+    // zoom` could pull a transient measurement during a zoom transition
+    // and produce a sudden "snap to large size" on the first mousemove.
+    const naturalW = bezel.clientWidth;
+    const naturalH = bezel.clientHeight;
+    const baseW = widgetSize?.w ?? naturalW;
+    const baseH = widgetSize?.h ?? naturalH;
     const handle = e.currentTarget;
     handle.setPointerCapture(e.pointerId);
     resizeStateRef.current = {
@@ -696,8 +715,16 @@ export default function PreviewPane({
     if (!pane) return;
     const dx = (e.clientX - st.startX) / zoom;
     const dy = (e.clientY - st.startY) / zoom;
+    // Wave 54 — cap maxW / maxH to a sane multiple of the pane size in
+    // STAGE pixels. Was `paneRect.width / zoom` which, when zoom is small
+    // (e.g. 0.5 because the bezel was auto-fitted), allowed a maxW of
+    // 2× the pane — combined with the old grid-snap this drove the
+    // "jumps to large size" symptom Alex reported. We now cap at twice
+    // the pane (still generous) so a wild fling can't blow the widget
+    // up unreasonably.
     const paneRect = pane.getBoundingClientRect();
-    const maxW = paneRect.width / zoom;
+    const maxW = Math.max(MIN_W, (paneRect.width / zoom) * 2);
+    const maxH = Math.max(MIN_H, (paneRect.height / zoom) * 4);
     let w = st.baseW;
     let h = st.baseH;
     let ox = st.baseOffsetX;
@@ -726,19 +753,22 @@ export default function PreviewPane({
 
     // Clamp to min/max bounds.
     w = Math.max(MIN_W, Math.min(maxW, w));
-    h = Math.max(MIN_H, h);
+    h = Math.max(MIN_H, Math.min(maxH, h));
 
-    // Snap to grid for cleaner placement.
-    w = snap(w);
-    h = snap(h);
-    ox = snap(ox);
-    oy = snap(oy);
+    // Wave 54 — free 1:1 resize (no grid snap). Was `snap(w)` / `snap(h)`
+    // to a 24-px grid which caused visible step-jumps as the user dragged.
+    // Round to integer pixels for clean DOM values; the alignment-guide
+    // snap (drag only) is the sole snapping behaviour now.
+    w = Math.round(w);
+    h = Math.round(h);
+    ox = Math.round(ox);
+    oy = Math.round(oy);
 
     setWidgetSize({ w, h });
     setWidgetOffset({ x: ox, y: oy });
     // Wave 18 — Canva-level "240 × 120" tooltip while resizing. Track the
     // pointer location so the tooltip can render near the active handle.
-    setResizeDims({ w: Math.round(w), h: Math.round(h), clientX: e.clientX, clientY: e.clientY });
+    setResizeDims({ w, h, clientX: e.clientX, clientY: e.clientY });
   }, [zoom]);
 
   const onResizePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -805,14 +835,48 @@ export default function PreviewPane({
     return clampZoom(fit);
   }, [clampZoom]);
 
-  // BH-1 — Fit button + device-preset switch + initial mount path. Resets
-  // the manual-zoom lock so subsequent container resizes can keep the
-  // mockup fitted.
-  const fitToCanvas = useCallback(() => {
+  // BH-1 — Fit-to-canvas behaviour. Wave 54 — the dedicated Fit button
+  // was repurposed to open the fullscreen modal (the Maximize2 icon now
+  // means "fullscreen preview" per Alex's expectation). Fit is still
+  // available implicitly: the auto-fit ResizeObserver fits on mount,
+  // device-preset switch, and pane resize, and `computeFitZoom` remains
+  // wired so the device-preset effect path can call it. We keep this
+  // helper for the device-preset reset effect below.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _fitToCanvas = useCallback(() => {
     userZoomLockedRef.current = false;
     const next = computeFitZoom();
     if (next != null) setZoom(next);
   }, [computeFitZoom]);
+
+  /* Wave 54 — Fullscreen preview modal.
+   *
+   * The bottom-right 2-arrows-outward button (Maximize2 icon) used to be
+   * wired to fitToCanvas, which Alex described as "does nothing" (the
+   * mockup is usually already fitted by the auto-fit ResizeObserver, so
+   * clicking the button had no visible effect). It now opens a full-
+   * viewport modal showing the calculator at its natural size in a
+   * chrome-less overlay so the owner can preview the customer experience
+   * end-to-end. Click outside (or press Esc) to dismiss.
+   *
+   * Fit-to-canvas remains accessible via the auto-fit Observer (fires on
+   * device-preset switch + pane resize); the dedicated Fit button is
+   * dropped to free a slot in the zoom toolbar. */
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const openFullscreen = useCallback(() => setFullscreenOpen(true), []);
+  const closeFullscreen = useCallback(() => setFullscreenOpen(false), []);
+  // Esc closes the modal. Only attaches when the modal is open.
+  useEffect(() => {
+    if (!fullscreenOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setFullscreenOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreenOpen]);
 
   // Ctrl/⌘ + wheel = zoom (anchored at cursor). Without modifier, scroll
   // passes through to the pane. Pinch on Mac trackpads fires wheel with
@@ -951,8 +1015,13 @@ export default function PreviewPane({
     const pane = paneRef.current;
     if (!pane) return;
     // Initial fit — defer one frame so the bezel has laid out at the
-    // current device preset width.
+    // current device preset width. Wave 54 — also respect the manual-zoom
+    // lock here. Previously this initial RAF fired unconditionally, so
+    // every widgetSize change (interactive resize) re-ran the effect and
+    // triggered a fresh auto-fit that fought the user's gesture (this
+    // was the "widget zooms inside on resize" symptom Alex reported).
     let raf = requestAnimationFrame(() => {
+      if (userZoomLockedRef.current) return;
       const next = computeFitZoom();
       if (next != null) setZoom(next);
     });
@@ -961,6 +1030,7 @@ export default function PreviewPane({
       // Coalesce multiple observer ticks into a single fit per frame.
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
+        if (userZoomLockedRef.current) return;
         const next = computeFitZoom();
         if (next != null) setZoom(next);
       });
@@ -972,10 +1042,14 @@ export default function PreviewPane({
       ro.disconnect();
     };
   // We want this to re-run whenever the device preset changes (so the
-  // observer reattaches to the freshly-mounted bezel) or the widgetSize
-  // override changes (resize handles dragged → natural size shifted).
+  // observer reattaches to the freshly-mounted bezel). widgetSize was
+  // also a dep previously, but a resize gesture changes widgetSize on
+  // every mousemove and that caused the effect to tear down + remount
+  // the observer mid-gesture — wasted work and the source of the auto-
+  // fit interference. Removed; the device-preset switch is sufficient
+  // for re-attaching the observer.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [device, widgetSize, computeFitZoom]);
+  }, [device, computeFitZoom]);
 
   // BH-1 — On device-preset switch, clear the manual-zoom lock so the
   // fresh preset gets auto-fitted regardless of the user's prior zoom.
@@ -1870,16 +1944,19 @@ export default function PreviewPane({
           <ZoomIn size={14} aria-hidden="true" />
         </button>
         <span className="qq-zoom-sep" aria-hidden="true" />
-        {/* BH-1 — Fit button. Re-fits the mockup to the canvas and clears
-         *  the manual-zoom lock so subsequent resizes keep it fitted
-         *  (industry-standard Figma / Webflow / Builder.io behaviour). */}
+        {/* Wave 54 — Fullscreen preview button. Was Fit-to-canvas (silently
+         *  no-op when the widget was already auto-fitted). Now opens a
+         *  full-viewport modal so the owner can preview the calculator at
+         *  natural size with no editor chrome. Esc / backdrop click closes.
+         *  Auto-fit still runs on device-preset switch + pane resize so
+         *  the fit feature isn't lost. */}
         <button
           type="button"
           className="qq-zoom-btn"
-          onClick={fitToCanvas}
-          data-testid="preview-zoom-fit"
-          aria-label="Fit to canvas"
-          title="Fit to canvas"
+          onClick={openFullscreen}
+          data-testid="preview-fullscreen"
+          aria-label="Open fullscreen preview"
+          title="Fullscreen preview"
         >
           <Maximize2 size={14} aria-hidden="true" />
         </button>
@@ -2011,6 +2088,48 @@ export default function PreviewPane({
             </button>
           )}
         </>
+      )}
+
+      {/* Wave 54 — Fullscreen preview modal.
+       *
+       * Mounted only while `fullscreenOpen` is true. The backdrop is a
+       * fixed-position 100vw/100vh overlay; clicking it (outside the
+       * widget shell) closes the modal. A close button in the top-right
+       * provides an explicit dismiss for keyboard / accessibility users.
+       * Esc-to-close is wired in the useEffect above. The QuoteWidget is
+       * rendered at natural size (no transform) so the owner sees the
+       * customer-facing chrome unadorned. */}
+      {fullscreenOpen && (
+        <div
+          className="qq-fullscreen-backdrop"
+          data-testid="preview-fullscreen-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Fullscreen calculator preview"
+          onClick={(e) => {
+            // Click on the backdrop (not on the inner panel) closes.
+            if (e.target === e.currentTarget) closeFullscreen();
+          }}
+        >
+          <button
+            type="button"
+            className="qq-fullscreen-close"
+            data-testid="preview-fullscreen-close"
+            aria-label="Close fullscreen preview"
+            title="Close (Esc)"
+            onClick={closeFullscreen}
+          >
+            <X size={20} aria-hidden="true" />
+          </button>
+          <div className="qq-fullscreen-shell">
+            <QuoteWidget
+              key={`qq-fullscreen-${fullscreenOpen ? 'on' : 'off'}`}
+              calculator={previewCalculatorData}
+              isEmbed
+              hideBrandBadge
+            />
+          </div>
+        </div>
       )}
 
       <style>{`
@@ -2262,25 +2381,23 @@ export default function PreviewPane({
           .qq-flp-bubble-top-left     { top: 14px;    left: 14px; }
         }
 
-        /* BD-3b — selected widget gets a subtle accent outline so the
-         * resize handles read as a coordinated tool. Wave 18 — added a
-         * smoothed transition so the outline animates in/out instead of
-         * snapping. Reduced-motion users get the snap (see @media block). */
+        /* Wave 54 — Canva-thin selection outline. Was 2px solid accent;
+         * dropped to 1px so the selection chrome matches the new subtle
+         * handle styling. No glow, no thick stroke. Reduced-motion users
+         * still skip the transition. */
         .qq-bezel.is-selected {
-          outline: 2px solid ${p.colors.accent};
-          outline-offset: 2px;
+          outline: 1px solid ${p.colors.accent};
+          outline-offset: 1px;
           transition: outline-color 140ms ease-out, outline-offset 140ms ease-out;
         }
-        /* Wave 18 — hover-preview outline. Faint 1px accent outline appears
-         *  when the mouse is over the bezel but no selection. Tells the user
-         *  "click to select" without committing to the heavier 2px frame.
-         *  Suppressed when the user is already mid-drag (the data-dragging
-         *  attribute is set on the pane) because the heavier selection
-         *  outline already kicks in. */
+        /* Hover-preview outline. Faint 1px accent outline appears when the
+         *  mouse is over the bezel but no selection. Tells the user "click
+         *  to select" without committing to the full frame. Suppressed
+         *  during drag (the data-dragging attribute is set on the pane). */
         .qq-preview-pane:not([data-dragging="1"])
           .qq-canvas-stage:hover .qq-bezel:not(.is-selected):not(.is-drop-target) {
-          outline: 1px solid rgba(13, 60, 252, 0.45);
-          outline-offset: 2px;
+          outline: 1px solid rgba(13, 60, 252, 0.35);
+          outline-offset: 1px;
         }
 
         /* BD-3b — drag handle bar at the top of the widget. Always present
@@ -2323,77 +2440,123 @@ export default function PreviewPane({
          * inputs/buttons because they sit behind opacity:0 only when not
          * hovered, and we gate handle pointerdown on the target check). */
 
-        /* BD-3b — resize handles. Eight per selected widget, 12×12px hit
-         * area with an 8×8 visual square centred on the corner/edge. */
+        /* Wave 54 — Canva-style subtle handles.
+         *  Corners: 10×10 white circles, 1px grey border, no inner fill.
+         *  Edges:   8×14 (n/s) or 14×8 (e/w) white pills, 1px grey border.
+         *  No brand-blue fill. Hover: slight grow + slightly darker border.
+         *  Matches Canva / Figma's restrained chrome — selection outline
+         *  drops to 1px so the page still reads as "this is your widget"
+         *  without the heavy 2px accent halo. */
         .qq-widget-resize-handle {
           position: absolute;
-          width: 14px; height: 14px;
           background: #fff;
-          border: 2px solid ${p.colors.accent};
-          border-radius: 3px;
+          border: 1px solid rgba(15, 23, 42, 0.28);
           z-index: 9;
           touch-action: none;
-          box-shadow: 0 1px 3px rgba(15,23,42,0.22);
-        }
-        .qq-widget-resize-handle:hover {
-          background: ${p.colors.accentLighter};
-          /* Wave 18 — small grow-on-hover so the handle reads as live the
-           *  instant the cursor reaches it. Subtle (~14% scale-up) so the
-           *  visual square doesn't drift far from the corner anchor. */
-          transform: scale(1.14);
-        }
-        /* Centre-edge handles already carry a translate(-50%) to sit on the
-         *  edge midpoint; preserve it while also growing. */
-        .qq-widget-resize-handle--n:hover,
-        .qq-widget-resize-handle--s:hover { transform: translateX(-50%) scale(1.14); }
-        .qq-widget-resize-handle--e:hover,
-        .qq-widget-resize-handle--w:hover { transform: translateY(-50%) scale(1.14); }
-        /* Wave 18 — hover-preview state. When the widget is hovered but not
-         *  yet selected, the 8 handles fade in at 45% opacity. Hovering an
-         *  individual handle promotes it to full visibility so the user can
-         *  see the affordance. transition keeps it smooth. */
-        .qq-widget-resize-handle {
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
           opacity: 1;
           transition:
             opacity 120ms ease-out,
             transform 120ms ease-out,
-            background-color 120ms ease-out;
+            border-color 120ms ease-out,
+            box-shadow 120ms ease-out;
         }
+        /* Corner circles. */
+        .qq-widget-resize-handle--nw,
+        .qq-widget-resize-handle--ne,
+        .qq-widget-resize-handle--sw,
+        .qq-widget-resize-handle--se {
+          width: 10px; height: 10px;
+          border-radius: 50%;
+        }
+        /* Top / bottom edge pills (vertical-mid handles). */
+        .qq-widget-resize-handle--n,
+        .qq-widget-resize-handle--s {
+          width: 14px; height: 8px;
+          border-radius: 999px;
+        }
+        /* Left / right edge pills (horizontal-mid handles). */
+        .qq-widget-resize-handle--e,
+        .qq-widget-resize-handle--w {
+          width: 8px; height: 14px;
+          border-radius: 999px;
+        }
+        .qq-widget-resize-handle:hover {
+          border-color: rgba(15, 23, 42, 0.55);
+          box-shadow: 0 2px 4px rgba(15, 23, 42, 0.18);
+          transform: scale(1.18);
+        }
+        /* Centre-edge handles carry a translate(-50%) to sit on the edge
+         *  midpoint; preserve it while also growing. */
+        .qq-widget-resize-handle--n:hover,
+        .qq-widget-resize-handle--s:hover { transform: translateX(-50%) scale(1.18); }
+        .qq-widget-resize-handle--e:hover,
+        .qq-widget-resize-handle--w:hover { transform: translateY(-50%) scale(1.18); }
+        /* Hover-preview state (widget hovered but not yet selected): the
+         *  handles fade in at 50% opacity. Hovering an individual handle
+         *  promotes it to full visibility. */
         .qq-widget-resize-handle.is-preview {
-          opacity: 0.45;
+          opacity: 0.5;
         }
         .qq-widget-resize-handle.is-preview:hover {
           opacity: 1;
         }
-        .qq-widget-resize-handle--nw { top: -7px;    left: -7px;    cursor: nw-resize; }
-        .qq-widget-resize-handle--n  { top: -7px;    left: 50%;     transform: translateX(-50%); cursor: n-resize; }
-        .qq-widget-resize-handle--ne { top: -7px;    right: -7px;   cursor: ne-resize; }
-        .qq-widget-resize-handle--e  { top: 50%;     right: -7px;   transform: translateY(-50%); cursor: e-resize; }
-        .qq-widget-resize-handle--se { bottom: -7px; right: -7px;   cursor: se-resize; }
-        .qq-widget-resize-handle--s  { bottom: -7px; left: 50%;     transform: translateX(-50%); cursor: s-resize; }
-        .qq-widget-resize-handle--sw { bottom: -7px; left: -7px;    cursor: sw-resize; }
-        .qq-widget-resize-handle--w  { top: 50%;     left: -7px;    transform: translateY(-50%); cursor: w-resize; }
+        /* Position handles. Offsets centre the handle on the bezel edge:
+         *  corners use -5px (half of 10px); n/s pills use -4px (half of 8px
+         *  vertical); e/w pills use -4px (half of 8px horizontal). */
+        .qq-widget-resize-handle--nw { top: -5px;    left: -5px;    cursor: nw-resize; }
+        .qq-widget-resize-handle--n  { top: -4px;    left: 50%;     transform: translateX(-50%); cursor: n-resize; }
+        .qq-widget-resize-handle--ne { top: -5px;    right: -5px;   cursor: ne-resize; }
+        .qq-widget-resize-handle--e  { top: 50%;     right: -4px;   transform: translateY(-50%); cursor: e-resize; }
+        .qq-widget-resize-handle--se { bottom: -5px; right: -5px;   cursor: se-resize; }
+        .qq-widget-resize-handle--s  { bottom: -4px; left: 50%;     transform: translateX(-50%); cursor: s-resize; }
+        .qq-widget-resize-handle--sw { bottom: -5px; left: -5px;    cursor: sw-resize; }
+        .qq-widget-resize-handle--w  { top: 50%;     left: -4px;    transform: translateY(-50%); cursor: w-resize; }
 
-        /* BD-3b-fix (2026-05-23) — bigger resize handles on coarse
-         * pointers (phones / tablets) so fingers can grab them
-         * reliably. 24×24 hit area with 3px border, z-index bumped
-         * above the drag-handle bar. Centred-edge handles preserve
-         * their translate() so the visual square stays on the edge. */
+        /* Wave 54 — coarse-pointer (touch) override: bigger HIT area but
+         * keep the visual subtle. Uses a transparent hit-area expansion
+         * via padding + background-clip so finger taps still register on a
+         * 22-24px target without enlarging the visible white circle/pill. */
         @media (max-width: 768px) and (pointer: coarse) {
           .qq-widget-resize-handle {
-            width: 24px;
-            height: 24px;
-            border-width: 3px;
             z-index: 11;
+            /* Expand the hit area by ~6px on each side using padding +
+             * box-sizing trick. Visual size of the white circle/pill
+             * stays as the content box; hit-area = content + padding. */
+            box-sizing: content-box;
           }
-          .qq-widget-resize-handle--nw { top: -12px; left: -12px; }
-          .qq-widget-resize-handle--n  { top: -12px; left: 50%; }
-          .qq-widget-resize-handle--ne { top: -12px; right: -12px; }
-          .qq-widget-resize-handle--e  { top: 50%; right: -12px; }
-          .qq-widget-resize-handle--se { bottom: -12px; right: -12px; }
-          .qq-widget-resize-handle--s  { bottom: -12px; left: 50%; }
-          .qq-widget-resize-handle--sw { bottom: -12px; left: -12px; }
-          .qq-widget-resize-handle--w  { top: 50%; left: -12px; }
+          .qq-widget-resize-handle--nw,
+          .qq-widget-resize-handle--ne,
+          .qq-widget-resize-handle--sw,
+          .qq-widget-resize-handle--se {
+            /* 10px visual circle + 5px padding all around = 20px hit area. */
+            padding: 5px;
+            /* Re-centre the visual circle since hit area grew. */
+            background: #fff content-box;
+            background-clip: content-box;
+          }
+          .qq-widget-resize-handle--n,
+          .qq-widget-resize-handle--s {
+            padding: 6px 4px;
+            background: #fff content-box;
+            background-clip: content-box;
+          }
+          .qq-widget-resize-handle--e,
+          .qq-widget-resize-handle--w {
+            padding: 4px 6px;
+            background: #fff content-box;
+            background-clip: content-box;
+          }
+          /* Re-anchor offsets so the visible center of the handle still
+           * sits on the bezel edge after the padding-driven hit-area grew. */
+          .qq-widget-resize-handle--nw { top: -10px; left: -10px; }
+          .qq-widget-resize-handle--ne { top: -10px; right: -10px; }
+          .qq-widget-resize-handle--sw { bottom: -10px; left: -10px; }
+          .qq-widget-resize-handle--se { bottom: -10px; right: -10px; }
+          .qq-widget-resize-handle--n  { top: -10px; }
+          .qq-widget-resize-handle--s  { bottom: -10px; }
+          .qq-widget-resize-handle--e  { right: -10px; }
+          .qq-widget-resize-handle--w  { left: -10px; }
 
           /* Match drag-handle bar to >=44px tap target standard. */
           .qq-widget-drag-handle {
@@ -2648,6 +2811,65 @@ export default function PreviewPane({
         }
         @media (prefers-reduced-motion: reduce) {
           .qq-preview-anim-wrap > * {
+            animation: none !important;
+          }
+        }
+
+        /* Wave 54 — Fullscreen preview modal. Fixed-position viewport-sized
+         * backdrop with a centred white shell sized to fit the QuoteWidget
+         * at natural width (clamped to viewport). The shell scrolls
+         * internally on tall calculators so the close button stays visible. */
+        .qq-fullscreen-backdrop {
+          position: fixed; inset: 0;
+          z-index: 1400;
+          background: rgba(15, 23, 42, 0.78);
+          display: flex; align-items: center; justify-content: center;
+          padding: 24px;
+          box-sizing: border-box;
+          animation: qq-fullscreen-fade-in 160ms ease-out;
+        }
+        @keyframes qq-fullscreen-fade-in {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        .qq-fullscreen-close {
+          position: absolute;
+          top: 16px; right: 16px;
+          width: 40px; height: 40px;
+          display: inline-flex; align-items: center; justify-content: center;
+          background: rgba(255, 255, 255, 0.92);
+          color: ${p.colors.heading};
+          border: 1px solid ${p.colors.border};
+          border-radius: 999px;
+          cursor: pointer;
+          box-shadow: 0 6px 18px rgba(15, 23, 42, 0.30);
+          transition: background 0.12s ease, color 0.12s ease;
+          z-index: 1;
+        }
+        .qq-fullscreen-close:hover {
+          background: #fff;
+          color: ${p.colors.accent};
+        }
+        .qq-fullscreen-close:focus-visible {
+          outline: 2px solid ${p.colors.accent};
+          outline-offset: 2px;
+        }
+        .qq-fullscreen-shell {
+          width: min(100%, 1280px);
+          max-height: calc(100vh - 48px);
+          overflow: auto;
+          background: #fff;
+          border-radius: 12px;
+          box-shadow: 0 28px 64px rgba(15, 23, 42, 0.40);
+          animation: qq-fullscreen-shell-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @keyframes qq-fullscreen-shell-in {
+          from { transform: scale(0.96); opacity: 0; }
+          to   { transform: scale(1);    opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-fullscreen-backdrop,
+          .qq-fullscreen-shell {
             animation: none !important;
           }
         }
