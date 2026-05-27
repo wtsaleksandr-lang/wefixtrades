@@ -9,8 +9,11 @@
  *
  * Behaviour
  * ─────────
- *   • While loading or on error, every advanced section is treated as
- *     HIDDEN (returns false). The Tesla rule: Simple by default, always.
+ *   • Wave 43 — Advanced is now the default. While loading or on error,
+ *     every advanced section is treated as VISIBLE (returns true). The
+ *     prior Tesla rule ("Simple by default") buried every KPI/chart/inbox
+ *     and the user could not see tonight's UI work without flipping a
+ *     toggle. The new floor is Advanced; Simple is opt-in.
  *   • The hook is cheap to mount in many components — TanStack Query
  *     dedupes the request under a single queryKey.
  *
@@ -74,23 +77,26 @@ export function useDisplayPreferences() {
 
   /**
    * Predicate used by the `<AdvancedOnly>` wrapper (legacy form). Both the
-   * global mode AND the product-specific toggle must be true. Returns false
-   * while loading — Simple-by-default is the safer fallback.
+   * global mode AND the product-specific toggle must be true. Wave 43:
+   * returns TRUE while loading / on error — Advanced-by-default is the
+   * new floor so dashboards never render half-empty during a slow prefs
+   * fetch or 401 fallback.
    */
   function isAdvanced(productKey: AdvancedProductKey): boolean {
-    if (isLoading || error) return false;
+    if (isLoading || error) return true;
     return isAdvancedVisible(prefs, productKey);
   }
 
   /**
    * Wave 36.5 — full resolver. Per-element override wins; otherwise falls
-   * back to the product/mode check.
+   * back to the product/mode check. Wave 43: returns TRUE while loading
+   * (Advanced-by-default floor).
    */
   function isVisible(
     productKey: AdvancedProductKey,
     elementId?: DisplayElementId,
   ): boolean {
-    if (isLoading || error) return false;
+    if (isLoading || error) return true;
     return isElementVisible(prefs, productKey, elementId);
   }
 

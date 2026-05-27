@@ -742,7 +742,10 @@ function StatCard({
 
 /* ─── Wave 36 — Tesla simplification migration banner ─────────────────── */
 
-const SIMPLIFIED_BANNER_KEY = "portal-simplified-dashboard-banner-v1";
+/* Wave 43 — banner key bumped to v2 so users who dismissed the v1 "we
+ * simplified your dashboard" message get the new "we flipped the default
+ * to Advanced" message once. */
+const SIMPLIFIED_BANNER_KEY = "portal-simplified-dashboard-banner-v2";
 
 function SimplifiedDashboardBanner() {
   const [dismissed, setDismissed] = useState<boolean>(() => {
@@ -760,14 +763,13 @@ function SimplifiedDashboardBanner() {
       data-testid="simplified-dashboard-banner"
     >
       <div className="flex-1">
-        <p className="font-medium">We simplified your dashboard.</p>
+        <p className="font-medium">We've flipped the default to Advanced.</p>
         <p className="mt-0.5 text-blue-900/80">
-          Ask the AI Copilot anything — it runs your dashboard, your settings, and your actions.
-          Want the deeper analytics? Enable advanced features in{" "}
+          Every gauge, chart, and inbox is now visible by default. Toggle Simple Mode in{" "}
           <Link href="/portal/settings?tab=display" className="underline font-medium">
             Settings → Display
           </Link>{" "}
-          anytime.
+          if you want a stripped-down view.
         </p>
       </div>
       <button

@@ -12,8 +12,11 @@
  *
  * Defaults
  * ────────
- *   • mode: "simple"
- *   • all per-product advanced toggles: false
+ *   • mode: "advanced"  (Wave 43 — flipped from "simple"; Wave 36 Tesla
+ *     default was inverted and buried every KPI/chart/inbox behind an
+ *     opt-out toggle. Advanced is now the floor; Simple is opt-in.)
+ *   • all per-product advanced toggles: true  (so flipping to Advanced
+ *     surfaces every product's deep section by default — no second click)
  *   • admin-only verbose toggles: false
  *   • element_overrides: {} (no element-level opt-ins by default)
  *
@@ -74,17 +77,20 @@ export type DisplayPreferences = {
 };
 
 export const DEFAULT_DISPLAY_PREFERENCES: DisplayPreferences = {
-  mode: "simple",
-  portal_show_advanced: false,
-  contentflow_show_advanced: false,
-  rankflow_show_advanced: false,
-  socialsync_show_advanced: false,
-  tradeline_show_advanced: false,
-  mapguard_show_advanced: false,
-  reputationshield_show_advanced: false,
-  quotequick_show_advanced: false,
-  adflow_show_advanced: false,
-  webcare_show_advanced: false,
+  // Wave 43 — flipped to "advanced" with every per-product toggle on so a
+  // fresh user lands on the portal seeing every gauge/chart/inbox. Simple
+  // mode is now opt-in via Settings → Display.
+  mode: "advanced",
+  portal_show_advanced: true,
+  contentflow_show_advanced: true,
+  rankflow_show_advanced: true,
+  socialsync_show_advanced: true,
+  tradeline_show_advanced: true,
+  mapguard_show_advanced: true,
+  reputationshield_show_advanced: true,
+  quotequick_show_advanced: true,
+  adflow_show_advanced: true,
+  webcare_show_advanced: true,
   admin_show_debug: false,
   admin_show_raw_ids: false,
   element_overrides: {},

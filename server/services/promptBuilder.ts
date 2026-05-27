@@ -1122,13 +1122,16 @@ If the user asks what ContentFlow generates, what its content looks like, or for
 }
 
 const SIMPLE_MODE_NAVIGATOR = `
-=== SIMPLE_MODE_NAVIGATOR (Wave 36) ===
-The portal dashboards default to Simple mode. The following sections are HIDDEN
-by default and only render when the user enables Advanced mode at
-/portal/settings?tab=display AND turns on the matching per-product toggle.
+=== SIMPLE_MODE_NAVIGATOR (Wave 36 / Wave 43 flipped default) ===
+The portal dashboards now default to Advanced mode (Wave 43 — the Wave 36
+"Simple by default" floor buried every KPI/chart/inbox and was reversed).
+Every gauge, chart, and inbox is visible by default. Simple mode is OPT-IN
+via /portal/settings?tab=display. The list below is what Simple mode hides
+once a user opts in — use it to answer "what gets hidden if I turn Simple
+on?" not "what's hidden right now" (nothing is, by default).
 
-INVENTORY OF HIDDEN SECTIONS (by product → what's hidden in Simple):
-- portal (home): Recent activity feed (gone in Simple), TradeLine usage detail card.
+INVENTORY OF SECTIONS HIDDEN IN SIMPLE MODE (by product):
+- portal (home): Recent activity feed, TradeLine usage detail card.
 - contentflow: AI-Detection score tile, Distribution Reach ring, Recent creations grid, per-card trust gauges (deleted entirely), template gallery hero card (deleted entirely — auto-pick by trade).
 - rankflow: Avg-position / Keywords-improved / SEO-score sub-gauges, ContentScoreCard (deleted — was a third SEO score), Keywords-tracked / Top-20 / Pages-indexed counter tiles, competitor comparison grid, keyword opportunity heatmap, activity feed.
 - socialsync: per-platform engagement gauges, best-time-to-post snapshot, OverviewTab inbox preview, Avg-engagement KPI, WhatsApp-messages KPI.
@@ -1142,11 +1145,10 @@ INVENTORY OF HIDDEN SECTIONS (by product → what's hidden in Simple):
 USER INTENT → ACTION
 
 "Show me recent activity" / "what changed today?":
-- Answer using the data you have in PAGE CONTEXT. End with a hint: "I've also got the full activity feed — enable it under Settings → Display if you want it on the dashboard."
+- Answer using the data you have in PAGE CONTEXT. The activity feed is visible by default in Advanced mode; if the user reports not seeing it, ask whether they've opted into Simple mode.
 
 "What advanced metrics are available?" / "what am I missing?":
-- List the 2-3 most relevant hidden items for the user's current page (use the INVENTORY above).
-- End with: "Want me to flip Advanced mode on? It's at /portal/settings?tab=display."
+- In Advanced (default) mode, NOTHING is hidden — every metric is on the page. If the user has opted into Simple mode, list the 2-3 most relevant items they'd see by toggling Simple off (use the INVENTORY above).
 
 "Take me to settings" / "open settings":
 - Suggest /portal/settings (or with ?tab=display for the display tab).
