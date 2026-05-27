@@ -4449,10 +4449,14 @@ function TrustBadgesGroup({
               className="qq-trust-badge-row"
               data-testid={`style-trust-badge-row-${i}`}
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 0.9fr) auto auto auto',
+                // Wave 56 — stack label above icon+controls. Was a single
+                // 5-column grid that squeezed the label to ~40% of the row
+                // width, truncating "Eco-Friendly Solutions" etc. Two rows
+                // give the label the full card width and demote the icon
+                // picker (secondary metadata) to row 2.
+                display: 'flex',
+                flexDirection: 'column',
                 gap: 6,
-                alignItems: 'center',
                 padding: 6,
                 background: '#fff',
                 border: `1px solid ${platformTheme.colors.borderLight}`,
@@ -4471,55 +4475,65 @@ function TrustBadgesGroup({
                 // instead of overlaying.
                 expansionMode="inline"
               />
-              {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; up to 8 of
-                  these render simultaneously on a single Trust badges panel,
-                  so the OS-sheet-covers-wizard bug was amplified here. */}
-              <StyledSelect
-                value={badge.icon}
-                onChange={(next) => update(i, { icon: next as TrustBadge['icon'] })}
-                options={TRUST_ICON_OPTIONS.map((o) => ({
-                  value: o.id,
-                  label: o.label,
-                  icon: <o.Icon size={14} aria-hidden="true" />,
-                }))}
-                title="Badge icon"
-                ariaLabel={`Badge icon for row ${i + 1}`}
-                disabled={!canEdit}
-                testId={`style-trust-badge-icon-${i}`}
-              />
-              <button
-                type="button"
-                aria-label={`Move badge ${i + 1} up`}
-                data-testid={`style-trust-badge-up-${i}`}
-                onClick={() => move(i, -1)}
-                disabled={!canEdit || i === 0}
-                style={trustBadgeIconBtn(canEdit && i > 0)}
-              >
-                <ChevronUp size={13} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label={`Move badge ${i + 1} down`}
-                data-testid={`style-trust-badge-down-${i}`}
-                onClick={() => move(i, 1)}
-                disabled={!canEdit || i === list.length - 1}
-                style={trustBadgeIconBtn(canEdit && i < list.length - 1)}
-              >
-                <ChevronDown size={13} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label={`Remove badge ${i + 1}`}
-                data-testid={`style-trust-badge-remove-${i}`}
-                onClick={() => remove(i)}
-                disabled={!canEdit}
+              <div
                 style={{
-                  ...trustBadgeIconBtn(canEdit),
-                  color: canEdit ? platformTheme.colors.danger : platformTheme.colors.muted,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
               >
-                <XIcon size={13} aria-hidden="true" />
-              </button>
+                {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; up to 8 of
+                    these render simultaneously on a single Trust badges panel,
+                    so the OS-sheet-covers-wizard bug was amplified here. */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <StyledSelect
+                    value={badge.icon}
+                    onChange={(next) => update(i, { icon: next as TrustBadge['icon'] })}
+                    options={TRUST_ICON_OPTIONS.map((o) => ({
+                      value: o.id,
+                      label: o.label,
+                      icon: <o.Icon size={14} aria-hidden="true" />,
+                    }))}
+                    title="Badge icon"
+                    ariaLabel={`Badge icon for row ${i + 1}`}
+                    disabled={!canEdit}
+                    testId={`style-trust-badge-icon-${i}`}
+                  />
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Move badge ${i + 1} up`}
+                  data-testid={`style-trust-badge-up-${i}`}
+                  onClick={() => move(i, -1)}
+                  disabled={!canEdit || i === 0}
+                  style={trustBadgeIconBtn(canEdit && i > 0)}
+                >
+                  <ChevronUp size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move badge ${i + 1} down`}
+                  data-testid={`style-trust-badge-down-${i}`}
+                  onClick={() => move(i, 1)}
+                  disabled={!canEdit || i === list.length - 1}
+                  style={trustBadgeIconBtn(canEdit && i < list.length - 1)}
+                >
+                  <ChevronDown size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove badge ${i + 1}`}
+                  data-testid={`style-trust-badge-remove-${i}`}
+                  onClick={() => remove(i)}
+                  disabled={!canEdit}
+                  style={{
+                    ...trustBadgeIconBtn(canEdit),
+                    color: canEdit ? platformTheme.colors.danger : platformTheme.colors.muted,
+                  }}
+                >
+                  <XIcon size={13} aria-hidden="true" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
