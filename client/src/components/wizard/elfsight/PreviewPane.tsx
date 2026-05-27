@@ -3102,6 +3102,19 @@ function DropZonesOverlay({ fields, containerRef, onAddField }: DropZonesOverlay
       )}
 
       <style>{`
+        /* Wave 59 — widen the inter-row lane inside the wizard preview so
+         * the 28px "+" drop-zone button has its own clean gutter and does
+         * not overlap the field text above/below. The customer-facing
+         * calculator grid uses gap:12px (set inline by AdvancedCalculator
+         * via its dynamic per-instance .qq-widget-<id>-fields class) which
+         * is smaller than the button + bar. Targeting the grid by its
+         * inherent relationship — the direct parent of
+         * [data-component-type="fields-section"], which is the
+         * FlipCard-rendered grid — keeps this override scoped to wizard
+         * preview only; the published widget keeps its tight 12px gap. */
+        .qq-preview-pane :is([data-testid^="preview-bezel"]) div:has(> [data-component-type="fields-section"]) {
+          row-gap: 32px;
+        }
         .qq-preview-dropzones {
           position: absolute; inset: 0;
           pointer-events: none;
