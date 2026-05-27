@@ -24,7 +24,7 @@ import { createLogger } from "../lib/logger";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { queueEmail } from "../services/emailQueueService";
-import { fetchMozCast, type MozBand, type MozCastDay } from "../routes/freeToolsRoutes";
+import { fetchAlgoTemperature, type MozBand, type MozCastDay } from "../routes/freeToolsRoutes";
 
 const log = createLogger("rankflux-alert");
 
@@ -101,9 +101,14 @@ function renderEmail(today: MozCastDay, days: MozCastDay[], headline: string): s
 }
 
 export async function runRankfluxAlertTick(): Promise<{ urgentSent: number; dailySent: number; weeklySent: number; skipped: number }> {
-  const days = await fetchMozCast();
-  if (!days || days.length === 0) {
-    log.info("rankflux_alert skipped — no MozCast data");
+  // Wave 17: skip the tick when the upstream MozCast HTML scrape is
+  // unavailable. We don't want to false-positive an "URGENT spike" email
+  // on missing-data days, and we don't want a fallback Semrush iframe
+  // value driving alert thresholds (the iframe is a visual fallback only,
+  // we don't read a numeric score out of it).
+  const { days, source } = await fetchAlgoTemperature();
+  if (source === "semrush-embed" || source === "unavailable" || !days || days.length === 0) {
+    log.info("rankflux_alert skipped — no MozCast data", { source });
     return { urgentSent: 0, dailySent: 0, weeklySent: 0, skipped: 0 };
   }
   const today = days[days.length - 1];
