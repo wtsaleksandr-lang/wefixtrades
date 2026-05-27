@@ -37,7 +37,7 @@ export function BudgetStep({ state, setState }: WizardRenderContext) {
         <DollarSign className="h-3 w-3" aria-hidden="true" />
         We'll recommend a platform mix and creative cadence based on your monthly spend.
       </p>
-      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {BUDGET_TIERS.map((t) => {
           const active = tier === t.id;
           return (

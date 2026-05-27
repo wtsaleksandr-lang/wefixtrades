@@ -45,7 +45,7 @@ function BrandVoiceStep({ state, setState }: WizardRenderContext) {
       <p className="text-[11px] text-muted-foreground">
         Pick the voice we'll use when drafting posts. You can change this any time.
       </p>
-      <div className="grid gap-1.5 sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-2">
         {TONES.map((t) => {
           const active = tone === t.id;
           return (
