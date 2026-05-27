@@ -14,7 +14,7 @@
  *   with a slight spring, paired with opacity fade.
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowUp, ArrowRight } from "lucide-react";
 import { mkt } from "@/theme/tokens";
@@ -36,6 +36,20 @@ export default function MarketingStickyBar() {
   const innerRef = useRef<HTMLDivElement>(null);
 
   const goTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  /* Wave 50 — publish the sticky-bar height as a CSS variable so the chat
+   * bubble (SiteChatWidget) can lift above the bar on mobile and glide
+   * back down when the bar hides. 62px ≈ rendered bar height (~44px) +
+   * the bottom: 18 offset. */
+  useEffect(() => {
+    const root = document.documentElement;
+    if (visible) {
+      root.style.setProperty('--mkt-sticky-bar-h', '62px');
+    } else {
+      root.style.setProperty('--mkt-sticky-bar-h', '0px');
+    }
+    return () => { root.style.setProperty('--mkt-sticky-bar-h', '0px'); };
+  }, [visible]);
 
   return (
     <div
@@ -104,20 +118,25 @@ export default function MarketingStickyBar() {
 
         {/* Menu — same component the top nav uses, so dropdowns render
             with the identical card grid. placement="above" floats the
-            panel up from the bar instead of dropping down off-screen. */}
-        <Menu active={active} setActive={setActive} containerRef={innerRef}>
-          {STICKY_LINKS.map(({ label, href, children }) => (
-            <MenuItem
-              key={href}
-              setActive={setActive}
-              active={active}
-              item={label}
-              href={href}
-              children={children}
-              placement="above"
-            />
-          ))}
-        </Menu>
+            panel up from the bar instead of dropping down off-screen.
+            Wave 50: wrapper hides the 4 dropdowns on ≤480px so the bar
+            fits (CTA + scroll-to-top) on 390px phones. The links remain
+            reachable via the top nav. */}
+        <div className="mkt-sticky-menu-wrap">
+          <Menu active={active} setActive={setActive} containerRef={innerRef}>
+            {STICKY_LINKS.map(({ label, href, children }) => (
+              <MenuItem
+                key={href}
+                setActive={setActive}
+                active={active}
+                item={label}
+                href={href}
+                children={children}
+                placement="above"
+              />
+            ))}
+          </Menu>
+        </div>
 
         {/* Primary CTA — cream/off-white per DOSS pattern. Color comes
          * from mkt.buttonBg/Text which were re-aliased to the cream
@@ -152,6 +171,11 @@ export default function MarketingStickyBar() {
           Start Free <ArrowRight size={12} strokeWidth={2.4} />
         </Link>
       </div>
+      <style>{`
+        @media (max-width: 480px) {
+          .mkt-sticky-menu-wrap { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
