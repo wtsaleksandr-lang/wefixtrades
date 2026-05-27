@@ -918,7 +918,7 @@ function SupplierFormDialog({
               <label className="text-xs font-medium text-muted-foreground">Contact Email *</label>
               <Input type="email" value={form.contact_email} onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))} placeholder="supplier@example.com" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Contact Name</label>
                 <Input value={form.contact_name} onChange={(e) => setForm((f) => ({ ...f, contact_name: e.target.value }))} />
@@ -928,7 +928,7 @@ function SupplierFormDialog({
                 <Input value={form.contact_phone} onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Category</label>
                 <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
@@ -955,7 +955,7 @@ function SupplierFormDialog({
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Cost Rate ($)</label>
                 <Input
@@ -1058,7 +1058,7 @@ function SupplierFormDialog({
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Avg turnaround (days)</label>
                   <Input
@@ -1083,7 +1083,7 @@ function SupplierFormDialog({
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">External completed jobs</label>
                   <Input

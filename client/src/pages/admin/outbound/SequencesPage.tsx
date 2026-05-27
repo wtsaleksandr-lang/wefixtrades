@@ -148,7 +148,7 @@ function CreateSequenceDialog({ open, onClose }: { open: boolean; onClose: () =>
           <FieldRow label="Sequence name" tooltip="Internal label — not sent to recipients.">
             <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Q3 Plumbers — Toronto warm intro" />
           </FieldRow>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldRow label="Trade filter" tooltip="Optional — restrict this sequence to one trade.">
               <Input value={form.trade_filter} onChange={(e) => setForm((f) => ({ ...f, trade_filter: e.target.value }))} placeholder="plumber" />
             </FieldRow>
@@ -156,7 +156,7 @@ function CreateSequenceDialog({ open, onClose }: { open: boolean; onClose: () =>
               <Input value={form.region_filter} onChange={(e) => setForm((f) => ({ ...f, region_filter: e.target.value }))} placeholder="Toronto, ON" />
             </FieldRow>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldRow label="Tone" tooltip="Used by AI personalization (when enabled).">
               <Select value={form.tone} onValueChange={(v) => setForm((f) => ({ ...f, tone: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
