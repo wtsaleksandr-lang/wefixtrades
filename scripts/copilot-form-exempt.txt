@@ -68,6 +68,10 @@ client/src/pages/portal/PortalHelp.tsx
 client/src/pages/portal/PortalRankFlow.tsx
 client/src/pages/portal/PortalServices.tsx
 client/src/pages/portal/PortalSocialSync.tsx
+# Wave 43 — SiteLaunch / WebFix entry pages: redirect-to-detail with an
+# empty-state CTA; no fillable form to surface to the copilot.
+client/src/pages/portal/SiteLaunchEntry.tsx
+client/src/pages/portal/WebFixEntry.tsx
 
 # ── Portal: TradeLine setup wizard — button-driven choices, not a form ──
 client/src/pages/portal/TradelineSetup/BellDeviceSettings.tsx

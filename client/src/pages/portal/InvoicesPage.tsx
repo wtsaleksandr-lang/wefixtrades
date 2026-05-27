@@ -97,7 +97,10 @@ export default function InvoicesPage() {
     return qs ? `?${qs}` : "";
   }, [statusFilter, search, range, sort]);
 
-  const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
+  // Wave 43 — the server returns an array of Invoice rows; coerce
+  // defensively so a stray `{error: ...}` (or any non-array payload) can
+  // never crash the subsequent `.filter` / `.map` / `.reduce` calls below.
+  const { data: rawInvoicesData, isLoading, error: invoicesError } = useQuery<Invoice[] | unknown>({
     queryKey: ["/api/portal/bookflow/invoices", statusFilter, search, range, sort],
     queryFn: async () => {
       const res = await fetch(`/api/portal/bookflow/invoices${queryString}`, { credentials: "include" });
@@ -105,6 +108,7 @@ export default function InvoicesPage() {
       return res.json();
     },
   });
+  const invoices: Invoice[] = Array.isArray(rawInvoicesData) ? (rawInvoicesData as Invoice[]) : [];
 
   const sendInvoice = useMutation({
     mutationFn: async (id: number) => {
@@ -146,8 +150,8 @@ export default function InvoicesPage() {
   });
 
   const totalOutstanding = invoices
-    .filter((i) => !["paid", "cancelled"].includes(i.status))
-    .reduce((sum, i) => sum + i.total_cents, 0);
+    .filter((i) => i && !["paid", "cancelled"].includes(i.status))
+    .reduce((sum, i) => sum + (typeof i.total_cents === "number" ? i.total_cents : 0), 0);
 
   return (
     <PortalLayout breadcrumb="Invoices">
@@ -281,8 +285,27 @@ export default function InvoicesPage() {
         </p>
       )}
 
+      {/* Error state — keeps the page rendered (header, filters, New
+       *  Invoice button still work) so the user has a way back. */}
+      {!isLoading && invoicesError && (
+        <div
+          data-testid="invoices-load-error"
+          style={{
+            textAlign: "center",
+            padding: "32px 20px",
+            background: "#fef2f2",
+            borderRadius: 12,
+            border: "1px solid #fecaca",
+            color: "#991b1b",
+            fontSize: 13,
+          }}
+        >
+          Couldn't load your invoices. Refresh in a moment — your data is safe.
+        </div>
+      )}
+
       {/* Empty state */}
-      {!isLoading && invoices.length === 0 && (
+      {!isLoading && !invoicesError && invoices.length === 0 && (
         <div style={{
           textAlign: "center",
           padding: "48px 20px",

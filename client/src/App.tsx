@@ -264,6 +264,10 @@ const InvoiceDetailPage = lazy(() => import("@/pages/portal/InvoiceDetailPage"))
 const PaymentMethodsPage = lazy(() => import("@/pages/portal/PaymentMethodsPage"));
 const BookFlowSetupPage = lazy(() => import("@/pages/portal/BookFlowSetupPage"));
 const PortalCatalog = lazy(() => import("@/pages/portal/PortalCatalog"));
+/* Wave 43 — SiteLaunch + WebFix entry pages. Without these routes the
+ *  sidebar links fell through to the nearest match (usually settings). */
+const SiteLaunchEntry = lazy(() => import("@/pages/portal/SiteLaunchEntry"));
+const WebFixEntry = lazy(() => import("@/pages/portal/WebFixEntry"));
 const PortalApiAccessPage = lazy(() => import("@/pages/portal/PortalApiAccessPage"));
 const PortalBrandKitsPage = lazy(() => import("@/pages/portal/PortalBrandKitsPage"));
 const FreeToolsIndex = lazy(() => import("@/pages/portal/FreeTools"));
@@ -489,6 +493,11 @@ function Router() {
       <Route path="/portal/citation-builder">{() => <RequireClient><CitationBuilderDashboard /></RequireClient>}</Route>
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
       <Route path="/portal/catalog">{() => <RequireClient><PortalCatalog /></RequireClient>}</Route>
+      {/* Wave 43 — SiteLaunch / WebFix entry routes. The shared sidebar
+       *  links these for any client with a matching subscription; without
+       *  the routes the click fell through to the nearest match. */}
+      <Route path="/portal/sitelaunch">{() => <RequireClient><SiteLaunchEntry /></RequireClient>}</Route>
+      <Route path="/portal/webfix">{() => <RequireClient><WebFixEntry /></RequireClient>}</Route>
       <Route path="/portal/reviews/widget">{() => <RequireClient><PortalWidget /></RequireClient>}</Route>
       <Route path="/portal/reviews/setup">{() => <RequireClient><PortalReviewsSetup /></RequireClient>}</Route>
       <Route path="/portal/reviews/competitors">{() => <RequireClient><PortalCompetitors /></RequireClient>}</Route>

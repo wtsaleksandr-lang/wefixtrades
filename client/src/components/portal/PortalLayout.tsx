@@ -27,6 +27,8 @@ import {
   Gift,
   FileCode2,
   Image as ImageIcon,
+  Layout as LayoutIcon,
+  Hammer,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
@@ -123,6 +125,13 @@ function buildNavItems(active: Set<string>): NavItem[] {
     { label: "Content Style", href: "/portal/content-preferences", icon: Sparkles, indent: true },
     { label: "Content Examples", href: "/portal/contentflow/examples", icon: ImageIcon, indent: true },
     { label: "MapGuard", href: "/portal/mapguard", icon: MapPin, requires: "mapguard" },
+    /* Wave 43 — SiteLaunch + WebFix product tabs. Service-gated like
+       every other product entry. Without these the only way for a
+       sitelaunch/webfix subscriber to reach their project was via the
+       Services list, and the marketing catalog correctly reported
+       "subscribed to every service" — but the sidebar didn't show it. */
+    { label: "SiteLaunch", href: "/portal/sitelaunch", icon: LayoutIcon, requires: "sitelaunch" },
+    { label: "WebFix", href: "/portal/webfix", icon: Hammer, requires: "webfix" },
     /* Wave 36 — AI Insights nav entry removed. The Action Stack is now inline
        on /portal and every product dashboard; the standalone page redirects
        there. Discovery is now via the AI Copilot. */

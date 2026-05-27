@@ -63,7 +63,7 @@ export default function CallbackForm() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data } = useQuery<CallbackConfigResp>({
+  const { data, isLoading: configLoading, error: configError } = useQuery<CallbackConfigResp>({
     queryKey: ["/api/portal/free-tools/callback"],
     queryFn: async () => {
       const r = await fetch("/api/portal/free-tools/callback", { credentials: "include" });
@@ -83,20 +83,33 @@ export default function CallbackForm() {
     },
   });
 
+  // Wave 43 — safe defaults must match the CallbackFields shape exactly.
+  // The earlier `setFields(data.fields_json)` blindly trusted the server
+  // payload; if `fields_json` was null (older rows pre-migration) the
+  // subsequent `fields[key]` reads crashed the page.
+  const DEFAULT_FIELDS: CallbackFields = { name: true, phone: true, message: true, best_time: true };
+
   const [enabled, setEnabled] = useState(true);
   const [heading, setHeading] = useState("Request a callback");
   const [ctaLabel, setCtaLabel] = useState("Send request");
-  const [fields, setFields] = useState<CallbackFields>({ name: true, phone: true, message: true, best_time: true });
+  const [fields, setFields] = useState<CallbackFields>(DEFAULT_FIELDS);
   const [mode, setMode] = useState<Mode>("inline");
   const [previewKey, setPreviewKey] = useState(0);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!data) return;
-    setEnabled(data.enabled);
-    setHeading(data.heading);
-    setCtaLabel(data.cta_label);
-    setFields(data.fields_json);
+    setEnabled(Boolean(data.enabled));
+    setHeading(typeof data.heading === "string" ? data.heading : "Request a callback");
+    setCtaLabel(typeof data.cta_label === "string" ? data.cta_label : "Send request");
+    // Defensive merge — `fields_json` can be null/partial on older rows.
+    const raw = (data.fields_json ?? {}) as Partial<CallbackFields>;
+    setFields({
+      name: typeof raw.name === "boolean" ? raw.name : DEFAULT_FIELDS.name,
+      phone: typeof raw.phone === "boolean" ? raw.phone : DEFAULT_FIELDS.phone,
+      message: typeof raw.message === "boolean" ? raw.message : DEFAULT_FIELDS.message,
+      best_time: typeof raw.best_time === "boolean" ? raw.best_time : DEFAULT_FIELDS.best_time,
+    });
   }, [data]);
 
   useCopilotForm({
@@ -176,10 +189,14 @@ export default function CallbackForm() {
   };
 
   const showUpsell = useMemo(() => {
-    const count = leadsQuery.data?.items.filter((l) => {
-      const ageDays = (Date.now() - new Date(l.created_at).getTime()) / 86_400_000;
+    const items = Array.isArray(leadsQuery.data?.items) ? leadsQuery.data.items : [];
+    const count = items.filter((l) => {
+      if (!l?.created_at) return false;
+      const ts = new Date(l.created_at).getTime();
+      if (!Number.isFinite(ts)) return false;
+      const ageDays = (Date.now() - ts) / 86_400_000;
       return ageDays <= 7;
-    }).length ?? 0;
+    }).length;
     return count >= 5;
   }, [leadsQuery.data]);
 
@@ -205,6 +222,17 @@ export default function CallbackForm() {
             rate-limit). Replies land in your inbox below.
           </p>
         </header>
+
+        {configLoading && !data && (
+          <div className="bg-white border border-gray-200 rounded-xl p-4 text-xs text-gray-500" data-testid="callback-config-loading">
+            Loading your callback widget settings…
+          </div>
+        )}
+        {configError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs text-red-700" data-testid="callback-config-error">
+            Couldn't load your widget settings. Refresh the page in a moment — your previous settings are safe.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Editor */}
@@ -302,7 +330,9 @@ export default function CallbackForm() {
                 />
                 {leadsQuery.isLoading ? (
                   <p className="text-xs text-gray-500">Loading…</p>
-                ) : !leadsQuery.data?.items.length ? (
+                ) : leadsQuery.error ? (
+                  <p className="text-xs text-gray-500">Couldn't load callbacks. Refresh in a moment.</p>
+                ) : !Array.isArray(leadsQuery.data?.items) || leadsQuery.data.items.length === 0 ? (
                   <p className="text-xs text-gray-500">No callbacks in this view yet.</p>
                 ) : (
                   <ul className="divide-y divide-gray-100">
