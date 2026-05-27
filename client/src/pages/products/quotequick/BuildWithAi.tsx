@@ -27,11 +27,82 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors } from "@/theme/tokens";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
-import { UploadCloud, Sparkles, Clock, ShieldCheck, AlertTriangle } from "lucide-react";
+import {
+  UploadCloud,
+  Sparkles,
+  Clock,
+  ShieldCheck,
+  AlertTriangle,
+  FileText,
+  FileSpreadsheet,
+  Mail,
+  Image as ImageIcon,
+} from "lucide-react";
 
 const BASE = "https://wefixtrades.com";
-const MAX_BYTES = 3 * 1024 * 1024;
-const ACCEPTED = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+
+/* Wave 64 — multi-format upload. Per-MIME size caps match the server
+ *  (server/routes/aiDemoRoutes.ts).  Images: 3 MB · PDFs: 10 MB ·
+ *  Excel: 5 MB · text/email: 1 MB. */
+const MAX_BYTES_IMAGE = 3 * 1024 * 1024;
+const MAX_BYTES_PDF = 10 * 1024 * 1024;
+const MAX_BYTES_EXCEL = 5 * 1024 * 1024;
+const MAX_BYTES_TEXT = 1 * 1024 * 1024;
+
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+const PDF_TYPES = ["application/pdf"];
+const EXCEL_TYPES = [
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+];
+const TEXT_TYPES = ["text/plain", "message/rfc822"];
+const ACCEPTED = [...IMAGE_TYPES, ...PDF_TYPES, ...EXCEL_TYPES, ...TEXT_TYPES];
+
+/** Native <input accept> string — mixes MIME types and extensions because
+ *  browsers don't reliably know the MIME for .eml / .xls picked from disk. */
+const ACCEPT_ATTR =
+  "image/png,image/jpeg,image/webp,application/pdf," +
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
+  "application/vnd.ms-excel,.xlsx,.xls," +
+  "text/plain,message/rfc822,.eml,.txt";
+
+type FileKind = "image" | "pdf" | "excel" | "email" | null;
+
+function classifyFile(file: File | null): FileKind {
+  if (!file) return null;
+  const t = (file.type || "").toLowerCase();
+  if (IMAGE_TYPES.includes(t)) return "image";
+  if (PDF_TYPES.includes(t)) return "pdf";
+  if (EXCEL_TYPES.includes(t)) return "excel";
+  if (TEXT_TYPES.includes(t)) return "email";
+  // Fall back to extension if the browser didn't set a useful MIME (common
+  // for .eml + older .xls). Keep names lower-case for the suffix test.
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) return "pdf";
+  if (name.endsWith(".xlsx") || name.endsWith(".xls")) return "excel";
+  if (name.endsWith(".eml") || name.endsWith(".txt")) return "email";
+  return null;
+}
+
+function maxBytesFor(kind: FileKind): number {
+  switch (kind) {
+    case "image": return MAX_BYTES_IMAGE;
+    case "pdf": return MAX_BYTES_PDF;
+    case "excel": return MAX_BYTES_EXCEL;
+    case "email": return MAX_BYTES_TEXT;
+    default: return MAX_BYTES_IMAGE;
+  }
+}
+
+function tooLargeMessage(kind: FileKind): string {
+  switch (kind) {
+    case "image": return "Image is too large — keep it under 3 MB.";
+    case "pdf": return "PDF is too large — keep it under 10 MB.";
+    case "excel": return "Spreadsheet is too large — keep it under 5 MB.";
+    case "email": return "Email/text file is too large — keep it under 1 MB.";
+    default: return "File is too large.";
+  }
+}
 
 /** Session-storage key the preview page reads on mount. */
 export const BI1_DEMO_STORAGE_KEY = "wfx_bi1_demo";
@@ -85,18 +156,22 @@ export default function BuildWithAi() {
       setPreviewUrl(null);
       return;
     }
-    if (!ACCEPTED.includes(picked.type.toLowerCase())) {
-      setError("Use a PNG, JPG, or WEBP image.");
+    const kind = classifyFile(picked);
+    if (!kind) {
+      setError("Use a photo (PNG/JPG/WEBP), PDF, Excel sheet, or email.");
       return;
     }
-    if (picked.size > MAX_BYTES) {
-      setError("Image is too large — keep it under 3 MB.");
+    const cap = maxBytesFor(kind);
+    if (picked.size > cap) {
+      setError(tooLargeMessage(kind));
       return;
     }
     setFile(picked);
     // Revoke any prior object URL to keep memory tidy.
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(URL.createObjectURL(picked));
+    // Object URLs are only useful for images — for PDFs / Excel / email we
+    // show a typed icon card instead of an inline preview.
+    setPreviewUrl(kind === "image" ? URL.createObjectURL(picked) : null);
   }, [previewUrl]);
 
   const handleSubmit = useCallback(async () => {
@@ -156,10 +231,10 @@ export default function BuildWithAi() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Build a quote calculator from a photo — free AI demo"
-        description="Upload a photo of any quote or invoice and watch AI build a working quote calculator in seconds. Free, no signup, no credit card."
+        title="Build a quote calculator from your pricing doc — free AI demo"
+        description="Upload a photo, PDF, Excel sheet, or email of your pricing and watch AI build a working quote calculator in seconds. Free, no signup, no credit card."
         canonical="/products/quickquotepro/build-with-ai"
-        keywords={["build calculator from photo", "ai quote builder", "image to calculator"]}
+        keywords={["build calculator from pdf", "ai quote builder", "excel to calculator", "image to calculator"]}
       />
       <section
         style={{
@@ -200,8 +275,8 @@ export default function BuildWithAi() {
               textAlign: "center",
             }}
           >
-            See AI build your calculator from a{" "}
-            <span style={{ color: mkt.accent }}>photo of your invoice</span>.
+            See AI build your calculator from{" "}
+            <span style={{ color: mkt.accent }}>any pricing doc</span>.
           </h1>
           <p
             style={{
@@ -213,9 +288,9 @@ export default function BuildWithAi() {
               margin: "0 auto 28px",
             }}
           >
-            Drop in a quote, estimate, or invoice. Our AI extracts the pricing
-            structure and shows you a live calculator you can try right now —
-            free, no signup, no credit card.
+            Drop a photo, PDF, Excel sheet, or email of your pricing. Our AI
+            extracts the structure and shows you a live calculator you can try
+            right now — free, no signup, no credit card.
           </p>
 
           {/* Trust pills */}
@@ -303,20 +378,23 @@ export default function BuildWithAi() {
                 id="bi1-upload"
                 ref={inputRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp"
+                accept={ACCEPT_ATTR}
                 style={{ display: "none" }}
                 onChange={(e) => handlePicked(e.target.files?.[0] || null)}
               />
               <UploadCloud size={32} strokeWidth={1.5} color={mkt.accent} />
               <div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: mkt.onDark }}>
-                  {file ? file.name : "Drop your invoice or quote here"}
+                  {file ? file.name : "Drop a photo, PDF, Excel sheet, or email of your pricing"}
                 </div>
                 <div style={{ fontSize: 13, color: mkt.onDarkMuted, marginTop: 4 }}>
-                  or tap to pick a photo · PNG, JPG, WEBP up to 3 MB
+                  Photos up to 3 MB · PDFs up to 10 MB · Excel up to 5 MB · email/text up to 1 MB
                 </div>
               </div>
-              {previewUrl && (
+              {/* Wave 64 — per-file-kind preview. Images keep the inline
+                  thumbnail. PDF / Excel / email render a typed icon card
+                  with the filename and a one-line caption. */}
+              {file && previewUrl && classifyFile(file) === "image" && (
                 <img
                   src={previewUrl}
                   alt="Selected invoice preview"
@@ -329,6 +407,45 @@ export default function BuildWithAi() {
                   }}
                 />
               )}
+              {file && classifyFile(file) !== "image" && classifyFile(file) !== null && (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 10,
+                    marginTop: 8,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,0.04)",
+                    border: `1px solid ${mkt.onDarkBorder}`,
+                  }}
+                >
+                  {(() => {
+                    const k = classifyFile(file);
+                    if (k === "pdf") return <FileText size={20} strokeWidth={1.75} color={mkt.accent} />;
+                    if (k === "excel") return <FileSpreadsheet size={20} strokeWidth={1.75} color={mkt.accent} />;
+                    if (k === "email") return <Mail size={20} strokeWidth={1.75} color={mkt.accent} />;
+                    return <ImageIcon size={20} strokeWidth={1.75} color={mkt.accent} />;
+                  })()}
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDark }}>
+                      {file.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: mkt.onDarkMuted, marginTop: 2 }}>
+                      {(() => {
+                        const k = classifyFile(file);
+                        const kb = Math.round(file.size / 1024);
+                        const label =
+                          k === "pdf" ? "PDF" :
+                          k === "excel" ? "Spreadsheet" :
+                          k === "email" ? "Email / text" :
+                          "File";
+                        return `${label} · ${kb.toLocaleString()} KB`;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
             </label>
 
             {/* Help cue */}
@@ -340,9 +457,10 @@ export default function BuildWithAi() {
                 lineHeight: 1.5,
               }}
             >
-              Tip: a clear photo with prices, line items, and the service name
-              works best. We don't store your image — it's deleted as soon as
-              extraction finishes.
+              Tip: any pricing doc with line items, prices, and the service
+              name works — a clear photo, a saved PDF, your existing Excel
+              price sheet, or even a customer-quote email. We don't store
+              your file; it's deleted as soon as extraction finishes.
             </p>
 
             {error && (
