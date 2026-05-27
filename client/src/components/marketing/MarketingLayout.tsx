@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
 import { mkt } from "@/theme/tokens";
 import { MarketingNav } from "./navigation/MarketingNav";
+import Logo from "@/components/primitives/Logo";
 import AnnouncementBanner from "./AnnouncementBanner";
 import MarketingStickyBar from "./MarketingStickyBar";
 
@@ -89,15 +90,23 @@ function ExpandableFooterColumn({
   title,
   toggleLabel,
   links,
+  visibleCount,
 }: {
   title: string;
   toggleLabel: string;
   links: { href: string; label: string }[];
+  /** Optional override for the count of always-visible links above the toggle.
+      When omitted, defaults to ceil(links.length / 2) so columns split evenly.
+      Used to align the visible heights of two adjacent expandable columns. */
+  visibleCount?: number;
 }) {
   const [open, setOpen] = useState(false);
-  const half = Math.ceil(links.length / 2);
-  const visible = links.slice(0, half);
-  const hidden = links.slice(half);
+  const splitAt = Math.min(
+    links.length,
+    visibleCount ?? Math.ceil(links.length / 2),
+  );
+  const visible = links.slice(0, splitAt);
+  const hidden = links.slice(splitAt);
   return (
     <div className="mkt-footer-col">
       <div style={ftHeading}>{title}</div>
@@ -161,8 +170,41 @@ function MarketingFooter() {
         color: "rgba(255,255,255,0.5)",
       }}
     >
+      {/* ── Brand strip ─────────────────────────────────────────────
+          Wave 49 — logo + tagline above the column grid. Provides the
+          top padding for the footer; the grid container below now starts
+          flush. */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px 24px" }}>
+        <div
+          className="mkt-footer-brand"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            marginBottom: 32,
+          }}
+        >
+          {/* Use the shared Logo primitive (same as MarketingNav) — sm size
+              keeps the footer mark subtler than the nav's md, and animate=false
+              so the boot replay doesn't fire when users scroll into view. */}
+          <Logo size="sm" animate={false} />
+          <p
+            style={{
+              fontSize: 13,
+              color: "rgba(255,255,255,0.55)",
+              maxWidth: 380,
+              margin: 0,
+              lineHeight: 1.5,
+            }}
+          >
+            The all-in-one trade marketing platform — quoting, calls, content,
+            reputation, and rankings, in one place.
+          </p>
+        </div>
+      </div>
+
       {/* ── Main footer grid ───────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px 0" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
         <div className="mkt-footer-grid">
           {/* Wave 11D D5 — MapGuard Suite + Free Tools surface at the top
               of the Products column. BookFlow standalone link dropped (bundled
@@ -189,10 +231,13 @@ function MarketingFooter() {
             ]}
           />
 
-          {/* Solutions — first half shown, rest behind "All Solutions" */}
+          {/* Solutions — first 8 shown above the fold so the visible link
+              count matches the Products column (which also surfaces 8 of 15).
+              Remaining trades unfold behind "All Solutions". */}
           <ExpandableFooterColumn
             title="Solutions"
             toggleLabel="All Solutions"
+            visibleCount={8}
             links={[
               { href: "/solutions/for-plumbers", label: "Plumbers" },
               { href: "/solutions/for-hvac", label: "HVAC" },
@@ -248,22 +293,15 @@ function MarketingFooter() {
             <FtLink href="/contentflow">For Marketers</FtLink>
           </FooterColumn>
 
-          {/* Resources */}
+          {/* Resources — Wave 49: Citation Builder dropped (dupe; already in
+              Products and it's a paid service, not a free resource).
+              Competitor comparisons moved to the dedicated "Compare" row.
+              Login / Dashboard / Sitemap / API Docs moved to the small
+              utility row above the divider. */}
           <FooterColumn title="Resources">
             <FtLink href="/about">About Us</FtLink>
             <FtLink href="/contact">Contact Sales</FtLink>
             <FtLink href="/pricing">Pricing</FtLink>
-            {/* AJ-7 — API developer docs */}
-            <FtLink href="/docs/api">API Docs</FtLink>
-            {/* Wave 2 — paid one-time citation submission service. */}
-            <FtLink href="/citation-builder">Citation Builder</FtLink>
-            {/* Compare — "X alternative" / "X vs Y" SEO entries. */}
-            <FtLink href="/wefixtrades-vs-jobber">vs Jobber</FtLink>
-            <FtLink href="/wefixtrades-vs-housecall-pro">vs Housecall Pro</FtLink>
-            <FtLink href="/wefixtrades-vs-servicetitan">vs ServiceTitan</FtLink>
-            <FtLink href="/sitemap">Sitemap</FtLink>
-            {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
-            {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
           </FooterColumn>
 
           {/* Tools — demos + free tools.
@@ -276,20 +314,83 @@ function MarketingFooter() {
             <FtLink href="/tools/free-audit">Free Audit</FtLink>
             {/* Free Tools Wave 1 — Brightlocal-style standalone tools, each
                 with its own /tools/* URL + lead-magnet page. */}
-            <FtLink href="/tools/google-review-link-generator">Google Review Link Generator</FtLink>
+            {/* Wave 49 — labels shortened so each fits one line at the
+                current column width. hrefs unchanged. */}
+            <FtLink href="/tools/google-review-link-generator">Review Link Generator</FtLink>
             {/* Wave 6E — BrightLocal-parity SERP viewer (Google + Maps, multi-country / language). */}
-            <FtLink href="/tools/local-serp-checker">Local SERP Checker</FtLink>
+            <FtLink href="/tools/local-serp-checker">SERP Checker</FtLink>
             {/* Wave 6F — single-business multi-engine rank snapshot (Google + Brave + Maps). */}
-            <FtLink href="/tools/local-rank-tracker">Local Rank Tracker</FtLink>
+            <FtLink href="/tools/local-rank-tracker">Rank Tracker</FtLink>
             <FtLink href="/tools/citation-checker">Citation Checker</FtLink>
-            <FtLink href="/tools/local-rankflux">Local Rankflux</FtLink>
+            <FtLink href="/tools/local-rankflux">Rankflux</FtLink>
             {/* Wave 2 — single-shot 5x5 geo-grid rank scan; upsell to MapGuard. */}
-            <FtLink href="/tools/local-rank-grid">Local Rank Grid</FtLink>
-            <FtLink href="/products/quickquotepro/demo">QuoteQuick Demo</FtLink>
+            <FtLink href="/tools/local-rank-grid">Rank Grid</FtLink>
+            <FtLink href="/products/quickquotepro/demo">Quote Demo</FtLink>
             {/* BI-1 — anonymous AI demo: upload an invoice, AI builds your calculator. */}
-            <FtLink href="/products/quickquotepro/build-with-ai">Build with AI — From a Photo</FtLink>
-            <FtLink href="/tools/plumbing-ai-content-prompts">AI Prompt Library</FtLink>
+            <FtLink href="/products/quickquotepro/build-with-ai">Build with AI</FtLink>
+            <FtLink href="/tools/plumbing-ai-content-prompts">Prompt Library</FtLink>
           </FooterColumn>
+        </div>
+      </div>
+
+      {/* ── Compare row ─────────────────────────────────────────────
+          Wave 49 — competitor comparison pages pulled out of the Resources
+          column into their own inline row. "Compare" label uses the same
+          monospace caps treatment as the column headings but at the link
+          font-size so the whole row reads as one unit. */}
+      <div className="mkt-footer-compare-wrap" style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 24px 0" }}>
+        <div
+          className="mkt-footer-compare"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "baseline",
+            gap: "0 20px",
+            rowGap: 6,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.7)",
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              fontFamily: "'DM Mono', monospace",
+            }}
+          >
+            Compare
+          </div>
+          <FtLink href="/wefixtrades-vs-jobber">vs Jobber</FtLink>
+          <FtLink href="/wefixtrades-vs-housecall-pro">vs Housecall Pro</FtLink>
+          <FtLink href="/wefixtrades-vs-servicetitan">vs ServiceTitan</FtLink>
+        </div>
+      </div>
+
+      {/* ── Utility row ─────────────────────────────────────────────
+          Wave 49 — small Linear/Vercel-style row above the divider for
+          Login / Sitemap / API Docs. No heading, low-opacity, dot-
+          separated, centred. */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
+        <div
+          className="mkt-footer-util-row"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "0 16px",
+            marginTop: 28,
+            fontSize: 11,
+            color: "rgba(255,255,255,0.45)",
+          }}
+        >
+          {!isAuthenticated && <Link href="/login" className="mkt-ft-util">Login</Link>}
+          {isAuthenticated && <Link href="/dashboard" className="mkt-ft-util">Dashboard</Link>}
+          <span style={{ opacity: 0.3 }}>·</span>
+          <Link href="/sitemap" className="mkt-ft-util">Sitemap</Link>
+          <span style={{ opacity: 0.3 }}>·</span>
+          <Link href="/docs/api" className="mkt-ft-util">API Docs</Link>
         </div>
       </div>
 
@@ -422,32 +523,8 @@ function MarketingFooter() {
           padding-right: 12px;
         }
 
-        /* Blueprint-style "+" corner markers — ONLY at the 4 outer corners
-           of the entire grid container (NOT per column). Two pseudo-elements:
-           ::before covers the top row (top-left + top-right), ::after covers
-           the bottom row (bottom-left + bottom-right). */
-        .mkt-footer-grid::before,
-        .mkt-footer-grid::after {
-          content: "";
-          position: absolute;
-          left: -8px;
-          right: -8px;
-          height: 16px;
-          pointer-events: none;
-          background-repeat: no-repeat;
-          background-position: left center, right center;
-          background-size: 16px 16px, 16px 16px;
-          background-image:
-            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='8' x2='14' y2='8' stroke='rgba(255,255,255,0.45)' stroke-width='1'/><line x1='8' y1='2' x2='8' y2='14' stroke='rgba(255,255,255,0.45)' stroke-width='1'/></svg>"),
-            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='8' x2='14' y2='8' stroke='rgba(255,255,255,0.45)' stroke-width='1'/><line x1='8' y1='2' x2='8' y2='14' stroke='rgba(255,255,255,0.45)' stroke-width='1'/></svg>");
-        }
-        .mkt-footer-grid::before { top: -8px; }
-        .mkt-footer-grid::after  { bottom: -8px; }
-
-        .mkt-footer-col {
-          /* No corner markers here — moved to the grid container so only the
-             4 outer corners show, not the inner column intersections. */
-        }
+        /* Wave 49 — corner "+" markers removed. They suggested an unfold /
+           interaction that wasn't there. */
 
         /* Column link list — stacked, each link only as wide as its text
            so the center-out underline sits under the text. */
@@ -495,6 +572,23 @@ function MarketingFooter() {
           text-decoration: none !important;
         }
 
+        /* Wave 49 — utility row links (Login / Sitemap / API Docs). Tiny,
+           low-opacity, soft brighten on hover, no underline. Mirrors the
+           .mkt-ft-soft pattern but smaller and dimmer. */
+        .mkt-ft-util {
+          font-size: 11px;
+          color: rgba(255,255,255,0.45);
+          text-decoration: none;
+          font-family: 'DM Mono', monospace;
+          letter-spacing: 0.04em;
+          padding: 4px 2px;
+          transition: color 0.15s ease;
+        }
+        .mkt-ft-util:hover {
+          color: rgba(255,255,255,0.85);
+          text-decoration: none;
+        }
+
         /* Smooth unfold — grid 0fr → 1fr animates to content height. */
         .mkt-ft-collapse {
           display: grid;
@@ -515,8 +609,7 @@ function MarketingFooter() {
             padding: 24px 8px;
           }
           /* Drop the column divider when items wrap onto multiple rows —
-             vertical borders between wrapped rows look chaotic. The 4 outer
-             corner "+" markers stay (they're on the grid container). */
+             vertical borders between wrapped rows look chaotic. */
           .mkt-footer-grid > * + * {
             padding-left: 0;
           }
@@ -539,6 +632,13 @@ function MarketingFooter() {
           }
           .mkt-footer-trust {
             gap: 12px !important;
+          }
+          /* Wave 49 — Compare row: "Compare" label sits above the links on
+             mobile so the row doesn't collide with the column grid above. */
+          .mkt-footer-compare {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 4px 0 !important;
           }
         }
         @media (max-width: 640px) {
