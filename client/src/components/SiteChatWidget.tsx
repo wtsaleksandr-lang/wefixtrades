@@ -190,7 +190,10 @@ export default function SiteChatWidget() {
       {!open && (
         <button
           onClick={openChat}
-          aria-label="Open chat"
+          // Wave 47 — when the unread badge renders, its visible "1" must
+          // appear inside the accessible name (axe-core
+          // `label-content-name-mismatch`). The icon is decorative.
+          aria-label={showDot ? "Open chat, 1 unread message" : "Open chat"}
           style={{
             position: "fixed",
             bottom: 24,
@@ -216,9 +219,9 @@ export default function SiteChatWidget() {
             (e.currentTarget as HTMLElement).style.transform = "scale(1)";
           }}
         >
-          <MessageCircle size={24} color="#fff" />
+          <MessageCircle size={24} color="#fff" aria-hidden="true" />
           {showDot && (
-            <span style={{
+            <span aria-hidden="true" style={{
               position: "absolute",
               top: -2,
               right: -2,

@@ -125,14 +125,18 @@ export default function TradeLineDemoLauncher() {
         </div>
       </div>
 
-      {/* Sticky bar — always visible. Click anywhere to expand. */}
+      {/* Sticky bar — always visible. Click anywhere to expand.
+          Wave 47 — drop the explicit aria-label. The visible text inside
+          ("Try the live TradeLine demo — chat or call" / "Type below —
+          talking to the live TradeLine AI") is already a clear accessible
+          name, and overriding it with a shorter aria-label tripped
+          axe-core's `label-content-name-mismatch` rule. */}
       <div
         className="tldl-bar"
         role="button"
         tabIndex={0}
         onClick={() => { if (!open) setOpen(true); }}
         onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !open) { e.preventDefault(); setOpen(true); } }}
-        aria-label={open ? "Demo bar — currently open" : "Open the TradeLine demo"}
         data-testid="tldl-bar"
       >
         <span className="tldl-bar-bot" aria-hidden>

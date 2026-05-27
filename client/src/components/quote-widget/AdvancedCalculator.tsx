@@ -785,7 +785,11 @@ function StickyActionBar({
           data-testid="advanced-sticky-bottom-unfold"
           onClick={() => setFolded(false)}
           aria-expanded="false"
-          aria-label="Show actions"
+          // Wave 47 — bake the visible microSummary into the accessible
+          // name. The previous label "Show actions" hid the price summary
+          // that's visible on the bar, tripping axe-core's
+          // `label-content-name-mismatch` rule.
+          aria-label={`${microSummary} — show actions`}
           style={{
             width: '100%', height: 32,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
