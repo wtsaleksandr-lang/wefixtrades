@@ -351,6 +351,8 @@ export default function GoogleReviewLinkGenerator() {
             alt={`Google review QR code for ${result.name}`}
             width={150}
             height={150}
+            loading="lazy"
+            decoding="async"
             style={{ borderRadius: 12, border: "1px solid rgba(0,0,0,0.08)" }}
             data-testid="img-review-qr"
           />

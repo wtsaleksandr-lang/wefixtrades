@@ -160,6 +160,8 @@ export default function BeforeAfterSlider({
         <img
           src={beforeSrc}
           alt={beforeAlt}
+          loading="lazy"
+          decoding="async"
           draggable={false}
           style={{
             position: 'absolute',
@@ -176,6 +178,8 @@ export default function BeforeAfterSlider({
         <img
           src={afterSrc}
           alt={afterAlt}
+          loading="lazy"
+          decoding="async"
           draggable={false}
           style={{
             position: 'absolute',
