@@ -194,9 +194,11 @@ export default function SiteChatWidget() {
           // appear inside the accessible name (axe-core
           // `label-content-name-mismatch`). The icon is decorative.
           aria-label={showDot ? "Open chat, 1 unread message" : "Open chat"}
+          // Wave 50 — className lets mobile CSS lift the bubble above the
+          // MarketingStickyBar via the --mkt-sticky-bar-h CSS variable.
+          className="wft-chat-bubble"
           style={{
             position: "fixed",
-            bottom: 24,
             right: 24,
             zIndex: 9998,
             width: 56,
@@ -504,6 +506,19 @@ export default function SiteChatWidget() {
         @keyframes wftDotBounce {
           0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
           40% { transform: scale(1); opacity: 1; }
+        }
+        /* Wave 50 — baseline bottom for the chat bubble; on mobile the
+         * bubble lifts above the MarketingStickyBar by reading the
+         * --mkt-sticky-bar-h variable published by that component. */
+        .wft-chat-bubble {
+          bottom: 24px;
+        }
+        @media (max-width: 480px) {
+          .wft-chat-bubble {
+            /* 24px baseline + sticky bar height + 8px safe gap */
+            bottom: calc(24px + var(--mkt-sticky-bar-h, 0px) + 8px);
+            transition: bottom 320ms cubic-bezier(0.4, 0, 0.6, 1);
+          }
         }
         @media (max-width: 480px) {
           /* Wave L C1 — tighter clamps so the panel header stays fully
