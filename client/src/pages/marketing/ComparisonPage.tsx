@@ -489,7 +489,7 @@ export default function ComparisonPage() {
                 marginTop: 24,
               }}
             >
-              No credit card required . Cancel anytime
+              No credit card required. Cancel anytime
             </p>
           </div>
         </section>
