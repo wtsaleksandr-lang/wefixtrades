@@ -169,12 +169,15 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
         <button
           className={`${s.chatBubble} ${pulsing ? s.chatBubblePulse : ""}`}
           onClick={openChat}
-          aria-label="Open chat"
+          // Wave 47 — bake the unread badge into the accessible name so
+          // axe-core `label-content-name-mismatch` doesn't fail on the
+          // visible "1" inside the bubble.
+          aria-label={showDot ? "Open chat, 1 unread message" : "Open chat"}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
           </svg>
-          {showDot && <span className={s.chatDot}>1</span>}
+          {showDot && <span aria-hidden="true" className={s.chatDot}>1</span>}
         </button>
       )}
 

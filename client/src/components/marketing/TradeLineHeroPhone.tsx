@@ -561,14 +561,21 @@ export default function TradeLineHeroPhone({ styleOverrides }: TradeLineHeroPhon
     <div data-theme="dark" className="tlhp-wrap" style={styleOverrides}>
       <style>{TLHP_CSS}</style>
 
+      {/* Wave 47 — drop role="button" + aria-label from the phone wrapper.
+          The wrapper contains a lot of visible demo text ("TradeLine",
+          "Morgan T.", "Connecting…", the chat placeholder, etc.), which
+          tripped axe-core's `label-content-name-mismatch` rule: the
+          accessible name said "TradeLine animated demo. Tap to pause."
+          but the visible text was the entire scripted demo. The dots
+          (real <button>s below) remain the primary keyboard-accessible
+          surface for scenario nav; tap-to-pause stays as a mouse/touch
+          affordance on the div. A separate visually-hidden button covers
+          keyboard users who want the pause toggle. */}
       <div
         ref={phoneRef}
         className={`tlhp-phone${paused ? " paused" : ""}`}
         data-mode="chat"
         onClick={togglePause}
-        role="button"
-        tabIndex={0}
-        aria-label="TradeLine animated demo. Tap to pause."
       >
         {/* CHAT HEADER — branded white per spec */}
         <div className="tlhp-header tlhp-chat-header">
@@ -671,6 +678,19 @@ export default function TradeLineHeroPhone({ styleOverrides }: TradeLineHeroPhon
         </div>
       </div>
 
+      {/* Wave 47 — visually-hidden keyboard-accessible pause toggle.
+          Replaces the keyboard affordance that `role="button"` on the
+          wrapper used to provide. Screen reader / keyboard users get a
+          real <button>; mouse users still tap the phone directly. */}
+      <button
+        type="button"
+        className="tlhp-sr-pause"
+        onClick={togglePause}
+        aria-pressed={paused}
+      >
+        {paused ? "Resume TradeLine demo" : "Pause TradeLine demo"}
+      </button>
+
       {/* Scenario indicator strip — currently-running function label */}
       <div className="tlhp-funcrow">
         <span className="tlhp-funcdot" />
@@ -718,6 +738,40 @@ const ACCENT_GLOW = "rgba(13,60,252,0.45)";
 const ACCENT_RING = "rgba(13,60,252,0.32)";
 
 const TLHP_CSS = `
+/* Wave 47 — screen-reader-only pause toggle. Visible only when focused
+   (keyboard users tabbing through the page). Mouse users continue to tap
+   the phone directly to pause/resume. */
+.tlhp-sr-pause {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.tlhp-sr-pause:focus,
+.tlhp-sr-pause:focus-visible {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 6px 12px;
+  margin: 8px 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  font: 12px/1.4 'DM Sans', system-ui, -apple-system, sans-serif;
+  color: var(--tlhp-paper);
+  background: rgba(22,22,22,0.85);
+  border-radius: 6px;
+  outline: 2px solid var(--tlhp-accent);
+  outline-offset: 2px;
+}
+
 .tlhp-wrap {
   --tlhp-accent: ${ACCENT};
   --tlhp-accent-hover: ${ACCENT_HOVER};

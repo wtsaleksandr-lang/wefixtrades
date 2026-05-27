@@ -1,12 +1,50 @@
-import { defineConfig } from "vite";
+import { defineConfig, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+
+/**
+ * Wave 47 — silent telemetry stub for `vite preview`.
+ *
+ * The Lighthouse `Audit` workflow serves the built site via `vite preview`,
+ * which has no API server. The marketing pages fire best-effort telemetry
+ * beacons (`/api/analytics/pageview`, `/api/rum/web-vitals`, `/api/track`)
+ * on every load; without a backend, each returns 404 and the browser logs
+ * "Failed to load resource: 404" to the console — which trips Lighthouse's
+ * `errors-in-console` audit. Suppressing in the client (`.catch(() => {})`)
+ * doesn't help because Chrome logs the network error before the fetch
+ * promise settles.
+ *
+ * Root-cause fix: have `vite preview` itself swallow `/api/*` with 204 No
+ * Content. Production is unaffected (Replit runs the real Express server,
+ * not `vite preview`). Dev (`vite` not `vite preview`) is also unaffected
+ * because `configurePreviewServer` is preview-only.
+ */
+function previewApiStub(): PluginOption {
+  return {
+    name: "preview-api-stub",
+    // `configurePreviewServer` runs ONLY under `vite preview` — it is a
+    // no-op in dev (`vite` / `vite serve`) and in build. So we can register
+    // the plugin unconditionally without touching the dev or prod path.
+    configurePreviewServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url && req.url.startsWith("/api/")) {
+          // 204 No Content — accepted, nothing to return, no error logged.
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
     react(),
     runtimeErrorOverlay(),
+    previewApiStub(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
@@ -33,6 +71,24 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    /**
+     * Wave 47 — emit source maps with discovery comments so Lighthouse's
+     * `valid-source-maps` audit passes.
+     *
+     * Initially tried `'hidden'` (writes the .map but omits the
+     * `//# sourceMappingURL=` comment from the .js) hoping Lighthouse would
+     * discover the .map from the asset directory. It does not — Lighthouse
+     * counts a source map as "missing" unless the .js has the
+     * sourceMappingURL comment OR the JS response carries a `X-SourceMap`/
+     * `SourceMap` HTTP header. Neither is true with `'hidden'`.
+     *
+     * `true` adds the comment back. Production users can still pull the
+     * .map by appending `.map` to the .js URL with either mode (the file
+     * is on disk either way), so 'hidden' didn't actually buy us privacy;
+     * it just broke the audit. Trade-off is +~30 bytes per chunk for the
+     * comment, which is negligible.
+     */
+    sourcemap: true,
     /**
      * Wave 45 — slim modulepreload list.
      *
