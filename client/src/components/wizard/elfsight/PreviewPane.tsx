@@ -44,6 +44,7 @@ import { DND_CONTAINERS } from './dnd';
 import PreviewOverlay from './PreviewOverlay';
 import AddFieldMenu from './AddFieldMenu';
 import ComponentPicker, { type ComponentPickerAnchor } from './ComponentPicker';
+import InlineStyleToolbar from './InlineStyleToolbar';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
   ShellSettings, ShellNumberFormat, PublicFieldType,
@@ -105,6 +106,14 @@ interface Props {
    *  can splice a new component at the chosen drop-zone position. When
    *  undefined the field appends (legacy behaviour). */
   onAddField?: (publicType: PublicFieldType, atIndex?: number) => void;
+  /**
+   * Wave 61 — partial update for a single field by id. Drives the
+   * floating <InlineStyleToolbar /> in the preview. WizardShell maps
+   * this to its setFields (immutable swap by id) so the existing undo
+   * stack picks up cosmetic edits the same way left-pane edits do.
+   * Optional — when undefined the toolbar isn't mounted.
+   */
+  onUpdateField?: (fieldId: string, partial: Partial<TemplateField>) => void;
   /** Wave P — when true, wrap the QuoteWidget in HostedPageFrame so the
    *  preview matches the public hosted page. Defaults to false (bare
    *  widget, the long-standing behaviour). */
@@ -241,7 +250,7 @@ type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 export default function PreviewPane({
   businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category,
-  onRemoveField, onAddField,
+  onRemoveField, onAddField, onUpdateField,
   hostedFrame = false,
   sessionId = 'draft',
   floatingLauncherPreview = false,
@@ -1739,6 +1748,17 @@ export default function PreviewPane({
                     onRemoveField={onRemoveField}
                   />
                 )}
+                {/* Wave 61 — floating <InlineStyleToolbar /> for the
+                    selected field. Position: fixed against the viewport;
+                    mounts only when onUpdateField is wired and a field is
+                    selected. Re-positions on scroll / resize. */}
+                {shellFields.length > 0 && onUpdateField && (
+                  <InlineStyleToolbar
+                    fields={shellFields}
+                    containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+                    onUpdateField={onUpdateField}
+                  />
+                )}
                 {/* BF-10 — Elementor-style "+" drop zones between rendered
                     field components. Only mount when onAddField is wired AND
                     there's at least one field; the no-field case is handled
@@ -1858,6 +1878,15 @@ export default function PreviewPane({
                     fields={shellFields}
                     containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
                     onRemoveField={onRemoveField}
+                  />
+                )}
+                {/* Wave 61 — floating <InlineStyleToolbar /> for the
+                    selected field on desktop / tablet. */}
+                {shellFields.length > 0 && onUpdateField && (
+                  <InlineStyleToolbar
+                    fields={shellFields}
+                    containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+                    onUpdateField={onUpdateField}
                   />
                 )}
                 {/* BF-10 — Elementor-style "+" drop zones between rendered

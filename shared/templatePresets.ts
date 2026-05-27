@@ -160,6 +160,97 @@ export interface TemplateField {
   imageUrl?: string;
   imageCaption?: string;
   imageAlt?: string;
+  /**
+   * Wave 61 — per-element inline cosmetic style overrides driven by the
+   * floating <InlineStyleToolbar />. Optional; absent → no override (the
+   * widget renders with the resolved theme/AdvStyle tokens as before).
+   *
+   * The renderer (AdvancedCalculator) maps these into inline CSS on the
+   * field's outer wrapper (`[data-shell-field-id]`), where it inherits
+   * down to the field's label + input chrome. The toolbar is the only
+   * UI that mutates this slot today; Style tab continues to control
+   * widget-level typography defaults.
+   *
+   * Every sub-field optional so an in-flight edit can partial-update.
+   * Server-side persistence treats this slot as opaque JSON — it's
+   * stripped from non-Pro tiers by the same Brand Studio gate that
+   * handles other cosmetic overrides, then re-attached on load.
+   */
+  inlineStyle?: InlineElementStyle;
+}
+
+/**
+ * Wave 61 — convert a {@link InlineElementStyle} into a CSS-properties
+ * object suitable for spreading into a React inline `style={…}` prop.
+ * Returns an empty object when the input is undefined. Pure / no
+ * side-effects so it's safe to call from both editor & renderer.
+ *
+ * Sub-fields:
+ *   - `bold` / `italic` / `underline` → font-weight / font-style /
+ *     text-decoration (with `inherit` when the toggle is off so the
+ *     field still picks up the resolved widget weight when bold=false).
+ *   - `color` is applied directly; the toolbar enforces a 7-char hex.
+ *   - `fontSize` is clamped at 8..72 at write time; we still re-clamp here
+ *     so a stale payload from disk can't push past the bounds.
+ *   - `textAlign` maps 1:1 to CSS text-align.
+ *   - `letterSpacing` / `lineHeight` map 1:1.
+ *
+ * `fontFamily` is intentionally NOT resolved here — the renderer already
+ * knows the FONT_FAMILY_STACKS map and applies it at a higher level; we
+ * surface the chosen id via a CSS custom property so the renderer can
+ * resolve it without coupling shared/ to the client font registry.
+ */
+export function inlineElementStyleToCss(
+  s: InlineElementStyle | undefined,
+): Record<string, string | number> {
+  if (!s) return {};
+  const out: Record<string, string | number> = {};
+  if (s.bold === true) out.fontWeight = 700;
+  if (s.italic === true) out.fontStyle = 'italic';
+  if (s.underline === true) out.textDecoration = 'underline';
+  if (typeof s.color === 'string' && /^#[0-9a-f]{6}$/i.test(s.color)) {
+    out.color = s.color;
+  }
+  if (typeof s.fontSize === 'number' && Number.isFinite(s.fontSize)) {
+    const clamped = Math.max(8, Math.min(72, Math.round(s.fontSize)));
+    out.fontSize = `${clamped}px`;
+  }
+  if (s.textAlign === 'left' || s.textAlign === 'center' || s.textAlign === 'right') {
+    out.textAlign = s.textAlign;
+  }
+  if (typeof s.letterSpacing === 'number' && Number.isFinite(s.letterSpacing)) {
+    out.letterSpacing = `${s.letterSpacing}px`;
+  }
+  if (typeof s.lineHeight === 'number' && Number.isFinite(s.lineHeight) && s.lineHeight > 0) {
+    out.lineHeight = s.lineHeight;
+  }
+  return out;
+}
+
+/**
+ * Wave 61 — per-element cosmetic style overrides. Surfaced from the
+ * floating InlineStyleToolbar in the wizard preview. Every key optional;
+ * `undefined` means "inherit from the resolved widget style".
+ */
+export interface InlineElementStyle {
+  /** Bold toggle. `true` → font-weight 700, `false` → inherit. */
+  bold?: boolean;
+  /** Italic toggle. */
+  italic?: boolean;
+  /** Underline toggle. */
+  underline?: boolean;
+  /** Text colour as a 7-char hex (`#rrggbb`). */
+  color?: string;
+  /** Font size in pixels. Clamped to 8..72 at write time. */
+  fontSize?: number;
+  /** Text alignment. */
+  textAlign?: 'left' | 'center' | 'right';
+  /** Optional font family stack id (matches AdvFontFamily values). */
+  fontFamily?: AdvFontFamily;
+  /** Letter spacing in pixels. 0 = default. */
+  letterSpacing?: number;
+  /** Line height as a unitless multiplier (e.g. 1.4). */
+  lineHeight?: number;
 }
 
 export interface TemplateCalculation {

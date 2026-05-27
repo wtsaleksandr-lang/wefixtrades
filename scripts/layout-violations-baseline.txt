@@ -37,7 +37,7 @@ client/src/components/wizard/elfsight/HostedPageSection.tsx:108:5	rule-b	<sectio
 client/src/components/wizard/elfsight/InstallTab.tsx:218:57	rule-b	<div> contains 4 cues
 client/src/components/wizard/elfsight/InstallTab.tsx:394:27	rule-c	size={11}
 client/src/components/wizard/elfsight/InstallTab.tsx:481:29	rule-c	size={13}
-client/src/components/wizard/elfsight/PreviewPane.tsx:2086:27	rule-c	size={26}
+client/src/components/wizard/elfsight/PreviewPane.tsx:2115:27	rule-c	size={26}
 client/src/components/wizard/elfsight/RichTextField.tsx:266:5	rule-b	<div> contains 2 cues
 client/src/components/wizard/elfsight/RichTextField.tsx:402:24	rule-c	size={13}
 client/src/components/wizard/elfsight/RichTextField.tsx:457:24	rule-c	size={13}
