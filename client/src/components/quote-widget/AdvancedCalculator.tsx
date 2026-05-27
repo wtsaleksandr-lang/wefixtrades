@@ -385,12 +385,24 @@ interface Props {
   ownerEmail?: string;
 }
 
-/** W-AO-6c — Brand Studio is unlocked on Pro / Business (Starter is the
- *  legacy alias of Pro). Mirrors the matrix used by the server-side
- *  strip + the Settings tab brand-badge gate. */
-function isBrandStudioTier(planTier: string | undefined): boolean {
-  const t = (planTier ?? 'free').toLowerCase();
-  return t === 'pro' || t === 'business' || t === 'starter';
+/** W-AO-6c — Brand Studio used to be Pro-only.
+ *
+ *  Wave 57 — strategic gating pivot. Brand Studio (custom CSS, gradient
+ *  backgrounds, image backgrounds, animation bundle, result-panel
+ *  overrides, button copy, premium animations) is now a BUILDER-TIME
+ *  free feature. The renderer therefore always honours the persisted
+ *  values regardless of plan tier. The "Powered by WeFixTrades" badge
+ *  in `branding.showPoweredBy` is the only remaining OUTCOME gate and
+ *  is enforced separately (see `showPoweredByBadge` below + the server
+ *  strip in calculatorRoutes.ts).
+ *
+ *  Note: the `planTier` parameter is still consumed by callers — kept
+ *  for the signature stability + so the function can re-tighten later
+ *  if a specific Brand Studio sub-feature ever needs to go back behind
+ *  the paywall (a single line change here covers the whole renderer).
+ */
+function isBrandStudioTier(_planTier: string | undefined): boolean {
+  return true;
 }
 
 /** W-AO-6c — clamp the image-tint percent to 0..50 so a malformed
@@ -1306,8 +1318,18 @@ export default function AdvancedCalculator({
 
   // Branding badge — free-tier always shows the badge regardless of
   // stored value. Pro+ honours the persisted toggle.
+  //
+  // Wave 57 — `brandStudioUnlocked` is now always true (the builder is
+  // free), so we can't use it to gate the OUTCOME-tier branding badge
+  // anymore. Derive the badge gate from `planTier` directly so the live
+  // widget still forces the "Powered by WeFixTrades" badge ON for free.
   const bsBranding = styleSlot.branding;
-  const showPoweredByBadge = brandStudioUnlocked
+  const _resolvedPlanTier = (planTier ?? 'free').toLowerCase();
+  const isPaidPlanForBranding =
+    _resolvedPlanTier === 'pro' ||
+    _resolvedPlanTier === 'business' ||
+    _resolvedPlanTier === 'starter';
+  const showPoweredByBadge = isPaidPlanForBranding
     ? bsBranding?.showPoweredBy !== false
     : true;
 

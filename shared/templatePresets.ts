@@ -3883,41 +3883,41 @@ export interface AdvFloatingLauncher {
  * gate to strip free-tier patches before persistence. Kept here (not in
  * the route) so the shape stays the source of truth.
  *
- * W-AO-6d — `animations` added (Brand Studio Wave 2 step-transition bundle).
+ * Wave 57 — strategic gating pivot. Under the Webflow/Notion/Figma model
+ * adopted in Wave 57, the BUILDER is the trial — every visual / copy /
+ * style customisation is free. Only OUTCOMES (live widget branding,
+ * deposit capture, AI chat customer replies, custom domain, multi-calc,
+ * etc.) remain paid. We therefore strip ONLY the `branding` key here
+ * (the "Powered by WeFixTrades" footer toggle — that surfaces on the
+ * LIVE widget and is the primary Free → Pro upsell). Every other former
+ * Brand Studio key (customCss, bgGradient, animations, buttonCopy, etc.)
+ * is now a free-tier builder feature.
+ *
+ * History (kept for context):
+ *   - Pre-Wave-57 the set included: customCss, bgMode, bgGradient,
+ *     bgImageUrl, bgImageTint, resultPanel, animations, aiChatVisibility,
+ *     premiumAnimations, branding, buttonCopy.
+ *   - Wave 57 retains: branding only.
  */
 export const BRAND_STUDIO_STYLE_KEYS = [
-  'customCss',
-  'bgMode',
-  'bgGradient',
-  'bgImageUrl',
-  'bgImageTint',
-  'resultPanel',
-  'animations',
-  // BD-2c — AI chat visibility toggle (Pro-tier upsell). Free-tier
-  // calculators always render in 'rescue' mode regardless of stored value.
-  'aiChatVisibility',
-  // BD-3l — Premium Animations Pack (spring, count-up, stagger, CTA pulse,
-  // 3D card flip, confetti). Free-tier patches stripped before save.
-  'premiumAnimations',
-  // BD-3k — WeFixTrades branding-badge toggle. Free-tier patches that try
-  // to set `branding.showPoweredBy = false` are stripped here so the
-  // badge stays locked ON for the free tier. The deposit + booking
-  // preview features below are NOT Pro-gated — they're owner-facing
-  // surfaces that work for every tier (real-money flows are owned by
-  // separate Stripe / Cal.com integrations).
+  // BD-3k — WeFixTrades "Powered by" branding badge. The renderer also
+  // defensively forces this ON for non-Pro tiers (defense in depth). The
+  // server strip in calculatorRoutes.ts removes any attempt by a free-tier
+  // caller to set `branding.showPoweredBy = false` so the badge stays
+  // visible on the live widget — the primary outcome-tier upsell.
   'branding',
-  // BG-7 Item 6 — per-template button-copy overrides. Pro-tier upsell;
-  // free-tier patches stripped before persistence so default copy stays.
-  'buttonCopy',
 ] as const;
 /**
- * BD-3m — Floating-launcher Pro-only NESTED keys. The enclosing
- * `floatingLauncher` object is NOT in BRAND_STUDIO_STYLE_KEYS (free-tier
- * owners can still flip `enabled` + `position`); only `customIconUrl`
- * + `label` are Pro-gated. calculatorRoutes.ts strips these nested keys
- * by name when the calculator's plan tier isn't Pro+.
+ * BD-3m — Floating-launcher Pro-only NESTED keys.
+ *
+ * Wave 57 — the strategic gating pivot moved every builder-time
+ * customisation to Free. The floating-launcher icon and screen-reader
+ * label are both pure builder-time visual customisation (no runtime
+ * cost), so the set is now empty. The matching strip block in
+ * calculatorRoutes.ts is therefore a no-op for the nested keys, kept
+ * intact so future per-key Pro gating (if any) has a place to land.
  */
-export const FLOATING_LAUNCHER_PRO_KEYS = ['customIconUrl', 'label'] as const;
+export const FLOATING_LAUNCHER_PRO_KEYS = [] as const;
 export type FloatingLauncherProKey = (typeof FLOATING_LAUNCHER_PRO_KEYS)[number];
 export type BrandStudioStyleKey = (typeof BRAND_STUDIO_STYLE_KEYS)[number];
 
