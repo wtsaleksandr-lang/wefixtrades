@@ -102,11 +102,54 @@ interface BudgetSnapshot {
 const HISTORY_KEY_PREFIX = 'qq_ai_chat_';
 const MAX_IMAGE_WIDTH = 1024;
 const JPEG_QUALITY = 0.78;
-/** Hard cap on the original upload — 10 MB. Server caps the resized payload
- *  at ~2 MB, but rejecting huge originals up-front saves a slow base64
- *  encode + an API round-trip. */
+/** Hard cap on the original IMAGE upload — 10 MB client-side; server resizes
+ *  to ~5 MB. Rejecting huge originals up-front saves a slow base64 encode
+ *  + an API round-trip. Wave 64 adds separate caps per non-image type. */
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-const ACCEPTED_UPLOAD_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
+/** Wave 64 — non-image upload caps. Mirror server (aiImageToTemplateRoutes.ts):
+ *  PDFs up to 15 MB, Excel up to 5 MB, email/text up to 1 MB. */
+const MAX_PDF_BYTES = 15 * 1024 * 1024;
+const MAX_EXCEL_BYTES = 5 * 1024 * 1024;
+const MAX_TEXT_BYTES = 1 * 1024 * 1024;
+
+const IMAGE_UPLOAD_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
+const PDF_UPLOAD_TYPES = new Set(['application/pdf']);
+const EXCEL_UPLOAD_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+]);
+const TEXT_UPLOAD_TYPES = new Set(['text/plain', 'message/rfc822']);
+
+type UploadKind = 'image' | 'pdf' | 'excel' | 'email' | null;
+
+/** Browsers often miss the MIME for .eml / .xls — fall back to extension. */
+function matchByMimeOrExt(
+  mime: string,
+  mimeSet: Set<string>,
+  filename: string,
+  extensions: string[],
+): boolean {
+  if (mimeSet.has(mime)) return true;
+  const lower = filename.toLowerCase();
+  return extensions.some((ext) => lower.endsWith(ext));
+}
+
+function classifyUpload(file: File): UploadKind {
+  const t = (file.type || '').toLowerCase();
+  if (IMAGE_UPLOAD_TYPES.has(t)) return 'image';
+  if (PDF_UPLOAD_TYPES.has(t)) return 'pdf';
+  if (matchByMimeOrExt(t, EXCEL_UPLOAD_TYPES, file.name, ['.xlsx', '.xls'])) return 'excel';
+  if (matchByMimeOrExt(t, TEXT_UPLOAD_TYPES, file.name, ['.eml', '.txt'])) return 'email';
+  return null;
+}
+
+/** Native <input accept> attr — mixes MIME + filename extensions for the
+ *  picker since browser MIME detection on .eml / .xls is unreliable. */
+const WIZARD_ACCEPT_ATTR =
+  'image/png,image/jpeg,image/webp,application/pdf,' +
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,' +
+  'application/vnd.ms-excel,.xlsx,.xls,' +
+  'text/plain,message/rfc822,.eml,.txt';
 
 function uid(): string {
   return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -325,6 +368,11 @@ export default function AIBubble(props: AIBubbleProps) {
    *  focus; collapse back on blur when empty. */
   const [inputFocused, setInputFocused] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  /** Wave 64 — non-image uploads (PDF / Excel / email). Held alongside
+   *  `pendingImage` so the existing image flow stays untouched. When the
+   *  user clicks Send and this is set, we POST the raw File to the multi-
+   *  format endpoint (no client-side resize). */
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [streamErr, setStreamErr] = useState<string | null>(null);
   const [budget, setBudget] = useState<BudgetSnapshot | null>(null);
@@ -408,42 +456,81 @@ export default function AIBubble(props: AIBubbleProps) {
   /* ─── Compose helpers ─── */
 
   const onPickImage = useCallback(async (file: File) => {
-    // Wave AR-1 — validate up-front so the user gets an actionable error
-    // before we burn time on base64-encoding a 50 MB photo.
-    if (file.type && !ACCEPTED_UPLOAD_TYPES.has(file.type.toLowerCase())) {
-      setStreamErr('Use a PNG, JPG or WEBP image.');
+    // Wave 64 — accept image / PDF / Excel / email. Image is the original
+    // path (resize on canvas → data URL); non-image kinds are handed to the
+    // server as the raw File via FormData (no client-side resize).
+    const kind = classifyUpload(file);
+    if (!kind) {
+      setStreamErr('Use a photo, PDF, Excel sheet, or email.');
       return;
     }
-    if (file.size > MAX_UPLOAD_BYTES) {
+    // Per-MIME size guard. The server enforces the same caps; this one is
+    // just so the user doesn't wait through a slow upload.
+    if (kind === 'image' && file.size > MAX_UPLOAD_BYTES) {
       setStreamErr('Image is too large — keep it under 10 MB.');
       return;
     }
-    try {
-      const raw = await fileToDataUrl(file);
-      const resized = await resizeImage(raw);
-      setPendingImage(resized);
-      setStreamErr(null);
-    } catch (err: any) {
-      setStreamErr(String(err?.message || err));
+    if (kind === 'pdf' && file.size > MAX_PDF_BYTES) {
+      setStreamErr('PDF is too large — keep it under 15 MB.');
+      return;
     }
+    if (kind === 'excel' && file.size > MAX_EXCEL_BYTES) {
+      setStreamErr('Spreadsheet is too large — keep it under 5 MB.');
+      return;
+    }
+    if (kind === 'email' && file.size > MAX_TEXT_BYTES) {
+      setStreamErr('Email/text file is too large — keep it under 1 MB.');
+      return;
+    }
+    setStreamErr(null);
+    if (kind === 'image') {
+      try {
+        const raw = await fileToDataUrl(file);
+        const resized = await resizeImage(raw);
+        setPendingImage(resized);
+        setPendingFile(null);
+      } catch (err: any) {
+        setStreamErr(String(err?.message || err));
+      }
+      return;
+    }
+    // Non-image kinds: hold the raw File until the user clicks Send.
+    setPendingImage(null);
+    setPendingFile(file);
   }, []);
 
-  /* ─── BF-5 — image-to-template: image with no text routes to the dedicated
-   *  vision endpoint. Returns a strict JSON template the wizard can drop in
-   *  via `replaceTemplate()` (which feeds the BD-3a undo stack). The chat
-   *  shows a 280×120 progress card during the call (3 sub-rows pulsing in
-   *  sequence) instead of a generic spinner.                                */
-  const onImageToTemplate = useCallback(async (imageDataUrl: string) => {
+  /* ─── BF-5 + Wave 64 — pricing-doc-to-template.
+   *  Routes images (no text) or any uploaded pricing doc (PDF / Excel /
+   *  email) to the dedicated multi-format endpoint. Returns a strict JSON
+   *  template the wizard can drop in via `replaceTemplate()` (which feeds
+   *  the BD-3a undo stack). The chat shows the 280×120 progress card while
+   *  the request is in flight.
+   *
+   *  Accepts either:
+   *    - a data-URL string (legacy image path; already-resized by
+   *      `resizeImage`).
+   *    - a raw File   (Wave 64 multi-format path; sent as-is).
+   */
+  const onImageToTemplate = useCallback(async (source: string | File) => {
     if (sending) return;
+    const isFile = source instanceof File;
+    const sourceKind: UploadKind = isFile ? classifyUpload(source) : 'image';
     const userMsgId = uid();
     const assistantId = uid();
+    const userContent =
+      sourceKind === 'image' ? 'Build a calculator from this image'
+        : sourceKind === 'pdf' ? 'Build a calculator from this PDF'
+          : sourceKind === 'excel' ? 'Build a calculator from this spreadsheet'
+            : sourceKind === 'email' ? 'Build a calculator from this email'
+              : 'Build a calculator from this file';
     setMessages((prev) => [
       ...prev,
       {
         id: userMsgId,
         role: 'user',
-        content: 'Build a calculator from this image',
-        imageThumb: imageDataUrl,
+        content: userContent,
+        // Only attach a thumbnail when we have an actual image data URL.
+        imageThumb: !isFile ? source : undefined,
       },
       {
         id: assistantId,
@@ -453,6 +540,7 @@ export default function AIBubble(props: AIBubbleProps) {
       },
     ]);
     setPendingImage(null);
+    setPendingFile(null);
     setSending(true);
     setStreamErr(null);
 
@@ -460,23 +548,29 @@ export default function AIBubble(props: AIBubbleProps) {
     abortRef.current = controller;
 
     try {
-      // Decode the data URL into a Blob → FormData. Multer needs the
-      // original mime type so it can apply the file-type filter.
-      const match = /^data:(image\/[a-z]+);base64,(.+)$/i.exec(imageDataUrl);
-      let blob: Blob;
-      if (match) {
-        const bin = atob(match[2]);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        blob = new Blob([bytes], { type: match[1] });
-      } else {
-        // Fallback: best-effort fetch (works for blob:/http: URLs too).
-        const res = await fetch(imageDataUrl);
-        blob = await res.blob();
-      }
       const form = new FormData();
-      const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
-      form.append('image', blob, `quote.${ext}`);
+      if (isFile) {
+        // Wave 64 — non-image (or any) raw File path. Multer's fieldname is
+        // still `image` for backward compatibility with the server route.
+        form.append('image', source, source.name);
+      } else {
+        // Legacy image-data-URL path: decode → Blob → FormData. Multer needs
+        // the original mime type so it can apply the file-type filter.
+        const match = /^data:(image\/[a-z]+);base64,(.+)$/i.exec(source);
+        let blob: Blob;
+        if (match) {
+          const bin = atob(match[2]);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          blob = new Blob([bytes], { type: match[1] });
+        } else {
+          // Fallback: best-effort fetch (works for blob:/http: URLs too).
+          const res = await fetch(source);
+          blob = await res.blob();
+        }
+        const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
+        form.append('image', blob, `quote.${ext}`);
+      }
 
       const res = await fetch('/api/ai/wizard/image-to-template', {
         method: 'POST',
@@ -492,8 +586,8 @@ export default function AIBubble(props: AIBubbleProps) {
           body?.message ||
           (res.status === 401 ? 'Sign in to use the AI assistant.' :
            res.status === 429 ? 'You can only generate 5 templates per hour. Try again later.' :
-           res.status === 413 ? 'Image is too large — keep it under 5 MB.' :
-           'Sorry, I couldn’t read that image. Try a clearer photo or paste your details as text.');
+           res.status === 413 ? 'File is too large — keep images under 5 MB and PDFs/Excel/email under 15 MB.' :
+           'Sorry, I couldn’t read that file. Try a clearer copy or paste your details as text.');
         setMessages((prev) => prev.map(m =>
           m.id === assistantId
             ? { ...m, buildingTemplate: false, content: '', imageError: message }
@@ -514,9 +608,12 @@ export default function AIBubble(props: AIBubbleProps) {
       }
 
       // Notify the rest of the shell (analytics, BD-3a undo banner, etc.).
+      // `source` stays as "image" for image inputs to keep existing analytics
+      // event names stable; Wave 64 emits the new fine-grained kinds for
+      // non-image inputs.
       try {
         window.dispatchEvent(new CustomEvent('qq-wizard:template-generated', {
-          detail: { source: 'image', raw: data.template, config: cfg },
+          detail: { source: sourceKind ?? 'image', raw: data.template, config: cfg },
         }));
       } catch { /* best-effort */ }
 
@@ -539,7 +636,7 @@ export default function AIBubble(props: AIBubbleProps) {
       } else {
         setMessages((prev) => prev.map(m =>
           m.id === assistantId
-            ? { ...m, buildingTemplate: false, content: '', imageError: 'Sorry, I couldn’t read that image. Try a clearer photo or paste your details as text.' }
+            ? { ...m, buildingTemplate: false, content: '', imageError: 'Sorry, I couldn’t read that file. Try a clearer copy or paste your details as text.' }
             : m
         ));
       }
@@ -551,14 +648,15 @@ export default function AIBubble(props: AIBubbleProps) {
 
   const onSend = useCallback(async () => {
     const trimmed = input.trim();
-    if ((!trimmed && !pendingImage) || sending) return;
+    if ((!trimmed && !pendingImage && !pendingFile) || sending) return;
     if (capExceeded) return;
 
-    // BF-5 — image-only send → dedicated image-to-template endpoint.
-    if (!trimmed && pendingImage) {
-      const img = pendingImage;
+    // BF-5 + Wave 64 — pricing-doc-only send (no text typed) → dedicated
+    // multi-format endpoint. Image data URLs and raw Files both work.
+    if (!trimmed && (pendingImage || pendingFile)) {
+      const src = pendingFile ?? pendingImage!;
       setInput('');
-      await onImageToTemplate(img);
+      await onImageToTemplate(src);
       return;
     }
 
@@ -826,8 +924,8 @@ export default function AIBubble(props: AIBubbleProps) {
               <div className="qq-ai-empty" data-testid="aibubble-empty">
                 <p style={{ margin: 0, fontWeight: 700 }}>Hi — I can build your calculator with you.</p>
                 <p style={{ margin: '6px 0 0', color: p.colors.muted }}>
-                  Ask me to add fields, change pricing, or restyle. Or attach a photo of your regular
-                  quote / invoice — I'll replicate the pricing into a calculator for you.
+                  Ask me to add fields, change pricing, or restyle. Or attach your existing pricing
+                  — a photo, PDF, Excel sheet, or email — and I'll build the calculator for you.
                 </p>
               </div>
             )}
@@ -977,11 +1075,27 @@ export default function AIBubble(props: AIBubbleProps) {
                   </button>
                 </div>
               )}
+              {pendingFile && (
+                <div className="qq-ai-pending-file" data-testid="aibubble-pending-file">
+                  <div className="qq-ai-pending-file-name">{pendingFile.name}</div>
+                  <div className="qq-ai-pending-file-meta">
+                    {(() => {
+                      const k = classifyUpload(pendingFile);
+                      const kb = Math.round(pendingFile.size / 1024);
+                      const label = k === 'pdf' ? 'PDF' : k === 'excel' ? 'Spreadsheet' : k === 'email' ? 'Email / text' : 'File';
+                      return `${label} · ${kb.toLocaleString()} KB`;
+                    })()}
+                  </div>
+                  <button type="button" onClick={() => setPendingFile(null)} aria-label="Remove file">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
               <div className="qq-ai-compose-row">
                 <button
                   type="button"
                   className="qq-ai-iconbtn"
-                  aria-label="Attach screenshot"
+                  aria-label="Attach pricing doc (photo, PDF, Excel, or email)"
                   onClick={() => fileInputRef.current?.click()}
                   data-testid="aibubble-upload"
                   disabled={sending}
@@ -991,7 +1105,7 @@ export default function AIBubble(props: AIBubbleProps) {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={WIZARD_ACCEPT_ATTR}
                   style={{ display: 'none' }}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -1033,11 +1147,11 @@ export default function AIBubble(props: AIBubbleProps) {
                   <button
                     type="button"
                     onClick={onSend}
-                    disabled={!input.trim() && !pendingImage}
+                    disabled={!input.trim() && !pendingImage && !pendingFile}
                     className="qq-ai-sendbtn"
                     data-testid="aibubble-send"
-                    aria-label={pendingImage && !input.trim() ? 'Build calculator from image' : 'Send'}
-                    title={pendingImage && !input.trim() ? 'Build calculator from image' : 'Send'}
+                    aria-label={(pendingImage || pendingFile) && !input.trim() ? 'Build calculator from upload' : 'Send'}
+                    title={(pendingImage || pendingFile) && !input.trim() ? 'Build calculator from upload' : 'Send'}
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
@@ -1389,6 +1503,36 @@ export default function AIBubble(props: AIBubbleProps) {
           background: #0f172a; color: #fff; border: none; cursor: pointer;
           display: inline-flex; align-items: center; justify-content: center;
         }
+        /* Wave 64 — non-image pending-file pill (PDF / Excel / email). */
+        .qq-ai-pending-file {
+          position: relative;
+          display: inline-flex; flex-direction: column;
+          margin-bottom: 6px;
+          padding: 6px 26px 6px 10px;
+          border-radius: 8px;
+          background: #f1f5f9;
+          border: 1px solid rgba(15,23,42,0.10);
+          max-width: 100%;
+        }
+        .qq-ai-pending-file-name {
+          font-size: 12px; font-weight: 600; color: #0f172a;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          max-width: 220px;
+        }
+        .qq-ai-pending-file-meta {
+          font-size: 10.5px; color: #64748b; margin-top: 1px;
+        }
+        .qq-ai-pending-file button {
+          position: absolute; top: -6px; right: -6px;
+          width: 20px; height: 20px; border-radius: 999px;
+          background: #0f172a; color: #fff; border: none; cursor: pointer;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+        [data-theme="dark"] .qq-ai-pending-file {
+          background: #1e293b; border-color: rgba(255,255,255,0.10);
+        }
+        [data-theme="dark"] .qq-ai-pending-file-name { color: #e2e8f0; }
+        [data-theme="dark"] .qq-ai-pending-file-meta { color: #94a3b8; }
         .qq-ai-compose-row {
           display: flex; align-items: flex-end; gap: 6px;
         }

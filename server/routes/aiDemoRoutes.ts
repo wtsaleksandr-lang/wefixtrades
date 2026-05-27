@@ -1,18 +1,27 @@
 /**
- * BI-1 — Anonymous AI calculator demo.
+ * BI-1 + Wave 64 — Anonymous AI calculator demo (multi-format).
  *
  * POST /api/ai/demo/image-to-template-anonymous
  *   Auth: NONE — visitors get one free try, then a signup gate.
- *   Body: multipart/form-data { image: File }
- *         image/png | image/jpeg | image/webp, ≤ 3 MB.
+ *   Body: multipart/form-data { image: File }   (field name kept as
+ *         `image` for backward compatibility with the existing
+ *         BuildWithAi.tsx client; the file can now be a PDF / XLSX /
+ *         TXT / EML as well, dispatched per MIME type in
+ *         pricingDocExtractor.ts).
+ *   Accepted formats (Wave 64):
+ *     - image/png | image/jpeg | image/webp, ≤ 3 MB (existing vision path)
+ *     - application/pdf, ≤ 10 MB (text via pdf-parse)
+ *     - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+ *       and application/vnd.ms-excel, ≤ 5 MB (text via xlsx)
+ *     - text/plain, message/rfc822, ≤ 1 MB
  *   Returns: { template: ImageTemplate, demoSessionId: string }
  *
  * GET /api/ai/demo/session/:id
  *   Reads back a still-valid demo session. Used by the preview page.
  *
  * The endpoint is the "try before you buy" lead magnet — the visitor hands
- * over a quote/invoice image, we extract a calculator config with a cheap
- * vision model, render it as a live (read-only) `AdvancedCalculator` preview,
+ * over a quote/invoice/PDF/spreadsheet/email, we extract a calculator
+ * config, render it as a live (read-only) `AdvancedCalculator` preview,
  * and gate "save & customize" behind signup. Post-signup, the server reads
  * the saved demo session from the in-memory map and materializes a real
  * calculator on the new user's account.
@@ -21,18 +30,20 @@
  *   - Rate limit: 1 generation per IP per 24h (RateLimiter, in-memory store).
  *   - Monthly cap (env `BI1_MONTHLY_CAP`, default 5000) — when breached the
  *     endpoint returns 429 globally AND fires a critical system alert.
- *   - Cheapest vision model first: Gemini 2.0 Flash → GPT-4o-mini → Claude
- *     Sonnet fallback (same one the auth'd path uses).
- *   - Multer cap 3 MB (auth'd path is 5 MB).
+ *   - For IMAGE uploads: cheapest vision model first (Gemini 2.0 Flash →
+ *     GPT-4o-mini → Claude Sonnet fallback).
+ *   - For PDF / XLSX / TXT / EML: text-mode Claude only (the Gemini/OpenAI
+ *     fallbacks are vision-only providers in our integration; text-mode
+ *     fallback would be a separate wave). Anthropic spend stays under the
+ *     `quotequick` surface gate.
  *
  * Privacy:
  *   - IP is hashed (sha256, 16-char hex prefix) before logging — never raw.
- *   - Uploaded image is dropped immediately after extraction (Buffer goes
+ *   - Uploaded file is dropped immediately after extraction (Buffer goes
  *     out of scope when the request handler returns; we never write to disk
  *     or any persistent store).
  *
  * Constraints — DO NOT modify:
- *   - The auth'd image-to-template endpoint (aiImageToTemplateRoutes.ts).
  *   - Customer-facing widget files.
  *   - Wizard editor files.
  *   - BD-3 / BG / BH wave files.
@@ -51,27 +62,81 @@ import { AI_SURFACES } from "../services/aiSurfaces";
 import { RateLimiter, MemoryRateLimitStore } from "../services/rateLimiter";
 import { writeAudit } from "../lib/auditLog";
 import { fireAlert } from "../services/alertService";
+import {
+  ALL_ACCEPTED_MIME_TYPES,
+  EXCEL_MIME_TYPES,
+  ExtractionError,
+  IMAGE_MIME_TYPES,
+  PDF_MIME_TYPES,
+  TEXT_MIME_TYPES,
+  buildTextModePreamble,
+  extractFromFile,
+} from "../services/pricingDocExtractor";
 
 const log = createLogger("AIDemoAnonymous");
 
 /* ─── Constraints ─────────────────────────────────────────────────────── */
-const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"] as const;
-const MAX_BYTES = 3 * 1024 * 1024; // 3 MB (auth'd endpoint is 5 MB).
+/** Wave 64 — per-MIME size caps. Multer's single fileSize limit is set to
+ *  the largest (PDF 10MB); we re-check tighter caps per type in the
+ *  handler below. */
+const MAX_BYTES_IMAGE = 3 * 1024 * 1024; // unchanged from pre-Wave-64.
+const MAX_BYTES_PDF = 10 * 1024 * 1024;
+const MAX_BYTES_EXCEL = 5 * 1024 * 1024;
+const MAX_BYTES_TEXT = 1 * 1024 * 1024;
+const MAX_BYTES_MULTER = MAX_BYTES_PDF;
+
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/* ─── Multer (in-memory, single file, 3 MB cap) ──────────────────────── */
+/* ─── Multer (in-memory, single file, per-type-checked) ──────────────── */
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_BYTES, files: 1 },
+  limits: { fileSize: MAX_BYTES_MULTER, files: 1 },
   fileFilter: (_req, file, cb) => {
-    if ((ACCEPTED_TYPES as readonly string[]).includes(file.mimetype.toLowerCase())) {
+    if ((ALL_ACCEPTED_MIME_TYPES as readonly string[]).includes(file.mimetype.toLowerCase())) {
       cb(null, true);
     } else {
       cb(null, false);
     }
   },
 });
+
+/** Per-MIME size cap helper. Returns null if the file is within limits,
+ *  or an error payload (status + message) the route should return. */
+function checkPerTypeSizeLimit(
+  mime: string,
+  bytes: number,
+): { status: number; error: string; message: string } | null {
+  if ((IMAGE_MIME_TYPES as readonly string[]).includes(mime) && bytes > MAX_BYTES_IMAGE) {
+    return {
+      status: 413,
+      error: "image_too_large",
+      message: "Image is too large — keep it under 3 MB.",
+    };
+  }
+  if ((PDF_MIME_TYPES as readonly string[]).includes(mime) && bytes > MAX_BYTES_PDF) {
+    return {
+      status: 413,
+      error: "pdf_too_large",
+      message: "PDF is too large — keep it under 10 MB.",
+    };
+  }
+  if ((EXCEL_MIME_TYPES as readonly string[]).includes(mime) && bytes > MAX_BYTES_EXCEL) {
+    return {
+      status: 413,
+      error: "excel_too_large",
+      message: "Spreadsheet is too large — keep it under 5 MB.",
+    };
+  }
+  if ((TEXT_MIME_TYPES as readonly string[]).includes(mime) && bytes > MAX_BYTES_TEXT) {
+    return {
+      status: 413,
+      error: "text_too_large",
+      message: "Email/text file is too large — keep it under 1 MB.",
+    };
+  }
+  return null;
+}
 
 /* ─── Rate limiter — 1 / IP / day ─────────────────────────────────────── */
 const demoStore = new MemoryRateLimitStore();
@@ -398,51 +463,123 @@ export function registerAiDemoRoutes(app: Express): void {
       const file = req.file;
       if (!file) {
         return res.status(400).json({
-          error: "invalid_image",
-          message: "Upload a PNG, JPG, or WEBP image up to 3 MB.",
+          error: "invalid_file",
+          message:
+            "Upload a photo, PDF, Excel sheet, or email of your pricing.",
         });
       }
       const mimeRaw = file.mimetype.toLowerCase();
-      const mediaType: MediaType =
-        mimeRaw === "image/jpg" ? "image/jpeg" : (mimeRaw as MediaType);
-      if (!(["image/png", "image/jpeg", "image/webp"] as const).includes(mediaType)) {
-        return res.status(400).json({
-          error: "invalid_image_type",
-          message: "Use PNG, JPG, or WEBP.",
+
+      // Per-MIME size cap (multer can only enforce one).
+      const tooLarge = checkPerTypeSizeLimit(mimeRaw, file.size);
+      if (tooLarge) {
+        return res.status(tooLarge.status).json({
+          error: tooLarge.error,
+          message: tooLarge.message,
         });
       }
 
-      /* (4) Any vision provider available? */
-      if (!PROVIDERS.some((p) => p.ready())) {
-        return res.status(503).json({
-          error: "ai_unavailable",
-          message: "AI is temporarily unavailable. Try again shortly.",
+      /* (4) Extract per format. Image-mode passes the buffer through;
+       *     text-mode returns extracted text we can hand to Claude. */
+      let extraction: Awaited<ReturnType<typeof extractFromFile>>;
+      try {
+        extraction = await extractFromFile(file.buffer, mimeRaw);
+      } catch (err: any) {
+        if (err instanceof ExtractionError) {
+          writeAudit({
+            actorId: null,
+            actorType: "system",
+            action: "ai_anonymous_pricing_doc_to_template",
+            entityType: "anonymous_ai_demo",
+            entityId: ipHash,
+            metadata: {
+              ip_hash: ipHash,
+              bytes: file.size,
+              mimeType: mimeRaw,
+              success: false,
+              error: err.code,
+            },
+            req,
+          });
+          return res.status(err.status).json({
+            error: err.code,
+            message: err.userMessage,
+          });
+        }
+        log.error("unexpected extraction failure", {
+          error: err?.message,
+          mimeType: mimeRaw,
+        });
+        return res.status(500).json({
+          error: "extraction_failed",
+          message: "We couldn't read that file. Try a different format.",
         });
       }
 
-      /* (5) Call vision with fallback chain. */
+      /* (5) Call the model. Image-mode uses the cheapest-first vision
+       *     fallback chain (Gemini → OpenAI → Claude). Text-mode uses
+       *     Claude text path only (Gemini/OpenAI providers in this file
+       *     are vision-only integrations). */
       let reply = "";
       let modelUsed = "";
       try {
-        const out = await callVisionWithFallback(file.buffer, mediaType);
-        reply = out.reply;
-        modelUsed = out.modelUsed;
+        if (extraction.kind === "image") {
+          if (!PROVIDERS.some((p) => p.ready())) {
+            return res.status(503).json({
+              error: "ai_unavailable",
+              message: "AI is temporarily unavailable. Try again shortly.",
+            });
+          }
+          const out = await callVisionWithFallback(
+            extraction.buffer,
+            extraction.mediaType,
+          );
+          reply = out.reply;
+          modelUsed = out.modelUsed;
+        } else {
+          // Text-mode: requires the Anthropic key. We deliberately don't
+          // ship a Gemini/OpenAI text fallback here — Wave 64 ships vision
+          // fallback for image inputs only; Wave 65+ can broaden.
+          if (!validateAnthropicConfig().valid) {
+            return res.status(503).json({
+              error: "ai_unavailable",
+              message: "AI is temporarily unavailable. Try again shortly.",
+            });
+          }
+          const preamble = buildTextModePreamble(extraction.sourceKind);
+          reply = await aiChat({
+            system:
+              "You extract pricing structure from quote/invoice/spreadsheet text. Always respond with a single JSON object and nothing else.",
+            messages: [
+              {
+                role: "user",
+                content: `${preamble}${EXTRACTION_PROMPT}\n\n--- BEGIN DOCUMENT ---\n${extraction.text}\n--- END DOCUMENT ---`,
+              },
+            ],
+            maxTokens: 900,
+            surface: AI_SURFACES.quotequick,
+          });
+          modelUsed = "claude-text";
+        }
       } catch (err: any) {
-        log.error("vision call failed (all providers)", {
+        log.error("AI call failed", {
           error: err?.message,
           ipHash,
+          mode: extraction.kind,
         });
         writeAudit({
           actorId: null,
           actorType: "system",
-          action: "ai_anonymous_image_to_template",
+          action: "ai_anonymous_pricing_doc_to_template",
           entityType: "anonymous_ai_demo",
           entityId: ipHash,
           metadata: {
             ip_hash: ipHash,
             model_used: null,
             bytes: file.size,
-            mediaType,
+            mimeType: mimeRaw,
+            mode: extraction.kind,
+            sourceLabel: extraction.sourceLabel,
             success: false,
             error: String(err?.message ?? err).slice(0, 240),
           },
@@ -450,7 +587,8 @@ export function registerAiDemoRoutes(app: Express): void {
         });
         return res.status(502).json({
           error: "ai_call_failed",
-          message: "We couldn't process that image right now. Try again in a moment.",
+          message:
+            "We couldn't process that file right now. Try again in a moment.",
         });
       }
 
@@ -458,22 +596,25 @@ export function registerAiDemoRoutes(app: Express): void {
       const raw = extractJson(reply);
       const parsed = templateSchema.safeParse(raw);
       if (!parsed.success) {
-        log.warn("anonymous vision reply failed schema", {
+        log.warn("anonymous AI reply failed schema", {
           ipHash,
           modelUsed,
+          mode: extraction.kind,
           replyPrefix: reply.slice(0, 200),
         });
         writeAudit({
           actorId: null,
           actorType: "system",
-          action: "ai_anonymous_image_to_template",
+          action: "ai_anonymous_pricing_doc_to_template",
           entityType: "anonymous_ai_demo",
           entityId: ipHash,
           metadata: {
             ip_hash: ipHash,
             model_used: modelUsed,
             bytes: file.size,
-            mediaType,
+            mimeType: mimeRaw,
+            mode: extraction.kind,
+            sourceLabel: extraction.sourceLabel,
             success: false,
             error: "schema_invalid",
           },
@@ -482,7 +623,7 @@ export function registerAiDemoRoutes(app: Express): void {
         return res.status(422).json({
           error: "extraction_failed",
           message:
-            "I couldn't read that image clearly. Try a sharper photo, or paste your pricing details as text.",
+            "I couldn't read that file clearly. Try a sharper copy, or paste your pricing details as text.",
         });
       }
 
@@ -515,18 +656,21 @@ export function registerAiDemoRoutes(app: Express): void {
         }).catch(() => {});
       }
 
-      /* (9) Audit success — IP is hashed, image bytes are NOT logged. */
+      /* (9) Audit success — IP is hashed, file bytes are NOT logged. */
       writeAudit({
         actorId: null,
         actorType: "system",
-        action: "ai_anonymous_image_to_template",
+        action: "ai_anonymous_pricing_doc_to_template",
         entityType: "anonymous_ai_demo",
         entityId: sessionId,
         metadata: {
           ip_hash: ipHash,
           model_used: modelUsed,
           bytes: file.size,
-          mediaType,
+          mimeType: mimeRaw,
+          mode: extraction.kind,
+          sourceLabel: extraction.sourceLabel,
+          notes: extraction.kind === "text" ? extraction.notes : undefined,
           success: true,
           addonCount: template.addons.length,
           modifierCount: template.modifiers.length,
@@ -535,7 +679,33 @@ export function registerAiDemoRoutes(app: Express): void {
         req,
       });
 
-      /* (10) Image buffer goes out of scope here — we never persisted it. */
+      /* (9b) Back-compat: also write the legacy action name for image
+       *      requests so any dashboards / alerts keyed on the original
+       *      `ai_anonymous_image_to_template` action keep firing. Text-mode
+       *      requests are new in Wave 64 and don't have a legacy peer. */
+      if (extraction.kind === "image") {
+        writeAudit({
+          actorId: null,
+          actorType: "system",
+          action: "ai_anonymous_image_to_template",
+          entityType: "anonymous_ai_demo",
+          entityId: sessionId,
+          metadata: {
+            ip_hash: ipHash,
+            model_used: modelUsed,
+            bytes: file.size,
+            mediaType: extraction.mediaType,
+            success: true,
+            addonCount: template.addons.length,
+            modifierCount: template.modifiers.length,
+            hasBasePrice: template.basePrice != null,
+            legacy_alias: true,
+          },
+          req,
+        });
+      }
+
+      /* (10) File buffer goes out of scope here — we never persisted it. */
       return res.json({ template, demoSessionId: sessionId });
     },
   );
@@ -567,14 +737,16 @@ export function registerAiDemoRoutes(app: Express): void {
       if (!err) return next();
       if (err?.code === "LIMIT_FILE_SIZE") {
         return res.status(413).json({
-          error: "image_too_large",
-          message: "Image is too large — keep it under 3 MB.",
+          error: "file_too_large",
+          message:
+            "File is too large — keep images under 3 MB, PDFs under 10 MB, Excel under 5 MB, and email/text under 1 MB.",
         });
       }
       log.warn("anonymous upload error", { error: err?.message });
       return res.status(400).json({
         error: "upload_failed",
-        message: "We couldn't accept that upload. Try a different image.",
+        message:
+          "We couldn't accept that upload. Try a different file (photo, PDF, Excel, or email).",
       });
     },
   );
