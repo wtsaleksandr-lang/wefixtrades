@@ -1091,6 +1091,33 @@ If the user asks what ContentFlow generates, what its content looks like, or for
   // live as cards / heatmaps / sub-gauges directly on the page.
   parts.push(SIMPLE_MODE_NAVIGATOR);
 
+  // Wave 36.5 — surface any per-element opt-ins so the Copilot can name them
+  // when guiding the user. The portal mode-context optionally carries the prefs blob;
+  // if it exposes element_overrides we render a short hint here.
+  const elementOverrides = (ctx as { displayPreferences?: { element_overrides?: Record<string, boolean> } })
+    .displayPreferences?.element_overrides;
+  if (elementOverrides) {
+    const enabledIds = Object.entries(elementOverrides)
+      .filter(([, v]) => v === true)
+      .map(([k]) => k);
+    const disabledIds = Object.entries(elementOverrides)
+      .filter(([, v]) => v === false)
+      .map(([k]) => k);
+    if (enabledIds.length > 0 || disabledIds.length > 0) {
+      const lines = ["\n=== USER ELEMENT OVERRIDES (Wave 36.5) ==="];
+      if (enabledIds.length > 0) {
+        lines.push(`Explicitly enabled (visible even in Simple mode): ${enabledIds.join(", ")}`);
+      }
+      if (disabledIds.length > 0) {
+        lines.push(`Explicitly hidden (never show, even in Advanced mode): ${disabledIds.join(", ")}`);
+      }
+      lines.push(
+        "When answering, prefer pointing the user to elements they've enabled. Don't suggest enabling elements they've explicitly disabled.",
+      );
+      parts.push(lines.join("\n"));
+    }
+  }
+
   return parts.join("\n");
 }
 
