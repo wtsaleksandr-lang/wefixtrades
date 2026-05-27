@@ -99,19 +99,22 @@ jobs:
         run: |
           BODY_PATH="${{ runner.temp }}/watchdog-last-body.json"
           if [ -f "$BODY_PATH" ]; then
-            # Use a random per-run delimiter so a healthz body that happens
-            # to contain the literal string "HEALTHZ_EOF" (or any fixed
-            # sentinel) cannot terminate the HEREDOC early and corrupt the
-            # GITHUB_OUTPUT buffer. See Wave 37 / run 26482831592 for the
-            # failure mode this guards against.
-            DELIM="HEALTHZ_EOF_$(uuidgen | tr -d -)"
-            {
-              echo "body<<${DELIM}"
-              cat "$BODY_PATH"
-              echo "${DELIM}"
-            } >> "$GITHUB_OUTPUT"
+            # Base64-encode the body to bypass GITHUB_OUTPUT's HEREDOC parser
+            # entirely. The previous HEREDOC implementation broke when the
+            # captured JSON had no trailing newline — the closing delimiter
+            # ended up on the same line as the last byte, so GitHub never
+            # saw a standalone "<DELIM>" line and rejected the buffer with
+            # "Matching delimiter not found". Base64 collapses to a single
+            # line with no whitespace, so the single-line key=value form is
+            # always safe. Downstream steps decode via Buffer.from(b, 'base64').
+            # See Wave 37 / run 26482831592 (HEALTHZ_EOF) and run 26483939264
+            # (post-uuid retry) for the failure modes this guards against.
+            BODY_B64=$(base64 -w 0 "$BODY_PATH")
+            echo "body_b64=${BODY_B64}" >> "$GITHUB_OUTPUT"
+            echo "body_missing=false" >> "$GITHUB_OUTPUT"
           else
-            echo 'body=(no body captured — monitor never received a JSON response)' >> "$GITHUB_OUTPUT"
+            echo "body_b64=" >> "$GITHUB_OUTPUT"
+            echo "body_missing=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload captured healthz body
@@ -132,7 +135,8 @@ jobs:
           REASON: ${{ steps.monitor.outputs.reason }}
           FAILED_CHECK: ${{ steps.monitor.outputs.failed_check }}
           FAILED_STATUS: ${{ steps.monitor.outputs.failed_status }}
-          HEALTHZ_BODY: ${{ steps.body.outputs.body }}
+          HEALTHZ_BODY_B64: ${{ steps.body.outputs.body_b64 }}
+          HEALTHZ_BODY_MISSING: ${{ steps.body.outputs.body_missing }}
           TARGET_URL: ${{ env.DEPLOY_URL }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -142,7 +146,9 @@ jobs:
             const reason = process.env.REASON;
             const failedCheck = process.env.FAILED_CHECK;
             const failedStatus = process.env.FAILED_STATUS;
-            const body = process.env.HEALTHZ_BODY;
+            const body = process.env.HEALTHZ_BODY_MISSING === 'true'
+              ? '(no body captured — monitor never received a JSON response)'
+              : Buffer.from(process.env.HEALTHZ_BODY_B64 || '', 'base64').toString('utf8');
             const url = process.env.TARGET_URL;
             const run = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
@@ -200,7 +206,8 @@ jobs:
           PREVIOUS_SHA: ${{ steps.prev.outputs.previous_sha }}
           REASON: ${{ steps.monitor.outputs.reason }}
           FAILED_CHECK: ${{ steps.monitor.outputs.failed_check }}
-          HEALTHZ_BODY: ${{ steps.body.outputs.body }}
+          HEALTHZ_BODY_B64: ${{ steps.body.outputs.body_b64 }}
+          HEALTHZ_BODY_MISSING: ${{ steps.body.outputs.body_missing }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -209,7 +216,9 @@ jobs:
             const previous = process.env.PREVIOUS_SHA;
             const failedCheck = process.env.FAILED_CHECK;
             const reason = process.env.REASON;
-            const body = process.env.HEALTHZ_BODY;
+            const body = process.env.HEALTHZ_BODY_MISSING === 'true'
+              ? '(no body captured — monitor never received a JSON response)'
+              : Buffer.from(process.env.HEALTHZ_BODY_B64 || '', 'base64').toString('utf8');
             const run = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
             // Create the revert branch by resetting it to the previous-good SHA.
