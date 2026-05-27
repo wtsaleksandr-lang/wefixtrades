@@ -1,99 +1,38 @@
 import { useState, useMemo, useRef } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import QuoteWidget from "@/components/quote-widget/QuoteWidget";
-import CalculatorLauncher from "@/components/quote-widget/CalculatorLauncher";
 import { mkt, colors } from "@/theme/tokens";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import TrustStrip from "@/components/marketing/TrustStrip";
-import type { CalculatorData } from "@/components/quote-widget/types";
-import {
-  getTemplatePreset,
-  toAdvancedConfig,
-  type BusinessProfile,
-} from "@shared/templatePresets";
-import {
-  ArrowRight, Play, ChevronDown, MessageSquare, LayoutGrid,
-} from "lucide-react";
+import { ArrowRight, Play, ChevronDown } from "lucide-react";
 
 /* ─── Page constants ─── */
 
-const DARK = "#0d1514";
-const CYAN = "#0d3cfc";
 const BASE = "https://wefixtrades.com";
 const DEMO_VIDEO_PATH = "/videos/quotequick-demo-loop.mp4";
 
-/* ─── Pre-seeded sample business profile (Junk Removal) ─── */
-
-const SAMPLE_BUSINESS_PROFILE: BusinessProfile = {
-  googleRating: 4.8,
-  googleReviewCount: 234,
-  yearsInBusiness: 12,
-  licenseNumber: "Sample - Demo Only",
-  insuredAmount: "Insured up to $2M",
-  serviceArea: "Phoenix Metro",
-};
-
-/**
- * Build the demo `CalculatorData` from the real `junk_removal_quote` preset.
- *
- * Alex's 2026-05-21 decision: the tool IS the demo. Mount the REAL widget
- * (`QuoteWidget` → `AdvancedCalculator` via `calculator_settings.advanced`),
- * pre-seeded with the Junk Removal template — it ships range pricing + the
- * BD-2a-style overrides already, so visitors see the full multi-step + sticky
- * shell + range pricing + trust signals on first paint.
- */
-function buildDemoCalculator(): CalculatorData {
-  const preset = getTemplatePreset("junk_removal_quote");
-  if (!preset) {
-    // Guarded fallback — preset is shipped in shared/templatePresets.ts, so
-    // this branch is effectively dead, but we keep `pricing_config` honest.
-    return {
-      id: 0,
-      slug: "demo-junk-removal",
-      business_name: "Acme Junk Removal",
-      pricing_config: null,
-    };
-  }
-  const advanced = {
-    ...toAdvancedConfig(preset),
-    businessProfile: SAMPLE_BUSINESS_PROFILE,
-  };
-  return {
-    id: 0,
-    slug: "demo-junk-removal",
-    business_name: "Acme Junk Removal",
-    tagline: "Same-day pickup · We load, haul, sweep up",
-    primary_color: "#fb923c",
-    // `advanced` config bypasses the legacy pricing-family flow, so the
-    // raw pricing_config is unused — pass null and let the widget code-path
-    // for `isAdvanced = true` take over.
-    pricing_config: null,
-    calculator_settings: {
-      advanced,
-    },
-  };
-}
-
 /* ─── Page Component ─── */
-
+//
+// Wave 51 (2026-05-27): This page was a "live demo" mounting a real
+// QuoteWidget pre-seeded with a Junk Removal preset. Alex's direction:
+// the wizard itself is the free trial, so the embedded widget on this
+// page is misleading (it's not what visitors actually get when they
+// click "Try"). Restructured into a product TOUR — video placeholder
+// at top with badge slots Alex will populate, single CTA below pointing
+// to /wizard. URL preserved for SEO.
 export default function QuoteCalculatorDemo() {
-  // Title + meta tags handled by <PageMeta> below.
-
   const breadcrumbs = useMemo(
     () => [
       { name: "Home", url: `${BASE}/` },
       { name: "QuoteQuick", url: `${BASE}/products/quickquotepro` },
-      { name: "Live Demo", url: `${BASE}/products/quickquotepro/demo` },
+      { name: "How it works", url: `${BASE}/products/quickquotepro/demo` },
     ],
     [],
   );
   useBreadcrumbSchema(breadcrumbs);
-
-  const demoCalculator = useMemo(() => buildDemoCalculator(), []);
 
   // BE-3 — graceful video degradation. The MP4 file is dropped in by Alex
   // post-PR (see PR body). Until it exists, the <video> element emits an
@@ -102,45 +41,58 @@ export default function QuoteCalculatorDemo() {
   const [videoFailed, setVideoFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // P1 UX (2026-05-22) — "Try floating mode" toggle. Lets prospective
-  // customers see the embedded widget AND the BD-3m floating launcher
-  // experience without going through the wizard. Defaults to inline;
-  // clicking "Floating launcher" hides the embed and mounts a real
-  // CalculatorLauncher fixed-positioned in the bottom-right of the page
-  // viewport. The launcher's open/close + fold/unfold animation come
-  // from the component itself (same 400ms two-phase chain that ships in
-  // production for paying customers).
-  const [demoMode, setDemoMode] = useState<'inline' | 'floating'>('inline');
-
   return (
     <MarketingLayout>
       <PageMeta
-        title="See QuoteQuick in action — live demo"
-        description="The actual QuoteQuick calculator your customers will use. No signup needed — try the real widget with sample junk-removal pricing."
+        title="See how QuoteQuick works | WeFixTrades"
+        description="Watch a 60-second tour of QuoteQuick — the online quote calculator that captures leads and bookings while you sleep."
         canonical="/products/quickquotepro/demo"
-        keywords={["quotequick demo", "quote calculator demo"]}
+        keywords={["quotequick tour", "quote calculator tour", "how quotequick works"]}
       />
       <style>{`
-        .demo-cta-wrap {
-          transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        /* Wave 51 — tour badge slots. Hidden by default; Alex will toggle
+           via inline style override once copy lands and video timings are
+           known. Fade hooks pre-wired so the eventual reveal is a 1-line
+           change (display:flex + add .is-visible). */
+        .tour-badge {
+          position: absolute;
+          display: none;
+          align-items: center;
+          padding: 8px 12px;
+          min-width: 120px;
+          max-width: 160px;
+          background: rgba(13, 21, 20, 0.78);
+          color: rgba(255, 255, 255, 1);
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.25;
+          border-radius: 999px;
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+          opacity: 0;
+          transform: translateY(4px);
+          transition: opacity 280ms ease, transform 280ms ease;
+          pointer-events: none;
+          z-index: 2;
         }
-        .demo-cta-wrap:hover {
-          border-color: rgba(0,0,0,0.45) !important;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        .tour-badge.is-visible {
+          display: inline-flex;
+          opacity: 1;
+          transform: translateY(0);
         }
-        .demo-cta-text {
-          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        .tour-badge--tl { top: 12px; left: 12px; }
+        .tour-badge--tr { top: 12px; right: 12px; }
+        .tour-badge--bl { bottom: 12px; left: 12px; }
+        .tour-badge--br { bottom: 12px; right: 12px; }
+
+        .tour-cta {
+          transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
         }
-        .demo-cta-wrap:hover .demo-cta-text {
-          transform: translateX(8px);
-        }
-        .demo-arrow-track {
-          display: flex;
-          width: 104px;
-          transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .demo-cta-wrap:hover .demo-arrow-track {
-          transform: translateX(-52px);
+        .tour-cta:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 30px rgba(13, 60, 252, 0.28);
+          filter: brightness(1.04);
         }
       `}</style>
 
@@ -176,7 +128,7 @@ export default function QuoteCalculatorDemo() {
               QuoteQuick
             </Link>
             <span style={{ margin: "0 6px" }}>/</span>
-            <span style={{ color: mkt.text }}>Live Demo</span>
+            <span style={{ color: mkt.text }}>How it works</span>
           </nav>
 
           {/* BI-1 — link to anonymous AI demo. Sits above the headline so
@@ -224,8 +176,7 @@ export default function QuoteCalculatorDemo() {
                 margin: "0 0 14px",
               }}
             >
-              See <span style={{ color: mkt.accent }}>QuoteQuick</span> in
-              action
+              See how <span style={{ color: mkt.accent }}>QuoteQuick</span> works
             </h1>
             <p
               style={{
@@ -238,16 +189,16 @@ export default function QuoteCalculatorDemo() {
                 marginRight: "auto",
               }}
             >
-              The actual calculator your customers will use. No signup needed
-              to try it.
+              A 60-second tour of what your customers see — then build your own
+              for free.
             </p>
           </div>
 
-          {/* ─── Looped video (16:9, centered) ─── */}
+          {/* ─── Looped video (16:9, centered) with badge overlay slots ─── */}
           <div
             style={{
               maxWidth: 720,
-              margin: "0 auto clamp(32px, 5vw, 48px)",
+              margin: "0 auto clamp(20px, 3vw, 28px)",
             }}
           >
             <div
@@ -305,6 +256,36 @@ export default function QuoteCalculatorDemo() {
                   </div>
                 </div>
               )}
+
+              {/* Wave 51 — Tour badge slots. 4 positioned overlays Alex will
+                  populate with copy + timed reveal once the actual MP4 is in
+                  place. CSS in <style> above handles positioning + fade hooks.
+                  To activate any badge: add className="tour-badge is-visible"
+                  and drop copy between the tags. */}
+              {/* TODO Alex: fill copy + show */}
+              <div
+                className="tour-badge tour-badge--tl"
+                data-testid="tour-badge-1"
+                aria-hidden="true"
+              />
+              {/* TODO Alex: fill copy + show */}
+              <div
+                className="tour-badge tour-badge--tr"
+                data-testid="tour-badge-2"
+                aria-hidden="true"
+              />
+              {/* TODO Alex: fill copy + show */}
+              <div
+                className="tour-badge tour-badge--bl"
+                data-testid="tour-badge-3"
+                aria-hidden="true"
+              />
+              {/* TODO Alex: fill copy + show */}
+              <div
+                className="tour-badge tour-badge--br"
+                data-testid="tour-badge-4"
+                aria-hidden="true"
+              />
             </div>
             <p
               style={{
@@ -314,228 +295,41 @@ export default function QuoteCalculatorDemo() {
                 margin: "10px 0 0",
               }}
             >
-              60-second look — or scroll down to try it live
+              60-second tour of the customer experience
             </p>
           </div>
 
-          {/* ─── Live widget caption ─── */}
-          <p
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: mkt.accent,
-              textAlign: "center",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              margin: "0 0 12px",
-            }}
-          >
-            This is a real, working calculator — try it
-          </p>
-
-          {/* P1 UX (2026-05-22) — "View inline | View as floating launcher"
-           *  toggle. Lets visitors see the floating-launcher mode in action
-           *  on this demo page without having to build a calculator first.
-           *
-           *  Inline mode (default): the embedded QuoteWidget renders below.
-           *  Floating mode: the embed is hidden and a CalculatorLauncher
-           *  is mounted fixed-positioned in the bottom-right of the page
-           *  viewport. The launcher uses the same 400ms two-phase fold/
-           *  unfold animation that ships in production. */}
-          <div
-            className="demo-mode-toggle"
-            role="group"
-            aria-label="Choose how the calculator is displayed"
-            data-testid="demo-mode-toggle"
-            style={{
-              display: "inline-flex",
-              alignSelf: "center",
-              margin: "0 auto 18px",
-              padding: 4,
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.04)",
-              border: `1px solid ${mkt.onDarkBorder}`,
-              gap: 2,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setDemoMode('inline')}
-              aria-pressed={demoMode === 'inline'}
-              data-testid="demo-mode-inline"
+          {/* ─── Primary CTA: send to wizard ─── */}
+          <div style={{ textAlign: "center" }}>
+            <Link
+              href="/wizard"
+              className="tour-cta"
+              data-testid="tour-cta-wizard"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 6,
-                padding: "8px 16px",
-                borderRadius: 999,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 600,
-                background: demoMode === 'inline' ? mkt.accent : "transparent",
-                color: demoMode === 'inline' ? "#fff" : mkt.onDarkMuted,
-                transition: "background 0.18s ease, color 0.18s ease",
+                gap: 8,
+                padding: "14px 28px",
+                borderRadius: 12,
+                background: mkt.accent,
+                color: "#fff",
+                fontSize: 16,
+                fontWeight: 700,
+                textDecoration: "none",
+                margin: "24px auto 0",
               }}
             >
-              <LayoutGrid size={14} aria-hidden="true" />
-              View inline
-            </button>
-            <button
-              type="button"
-              onClick={() => setDemoMode('floating')}
-              aria-pressed={demoMode === 'floating'}
-              data-testid="demo-mode-floating"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 16px",
-                borderRadius: 999,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 600,
-                background: demoMode === 'floating' ? mkt.accent : "transparent",
-                color: demoMode === 'floating' ? "#fff" : mkt.onDarkMuted,
-                transition: "background 0.18s ease, color 0.18s ease",
-              }}
-            >
-              <MessageSquare size={14} aria-hidden="true" />
-              View as floating launcher
-            </button>
-          </div>
-          {demoMode === 'floating' && (
+              Try the wizard yourself <ArrowRight size={20} />
+            </Link>
             <p
               style={{
-                fontSize: 12.5,
+                fontSize: 13,
                 color: mkt.onDarkMuted,
-                textAlign: "center",
-                margin: "-6px 0 14px",
+                margin: "10px 0 0",
               }}
-              data-testid="demo-mode-floating-hint"
             >
-              Look at the bottom-right of the page — click the bubble to expand.
+              Free · No signup · 60 seconds to build yours
             </p>
-          )}
-
-          {/* ─── Live Widget (real AdvancedCalculator instance) ─── */}
-          <div style={{ maxWidth: 780, margin: "0 auto" }}>
-            {demoMode === 'inline' && (
-              <div style={{ marginBottom: "clamp(28px, 4vw, 40px)" }}>
-                <QuoteWidget calculator={demoCalculator} isEmbed={false} />
-              </div>
-            )}
-            {demoMode === 'floating' && (
-              <div
-                style={{
-                  marginBottom: "clamp(28px, 4vw, 40px)",
-                  padding: "clamp(48px, 8vw, 80px) 24px",
-                  borderRadius: 16,
-                  border: `1px dashed ${mkt.onDarkBorder}`,
-                  background: "rgba(255,255,255,0.02)",
-                  textAlign: "center",
-                  color: mkt.onDarkMuted,
-                  fontSize: 14,
-                }}
-                data-testid="demo-floating-placeholder"
-              >
-                The calculator is now docked as a floating bubble in the
-                bottom-right corner of the page. Click it to expand.
-              </div>
-            )}
-          </div>
-
-          {/* P1 UX (2026-05-22) — Floating launcher mount. Lives outside the
-           *  scrolling content so the bubble + expanded panel are fixed to
-           *  the viewport (the launcher itself uses position:fixed). Only
-           *  mounted when demoMode === 'floating' so it doesn't paint over
-           *  the inline preview. */}
-          {demoMode === 'floating' && (
-            <CalculatorLauncher
-              calculatorId="demo-junk-removal"
-              config={{ enabled: true, position: 'bottom-right' }}
-              proTierUnlocked={false}
-              accent={mkt.accent}
-            >
-              <QuoteWidget calculator={demoCalculator} isEmbed={false} />
-            </CalculatorLauncher>
-          )}
-
-          {/* ─── CTA ─── */}
-          <div style={{ maxWidth: 640, margin: "0 auto" }}>
-            <Link
-              href="/products/quickquotepro"
-              style={{
-                textDecoration: "none",
-                display: "block",
-                marginBottom: 16,
-              }}
-            >
-              <div
-                className="demo-cta-wrap"
-                style={{
-                  background: CYAN,
-                  borderRadius: 16,
-                  border: "2px solid transparent",
-                  padding: "20px 24px",
-                  display: "flex",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <div className="demo-cta-text" style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: "clamp(17px, 2.5vw, 20px)",
-                      fontWeight: 700,
-                      color: DARK,
-                      lineHeight: 1.2,
-                      marginBottom: 4,
-                    }}
-                  >
-                    Build your own in 5 minutes
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      color: "rgba(13,21,20,0.6)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    No credit card required · Live in 5 minutes · Free + from $29/mo
-                  </div>
-                </div>
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    background: DARK,
-                    borderRadius: 10,
-                    overflow: "hidden",
-                    flexShrink: 0,
-                  }}
-                >
-                  <div className="demo-arrow-track" style={{ height: 52 }}>
-                    {[0, 1].map((i) => (
-                      <div
-                        key={i}
-                        style={{
-                          width: 52,
-                          height: 52,
-                          flexShrink: 0,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <ArrowRight size={20} color="white" strokeWidth={2.2} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Link>
           </div>
 
           {/* ─── Cross-tool suggestions ─── */}
@@ -552,6 +346,9 @@ export default function QuoteCalculatorDemo() {
           <TrustStrip theme="dark" />
 
           {/* ─── FAQ ─── */}
+          {/* Wave 51 — kept. FAQ items are operational (accuracy, mobile,
+              lead delivery, embed, trial) and frame OUTCOMES rather than
+              the product-page feature list, so not duplicate content. */}
           <DemoFaqSection />
         </div>
       </section>
