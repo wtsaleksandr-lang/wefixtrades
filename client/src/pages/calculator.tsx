@@ -6,6 +6,7 @@ import { Loader2, SearchX } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { hostedSlugFromHost } from '@shared/slugUtils';
+import { useWidgetFonts } from '@/hooks/useWidgetFonts';
 
 /**
  * Best-effort detection of the embedding parent's origin so we never
@@ -48,18 +49,7 @@ function resolveParentOrigin(): string {
 // sole implementation. The legacy file remains in the repo untouched for
 // reference but is not imported here.
 
-/** Inject widget fonts if not already present (needed for iframe embeds on external sites) */
-function useEmbedFonts(isEmbed: boolean) {
-  useEffect(() => {
-    if (!isEmbed) return;
-    if (document.querySelector('link[data-quotequick-fonts]')) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.dataset.quotequickFonts = '1';
-    link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap';
-    document.head.appendChild(link);
-  }, [isEmbed]);
-}
+// Widget fonts now loaded via the shared useWidgetFonts hook (Wave 45).
 
 export default function Calculator() {
   const params = new URLSearchParams(window.location.search);
@@ -69,7 +59,10 @@ export default function Calculator() {
   const isEmbed = params.get('embed') === 'true';
   const previewToken = params.get('preview');
 
-  useEmbedFonts(isEmbed);
+  // Load the QuoteWidget curated font set on mount. Was previously
+  // baked into index.html (render-blocking on every marketing page);
+  // Wave 45 scoped it here.
+  useWidgetFonts();
 
   // Memoised so the ResizeObserver effect doesn't re-resolve on every
   // render. Origin is captured once at mount — the embedding parent

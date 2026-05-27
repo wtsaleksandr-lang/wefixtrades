@@ -33,6 +33,52 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    /**
+     * Wave 45 — slim modulepreload list.
+     *
+     * Vite's default emits `<link rel="modulepreload">` for every vendor
+     * chunk transitively reachable from the entry, even when those chunks
+     * only land via React.lazy() dynamic imports. The marketing homepage
+     * does not need vendor-globe (Three.js ~515 KiB), vendor-charts,
+     * vendor-motion, vendor-gsap, vendor-dnd, vendor-form, vendor-posthog,
+     * vendor-sentry up-front — those route through lazy chunks for
+     * /portal/*, /admin/*, /wizard, /calculator. Preloading them on every
+     * page (including the homepage) was costing ~7s LCP on mobile.
+     *
+     * We let modulepreload keep only the chunks the homepage actually needs
+     * during initial render: vendor-react, vendor-router, vendor-query,
+     * vendor-radix, vendor-icons, and the home-entry chunk. Everything else
+     * still loads correctly when the route mounts — it's just not
+     * pre-fetched at first paint.
+     */
+    modulePreload: {
+      resolveDependencies: (_filename, deps) => {
+        const keep = (dep: string) =>
+          dep.includes("vendor-react") ||
+          dep.includes("vendor-router") ||
+          dep.includes("vendor-query") ||
+          dep.includes("vendor-radix") ||
+          dep.includes("vendor-icons") ||
+          // Keep the home/marketing-critical app chunks (index, MarketingHome,
+          // its layout, hero subcomponents) — those are statically imported
+          // by the entry and need to be modulepreloaded for fast LCP.
+          (!dep.startsWith("assets/vendor-") &&
+            !dep.includes("vendor-globe") &&
+            !dep.includes("vendor-charts") &&
+            !dep.includes("vendor-motion") &&
+            !dep.includes("vendor-gsap") &&
+            !dep.includes("vendor-rive") &&
+            !dep.includes("vendor-dnd") &&
+            !dep.includes("vendor-form") &&
+            !dep.includes("vendor-carousel") &&
+            !dep.includes("vendor-html2canvas") &&
+            !dep.includes("vendor-qrcode") &&
+            !dep.includes("vendor-date") &&
+            !dep.includes("vendor-posthog") &&
+            !dep.includes("vendor-sentry"));
+        return deps.filter(keep);
+      },
+    },
     rollupOptions: {
       output: {
         /**

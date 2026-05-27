@@ -1,15 +1,20 @@
-import { useEffect, useRef, useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Link } from "wouter";
-import gsap from "gsap";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { organizationSchema, websiteSchema } from "@/lib/seo/jsonLd";
-import { useScrollReveal } from "@/hooks/useScrollReveal";
+// Wave 45 — gsap + useScrollReveal removed from the homepage. The
+// hero stagger is now a CSS keyframe (`heroEnterIn` below); there
+// were no `[data-reveal]` markers on this page so useScrollReveal()
+// was a no-op that still pulled gsap + ScrollTrigger (~80 KiB) into
+// the marketing critical path. Other pages that DO use data-reveal
+// keep the hook — this change is scoped to home.tsx.
 // WorkflowDemo removed in round 8 — covered by AutomationDiagram.
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
 import IntegrationsTrustStrip from "@/components/marketing/IntegrationsTrustStrip";
 import HeroProductPreview from "@/components/marketing/HeroProductPreview";
+import DeferUntilNear from "@/components/marketing/DeferUntilNear";
 /* Removed: TrustMarquee (used fabricated customer logos — dishonest trust
  * signal that would fail any "google these companies" sniff test) and the
  * triple-row animated HeroTradeDivider (visual noise; the "Built for"
@@ -301,6 +306,32 @@ const RESPONSIVE_CSS = `
     outline: 2px solid ${mkt.accent};
     outline-offset: 2px;
   }
+  /* Wave 45 — hero stagger as CSS, replacing the gsap.fromTo() that
+   * pulled the gsap vendor chunk into the homepage critical path.
+   * Same visual cadence (translateY 36 → 0, opacity 0 → 1, ~0.78s,
+   * 0.13s stagger, brand cubic-bezier). */
+  @keyframes heroEnterIn {
+    from { opacity: 0; transform: translateY(36px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero-enter {
+    opacity: 0;
+    transform: translateY(36px);
+    animation: heroEnterIn 0.78s cubic-bezier(0.526, 0.007, 0, 0.989) 0.1s forwards;
+  }
+  .hero-enter:nth-of-type(1) { animation-delay: 0.10s; }
+  .hero-enter:nth-of-type(2) { animation-delay: 0.23s; }
+  .hero-enter:nth-of-type(3) { animation-delay: 0.36s; }
+  .hero-enter:nth-of-type(4) { animation-delay: 0.49s; }
+  .hero-enter:nth-of-type(5) { animation-delay: 0.62s; }
+  .hero-enter:nth-of-type(6) { animation-delay: 0.75s; }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-enter {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
   @keyframes heroPillIn {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -584,34 +615,21 @@ const RESPONSIVE_CSS = `
 `;
 
 export default function HomePage() {
-  useScrollReveal();
-  const heroRef = useRef<HTMLDivElement>(null);
   const [hasWebGL] = useState<boolean>(() => {
     const canvas = document.createElement("canvas");
     return !!(canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl"));
   });
 
   // Title + meta tags handled by <PageMeta> below.
-
-  // Hero entrance stagger — Effortel style
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const el = heroRef.current;
-    if (!el) return;
-    const targets = el.querySelectorAll(".hero-enter");
-    gsap.fromTo(
-      targets,
-      { y: 36, opacity: 0 },
-      {
-        y: 0,
-        opacity: 1,
-        duration: 0.78,
-        stagger: 0.13,
-        ease: "cubic-bezier(0.526, 0.007, 0, 0.989)",
-        delay: 0.1,
-      }
-    );
-  }, []);
+  //
+  // Wave 45 — hero entrance stagger moved to CSS (`heroEnterIn` keyframe
+  // + `.hero-enter:nth-child(...)` animation-delay rules in
+  // RESPONSIVE_CSS). Same visual cadence (y:36 → 0, opacity 0 → 1,
+  // ~0.78s, 0.13s stagger, brand ease) without pulling gsap into the
+  // homepage bundle. `prefers-reduced-motion` respected via the
+  // `@media (prefers-reduced-motion: reduce)` block at the bottom of
+  // the keyframe — animations get duration:0 so the targets land in
+  // their final state immediately.
 
   return (
     <MarketingLayout>
@@ -778,7 +796,7 @@ export default function HomePage() {
           }
         `}</style>
 
-        <div ref={heroRef} style={{ maxWidth: 1200, margin: "0 auto", position: "relative", zIndex: 2 }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative", zIndex: 2 }}>
           <div className="hero-grid">
             {/* Left column — copy + CTAs */}
             <div className="hero-copy-col">
@@ -964,17 +982,26 @@ export default function HomePage() {
       </section>
 
       {/* Three product showcase types covering all 12 products — each lazy-
-          loaded to keep the initial home.tsx bundle small. Suspense fallback
-          heights reserve approximate rendered space to minimise CLS. */}
-      <Suspense fallback={lazyFallback(560)}>
-        <CapabilitiesShowcase />        {/* 4 money-makers */}
-      </Suspense>
-      <Suspense fallback={lazyFallback(520)}>
-        <StickyStackCards />            {/* 4 growth tools */}
-      </Suspense>
-      <Suspense fallback={lazyFallback(520)}>
-        <ServiceStackTimeline />        {/* 4 done-for-you */}
-      </Suspense>
+          loaded to keep the initial home.tsx bundle small.
+          Wave 45 — wrapped in <DeferUntilNear> so React.lazy() doesn't
+          fetch their vendor chunks (motion/charts/globe) during the
+          hero paint. The Suspense fallback heights are mirrored as the
+          DeferUntilNear minHeight to keep CLS at 0. */}
+      <DeferUntilNear minHeight={560}>
+        <Suspense fallback={lazyFallback(560)}>
+          <CapabilitiesShowcase />        {/* 4 money-makers */}
+        </Suspense>
+      </DeferUntilNear>
+      <DeferUntilNear minHeight={520}>
+        <Suspense fallback={lazyFallback(520)}>
+          <StickyStackCards />            {/* 4 growth tools */}
+        </Suspense>
+      </DeferUntilNear>
+      <DeferUntilNear minHeight={520}>
+        <Suspense fallback={lazyFallback(520)}>
+          <ServiceStackTimeline />        {/* 4 done-for-you */}
+        </Suspense>
+      </DeferUntilNear>
       {/* Removed legacy sections (PillarAnimation, FeatureCards, ServiceCards,
           WorkflowDemo) — they duplicated the 3-type story above and broke the
           V7 visual cohesion as the user scrolled. AutomationDiagram remains as
@@ -986,19 +1013,28 @@ export default function HomePage() {
          * TrustSection stats below. Desktop still gets it. */
         <div className="home-globe-wrap" style={{ display: "block" }}>
           <style>{`@media (max-width: 768px) { .home-globe-wrap { display: none !important; } }`}</style>
-          <Suspense fallback={lazyFallback(560)}>
-            <GlobeSection />
-          </Suspense>
+          {/* Wave 45 — defer the 520 KiB gzipped vendor-globe (Three.js)
+              chunk fetch until the visitor scrolls within 600px of it.
+              Was the single biggest LCP-blocker on the homepage. */}
+          <DeferUntilNear minHeight={560}>
+            <Suspense fallback={lazyFallback(560)}>
+              <GlobeSection />
+            </Suspense>
+          </DeferUntilNear>
         </div>
       )}
       <SurfaceSection overlap className="py-4">
-        <Suspense fallback={lazyFallback(480)}>
-          <ReviewsSection />
-        </Suspense>
+        <DeferUntilNear minHeight={480}>
+          <Suspense fallback={lazyFallback(480)}>
+            <ReviewsSection />
+          </Suspense>
+        </DeferUntilNear>
       </SurfaceSection>
-      <Suspense fallback={lazyFallback(560)}>
-        <AutomationDiagram />
-      </Suspense>
+      <DeferUntilNear minHeight={560}>
+        <Suspense fallback={lazyFallback(560)}>
+          <AutomationDiagram />
+        </Suspense>
+      </DeferUntilNear>
       <TrustSection />
       <CTASection />
       <ExitIntentPopup />
