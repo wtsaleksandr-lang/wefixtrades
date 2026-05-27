@@ -2159,30 +2159,45 @@ export default function WizardShell({ embed = false }: Props) {
              * 4px (6px on hover) width plus the pane-edge offset. The
              * keyboard a11y path (focus + arrow keys) still works since the
              * button receives focus. */
+            /* Wave 54 — bump resting visibility so users actually find the
+             * splitter. Was rgba(15,23,42,0.22) on a 6px-wide bar — almost
+             * invisible against the surrounding panels. Now a 5px bar with
+             * a brand-blue tinted resting state and a wider 10px hover
+             * state with a brighter accent border for clear discoverability.
+             * The grip rail inside renders 3 dots so the user reads
+             * "grabbable splitter" even when no hover. */
             .qq-editor-resize {
-              position: absolute; top: 0; right: -6px; bottom: 0;
-              width: 6px;
-              background: rgba(15, 23, 42, 0.22);
+              position: absolute; top: 0; right: -5px; bottom: 0;
+              width: 5px;
+              background: rgba(13, 60, 252, 0.18);
               border: 0; padding: 0; cursor: col-resize;
               z-index: 5;
               touch-action: none;
               display: flex; align-items: center; justify-content: center;
-              box-shadow: inset 1px 0 0 rgba(15, 23, 42, 0.08);
+              box-shadow:
+                inset 1px 0 0 rgba(13, 60, 252, 0.12),
+                inset -1px 0 0 rgba(13, 60, 252, 0.12);
               transition: background 0.12s ease, width 0.12s ease, right 0.12s ease, box-shadow 0.12s ease;
             }
             .qq-editor-shell[data-theme="dark"] .qq-editor-resize {
-              background: rgba(255, 255, 255, 0.28);
-              box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.05);
+              background: rgba(96, 165, 250, 0.28);
+              box-shadow:
+                inset 1px 0 0 rgba(96, 165, 250, 0.20),
+                inset -1px 0 0 rgba(96, 165, 250, 0.20);
             }
             .qq-editor-resize:hover {
-              background: rgba(13, 60, 252, 0.45);
-              width: 8px;
+              background: rgba(13, 60, 252, 0.55);
+              width: 10px;
               right: -7px;
             }
             .qq-editor-resize.is-resizing {
               background: #0d3cfc;
-              width: 8px;
+              width: 10px;
               right: -7px;
+            }
+            .qq-editor-resize:focus-visible {
+              outline: 2px solid #0d3cfc;
+              outline-offset: 2px;
             }
             /* Vertical grip rail — centered on the handle. A taller (32px)
              * thin (3px) vertical pill gives the resize handle clear edge
