@@ -13,6 +13,7 @@ import {
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
@@ -210,6 +211,8 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState({ subject_template: "", body_template: "", delay_days: 1 });
+  // Wave 39 — replaces window.confirm for step deletion.
+  const [pendingDeleteStepId, setPendingDeleteStepId] = useState<number | null>(null);
 
   const stepsQuery = useQuery<{ data: Step[] }>({
     queryKey: ["/api/admin/outbound/sequences", sequence?.id, "steps"],
@@ -313,7 +316,7 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
                         Step {s.order_index}
                         {s.order_index > 1 && <span className="text-gray-400 font-normal"> · +{s.delay_days}d</span>}
                       </span>
-                      <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-600" onClick={() => { if (window.confirm("Delete this step? This cannot be undone.")) deleteStep.mutate(s.id); }} disabled={deleteStep.isPending} aria-label="Delete step">
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-600" onClick={() => setPendingDeleteStepId(s.id)} disabled={deleteStep.isPending} aria-label="Delete step">
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
@@ -368,6 +371,21 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
           <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Wave 39 — confirm step deletion (replaces window.confirm). */}
+      <ConfirmDialog
+        open={pendingDeleteStepId !== null}
+        onOpenChange={(o) => { if (!o) setPendingDeleteStepId(null); }}
+        title="Delete this step?"
+        description="This cannot be undone."
+        destructive
+        confirmLabel="Delete"
+        pending={deleteStep.isPending}
+        onConfirm={() => {
+          if (pendingDeleteStepId !== null) deleteStep.mutate(pendingDeleteStepId);
+          setPendingDeleteStepId(null);
+        }}
+      />
     </Dialog>
   );
 }
@@ -396,6 +414,8 @@ export default function SequencesPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Sequence | null>(null);
+  // Wave 39 — replaces window.confirm for sequence deletion.
+  const [pendingDelete, setPendingDelete] = useState<Sequence | null>(null);
 
   const { data, isLoading } = useQuery<{ data: SequenceRow[] }>({
     queryKey: ["/api/admin/outbound/sequences"],
@@ -518,7 +538,7 @@ export default function SequencesPage() {
                             Archive
                           </Button>
                         ) : (
-                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600" onClick={() => { if (window.confirm(`Permanently delete "${s.name}"? This cannot be undone.`)) remove.mutate(s.id); }} disabled={remove.isPending}>
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600" onClick={() => setPendingDelete(s)} disabled={remove.isPending}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         )}
@@ -534,6 +554,21 @@ export default function SequencesPage() {
 
       <CreateSequenceDialog open={createOpen} onClose={() => setCreateOpen(false)} />
       <EditSequenceDialog sequence={editing} open={!!editing} onClose={() => setEditing(null)} />
+
+      {/* Wave 39 — confirm sequence deletion (replaces window.confirm). */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(o) => { if (!o) setPendingDelete(null); }}
+        title={pendingDelete ? `Permanently delete "${pendingDelete.name}"?` : "Delete sequence?"}
+        description="This cannot be undone."
+        destructive
+        confirmLabel="Delete sequence"
+        pending={remove.isPending}
+        onConfirm={() => {
+          if (pendingDelete) remove.mutate(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+      />
     </AdminLayout>
   );
 }

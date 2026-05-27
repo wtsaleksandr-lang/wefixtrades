@@ -29,6 +29,16 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useAuth } from "@/hooks/useAuth";
@@ -184,6 +194,12 @@ export default function ProductDetailPage() {
 
   const [form, setForm] = useState<EditableForm>(initial);
   useEffect(() => { setForm(initial); }, [initial]);
+
+  // Wave 39 — replaces three native browser dialogs in this view.
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [pendingTierRemoveIdx, setPendingTierRemoveIdx] = useState<number | null>(null);
+  const [stripeConfirmOpen, setStripeConfirmOpen] = useState(false);
 
   // Compute which fields differ from the LIVE row (i.e., would be part of a new draft)
   const dirty = useMemo(() => {
@@ -495,8 +511,8 @@ export default function ProductDetailPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      const reason = window.prompt("Reason for rejecting this draft? (optional)") ?? "";
-                      reject.mutate(reason);
+                      setRejectReason("");
+                      setRejectOpen(true);
                     }}
                     disabled={reject.isPending}
                     data-testid="button-reject"
@@ -670,9 +686,7 @@ export default function ProductDetailPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm(`Remove tier "${tier.name || `#${idx + 1}`}"?`)) removeTier(idx);
-                        }}
+                        onClick={() => setPendingTierRemoveIdx(idx)}
                         className="p-1 rounded hover:bg-red-50"
                         aria-label="Remove tier"
                         data-testid={`tier-remove-${idx}`}
@@ -957,7 +971,8 @@ export default function ProductDetailPage() {
                       "stripe_product_id" in dirty ||
                       "stripe_price_id" in dirty ||
                       "stripe_yearly_price_id" in dirty;
-                    if (stripeChanged && !window.confirm("You're changing Stripe IDs. New customer charges will use these IDs. Continue?")) {
+                    if (stripeChanged) {
+                      setStripeConfirmOpen(true);
                       return;
                     }
                     saveDraft.mutate();
@@ -1061,6 +1076,77 @@ export default function ProductDetailPage() {
           </>
         )}
       </div>
+
+      {/* Wave 39 — reject-draft reason dialog (replaces window.prompt). */}
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent data-testid="reject-draft-dialog">
+          <DialogHeader>
+            <DialogTitle>Reject this draft?</DialogTitle>
+            <DialogDescription>
+              The draft is discarded and the live product is unchanged. Optionally leave a reason for the author.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col py-2" style={{ gap: 2 }}>
+            <Label htmlFor="reject-reason" className="text-xs text-muted-foreground">
+              Reason (optional)
+            </Label>
+            <Textarea
+              id="reject-reason"
+              rows={3}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              data-testid="reject-reason-input"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectOpen(false)} disabled={reject.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                reject.mutate(rejectReason);
+                setRejectOpen(false);
+              }}
+              disabled={reject.isPending}
+              data-testid="reject-confirm-btn"
+            >
+              Reject draft
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Wave 39 — confirm tier removal (replaces window.confirm). */}
+      <ConfirmDialog
+        open={pendingTierRemoveIdx !== null}
+        onOpenChange={(o) => { if (!o) setPendingTierRemoveIdx(null); }}
+        title={
+          pendingTierRemoveIdx !== null
+            ? `Remove tier "${form.tiers[pendingTierRemoveIdx]?.name || `#${pendingTierRemoveIdx + 1}`}"?`
+            : "Remove tier?"
+        }
+        description="The tier is dropped from the draft. You can still cancel without publishing."
+        destructive
+        confirmLabel="Remove tier"
+        onConfirm={() => {
+          if (pendingTierRemoveIdx !== null) removeTier(pendingTierRemoveIdx);
+          setPendingTierRemoveIdx(null);
+        }}
+      />
+
+      {/* Wave 39 — confirm Stripe-ID change (replaces window.confirm). */}
+      <ConfirmDialog
+        open={stripeConfirmOpen}
+        onOpenChange={setStripeConfirmOpen}
+        title="Change Stripe IDs?"
+        description="New customer charges will use these IDs."
+        confirmLabel="Save draft"
+        onConfirm={() => {
+          setStripeConfirmOpen(false);
+          saveDraft.mutate();
+        }}
+      />
     </AdminLayout>
   );
 }
@@ -1249,6 +1335,8 @@ interface SupplierRow {
 function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; serviceName: string }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  // Wave 39 — supplier pending removal (replaces window.confirm).
+  const [pendingRemoveSupplier, setPendingRemoveSupplier] = useState<SupplierRow | null>(null);
   const { data, isLoading } = useQuery<{ assigned: SupplierRow[]; available: SupplierRow[] }>({
     queryKey: [`/api/admin/products/${serviceId}/suppliers`],
     queryFn: async () => {
@@ -1302,6 +1390,7 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
   const [costInput, setCostInput] = useState("");
 
   return (
+    <>
     <Card className="p-5 space-y-3" data-testid="suppliers-panel">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -1367,11 +1456,7 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (window.confirm(`Remove "${s.name}" from ${serviceName}?`)) {
-                        toggle.mutate({ supplierId: s.id, assigned: false });
-                      }
-                    }}
+                    onClick={() => setPendingRemoveSupplier(s)}
                     disabled={toggle.isPending}
                     className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-40"
                     aria-label="Remove supplier"
@@ -1471,6 +1556,27 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
         </div>
       )}
     </Card>
+
+    {/* Wave 39 — confirm supplier removal (replaces window.confirm). */}
+    <ConfirmDialog
+      open={pendingRemoveSupplier !== null}
+      onOpenChange={(o) => { if (!o) setPendingRemoveSupplier(null); }}
+      title={
+        pendingRemoveSupplier
+          ? `Remove "${pendingRemoveSupplier.name}" from ${serviceName}?`
+          : "Remove supplier?"
+      }
+      description="The supplier is unassigned from this product. Existing tasks are unaffected."
+      destructive
+      confirmLabel="Remove"
+      onConfirm={() => {
+        if (pendingRemoveSupplier) {
+          toggle.mutate({ supplierId: pendingRemoveSupplier.id, assigned: false });
+        }
+        setPendingRemoveSupplier(null);
+      }}
+    />
+    </>
   );
 }
 
@@ -1494,6 +1600,9 @@ interface SubscriberRow {
 function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; serviceName: string }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  // Wave 39 — replaces window.prompt for the cancel-reason flow.
+  const [pendingCancel, setPendingCancel] = useState<SubscriberRow | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const { data, isLoading } = useQuery<{ subscribers: SubscriberRow[] }>({
     queryKey: [`/api/admin/products/${serviceId}/subscribers`],
     queryFn: async () => {
@@ -1546,6 +1655,7 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
   const cancelled = subs.filter((s) => s.status === "cancelled");
 
   return (
+    <>
     <Card className="p-5 space-y-3" data-testid="subscribers-panel">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -1606,9 +1716,8 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
                 <button
                   type="button"
                   onClick={() => {
-                    const reason = window.prompt(`Cancel ${s.client_name}'s ${serviceName}? Optional reason:`) ?? null;
-                    if (reason === null) return;
-                    cancel.mutate({ clientServiceId: s.id, reason });
+                    setCancelReason("");
+                    setPendingCancel(s);
                   }}
                   disabled={cancel.isPending}
                   className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-40"
@@ -1641,6 +1750,56 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
         </details>
       )}
     </Card>
+
+    {/* Wave 39 — cancel-subscription reason dialog (replaces window.prompt). */}
+    <Dialog
+      open={pendingCancel !== null}
+      onOpenChange={(o) => { if (!o) setPendingCancel(null); }}
+    >
+      <DialogContent data-testid="cancel-subscription-dialog">
+        <DialogHeader>
+          <DialogTitle>
+            {pendingCancel
+              ? `Cancel ${pendingCancel.client_name}'s ${serviceName}?`
+              : "Cancel subscription?"}
+          </DialogTitle>
+          <DialogDescription>
+            The client is removed from this product. Add an optional reason for the audit log.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col py-2" style={{ gap: 2 }}>
+          <Label htmlFor="cancel-reason" className="text-xs text-muted-foreground">
+            Reason (optional)
+          </Label>
+          <Textarea
+            id="cancel-reason"
+            rows={3}
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            data-testid="cancel-reason-input"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPendingCancel(null)} disabled={cancel.isPending}>
+            Keep subscription
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              if (pendingCancel) {
+                cancel.mutate({ clientServiceId: pendingCancel.id, reason: cancelReason });
+              }
+              setPendingCancel(null);
+            }}
+            disabled={cancel.isPending}
+            data-testid="cancel-confirm-btn"
+          >
+            Cancel subscription
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
