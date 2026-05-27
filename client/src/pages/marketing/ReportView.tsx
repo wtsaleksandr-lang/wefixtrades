@@ -1354,7 +1354,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
               <div style={{ flex: 1, minWidth: 200 }}>
                 {business?.businessPhotoUrl ? (
-                  <img src={business.businessPhotoUrl} alt={business.name} style={{
+                  <img src={business.businessPhotoUrl} alt={business.name} decoding="async" style={{
                     width: 72, height: 72, borderRadius: '50%', objectFit: 'cover',
                     border: `3px solid ${CYAN}`, marginBottom: 8, display: 'block'
                   }} />
@@ -1655,7 +1655,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   {/* Photo or avatar */}
                   <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#F3F4F6' }}>
                     {comp.photoUrl ? (
-                      <img src={comp.photoUrl} alt={comp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}/>
+                      <img src={comp.photoUrl} alt={comp.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}/>
                     ) : (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: GREY }}>🏢</div>
                     )}
@@ -1711,7 +1711,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ width: 20, fontSize: 11, color: CYAN, fontWeight: 700, textAlign: 'center' }}>#{businessRank}</div>
             <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: CYAN + '22' }}>
               {business?.businessPhotoUrl ? (
-                <img src={business.businessPhotoUrl} alt={business?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+                <img src={business.businessPhotoUrl} alt={business?.name} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>⭐</div>
               )}
@@ -2233,6 +2233,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     <img
                       src={screenshotSrc}
                       alt={`${business?.name || 'Business'} website screenshot`}
+                      loading="lazy"
+                      decoding="async"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       style={{
                         width: '100%',
@@ -3183,6 +3185,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     <img
                       src={screenshotSrc}
                       alt="Website screenshot"
+                      loading="lazy"
+                      decoding="async"
                       style={{ width: '100%', borderRadius: 10, border: `1px solid ${BORDER}`, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
                     />
                   </div>
