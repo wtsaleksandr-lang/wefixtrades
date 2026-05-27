@@ -9,6 +9,16 @@ const Tabs = TabsPrimitive.Root
  * TabsList — outer wrapper for tab triggers. Subtle bottom border anchors
  * the row visually and makes the active-tab underline read clearly without
  * the heavy "pill in a muted strip" look the original Shadcn default had.
+ *
+ * Wave 48a: every TabsList scrolls horizontally on mobile when its triggers
+ * would overflow the viewport (Alex's locked rule: "top navigation tabs on
+ * mobile are all visible without scrolling" — when there are too many tabs
+ * to fit, horizontal scroll is the fallback, *never* clipped/hidden). We use
+ * `overflow-x-auto` + a hidden scrollbar (`[scrollbar-width:none]` and the
+ * webkit equivalent) so the tab strip stays uncluttered while still allowing
+ * touch/scroll-wheel access to off-screen tabs. `max-w-full` keeps the strip
+ * from blowing out its parent. Grid-based callers (`grid grid-cols-N`) still
+ * work — overflow-x-auto on a grid is a no-op when content fits.
  */
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
@@ -17,7 +27,7 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center gap-1 border-b border-gray-200 text-muted-foreground",
+      "inline-flex h-10 max-w-full items-center justify-center gap-1 overflow-x-auto border-b border-gray-200 text-muted-foreground [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
       className
     )}
     {...props}
