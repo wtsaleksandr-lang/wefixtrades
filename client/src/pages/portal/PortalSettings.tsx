@@ -228,7 +228,7 @@ export default function PortalSettings() {
           <div className="space-y-6" data-testid="settings-skeleton">
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <Skeleton className="h-4 w-24 mb-3" />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i}>
                     <Skeleton className="h-3 w-20 mb-1.5" />
@@ -287,7 +287,7 @@ export default function PortalSettings() {
               {/* Account info (read-only) */}
               <div className="bg-white rounded-xl border border-gray-200 p-5">
                 <h2 className="text-sm font-semibold text-gray-900 mb-3">Account</h2>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-xs text-gray-500">Business Name</p>
                     <p className="text-gray-900 font-medium">{data.business_name}</p>

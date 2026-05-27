@@ -548,7 +548,7 @@ function FieldEditor({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <Field label="id (slug)">
           <Input value={field.id} onChange={(e) => set("id", e.target.value)} className="font-mono text-sm" />
         </Field>
@@ -569,7 +569,7 @@ function FieldEditor({
       </Field>
 
       {(field.type === "number" || field.type === "slider") && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Field label="min">
             <Input
               type="number"
@@ -624,7 +624,7 @@ function FieldEditor({
         />
       )}
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Field label="Required" inline>
           <Switch checked={!!field.required} onCheckedChange={(c) => set("required", c)} />
         </Field>
@@ -784,7 +784,7 @@ function CalculationsTab({
               </button>
             </div>
             <AccordionContent className="px-3 pb-3 pt-1 space-y-3">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <Field label="id">
                   <Input value={c.id} onChange={(e) => update(i, { ...c, id: e.target.value })} className="font-mono text-sm" />
                 </Field>
@@ -809,7 +809,7 @@ function CalculationsTab({
                   onChange={(v) => update(i, { ...c, formula: v })}
                 />
               </Field>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Field label="Result mode">
                   <Select
                     value={c.resultMode ?? "secondary"}
@@ -829,7 +829,7 @@ function CalculationsTab({
                   />
                 </Field>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Field label="Show in results" inline>
                   <Switch
                     checked={c.showInResults !== false}

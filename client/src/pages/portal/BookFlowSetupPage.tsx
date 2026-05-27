@@ -492,7 +492,7 @@ export default function BookFlowSetupPage() {
             {/* Slot config */}
             <div className={`${cardClass} space-y-4`}>
               <h2 className="text-sm font-semibold text-gray-900">Scheduling</h2>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Default Slot Length (minutes)</label>
                   <input
