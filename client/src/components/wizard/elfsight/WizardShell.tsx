@@ -2161,39 +2161,52 @@ export default function WizardShell({ embed = false }: Props) {
              * button receives focus. */
             /* Wave 54 — bump resting visibility so users actually find the
              * splitter. Was rgba(15,23,42,0.22) on a 6px-wide bar — almost
-             * invisible against the surrounding panels. Now a 5px bar with
-             * a brand-blue tinted resting state and a wider 10px hover
-             * state with a brighter accent border for clear discoverability.
-             * The grip rail inside renders 3 dots so the user reads
-             * "grabbable splitter" even when no hover. */
+             * invisible against the surrounding panels.
+             *
+             * Wave 55 — Alex still reports the splitter is invisible. Root
+             * causes addressed:
+             *  (1) Parent .qq-editor-left has overflow-y: auto, which
+             *      establishes a clipping context that clips the right:-5px
+             *      offset. Splitter now sits INSIDE the pane edge at right:0
+             *      so the bar is never clipped.
+             *  (2) Resting opacity 0.18 was too subtle against the panel
+             *      background. Bumped to ~0.42 (light) / 0.48 (dark) so the
+             *      bar reads as a clear vertical divider at rest.
+             *  (3) Width bumped from 5px to 6px at rest, 12px on hover,
+             *      with a brighter inset so the divider is always
+             *      perceptible even at a glance. */
             .qq-editor-resize {
-              position: absolute; top: 0; right: -5px; bottom: 0;
-              width: 5px;
-              background: rgba(13, 60, 252, 0.18);
+              position: absolute; top: 0; right: 0; bottom: 0;
+              width: 6px;
+              background: rgba(13, 60, 252, 0.42);
               border: 0; padding: 0; cursor: col-resize;
               z-index: 5;
               touch-action: none;
               display: flex; align-items: center; justify-content: center;
               box-shadow:
-                inset 1px 0 0 rgba(13, 60, 252, 0.12),
-                inset -1px 0 0 rgba(13, 60, 252, 0.12);
-              transition: background 0.12s ease, width 0.12s ease, right 0.12s ease, box-shadow 0.12s ease;
+                inset 1px 0 0 rgba(13, 60, 252, 0.55),
+                inset -1px 0 0 rgba(13, 60, 252, 0.55);
+              transition: background 0.12s ease, width 0.12s ease, box-shadow 0.12s ease;
             }
             .qq-editor-shell[data-theme="dark"] .qq-editor-resize {
-              background: rgba(96, 165, 250, 0.28);
+              background: rgba(96, 165, 250, 0.48);
               box-shadow:
-                inset 1px 0 0 rgba(96, 165, 250, 0.20),
-                inset -1px 0 0 rgba(96, 165, 250, 0.20);
+                inset 1px 0 0 rgba(96, 165, 250, 0.65),
+                inset -1px 0 0 rgba(96, 165, 250, 0.65);
             }
             .qq-editor-resize:hover {
-              background: rgba(13, 60, 252, 0.55);
-              width: 10px;
-              right: -7px;
+              background: #0d3cfc;
+              width: 12px;
+              box-shadow:
+                inset 1px 0 0 rgba(255, 255, 255, 0.30),
+                inset -1px 0 0 rgba(255, 255, 255, 0.30);
             }
             .qq-editor-resize.is-resizing {
               background: #0d3cfc;
-              width: 10px;
-              right: -7px;
+              width: 12px;
+              box-shadow:
+                inset 1px 0 0 rgba(255, 255, 255, 0.30),
+                inset -1px 0 0 rgba(255, 255, 255, 0.30);
             }
             .qq-editor-resize:focus-visible {
               outline: 2px solid #0d3cfc;
@@ -2210,8 +2223,8 @@ export default function WizardShell({ embed = false }: Props) {
               width: 3px; height: 32px;
               border-radius: 999px;
               background: currentColor;
-              color: rgba(255, 255, 255, 0.85);
-              opacity: 0.75;
+              color: #ffffff;
+              opacity: 0.95;
               transition: opacity 0.12s ease, color 0.12s ease;
             }
             .qq-editor-shell[data-theme="dark"] .qq-editor-resize > span {
@@ -2268,10 +2281,27 @@ export default function WizardShell({ embed = false }: Props) {
                sticky descendants still bind to the page / iframe scroll
                context. clip gives the same scroll-static visual without
                establishing a scroll container that traps sticky.
-               See memory/project_overflow_clip_for_sticky.md */
+               See memory/project_overflow_clip_for_sticky.md
+
+               Wave 55 — bottom-right zoom toolbar was getting clipped at
+               the bottom because .qq-preview-pane has min-height: 100%
+               and could grow taller than .qq-editor-right (which clips
+               on desktop). The toolbar bottom:14px then anchored to the
+               OFF-SCREEN bottom of the pane. Constrain the pane to the
+               right column visible area on desktop so the toolbar (and
+               any future floating action UI) sits at the visible
+               bottom-right corner. The bezel inside is centered via
+               flex and has its own max-height cap, so the canvas itself
+               does not get clipped at typical viewport sizes. */
             @media (min-width: 769px) {
               .qq-editor-right {
                 overflow: clip;
+                display: flex; flex-direction: column;
+              }
+              .qq-editor-right > .qq-preview-pane {
+                flex: 1 1 auto;
+                min-height: 0;
+                max-height: 100%;
               }
             }
             .qq-preview-pane {

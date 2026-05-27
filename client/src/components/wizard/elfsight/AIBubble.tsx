@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus } from 'lucide-react';
+import { Bot, X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import CalcAssemblySpinner from '@/components/quote-widget/CalcAssemblySpinner';
 import { applyAiToolCall, type AiToolCall } from './aiToolApplier';
@@ -285,9 +285,37 @@ async function streamChat(
 
 /* ─── Component ─── */
 
+/** Wave 55 — persisted collapse state for the wizard AI chat panel.
+ *  When collapsed, the panel shrinks to just its header bar (~46px tall)
+ *  with the fold chevron still visible at top-center. Click toggles. */
+const AI_COLLAPSE_KEY = 'qq_wizard_ai_chat_collapsed';
+
+function loadCollapsed(): boolean {
+  try {
+    return localStorage.getItem(AI_COLLAPSE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveCollapsed(v: boolean): void {
+  try {
+    localStorage.setItem(AI_COLLAPSE_KEY, v ? '1' : '0');
+  } catch {
+    /* ignore quota / privacy-mode */
+  }
+}
+
 export default function AIBubble(props: AIBubbleProps) {
   const { conversationId = 'default', state } = props;
   const [open, setOpen] = useState(false);
+  /** Wave 55 — fold/unfold the open chat panel down to just its header bar.
+   *  Distinct from `open` (which controls the bubble↔panel toggle). When
+   *  collapsed, the body + footer hide but the header (with the fold
+   *  chevron at top-center) remains so the user can re-expand without
+   *  closing the conversation. State persists to localStorage. */
+  const [collapsed, setCollapsed] = useState<boolean>(() => loadCollapsed());
+  useEffect(() => { saveCollapsed(collapsed); }, [collapsed]);
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadHistory(conversationId));
   const [input, setInput] = useState('');
   /** UX fix bundle (2026-05-22) — wizard AIBubble was still using the original
@@ -732,7 +760,33 @@ export default function AIBubble(props: AIBubbleProps) {
       </button>
 
       {open && (
-        <div className="qq-ai-panel" role="dialog" aria-label="AI assistant" data-testid="aibubble-panel">
+        <div
+          className={`qq-ai-panel${collapsed ? ' is-collapsed' : ''}`}
+          role="dialog"
+          aria-label="AI assistant"
+          data-testid="aibubble-panel"
+          data-collapsed={collapsed ? 'true' : 'false'}
+        >
+          {/* Wave 55 — top-center fold/unfold chevron. Toggles the panel
+           *  between full (500px) and header-only (~46px tall). Matches the
+           *  pattern used by the preview-pane fold/unfold (Wave M) so the
+           *  collapse affordance is stylistically consistent. */}
+          <button
+            type="button"
+            className="qq-ai-panel-fold"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-label={collapsed ? 'Expand AI assistant' : 'Collapse AI assistant'}
+            aria-pressed={collapsed}
+            data-collapsed={collapsed ? 'true' : 'false'}
+            data-testid="aibubble-fold"
+            title={collapsed ? 'Expand' : 'Collapse'}
+          >
+            {collapsed ? (
+              <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+            )}
+          </button>
           <div className="qq-ai-panel-header">
             <div className="qq-ai-panel-title">
               <Bot className="w-3.5 h-3.5" />
@@ -1028,12 +1082,61 @@ export default function AIBubble(props: AIBubbleProps) {
           border-radius: 14px; overflow: hidden;
           box-shadow: 0 30px 60px rgba(15, 23, 42, 0.28);
           border: 1px solid rgba(15, 23, 42, 0.08);
+          /* Wave 55 — animate the fold/unfold height transition. */
+          transition: height 250ms ease;
+        }
+        /* Wave 55 — collapsed state shrinks the panel to just the header
+         *  bar (~46px). Body + footer hide via the descendant rules below. */
+        .qq-ai-panel.is-collapsed {
+          height: 46px;
+        }
+        .qq-ai-panel.is-collapsed .qq-ai-warn,
+        .qq-ai-panel.is-collapsed .qq-ai-msgs,
+        .qq-ai-panel.is-collapsed .qq-ai-compose,
+        .qq-ai-panel.is-collapsed .qq-ai-capped,
+        .qq-ai-panel.is-collapsed .qq-ai-err,
+        .qq-ai-panel.is-collapsed .qq-ai-footer {
+          display: none !important;
+        }
+        /* Wave 55 — fold chevron, top-center of the panel. A small pill
+         *  that sits just inside the rounded top edge so the click target
+         *  is obvious without competing with the header's existing
+         *  minimize / close buttons (top-right). */
+        .qq-ai-panel-fold {
+          position: absolute;
+          top: 4px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 2;
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 28px; height: 16px;
+          padding: 0;
+          background: rgba(13, 60, 252, 0.10);
+          color: #0d3cfc;
+          border: 1px solid rgba(13, 60, 252, 0.25);
+          border-radius: 999px;
+          cursor: pointer;
+          transition: background 120ms ease, color 120ms ease;
+        }
+        .qq-ai-panel-fold:hover {
+          background: rgba(13, 60, 252, 0.18);
+          color: #0d3cfc;
+        }
+        .qq-ai-panel-fold:focus-visible {
+          outline: 2px solid #0d3cfc;
+          outline-offset: 2px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-ai-panel { transition: none !important; }
         }
         @media (max-width: 768px) {
           .qq-ai-panel {
             right: 0; left: 0; bottom: 0;
             width: 100%; height: 70vh; max-height: 70vh;
             border-radius: 16px 16px 0 0;
+          }
+          .qq-ai-panel.is-collapsed {
+            height: 46px;
           }
           .qq-ai-bubble { right: 12px; bottom: 12px; padding: 9px 12px; font-size: 12px; }
         }

@@ -31,7 +31,7 @@ client/src/components/ui/pagination.tsx:100:5	rule-c	square w-9 h-9
 client/src/components/ui/radio-group.tsx:35:17	rule-c	square w-2.5 h-2.5
 client/src/components/ui/resizable.tsx:39:23	rule-c	square w-2.5 h-2.5
 client/src/components/ui/sidebar.tsx:269:7	rule-c	square w-7 h-7
-client/src/components/wizard/elfsight/AIBubble.tsx:790:42	rule-c	size={36}
+client/src/components/wizard/elfsight/AIBubble.tsx:844:42	rule-c	size={36}
 client/src/components/wizard/elfsight/HeaderResultsPanel.tsx:55:5	rule-b	<section> contains 2 cues
 client/src/components/wizard/elfsight/HostedPageSection.tsx:108:5	rule-b	<section> contains 4 cues
 client/src/components/wizard/elfsight/InstallTab.tsx:218:57	rule-b	<div> contains 4 cues
