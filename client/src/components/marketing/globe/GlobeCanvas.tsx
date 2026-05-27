@@ -443,6 +443,11 @@ export default function GlobeCanvas({
             font-size: 9px;
           }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes globe-marker-ping { 0%, 100% { transform: none; opacity: 1; } }
+          .globe-marker-circle.active::after { animation: none; }
+        }
       `}</style>
     </>
   );

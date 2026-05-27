@@ -105,6 +105,9 @@ export default function FreeToolLayout({
           overflow: clip;
         }
         @keyframes ftool-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes ftool-spin { to { transform: none; } }
+        }
       `}</style>
       <div className="ftool-page" data-theme="light">
         <div className="ftool-container">

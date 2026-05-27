@@ -1242,4 +1242,19 @@ const TLHP_CSS = `
 @media (max-width: 340px) {
   .tlhp-phone { width: 280px; height: 545px; }
 }
+
+/* ─── REDUCED-MOTION RESPECT ─── */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes tlhpPausedFade { to { opacity: 1; } }
+  @keyframes tlhpPulseGreen { 0%, 100% { opacity: 1; transform: none; } }
+  @keyframes tlhpRing       { 0%, 100% { transform: none; } }
+  @keyframes tlhpBubbleIn   { to { opacity: 1; transform: none; } }
+  @keyframes tlhpTypingBounce { 0%, 100% { opacity: 0.7; transform: none; } }
+  @keyframes tlhpSenderIn   { to { opacity: 0.7; } }
+  @keyframes tlhpTsIn       { to { opacity: 0.6; } }
+  @keyframes tlhpWave       { 0%, 100% { transform: scaleY(0.7); } }
+  @keyframes tlhpCaretBlink { 0%, 100% { opacity: 1; } }
+  @keyframes tlhpHangup     { 0%, 100% { transform: none; } }
+  @keyframes tlhpPulse      { 0%, 100% { transform: none; opacity: 1; } }
+}
 `;

@@ -11,14 +11,26 @@
  * Designed to be 30×30px in the parent's icon slot.
  */
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 const STROKE = 1.6;
 
 interface IconProps { color: string; active: boolean }
 
+/**
+ * Hook that returns `true` only when the parent says active AND the user has
+ * not asked for reduced motion. All icons below funnel `active` through this
+ * so a prefers-reduced-motion request collapses every loop to its static
+ * resting state without modifying each animation block.
+ */
+function useActive(active: boolean): boolean {
+  const reduced = useReducedMotion();
+  return active && !reduced;
+}
+
 /* ── Phone ringing (vibrates + emits sound waves) ───────────────── */
-export function RingingPhone({ color, active }: IconProps) {
+export function RingingPhone({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <motion.g
@@ -60,7 +72,8 @@ export function RingingPhone({ color, active }: IconProps) {
 }
 
 /* ── Message replying (typing dots inside a bubble) ─────────────── */
-export function ReplyingMessage({ color, active }: IconProps) {
+export function ReplyingMessage({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <path d="M22 6H8a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h2v3l4-3h8a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3z" stroke={color} strokeWidth={STROKE} strokeLinejoin="round" fill="none" />
@@ -78,7 +91,8 @@ export function ReplyingMessage({ color, active }: IconProps) {
 }
 
 /* ── Lead captured (user + check stamp) ─────────────────────────── */
-export function LeadStamping({ color, active }: IconProps) {
+export function LeadStamping({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <circle cx="12" cy="11" r="3.5" stroke={color} strokeWidth={STROKE} fill="none" />
@@ -110,7 +124,8 @@ export function LeadStamping({ color, active }: IconProps) {
 }
 
 /* ── Calendar slot filling ──────────────────────────────────────── */
-export function CalendarFilling({ color, active }: IconProps) {
+export function CalendarFilling({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <rect x="5" y="7" width="20" height="18" rx="2" stroke={color} strokeWidth={STROKE} fill="none" />
@@ -135,7 +150,8 @@ export function CalendarFilling({ color, active }: IconProps) {
 }
 
 /* ── Wrench rotating ────────────────────────────────────────────── */
-export function ServiceWrench({ color, active }: IconProps) {
+export function ServiceWrench({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <motion.g
@@ -150,7 +166,8 @@ export function ServiceWrench({ color, active }: IconProps) {
 }
 
 /* ── Job details (checkboxes filling) ──────────────────────────── */
-export function JobDetailsFilling({ color, active }: IconProps) {
+export function JobDetailsFilling({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <rect x="5" y="5" width="20" height="20" rx="2.5" stroke={color} strokeWidth={STROKE} fill="none" />
@@ -177,7 +194,8 @@ export function JobDetailsFilling({ color, active }: IconProps) {
 }
 
 /* ── Price calculator (digits cycling) ──────────────────────────── */
-export function PriceCalculating({ color, active }: IconProps) {
+export function PriceCalculating({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <rect x="6" y="4" width="18" height="22" rx="2" stroke={color} strokeWidth={STROKE} fill="none" />
@@ -219,7 +237,8 @@ export function PriceCalculating({ color, active }: IconProps) {
 }
 
 /* ── Paper plane flying trajectory ──────────────────────────────── */
-export function FlyingPlane({ color, active }: IconProps) {
+export function FlyingPlane({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       {/* Trajectory dotted line */}
@@ -255,7 +274,8 @@ export function FlyingPlane({ color, active }: IconProps) {
 }
 
 /* ── Check sealing (filling check mark) ─────────────────────────── */
-export function CheckSealing({ color, active }: IconProps) {
+export function CheckSealing({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <circle cx="15" cy="15" r="11" stroke={color} strokeWidth={STROKE} fill="none" />
@@ -276,7 +296,8 @@ export function CheckSealing({ color, active }: IconProps) {
 }
 
 /* ── Mail flying out ────────────────────────────────────────────── */
-export function MailFlying({ color, active }: IconProps) {
+export function MailFlying({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <motion.g
@@ -291,7 +312,8 @@ export function MailFlying({ color, active }: IconProps) {
 }
 
 /* ── Stars filling one by one ───────────────────────────────────── */
-export function StarsFilling({ color, active }: IconProps) {
+export function StarsFilling({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       {[3, 9, 15, 21, 27].map((cx, i) => (
@@ -312,7 +334,8 @@ export function StarsFilling({ color, active }: IconProps) {
 }
 
 /* ── Ranking arrow climbing ─────────────────────────────────────── */
-export function RankingClimbing({ color, active }: IconProps) {
+export function RankingClimbing({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       {/* Bars */}
@@ -347,7 +370,8 @@ export function RankingClimbing({ color, active }: IconProps) {
 }
 
 /* ── Profile gear spinning ──────────────────────────────────────── */
-export function ProfileGear({ color, active }: IconProps) {
+export function ProfileGear({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <circle cx="11" cy="10" r="3" stroke={color} strokeWidth={STROKE} fill="none" />
@@ -373,7 +397,8 @@ export function ProfileGear({ color, active }: IconProps) {
 }
 
 /* ── Reviews-grow bars rising ───────────────────────────────────── */
-export function ReviewsGrowing({ color, active }: IconProps) {
+export function ReviewsGrowing({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <line x1="4" y1="24" x2="26" y2="24" stroke={color} strokeWidth={STROKE} strokeLinecap="round" />
@@ -394,7 +419,8 @@ export function ReviewsGrowing({ color, active }: IconProps) {
 }
 
 /* ── Map pin dropping with ripple ───────────────────────────────── */
-export function MapPinDropping({ color, active }: IconProps) {
+export function MapPinDropping({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       {/* Ripple */}
@@ -427,7 +453,8 @@ export function MapPinDropping({ color, active }: IconProps) {
 }
 
 /* ── Phone radiating waves (more calls) ─────────────────────────── */
-export function PhoneRadiating({ color, active }: IconProps) {
+export function PhoneRadiating({ color, active: activeProp }: IconProps) {
+  const active = useActive(activeProp);
   return (
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <path d="M22 17.5v3a1.5 1.5 0 0 1-1.6 1.5 14.4 14.4 0 0 1-6.3-2.2 14.2 14.2 0 0 1-4.4-4.4 14.4 14.4 0 0 1-2.2-6.3A1.5 1.5 0 0 1 9 7.5h3a1.5 1.5 0 0 1 1.5 1.3 9.6 9.6 0 0 0 .5 2.4 1.5 1.5 0 0 1-.3 1.6l-1.3 1.3a11.2 11.2 0 0 0 4.2 4.2l1.3-1.3a1.5 1.5 0 0 1 1.6-.3 9.6 9.6 0 0 0 2.4.5A1.5 1.5 0 0 1 22 17.5z" stroke={color} strokeWidth={STROKE} strokeLinecap="round" strokeLinejoin="round" fill="none" />

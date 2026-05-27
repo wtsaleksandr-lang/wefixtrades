@@ -304,4 +304,9 @@ const CSS = `
   .mts-list  { width: 180px; }
   .mts-thread { display: none; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes mtsBounce { 0%, 100% { opacity: 0.65; transform: none; } }
+  .mts-typing span { animation: none; }
+}
 `;
