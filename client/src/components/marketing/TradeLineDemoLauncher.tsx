@@ -255,6 +255,7 @@ function ChatBody({ open }: { open: boolean }) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") send(); }}
           placeholder="Ask about pricing, services, request a quote…"
+          aria-label="Message TradeLine assistant"
           data-testid="tldl-chat-input"
         />
         <button

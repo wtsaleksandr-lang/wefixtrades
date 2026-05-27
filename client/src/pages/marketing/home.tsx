@@ -251,6 +251,7 @@ function HeroEmailCapture() {
       <input
         type="email"
         placeholder="Enter your email for a free website audit"
+        aria-label="Email address for free website audit"
         value={email}
         onChange={(e) => { setEmail(e.target.value); if (status === "error") setStatus("idle"); }}
         style={{

@@ -206,6 +206,7 @@ export default function AuditGate({
               setError("");
             }}
             placeholder="your@email.com"
+            aria-label="Email address"
             required
             style={{
               width: "100%",
@@ -240,6 +241,7 @@ export default function AuditGate({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Name (optional)"
+            aria-label="Name (optional)"
             style={{
               flex: 1,
               height: 44,
@@ -258,6 +260,7 @@ export default function AuditGate({
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="Phone (optional)"
+            aria-label="Phone number (optional)"
             style={{
               flex: 1,
               height: 44,

@@ -240,12 +240,14 @@ function AiPanel({ trade, onClose }: { trade: string; onClose: () => void }) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") send(); }}
           placeholder="Ask about this service..."
+          aria-label="Message demo assistant"
           style={{ flex: 1, border: `1.5px solid ${mkt.onDarkBorder}`, borderRadius: 8, padding: "7px 11px", fontSize: 13, color: mkt.onDarkMuted, outline: "none", fontFamily: "inherit" }}
         />
         <button
           data-testid="demo-template-chat-send"
           onClick={send}
           disabled={sendMutation.isPending || !input.trim()}
+          aria-label="Send message"
           style={{ padding: "7px 12px", borderRadius: 8, background: input.trim() ? mkt.accent : "#D1D5DB", color: "#FFFFFF", border: "none", cursor: "pointer" }}
         >
           <Send size={14} />
@@ -409,6 +411,7 @@ export default function DemoTemplatePage() {
                           type="email"
                           required
                           placeholder="Enter your email for the full quote"
+                          aria-label="Email address for full quote"
                           value={leadEmail}
                           onChange={(e) => setLeadEmail(e.target.value)}
                           data-testid="demo-lead-email"

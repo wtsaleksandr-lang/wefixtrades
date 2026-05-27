@@ -2837,9 +2837,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               onChange={e => setChatInput(e.target.value)}
               onKeyDown={e => e.key==='Enter' && sendChat()}
               placeholder="Ask anything..."
+              aria-label="Message audit assistant"
               style={{ flex:1, padding:'8px 12px', borderRadius:8, border:`1px solid ${BORDER}`, fontSize:13, outline:'none', fontFamily:'inherit' }}
             />
-            <button onClick={sendChat} {...hoverProps('chatsend')} style={{ background: hovered==='chatsend' ? '#00BFB8' : CYAN, color:DARK, border:'none', borderRadius:8, padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer', transition:'background 0.15s ease' }}>→</button>
+            <button onClick={sendChat} aria-label="Send message" {...hoverProps('chatsend')} style={{ background: hovered==='chatsend' ? '#00BFB8' : CYAN, color:DARK, border:'none', borderRadius:8, padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer', transition:'background 0.15s ease' }}>→</button>
           </div>
         </div>
       )}
