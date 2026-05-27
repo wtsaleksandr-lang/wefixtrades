@@ -498,7 +498,7 @@ export default function SocialSyncDashboard() {
           </Card>
 
           {/* Engagement % — power-user (jargon to plumbers). */}
-          <AdvancedOnly product="socialsync">
+          <AdvancedOnly product="socialsync" elementId="socialsync.avg-engagement-kpi">
             <Card className="p-3 flex items-center justify-center" data-testid="kpi-avg-engagement">
               <KpiGauge
                 value={kpis?.avgEngagementRate ?? 0}
@@ -531,7 +531,7 @@ export default function SocialSyncDashboard() {
           </Card>
 
           {/* WhatsApp Messages — power-user (TradeLine's surface). */}
-          <AdvancedOnly product="socialsync">
+          <AdvancedOnly product="socialsync" elementId="socialsync.whatsapp-messages-kpi">
             <Card className="p-3 flex items-center justify-center" data-testid="kpi-whatsapp-this-week">
               <KpiGauge
                 value={kpis?.whatsappMessagesThisWeek ?? 0}
@@ -685,7 +685,7 @@ function OverviewTab({
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {/* Per-platform engagement gauges — power-user (aggregate KPI already covers this). */}
-      <AdvancedOnly product="socialsync">
+      <AdvancedOnly product="socialsync" elementId="socialsync.engagement-by-platform">
         <Card className="p-4 md:col-span-2">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">
@@ -721,7 +721,7 @@ function OverviewTab({
       </Card>
 
       {/* Best-time-to-post snapshot — power-user optimisation. */}
-      <AdvancedOnly product="socialsync">
+      <AdvancedOnly product="socialsync" elementId="socialsync.best-time-to-post">
       <Card className="p-4">
         <h3 className="mb-1 text-sm font-semibold text-foreground">
           Best time to post — right now
@@ -756,7 +756,7 @@ function OverviewTab({
 
       {/* Recent approval queue preview — Wave 36 audit: Approvals tab has it,
           so the OverviewTab preview duplicates the surface. Hide by default. */}
-      <AdvancedOnly product="socialsync">
+      <AdvancedOnly product="socialsync" elementId="socialsync.approvals-preview">
       <Card className="p-4 md:col-span-2">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">

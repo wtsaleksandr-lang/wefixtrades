@@ -404,7 +404,7 @@ export default function PortalContentFlowDashboard() {
                 />
 
                 {/* AI-Detection Score → power-user; hidden in Simple mode (Wave 36). */}
-                <AdvancedOnly product="contentflow">
+                <AdvancedOnly product="contentflow" elementId="contentflow.ai-detection-tile">
                   <div
                     className={cn(
                       "flex flex-col items-center justify-center text-center gap-2 min-h-[140px]",
@@ -431,7 +431,7 @@ export default function PortalContentFlowDashboard() {
                 </AdvancedOnly>
 
                 {/* Distribution Reach → power-user; hidden in Simple mode (Wave 36). */}
-                <AdvancedOnly product="contentflow">
+                <AdvancedOnly product="contentflow" elementId="contentflow.distribution-reach-ring">
                   <div className="flex justify-center">
                     <ProgressRing
                       value={kpis?.distributionReach ?? 0}
@@ -463,7 +463,7 @@ export default function PortalContentFlowDashboard() {
             </Card>
 
             {/* Recent creations grid — power-user surface, hidden in Simple mode (Wave 36). */}
-            <AdvancedOnly product="contentflow">
+            <AdvancedOnly product="contentflow" elementId="contentflow.recent-creations-grid">
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>

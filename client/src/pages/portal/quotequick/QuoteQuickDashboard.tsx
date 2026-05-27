@@ -310,7 +310,7 @@ export default function QuoteQuickDashboard() {
           </Card>
 
           {/* Active embeds — install-status; 1-time check belongs on Form Builder. */}
-          <AdvancedOnly product="quotequick">
+          <AdvancedOnly product="quotequick" elementId="quotequick.active-embeds-ring">
             <Card className="flex flex-col items-center justify-center gap-2 p-4" data-testid="kpi-active-embeds">
               <ProgressRing
                 value={k?.activeEmbeds.active ?? 0}
@@ -390,7 +390,7 @@ export default function QuoteQuickDashboard() {
                 <ConversionGaugeFetcher key={templates[0].id} template={templates[0]} />
               </div>
             ) : (
-              <AdvancedOnly product="quotequick">
+              <AdvancedOnly product="quotequick" elementId="quotequick.conversion-gauge-grid">
                 <div className="grid gap-3 lg:grid-cols-2">
                   {templates.map((t) => (
                     <ConversionGaugeFetcher key={t.id} template={t} />

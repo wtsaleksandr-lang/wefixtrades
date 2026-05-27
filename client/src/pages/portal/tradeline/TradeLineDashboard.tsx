@@ -288,7 +288,7 @@ export default function TradeLineDashboard() {
             </span>
           </Card>
           {/* Cost-per-booking — power-user (Wave 36). */}
-          <AdvancedOnly product="tradeline">
+          <AdvancedOnly product="tradeline" elementId="tradeline.cost-per-booking-card">
             <CostPerBookingCard
               cost={kpis?.costPerBooking ?? 0}
               avgJobValue={kpis?.avgJobValue ?? 0}
@@ -332,7 +332,7 @@ export default function TradeLineDashboard() {
             </Card>
 
             {/* Sentiment heatmap — power-user analyst tool. */}
-            <AdvancedOnly product="tradeline">
+            <AdvancedOnly product="tradeline" elementId="tradeline.sentiment-heatmap">
               {selectedCallId != null && (
                 <SentimentHeatmap
                   segments={sentimentQuery.data?.segments ?? []}

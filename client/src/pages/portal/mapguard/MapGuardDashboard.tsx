@@ -255,7 +255,7 @@ export default function MapGuardDashboard() {
           </div>
           {/* Wave 36 — per-product Alerts/Settings demoted to advanced; per cross-cutting
               cleanup #2, notification prefs live at /portal/settings#notifications. */}
-          <AdvancedOnly product="mapguard">
+          <AdvancedOnly product="mapguard" elementId="mapguard.header-actions">
             <div className="flex items-center gap-2">
               <Link href="/portal/mapguard/alert-settings">
                 <Button variant="outline" size="sm">
@@ -304,7 +304,7 @@ export default function MapGuardDashboard() {
           </Card>
 
           {/* 2. Top 3 coverage — power-user (Wave 36: duplicates avg rank). */}
-          <AdvancedOnly product="mapguard">
+          <AdvancedOnly product="mapguard" elementId="mapguard.top3-coverage-tile">
           <Card
             className="flex flex-col items-center justify-center gap-0.5 p-3"
             data-testid="mapguard-kpi-top3"
@@ -327,7 +327,7 @@ export default function MapGuardDashboard() {
           </AdvancedOnly>
 
           {/* 3. Citation health — power-user (Wave 36: SEO jargon). */}
-          <AdvancedOnly product="mapguard">
+          <AdvancedOnly product="mapguard" elementId="mapguard.citation-health-tile">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="mapguard-kpi-citation-health"
@@ -365,7 +365,7 @@ export default function MapGuardDashboard() {
           </AdvancedOnly>
 
           {/* 4. GBP health — composite metric, hidden by default (Wave 36). */}
-          <AdvancedOnly product="mapguard">
+          <AdvancedOnly product="mapguard" elementId="mapguard.gbp-health-tile">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="mapguard-kpi-gbp-health"
@@ -461,7 +461,7 @@ export default function MapGuardDashboard() {
 
             {/* Competitor alert feed — power-user (Wave 36: reactive surface,
                 delivered via push notifications by default). */}
-            <AdvancedOnly product="mapguard">
+            <AdvancedOnly product="mapguard" elementId="mapguard.competitor-alert-feed">
               <CompetitorAlertFeed
                 events={events}
                 emptyState={emptyAlerts}

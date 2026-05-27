@@ -357,14 +357,14 @@ export default function RankFlowDashboard() {
               value={kpis?.keywordsTop10 ?? 0}
               accent="green"
             />
-            <AdvancedOnly product="rankflow">
+            <AdvancedOnly product="rankflow" elementId="rankflow.keywords-tracked-tile">
               <CounterTile
                 icon={<Search className="h-4 w-4" />}
                 label="Keywords tracked"
                 value={kpis?.keywordsTracked ?? 0}
               />
             </AdvancedOnly>
-            <AdvancedOnly product="rankflow">
+            <AdvancedOnly product="rankflow" elementId="rankflow.top20-tile">
               <CounterTile
                 icon={<MapPin className="h-4 w-4" />}
                 label="Top 20"
@@ -372,7 +372,7 @@ export default function RankFlowDashboard() {
                 accent="amber"
               />
             </AdvancedOnly>
-            <AdvancedOnly product="rankflow">
+            <AdvancedOnly product="rankflow" elementId="rankflow.pages-indexed-tile">
               <CounterTile
                 icon={<Globe className="h-4 w-4" />}
                 label="Pages indexed"
@@ -386,7 +386,7 @@ export default function RankFlowDashboard() {
               SEO score gauge) all move into Advanced. Audit: "three more gauges
               below CounterTiles = visual chaos". The hero CounterTile + AIBrainPanel
               already carry the essentials. */}
-          <AdvancedOnly product="rankflow">
+          <AdvancedOnly product="rankflow" elementId="rankflow.secondary-gauges">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <KpiGauge
                 value={Math.round((kpis?.avgPosition ?? 0) * 10) / 10}
@@ -437,7 +437,7 @@ export default function RankFlowDashboard() {
         />
 
         {/* 4. Competitor comparison grid — power-user (Wave 36). */}
-        <AdvancedOnly product="rankflow">
+        <AdvancedOnly product="rankflow" elementId="rankflow.competitor-comparison">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -469,7 +469,7 @@ export default function RankFlowDashboard() {
         </AdvancedOnly>
 
         {/* 5. Keyword opportunity heatmap — power-user (Wave 36). */}
-        <AdvancedOnly product="rankflow">
+        <AdvancedOnly product="rankflow" elementId="rankflow.opportunity-heatmap">
           <KeywordOpportunityHeatmap
             locations={heatmap.locations}
             rows={heatmap.rows}
@@ -478,7 +478,7 @@ export default function RankFlowDashboard() {
 
         {/* 8. Activity feed — Wave 36: consolidated to global feed; ask Copilot
             "show me recent rank moves". Hidden by default. */}
-        <AdvancedOnly product="rankflow">
+        <AdvancedOnly product="rankflow" elementId="rankflow.activity-feed">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">

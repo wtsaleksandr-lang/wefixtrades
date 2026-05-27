@@ -419,7 +419,7 @@ export default function ReputationShieldDashboard() {
           </div>
           {/* Wave 36 — per-product Notifications + Settings demoted; global prefs
               live at /portal/settings#notifications. */}
-          <AdvancedOnly product="reputationshield">
+          <AdvancedOnly product="reputationshield" elementId="reputationshield.header-actions">
             <div className="flex items-center gap-2">
               <Link href="/portal/reputationshield/notifications">
                 <Button variant="outline" size="sm">
@@ -474,7 +474,7 @@ export default function ReputationShieldDashboard() {
           </Card>
 
           {/* 2. Review velocity — power-user (Wave 36: analyst-speak). */}
-          <AdvancedOnly product="reputationshield">
+          <AdvancedOnly product="reputationshield" elementId="reputationshield.review-velocity-tile">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="reputationshield-kpi-velocity"
@@ -517,7 +517,7 @@ export default function ReputationShieldDashboard() {
 
           {/* 3. Days since last review — power-user; AI Copilot can surface
               urgency proactively via push notifications instead. */}
-          <AdvancedOnly product="reputationshield">
+          <AdvancedOnly product="reputationshield" elementId="reputationshield.days-since-tile">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="reputationshield-kpi-days-since"
@@ -552,7 +552,7 @@ export default function ReputationShieldDashboard() {
           </AdvancedOnly>
 
           {/* 4. Reply rate — power-user (internal QA metric). */}
-          <AdvancedOnly product="reputationshield">
+          <AdvancedOnly product="reputationshield" elementId="reputationshield.reply-rate-tile">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="reputationshield-kpi-reply-rate"
@@ -582,7 +582,7 @@ export default function ReputationShieldDashboard() {
         </div>
 
         {/* Platform scorecard with deltas — power-user (per-platform breakdown). */}
-        <AdvancedOnly product="reputationshield">
+        <AdvancedOnly product="reputationshield" elementId="reputationshield.platform-scorecard">
           <PlatformScorecard
             data={
               kpisQuery.data?.scorecard ?? {
@@ -598,7 +598,7 @@ export default function ReputationShieldDashboard() {
         {/* Wave 36 — RequestFunnel deleted (internal-team UI per audit).
             DaysSinceGauge remains because it carries the 1-click "request reviews"
             action, but only in Advanced mode (hero already shows the metric). */}
-        <AdvancedOnly product="reputationshield">
+        <AdvancedOnly product="reputationshield" elementId="reputationshield.days-since-gauge">
           <DaysSinceGauge
             days={kpis?.daysSinceLastReview ?? null}
             onRequestBatch={requestBatch}
@@ -608,7 +608,7 @@ export default function ReputationShieldDashboard() {
         </AdvancedOnly>
 
         {/* Sentiment heatmap — power-user analyst tool. */}
-        <AdvancedOnly product="reputationshield">
+        <AdvancedOnly product="reputationshield" elementId="reputationshield.sentiment-heatmap">
           <SentimentHeatmap
             cells={kpisQuery.data?.heatmap ?? []}
             emptyState={previewMode || (kpisQuery.data?.heatmap?.length ?? 0) === 0}

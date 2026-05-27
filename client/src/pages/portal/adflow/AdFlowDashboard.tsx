@@ -347,7 +347,7 @@ export default function AdFlowDashboard() {
           </div>
           {/* Wave 36 — header buttons demoted; per cross-cutting cleanup #2
               the Notifications button routes to the global prefs page. */}
-          <AdvancedOnly product="adflow">
+          <AdvancedOnly product="adflow" elementId="adflow.header-actions">
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -434,7 +434,7 @@ export default function AdFlowDashboard() {
           </div>
           {/* Wave 36 — cost-per-booking + jobs-booked sidebars hidden in Simple
               mode. Audit verdict: "already implied by funnel". */}
-          <AdvancedOnly product="adflow">
+          <AdvancedOnly product="adflow" elementId="adflow.cost-per-booking-sidebar">
             <div className="flex flex-col gap-3">
               <Card
                 className="flex flex-col items-center justify-center gap-2 p-4"
@@ -579,7 +579,7 @@ export default function AdFlowDashboard() {
 
         {/* AI ad-copy composer — Wave 36: demoted to Advanced. The Copilot is
             the canonical surface for generating ad copy now. */}
-        <AdvancedOnly product="adflow">
+        <AdvancedOnly product="adflow" elementId="adflow.ad-copy-composer">
           <AdCopyComposer
             defaultTrade="plumbing"
             onUseVariant={async (v) => {
@@ -593,7 +593,7 @@ export default function AdFlowDashboard() {
         </AdvancedOnly>
 
         {/* Power-analyst heatmaps — Wave 36: hidden by default. */}
-        <AdvancedOnly product="adflow">
+        <AdvancedOnly product="adflow" elementId="adflow.power-analyst-heatmaps">
         <ProfitableTradeHeatmap
           rows={tradeHeatmap?.rows ?? []}
           columns={tradeHeatmap?.columns ?? ["google", "meta", "bing"]}
