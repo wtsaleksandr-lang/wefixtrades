@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Shield, Star, MessageCircle, Send, ThumbsUp, TrendingUp, Lock, ChevronRight, Bell, BarChart3, CheckCircle, SmartphoneIcon, ExternalLink } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 /* ─── Phone mockup ─── */
@@ -301,6 +302,11 @@ export default function ReputationShieldDemo() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="ReputationShield Demo — see AI review responses in action"
+        description="Try the ReputationShield demo. Watch AI draft personal replies to Google and Facebook reviews in your tone, flag 1-stars to your phone, and request reviews automatically."
+        canonical="/demos/reputationshield"
+      />
       <style>{`
         @keyframes fadeSlideUp {
           from { opacity: 0; transform: translateY(16px); }
