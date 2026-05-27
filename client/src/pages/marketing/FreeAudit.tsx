@@ -743,6 +743,11 @@ export default function FreeAudit() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .audit-shimmer::after { animation: none !important; }
+          @keyframes audit-shimmer-move { 0%, 100% { transform: none; } }
+          @keyframes spin { to { transform: none; } }
+        }
       `}</style>
 
       <div className="audit-page">

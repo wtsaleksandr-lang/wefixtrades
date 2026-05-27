@@ -652,4 +652,12 @@ const LAUNCHER_CSS = `
   .tldl-bar-text { font-size: 12.5px; }
   .tldl-voice-orb { width: 76px; height: 76px; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes tldlBounce    { 0%, 100% { transform: none; opacity: 0.7; } }
+  @keyframes tldlOrbPulse  { 0%, 100% { box-shadow: 0 0 30px rgba(239,68,68,0.35); } }
+  @keyframes tldlOrbReady  { 0%, 100% { transform: none; } }
+  @keyframes tldlPulse     { 0%, 100% { opacity: 1; transform: none; } }
+  @keyframes tldlSpin      { to { transform: none; } }
+}
 `;

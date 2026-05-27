@@ -390,6 +390,12 @@ export default function CapabilitiesShowcase() {
         .cs-mob-open .cs-mob-visual {
           opacity: 1;
         }
+
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes cs-pulse { 0%, 100% { transform: none; opacity: 0.55; } }
+          .cs-pulse-ring { animation: none; }
+          .cs-mob-visual { transition: none; }
+        }
       `}</style>
 
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>

@@ -280,6 +280,10 @@ function VoicePanel() {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.06); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes spin { to { transform: none } }
+          @keyframes micPulse { 0%, 100% { transform: none } 50% { transform: none } }
+        }
       `}</style>
 
       {/* Status */}

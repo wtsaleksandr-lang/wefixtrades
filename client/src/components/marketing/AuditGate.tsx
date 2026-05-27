@@ -328,7 +328,7 @@ export default function AuditGate({
         <span>No spam. We'll only send your audit report and fix checklist.</span>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @media (prefers-reduced-motion: reduce) { @keyframes spin { to { transform: none; } } }`}</style>
     </div>
   );
 }
