@@ -145,7 +145,7 @@ const SECTIONS: SitemapSection[] = [
       { href: "/tools/citation-checker", label: "Citation Checker" },
       { href: "/tools/local-rankflux", label: "Local Rankflux (Algorithm Tracker)" },
       { href: "/tools/local-rank-grid", label: "Local Rank Grid (5×5 Geo Scan)" },
-      { href: "/products/quickquotepro/demo", label: "QuoteQuick Live Demo" },
+      { href: "/products/quickquotepro/demo", label: "QuoteQuick — How it works" },
       { href: "/products/quickquotepro/build-with-ai", label: "Build with AI (from a photo)" },
       { href: "/tools/plumbing-ai-content-prompts", label: "Plumbing AI Content Prompts" },
       { href: "/tools/hvac-ai-content-prompts", label: "HVAC AI Content Prompts" },
