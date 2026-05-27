@@ -1,6 +1,7 @@
 import { useParams, Link } from "wouter";
 import { ArrowLeft, Play, ArrowRight } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { IconBadge } from "@/components/IconBadge";
 import { PRODUCTS } from "@/site/siteMap";
 import NotFound from "@/pages/not-found";
@@ -71,6 +72,11 @@ export default function DemoPage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title={`${demo.title} — WeFixTrades`}
+        description={demo.desc}
+        canonical={`/demos/${slug}`}
+      />
       <div data-testid={`demo-page-${slug}`}>
         <section
           style={{

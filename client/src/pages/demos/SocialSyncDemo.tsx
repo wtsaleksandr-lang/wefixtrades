@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Sparkles, Send, Lock, Facebook, Instagram, MapPin, ThumbsUp, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Globe } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, shadows } from "@/theme/tokens";
 
 /* ─── Types ─── */
@@ -370,6 +371,11 @@ export default function SocialSyncDemo() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="SocialSync Demo — generate trade-specific social posts in seconds"
+        description="Try the SocialSync demo. Pick your trade and city, and watch AI draft Facebook, Instagram, and Google Business posts in your voice — ready to schedule."
+        canonical="/demos/socialsync"
+      />
       <style>{`
         @keyframes skeletonPulse {
           0% { opacity: 0.3; }

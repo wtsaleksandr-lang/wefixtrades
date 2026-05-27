@@ -3,6 +3,7 @@ import { useRoute } from "wouter";
 import s from "./FreeAuditReport.module.css";
 import AuditChatWidget from "@/components/AuditChatWidget";
 import { OptimizedImage } from "@/components/ui/Picture";
+import { PageMeta } from "@/components/seo/PageMeta";
 import {
   MapPin, Globe, Search, Trophy, Megaphone, Clock,
   Check, X as XIcon, Zap, ExternalLink,
@@ -126,8 +127,15 @@ export default function SharedAuditReport() {
   const circumference = 2 * Math.PI * 48;
   const arcLength = (overall / 100) * circumference;
 
+  const reportTitle = biz.name ? `Free SEO audit — ${biz.name}` : "Shared SEO audit report";
+
   return (
     <div data-theme="light" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+      <PageMeta
+        title={reportTitle}
+        description="A WeFixTrades local SEO audit covering Google Business Profile, website quality, search visibility, competitors, and revenue opportunity."
+        noIndex
+      />
       {/* Sticky header — read-only shared view */}
       <div className={s.stickyHeader}>
         <div className={s.stickyLogo}>We<span>Fix</span>Trades</div>

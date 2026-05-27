@@ -5,6 +5,7 @@ import {
   Share2, Rocket, Shield,
 } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { V7Hero, V7Section, V7Container, V7PageShell, V7FinalCta } from "@/components/marketing/v7";
 import { Reveal, MONO, TILE } from "@/components/effortel-blocks";
@@ -269,6 +270,11 @@ function DemoCard({ d, i }: { d: DemoCardData; i: number }) {
 export default function DemoCenter() {
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Interactive Demos — see every WeFixTrades product in action"
+        description="Try interactive demos of WeFixTrades products: 24/7 TradeLine voice and chat, QuoteQuick instant calculators, SocialSync AI posts, RankFlow keyword tracking, and ReputationShield review automation."
+        canonical="/demos"
+      />
       <V7PageShell>
         <V7Hero
           productName="Demo Center · No signup required"

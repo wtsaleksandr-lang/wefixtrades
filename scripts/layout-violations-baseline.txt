@@ -123,8 +123,8 @@ client/src/pages/admin/TradelineTemplatesPage.tsx:697:27	rule-c	square w-1.5 h-1
 client/src/pages/admin/TradelineTemplatesPage.tsx:698:27	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/TradelineTemplatesPage.tsx:699:27	rule-c	square w-1.5 h-1.5
 client/src/pages/calculator.tsx:162:22	rule-c	square w-10 h-10
-client/src/pages/demos/RankFlowDemo.tsx:700:72	rule-c	size={90}
-client/src/pages/demos/RankFlowDemo.tsx:701:74	rule-c	size={90}
+client/src/pages/demos/RankFlowDemo.tsx:706:72	rule-c	size={90}
+client/src/pages/demos/RankFlowDemo.tsx:707:74	rule-c	size={90}
 client/src/pages/edit-calculator.tsx:419:14	rule-c	square w-16 h-16
 client/src/pages/edit-calculator.tsx:420:26	rule-c	square w-7 h-7
 client/src/pages/edit-calculator.tsx:433:14	rule-c	square w-16 h-16

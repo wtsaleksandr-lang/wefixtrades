@@ -3,6 +3,7 @@ import { Link, useRoute } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { ArrowRight, Bot, User, Send, Calendar, ChevronLeft, Check, Zap, X } from "lucide-react";
 import { TEMPLATES, calculateEstimate, getTemplate } from "@/config/templateConfig";
 import type { TemplateConfig } from "@/config/templateConfig";
@@ -284,10 +285,6 @@ export default function DemoTemplatePage() {
     setShowAi(false);
   }, [templateId]);
 
-  useEffect(() => {
-    document.title = `${effectiveTemplate.name} Demo — QuoteQuick™`;
-  }, [effectiveTemplate.name]);
-
   const { min, max } = calculateEstimate(effectiveTemplate, values);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -297,6 +294,11 @@ export default function DemoTemplatePage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title={`${effectiveTemplate.name} Demo — QuoteQuick`}
+        description={`Try the ${effectiveTemplate.name} instant quote template live. See how customers price the job on your site in seconds and book the appointment.`}
+        canonical={`/demo/${effectiveTemplate.id}`}
+      />
       <div data-testid={`demo-template-${effectiveTemplate.id}`} style={{ overflowX: "hidden" }}>
 
         {/* Top bar */}

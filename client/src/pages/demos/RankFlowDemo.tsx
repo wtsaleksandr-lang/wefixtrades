@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Search, AlertTriangle, CheckCircle, TrendingUp, Smartphone, Monitor, Clock, Lock, Gauge, Zap } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 /* ─── Types ─── */
@@ -327,6 +328,11 @@ export default function RankFlowDemo() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="RankFlow Demo — instant SEO scan for any trades website"
+        description="Try the RankFlow demo. Drop in your URL and get an instant SEO scan: site speed, mobile usability, on-page issues, and a prioritised fix list."
+        canonical="/demos/rankflow"
+      />
       <style>{`
         @keyframes scanPulse {
           0%, 100% { opacity: 1; }
