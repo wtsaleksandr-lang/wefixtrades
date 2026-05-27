@@ -122,17 +122,17 @@ client/src/pages/admin/TradelineTemplatesPage.tsx:315:15	rule-c	square w-7 h-7
 client/src/pages/admin/TradelineTemplatesPage.tsx:697:27	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/TradelineTemplatesPage.tsx:698:27	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/TradelineTemplatesPage.tsx:699:27	rule-c	square w-1.5 h-1.5
-client/src/pages/calculator.tsx:162:22	rule-c	square w-10 h-10
+client/src/pages/calculator.tsx:155:22	rule-c	square w-10 h-10
 client/src/pages/demos/RankFlowDemo.tsx:706:72	rule-c	size={90}
 client/src/pages/demos/RankFlowDemo.tsx:707:74	rule-c	size={90}
-client/src/pages/edit-calculator.tsx:419:14	rule-c	square w-16 h-16
-client/src/pages/edit-calculator.tsx:420:26	rule-c	square w-7 h-7
-client/src/pages/edit-calculator.tsx:433:14	rule-c	square w-16 h-16
-client/src/pages/edit-calculator.tsx:434:26	rule-c	square w-7 h-7
-client/src/pages/edit-calculator.tsx:455:20	rule-c	square w-16 h-16
-client/src/pages/edit-calculator.tsx:456:23	rule-c	square w-7 h-7
-client/src/pages/edit-calculator.tsx:568:25	rule-c	square w-9 h-9
-client/src/pages/edit-calculator.tsx:574:23	rule-c	square w-9 h-9
+client/src/pages/edit-calculator.tsx:423:14	rule-c	square w-16 h-16
+client/src/pages/edit-calculator.tsx:424:26	rule-c	square w-7 h-7
+client/src/pages/edit-calculator.tsx:437:14	rule-c	square w-16 h-16
+client/src/pages/edit-calculator.tsx:438:26	rule-c	square w-7 h-7
+client/src/pages/edit-calculator.tsx:459:20	rule-c	square w-16 h-16
+client/src/pages/edit-calculator.tsx:460:23	rule-c	square w-7 h-7
+client/src/pages/edit-calculator.tsx:572:25	rule-c	square w-9 h-9
+client/src/pages/edit-calculator.tsx:578:23	rule-c	square w-9 h-9
 client/src/pages/leads.tsx:104:14	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:105:26	rule-c	square w-7 h-7
 client/src/pages/leads.tsx:118:14	rule-c	square w-16 h-16

@@ -5,8 +5,12 @@
 // retired once H2-H7 finish the tab content.
 
 import WizardShell from '@/components/wizard/elfsight/WizardShell';
+import { useWidgetFonts } from '@/hooks/useWidgetFonts';
 
 export default function Wizard() {
+  // Load curated widget font set (Wave 45 — moved out of index.html).
+  useWidgetFonts();
+
   const isEmbed = ['1', 'true'].includes(
     new URLSearchParams(window.location.search).get('embed') || ''
   );

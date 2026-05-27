@@ -23,6 +23,7 @@ import WeFixTradesBadge from '@/components/hosted-page/WeFixTradesBadge';
 import { eff, primaryButtonStyle } from '@/components/quote-widget/designTokens';
 import { OWNER_EDIT_TOKEN_KEY_PREFIX } from '@shared/quoteSnapshot';
 import type { EstimateResult } from '@shared/calculateEstimate';
+import { useWidgetFonts } from '@/hooks/useWidgetFonts';
 
 /* ─── Types ─── */
 
@@ -87,6 +88,9 @@ function formatDate(iso: string | null): string {
 /* ─── Component ─── */
 
 export default function QuoteSnapshotPage() {
+  // Load curated widget font set (Wave 45 — moved out of index.html).
+  useWidgetFonts();
+
   const [, params] = useRoute('/q/:slug');
   const slug = params?.slug || '';
 

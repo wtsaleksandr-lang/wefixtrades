@@ -11,6 +11,7 @@ import { trackEvent } from '@/lib/trackEvent';
 import { isValidSlug, HOSTING_DOMAIN } from '@shared/slugUtils';
 import { validatePricingConfig, type PricingConfigV1 } from '@shared/pricingConfig';
 import PricingConfigEditor from '@/components/calculator/PricingConfigEditor';
+import { useWidgetFonts } from '@/hooks/useWidgetFonts';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -332,6 +333,9 @@ function DeploySection({ slug, origin }: { slug: string; origin: string }) {
 }
 
 export default function EditCalculator() {
+  // Load curated widget font set (Wave 45 — moved out of index.html).
+  useWidgetFonts();
+
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
   const qc = useQueryClient();
