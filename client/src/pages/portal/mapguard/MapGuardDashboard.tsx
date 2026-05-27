@@ -281,10 +281,10 @@ export default function MapGuardDashboard() {
         )}
 
         {/* Hero KPI row — mixed primitives per Wave 26.7 polish-mix */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid auto-rows-fr grid-cols-2 gap-3 md:grid-cols-4">
           {/* 1. Avg rank — KpiGauge (lower=better, inverted palette via amber→emerald threshold) */}
           <Card
-            className="flex flex-col items-center justify-center gap-0.5 p-3"
+            className="flex h-full flex-col items-center justify-center gap-0.5 p-3"
             data-testid="mapguard-kpi-avg-rank"
           >
             <KpiGauge
@@ -306,7 +306,7 @@ export default function MapGuardDashboard() {
           {/* 2. Top 3 coverage — power-user (Wave 36: duplicates avg rank). */}
           <AdvancedOnly product="mapguard" elementId="mapguard.top3-coverage-tile">
           <Card
-            className="flex flex-col items-center justify-center gap-0.5 p-3"
+            className="flex h-full flex-col items-center justify-center gap-0.5 p-3"
             data-testid="mapguard-kpi-top3"
           >
             <ProgressRing
@@ -329,7 +329,7 @@ export default function MapGuardDashboard() {
           {/* 3. Citation health — power-user (Wave 36: SEO jargon). */}
           <AdvancedOnly product="mapguard" elementId="mapguard.citation-health-tile">
           <Card
-            className="flex flex-col items-center justify-center gap-1 p-3 text-center"
+            className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="mapguard-kpi-citation-health"
           >
             <span
@@ -367,7 +367,7 @@ export default function MapGuardDashboard() {
           {/* 4. GBP health — composite metric, hidden by default (Wave 36). */}
           <AdvancedOnly product="mapguard" elementId="mapguard.gbp-health-tile">
           <Card
-            className="flex flex-col items-center justify-center gap-1 p-3 text-center"
+            className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="mapguard-kpi-gbp-health"
           >
             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">

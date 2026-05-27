@@ -478,11 +478,11 @@ export default function SocialSyncDashboard() {
         </div>
 
         {/* ─── Hero KPI row (Wave 26.7 polish-mix — varied primitives) ── */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid auto-rows-fr grid-cols-2 gap-3 md:grid-cols-4">
           {/* Posts This Week → AnimatedCounter (total count). Sparkline
               omitted until we ship daily-history series (Wave 26.8+). */}
           <Card
-            className="p-3 flex flex-col items-center justify-center min-h-[120px]"
+            className="p-3 flex h-full flex-col items-center justify-center min-h-[120px]"
             data-testid="kpi-posts-this-week"
             title={META.postsThisWeek.helpText ?? undefined}
           >
@@ -499,7 +499,7 @@ export default function SocialSyncDashboard() {
 
           {/* Engagement % — power-user (jargon to plumbers). */}
           <AdvancedOnly product="socialsync" elementId="socialsync.avg-engagement-kpi">
-            <Card className="p-3 flex items-center justify-center" data-testid="kpi-avg-engagement">
+            <Card className="p-3 h-full flex items-center justify-center" data-testid="kpi-avg-engagement">
               <KpiGauge
                 value={kpis?.avgEngagementRate ?? 0}
                 min={0}
@@ -516,7 +516,7 @@ export default function SocialSyncDashboard() {
           </AdvancedOnly>
 
           {/* Approval Backlog → ProgressRing (X of typical max) */}
-          <Card className="p-3 flex items-center justify-center" data-testid="kpi-approval-backlog">
+          <Card className="p-3 h-full flex items-center justify-center" data-testid="kpi-approval-backlog">
             <ProgressRing
               value={kpis?.approvalBacklog ?? 0}
               max={Math.max(20, (kpis?.approvalBacklog ?? 0) + 5)}
@@ -532,7 +532,7 @@ export default function SocialSyncDashboard() {
 
           {/* WhatsApp Messages — power-user (TradeLine's surface). */}
           <AdvancedOnly product="socialsync" elementId="socialsync.whatsapp-messages-kpi">
-            <Card className="p-3 flex items-center justify-center" data-testid="kpi-whatsapp-this-week">
+            <Card className="p-3 h-full flex items-center justify-center" data-testid="kpi-whatsapp-this-week">
               <KpiGauge
                 value={kpis?.whatsappMessagesThisWeek ?? 0}
                 min={0}

@@ -122,9 +122,12 @@ const CSS = `
   color: #fff;
   font-family: 'DM Sans', system-ui, sans-serif;
   box-shadow: 0 12px 30px rgba(0,0,0,0.40);
-  transition: transform 220ms cubic-bezier(0.22,1,0.36,1);
+  transition: box-shadow 220ms cubic-bezier(0.22,1,0.36,1), border-color 220ms cubic-bezier(0.22,1,0.36,1);
 }
-.sb-card:hover { transform: translateY(-2px); }
+.sb-card:hover {
+  box-shadow: 0 16px 36px rgba(0,0,0,0.50);
+  border-color: rgba(255,255,255,0.18);
+}
 
 .sb-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sb-label {

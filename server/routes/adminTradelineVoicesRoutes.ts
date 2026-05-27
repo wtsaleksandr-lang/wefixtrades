@@ -236,7 +236,11 @@ export function registerAdminTradelineVoicesRoutes(app: Express): void {
       }
       try {
         const [row] = await db
-          .select({ id: tradelineVoices.id, gender: tradelineVoices.gender })
+          .select({
+            id: tradelineVoices.id,
+            gender: tradelineVoices.gender,
+            elevenlabs_voice_id: tradelineVoices.elevenlabs_voice_id,
+          })
           .from(tradelineVoices)
           .where(eq(tradelineVoices.id, voiceId))
           .limit(1);
@@ -244,8 +248,15 @@ export function registerAdminTradelineVoicesRoutes(app: Express): void {
           res.status(404).json({ error: "voice_not_found" });
           return;
         }
+        // Wave 44: prefer ElevenLabs (the row's real production voice id)
+        // so previews match what customers will actually hear on the call.
+        // OpenAI tts-1 stays as the graceful fallback via voicePreview lib.
         const openaiVoice = pickOpenAIVoice(row.id, row.gender);
-        const buf = await getOrCreateSample(row.id, openaiVoice);
+        const buf = await getOrCreateSample(
+          row.id,
+          openaiVoice,
+          row.elevenlabs_voice_id,
+        );
         if (!buf) {
           res.status(503).json({ error: "preview_unavailable" });
           return;

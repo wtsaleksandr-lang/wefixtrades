@@ -263,14 +263,14 @@ export default function WebCareDashboard() {
         </div>
 
         {/* Hero strip — mixed primitives */}
-        <div className="grid gap-3 lg:grid-cols-4">
+        <div className="grid auto-rows-fr gap-3 lg:grid-cols-4">
           <SecurityScoreCard
             score={k?.securityGrade.score ?? 0}
             letter={k?.securityGrade.letter ?? "F"}
             factors={kpis?.securityFactors ?? []}
             emptyState={isEmptyState}
           />
-          <Card className="flex flex-col items-center justify-center gap-1 p-3" data-testid="webcare-uptime-gauge">
+          <Card className="flex h-full flex-col items-center justify-center gap-1 p-3" data-testid="webcare-uptime-gauge">
             <KpiGauge
               value={k?.uptimePct ?? 0}
               min={90}
@@ -297,7 +297,7 @@ export default function WebCareDashboard() {
           />
           {/* Performance gauge — power-user (Wave 36). */}
           <AdvancedOnly product="webcare" elementId="webcare.performance-ring">
-            <Card className="flex flex-col items-center justify-center gap-1 p-3" data-testid="webcare-performance-ring">
+            <Card className="flex h-full flex-col items-center justify-center gap-1 p-3" data-testid="webcare-performance-ring">
               <ProgressRing
                 value={k?.performanceScore.avg ?? 0}
                 max={100}

@@ -1014,9 +1014,9 @@ export default function AIBubble(props: AIBubbleProps) {
           border: none; cursor: pointer;
           font-weight: 700; font-size: 12.5px;
           box-shadow: 0 10px 30px rgba(13, 60, 252, 0.35);
-          transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+          transition: box-shadow 120ms ease-out;
         }
-        .qq-ai-bubble:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(13, 60, 252, 0.42); }
+        .qq-ai-bubble:hover { box-shadow: 0 14px 34px rgba(13, 60, 252, 0.55); }
         .qq-ai-bubble[data-open="true"] { display: none; }
         .qq-ai-bubble-label { letter-spacing: 0.04em; }
 

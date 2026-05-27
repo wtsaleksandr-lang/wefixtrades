@@ -350,7 +350,7 @@ export default function RankFlowDashboard() {
           <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
             Live rank stats
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-4 gap-4">
             <CounterTile
               icon={<TrendingUp className="h-4 w-4" />}
               label="Top 10"
@@ -554,7 +554,7 @@ function CounterTile({
           ? "text-[hsl(var(--chart-1))]"
           : "text-foreground";
   return (
-    <div className="rounded-md border p-3">
+    <div className="flex h-full flex-col rounded-md border p-3">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
         {icon}
         {label}

@@ -242,7 +242,7 @@ export default function TradeLineDashboard() {
         </div>
 
         {/* ─── Hero KPI row (Wave 26.5 — KpiGauge w/ helpText + palette rotation) ── */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid auto-rows-fr grid-cols-2 gap-3 md:grid-cols-4">
           <CallVolumeCard
             value={kpis?.callsToday ?? 0}
             yesterday={kpis?.callsYesterday ?? 0}
@@ -250,7 +250,7 @@ export default function TradeLineDashboard() {
           />
           {/* Wave 26.7 polish-mix: "X of callsToday" → ProgressRing */}
           <Card
-            className="flex flex-col items-center justify-center gap-0.5 p-3"
+            className="flex h-full flex-col items-center justify-center gap-0.5 p-3"
             data-testid="kpi-answered-today"
           >
             <ProgressRing
@@ -269,7 +269,7 @@ export default function TradeLineDashboard() {
             </span>
           </Card>
           <Card
-            className="flex flex-col items-center justify-center gap-0.5 p-3"
+            className="flex h-full flex-col items-center justify-center gap-0.5 p-3"
             data-testid="kpi-bookings-month"
           >
             <KpiGauge
@@ -376,7 +376,7 @@ function CallVolumeCard({
   // remains as the small caption below.
   return (
     <Card
-      className="flex flex-col items-center justify-center gap-0.5 p-3"
+      className="flex h-full flex-col items-center justify-center gap-0.5 p-3"
       data-testid="kpi-calls-today"
     >
       <KpiGauge
@@ -431,7 +431,7 @@ function CostPerBookingCard({
 
   return (
     <Card
-      className="flex flex-col items-center gap-1 p-3 text-center"
+      className="flex h-full flex-col items-center gap-1 p-3 text-center"
       data-testid="kpi-cost-per-booking"
     >
       <span className="self-start text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
