@@ -445,10 +445,10 @@ export default function ReputationShieldDashboard() {
         )}
 
         {/* Hero KPI row — mixed primitives */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid auto-rows-fr grid-cols-2 gap-3 md:grid-cols-4">
           {/* 1. Avg rating — KpiGauge as 0-5 scale */}
           <Card
-            className="flex flex-col items-center justify-center gap-0.5 p-3"
+            className="flex h-full flex-col items-center justify-center gap-0.5 p-3"
             data-testid="reputationshield-kpi-avg-rating"
           >
             <KpiGauge
@@ -476,7 +476,7 @@ export default function ReputationShieldDashboard() {
           {/* 2. Review velocity — power-user (Wave 36: analyst-speak). */}
           <AdvancedOnly product="reputationshield" elementId="reputationshield.review-velocity-tile">
           <Card
-            className="flex flex-col items-center justify-center gap-1 p-3 text-center"
+            className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="reputationshield-kpi-velocity"
           >
             <span
@@ -519,7 +519,7 @@ export default function ReputationShieldDashboard() {
               urgency proactively via push notifications instead. */}
           <AdvancedOnly product="reputationshield" elementId="reputationshield.days-since-tile">
           <Card
-            className="flex flex-col items-center justify-center gap-1 p-3 text-center"
+            className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="reputationshield-kpi-days-since"
           >
             <span
@@ -554,7 +554,7 @@ export default function ReputationShieldDashboard() {
           {/* 4. Reply rate — power-user (internal QA metric). */}
           <AdvancedOnly product="reputationshield" elementId="reputationshield.reply-rate-tile">
           <Card
-            className="flex flex-col items-center justify-center gap-1 p-3 text-center"
+            className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="reputationshield-kpi-reply-rate"
           >
             <span

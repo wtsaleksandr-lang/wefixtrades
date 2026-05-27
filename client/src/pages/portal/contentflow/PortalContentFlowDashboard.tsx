@@ -359,10 +359,10 @@ export default function PortalContentFlowDashboard() {
               </div>
               {/* Wave 26.7 polish-mix: 4 different primitives across the row
                   for visual rhythm — counter+spark / gauge / grade / ring. */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Articles This Month → AnimatedCounter + Sparkline */}
                 <div
-                  className="flex flex-col items-center justify-center text-center gap-2 min-h-[140px]"
+                  className="flex h-full flex-col items-center justify-center text-center gap-2 min-h-[140px]"
                   data-testid="cf-tile-articles"
                 >
                   <div
@@ -407,7 +407,7 @@ export default function PortalContentFlowDashboard() {
                 <AdvancedOnly product="contentflow" elementId="contentflow.ai-detection-tile">
                   <div
                     className={cn(
-                      "flex flex-col items-center justify-center text-center gap-2 min-h-[140px]",
+                      "flex h-full flex-col items-center justify-center text-center gap-2 min-h-[140px]",
                       (kpis?.detectionScore ?? 0) === 0 && "opacity-60",
                     )}
                     data-testid="cf-tile-detection"
@@ -432,7 +432,7 @@ export default function PortalContentFlowDashboard() {
 
                 {/* Distribution Reach → power-user; hidden in Simple mode (Wave 36). */}
                 <AdvancedOnly product="contentflow" elementId="contentflow.distribution-reach-ring">
-                  <div className="flex justify-center">
+                  <div className="flex h-full items-center justify-center">
                     <ProgressRing
                       value={kpis?.distributionReach ?? 0}
                       max={Math.max(kpis?.distributionReach ?? 5, 5)}

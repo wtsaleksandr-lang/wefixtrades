@@ -126,9 +126,11 @@ const CSS = `
   font-weight: 800; font-size: 20px;
   letter-spacing: -0.02em;
   box-shadow: 0 12px 28px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.06) inset;
-  transition: transform 220ms cubic-bezier(0.22,1,0.36,1);
+  transition: box-shadow 220ms cubic-bezier(0.22,1,0.36,1);
 }
-.iorbit-tile:hover { transform: translate(0, -2px) scale(1.06); }
+.iorbit-tile:hover {
+  box-shadow: 0 16px 36px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.14) inset;
+}
 .iorbit-mark { display: inline-block; transform: translateY(-1px); }
 
 .iorbit-center {

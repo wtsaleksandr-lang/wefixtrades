@@ -422,8 +422,8 @@ export default function AdFlowDashboard() {
         </Card>
 
         {/* ROI funnel + KPI tiles row */}
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <div className="grid auto-rows-fr gap-3 lg:grid-cols-3">
+          <div className="h-full lg:col-span-2">
             <ROIFunnel
               moneySpentCents={kpis?.funnel.moneySpent ?? 0}
               customersReached={kpis?.funnel.customersReached ?? 0}
@@ -435,9 +435,9 @@ export default function AdFlowDashboard() {
           {/* Wave 36 — cost-per-booking + jobs-booked sidebars hidden in Simple
               mode. Audit verdict: "already implied by funnel". */}
           <AdvancedOnly product="adflow" elementId="adflow.cost-per-booking-sidebar">
-            <div className="flex flex-col gap-3">
+            <div className="flex h-full flex-col gap-3">
               <Card
-                className="flex flex-col items-center justify-center gap-2 p-4"
+                className="flex h-full flex-col items-center justify-center gap-2 p-4"
                 data-testid="kpi-cost-per-booking"
               >
                 <KpiGauge
@@ -452,7 +452,7 @@ export default function AdFlowDashboard() {
                   emptyState={kpisLoading || (k?.costPerBooking ?? 0) === 0}
                 />
               </Card>
-              <Card className="flex flex-col gap-1 p-3" data-testid="kpi-jobs-booked">
+              <Card className="flex h-full flex-col gap-1 p-3" data-testid="kpi-jobs-booked">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   {META.jobsBooked.label}
                 </p>

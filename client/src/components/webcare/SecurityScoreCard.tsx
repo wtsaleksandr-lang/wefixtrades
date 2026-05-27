@@ -51,7 +51,7 @@ export function SecurityScoreCard({
 
   return (
     <Card
-      className="flex flex-col gap-3 p-4"
+      className="flex h-full flex-col gap-3 p-4"
       data-testid="webcare-security-score"
     >
       <div className="flex items-center justify-between gap-3">

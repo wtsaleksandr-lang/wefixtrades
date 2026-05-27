@@ -704,16 +704,23 @@ function PlayPreviewDialog({ template, onClose }: { template: TemplateSummary; o
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          {/* Hear-voice preview — streams a tone-flavored greeting MP3
-              via OpenAI TTS so Alex (or any admin) can confirm what the
-              assistant actually sounds like before committing. */}
-          <VoicePreviewButton
-            url={`/api/admin/tradeline/templates/${template.kind}/${template.templateId}/voice-sample`}
-            label="Hear voice"
-            testId={`preview-voice-${template.kind}-${template.templateId}`}
-            className="mr-auto"
-          />
+        <DialogFooter className="flex-wrap items-center gap-2">
+          {/* Hear-voice preview — Wave 44: now streams via the same
+              ElevenLabs voice (Rachel) used on real production calls,
+              with OpenAI tts-1 as graceful fallback. */}
+          <div className="mr-auto flex flex-col gap-1">
+            <VoicePreviewButton
+              url={`/api/admin/tradeline/templates/${template.kind}/${template.templateId}/voice-sample`}
+              label="Hear voice"
+              testId={`preview-voice-${template.kind}-${template.templateId}`}
+            />
+            <p
+              className="text-[10px] text-muted-foreground"
+              data-testid="voice-preview-trust-note"
+            >
+              Same voice your customers will hear on real calls.
+            </p>
+          </div>
           <Button variant="outline" size="sm" onClick={() => start()} data-testid="preview-replay">
             <RotateCcw className="w-3.5 h-3.5 mr-1" /> Replay
           </Button>

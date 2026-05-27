@@ -252,8 +252,8 @@ export default function QuoteQuickDashboard() {
         </div>
 
         {/* Hero KPI row */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="flex flex-col gap-2 p-4" data-testid="kpi-quotes-sent">
+        <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="flex h-full flex-col gap-2 p-4" data-testid="kpi-quotes-sent">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {META.quotesSent.label}
             </p>
@@ -280,7 +280,7 @@ export default function QuoteQuickDashboard() {
             </p>
           </Card>
 
-          <Card className="flex flex-col items-center justify-center gap-2 p-4" data-testid="kpi-deposit-rate">
+          <Card className="flex h-full flex-col items-center justify-center gap-2 p-4" data-testid="kpi-deposit-rate">
             <KpiGauge
               value={k?.avgDepositPaidRate ?? 0}
               max={20}
@@ -294,7 +294,7 @@ export default function QuoteQuickDashboard() {
             />
           </Card>
 
-          <Card className="flex flex-col gap-2 p-4" data-testid="kpi-revenue">
+          <Card className="flex h-full flex-col gap-2 p-4" data-testid="kpi-revenue">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {META.revenueThisMonth.label}
             </p>
@@ -311,7 +311,7 @@ export default function QuoteQuickDashboard() {
 
           {/* Active embeds — install-status; 1-time check belongs on Form Builder. */}
           <AdvancedOnly product="quotequick" elementId="quotequick.active-embeds-ring">
-            <Card className="flex flex-col items-center justify-center gap-2 p-4" data-testid="kpi-active-embeds">
+            <Card className="flex h-full flex-col items-center justify-center gap-2 p-4" data-testid="kpi-active-embeds">
               <ProgressRing
                 value={k?.activeEmbeds.active ?? 0}
                 max={Math.max(1, k?.activeEmbeds.configured ?? 1)}

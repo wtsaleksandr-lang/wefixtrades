@@ -37,7 +37,7 @@ export function DaysWithoutIncident({
 
   return (
     <Card
-      className="flex flex-col items-start gap-1 overflow-hidden p-4"
+      className="flex h-full flex-col items-start gap-1 overflow-hidden p-4"
       data-testid="webcare-days-without-incident"
     >
       <div className="flex items-center gap-2">
