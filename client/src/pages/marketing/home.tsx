@@ -45,6 +45,12 @@ const ServiceStackTimeline = lazy(() => import("@/components/marketing/ServiceSt
 const GlobeSection = lazy(() => import("@/components/marketing/globe/GlobeSection"));
 const ReviewsSection = lazy(() => import("@/components/home/ReviewsSection"));
 const AutomationDiagram = lazy(() => import("@/components/marketing/AutomationDiagram"));
+/* Wave 69 — Self-Service Drag-Drop interactive element. Lazy + deferred
+ * because it sits below the IntegrationsTrustStrip (still part of the
+ * hero zone visually, but well below the fold on mobile). The component
+ * is ~30KB minified and the IntersectionObserver wrap keeps it off the
+ * critical path until the visitor scrolls toward it. */
+const SelfServiceDragDrop = lazy(() => import("@/components/marketing/SelfServiceDragDrop"));
 
 /* Fallback boxes — reserve typical rendered heights so the page doesn't
  * jump when the lazy chunk arrives. Tuned for desktop; mobile heights are
@@ -916,6 +922,16 @@ export default function HomePage() {
       <div style={{ paddingTop: 28, paddingBottom: 4 }}>
         <IntegrationsTrustStrip />
       </div>
+
+      {/* Wave 69 — Self-Service Drag-Drop. First interactive proof-of-
+       * product moment after the hero. The visitor watches an existing
+       * pricing doc become a live calculator + reserve flow without any
+       * setup. Deferred so its ~30KB doesn't compete with the hero LCP. */}
+      <DeferUntilNear minHeight={680}>
+        <Suspense fallback={lazyFallback(680)}>
+          <SelfServiceDragDrop />
+        </Suspense>
+      </DeferUntilNear>
       </div>{/* end hero shell backdrop */}
       {/* HeroTradeDivider removed in the C-direction premium rewrite —
        * the cycling "Built for: <trade>" badge above the headline already
