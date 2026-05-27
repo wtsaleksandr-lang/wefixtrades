@@ -764,7 +764,7 @@ export default function SocialSyncDemo() {
                         padding: "12px 24px",
                         borderRadius: 10,
                         background: mkt.accent,
-                        color: mkt.dark,
+                        color: mkt.onDark,
                         fontSize: 14,
                         fontWeight: 700,
                         textDecoration: "none",

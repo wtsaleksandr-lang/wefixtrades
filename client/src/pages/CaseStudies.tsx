@@ -814,7 +814,7 @@ export default function CaseStudiesPage() {
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
                 padding: "13px 26px", borderRadius: 12,
-                background: mkt.accent, color: mkt.buttonText,
+                background: mkt.accent, color: mkt.onDark,
                 fontSize: 15, fontWeight: 700, textDecoration: "none",
               }}
             >
