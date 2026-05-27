@@ -662,7 +662,7 @@ function PortalDashboardInner() {
 
           {/* Recent activity — Wave 36: hidden in Simple mode. Ask the
               AI Copilot "what changed?" to surface this. */}
-          <AdvancedOnly product="portal">
+          <AdvancedOnly product="portal" elementId="portal.recent-activity-feed">
           <Card className="overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>

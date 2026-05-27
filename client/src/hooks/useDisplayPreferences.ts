@@ -1,10 +1,11 @@
 /**
  * Wave 36 — Tesla Simplification.
+ * Wave 36.5 — per-element granular toggles.
  *
  * Hook for the Display Mode (Simple / Advanced) preferences. Reads from
  * `GET /api/portal/settings/display`, exposes a mutation against
- * `PATCH /api/portal/settings/display`, and provides the `isAdvanced(productKey)`
- * helper used by the `<AdvancedOnly>` wrapper across every dashboard.
+ * `PATCH /api/portal/settings/display`, and provides the resolution
+ * predicates used by the `<AdvancedOnly>` wrapper across every dashboard.
  *
  * Behaviour
  * ─────────
@@ -12,6 +13,13 @@
  *     HIDDEN (returns false). The Tesla rule: Simple by default, always.
  *   • The hook is cheap to mount in many components — TanStack Query
  *     dedupes the request under a single queryKey.
+ *
+ * Predicates
+ * ──────────
+ *   • `isVisible(product, elementId?)` — full resolver (element override
+ *     wins, then product/mode). Use this from new code.
+ *   • `isAdvanced(product)` — legacy product/mode-only check, retained for
+ *     backwards compatibility with callers that don't have an element id.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +29,9 @@ import {
   type DisplayPreferences,
   type DisplayPreferencesPatch,
   isAdvancedVisible,
+  isElementVisible,
 } from "@shared/userPreferences/displayMode";
+import type { DisplayElementId } from "@shared/userPreferences/elementRegistry";
 import { apiRequest } from "@/lib/queryClient";
 
 const QUERY_KEY = ["/api/portal/settings/display"] as const;
@@ -63,8 +73,8 @@ export function useDisplayPreferences() {
   });
 
   /**
-   * Predicate used by the `<AdvancedOnly>` wrapper. Both the global
-   * mode AND the product-specific toggle must be true. Returns false
+   * Predicate used by the `<AdvancedOnly>` wrapper (legacy form). Both the
+   * global mode AND the product-specific toggle must be true. Returns false
    * while loading — Simple-by-default is the safer fallback.
    */
   function isAdvanced(productKey: AdvancedProductKey): boolean {
@@ -72,11 +82,24 @@ export function useDisplayPreferences() {
     return isAdvancedVisible(prefs, productKey);
   }
 
+  /**
+   * Wave 36.5 — full resolver. Per-element override wins; otherwise falls
+   * back to the product/mode check.
+   */
+  function isVisible(
+    productKey: AdvancedProductKey,
+    elementId?: DisplayElementId,
+  ): boolean {
+    if (isLoading || error) return false;
+    return isElementVisible(prefs, productKey, elementId);
+  }
+
   return {
     preferences: prefs,
     isLoading,
     isAdvancedMode: prefs.mode === "advanced",
     isAdvanced,
+    isVisible,
     updatePreferences: mutation.mutate,
     updateAsync: mutation.mutateAsync,
     isSaving: mutation.isPending,

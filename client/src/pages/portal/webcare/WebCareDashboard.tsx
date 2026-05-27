@@ -244,7 +244,7 @@ export default function WebCareDashboard() {
             </p>
           </div>
           {/* Wave 36 — Notifications/Setup demoted to Advanced (Wave 32 centralized prefs). */}
-          <AdvancedOnly product="webcare">
+          <AdvancedOnly product="webcare" elementId="webcare.header-actions">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" asChild data-testid="link-webcare-notifications">
                 <Link href="/portal/webcare/notifications">
@@ -296,7 +296,7 @@ export default function WebCareDashboard() {
             emptyState={isEmptyState}
           />
           {/* Performance gauge — power-user (Wave 36). */}
-          <AdvancedOnly product="webcare">
+          <AdvancedOnly product="webcare" elementId="webcare.performance-ring">
             <Card className="flex flex-col items-center justify-center gap-1 p-3" data-testid="webcare-performance-ring">
               <ProgressRing
                 value={k?.performanceScore.avg ?? 0}
@@ -371,7 +371,7 @@ export default function WebCareDashboard() {
         />
 
         {/* Backup timeline — power-user (Wave 36). */}
-        <AdvancedOnly product="webcare">
+        <AdvancedOnly product="webcare" elementId="webcare.backup-timeline">
           <BackupTimeline
             entries={kpis?.backupTimeline30d ?? []}
             isMutating={runAction.isPending}
@@ -380,7 +380,7 @@ export default function WebCareDashboard() {
         </AdvancedOnly>
 
         {/* Pending updates KPI + Site inventory — power-user. */}
-        <AdvancedOnly product="webcare">
+        <AdvancedOnly product="webcare" elementId="webcare.pending-updates-section">
         <div className="grid gap-3 lg:grid-cols-[260px_1fr]">
           <Card className="flex flex-col items-center justify-center gap-1 p-3" data-testid="webcare-pending-updates-gauge">
             <KpiGauge

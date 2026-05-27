@@ -27,11 +27,33 @@ import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 import { resetFirstVisits } from "@/hooks/useFirstVisit";
 import { useDisplayPreferences } from "@/hooks/useDisplayPreferences";
 import {
+  type AdvancedProductKey,
+  ADVANCED_PRODUCT_KEYS,
+} from "@shared/userPreferences/displayMode";
+import {
+  DISPLAY_ELEMENTS,
+  elementsByProduct,
+  type DisplayElement,
+} from "@shared/userPreferences/elementRegistry";
+import {
   NOTIFICATION_CATEGORY_KEYS,
   NOTIFICATION_CATEGORY_LABELS,
   type NotificationPreferences,
   type NotificationCategoryKey,
 } from "@shared/schema";
+
+const PRODUCT_LABEL_BY_KEY: Record<AdvancedProductKey, string> = {
+  portal: "Home dashboard",
+  contentflow: "ContentFlow",
+  rankflow: "RankFlow",
+  socialsync: "SocialSync",
+  tradeline: "TradeLine",
+  mapguard: "MapGuard",
+  reputationshield: "ReputationShield",
+  quotequick: "QuoteQuick",
+  adflow: "AdFlow",
+  webcare: "WebCare",
+};
 
 interface SettingsData {
   business_name: string;
@@ -1757,6 +1779,10 @@ function DisplayPreferencesSection() {
         </div>
       </div>
 
+      {/* Wave 36.5 — per-element overrides. Always visible (no global mode gate)
+          so the user can opt-in to a specific element without flipping Advanced on. */}
+      <ElementOverridesSection />
+
       {/* Per-product toggles — only visible when Advanced is on. */}
       {isAdvanced && (
         <div data-theme="light" className="bg-white rounded-xl border border-gray-200 p-5">
@@ -1790,6 +1816,225 @@ function DisplayPreferencesSection() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Wave 36.5 — per-element overrides section.
+ *
+ * Groups elements by product into accordions. Each row gets a Switch that
+ * flips the explicit override on/off; "use default" link removes the override
+ * key so the product/mode logic takes over again. Mobile-responsive: stacks
+ * to full-width rows under 640px.
+ *
+ * UI rules (from MEMORY):
+ *   • Help cue top-left (the description text under the title).
+ *   • 2px gaps between rows (space-y-0.5).
+ *   • Selected = outline accent only, NEVER bright fill (Switch primitive default).
+ *   • Theme-aware contrast via semantic classes (bg-white / text-gray-*).
+ */
+function ElementOverridesSection() {
+  const { preferences, isLoading, updateAsync, isSaving } = useDisplayPreferences();
+  const { toast } = useToast();
+  const overrides = preferences.element_overrides ?? {};
+  const grouped = useMemo(() => elementsByProduct(), []);
+
+  // Auto-open accordions for any product that already has at least one override.
+  const initialOpen = useMemo(() => {
+    const out: Record<string, boolean> = {};
+    for (const product of ADVANCED_PRODUCT_KEYS) {
+      const elements = grouped[product] ?? [];
+      out[product] = elements.some((e) => typeof overrides[e.id] === "boolean");
+    }
+    return out;
+  }, [grouped, overrides]);
+  const [openMap, setOpenMap] = useState<Record<string, boolean>>(initialOpen);
+
+  // Re-sync: if an external mutation adds an override, expand that accordion.
+  useEffect(() => {
+    setOpenMap((prev) => {
+      const next = { ...prev };
+      for (const product of ADVANCED_PRODUCT_KEYS) {
+        const elements = grouped[product] ?? [];
+        if (elements.some((e) => typeof overrides[e.id] === "boolean")) next[product] = true;
+      }
+      return next;
+    });
+  }, [grouped, overrides]);
+
+  const persistOverrides = useCallback(
+    async (nextMap: Record<string, boolean>) => {
+      try {
+        await updateAsync({ element_overrides: nextMap });
+      } catch {
+        toast({ title: "Couldn't update element preference", variant: "destructive" });
+      }
+    },
+    [updateAsync, toast],
+  );
+
+  const setElement = useCallback(
+    (elementId: string, value: boolean) => {
+      const next = { ...overrides, [elementId]: value };
+      void persistOverrides(next);
+    },
+    [overrides, persistOverrides],
+  );
+
+  const clearElement = useCallback(
+    (elementId: string) => {
+      const next = { ...overrides };
+      delete next[elementId];
+      void persistOverrides(next);
+    },
+    [overrides, persistOverrides],
+  );
+
+  const resetProduct = useCallback(
+    (product: AdvancedProductKey) => {
+      const productIds = (grouped[product] ?? []).map((e) => e.id);
+      const next: Record<string, boolean> = {};
+      for (const [k, v] of Object.entries(overrides)) {
+        if (!productIds.includes(k)) next[k] = v;
+      }
+      void persistOverrides(next);
+    },
+    [grouped, overrides, persistOverrides],
+  );
+
+  const setsForProduct = useCallback(
+    (product: AdvancedProductKey) =>
+      (grouped[product] ?? []).filter((e) => typeof overrides[e.id] === "boolean").length,
+    [grouped, overrides],
+  );
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5" data-testid="element-overrides-loading">
+        <Skeleton className="h-4 w-48 mb-3" />
+        <Skeleton className="h-9 w-full max-w-md" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      data-theme="light"
+      className="bg-white rounded-xl border border-gray-200 p-5"
+      data-testid="display-element-overrides-root"
+    >
+      <h2 className="text-sm font-semibold text-gray-900 mb-1">Show individual elements</h2>
+      <p className="text-xs text-gray-500 mb-4 max-w-2xl">
+        Want one specific tile, heatmap, or feed visible without flipping the whole product to
+        Advanced? Toggle it on below. Element overrides win against the product-level switch —
+        leave them off (or click "use default") to fall back to your product preferences.
+      </p>
+
+      <div className="space-y-0.5">
+        {ADVANCED_PRODUCT_KEYS.map((product) => {
+          const elements = grouped[product] ?? [];
+          if (elements.length === 0) return null;
+          const open = Boolean(openMap[product]);
+          const overrideCount = setsForProduct(product);
+          return (
+            <div
+              key={product}
+              className="border border-gray-100 rounded-md"
+              data-testid={`element-overrides-product-${product}`}
+            >
+              <button
+                type="button"
+                className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-gray-50 rounded-md"
+                onClick={() => setOpenMap((p) => ({ ...p, [product]: !open }))}
+                aria-expanded={open}
+                data-testid={`element-overrides-toggle-${product}`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">
+                    {PRODUCT_LABEL_BY_KEY[product]}
+                  </span>
+                  {overrideCount > 0 && (
+                    <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full border border-gray-300 text-gray-700">
+                      {overrideCount} set
+                    </span>
+                  )}
+                  <span className="text-[11px] text-gray-500">
+                    {elements.length} element{elements.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <span className="text-gray-400 text-xs" aria-hidden="true">
+                  {open ? "▾" : "▸"}
+                </span>
+              </button>
+              {open && (
+                <div className="border-t border-gray-100 px-3 py-2">
+                  {overrideCount > 0 && (
+                    <div className="flex justify-end mb-1">
+                      <button
+                        type="button"
+                        className="text-[11px] text-gray-600 hover:text-gray-900 underline"
+                        onClick={() => resetProduct(product)}
+                        disabled={isSaving}
+                        data-testid={`element-overrides-reset-${product}`}
+                      >
+                        Reset to defaults
+                      </button>
+                    </div>
+                  )}
+                  <ul className="space-y-0.5">
+                    {elements.map((el: DisplayElement) => {
+                      const override = overrides[el.id];
+                      const isSet = typeof override === "boolean";
+                      const checked = override === true;
+                      return (
+                        <li
+                          key={el.id}
+                          className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4 py-2"
+                          data-testid={`element-override-row-${el.id}`}
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900">{el.label}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{el.description}</p>
+                            <p className="text-[10px] uppercase tracking-wide text-gray-400 mt-0.5">
+                              {el.category}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 self-start sm:self-center">
+                            <Switch
+                              checked={checked}
+                              disabled={isSaving}
+                              onCheckedChange={(value) => setElement(el.id, value)}
+                              aria-label={`Show ${el.label}`}
+                              data-testid={`element-override-switch-${el.id}`}
+                            />
+                            {isSet && (
+                              <button
+                                type="button"
+                                className="text-[11px] text-gray-500 hover:text-gray-900 underline"
+                                onClick={() => clearElement(el.id)}
+                                disabled={isSaving}
+                                aria-label={`Use product default for ${el.label}`}
+                                data-testid={`element-override-clear-${el.id}`}
+                              >
+                                use default
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="mt-4 text-[11px] text-gray-500">
+        Showing {DISPLAY_ELEMENTS.length} elements across {ADVANCED_PRODUCT_KEYS.length} products.
+      </p>
     </div>
   );
 }
