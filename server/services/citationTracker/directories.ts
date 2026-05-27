@@ -12,6 +12,11 @@
  */
 
 import type { NapSnapshot } from "./monitor";
+import { scrapeBbb } from "./scrapers/bbb";
+import { scrapeBuildzoom } from "./scrapers/buildzoom";
+import { scrapeYellowbook } from "./scrapers/yellowbook";
+import { scrapeTupalo } from "./scrapers/tupalo";
+import { scrapeHouzz } from "./scrapers/houzz";
 
 export interface ScrapeContext {
   business_name: string;
@@ -58,9 +63,10 @@ export interface DirectoryDef {
 }
 
 /* ─── Shared scrape stub ────────────────────────────────────────────────
- * Returns found:false. Replaced per-directory in Wave 4 with real
- * cheerio / playwright scrapers. Kept as a single placeholder so the
- * monitor loop has a predictable shape during Wave 3.
+ * Returns found:false. Used for directories that still need a real
+ * scraper (Wave 42+ work). Wave 41 wired up the first 5 (BBB, BuildZoom,
+ * Yellowbook, Tupalo, Houzz) — all others still call noopScrape so the
+ * monitor loop continues to have a predictable shape.
  * ────────────────────────────────────────────────────────────────────── */
 async function noopScrape(_ctx: ScrapeContext): Promise<ScrapeResult> {
   return { found: false };
@@ -70,11 +76,11 @@ export const CITATION_TRACKER_DIRECTORIES: DirectoryDef[] = [
   // ─── General / top-tier ────────────────────────────────────────────
   { id: "yelp", name: "Yelp", url: "https://www.yelp.com", searchUrlPattern: "https://www.yelp.com/search?find_desc={q}", category: "general", scrape: noopScrape },
   { id: "yellowpages", name: "Yellow Pages", url: "https://www.yellowpages.com", searchUrlPattern: "https://www.yellowpages.com/search?search_terms={q}", category: "general", scrape: noopScrape },
-  { id: "bbb", name: "Better Business Bureau", url: "https://www.bbb.org", searchUrlPattern: "https://www.bbb.org/search?find_text={q}", category: "general", scrape: noopScrape },
+  { id: "bbb", name: "Better Business Bureau", url: "https://www.bbb.org", searchUrlPattern: "https://www.bbb.org/search?find_text={q}", category: "general", scrape: scrapeBbb },
   { id: "mapquest", name: "MapQuest", url: "https://www.mapquest.com", searchUrlPattern: "https://www.mapquest.com/search/results?query={q}", category: "mapping", scrape: noopScrape },
   { id: "manta", name: "Manta", url: "https://www.manta.com", searchUrlPattern: "https://www.manta.com/search?search_source=nav&search={q}", category: "general", scrape: noopScrape },
   { id: "superpages", name: "Superpages", url: "https://www.superpages.com", searchUrlPattern: "https://www.superpages.com/search?STYPE=S&SRC=hdr&search_terms={q}", category: "general", scrape: noopScrape },
-  { id: "yellowbook", name: "Yellowbook", url: "https://www.yellowbook.com", searchUrlPattern: "https://www.yellowbook.com/search?what={q}", category: "general", scrape: noopScrape },
+  { id: "yellowbook", name: "Yellowbook", url: "https://www.yellowbook.com", searchUrlPattern: "https://www.yellowbook.com/search?what={q}", category: "general", scrape: scrapeYellowbook },
   { id: "merchantcircle", name: "MerchantCircle", url: "https://www.merchantcircle.com", searchUrlPattern: "https://www.merchantcircle.com/search?q={q}", category: "general", scrape: noopScrape },
   { id: "citysearch", name: "Citysearch", url: "https://www.citysearch.com", searchUrlPattern: "https://www.citysearch.com/find?text={q}", category: "general", scrape: noopScrape },
   { id: "insiderpages", name: "Insider Pages", url: "https://www.insiderpages.com", searchUrlPattern: "https://www.insiderpages.com/search?q={q}", category: "general", scrape: noopScrape },
@@ -82,7 +88,7 @@ export const CITATION_TRACKER_DIRECTORIES: DirectoryDef[] = [
   { id: "brownbook", name: "Brownbook", url: "https://www.brownbook.net", searchUrlPattern: "https://www.brownbook.net/search?q={q}", category: "general", scrape: noopScrape },
   { id: "cybo", name: "Cybo", url: "https://www.cybo.com", searchUrlPattern: "https://www.cybo.com/search/?q={q}", category: "general", scrape: noopScrape },
   { id: "cylex", name: "Cylex", url: "https://www.cylex.us.com", searchUrlPattern: "https://www.cylex.us.com/search?q={q}", category: "general", scrape: noopScrape },
-  { id: "tupalo", name: "Tupalo", url: "https://tupalo.com", searchUrlPattern: "https://tupalo.com/en/search?q={q}", category: "general", scrape: noopScrape },
+  { id: "tupalo", name: "Tupalo", url: "https://tupalo.com", searchUrlPattern: "https://tupalo.com/en/search?q={q}", category: "general", scrape: scrapeTupalo },
   { id: "chamber_of_commerce", name: "ChamberOfCommerce.com", url: "https://www.chamberofcommerce.com", searchUrlPattern: "https://www.chamberofcommerce.com/search?q={q}", category: "general", scrape: noopScrape },
   { id: "n49", name: "n49", url: "https://www.n49.com", searchUrlPattern: "https://www.n49.com/search?q={q}", category: "general", scrape: noopScrape },
   { id: "ezlocal", name: "EZlocal", url: "https://www.ezlocal.com", searchUrlPattern: "https://www.ezlocal.com/?find={q}", category: "general", scrape: noopScrape },
@@ -111,10 +117,10 @@ export const CITATION_TRACKER_DIRECTORIES: DirectoryDef[] = [
   { id: "angi", name: "Angi (Angie's List)", url: "https://www.angi.com", searchUrlPattern: "https://www.angi.com/search?q={q}", category: "trade", scrape: noopScrape },
   { id: "thumbtack", name: "Thumbtack", url: "https://www.thumbtack.com", searchUrlPattern: "https://www.thumbtack.com/search?query={q}", category: "trade", scrape: noopScrape },
   { id: "homeadvisor", name: "HomeAdvisor", url: "https://www.homeadvisor.com", searchUrlPattern: "https://www.homeadvisor.com/c.{q}.html", category: "trade", scrape: noopScrape },
-  { id: "houzz", name: "Houzz", url: "https://www.houzz.com", searchUrlPattern: "https://www.houzz.com/professionals/{q}", category: "trade", scrape: noopScrape },
+  { id: "houzz", name: "Houzz", url: "https://www.houzz.com", searchUrlPattern: "https://www.houzz.com/professionals/{q}", category: "trade", scrape: scrapeHouzz },
   { id: "porch", name: "Porch", url: "https://porch.com", searchUrlPattern: "https://porch.com/search?q={q}", category: "trade", scrape: noopScrape },
   { id: "networx", name: "Networx", url: "https://www.networx.com", searchUrlPattern: "https://www.networx.com/search?q={q}", category: "trade", scrape: noopScrape },
-  { id: "buildzoom", name: "BuildZoom", url: "https://www.buildzoom.com", searchUrlPattern: "https://www.buildzoom.com/search?q={q}", category: "trade", scrape: noopScrape },
+  { id: "buildzoom", name: "BuildZoom", url: "https://www.buildzoom.com", searchUrlPattern: "https://www.buildzoom.com/search?q={q}", category: "trade", scrape: scrapeBuildzoom },
   { id: "pro_referral", name: "Pro Referral", url: "https://www.proreferral.com", searchUrlPattern: "https://www.proreferral.com/search?q={q}", category: "trade", scrape: noopScrape },
   { id: "trust_com", name: "Trust.com", url: "https://www.trust.com", searchUrlPattern: "https://www.trust.com/search?q={q}", category: "trade", scrape: noopScrape },
   { id: "homestars", name: "HomeStars", url: "https://homestars.com", searchUrlPattern: "https://homestars.com/search?q={q}", category: "trade", scrape: noopScrape },
