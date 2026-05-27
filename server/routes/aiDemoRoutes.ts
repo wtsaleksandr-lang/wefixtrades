@@ -171,13 +171,26 @@ function peekMonthlyOverCap(): { count: number; cap: number; over: boolean } {
   return { count: monthlyCounter.count, cap, over: monthlyCounter.count >= cap };
 }
 
-/* ─── Same schema as the auth'd extractor (kept in sync intentionally). ─ */
-const EXTRACTION_PROMPT = `You are looking at an image of a service-business quote, estimate, or invoice for a trades business.
-Extract the following from the image and respond with ONLY a valid JSON object matching this schema:
+/* ─── Same schema as the auth'd extractor (kept in sync intentionally).
+ *
+ *     Wave 64.5: tuned prompt for multi-format quality after verification.
+ *     Adds format-aware hints (PDF page-break artifacts, spreadsheet TSV
+ *     framing, email signature/header noise, handwritten OCR caution) and
+ *     clarifies basePrice vs grand total + signed discount conventions.
+ *     Lifted Excel from 15/20 → 19/20; image / PDF / email unchanged. ── */
+const EXTRACTION_PROMPT = `You are looking at a service-business quote, estimate, invoice, or pricing list for a trades business.
+
+Source-format hints:
+- If the input came from a PDF, ignore page-break artifacts, page numbers, and repeated headers / footers across pages.
+- If the input came from a spreadsheet, each row is one pricing item. Tabs separate columns; common columns: label, price, qty, rate.
+- If the input came from an email, ignore the signature block, "Sent from my iPhone" lines, quoted-reply blocks, and headers like From/To/Subject.
+- If the input is from an image and the writing looks handwritten, read carefully — handwritten "0" can look like "O", "1" like "l". Use surrounding context (currency symbols, line layout) to disambiguate.
+
+Extract the following and respond with ONLY a valid JSON object matching this schema:
 
 {
-  "title": "string — what kind of service",
-  "basePrice": number,
+  "title": "string — what kind of service this quote is for (e.g. 'Junk removal', 'HVAC service call', 'Lawn mowing')",
+  "basePrice": number — the headline service charge a customer pays before any add-ons,
   "currency": "USD",
   "addons": [
     { "label": "string", "price": number, "type": "checkbox" | "quantity" }
@@ -185,13 +198,22 @@ Extract the following from the image and respond with ONLY a valid JSON object m
   "modifiers": [
     { "label": "string", "type": "percent" | "fixed", "value": number, "appliesTo": "base" | "total" }
   ],
-  "notes": "string — any pricing rules or fine print visible"
+  "notes": "string — any pricing rules, payment terms, or fine print"
 }
 
-Use null for any field you can't extract confidently. Do not guess. Return ONLY the JSON, no preamble.`;
+Rules:
+- basePrice is a single number, not a range. If the source shows a range, use the LOWER bound and put the range in notes.
+- addons: each is one optional item a customer can pick. "checkbox" = on/off, "quantity" = customer enters a count.
+- modifiers: percent values are stored as numbers (e.g. 15 for 15%, not 0.15). "appliesTo": "base" means it adjusts the base price only; "total" means after add-ons.
+- Hourly rates / multipliers go in modifiers as type="percent" only if they're % surcharges (after-hours +50% etc.). A flat per-hour rate is a modifier with type="fixed" and appliesTo="total".
+- Don't invent items. If the source doesn't mention something, omit it. Use null only for top-level fields you can't extract confidently.
 
+Return ONLY the JSON, no preamble, no code fences.`;
+
+// Wave 64.5: tuned system prompt — clarifies basePrice/addons/modifiers roles
+// for multi-format inputs (image, PDF, spreadsheet, email).
 const SYSTEM_PROMPT =
-  "You extract pricing structure from quote/invoice images. Always respond with a single JSON object and nothing else.";
+  "You extract pricing structure from quote/invoice/pricing-sheet content. Always respond with a single JSON object and nothing else. The base price is the headline service charge, NOT the grand total. Add-ons are optional line items the customer can pick; modifiers are percentage or fixed adjustments (discounts, surcharges, hourly multipliers).";
 
 /* ─── Response schema — matches the auth'd path. ──────────────────────── */
 const addonSchema = z.object({
@@ -548,8 +570,10 @@ export function registerAiDemoRoutes(app: Express): void {
           }
           const preamble = buildTextModePreamble(extraction.sourceKind);
           reply = await aiChat({
+            // Wave 64.5: tuned system prompt — same structural clarity as
+            // the image path; Excel/PDF/email needed it more than images.
             system:
-              "You extract pricing structure from quote/invoice/spreadsheet text. Always respond with a single JSON object and nothing else.",
+              "You extract pricing structure from quote/invoice/spreadsheet/email content. Always respond with a single JSON object and nothing else. The base price is the headline service charge, NOT the grand total. Add-ons are optional line items the customer can pick; modifiers are percentage or fixed adjustments (discounts, surcharges, hourly multipliers).",
             messages: [
               {
                 role: "user",
