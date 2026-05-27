@@ -5,7 +5,7 @@ import Stripe from "stripe";
 import { storage } from "../storage";
 import { validatePricingConfig } from "@shared/pricingConfig";
 import { calculatorSettingsSchema } from "@shared/schema";
-import { BRAND_STUDIO_STYLE_KEYS } from "@shared/templatePresets";
+import { BRAND_STUDIO_STYLE_KEYS, FLOATING_LAUNCHER_PRO_KEYS } from "@shared/templatePresets";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
 import { touchCalculatorActivity } from "../services/quotequickSlugLifecycle";
 import { createLogger } from "../lib/logger";
@@ -426,9 +426,14 @@ export function registerCalculatorRoutes(app: Express): void {
             }
           }
           // BD-3m — floatingLauncher: `enabled` + `position` are free-tier
-          // allowed; `customIconUrl` + `label` are Pro-only. We strip the
-          // nested Pro sub-keys but keep the enclosing object so free-tier
-          // owners can still flip the embed shape.
+          // allowed; historically `customIconUrl` + `label` were Pro-only.
+          //
+          // Wave 57 — strategic gating pivot. The icon + label are pure
+          // builder-time customisation (no runtime cost). Under the
+          // new model FLOATING_LAUNCHER_PRO_KEYS is an empty array, so
+          // this loop becomes a no-op — kept intact so future per-key
+          // Pro gating (if any sub-feature is re-tightened) has a
+          // place to land without re-wiring the whole strip block.
           if (
             restStyle.floatingLauncher &&
             typeof restStyle.floatingLauncher === 'object'
@@ -436,7 +441,7 @@ export function registerCalculatorRoutes(app: Express): void {
             const fl = restStyle.floatingLauncher as Record<string, unknown>;
             const flRest: Record<string, unknown> = {};
             for (const [k, v] of Object.entries(fl)) {
-              if (k === 'customIconUrl' || k === 'label') {
+              if ((FLOATING_LAUNCHER_PRO_KEYS as readonly string[]).includes(k)) {
                 if (v !== undefined) droppedBrandStudio.push(`floatingLauncher.${k}`);
               } else {
                 flRest[k] = v;

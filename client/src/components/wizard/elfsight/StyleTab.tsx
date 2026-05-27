@@ -259,11 +259,24 @@ export default function StyleTab({
   trustBadges, onTrustBadgesChange,
   currencySymbol = '$',
 }: Props) {
-  // W-AO-6c — Brand Studio is a Pro / Business upsell. Free users see the
-  // controls (preview-only) so they understand the value; the section
-  // header shows a Lock + Upgrade CTA and the server strips the fields
-  // before persistence for non-paid plans.
-  const isProTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
+  // Wave 57 — UNLOCK the builder. Trust Badges, Brand Studio, Button copy,
+  // Floating-launcher icon + label, AI chat visibility, Brand Kits, and the
+  // floating-launcher Pro fields are all BUILDER-TIME features. Per the
+  // Webflow/Notion/Figma pattern adopted in Wave 57, the builder is the
+  // trial — unlimited build for free. Only OUTCOME gates (the live
+  // "Powered by WeFixTrades" badge, deposit capture, AI chat replies on
+  // the live widget, multiple calculators, custom domain, etc.) remain
+  // tier-gated. This flag is therefore force-true so every `!isProTier`
+  // branch below resolves to the unlocked path; we keep the variable name
+  // (and the `planTier` prop) because the same identifier still gates the
+  // outcome-tier "Powered by WeFixTrades" toggle a few sections below.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _planTierKept = planTier;
+  const isProTier = true;
+  // Wave 57 — preserved derived flag for the OUTCOME-gated branding toggle
+  // (the live "Powered by WeFixTrades" badge). Mirrors the matrix used by
+  // the server-side strip in calculatorRoutes.ts (`paidTier`).
+  const isPaidTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
   /** Patch a single style field (skipping `undefined` so blanks fall through). */
   const patch = useCallback(
     (next: Partial<ShellStyle>) => onChange({ ...style, ...next }),
@@ -353,8 +366,10 @@ export default function StyleTab({
   const showPoweredBy = branding.showPoweredBy !== false;
   // For free-tier users we display the toggle as disabled with a small
   // "Pro" pill so they understand why they can't turn it off. Pro+ users
-  // see a normal interactive checkbox.
-  const brandingLocked = !isProTier;
+  // see a normal interactive checkbox. Wave 57 — the "Powered by"
+  // badge is an OUTCOME gate (lives on the live widget) so this stays
+  // wired to the paid-tier check.
+  const brandingLocked = !isPaidTier;
   const setBranding = (next: Partial<AdvBranding>) => {
     patch({
       branding: { showPoweredBy, ...(style.branding ?? {}), ...next },
@@ -2789,11 +2804,14 @@ function BrandStudioGroup({
           onClick={() => setOpen((v) => !v)}
         >
           <span className="qq-bs-header-title">
-            {!isProTier && <Lock size={12} aria-hidden="true" />}
+            {/* Wave 57 — Brand Studio is now a free-tier builder feature.
+             *  Lock icon + "Pro" pill removed per the strategic gating pivot
+             *  (builder-time customisation is unlimited; OUTCOME features
+             *  like the live "Powered by" badge stay paid). The
+             *  `isProTier` prop is force-true at the caller for the same
+             *  reason; we keep the data attribute for back-compat with
+             *  the audit-CSS in case anything still hooks `data-pro-tier`. */}
             Brand Studio
-            <span className="qq-bs-pill" aria-label="Pro plan feature">
-              <Sparkles size={10} aria-hidden="true" /> Pro
-            </span>
           </span>
           <ChevronRight
             size={14}
@@ -3823,10 +3841,10 @@ function BrandKitGroup({
     return (
       <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="true">
         <legend className="qq-style-legend">
+          {/* Wave 57 — Pro pill removed; the kit-PICKER is a builder feature.
+           *  The cross-calculator save/apply API still gates to Pro on the
+           *  server (you need 2+ live calculators to benefit). */}
           Brand Kit
-          <span className="qq-bs-pill" aria-label="Pro plan feature">
-            <Sparkles size={10} aria-hidden="true" /> Pro
-          </span>
         </legend>
         <div className="qq-style-group-body">
           <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
@@ -3842,10 +3860,8 @@ function BrandKitGroup({
   return (
     <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="true">
       <legend className="qq-style-legend">
+        {/* Wave 57 — Pro pill removed; see comment above. */}
         Brand Kit
-        <span className="qq-bs-pill" aria-label="Pro plan feature">
-          <Sparkles size={10} aria-hidden="true" /> Pro
-        </span>
       </legend>
       <div className="qq-style-group-body">
 
@@ -4424,20 +4440,13 @@ function TrustBadgesGroup({
               <span style={{ marginLeft: 6 }}>Trust badges</span>
             </>
           }
-          actions={!canEdit ? (
-            <span className="qq-bs-pill" aria-label="Pro plan feature">
-              <Sparkles size={10} aria-hidden="true" /> Pro
-            </span>
-          ) : undefined}
+          /* Wave 57 — Pro pill removed; Trust Badges editor is a builder
+           *  feature, now available on every tier. */
+          actions={undefined}
         />
       </legend>
       <div className="qq-style-group-body">
-        {!canEdit && (
-          <p className="qq-bs-sub-hint" data-testid="style-trust-badges-pro-hint">
-            Free tier displays the 4 default badges seeded by the template.
-            Upgrade to Pro to add, edit, reorder or remove.
-          </p>
-        )}
+        {/* Wave 57 — free-tier limitation hint removed; edit is unlimited. */}
         <div
           className="qq-trust-badge-list"
           data-testid="style-trust-badge-list"
@@ -4626,21 +4635,13 @@ function ButtonCopyGroup({
               <span style={{ marginLeft: 6 }}>Button copy</span>
             </>
           }
-          actions={!isProTier ? (
-            <span className="qq-bs-pill" aria-label="Pro plan feature">
-              <Sparkles size={10} aria-hidden="true" /> Pro
-            </span>
-          ) : undefined}
+          /* Wave 57 — Pro pill removed; Button copy override is a builder
+           *  feature, now available on every tier. */
+          actions={undefined}
         />
       </legend>
       <div className="qq-style-group-body">
-        {!isProTier && (
-          <p className="qq-bs-sub-hint" data-testid="style-button-copy-pro-hint">
-            Free tier uses the default copy ("Back", "Continue", "See my
-            quote", "Email me this quote", "Book a consultation"). Upgrade
-            to Pro to customise each button.
-          </p>
-        )}
+        {/* Wave 57 — free-tier hint removed; customisation is unlimited. */}
         {/* P2 UX fix (2026-05-22): Button-copy is an EXCEPTION to the global
             title-in-field input rule. With 5 different button purposes
             (BACK / CONTINUE / SUBMIT / EMAIL QUOTE CTA / BOOK SLOT CTA),
