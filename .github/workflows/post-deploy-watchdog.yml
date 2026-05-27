@@ -99,10 +99,16 @@ jobs:
         run: |
           BODY_PATH="${{ runner.temp }}/watchdog-last-body.json"
           if [ -f "$BODY_PATH" ]; then
+            # Use a random per-run delimiter so a healthz body that happens
+            # to contain the literal string "HEALTHZ_EOF" (or any fixed
+            # sentinel) cannot terminate the HEREDOC early and corrupt the
+            # GITHUB_OUTPUT buffer. See Wave 37 / run 26482831592 for the
+            # failure mode this guards against.
+            DELIM="HEALTHZ_EOF_$(uuidgen | tr -d -)"
             {
-              echo 'body<<HEALTHZ_EOF'
+              echo "body<<${DELIM}"
               cat "$BODY_PATH"
-              echo 'HEALTHZ_EOF'
+              echo "${DELIM}"
             } >> "$GITHUB_OUTPUT"
           else
             echo 'body=(no body captured — monitor never received a JSON response)' >> "$GITHUB_OUTPUT"
