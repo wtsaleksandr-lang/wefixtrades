@@ -1,18 +1,20 @@
 /**
  * /tools/local-rankflux — Google Local algorithm volatility tracker.
  *
- * Wave 6B — real implementation. The backend now mirrors Moz's public
- * MozCast feed (https://moz.com/mozcast.rss) with a 1-hour in-memory
- * cache and surfaces:
+ * Wave 17 — Moz deprecated their public MozCast RSS feed (404). The
+ * backend now runs a 3-tier fallback chain off the same MozCast
+ * surface (HTML scrape → cached → Semrush Sensor embed → unavailable
+ * pill). This page renders the appropriate variant based on the
+ * `source` field in the API response:
  *
- *   - todayScore (0–10 on Moz's scale) + band (LOW/MEDIUM/HIGH)
- *   - last7d   — array of {date, score, scorePct, band}
+ *   - "mozcast" / "cached":   render the SVG gauge + 7-day bar chart.
+ *   - "semrush-embed":        render an iframe to Semrush's official
+ *                             Sensor widget (no scrape, no paid API).
+ *   - "unavailable":          render a grey "Data temporarily
+ *                             unavailable — checking again in 1 hour"
+ *                             pill. Never crash.
  *
- * The page renders:
- *   1) A semicircular SVG gauge with a needle pointing at today's value.
- *      Color bands: green 0-3, yellow 3-6, orange 6-8, red 8-10.
- *   2) A 7-day bar chart of MozCast scores, color-coded the same way,
- *      with today's bar slightly darker.
+ * The page also renders:
  *   3) An email subscribe form (single email + 3 cadence checkboxes).
  *      POST /api/tools/rankflux-subscribe; confirmation email is queued
  *      via emailOrchestrator; daily/weekly/urgent dispatch is in
@@ -41,7 +43,7 @@ const FAQ_ITEMS = [
   {
     question: "What is Local Rankflux?",
     answer:
-      "A daily index of how much Google's local search algorithm is shuffling rankings. We mirror Moz's industry-standard MozCast feed (0–10 scale) — high volatility means SERPs are churning that day, low means the algorithm is quiet.",
+      "A daily index of how much Google's local search algorithm is shuffling rankings. We mirror Moz's industry-standard MozCast index (0–10 scale) — high volatility means SERPs are churning that day, low means the algorithm is quiet.",
   },
   {
     question: "Why does volatility matter to trade businesses?",
@@ -51,7 +53,7 @@ const FAQ_ITEMS = [
   {
     question: "Where does the data come from?",
     answer:
-      "Moz's public MozCast feed (https://moz.com/mozcast.rss) — the de-facto industry standard for Google algorithm volatility, refreshed daily. We cache it for 1 hour to be a good neighbour, and re-render bands locally so the colour rubric matches the rest of WeFixTrades.",
+      "Moz's public MozCast page (https://moz.com/mozcast) — the de-facto industry standard for Google algorithm volatility, refreshed daily. We cache it for up to 24 hours to be a good neighbour, and re-render bands locally so the colour rubric matches the rest of WeFixTrades. If MozCast is briefly unreachable, we fall back to the official Semrush Sensor widget so the page is never blank.",
   },
   {
     question: "Is there an email alert?",
@@ -72,12 +74,17 @@ interface RankfluxDay {
   band: "LOW" | "MEDIUM" | "HIGH";
 }
 
+type RankfluxSource = "mozcast" | "semrush-embed" | "cached" | "unavailable";
+
 interface RankfluxResponse {
-  source: string;
+  source: RankfluxSource;
   sourceUrl: string;
-  todayScore: number;
-  todayBand: RankfluxDay["band"];
-  todayDate: string;
+  /** Present only when source === "semrush-embed". */
+  embedUrl?: string;
+  /** Nullable when source === "semrush-embed" or "unavailable". */
+  todayScore: number | null;
+  todayBand: RankfluxDay["band"] | null;
+  todayDate: string | null;
   last7d: RankfluxDay[];
   updatedAt: string;
 }
@@ -122,10 +129,16 @@ export default function LocalRankflux() {
   }, []);
 
   const selectedDay = data && selectedDayIdx != null ? data.last7d[selectedDayIdx] : null;
+  const hasGaugeData =
+    data &&
+    (data.source === "mozcast" || data.source === "cached") &&
+    typeof data.todayScore === "number" &&
+    data.todayBand &&
+    data.todayDate;
 
   const form = (
     <div>
-      {/* Section A — gauge. */}
+      {/* Section A — gauge / fallback. */}
       <div style={{ textAlign: "center", padding: "10px 0 4px" }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.55)", marginBottom: 4 }}>
           Today's Google Local Volatility
@@ -139,22 +152,49 @@ export default function LocalRankflux() {
         {error && (
           <div style={{ fontSize: 14, color: "rgb(185,28,28)", padding: "16px 0" }}>{error}</div>
         )}
-        {data && (
+        {data && hasGaugeData && (
           <>
-            <VolatilityGauge score10={data.todayScore} />
+            <VolatilityGauge score10={data.todayScore as number} />
             <div style={{ fontSize: 13, color: "rgba(0,0,0,0.5)", marginTop: 6 }}>
-              {new Date(data.todayDate).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+              {new Date(data.todayDate as string).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
               {" · "}
               <a href={data.sourceUrl} target="_blank" rel="noreferrer noopener" style={{ color: "rgba(0,0,0,0.55)", textDecoration: "underline" }}>
                 source: MozCast <ExternalLink size={12} style={{ display: "inline-block", verticalAlign: "middle" }} />
               </a>
+              {data.source === "cached" && (
+                <span style={{ marginLeft: 8, fontSize: 11, color: "rgba(0,0,0,0.45)" }} data-testid="rankflux-cached-pill">
+                  · cached
+                </span>
+              )}
             </div>
           </>
         )}
+        {data && data.source === "semrush-embed" && (
+          <SemrushSensorEmbed embedUrl={data.embedUrl || "https://www.semrush.com/sensor/widget/?country=US&category=overall"} />
+        )}
+        {data && data.source === "unavailable" && (
+          <div
+            data-testid="rankflux-unavailable-pill"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px",
+              borderRadius: 999,
+              background: "rgba(0,0,0,0.04)",
+              border: "1px solid rgba(0,0,0,0.1)",
+              color: "rgba(0,0,0,0.6)",
+              fontSize: 13,
+              margin: "24px 0",
+            }}
+          >
+            Data temporarily unavailable — checking again in 1 hour.
+          </div>
+        )}
       </div>
 
-      {/* Section B — 7-day bar chart. */}
-      {data?.last7d && data.last7d.length > 0 && (
+      {/* Section B — 7-day bar chart (only when we have day-by-day data). */}
+      {data?.last7d && data.last7d.length > 0 && (data.source === "mozcast" || data.source === "cached") && (
         <div style={{ marginTop: 18 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.55)", marginBottom: 8, textAlign: "center" }}>
             Past 7 days · click a bar for detail
@@ -374,6 +414,59 @@ function VolatilityGauge({ score10 }: { score10: number }) {
   );
 }
 
+/* ─── Semrush Sensor fallback embed ────────────────────────────────── */
+
+/**
+ * Wave 17 fallback: when the MozCast scrape has been failing for >24h
+ * and our cache is stale, we render the official Semrush Sensor widget
+ * inline. No paid API, no scrape — just an iframe to Semrush's own
+ * public embed. Wrapped in our card styling so it doesn't look pasted.
+ */
+function SemrushSensorEmbed({ embedUrl }: { embedUrl: string }) {
+  return (
+    <div
+      data-testid="rankflux-semrush-embed"
+      style={{
+        position: "relative",
+        marginTop: 8,
+        padding: 12,
+        borderRadius: 14,
+        background: "rgb(255,255,255)",
+        border: "1px solid rgba(0,0,0,0.08)",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          left: 12,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: "rgba(0,0,0,0.55)",
+        }}
+      >
+        Live source · Semrush Sensor
+      </div>
+      <div style={{ paddingTop: 22 }}>
+        <iframe
+          title="Semrush Sensor — Google volatility (US, overall)"
+          src={embedUrl}
+          width="100%"
+          height="260"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          style={{ border: "none", borderRadius: 10, background: "rgb(255,255,255)" }}
+        />
+      </div>
+      <div style={{ marginTop: 6, fontSize: 12, color: "rgba(0,0,0,0.5)", textAlign: "center" }}>
+        MozCast is briefly unreachable — showing Semrush's Sensor signal instead.
+      </div>
+    </div>
+  );
+}
+
 function GaugeArc({ startScore, endScore, color }: { startScore: number; endScore: number; color: string }) {
   const a0 = (-180 + (startScore / 10) * 180) * (Math.PI / 180);
   const a1 = (-180 + (endScore / 10) * 180) * (Math.PI / 180);
@@ -541,7 +634,7 @@ function BorrowedCredibilityBand() {
     {
       title: "Why we built this",
       body: "MozCast is the industry-standard volatility index (Moz tracks ~10,000 SERPs daily). We mirror it so you don't need a Moz login — and so we can re-render the bands in the same palette as the rest of WeFixTrades.",
-      cta: { label: "View MozCast source", href: "https://moz.com/mozcast.rss", external: true },
+      cta: { label: "View MozCast source", href: "https://moz.com/mozcast", external: true },
     },
     {
       title: "Free forever",

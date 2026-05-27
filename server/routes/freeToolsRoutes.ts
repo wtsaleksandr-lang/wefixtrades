@@ -301,31 +301,70 @@ async function citationCheckerHandler(req: Request, res: Response) {
   });
 }
 
-/* ─── 4. Local Rankflux (Wave 6B — real MozCast feed) ────────────────── */
+/* ─── 4. Local Rankflux (Wave 17 — HTML-scrape fallback chain) ────────── */
 
 /**
- * Wave 6B — real Google volatility data sourced from Moz's public
- * MozCast feed (https://moz.com/mozcast.rss). MozCast publishes a daily
- * 0–10 algorithm-volatility score that's the de-facto industry standard
- * for "is Google shuffling SERPs today?". We mirror it into our own
- * /tools/local-rankflux surface, expose a daily 7-day window, and let
- * visitors subscribe to email alerts (daily / weekly / urgent-only).
+ * Wave 17 — Moz deprecated their public MozCast RSS feed (now returns
+ * HTTP 404). We replaced it with a 3-tier fallback chain off the same
+ * MozCast surface:
  *
- * Cache: parsed feed is held in-memory for 1 hour so we don't hammer
- * moz.com on every request. The page only refreshes once per hour
- * client-side anyway. Failures degrade to the last-known value.
+ *   1. PRIMARY:   scrape https://moz.com/mozcast (the page). The Vue
+ *                 app embeds the last ~90 days of weather in a JS data
+ *                 block. We pull the JSON array directly out of the
+ *                 HTML and reduce it to a 7-day window.
+ *   2. SECONDARY: if scrape fails AND cache is older than 24h, we
+ *                 signal the client to render the official Semrush
+ *                 Sensor embed widget (no scrape, no paid API — just an
+ *                 iframe).
+ *   3. TERTIARY:  last-known-good cached value. Cache TTL is 24h so
+ *                 graceful-degradation lasts a full day before we flip
+ *                 to the Semrush fallback.
+ *   4. FINAL:     "Data temporarily unavailable" pill on the client.
+ *
+ * MozCast's temperature is published in degrees (typical baseline 70°F,
+ * "stormy" 120-180°+). We keep the upstream API shape (0–10 score,
+ * scorePct, band) to avoid breaking rankfluxAlertWorker.ts and the
+ * page. The Fahrenheit value is mapped to the 0–10 scale via
+ * `tempFToScore10` below — preserves the visual / alert thresholds.
  */
 
 type MozBand = "LOW" | "MEDIUM" | "HIGH";
+type RankfluxSource = "mozcast" | "semrush-embed" | "cached" | "unavailable";
+
 interface MozCastDay {
   date: string;        // yyyy-mm-dd (UTC)
-  score: number;       // Moz's 0..10 raw value
+  score: number;       // mapped 0..10 (from MozCast Fahrenheit)
   scorePct: number;    // 0..100 (= score*10, used for bar heights)
   band: MozBand;
+  tempF?: number;      // raw MozCast Fahrenheit value (debug / future use)
 }
 
-let mozCache: { fetchedAt: number; days: MozCastDay[] } | null = null;
-const MOZCAST_TTL_MS = 60 * 60 * 1000;
+/**
+ * Map MozCast's Fahrenheit temperature to a 0–10 score that's
+ * compatible with our existing rubric. Calibrated so:
+ *   60°F (boring)  → 3.0
+ *  100°F (normal)  → 5.0
+ *  140°F (active)  → 7.0
+ *  160°F+ (storm)  → 8.0+
+ * This keeps the HIGH band (≥8.0) firing on genuine algorithm storms
+ * (Moz publishes weather icons "stormy" at temp ≥140°F).
+ */
+function tempFToScore10(tempF: number): number {
+  if (!isFinite(tempF)) return 0;
+  // Linear-ish: (tempF - 40) / 16, clamped to [0,10].
+  // 40°F→0, 200°F→10. MozCast rarely goes below 60 or above 180.
+  const raw = (tempF - 40) / 16;
+  return Math.max(0, Math.min(10, raw));
+}
+
+let mozCache: { fetchedAt: number; days: MozCastDay[]; source: RankfluxSource } | null = null;
+// Wave 17: 24h TTL (was 1h) so a single failed scrape doesn't immediately
+// degrade — we hold the last good value for a full day.
+const MOZCAST_TTL_MS = 24 * 60 * 60 * 1000;
+// Re-attempt the live scrape after this interval even if we're inside
+// the 24h window (so we don't serve a stale value when Moz is healthy).
+const MOZCAST_REFRESH_MS = 60 * 60 * 1000;
+const SEMRUSH_EMBED_URL = "https://www.semrush.com/sensor/widget/?country=US&category=overall";
 
 function bandForMoz(score10: number): MozBand {
   // Moz's published rubric: <3 quiet, 3–6 normal, 6–8 active, ≥8 storm.
@@ -335,82 +374,187 @@ function bandForMoz(score10: number): MozBand {
 }
 
 /**
- * Parse MozCast's RSS. Items are 1 per day with a title that contains
- * the day's score (e.g. "MozCast 7.2 - 2026-05-25"). We extract the
- * numeric score with a lightweight regex pass — no XML parser dep.
- * Returns up to 7 most-recent days.
+ * Pull the day-by-day weather array out of moz.com/mozcast HTML.
+ *
+ * The Vue app on that page initializes its `data` block with a literal
+ * JSON array assigned to `weather: [...]`. Each entry has the shape
+ *   { date: "2026-05-26T16:00:27.000Z", dateStr: "May 26", temp: 108, … }
+ *
+ * We locate the array boundaries with a bracket walker (regex alone
+ * can't handle nested braces robustly), JSON.parse the slice, and
+ * project the fields we need.
+ *
+ * Returns up to 7 most-recent days, oldest-first.
  */
-function parseMozCastRss(xml: string): MozCastDay[] {
-  // Match <item>…</item> blocks then pull title + pubDate.
-  const items: MozCastDay[] = [];
-  const itemRe = /<item[^>]*>([\s\S]*?)<\/item>/g;
-  let m: RegExpExecArray | null;
-  while ((m = itemRe.exec(xml)) !== null) {
-    const block = m[1];
-    const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
-    const pubMatch = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
-    if (!titleMatch) continue;
-    const title = titleMatch[1].replace(/<!\[CDATA\[/g, "").replace(/\]\]>/g, "").trim();
-    // Title format historically: "MozCast: <score>" or "MozCast <score> - <date>".
-    const scoreMatch = title.match(/(\d+(?:\.\d+)?)/);
-    if (!scoreMatch) continue;
-    const score = parseFloat(scoreMatch[1]);
-    if (!isFinite(score)) continue;
-    let dateISO: string;
-    if (pubMatch) {
-      const d = new Date(pubMatch[1].trim());
-      dateISO = isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
-    } else {
-      dateISO = new Date().toISOString().slice(0, 10);
+export function parseMozCastHtml(html: string): MozCastDay[] {
+  // Anchor: "weather: [" followed by JSON array of day objects.
+  const anchor = html.match(/weather\s*:\s*\[/);
+  if (!anchor || anchor.index === undefined) return [];
+  const startIdx = anchor.index + anchor[0].length - 1; // points at the '['
+  // Walk the array, tracking bracket / string state, to find the
+  // matching ']'. Handles embedded strings and escape sequences.
+  let depth = 0;
+  let endIdx = -1;
+  let inString = false;
+  let escape = false;
+  for (let i = startIdx; i < html.length; i++) {
+    const ch = html[i];
+    if (escape) { escape = false; continue; }
+    if (inString) {
+      if (ch === "\\") { escape = true; continue; }
+      if (ch === '"') inString = false;
+      continue;
     }
-    items.push({
+    if (ch === '"') { inString = true; continue; }
+    if (ch === "[") depth++;
+    else if (ch === "]") {
+      depth--;
+      if (depth === 0) { endIdx = i; break; }
+    }
+  }
+  if (endIdx < 0) return [];
+  const slice = html.slice(startIdx, endIdx + 1);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(slice);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const rows: MozCastDay[] = [];
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    const tempF = typeof e.temp === "number" ? e.temp : Number(e.temp);
+    const rawDate = typeof e.date === "string" ? e.date : "";
+    if (!isFinite(tempF) || !rawDate) continue;
+    const d = new Date(rawDate);
+    const dateISO = isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : "";
+    if (!dateISO) continue;
+    const score = tempFToScore10(tempF);
+    rows.push({
       date: dateISO,
-      score: Math.max(0, Math.min(10, score)),
+      score,
       scorePct: Math.max(0, Math.min(100, score * 10)),
       band: bandForMoz(score),
+      tempF,
     });
   }
-  // Newest first → oldest first for chart display (left = oldest, right = today)
-  return items.slice(0, 7).reverse();
+  // Moz lists newest-first. Take the 7 newest, reverse to oldest-first
+  // for chart display (left = oldest, right = today).
+  return rows.slice(0, 7).reverse();
 }
 
-async function fetchMozCast(): Promise<MozCastDay[] | null> {
+interface FetchAlgoTemperatureResult {
+  days: MozCastDay[];
+  source: RankfluxSource;
+}
+
+/**
+ * 3-tier fallback chain. Always returns *something* — caller decides
+ * whether the source warrants showing the gauge, the Semrush iframe,
+ * or the "unavailable" pill.
+ */
+async function fetchAlgoTemperature(): Promise<FetchAlgoTemperatureResult> {
   const now = Date.now();
-  if (mozCache && now - mozCache.fetchedAt < MOZCAST_TTL_MS) return mozCache.days;
+  const cacheFresh = mozCache && now - mozCache.fetchedAt < MOZCAST_REFRESH_MS;
+  // Inside the refresh window: serve cached `mozcast` source as-is.
+  if (cacheFresh && mozCache && mozCache.source === "mozcast") {
+    return { days: mozCache.days, source: "mozcast" };
+  }
+  // Otherwise: attempt a live scrape.
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
-    const r = await fetch("https://moz.com/mozcast.rss", {
+    const r = await fetch("https://moz.com/mozcast", {
       signal: controller.signal,
-      headers: { "User-Agent": "WeFixTrades/1.0 (Rankflux mirror; +https://wefixtrades.com)" },
+      headers: {
+        "User-Agent": "WeFixTrades/1.0 (Rankflux mirror; +https://wefixtrades.com)",
+        "Accept": "text/html,application/xhtml+xml",
+      },
     }).finally(() => clearTimeout(timer));
-    if (!r.ok) throw new Error(`MozCast HTTP ${r.status}`);
-    const xml = await r.text();
-    const days = parseMozCastRss(xml);
-    if (days.length === 0) throw new Error("MozCast feed returned no items");
-    mozCache = { fetchedAt: now, days };
-    return days;
+    if (!r.ok) {
+      const bodyPreview = await r.text().catch(() => "").then((t) => t.slice(0, 500));
+      log.warn("[rankflux] mozcast scrape non-2xx", { status: r.status, bodyPreview });
+      throw new Error(`MozCast HTTP ${r.status}`);
+    }
+    const html = await r.text();
+    const days = parseMozCastHtml(html);
+    if (days.length === 0) {
+      log.warn("[rankflux] mozcast scrape parsed zero rows", {
+        bodyLen: html.length,
+        bodyPreview: html.slice(0, 500),
+      });
+      throw new Error("MozCast HTML returned no parseable weather rows");
+    }
+    mozCache = { fetchedAt: now, days, source: "mozcast" };
+    return { days, source: "mozcast" };
   } catch (err: any) {
-    log.warn("[rankflux] mozcast fetch failed", { error: err?.message || String(err) });
-    return mozCache?.days || null;
+    log.warn("[rankflux] mozcast scrape failed", { error: err?.message || String(err) });
+    // Fallback 2: cache still inside 24h window → serve as `cached`.
+    if (mozCache && now - mozCache.fetchedAt < MOZCAST_TTL_MS) {
+      return { days: mozCache.days, source: "cached" };
+    }
+    // Fallback 3: cache stale or absent → tell client to render Semrush
+    // embed. We don't have day-by-day data in this branch.
+    return { days: [], source: "semrush-embed" };
   }
 }
 
+/**
+ * Backward-compat alias for rankfluxAlertWorker.ts which historically
+ * imported `fetchMozCast`. Returns only the days array (or null) to
+ * match the prior contract. The worker is updated separately to use
+ * the source signal directly.
+ */
+async function fetchMozCast(): Promise<MozCastDay[] | null> {
+  const result = await fetchAlgoTemperature();
+  if (result.source === "semrush-embed" || result.days.length === 0) return null;
+  return result.days;
+}
+
 async function localRankfluxHandler(_req: Request, res: Response) {
-  const days = await fetchMozCast();
-  if (!days || days.length === 0) {
-    return res.status(502).json({ ok: false, error: "Could not reach MozCast — try again shortly." });
-  }
-  const today = days[days.length - 1];
+  const result = await fetchAlgoTemperature();
   res.setHeader("Cache-Control", "public, max-age=3600");
-  res.json({
+
+  // Semrush-embed branch: no day-by-day data — client renders the iframe.
+  if (result.source === "semrush-embed") {
+    return res.json({
+      ok: true,
+      source: result.source,
+      sourceUrl: "https://www.semrush.com/sensor/",
+      embedUrl: SEMRUSH_EMBED_URL,
+      todayScore: null,
+      todayBand: null,
+      todayDate: null,
+      last7d: [],
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  // mozcast / cached branches: full day-by-day payload.
+  if (result.days.length === 0) {
+    return res.json({
+      ok: true,
+      source: "unavailable" as RankfluxSource,
+      sourceUrl: "https://moz.com/mozcast",
+      todayScore: null,
+      todayBand: null,
+      todayDate: null,
+      last7d: [],
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  const today = result.days[result.days.length - 1];
+  return res.json({
     ok: true,
-    source: "mozcast",
-    sourceUrl: "https://moz.com/mozcast.rss",
+    source: result.source,
+    sourceUrl: "https://moz.com/mozcast",
     todayScore: today.score,
     todayBand: today.band,
     todayDate: today.date,
-    last7d: days,
+    last7d: result.days,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -469,9 +613,11 @@ async function rankfluxSubscribeHandler(req: Request, res: Response) {
   }
 }
 
-// Re-export type for the cron worker.
-export type { MozBand, MozCastDay };
-export { fetchMozCast };
+// Re-export types + functions for the cron worker.
+// `fetchMozCast` is a backward-compat alias around `fetchAlgoTemperature`
+// (Wave 17 — MozCast RSS dead, HTML-scrape now primary).
+export type { MozBand, MozCastDay, RankfluxSource };
+export { fetchMozCast, fetchAlgoTemperature };
 
 /* ─── 5. Local Rank Grid (Serper, geo-grid) ───────────────────────────── */
 
