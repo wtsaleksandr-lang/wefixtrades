@@ -265,7 +265,7 @@ export default function DemoPage() {
                       padding: "14px 28px",
                       borderRadius: 12,
                       background: mkt.accent,
-                      color: mkt.dark,
+                      color: mkt.onDark,
                       fontSize: 15,
                       fontWeight: 700,
                       textDecoration: "none",

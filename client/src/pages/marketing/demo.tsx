@@ -88,7 +88,7 @@ function ChatPanel() {
                 <div style={{
                   maxWidth: "78%", padding: "11px 15px",
                   borderRadius: "16px 16px 4px 16px",
-                  background: mkt.accent, color: mkt.buttonText,
+                  background: mkt.accent, color: mkt.onDark,
                   fontSize: 14, lineHeight: 1.55,
                 }}>{msg.content}</div>
                 <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.sectionLighter, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -446,7 +446,7 @@ function PricingCards() {
           {plan.badge && (
             <div style={{
               position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)",
-              background: mkt.accent, color: mkt.buttonText, padding: "4px 14px",
+              background: mkt.accent, color: mkt.onDark, padding: "4px 14px",
               borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em",
             }}>{plan.badge}</div>
           )}
