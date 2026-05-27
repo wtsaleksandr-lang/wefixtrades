@@ -31,6 +31,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ChartTooltip, type ChartTooltipState } from "./ChartTooltip";
 
 export type ProgressRingPalette =
   | "sapphire"
@@ -62,6 +63,15 @@ export type ProgressRingProps = {
   emptyState?: boolean;
   emptyStateMessage?: string;
   animate?: boolean;
+  /**
+   * Wave 71: when there's no helpText / improvementTips, show the shared
+   * ChartTooltip on hover with "X of Y" + caption. Skipped when the
+   * KpiGauge-style explanation popover is already wired (helpText set).
+   * Default true.
+   */
+  enableValueTooltip?: boolean;
+  /** Wave 71: optional caption shown in the value tooltip (e.g. "Active users"). */
+  valueTooltipCaption?: string;
   className?: string;
 };
 
@@ -110,6 +120,8 @@ export function ProgressRing({
   emptyState = false,
   emptyStateMessage = "Awaiting data — updates as activity begins",
   animate = true,
+  enableValueTooltip = true,
+  valueTooltipCaption,
   className,
 }: ProgressRingProps) {
   const reduceMotion = useReducedMotion();
@@ -334,7 +346,42 @@ export function ProgressRing({
     </div>
   );
 
-  if (!hasHelp) return body;
+  // Wave 71 — ChartTooltip on hover when no explanation popover is wired.
+  // The hasHelp path already opens a rich Radix Popover (Wave 26.5 pattern);
+  // we leave that alone so the two patterns don't collide. When no helpText
+  // is set, this gives the ring a lightweight "exact value" hover instead.
+  const valueRef = useRef<HTMLDivElement | null>(null);
+  const [valueTip, setValueTip] = useState<ChartTooltipState | null>(null);
+  function showValueTip(e: React.MouseEvent<HTMLDivElement>) {
+    if (!enableValueTooltip || emptyState) return;
+    if (!valueRef.current) return;
+    const rect = valueRef.current.getBoundingClientRect();
+    const exact = Math.round(clamped);
+    setValueTip({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      label: label ?? "Progress",
+      value: `${exact}${unit ? ` ${unit}` : ""} / ${max}${unit ? ` ${unit}` : ""}`,
+      detail: valueTooltipCaption ?? `${Math.round(pct)}% complete`,
+      accent: `hsl(${colorVar})`,
+    });
+  }
+
+  if (!hasHelp) {
+    if (!enableValueTooltip) return body;
+    return (
+      <div
+        ref={valueRef}
+        className="relative inline-block"
+        onMouseMove={showValueTip}
+        onMouseLeave={() => setValueTip(null)}
+        data-testid="progress-ring-hover-wrapper"
+      >
+        {body}
+        <ChartTooltip state={valueTip} />
+      </div>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -1,5 +1,5 @@
 /**
- * Sparkline — tiny inline trend chart (Wave 26.7).
+ * Sparkline — tiny inline trend chart (Wave 26.7, hover-tooltip wired Wave 71).
  *
  * Alex 2026-05-26 approved adding 2 new viz primitives so a 4-gauge
  * dashboard row mixes visual rhythm (vs all semi-circular). Pattern
@@ -15,14 +15,20 @@
  * color="auto" picks based on trend direction (rising=emerald,
  * falling=crimson, flat=sapphire).
  *
- * Anti-pattern: deliberately no hover popover. Sparklines are too small
- * to host a help bubble — that responsibility stays on the surrounding
- * tile (KpiGauge / ProgressRing) or label. Respects `prefers-reduced-motion`.
+ * Wave 71 retrofit: now wires the shared ChartTooltip on hover, exposing
+ * the exact data value at the cursor's nearest point. Pass `pointLabels`
+ * to label each point in the tooltip (e.g. ["Jan", "Feb", ...]); without
+ * them, points are labelled "Point N". `enableHover={false}` opts out (the
+ * original Wave 26.7 behaviour — useful when the sparkline is decorative
+ * inside a hero KPI tile whose own popover handles explanation).
+ *
+ * Respects `prefers-reduced-motion`.
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ChartTooltip, type ChartTooltipState } from "./ChartTooltip";
 
 export type SparklinePalette =
   | "sapphire"
@@ -48,6 +54,18 @@ export type SparklineProps = {
   color?: SparklineColor;
   /** Pulsing dot on the most-recent value (default true). */
   showLastPoint?: boolean;
+  /**
+   * Wave 71: enable cursor-follow ChartTooltip on hover. Default true.
+   * Set false to preserve the original Wave 26.7 decorative behaviour.
+   */
+  enableHover?: boolean;
+  /**
+   * Wave 71: optional per-point labels for the hover tooltip
+   * (e.g. ["Jan", "Feb", "Mar"]). When omitted, tooltip shows "Point N".
+   */
+  pointLabels?: string[];
+  /** Wave 71: formatter for the hover tooltip value. */
+  formatValue?: (n: number) => string;
   ariaLabel?: string;
   className?: string;
 };
@@ -87,6 +105,9 @@ export function Sparkline({
   variant = "line",
   color = "auto",
   showLastPoint = true,
+  enableHover = true,
+  pointLabels,
+  formatValue,
   ariaLabel,
   className,
 }: SparklineProps) {
@@ -98,9 +119,15 @@ export function Sparkline({
 
   // Normalize values to viewBox. If all values are identical (or empty), draw
   // a flat midline. Reserve 2px padding top/bottom so the stroke doesn't clip.
-  const { linePath, areaPath, lastPoint, hasData } = useMemo(() => {
+  const { linePath, areaPath, lastPoint, hasData, points } = useMemo(() => {
     if (values.length === 0) {
-      return { linePath: "", areaPath: "", lastPoint: null, hasData: false };
+      return {
+        linePath: "",
+        areaPath: "",
+        lastPoint: null,
+        hasData: false,
+        points: [] as Array<{ x: number; y: number; v: number }>,
+      };
     }
     const pad = 2;
     const innerH = height - pad * 2;
@@ -108,20 +135,21 @@ export function Sparkline({
     const max = Math.max(...values);
     const range = max - min || 1;
     const stepX = values.length > 1 ? width / (values.length - 1) : 0;
-    const points = values.map((v, i) => {
+    const computedPoints = values.map((v, i) => {
       const x = i * stepX;
       const y = pad + innerH - ((v - min) / range) * innerH;
-      return { x, y };
+      return { x, y, v };
     });
-    const line = points
+    const line = computedPoints
       .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
       .join(" ");
     const area = `${line} L ${width.toFixed(2)} ${height} L 0 ${height} Z`;
     return {
       linePath: line,
       areaPath: area,
-      lastPoint: points[points.length - 1],
+      lastPoint: computedPoints[computedPoints.length - 1],
       hasData: true,
+      points: computedPoints,
     };
   }, [values, width, height]);
 
@@ -176,7 +204,39 @@ export function Sparkline({
     ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
   };
 
-  return (
+  // Wave 71 — cursor-follow ChartTooltip wiring. Find the nearest point on
+  // mousemove; clear on leave. Skipped entirely when `enableHover` is false.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [tip, setTip] = useState<ChartTooltipState | null>(null);
+  const formatTipValue = formatValue ?? ((n: number) => n.toLocaleString());
+
+  function handleMove(e: React.MouseEvent<SVGSVGElement>) {
+    if (!enableHover || points.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const localX = ((e.clientX - rect.left) / rect.width) * width;
+    let nearest = 0;
+    let best = Infinity;
+    for (let i = 0; i < points.length; i += 1) {
+      const d = Math.abs(points[i].x - localX);
+      if (d < best) {
+        best = d;
+        nearest = i;
+      }
+    }
+    const p = points[nearest];
+    // Scale SVG coords to displayed pixel coords for the tooltip wrapper.
+    const scaleX = rect.width / width;
+    const scaleY = rect.height / height;
+    setTip({
+      x: p.x * scaleX,
+      y: p.y * scaleY,
+      label: pointLabels?.[nearest] ?? `Point ${nearest + 1}`,
+      value: formatTipValue(p.v),
+      accent: `hsl(${colorVar})`,
+    });
+  }
+
+  const svg = (
     <svg
       viewBox={`0 0 ${width} ${height}`}
       width={width}
@@ -190,6 +250,8 @@ export function Sparkline({
       data-testid="sparkline"
       data-palette={palette}
       data-variant={variant}
+      onMouseMove={enableHover ? handleMove : undefined}
+      onMouseLeave={enableHover ? () => setTip(null) : undefined}
     >
       {variant === "area" && (
         <motion.path
@@ -231,7 +293,32 @@ export function Sparkline({
           style={{ transformOrigin: `${lastPoint.x}px ${lastPoint.y}px` }}
         />
       )}
+      {/* Hover dot — small accent on the nearest point. */}
+      {enableHover && tip && (
+        <circle
+          cx={(tip.x / (containerRef.current?.getBoundingClientRect().width ?? width)) * width}
+          cy={(tip.y / (containerRef.current?.getBoundingClientRect().height ?? height)) * height}
+          r={2.5}
+          fill={`hsl(${colorVar})`}
+          stroke="hsl(var(--background))"
+          strokeWidth={1}
+          pointerEvents="none"
+        />
+      )}
     </svg>
+  );
+
+  if (!enableHover) return svg;
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative inline-block"
+      style={{ width, height }}
+    >
+      {svg}
+      <ChartTooltip state={tip} />
+    </div>
   );
 }
 

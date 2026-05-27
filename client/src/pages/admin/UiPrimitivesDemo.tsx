@@ -37,6 +37,11 @@ import {
   AIActionCard,
   Sparkline,
   ProgressRing,
+  SparklineWithPeak,
+  BarComparisonCard,
+  MonthlyBarSeries,
+  DonutChart,
+  SemiGauge,
   type WalkthroughStep,
   type PipelineStripStage,
   type CalendarEntry,
@@ -933,6 +938,25 @@ export default function UiPrimitivesDemo() {
           </div>
         </Section>
 
+        <Section title="Wave 71 — KPI primitives + shared ChartTooltip">
+          <div className="w-full space-y-6">
+            <p className="text-sm text-muted-foreground max-w-3xl">
+              Five new chart primitives inspired by premium dashboards
+              (Stripe / Linear / Notion). All share the new{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                ChartTooltip
+              </code>{" "}
+              hover system — light, cursor-follow, theme-aware. The existing
+              Sparkline + ProgressRing are also retrofitted: hover anywhere
+              on a sparkline or progress ring to see exact values. KpiGauge
+              keeps its richer explanation popover (Wave 26.5) — that's a
+              different pattern (the "what is this metric &amp; how do I
+              improve it" surface), not an exact-value tooltip.
+            </p>
+            <Wave71Showcase />
+          </div>
+        </Section>
+
         <Section title="AdvancedOnly + Display Mode (Wave 36)">
           <div className="w-full space-y-3">
             <p className="text-sm text-muted-foreground">
@@ -1257,6 +1281,155 @@ function AIActionCardDemo() {
           {log.length ? log.join("\n") : "(none yet — click an action above)"}
         </pre>
       </div>
+    </div>
+  );
+}
+
+/* ─── Wave 71: KPI primitives + ChartTooltip showcase ────────────────── */
+
+function Wave71Block({
+  title,
+  caption,
+  children,
+}: {
+  title: string;
+  caption: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-4 space-y-2">
+      <div className="space-y-0.5">
+        <div className="text-sm font-semibold">{title}</div>
+        <div className="text-xs text-muted-foreground leading-snug max-w-prose">
+          {caption}
+        </div>
+      </div>
+      <div className="pt-2">{children}</div>
+    </div>
+  );
+}
+
+function Wave71Showcase() {
+  // Sample data — synthetic, realistic-looking. No PII / no live wiring.
+  const revenueSeries = [820, 1050, 980, 1340, 1180, 1520, 1690, 1430, 1810, 2050, 1880, 2240];
+  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return (
+    <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-2">
+      <Wave71Block
+        title="SparklineWithPeak"
+        caption="Hero trend chart that celebrates the best moment in the series. Use when one peak is the story — pricing wins, traffic spikes, MRR records. Hover anywhere to read the exact value at that point."
+      >
+        <SparklineWithPeak
+          data={revenueSeries}
+          pointLabels={monthLabels}
+          peakLabel="+$2,240"
+          color="emerald"
+          formatValue={(n) => `$${n.toLocaleString()}`}
+          width={360}
+          height={108}
+        />
+      </Wave71Block>
+
+      <Wave71Block
+        title="BarComparisonCard"
+        caption="Two-bar side-by-side comparison. Use for traffic-source splits, channel mix, A/B winners. The larger value fills the full width; the smaller scales proportionally. Hover a bar for value + percent of total."
+      >
+        <BarComparisonCard
+          title="Order sources this month"
+          items={[
+            { label: "Direct Store", value: 302, color: "sapphire" },
+            { label: "Referral", value: 184, color: "violet" },
+          ]}
+        />
+      </Wave71Block>
+
+      <Wave71Block
+        title="MonthlyBarSeries"
+        caption="Compact row of period bars (5-12). One bar is highlighted in accent — typically the latest or peak period. Pairs well with a big-number lede + growth caption above."
+      >
+        <MonthlyBarSeries
+          lede="$42,810"
+          caption="↑ 9.2% growth this quarter"
+          color="sapphire"
+          bars={[
+            { label: "Jul", value: 28 },
+            { label: "Aug", value: 32 },
+            { label: "Sep", value: 36 },
+            { label: "Oct", value: 30 },
+            { label: "Nov", value: 38 },
+            { label: "Dec", value: 42, highlighted: true },
+          ]}
+          formatValue={(n) => `$${(n * 1000).toLocaleString()}`}
+        />
+      </Wave71Block>
+
+      <Wave71Block
+        title="DonutChart"
+        caption="Donut with right-side legend. Use for segmentation — visitor sources, plan mix, lead categories. Arcs draw clockwise on mount; hover or focus a segment / legend row to see share + value."
+      >
+        <DonutChart
+          title="Visitor segmentation"
+          centerLabel="14.2k"
+          centerSub="visits"
+          segments={[
+            { label: "Organic search", value: 5600 },
+            { label: "Direct", value: 3800 },
+            { label: "Paid social", value: 2400 },
+            { label: "Referral", value: 1500 },
+            { label: "Email", value: 900 },
+          ]}
+        />
+      </Wave71Block>
+
+      <Wave71Block
+        title="SemiGauge"
+        caption="Half-arc speedometer for satisfaction / health-score / NPS surfaces. Verdict color-shifts at 80% (emerald) / 50% (amber) / below (crimson). Advice line below explains the recommended next step."
+      >
+        <SemiGauge
+          value={73}
+          max={100}
+          unit="%"
+          label="Customer satisfaction"
+          verdict="Good, room for improvement"
+          advice="Focus on faster shipping and clearer order status updates to push toward 80%+."
+        />
+      </Wave71Block>
+
+      <Wave71Block
+        title="Retrofitted hover — Sparkline + ProgressRing"
+        caption="The existing decorative primitives now expose exact values on hover via the shared ChartTooltip. KpiGauge keeps its richer Wave 26.5 explanation popover (different pattern, intentional)."
+      >
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="space-y-1">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Sparkline (hover the line)
+            </div>
+            <Sparkline
+              values={revenueSeries}
+              pointLabels={monthLabels}
+              formatValue={(n) => `$${n.toLocaleString()}`}
+              variant="area"
+              color="sapphire"
+              width={200}
+              height={48}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              ProgressRing (hover the ring)
+            </div>
+            <ProgressRing
+              value={72}
+              max={100}
+              unit="%"
+              label="Quota"
+              size="md"
+              color="violet"
+              valueTooltipCaption="Active deals"
+            />
+          </div>
+        </div>
+      </Wave71Block>
     </div>
   );
 }

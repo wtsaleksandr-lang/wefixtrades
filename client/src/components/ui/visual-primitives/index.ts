@@ -92,3 +92,37 @@ export type {
   AIActionRecommendation,
   AIActionApproveResult,
 } from "./AIActionCard";
+
+// Wave 71 — shared hover-tooltip + 5 new KPI/chart primitives.
+export { ChartTooltip } from "./ChartTooltip";
+export type { ChartTooltipProps, ChartTooltipState } from "./ChartTooltip";
+
+export { SparklineWithPeak } from "./SparklineWithPeak";
+export type {
+  SparklineWithPeakProps,
+  SparklineWithPeakPalette,
+} from "./SparklineWithPeak";
+
+export { BarComparisonCard } from "./BarComparisonCard";
+export type {
+  BarComparisonCardProps,
+  BarComparisonItem,
+  BarComparisonPalette,
+} from "./BarComparisonCard";
+
+export { MonthlyBarSeries } from "./MonthlyBarSeries";
+export type {
+  MonthlyBarSeriesProps,
+  MonthlyBar,
+  MonthlyBarSeriesPalette,
+} from "./MonthlyBarSeries";
+
+export { DonutChart } from "./DonutChart";
+export type {
+  DonutChartProps,
+  DonutSegment,
+  DonutChartPalette,
+} from "./DonutChart";
+
+export { SemiGauge } from "./SemiGauge";
+export type { SemiGaugeProps, SemiGaugePalette } from "./SemiGauge";
