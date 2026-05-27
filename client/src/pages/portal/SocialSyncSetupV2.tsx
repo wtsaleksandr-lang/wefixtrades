@@ -42,7 +42,7 @@ const TONES = [
 function BrandVoiceStep({ state, setState }: WizardRenderContext) {
   const tone = (state.brandVoiceTone as string | undefined) ?? null;
   return (
-    <div className="grid gap-1.5 sm:grid-cols-2">
+    <div className="grid gap-2 sm:grid-cols-2">
       {TONES.map((t) => {
         const active = tone === t.id;
         return (

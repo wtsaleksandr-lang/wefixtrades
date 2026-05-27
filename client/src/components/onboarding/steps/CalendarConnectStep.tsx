@@ -39,7 +39,7 @@ export function CalendarConnectStep({ state, setState }: WizardRenderContext) {
         <CalendarClock className="h-3 w-3" aria-hidden="true" />
         Connect so we can place real holds when a customer books. You can skip and add this later.
       </p>
-      <div className="grid gap-1.5 sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-2">
         {PROVIDERS.map((p) => {
           const active = provider === p.id;
           return (

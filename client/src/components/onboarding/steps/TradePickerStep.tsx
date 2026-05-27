@@ -68,7 +68,7 @@ export function TradePickerStep({ state, setState }: WizardRenderContext) {
         <Wrench className="h-3 w-3" aria-hidden="true" />
         We'll auto-tune copy, ad creative, and calculator templates to your trade.
       </p>
-      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {TRADE_OPTIONS.map((t) => {
           const active = selected === t.slug;
           return (

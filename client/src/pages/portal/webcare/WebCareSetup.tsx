@@ -36,7 +36,7 @@ function AccessStep({ state, setState }: WizardRenderContext) {
         <KeyRound className="h-3 w-3" aria-hidden="true" />
         Grant admin access so we can patch, backup, and restore. Skip and we'll only do read-only monitoring.
       </p>
-      <div className="grid gap-1.5 sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => setState({ accessProvided: true, accessSkipped: false })}
@@ -84,7 +84,7 @@ function SslStep({ state, setState }: WizardRenderContext) {
         Add a free SSL certificate via Cloudflare? Optional — your site keeps
         whatever cert it already has.
       </p>
-      <div className="grid gap-1.5 sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => setState({ addSsl: true })}
