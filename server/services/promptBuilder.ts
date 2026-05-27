@@ -1086,8 +1086,49 @@ When the user messages you, follow these priorities:
   parts.push(`\n=== CONTENTFLOW SAMPLES ===
 If the user asks what ContentFlow generates, what its content looks like, or for an example article / image / social post, link them to /portal/contentflow/examples. That page has a full sample article, six image-style presets, three platform-specific social posts, and a 4-tone preview — all trade-aligned, no hand-written examples needed.`);
 
+  // Wave 36 — Tesla Simplification. Every dashboard now defaults to Simple mode;
+  // the Copilot is the discovery layer for the power-user sections that used to
+  // live as cards / heatmaps / sub-gauges directly on the page.
+  parts.push(SIMPLE_MODE_NAVIGATOR);
+
   return parts.join("\n");
 }
+
+const SIMPLE_MODE_NAVIGATOR = `
+=== SIMPLE_MODE_NAVIGATOR (Wave 36) ===
+The portal dashboards default to Simple mode. The following sections are HIDDEN
+by default and only render when the user enables Advanced mode at
+/portal/settings?tab=display AND turns on the matching per-product toggle.
+
+INVENTORY OF HIDDEN SECTIONS (by product → what's hidden in Simple):
+- portal (home): Recent activity feed (gone in Simple), TradeLine usage detail card.
+- contentflow: AI-Detection score tile, Distribution Reach ring, Recent creations grid, per-card trust gauges (deleted entirely), template gallery hero card (deleted entirely — auto-pick by trade).
+- rankflow: Avg-position / Keywords-improved / SEO-score sub-gauges, ContentScoreCard (deleted — was a third SEO score), Keywords-tracked / Top-20 / Pages-indexed counter tiles, competitor comparison grid, keyword opportunity heatmap, activity feed.
+- socialsync: per-platform engagement gauges, best-time-to-post snapshot, OverviewTab inbox preview, Avg-engagement KPI, WhatsApp-messages KPI.
+- tradeline: cost-per-booking card, sentiment heatmap.
+- mapguard: Top-3-coverage / Citation-Health / GBP-Health hero tiles, competitor alert feed, Alerts/Settings header buttons. CitationHealthRing sibling deleted entirely.
+- reputationshield: Review-velocity / Days-since / Reply-rate hero tiles, platform scorecard, sentiment heatmap. RequestFunnel deleted entirely.
+- quotequick: Active-embeds ring, per-template ConversionGauge grid (when >1 template). Embed-install link card deleted entirely.
+- adflow: Cost-per-booking gauge, Jobs-booked card, AdCopyComposer widget, ProfitableTradeHeatmap, DayPartingHeatmap. Notifications/Setup header buttons.
+- webcare: Performance ring, BackupTimeline, Pending-updates gauge + Site inventory. Notifications/Setup header buttons.
+
+USER INTENT → ACTION
+
+"Show me recent activity" / "what changed today?":
+- Answer using the data you have in PAGE CONTEXT. End with a hint: "I've also got the full activity feed — enable it under Settings → Display if you want it on the dashboard."
+
+"What advanced metrics are available?" / "what am I missing?":
+- List the 2-3 most relevant hidden items for the user's current page (use the INVENTORY above).
+- End with: "Want me to flip Advanced mode on? It's at /portal/settings?tab=display."
+
+"Take me to settings" / "open settings":
+- Suggest /portal/settings (or with ?tab=display for the display tab).
+
+"How do I [pause campaign | reply to review | fix citation | etc.]":
+- Answer concisely. If a 1-click action exists on a dashboard, name the dashboard and the button. Don't ask the user to dig.
+
+NEVER offer to "show the advanced section" inline in the chat — point them at the toggle in Settings → Display. The chat is the surface; the page is theirs to keep clean.
+`.trim();
 
 /** Check whether a response value counts as "filled". */
 function isFilled(v: unknown): boolean {

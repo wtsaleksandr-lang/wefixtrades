@@ -25,6 +25,7 @@ import { HelpCueRow } from "@/components/primitives/HelpCueRow";
 import InfoCue from "@/components/wizard/elfsight/InfoCue";
 import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 import { resetFirstVisits } from "@/hooks/useFirstVisit";
+import { useDisplayPreferences } from "@/hooks/useDisplayPreferences";
 import {
   NOTIFICATION_CATEGORY_KEYS,
   NOTIFICATION_CATEGORY_LABELS,
@@ -43,8 +44,8 @@ interface SettingsData {
   account_email: string | null;
 }
 
-type TabKey = "account" | "notifications" | "ai" | "security";
-const VALID_TABS: TabKey[] = ["account", "notifications", "ai", "security"];
+type TabKey = "account" | "notifications" | "display" | "ai" | "security";
+const VALID_TABS: TabKey[] = ["account", "notifications", "display", "ai", "security"];
 
 function parseTabFromHash(): TabKey {
   if (typeof window === "undefined") return "account";
@@ -244,6 +245,7 @@ export default function PortalSettings() {
               <TabsList className="w-full sm:w-auto">
                 <TabsTrigger value="account" data-testid="tab-trigger-account">Account</TabsTrigger>
                 <TabsTrigger value="notifications" data-testid="tab-trigger-notifications">Notifications</TabsTrigger>
+                <TabsTrigger value="display" data-testid="tab-trigger-display">Display</TabsTrigger>
                 <TabsTrigger value="ai" data-testid="tab-trigger-ai">AI</TabsTrigger>
                 <FirstVisitTooltip
                   storageKey="portal-settings-security-tab"
@@ -393,6 +395,11 @@ export default function PortalSettings() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            {/* ─── Display (Wave 36 — Tesla Simplification) ─── */}
+            <TabsContent value="display" className="space-y-3">
+              <DisplayPreferencesSection />
             </TabsContent>
 
             {/* ─── Security ─── */}
@@ -1648,6 +1655,140 @@ function LogoSection({
         <span className="flex items-center gap-1 text-xs text-emerald-600" data-testid="logo-saved">
           <Check className="w-3.5 h-3.5" /> Saved
         </span>
+      )}
+    </div>
+  );
+}
+
+/* ─── Wave 36 — Display Preferences (Tesla Simplification) ─── */
+
+function DisplayPreferencesSection() {
+  const { preferences, isLoading, updateAsync, isSaving } = useDisplayPreferences();
+  const { toast } = useToast();
+  const isAdvanced = preferences.mode === "advanced";
+
+  const productToggles: Array<{ key: keyof typeof preferences; label: string; description: string }> = [
+    { key: "portal_show_advanced", label: "Home dashboard", description: "Active services, recent activity feed, secondary KPI cards." },
+    { key: "contentflow_show_advanced", label: "ContentFlow", description: "AI-detection score, distribution reach, recent creations grid, template gallery." },
+    { key: "rankflow_show_advanced", label: "RankFlow", description: "Keyword opportunity heatmap, competitor cards, activity feed." },
+    { key: "socialsync_show_advanced", label: "SocialSync", description: "Per-platform engagement breakdowns, best-time heatmap, secondary KPIs." },
+    { key: "tradeline_show_advanced", label: "TradeLine", description: "Cost-per-booking gauge, sentiment heatmap, transcript list." },
+    { key: "mapguard_show_advanced", label: "MapGuard", description: "Competitor alert timeline, citation health letter grade, alert settings." },
+    { key: "reputationshield_show_advanced", label: "ReputationShield", description: "Sentiment heatmap, request funnel, platform scorecard, velocity counter." },
+    { key: "quotequick_show_advanced", label: "QuoteQuick", description: "Per-template conversion grid, A/B testing surface, brand settings link." },
+    { key: "adflow_show_advanced", label: "AdFlow", description: "Profitable-trade heatmap, day-parting heatmap, campaign factor chips." },
+    { key: "webcare_show_advanced", label: "WebCare", description: "Site inventory, backup timeline, performance gauge." },
+  ];
+
+  const handleModeChange = async (next: "simple" | "advanced") => {
+    try {
+      await updateAsync({ mode: next });
+      toast({
+        title: next === "advanced" ? "Advanced mode enabled" : "Simple mode enabled",
+        description:
+          next === "advanced"
+            ? "Toggle each product below to reveal its power-user sections."
+            : "Dashboards now show only the essentials. Ask the AI Copilot for anything hidden.",
+      });
+    } catch {
+      toast({ title: "Couldn't update display mode", variant: "destructive" });
+    }
+  };
+
+  const handleToggle = async (key: keyof typeof preferences, value: boolean) => {
+    try {
+      await updateAsync({ [key]: value } as any);
+    } catch {
+      toast({ title: "Couldn't update preference", variant: "destructive" });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5" data-testid="display-prefs-loading">
+        <Skeleton className="h-4 w-32 mb-3" />
+        <Skeleton className="h-9 w-full max-w-xs" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="display-prefs-root">
+      {/* Mode toggle card */}
+      <div data-theme="light" className="bg-white rounded-xl border border-gray-200 p-5">
+        <h2 className="text-sm font-semibold text-gray-900 mb-1">Dashboard layout</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Simple mode shows only the essentials. Advanced unlocks deep analytics and configuration. Your AI Copilot can surface anything hidden — just ask.
+        </p>
+
+        <div
+          role="radiogroup"
+          aria-label="Dashboard layout mode"
+          className="inline-flex rounded-lg border border-gray-200 p-1 bg-gray-50"
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={!isAdvanced}
+            disabled={isSaving}
+            onClick={() => !isAdvanced || handleModeChange("simple")}
+            className={
+              "px-4 py-1.5 text-sm font-medium rounded-md transition-colors " +
+              (!isAdvanced ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900")
+            }
+            data-testid="display-mode-simple"
+          >
+            Simple
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={isAdvanced}
+            disabled={isSaving}
+            onClick={() => isAdvanced || handleModeChange("advanced")}
+            className={
+              "px-4 py-1.5 text-sm font-medium rounded-md transition-colors " +
+              (isAdvanced ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900")
+            }
+            data-testid="display-mode-advanced"
+          >
+            Advanced
+          </button>
+        </div>
+      </div>
+
+      {/* Per-product toggles — only visible when Advanced is on. */}
+      {isAdvanced && (
+        <div data-theme="light" className="bg-white rounded-xl border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-900 mb-1">Show advanced sections by product</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Turn on the products where you want the deeper analytics, heatmaps, and configuration surfaces revealed.
+          </p>
+
+          <div className="divide-y divide-gray-200">
+            {productToggles.map((toggle) => {
+              const checked = Boolean(preferences[toggle.key]);
+              return (
+                <div
+                  key={String(toggle.key)}
+                  className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                  data-testid={`display-toggle-${String(toggle.key)}`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{toggle.label}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{toggle.description}</p>
+                  </div>
+                  <Switch
+                    checked={checked}
+                    disabled={isSaving}
+                    onCheckedChange={(value) => handleToggle(toggle.key, value)}
+                    aria-label={`Show advanced ${toggle.label}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -53,7 +53,10 @@ import {
   Sparkline,
 } from "@/components/ui/visual-primitives";
 import { RankGridPulse, type RankGridCell } from "@/components/mapguard/RankGridPulse";
-import { CitationHealthRing } from "@/components/mapguard/CitationHealthRing";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+// Wave 36 — CitationHealthRing import removed. Audit verdict: third citation
+// representation on the page (alongside the hero LetterGradeBadge and the
+// numeric breakdown). The hero badge is sufficient.
 import {
   ActionsStack,
   type ActionId,
@@ -250,20 +253,24 @@ export default function MapGuardDashboard() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Link href="/portal/mapguard/alert-settings">
-              <Button variant="outline" size="sm">
-                <Bell className="mr-1 h-3.5 w-3.5" />
-                Alerts
-              </Button>
-            </Link>
-            <Link href="/portal/mapguard">
-              <Button variant="ghost" size="sm">
-                <Settings className="mr-1 h-3.5 w-3.5" />
-                Settings
-              </Button>
-            </Link>
-          </div>
+          {/* Wave 36 — per-product Alerts/Settings demoted to advanced; per cross-cutting
+              cleanup #2, notification prefs live at /portal/settings#notifications. */}
+          <AdvancedOnly product="mapguard">
+            <div className="flex items-center gap-2">
+              <Link href="/portal/mapguard/alert-settings">
+                <Button variant="outline" size="sm">
+                  <Bell className="mr-1 h-3.5 w-3.5" />
+                  Alerts
+                </Button>
+              </Link>
+              <Link href="/portal/mapguard">
+                <Button variant="ghost" size="sm">
+                  <Settings className="mr-1 h-3.5 w-3.5" />
+                  Full report
+                </Button>
+              </Link>
+            </div>
+          </AdvancedOnly>
         </div>
 
         {previewMode && (
@@ -296,7 +303,8 @@ export default function MapGuardDashboard() {
             </span>
           </Card>
 
-          {/* 2. Top 3 coverage — ProgressRing */}
+          {/* 2. Top 3 coverage — power-user (Wave 36: duplicates avg rank). */}
+          <AdvancedOnly product="mapguard">
           <Card
             className="flex flex-col items-center justify-center gap-0.5 p-3"
             data-testid="mapguard-kpi-top3"
@@ -316,8 +324,10 @@ export default function MapGuardDashboard() {
               of 25 grid pins
             </span>
           </Card>
+          </AdvancedOnly>
 
-          {/* 3. Citation health — LetterGradeBadge + supporting count */}
+          {/* 3. Citation health — power-user (Wave 36: SEO jargon). */}
+          <AdvancedOnly product="mapguard">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="mapguard-kpi-citation-health"
@@ -352,8 +362,10 @@ export default function MapGuardDashboard() {
                 : "Awaiting first scan"}
             </span>
           </Card>
+          </AdvancedOnly>
 
-          {/* 4. GBP health — AnimatedCounter + Sparkline */}
+          {/* 4. GBP health — composite metric, hidden by default (Wave 36). */}
+          <AdvancedOnly product="mapguard">
           <Card
             className="flex flex-col items-center justify-center gap-1 p-3 text-center"
             data-testid="mapguard-kpi-gbp-health"
@@ -380,6 +392,7 @@ export default function MapGuardDashboard() {
               14-day trend
             </span>
           </Card>
+          </AdvancedOnly>
         </div>
 
         {/* Main grid: rank heatmap + competitor feed on left, actions stack on right */}
@@ -404,30 +417,16 @@ export default function MapGuardDashboard() {
                 </Link>
               </div>
 
-              <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:justify-around">
+              {/* Wave 36 — Citation Health Ring sibling deleted (was the third
+                  citation representation on the page). The grid is now the
+                  single dominant visual. */}
+              <div className="flex flex-col items-center gap-4">
                 <RankGridPulse
                   cells={grid}
                   selected={selectedCell}
                   onSelectCell={(c) => setSelectedCell({ row: c.row, col: c.col })}
                   emptyState={grid.length === 0}
                 />
-
-                {/* Citation Health Ring — sibling to the grid so screenshots
-                    show both bespoke MapGuard visuals together. */}
-                <div className="hidden md:block">
-                  <CitationHealthRing
-                    found={kpis?.citationHealth.found ?? 0}
-                    missing={kpis?.citationHealth.missing ?? 0}
-                    inconsistent={kpis?.citationHealth.inconsistent ?? 0}
-                    size="md"
-                    emptyState={
-                      (kpis?.citationHealth.found ?? 0) +
-                        (kpis?.citationHealth.missing ?? 0) +
-                        (kpis?.citationHealth.inconsistent ?? 0) ===
-                      0
-                    }
-                  />
-                </div>
               </div>
 
               {/* Selected cell drill-down */}
@@ -457,31 +456,20 @@ export default function MapGuardDashboard() {
                 </div>
               )}
 
-              {/* Mobile-only citation ring */}
-              <div className="mt-4 md:hidden">
-                <CitationHealthRing
-                  found={kpis?.citationHealth.found ?? 0}
-                  missing={kpis?.citationHealth.missing ?? 0}
-                  inconsistent={kpis?.citationHealth.inconsistent ?? 0}
-                  size="sm"
-                  emptyState={
-                    (kpis?.citationHealth.found ?? 0) +
-                      (kpis?.citationHealth.missing ?? 0) +
-                      (kpis?.citationHealth.inconsistent ?? 0) ===
-                    0
-                  }
-                />
-              </div>
+              {/* Wave 36 — mobile Citation Health Ring also deleted. */}
             </Card>
 
-            {/* Competitor alert feed */}
-            <CompetitorAlertFeed
-              events={events}
-              emptyState={emptyAlerts}
-              onSelect={(evt) =>
-                setSelectedCell({ row: evt.pin_row, col: evt.pin_col })
-              }
-            />
+            {/* Competitor alert feed — power-user (Wave 36: reactive surface,
+                delivered via push notifications by default). */}
+            <AdvancedOnly product="mapguard">
+              <CompetitorAlertFeed
+                events={events}
+                emptyState={emptyAlerts}
+                onSelect={(evt) =>
+                  setSelectedCell({ row: evt.pin_row, col: evt.pin_col })
+                }
+              />
+            </AdvancedOnly>
           </div>
 
           {/* Right rail — Actions stack */}

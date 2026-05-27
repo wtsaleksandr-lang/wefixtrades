@@ -142,10 +142,11 @@ const PRODUCTS_ITEMS: NavItem[] = [
   { label: "WebFix", href: "/admin/products/webfix", icon: Hammer },
 ];
 
-/* Cross-product admin tooling — not a customer product itself. */
+/* Cross-product admin tooling — not a customer product itself.
+ * Wave 36 — Mobile Preview moved out of the sidebar (internal QA tool); still
+ * reachable via direct URL `/admin/mobile-preview`. */
 const OPERATIONS_ITEMS: NavItem[] = [
   { label: "BookFlow", href: "/admin/booking", icon: CalendarDays },
-  { label: "Mobile Preview", href: "/admin/mobile-preview", icon: Phone },
 ];
 
 const FINANCE_ITEMS: NavItem[] = [
@@ -166,9 +167,10 @@ const SYSTEM_ITEMS: NavItem[] = [
   { label: "Job Logs", href: "/admin/system/jobs", icon: Activity },
   { label: "Workers", href: "/admin/system/workers", icon: Server },
   { label: "Integrations", href: "/admin/system/integrations", icon: ServerCog },
+  /* Wave 36 — two audit logs merged into one nav row (canonical = CRM audit
+   * log). The general-purpose /admin/audit-log route still exists, but the
+   * sidebar now has a single destination per audit's "merge to one" verdict. */
   { label: "Audit Log", href: "/admin/crm/audit-log", icon: FileText },
-  /* AI-3c audit log — general-purpose audit_log table reader. */
-  { label: "Activity Audit", href: "/admin/audit-log", icon: FileText },
 ];
 
 /* 2026-05-23: AI consolidation — every AI admin surface lives under a
@@ -176,21 +178,12 @@ const SYSTEM_ITEMS: NavItem[] = [
  * with the per-surface admin tools nested as children. Mirrors the
  * PR #569 parent-child pattern (QuoteQuick / TradeLine). Order:
  * most-used first — Activity → Gates → Channels → Chat History → Budget. */
+/* Wave 36 — Tesla Simplification. The 5 AI children (Activity / Gates /
+ * Channels / Chat History / Budget) are tabs on /admin/ai already; the
+ * audit flagged the sidebar children as a duplicated nav footprint. They
+ * remain reachable via direct URL + via the AI Dashboard tabs. */
 const AI_ITEMS: NavItem[] = [
-  {
-    label: "AI Dashboard",
-    href: "/admin/ai",
-    icon: BrainCircuit,
-    children: [
-      /* W-AV-1 — Business Operator AI escalations + trust ladder + kill switch. */
-      { label: "AI Activity", href: "/admin/ai-activity", icon: BrainCircuit },
-      { label: "AI Gates", href: "/admin/ai-gates", icon: ShieldOff },
-      /* W-BA-1 — per-channel emergency kill switches (email/SMS/voice/chat). */
-      { label: "AI Channels", href: "/admin/ai-channels", icon: Radio },
-      { label: "Chat History", href: "/admin/chat-history", icon: FileText },
-      { label: "AI Budget", href: "/admin/crm/ai-budget", icon: BrainCircuit },
-    ],
-  },
+  { label: "AI Dashboard", href: "/admin/ai", icon: BrainCircuit },
 ];
 
 const SECONDARY_ITEMS = [

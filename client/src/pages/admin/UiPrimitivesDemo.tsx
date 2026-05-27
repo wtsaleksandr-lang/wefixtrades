@@ -57,6 +57,8 @@ import {
   METRIC_REGISTRY,
   type DashboardProduct,
 } from "@shared/copilot/metricRegistry";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+import { useDisplayPreferences } from "@/hooks/useDisplayPreferences";
 
 const WALKTHROUGH_STEPS: WalkthroughStep[] = [
   {
@@ -930,6 +932,23 @@ export default function UiPrimitivesDemo() {
             <AIActionCardDemo />
           </div>
         </Section>
+
+        <Section title="AdvancedOnly + Display Mode (Wave 36)">
+          <div className="w-full space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Wraps power-user sections. In Simple mode (default), the
+              component renders nothing. Toggle Advanced mode in{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                /portal/settings?tab=display
+              </code>{" "}
+              and enable the matching product to reveal wrapped sections.
+              The example below renders one panel that is always visible,
+              and a sibling panel that only appears when ContentFlow advanced
+              is enabled — your toggle preference is honoured live.
+            </p>
+            <AdvancedOnlyDemo />
+          </div>
+        </Section>
       </div>
 
       <OnboardingWalkthrough
@@ -1237,6 +1256,70 @@ function AIActionCardDemo() {
         <pre className="mt-1 overflow-x-auto rounded-md border bg-muted/40 p-3 text-[11px]">
           {log.length ? log.join("\n") : "(none yet — click an action above)"}
         </pre>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Wave 36: AdvancedOnly + Display Mode demo ──────────────────────── */
+
+function AdvancedOnlyDemo() {
+  const { preferences, isAdvancedMode, updateAsync, isSaving } = useDisplayPreferences();
+
+  return (
+    <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="rounded-md border p-4">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Always visible
+        </div>
+        <p className="mt-1 text-sm">
+          This panel renders regardless of Display Mode. Treat it like a
+          dashboard's hero KPI.
+        </p>
+      </div>
+      <AdvancedOnly
+        product="contentflow"
+        fallback={
+          <div className="rounded-md border border-dashed p-4 text-xs text-muted-foreground">
+            (Hidden in Simple mode — turn on ContentFlow advanced in Settings.)
+          </div>
+        }
+      >
+        <div className="rounded-md border border-emerald-200 bg-emerald-50/40 p-4">
+          <div className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+            Advanced — ContentFlow
+          </div>
+          <p className="mt-1 text-sm text-emerald-900">
+            Visible because you have Advanced mode on AND ContentFlow advanced
+            toggled on. Wrapped sections like this disappear in Simple mode.
+          </p>
+        </div>
+      </AdvancedOnly>
+      <div className="col-span-full flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 p-3 text-xs">
+        <span>
+          Current mode:{" "}
+          <strong>{isAdvancedMode ? "Advanced" : "Simple"}</strong>
+        </span>
+        <span>
+          ContentFlow advanced:{" "}
+          <strong>
+            {preferences.contentflow_show_advanced ? "on" : "off"}
+          </strong>
+        </span>
+        <button
+          type="button"
+          disabled={isSaving}
+          className="rounded-md border bg-background px-2 py-1 text-xs hover:bg-muted"
+          onClick={() =>
+            updateAsync({
+              mode: isAdvancedMode ? "simple" : "advanced",
+              contentflow_show_advanced: !isAdvancedMode,
+            })
+          }
+          data-testid="advanced-only-demo-toggle"
+        >
+          {isAdvancedMode ? "Switch to Simple" : "Enable Advanced + ContentFlow"}
+        </button>
       </div>
     </div>
   );

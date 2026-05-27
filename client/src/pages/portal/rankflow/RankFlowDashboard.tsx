@@ -53,7 +53,9 @@ import {
   type PipelineStripStatus,
   type StatusPillStatus,
 } from "@/components/ui/visual-primitives";
-import { ContentScoreCard } from "@/components/rankflow/ContentScoreCard";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+// Wave 36 — ContentScoreCard removed (third SEO score on the page; duplicated
+// the hero KpiGauge and the secondary KpiGauge. Audit verdict: "delete or hide".)
 import { CompetitorCard } from "@/components/rankflow/CompetitorCard";
 import {
   KeywordOpportunityHeatmap,
@@ -343,37 +345,48 @@ export default function RankFlowDashboard() {
           />
         </Card>
 
-        {/* 3 + 6. Animated counter tiles + semi-circular SEO gauge + score card */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
-          <Card className="p-4">
-            <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-              Live rank stats
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* 3 + 6. Counter tiles. Simple mode: Top 10 only. Advanced: full grid. */}
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+            Live rank stats
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <CounterTile
+              icon={<TrendingUp className="h-4 w-4" />}
+              label="Top 10"
+              value={kpis?.keywordsTop10 ?? 0}
+              accent="green"
+            />
+            <AdvancedOnly product="rankflow">
               <CounterTile
                 icon={<Search className="h-4 w-4" />}
                 label="Keywords tracked"
                 value={kpis?.keywordsTracked ?? 0}
               />
-              <CounterTile
-                icon={<TrendingUp className="h-4 w-4" />}
-                label="Top 10"
-                value={kpis?.keywordsTop10 ?? 0}
-                accent="green"
-              />
+            </AdvancedOnly>
+            <AdvancedOnly product="rankflow">
               <CounterTile
                 icon={<MapPin className="h-4 w-4" />}
                 label="Top 20"
                 value={kpis?.keywordsTop20 ?? 0}
                 accent="amber"
               />
+            </AdvancedOnly>
+            <AdvancedOnly product="rankflow">
               <CounterTile
                 icon={<Globe className="h-4 w-4" />}
                 label="Pages indexed"
                 value={kpis?.pagesIndexed ?? 0}
                 accent="blue"
               />
-            </div>
+            </AdvancedOnly>
+          </div>
+
+          {/* Wave 36 — the 3 secondary gauges (avg position, keywords improved ring,
+              SEO score gauge) all move into Advanced. Audit: "three more gauges
+              below CounterTiles = visual chaos". The hero CounterTile + AIBrainPanel
+              already carry the essentials. */}
+          <AdvancedOnly product="rankflow">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <KpiGauge
                 value={Math.round((kpis?.avgPosition ?? 0) * 10) / 10}
@@ -386,7 +399,6 @@ export default function RankFlowDashboard() {
                 improvementTips={META.avgPosition.improvementTips}
                 emptyState={(kpis?.avgPosition ?? 0) === 0}
               />
-              {/* Wave 26.7 polish-mix: "X of Y" pattern → ProgressRing */}
               <div className="flex justify-center" data-testid="rf-tile-keywords-improved">
                 <ProgressRing
                   value={kpis?.keywordsImproved ?? 0}
@@ -412,20 +424,8 @@ export default function RankFlowDashboard() {
                 emptyState={(kpis?.seoScore ?? 0) === 0}
               />
             </div>
-          </Card>
-          <ContentScoreCard
-            score={kpis?.seoScore ?? 0}
-            targetThreshold={80}
-            totalTerms={kpis?.keywordsTracked}
-            termsUsed={kpis?.keywordsTop20}
-            missingTerms={[]}
-            missingHeadings={[]}
-            title="SEO score"
-            description="Hybrid grade × numeric"
-            size="md"
-            className="self-start min-w-[280px]"
-          />
-        </div>
+          </AdvancedOnly>
+        </Card>
 
         {/* 7. AI brain panel */}
         <AIBrainPanel
@@ -436,7 +436,8 @@ export default function RankFlowDashboard() {
           }}
         />
 
-        {/* 4. Competitor comparison grid */}
+        {/* 4. Competitor comparison grid — power-user (Wave 36). */}
+        <AdvancedOnly product="rankflow">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -465,14 +466,19 @@ export default function RankFlowDashboard() {
             </div>
           )}
         </Card>
+        </AdvancedOnly>
 
-        {/* 5. Keyword opportunity heatmap */}
-        <KeywordOpportunityHeatmap
-          locations={heatmap.locations}
-          rows={heatmap.rows}
-        />
+        {/* 5. Keyword opportunity heatmap — power-user (Wave 36). */}
+        <AdvancedOnly product="rankflow">
+          <KeywordOpportunityHeatmap
+            locations={heatmap.locations}
+            rows={heatmap.rows}
+          />
+        </AdvancedOnly>
 
-        {/* 8. Activity feed */}
+        {/* 8. Activity feed — Wave 36: consolidated to global feed; ask Copilot
+            "show me recent rank moves". Hidden by default. */}
+        <AdvancedOnly product="rankflow">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -520,6 +526,7 @@ export default function RankFlowDashboard() {
             </ul>
           )}
         </Card>
+        </AdvancedOnly>
       </div>
     </PortalLayout>
   );

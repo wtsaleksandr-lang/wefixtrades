@@ -28,9 +28,16 @@ import {
   FileText,
   Image as ImageIcon,
   LayoutGrid,
-  Sparkles,
+  MoreHorizontal,
   Wand2,
 } from "lucide-react";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -298,22 +305,35 @@ export default function PortalContentFlowDashboard() {
               Your AI content factory — generate, approve, publish.
             </p>
           </div>
+          {/* Wave 36 — single primary button + overflow per the universal header rule. */}
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm" data-tour="cf-style-link">
-              <Link href="/portal/content-preferences">Content style</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" data-tour="cf-approvals-link">
-              <Link href="/portal/articles">Approvals</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" data-tour="cf-examples-link">
-              <Link href="/portal/contentflow/examples">Examples</Link>
-            </Button>
             <Button asChild size="sm">
               <Link href="/portal/contentflow">
                 <Wand2 className="h-4 w-4 mr-2" />
                 New from template
               </Link>
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" aria-label="More ContentFlow actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/portal/content-preferences" data-tour="cf-style-link">Content style</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/portal/articles" data-tour="cf-approvals-link">Approvals</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/portal/contentflow/examples" data-tour="cf-examples-link">Examples</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/portal/settings?tab=display">Show advanced</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -383,45 +403,49 @@ export default function PortalContentFlowDashboard() {
                   emptyState={(kpis?.approvalRate ?? 0) === 0}
                 />
 
-                {/* AI-Detection Score → LetterGradeBadge + numeric score */}
-                <div
-                  className={cn(
-                    "flex flex-col items-center justify-center text-center gap-2 min-h-[140px]",
-                    (kpis?.detectionScore ?? 0) === 0 && "opacity-60",
-                  )}
-                  data-testid="cf-tile-detection"
-                  title={META.detectionScore.helpText ?? undefined}
-                >
-                  <LetterGradeBadge
-                    score={kpis?.detectionScore ?? 0}
-                    size="lg"
-                    showScore={false}
-                  />
-                  <div className="text-xs tabular-nums text-muted-foreground">
-                    <AnimatedCounter
-                      value={kpis?.detectionScore ?? 0}
-                      suffix=" / 100"
+                {/* AI-Detection Score → power-user; hidden in Simple mode (Wave 36). */}
+                <AdvancedOnly product="contentflow">
+                  <div
+                    className={cn(
+                      "flex flex-col items-center justify-center text-center gap-2 min-h-[140px]",
+                      (kpis?.detectionScore ?? 0) === 0 && "opacity-60",
+                    )}
+                    data-testid="cf-tile-detection"
+                    title={META.detectionScore.helpText ?? undefined}
+                  >
+                    <LetterGradeBadge
+                      score={kpis?.detectionScore ?? 0}
+                      size="lg"
+                      showScore={false}
+                    />
+                    <div className="text-xs tabular-nums text-muted-foreground">
+                      <AnimatedCounter
+                        value={kpis?.detectionScore ?? 0}
+                        suffix=" / 100"
+                      />
+                    </div>
+                    <div className="text-xs text-muted-foreground px-1">
+                      {META.detectionScore.label}
+                    </div>
+                  </div>
+                </AdvancedOnly>
+
+                {/* Distribution Reach → power-user; hidden in Simple mode (Wave 36). */}
+                <AdvancedOnly product="contentflow">
+                  <div className="flex justify-center">
+                    <ProgressRing
+                      value={kpis?.distributionReach ?? 0}
+                      max={Math.max(kpis?.distributionReach ?? 5, 5)}
+                      unit=""
+                      label={META.distributionReach.label}
+                      size="md"
+                      color="violet"
+                      helpText={META.distributionReach.helpText}
+                      improvementTips={META.distributionReach.improvementTips}
+                      emptyState={(kpis?.distributionReach ?? 0) === 0}
                     />
                   </div>
-                  <div className="text-xs text-muted-foreground px-1">
-                    {META.detectionScore.label}
-                  </div>
-                </div>
-
-                {/* Distribution Reach → ProgressRing (X of Y platforms) */}
-                <div className="flex justify-center">
-                  <ProgressRing
-                    value={kpis?.distributionReach ?? 0}
-                    max={Math.max(kpis?.distributionReach ?? 5, 5)}
-                    unit=""
-                    label={META.distributionReach.label}
-                    size="md"
-                    color="violet"
-                    helpText={META.distributionReach.helpText}
-                    improvementTips={META.distributionReach.improvementTips}
-                    emptyState={(kpis?.distributionReach ?? 0) === 0}
-                  />
-                </div>
+                </AdvancedOnly>
               </div>
             </Card>
 
@@ -438,7 +462,8 @@ export default function PortalContentFlowDashboard() {
               <PipelineStrip stages={pipelineStages} highlightCurrent={currentHighlight} />
             </Card>
 
-            {/* Recent creations grid */}
+            {/* Recent creations grid — power-user surface, hidden in Simple mode (Wave 36). */}
+            <AdvancedOnly product="contentflow">
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
@@ -484,20 +509,8 @@ export default function PortalContentFlowDashboard() {
                         </div>
                         <div className="flex items-center justify-between gap-2">
                           <StatusPill status={statusForCard(r.status)} />
-                          {r.aiDetectionScore != null && (
-                            <div
-                              title="Higher = more human-like. Lower scores may flag as AI-generated."
-                              data-testid="trust-gauge"
-                            >
-                              <KpiGauge
-                                value={r.aiDetectionScore}
-                                max={100}
-                                label="Trust"
-                                size="sm"
-                                color="auto"
-                              />
-                            </div>
-                          )}
+                          {/* Wave 36 — per-card trust gauge removed (audit: duplicates the
+                              hero AI-detection score and bloats every card). */}
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{r.trade ?? r.contentType}</span>
@@ -509,24 +522,20 @@ export default function PortalContentFlowDashboard() {
                 </div>
               )}
             </Card>
+            </AdvancedOnly>
 
-            {/* Template gallery hint */}
-            <Card className="p-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    Browse the template gallery
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    1,800 trade-tuned prompts across 30 trades. Pick your niche, hit Generate.
-                  </div>
-                </div>
-                <Button asChild variant="default" size="sm">
-                  <Link href="/portal/contentflow">Open templates</Link>
-                </Button>
-              </div>
-            </Card>
+            {/* Wave 36 — template-gallery hero card deleted per Wave 35 audit
+                ("textbook overwhelming"). Auto-pick by trade is the default
+                AI behavior; expose Browse-all as a single text link only. */}
+            <div className="text-center">
+              <Link
+                href="/portal/contentflow"
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                data-testid="cf-browse-templates-link"
+              >
+                Browse all templates
+              </Link>
+            </div>
           </TabsContent>
 
           {/* ─── CALENDAR TAB ────────────────────────────────────────── */}

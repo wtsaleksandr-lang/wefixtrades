@@ -80,6 +80,7 @@ import { PlatformGauge } from "@/components/socialsync/PlatformGauge";
 import { PostScoreOverlay } from "@/components/socialsync/PostScoreOverlay";
 import { ChannelPicker } from "@/components/socialsync/ChannelPicker";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
+import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
 
 /* Wave 26.6: registry-driven gauge meta. Same strings the Copilot reads. */
 const META = {
@@ -463,10 +464,8 @@ export default function SocialSyncDashboard() {
               SocialSync — Dashboard
             </h1>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Approve, schedule, and preview every channel in one view.{" "}
-              <Link href="/portal/socialsync" className="underline">
-                Open legacy report
-              </Link>
+              Approve, schedule, and preview every channel in one view.
+              {/* Wave 36 — "Open legacy report" link removed (exposes internal versioning). */}
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -498,21 +497,23 @@ export default function SocialSyncDashboard() {
             </div>
           </Card>
 
-          {/* Engagement % → KpiGauge (single percentage, keep semi-circular) */}
-          <Card className="p-3 flex items-center justify-center" data-testid="kpi-avg-engagement">
-            <KpiGauge
-              value={kpis?.avgEngagementRate ?? 0}
-              min={0}
-              max={10}
-              unit="%"
-              label={META.avgEngagementRate.label}
-              size="sm"
-              palette="emerald"
-              helpText={META.avgEngagementRate.helpText}
-              improvementTips={META.avgEngagementRate.improvementTips}
-              emptyState={!kpis || kpis.avgEngagementRate === 0}
-            />
-          </Card>
+          {/* Engagement % — power-user (jargon to plumbers). */}
+          <AdvancedOnly product="socialsync">
+            <Card className="p-3 flex items-center justify-center" data-testid="kpi-avg-engagement">
+              <KpiGauge
+                value={kpis?.avgEngagementRate ?? 0}
+                min={0}
+                max={10}
+                unit="%"
+                label={META.avgEngagementRate.label}
+                size="sm"
+                palette="emerald"
+                helpText={META.avgEngagementRate.helpText}
+                improvementTips={META.avgEngagementRate.improvementTips}
+                emptyState={!kpis || kpis.avgEngagementRate === 0}
+              />
+            </Card>
+          </AdvancedOnly>
 
           {/* Approval Backlog → ProgressRing (X of typical max) */}
           <Card className="p-3 flex items-center justify-center" data-testid="kpi-approval-backlog">
@@ -529,20 +530,22 @@ export default function SocialSyncDashboard() {
             />
           </Card>
 
-          {/* WhatsApp Messages → KpiGauge violet (variety in the row already) */}
-          <Card className="p-3 flex items-center justify-center" data-testid="kpi-whatsapp-this-week">
-            <KpiGauge
-              value={kpis?.whatsappMessagesThisWeek ?? 0}
-              min={0}
-              max={Math.max(50, (kpis?.whatsappMessagesThisWeek ?? 0) + 10)}
-              label={META.whatsappMessagesThisWeek.label}
-              size="sm"
-              palette="violet"
-              helpText={META.whatsappMessagesThisWeek.helpText}
-              improvementTips={META.whatsappMessagesThisWeek.improvementTips}
-              emptyState={(kpis?.whatsappMessagesThisWeek ?? 0) === 0}
-            />
-          </Card>
+          {/* WhatsApp Messages — power-user (TradeLine's surface). */}
+          <AdvancedOnly product="socialsync">
+            <Card className="p-3 flex items-center justify-center" data-testid="kpi-whatsapp-this-week">
+              <KpiGauge
+                value={kpis?.whatsappMessagesThisWeek ?? 0}
+                min={0}
+                max={Math.max(50, (kpis?.whatsappMessagesThisWeek ?? 0) + 10)}
+                label={META.whatsappMessagesThisWeek.label}
+                size="sm"
+                palette="violet"
+                helpText={META.whatsappMessagesThisWeek.helpText}
+                improvementTips={META.whatsappMessagesThisWeek.improvementTips}
+                emptyState={(kpis?.whatsappMessagesThisWeek ?? 0) === 0}
+              />
+            </Card>
+          </AdvancedOnly>
         </div>
 
         {/* ─── Tab nav ────────────────────────────────────────────────── */}
@@ -681,18 +684,20 @@ function OverviewTab({
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {/* Per-platform engagement gauges */}
-      <Card className="p-4 md:col-span-2">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">
-            Engagement by platform
-          </h3>
-          <span className="text-[11px] text-muted-foreground">
-            Targets: FB 3% · IG 4% · LinkedIn 2%
-          </span>
-        </div>
-        <PlatformGauge rows={platformEngagementRows} />
-      </Card>
+      {/* Per-platform engagement gauges — power-user (aggregate KPI already covers this). */}
+      <AdvancedOnly product="socialsync">
+        <Card className="p-4 md:col-span-2">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">
+              Engagement by platform
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              Targets: FB 3% · IG 4% · LinkedIn 2%
+            </span>
+          </div>
+          <PlatformGauge rows={platformEngagementRows} />
+        </Card>
+      </AdvancedOnly>
 
       {/* Channels (with WhatsApp first-class) */}
       <Card className="p-4">
@@ -715,7 +720,8 @@ function OverviewTab({
         </p>
       </Card>
 
-      {/* Best-time-to-post snapshot */}
+      {/* Best-time-to-post snapshot — power-user optimisation. */}
+      <AdvancedOnly product="socialsync">
       <Card className="p-4">
         <h3 className="mb-1 text-sm font-semibold text-foreground">
           Best time to post — right now
@@ -746,8 +752,11 @@ function OverviewTab({
           to schedule into a green slot.
         </p>
       </Card>
+      </AdvancedOnly>
 
-      {/* Recent approval queue preview */}
+      {/* Recent approval queue preview — Wave 36 audit: Approvals tab has it,
+          so the OverviewTab preview duplicates the surface. Hide by default. */}
+      <AdvancedOnly product="socialsync">
       <Card className="p-4 md:col-span-2">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">
@@ -805,6 +814,7 @@ function OverviewTab({
           </ul>
         )}
       </Card>
+      </AdvancedOnly>
     </div>
   );
 }
