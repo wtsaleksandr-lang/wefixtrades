@@ -56,12 +56,16 @@ function familyOf(t: TemplateConfig): CategoryStyleId {
 /* ─── Template card preview — uses category palette + Lucide icon ─── */
 
 /**
- * Wave 15 — AI-generated brand thumbnails for the first row of templates
- * on /templates. Pre-rendered PNGs live in `client/public/ai-thumbnails/
- * templates/<id>.png` (see `scripts/generate-ai-thumbnails.mjs`). When a
- * template id is in this set the card shows the photographic thumbnail
- * instead of the icon-chip fallback. Wave 15.5 expands this once Alex
- * approves the first-row style direction.
+ * Wave 42 — REAL calculator screenshots for the first row of templates on
+ * /templates. Pre-rendered PNGs live in `client/public/ai-thumbnails/
+ * templates/<id>.png` and are captured via Playwright against the dev-only
+ * `/internal/template-render/:templateId` route (see
+ * `scripts/capture-template-screenshots.mjs`). Re-run that script when this
+ * set changes so the thumbnails stay in sync with the live widgets.
+ *
+ * Replaces the Wave 15 AI-generated illustrations which Alex rejected for
+ * misrepresenting the product on a customer-facing marketing surface — the
+ * thumbnails now show the actual calculator each template renders.
  */
 const AI_THUMBNAIL_TEMPLATE_IDS = new Set<string>([
   "car_towing",
@@ -106,7 +110,7 @@ function TemplateHero({ template }: { template: TemplateConfig }) {
       />
 
       {hasAiThumb ? (
-        /* AI-generated brand thumbnail (Wave 15 — first-row review batch).
+        /* Real calculator screenshot (Wave 42 — replaces Wave 15 illustrations).
            `onError` falls back to the icon-chip if the PNG is missing. */
         <img
           src={aiThumbnailUrl(template.id)}
