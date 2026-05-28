@@ -1947,18 +1947,24 @@ function SelfServiceCanvas() {
             </span>
           </div>
 
-          <div
+          {/* Wave 101 — promoted from <div> to semantic <h2> with the
+              section's aria-labelledby anchor. Replaces the duplicate
+              outer H2 (since-removed) so a11y + SEO outlines still get
+              a real heading for this section. */}
+          <h2
+            id="ssdd-headline"
             style={{
               fontSize: 26,
               fontWeight: 700,
               lineHeight: 1.1,
               letterSpacing: "-0.015em",
               color: "#e8efee",
+              margin: 0,
             }}
           >
             <div>From any pricing doc</div>
             <div>to a live calculator</div>
-          </div>
+          </h2>
           <div
             style={{
               marginTop: 16,
@@ -2531,6 +2537,11 @@ export default function SelfServiceDragDrop() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [mobile, setMobile] = useState(false);
+  // Wave 101 — track the wrapper's pixel width so MobileFallback can
+  // size its scaled canvas to fit the viewport instead of overflowing
+  // the section padding (which produced a right-edge crop and a
+  // horizontal scrollbar on phones).
+  const [containerWidth, setContainerWidth] = useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2540,6 +2551,7 @@ export default function SelfServiceDragDrop() {
     const apply = () => {
       const w = el.clientWidth;
       if (w === 0) return;
+      setContainerWidth(w);
       const isMobile = w < 720;
       setMobile(isMobile);
       if (isMobile) {
@@ -2597,31 +2609,11 @@ export default function SelfServiceDragDrop() {
           >
             See it in action
           </div>
-          <h2
-            id="ssdd-headline"
-            style={{
-              fontSize: "clamp(22px, 3vw, 32px)",
-              fontWeight: 700,
-              lineHeight: 1.15,
-              letterSpacing: "-0.015em",
-              margin: 0,
-              marginBottom: 10,
-              color: mkt.text,
-            }}
-          >
-            From any pricing doc to a live calculator.
-          </h2>
-          <p
-            style={{
-              fontSize: 15,
-              lineHeight: 1.55,
-              color: mkt.textMuted,
-              maxWidth: 620,
-              margin: "0 auto",
-            }}
-          >
-            Drop your existing pricing — any format. We turn it into a live calculator your customers use to book and pay. Five seconds, no setup.
-          </p>
+          {/* Wave 101 — outer H2 + paragraph removed. They were verbatim
+              duplicates of the title and subtitle inside SelfServiceCanvas
+              (lines ~1950 + ~1965). The semantic h2 anchor moved into the
+              canvas so aria-labelledby still resolves. The "See it in
+              action" eyebrow above stays as the section marker. */}
         </div>
 
         <div
@@ -2635,8 +2627,9 @@ export default function SelfServiceDragDrop() {
           {mobile ? (
             // Mobile fallback — same brand chrome, simplified single-step
             // affordance: tap to "drop a sample" and watch the calculator
-            // materialize.
-            <MobileFallback />
+            // materialize. Wave 101 — pass containerWidth so the canvas
+            // scales to fit the section instead of overflowing right.
+            <MobileFallback containerWidth={containerWidth} />
           ) : (
             <div
               style={{
@@ -2657,34 +2650,47 @@ export default function SelfServiceDragDrop() {
 
 /**
  * MobileFallback — finger-friendly variant. The cursor-attach affordance
- * is meaningless on touch; instead we render the SelfServiceCanvas with
- * the touch-button-driven flow primary. We reuse the same canvas inside
- * a horizontally-scrollable frame at the base scale, which gives mobile
- * users the full experience while keeping CLS at 0.
+ * is meaningless on touch; instead we render the SelfServiceCanvas
+ * scaled to exactly fit the section's width.
  *
  * The "Try sample" CTA inside the canvas is already the keyboard fallback
  * path, so on touch it's the natural one-tap entry point.
+ *
+ * Wave 101 — the prior implementation pinned the inner div to BASE_W
+ * (1140px) and applied transform: scale(0.6), which kept the DOM box at
+ * 1140 wide even though the visual was 684. The outer wrapper then
+ * enabled `overflowX: auto`, which on a 375px phone exposed the 1140-px
+ * DOM as a horizontal scroll — the right-edge crop Alex reported. The
+ * fix: compute fitScale from the actual container width and size the
+ * inner wrapper to the scaled visual dimensions, with overflow:hidden
+ * as a belt-and-suspenders guard. No more horizontal scrollbar.
  */
-function MobileFallback() {
+function MobileFallback({ containerWidth }: { containerWidth: number }) {
+  // Cap at 1 so we never upscale on tablets that exceed BASE_W. The 0.6
+  // fallback only fires before the ResizeObserver has reported width
+  // (containerWidth=0) — first paint only, replaced within a frame.
+  const fitScale = containerWidth > 0 ? Math.min(1, containerWidth / BASE_W) : 0.6;
   return (
-    <div
-      style={{
-        width: "100%",
-        overflowX: "auto",
-        WebkitOverflowScrolling: "touch",
-        paddingBottom: 12,
-      }}
-    >
+    <div style={{ width: "100%" }}>
+      {/* Scaled canvas frame — width/height match the visual size so
+          the surrounding section has no overflow. */}
       <div
         style={{
-          width: BASE_W,
-          height: BASE_H,
-          transform: "scale(0.6)",
-          transformOrigin: "top left",
-          marginBottom: -Math.round(BASE_H * 0.4),
+          width: "100%",
+          height: BASE_H * fitScale,
+          overflow: "hidden",
         }}
       >
-        <SelfServiceCanvas />
+        <div
+          style={{
+            width: BASE_W,
+            height: BASE_H,
+            transform: `scale(${fitScale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          <SelfServiceCanvas />
+        </div>
       </div>
       <div
         style={{
