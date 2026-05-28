@@ -174,9 +174,22 @@ async function sendSms(
     if (!isTwilioConfigured()) return { success: false, error: "Twilio not configured" };
     // Wave 77 — homeowner-facing review request; route through the client's
     // per-tenant TradeLine number with per-client opt-out scoping.
-    const sid = await sendSmsAsClient({ clientId, to: phone, body: message, channel: "sms" });
+    // Wave 79 — reminder-class send, quiet-hours gate enforced. Caller
+    // sees a distinct `deferred_quiet_hours` error string when the local
+    // window is closed so the schedule layer can re-queue without
+    // counting the attempt against the cap.
+    const sid = await sendSmsAsClient({
+      clientId,
+      to: phone,
+      body: message,
+      channel: "sms",
+      quietHoursBypass: "reminder",
+    });
     return { success: true, sid };
   } catch (err: any) {
+    if (err?.message === "sms_quiet_hours_blocked") {
+      return { success: false, error: "deferred_quiet_hours" };
+    }
     return { success: false, error: err.message };
   }
 }

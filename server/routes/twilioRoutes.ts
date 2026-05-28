@@ -115,6 +115,79 @@ export function registerTwilioRoutes(app: Express): void {
             `<Response><Message>You're opted out of WeFixTrades SMS. Reply START to re-subscribe.</Message></Response>`,
           );
         }
+        // Wave 79 — HELP / INFO keyword handling (CTIA compliance).
+        // Carriers REQUIRE a HELP response on every A2P campaign; without
+        // it the campaign can be flagged or suspended. Mirrors the STOP
+        // path: scope to per-tenant number when one matches so the reply
+        // reflects the trade's brand, fall back to the WeFixTrades brand
+        // line otherwise. Always logs the inbound for the audit trail.
+        const HELP_KEYWORDS = new Set(["HELP", "INFO"]);
+        if (HELP_KEYWORDS.has(trimmed)) {
+          let brand = "WeFixTrades";
+          let supportEmail = "support@wefixtrades.com";
+          let supportPhone: string | null = null;
+          try {
+            const scopeClientId = to
+              ? await getClientIdByAssignedNumber(to.replace(/^whatsapp:/i, ""))
+              : null;
+            if (scopeClientId != null) {
+              const { db } = await import("../db");
+              const { clients } = await import("@shared/schema");
+              const { eq } = await import("drizzle-orm");
+              const [c] = await db
+                .select({
+                  business_name: clients.business_name,
+                  contact_email: clients.contact_email,
+                  contact_phone: clients.contact_phone,
+                })
+                .from(clients)
+                .where(eq(clients.id, scopeClientId))
+                .limit(1);
+              if (c?.business_name) brand = c.business_name;
+              if (c?.contact_email) supportEmail = c.contact_email;
+              if (c?.contact_phone) supportPhone = c.contact_phone;
+            }
+          } catch (err: any) {
+            log.warn("[Twilio] HELP keyword — per-tenant branding lookup failed", {
+              error: err?.message,
+            });
+          }
+          // Log the inbound for the audit trail (best-effort; never block
+          // the 200 OK to Twilio on a write failure). lead_id /
+          // calculator_id may be null when the HELP message arrives on the
+          // shared brand line with no matching lead.
+          try {
+            await storeSmsMessage({
+              lead_id: null,
+              calculator_id: null,
+              direction: "inbound",
+              channel,
+              body,
+              from_number: cleanFrom,
+              to_number: to || null,
+              twilio_sid: messageSid || null,
+              is_ai: false,
+            });
+          } catch (err: any) {
+            log.warn("[Twilio] HELP keyword — inbound log write failed", {
+              error: err?.message,
+            });
+          }
+          log.info("[Twilio] inbound HELP keyword", {
+            from: cleanFrom,
+            to,
+            brand,
+          });
+          const contactSuffix = supportPhone
+            ? `Email ${supportEmail} or call ${supportPhone}.`
+            : `Email ${supportEmail}.`;
+          const reply =
+            `${brand} SMS support. Reply STOP to unsubscribe. ` +
+            `Msg & data rates may apply. ${contactSuffix}`;
+          res.set("Content-Type", "text/xml");
+          return res.send(`<Response><Message>${reply}</Message></Response>`);
+        }
+
         // START / UNSTOP — clear the opt-out row so the sender can opt
         // back in without a manual admin step. Wave 77 — when the START
         // comes in via a per-tenant number we only clear THAT client's

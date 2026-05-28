@@ -369,11 +369,15 @@ export async function processReviewRequest(rr: ReviewRequest): Promise<{ sent: b
       // Wave 77 — send from the client's per-tenant TradeLine number so
       // the homeowner sees the trade's own line, and scope opt-out lookups
       // per-client. Falls back to the shared brand line if not provisioned.
+      // Wave 79 — homeowner-facing review request is a reminder send;
+      // honor the local quiet-hours window. A quiet-hours throw is
+      // caught below and surfaced as a defer (no attempt consumed).
       const twilioSid = await sendSmsAsClient({
         clientId: rr.client_id,
         to: rr.customer_phone,
         body: smsBody,
         channel: "sms",
+        quietHoursBypass: "reminder",
       });
 
       if (rr.lead_id) {
@@ -397,6 +401,14 @@ export async function processReviewRequest(rr: ReviewRequest): Promise<{ sent: b
       });
       return { sent: true };
     } catch (err: any) {
+      // Wave 79 — quiet-hours defer: leave row untouched so the worker
+      // retries the row at its next natural cadence.
+      if (err?.message === "sms_quiet_hours_blocked") {
+        await storage.updateReviewRequest(rr.id, {
+          last_error: "Deferred — recipient quiet hours",
+        });
+        return { sent: false, error: "deferred_quiet_hours" };
+      }
       const attempts = (rr.attempts || 0) + 1;
       await storage.updateReviewRequest(rr.id, {
         status: attempts >= (rr.max_attempts || 3) ? "failed" : "pending",

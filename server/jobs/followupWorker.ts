@@ -249,11 +249,15 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
             clientId = c?.id ?? null;
           }
           if (clientId != null) {
+            // Wave 79 — quote follow-ups are reminder-class. Honor the
+            // local quiet-hours window; the catch below treats the
+            // resulting throw as a defer (worker re-runs hourly).
             twilioSid = await sendSmsAsClient({
               clientId,
               to: lead.phone,
               body: smsBody,
               channel: 'sms',
+              quietHoursBypass: 'reminder',
             });
           } else {
             // Calculator has no linked client row (legacy / demo flows).
@@ -281,6 +285,17 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
         processed++;
       }
     } catch (err: any) {
+      // Wave 79 — quiet-hours block is a defer, not a failure. Keep the
+      // job pending without burning an attempt; the worker re-runs hourly
+      // and will pick it up when the local window reopens.
+      if (err?.message === 'sms_quiet_hours_blocked') {
+        await storage.updateFollowupJob(job.id, {
+          status: 'pending',
+          last_error: 'Deferred — recipient quiet hours',
+        });
+        skipped++;
+        continue;
+      }
       const attempts = (job.attempts || 0) + 1;
       await storage.updateFollowupJob(job.id, {
         status: attempts >= (job.max_attempts || 3) ? 'failed' : 'pending',

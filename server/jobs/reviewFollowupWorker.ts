@@ -129,11 +129,16 @@ async function sendFollowup(rr: ReviewRequest): Promise<{ sent: boolean; error?:
       });
       try {
         // Wave 77 — send from the client's per-tenant TradeLine number.
+        // Wave 79 — homeowner review follow-up is a reminder send, so it
+        // honors the 21:00 – 08:00 (Sun 10:00) quiet-hours window
+        // baked into sendSmsAsClient. Quiet-hours throws are caught
+        // below and surfaced as a defer rather than a failure.
         const sid = await sendSmsAsClient({
           clientId: fresh.client_id,
           to: fresh.customer_phone,
           body: smsBody,
           channel: "sms",
+          quietHoursBypass: "reminder",
         });
         if (fresh.lead_id) {
           await storeSmsMessage({
@@ -149,6 +154,13 @@ async function sendFollowup(rr: ReviewRequest): Promise<{ sent: boolean; error?:
         }
         sendOk = true;
       } catch (err: any) {
+        // Wave 79 — quiet-hours defer: don't burn the attempt budget;
+        // leave the review-request row untouched (status & attempts
+        // both unchanged) so the next worker run picks it up at the
+        // already-scheduled `next_followup_at`.
+        if (err?.message === "sms_quiet_hours_blocked") {
+          return { sent: false, error: "deferred_quiet_hours" };
+        }
         sendError = err.message;
       }
     }
