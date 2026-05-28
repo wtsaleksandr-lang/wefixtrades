@@ -32,6 +32,25 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 
+/**
+ * Wave 90 — critical-route allowlist.
+ *
+ * Routes whose prerender failure must be treated as a HARD BUILD ERROR.
+ * Historically the build step swallowed prerender exit-codes
+ * ("non-fatal — skipping") which shipped an unhydrated
+ * /sms-consent-disclosure to production and blocked the A2P 10DLC
+ * campaign vetting. These routes are scraped by external bots that do
+ * NOT execute JavaScript, so an unhydrated shell is silently fatal.
+ *
+ * Keep this list short and intentional. Adding a route here promotes
+ * any prerender hiccup on it from "warn" to "abort the deploy".
+ */
+const CRITICAL_ROUTES = [
+  "/sms-consent-disclosure",
+  "/privacy",
+  "/terms",
+];
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -348,6 +367,40 @@ async function writeRouteHtml(route, html) {
   await writeFile(outPath, html, "utf-8");
 }
 
+/**
+ * Wave 90 — static-template fallback writer.
+ *
+ * Maps routes to a hand-written HTML template that mirrors the React
+ * page content. Used when the Playwright path can't render a critical
+ * route (Chromium fails to launch, route throws, etc.). Keeps the
+ * A2P 10DLC consent vetting unblocked even if Playwright is broken.
+ *
+ * Returns true if a template was found AND successfully written.
+ */
+async function tryWriteTemplateFallback(route) {
+  const templates = {
+    "/sms-consent-disclosure": path.join(
+      __dirname,
+      "consent-disclosure-template.html",
+    ),
+  };
+  const templatePath = templates[route];
+  if (!templatePath || !existsSync(templatePath)) return false;
+  try {
+    const html = await readFile(templatePath, "utf-8");
+    await writeRouteHtml(route, html);
+    console.log(
+      `[prerender] ${route}: wrote static-template fallback (${html.length} bytes)`,
+    );
+    return true;
+  } catch (err) {
+    console.warn(
+      `[prerender] ${route}: template fallback failed: ${err?.message || err}`,
+    );
+    return false;
+  }
+}
+
 async function main() {
   const t0 = Date.now();
   // Wave 88 — port is overridable to avoid EADDRINUSE collisions with a
@@ -357,17 +410,36 @@ async function main() {
   const server = await startStaticServer(DIST_DIR, port);
   const baseUrl = `http://127.0.0.1:${port}`;
 
-  console.log("[prerender] launching Chromium...");
-  const browser = await chromium.launch();
-  const ctx = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (compatible; WFXPrerender/1.0; +https://wefixtrades.com) Chrome/120 Safari/537.36",
-  });
-  const page = await ctx.newPage();
-  // Silence noisy console traffic but surface page errors.
-  page.on("pageerror", (err) => {
-    console.warn(`[prerender] page error: ${err.message}`);
-  });
+  // Tracks routes that succeeded by ANY means (Playwright or template
+  // fallback). Used at exit to verify every CRITICAL_ROUTES entry is
+  // present — if not, the build aborts.
+  const succeeded = new Set();
+
+  // Wave 90 — try the Playwright path first. If Chromium itself fails
+  // to launch (e.g. missing Nix system libs), we DON'T abort — we fall
+  // through to the static-template fallback for whichever critical
+  // routes have one, then enforce the critical-route gate at the end.
+  let browser = null;
+  let ctx = null;
+  let page = null;
+  try {
+    console.log("[prerender] launching Chromium...");
+    browser = await chromium.launch();
+    ctx = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (compatible; WFXPrerender/1.0; +https://wefixtrades.com) Chrome/120 Safari/537.36",
+    });
+    page = await ctx.newPage();
+    // Silence noisy console traffic but surface page errors.
+    page.on("pageerror", (err) => {
+      console.warn(`[prerender] page error: ${err.message}`);
+    });
+  } catch (err) {
+    console.warn(
+      `[prerender] Chromium launch failed (${err?.message || err}); will rely on static-template fallback for critical routes.`,
+    );
+    browser = null;
+  }
 
   const productSlugs = await loadProductSlugs();
   const productRoutes = productSlugs.map((s) => `/products/${s}`);
@@ -378,29 +450,73 @@ async function main() {
 
   let ok = 0;
   let fail = 0;
-  for (const route of routes) {
-    try {
-      const { tags, noscriptBody } = await snapshotRoute(page, baseUrl, route);
-      if (!tags || tags.length === 0) {
-        console.warn(`[prerender] ${route}: no head tags captured`);
+  const failedCritical = [];
+
+  if (page) {
+    for (const route of routes) {
+      try {
+        const { tags, noscriptBody } = await snapshotRoute(page, baseUrl, route);
+        if (!tags || tags.length === 0) {
+          console.warn(`[prerender] ${route}: no head tags captured`);
+          fail += 1;
+          if (CRITICAL_ROUTES.includes(route)) failedCritical.push(route);
+          continue;
+        }
+        const html = spliceHead(shell, tags, noscriptBody);
+        await writeRouteHtml(route, html);
+        succeeded.add(route);
+        ok += 1;
+      } catch (err) {
+        console.warn(`[prerender] ${route}: ${err?.message || err}`);
         fail += 1;
-        continue;
+        if (CRITICAL_ROUTES.includes(route)) failedCritical.push(route);
       }
-      const html = spliceHead(shell, tags, noscriptBody);
-      await writeRouteHtml(route, html);
-      ok += 1;
-    } catch (err) {
-      console.warn(`[prerender] ${route}: ${err?.message || err}`);
+    }
+  } else {
+    // Chromium never launched — every route is a failure for the
+    // Playwright path. Mark critical routes for fallback attempts.
+    for (const route of routes) {
       fail += 1;
+      if (CRITICAL_ROUTES.includes(route)) failedCritical.push(route);
     }
   }
 
-  await browser.close();
+  if (browser) await browser.close();
   await new Promise((resolve) => server.close(resolve));
+
+  // Wave 90 — attempt static-template fallback for any CRITICAL route
+  // that failed the Playwright path. The template emits hand-written
+  // HTML with the disclosure copy inlined, so the A2P 10DLC vetting
+  // scraper sees the required content even when Playwright is broken.
+  if (failedCritical.length > 0) {
+    console.log(
+      `[prerender] attempting template fallback for ${failedCritical.length} failed critical route(s)...`,
+    );
+    for (const route of failedCritical) {
+      const wrote = await tryWriteTemplateFallback(route);
+      if (wrote) succeeded.add(route);
+    }
+  }
 
   const seconds = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`[prerender] done in ${seconds}s — ok=${ok} fail=${fail}`);
-  if (ok === 0) {
+
+  // Wave 90 — enforce the critical-route gate. If any route in
+  // CRITICAL_ROUTES still doesn't have a generated index.html
+  // (neither Playwright nor template fallback succeeded), abort the
+  // build so the deploy doesn't silently ship a broken consent /
+  // privacy / terms page like prior waves did.
+  const stillMissingCritical = CRITICAL_ROUTES.filter(
+    (route) => !succeeded.has(route),
+  );
+  if (stillMissingCritical.length > 0) {
+    console.error(
+      `[prerender] FATAL: critical route(s) not generated: ${stillMissingCritical.join(", ")}`,
+    );
+    process.exit(1);
+  }
+
+  if (ok === 0 && succeeded.size === 0) {
     console.error("[prerender] FATAL: zero routes prerendered successfully.");
     process.exit(1);
   }

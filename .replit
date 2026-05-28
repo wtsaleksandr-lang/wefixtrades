@@ -4,7 +4,27 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["unzip", "lsof"]
+# Wave 90 — Playwright/Chromium system libs added so the prerender step in
+# scripts/seo/prerender-routes.mjs can launch headless Chromium during deploy
+# builds. Without these the build silently skipped prerender (it was
+# marked non-fatal), which shipped an unhydrated /sms-consent-disclosure
+# and blocked the A2P 10DLC campaign vetting. See PR for Wave 90.
+packages = [
+  "unzip",
+  "lsof",
+  "glib",
+  "nss",
+  "nspr",
+  "atk",
+  "at-spi2-atk",
+  "cups",
+  "libdrm",
+  "gtk3",
+  "pango",
+  "cairo",
+  "alsa-lib",
+  "libxkbcommon",
+]
 
 [[ports]]
 localPort = 3000
