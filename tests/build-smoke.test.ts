@@ -115,24 +115,28 @@ const CRITICAL_PAGES: CriticalPage[] = [
     mustContain: ["WeFixTrades"],
     required: false,
   },
+  // Wave 100 — minBytes raised to match the static-template floors.
+  // Templates: consent ~6158B, privacy ~14530B, terms ~15636B. Critical
+  // routes always ship the template (see prerender-routes.mjs), so the
+  // smoke floor enforces real body content, not an empty head-only shell.
   {
     route: "/sms-consent-disclosure",
     file: path.join("sms-consent-disclosure", "index.html"),
-    minBytes: 6000,
+    minBytes: 5500,
     mustContain: ["STOP", "consent", "opt-in"],
     required: true,
   },
   {
     route: "/privacy",
     file: path.join("privacy", "index.html"),
-    minBytes: 5000,
+    minBytes: 12000,
     mustContain: ["Privacy"],
     required: true,
   },
   {
     route: "/terms",
     file: path.join("terms", "index.html"),
-    minBytes: 5000,
+    minBytes: 12000,
     mustContain: ["Terms"],
     required: true,
   },
