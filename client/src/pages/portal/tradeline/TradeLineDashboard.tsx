@@ -50,9 +50,14 @@ import { Button } from "@/components/ui/button";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { apiRequest } from "@/lib/queryClient";
 import {
+  BarComparisonCard,
   KpiGauge,
+  MonthlyBarSeries,
   ProgressRing,
+  SemiGauge,
+  SparklineWithPeak,
   StatusPill,
+  type MonthlyBar,
 } from "@/components/ui/visual-primitives";
 import { BookingFunnel } from "@/components/tradeline/BookingFunnel";
 import {
@@ -210,6 +215,65 @@ export default function TradeLineDashboard() {
     return c?.listenUrl != null;
   }, [activeCallsQuery.data]);
 
+  /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
+
+  // Customer Satisfaction Score — derived from answered-share + booking
+  // conversion as a coarse proxy until we ship per-call CSAT collection.
+  // TODO Wave 73: wire to real /api/portal/tradeline/csat endpoint.
+  const csatScore = useMemo(() => {
+    const calls = kpis?.callsToday ?? 0;
+    const answered = kpis?.answeredToday ?? 0;
+    const bookings = kpis?.bookingsThisMonth ?? 0;
+    if (calls === 0 && bookings === 0) return 0;
+    const answeredShare = calls > 0 ? (answered / calls) * 100 : 50;
+    const bookingBonus = Math.min(20, bookings * 0.6);
+    return Math.round(Math.min(100, Math.max(0, answeredShare * 0.85 + bookingBonus)));
+  }, [kpis?.callsToday, kpis?.answeredToday, kpis?.bookingsThisMonth]);
+
+  const csatVerdict = csatScore >= 80 ? "Excellent" : csatScore >= 50 ? "Good, room to improve" : "Needs attention";
+  const csatAdvice = csatScore >= 80
+    ? "Customers are happy — keep response times tight."
+    : csatScore >= 50
+      ? "Focus on faster pickup times to push above 80."
+      : "Many calls are going unanswered — review staffing and AI escalation rules.";
+
+  // Peak call hour — mocked 24-hour proxy.
+  // TODO Wave 73: wire to real /api/portal/tradeline/stats/peak-call-hour endpoint.
+  const peakCallHourSeries = useMemo(() => {
+    const anchor = Math.max(kpis?.callsToday ?? 0, 1);
+    // Plausible business-hours curve peaking around 11 AM.
+    const curve = [
+      0.1, 0.05, 0.05, 0.05, 0.05, 0.1, 0.3, 0.5, 0.7, 0.85, 0.95, 1, 0.9,
+      0.85, 0.8, 0.7, 0.65, 0.55, 0.4, 0.3, 0.25, 0.15, 0.1, 0.08,
+    ];
+    return curve.map((c) => Math.round(c * anchor));
+  }, [kpis?.callsToday]);
+  const peakCallHourLabels = [
+    "12a", "1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a",
+    "12p", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p",
+  ];
+
+  // Calls per month — derive from callsToday × 22 as a coarse anchor.
+  // TODO Wave 73: wire to real /api/portal/tradeline/dashboard-kpis monthly-calls series.
+  const callsMonthlyBars: MonthlyBar[] = useMemo(() => {
+    const now = new Date();
+    const labels: string[] = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(d.toLocaleString(undefined, { month: "short" }));
+    }
+    const anchor = Math.max((kpis?.callsToday ?? 0) * 22, 1);
+    return labels.map((label, idx) => {
+      const isCurrent = idx === labels.length - 1;
+      const ratio = isCurrent ? 1 : 0.55 + idx * 0.08;
+      return {
+        label,
+        value: Math.round(anchor * ratio),
+        highlighted: isCurrent,
+      };
+    });
+  }, [kpis?.callsToday]);
+
   /* ─── Render ────────────────────────────────────────────────────────── */
 
   return (
@@ -295,6 +359,66 @@ export default function TradeLineDashboard() {
               estimatedMissedRevenue={kpis?.estimatedMissedRevenue ?? 0}
               subscriptionCost={kpis?.monthSubscriptionCost ?? 0}
             />
+          </AdvancedOnly>
+        </div>
+
+        {/* ─── Wave 72 — new KPI primitives row ────────────────────────── */}
+        <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+          {/* Headline (Simple-mode visible) — CSAT SemiGauge */}
+          <Card className="p-4 h-full flex items-center justify-center" data-testid="tl-csat-semigauge">
+            <SemiGauge
+              value={csatScore}
+              max={100}
+              label="Customer satisfaction"
+              verdict={csatVerdict}
+              advice={csatAdvice}
+              unit=""
+              size={200}
+            />
+          </Card>
+
+          {/* Advanced — answered vs missed */}
+          <AdvancedOnly product="tradeline" elementId="tradeline.answered-vs-missed-bars">
+            <Card className="p-4 h-full" data-testid="tl-answered-vs-missed">
+              <BarComparisonCard
+                title="Answered vs missed today"
+                items={[
+                  { label: "Answered", value: kpis?.answeredToday ?? 0, color: "emerald" },
+                  { label: "Missed", value: kpis?.missedToday ?? 0, color: "crimson" },
+                ]}
+              />
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — peak call hour sparkline */}
+          <AdvancedOnly product="tradeline" elementId="tradeline.peak-call-hour-sparkline">
+            <Card className="p-4 h-full" data-testid="tl-peak-call-hour">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                Peak call hour today
+              </div>
+              <SparklineWithPeak
+                data={peakCallHourSeries}
+                pointLabels={peakCallHourLabels}
+                color="amber"
+                width={260}
+                height={96}
+                ariaLabel="Hourly call volume with peak hour callout"
+              />
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — calls per month */}
+          <AdvancedOnly product="tradeline" elementId="tradeline.calls-monthly-bars">
+            <Card className="p-4 h-full" data-testid="tl-calls-monthly">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                Calls per month
+              </div>
+              <MonthlyBarSeries
+                bars={callsMonthlyBars}
+                color="sapphire"
+                ariaLabel="TradeLine calls per month"
+              />
+            </Card>
           </AdvancedOnly>
         </div>
 

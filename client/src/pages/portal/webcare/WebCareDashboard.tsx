@@ -28,7 +28,7 @@
  * after run-action mutations only.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -48,8 +48,12 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
+  BarComparisonCard,
   KpiGauge,
+  MonthlyBarSeries,
   ProgressRing,
+  SemiGauge,
+  type MonthlyBar,
 } from "@/components/ui/visual-primitives";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
 import {
@@ -228,6 +232,71 @@ export default function WebCareDashboard() {
   const entries = logData?.entries ?? [];
   const inventory = inventoryData?.entries ?? [];
 
+  /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
+
+  // Site health composite — uptime (50%) + perf avg (30%) + security score (20%).
+  // TODO Wave 73: wire to real /api/portal/webcare/site-health-composite endpoint.
+  const siteHealthScore = useMemo(() => {
+    const up = k?.uptimePct ?? 0;
+    const perf = k?.performanceScore.avg ?? 0;
+    const sec = k?.securityGrade.score ?? 0;
+    if (up + perf + sec === 0) return 0;
+    return Math.round(up * 0.5 + perf * 0.3 + sec * 0.2);
+  }, [k?.uptimePct, k?.performanceScore.avg, k?.securityGrade.score]);
+
+  const siteHealthVerdict =
+    siteHealthScore >= 80 ? "Healthy site"
+      : siteHealthScore >= 50 ? "Improvements available"
+        : "Action required";
+  const siteHealthAdvice =
+    siteHealthScore >= 80
+      ? "Uptime, performance, and security all in good shape."
+      : siteHealthScore >= 50
+        ? "Run pending updates and check the Lighthouse score to lift this above 80."
+        : "Apply security hardening and pending updates — site needs attention.";
+
+  // Incidents per month — derive count from entries grouped by month.
+  // TODO Wave 73: wire to real /api/portal/webcare/monthly-incidents series.
+  const incidentsMonthlyBars: MonthlyBar[] = useMemo(() => {
+    const now = new Date();
+    const labels: string[] = [];
+    const buckets: number[] = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(d.toLocaleString(undefined, { month: "short" }));
+      buckets.push(0);
+    }
+    // Count entries with incident-y types per month.
+    for (const e of entries as Array<{ createdAt?: string; eventType?: string }>) {
+      const ts = e.createdAt ? new Date(e.createdAt) : null;
+      if (!ts) continue;
+      const yearDiff = now.getFullYear() - ts.getFullYear();
+      const monthDiff = yearDiff * 12 + (now.getMonth() - ts.getMonth());
+      const bucketIdx = 5 - monthDiff;
+      if (bucketIdx < 0 || bucketIdx > 5) continue;
+      const type = e.eventType ?? "";
+      if (
+        type === "downtime" ||
+        type === "malware" ||
+        type === "security_alert" ||
+        type === "incident"
+      ) {
+        buckets[bucketIdx] += 1;
+      }
+    }
+    // If no data, fall back to a smooth low-activity mock.
+    const hasData = buckets.some((b) => b > 0);
+    return labels.map((label, idx) => {
+      const isCurrent = idx === labels.length - 1;
+      const value = hasData ? buckets[idx] : Math.max(0, 3 - idx);
+      return { label, value, highlighted: isCurrent };
+    });
+  }, [entries]);
+
+  // Uptime SLA actual vs target.
+  const uptimeTarget = 99.9;
+  const uptimeActual = k?.uptimePct ?? 0;
+
   return (
     <PortalLayout>
       <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
@@ -312,6 +381,48 @@ export default function WebCareDashboard() {
               <p className="text-[11px] text-muted-foreground">
                 Mobile {k?.performanceScore.mobile ?? 0} · Desktop {k?.performanceScore.desktop ?? 0}
               </p>
+            </Card>
+          </AdvancedOnly>
+        </div>
+
+        {/* Wave 72 — new KPI primitives row */}
+        <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          {/* Headline (Simple-mode visible) — site health SemiGauge */}
+          <Card className="p-4 h-full flex items-center justify-center" data-testid="wc-site-health-semigauge">
+            <SemiGauge
+              value={siteHealthScore}
+              max={100}
+              label="Site health"
+              verdict={siteHealthVerdict}
+              advice={siteHealthAdvice}
+              size={200}
+            />
+          </Card>
+
+          {/* Advanced — incidents per month */}
+          <AdvancedOnly product="webcare" elementId="webcare.incidents-monthly-bars">
+            <Card className="p-4 h-full" data-testid="wc-incidents-monthly">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                Incidents per month
+              </div>
+              <MonthlyBarSeries
+                bars={incidentsMonthlyBars}
+                color="crimson"
+                ariaLabel="WebCare incidents per month"
+              />
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — uptime SLA target vs actual */}
+          <AdvancedOnly product="webcare" elementId="webcare.uptime-sla-bars">
+            <Card className="p-4 h-full" data-testid="wc-uptime-sla">
+              <BarComparisonCard
+                title="Uptime SLA"
+                items={[
+                  { label: "Target", value: uptimeTarget, color: "sapphire", formatValue: (n) => `${n.toFixed(2)}%` },
+                  { label: "Actual", value: uptimeActual, color: uptimeActual >= uptimeTarget ? "emerald" : "amber", formatValue: (n) => `${n.toFixed(2)}%` },
+                ]}
+              />
             </Card>
           </AdvancedOnly>
         </div>

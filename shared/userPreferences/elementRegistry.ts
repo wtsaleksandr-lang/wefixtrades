@@ -79,6 +79,21 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     description: "Thumbnail grid of your latest 8 pieces of content with quick links.",
     category: "inventory",
   },
+  // Wave 72 — new KPI primitives
+  {
+    id: "contentflow.content-type-mix-donut",
+    product: "contentflow",
+    label: "Content type mix",
+    description: "Donut showing the recent split between articles, social posts, images, and video.",
+    category: "chart",
+  },
+  {
+    id: "contentflow.top-post-sparkline",
+    product: "contentflow",
+    label: "Top-performing post sparkline",
+    description: "Sparkline with peak callout for the best recent content engagement.",
+    category: "chart",
+  },
 
   // ─── rankflow ──────────────────────────────────────────────────────────
   {
@@ -130,6 +145,21 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     description: "Recent publishes, rank moves, and SEO work in a unified timeline.",
     category: "feed",
   },
+  // Wave 72 — new KPI primitives
+  {
+    id: "rankflow.best-spike-sparkline",
+    product: "rankflow",
+    label: "Best-ranking spike sparkline",
+    description: "12-week sparkline highlighting your strongest ranking week.",
+    category: "chart",
+  },
+  {
+    id: "rankflow.page1-vs-page2-bars",
+    product: "rankflow",
+    label: "Page 1 vs Page 2 keywords",
+    description: "Side-by-side bar comparison of top-10 vs positions 11-20 keyword counts.",
+    category: "chart",
+  },
 
   // ─── socialsync ────────────────────────────────────────────────────────
   {
@@ -167,6 +197,21 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     description: "First three pending approvals — duplicates the Approvals tab.",
     category: "feed",
   },
+  // Wave 72 — new KPI primitives
+  {
+    id: "socialsync.platform-mix-donut",
+    product: "socialsync",
+    label: "Platform mix donut",
+    description: "Donut chart of recent posts split by social platform.",
+    category: "chart",
+  },
+  {
+    id: "socialsync.top-post-sparkline",
+    product: "socialsync",
+    label: "Top-performing post sparkline",
+    description: "Sparkline with peak callout for the best-engagement day.",
+    category: "chart",
+  },
 
   // ─── tradeline ─────────────────────────────────────────────────────────
   {
@@ -181,6 +226,28 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     product: "tradeline",
     label: "Call sentiment heatmap",
     description: "Per-call sentiment by segment — surfaces only when a call is selected.",
+    category: "chart",
+  },
+  // Wave 72 — new KPI primitives
+  {
+    id: "tradeline.answered-vs-missed-bars",
+    product: "tradeline",
+    label: "Answered vs missed bars",
+    description: "Side-by-side bar comparison of answered vs missed calls today.",
+    category: "chart",
+  },
+  {
+    id: "tradeline.peak-call-hour-sparkline",
+    product: "tradeline",
+    label: "Peak call hour sparkline",
+    description: "Hourly call volume with peak hour highlighted.",
+    category: "chart",
+  },
+  {
+    id: "tradeline.calls-monthly-bars",
+    product: "tradeline",
+    label: "Calls per month",
+    description: "Monthly bar series of call volume over the last 6 months.",
     category: "chart",
   },
 
@@ -219,6 +286,21 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     label: "Competitor alert feed",
     description: "Reactive timeline of competitor rank moves and citation changes.",
     category: "feed",
+  },
+  // Wave 72 — new KPI primitives
+  {
+    id: "mapguard.citation-directory-donut",
+    product: "mapguard",
+    label: "Citation directory mix",
+    description: "Donut chart of citations split by clean / missing / inconsistent.",
+    category: "chart",
+  },
+  {
+    id: "mapguard.best-rank-day-sparkline",
+    product: "mapguard",
+    label: "Best-ranking day sparkline",
+    description: "Sparkline with peak callout for the best day across the geo grid.",
+    category: "chart",
   },
 
   // ─── reputationshield ──────────────────────────────────────────────────
@@ -271,6 +353,28 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     description: "Per-category sentiment across all your reviews. Power-analyst tool.",
     category: "chart",
   },
+  // Wave 72 — new KPI primitives
+  {
+    id: "reputationshield.sentiment-mix-donut",
+    product: "reputationshield",
+    label: "Sentiment mix donut",
+    description: "Donut chart of recent review sentiment (positive / neutral / negative).",
+    category: "chart",
+  },
+  {
+    id: "reputationshield.replied-vs-unreplied",
+    product: "reputationshield",
+    label: "Replied vs unreplied bars",
+    description: "Side-by-side bar comparison of replied vs unreplied reviews.",
+    category: "chart",
+  },
+  {
+    id: "reputationshield.reviews-monthly-bars",
+    product: "reputationshield",
+    label: "New reviews per month",
+    description: "Monthly bar series of new reviews over the last 6 months.",
+    category: "chart",
+  },
 
   // ─── quotequick ────────────────────────────────────────────────────────
   {
@@ -285,6 +389,28 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     product: "quotequick",
     label: "Conversion gauge per template",
     description: "Per-template conversion ring grid — only relevant when you have multiple templates.",
+    category: "chart",
+  },
+  // Wave 72 — new KPI primitives
+  {
+    id: "quotequick.best-revenue-sparkline",
+    product: "quotequick",
+    label: "Best revenue day sparkline",
+    description: "14-day sparkline with peak callout for the highest-revenue day.",
+    category: "chart",
+  },
+  {
+    id: "quotequick.views-vs-completions",
+    product: "quotequick",
+    label: "Views vs completions bars",
+    description: "Side-by-side bar comparison of quote views vs completed quotes.",
+    category: "chart",
+  },
+  {
+    id: "quotequick.quotes-monthly-bars",
+    product: "quotequick",
+    label: "Quotes per month",
+    description: "Monthly bar series of quotes sent over the last 6 months.",
     category: "chart",
   },
 
@@ -317,6 +443,21 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     description: "Profitable-trade and day-of-week heatmaps for power-user analysis.",
     category: "chart",
   },
+  // Wave 72 — new KPI primitives
+  {
+    id: "adflow.peak-roas-sparkline",
+    product: "adflow",
+    label: "Peak ROAS day sparkline",
+    description: "Sparkline with peak callout for the best return-on-ad-spend day.",
+    category: "chart",
+  },
+  {
+    id: "adflow.spend-by-platform-donut",
+    product: "adflow",
+    label: "Ad spend by platform donut",
+    description: "Donut chart of ad spend split by Google / Meta / Bing.",
+    category: "chart",
+  },
 
   // ─── webcare ───────────────────────────────────────────────────────────
   {
@@ -346,6 +487,21 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     label: "Pending updates + site inventory",
     description: "Pending plugin/core updates gauge alongside the full site inventory.",
     category: "inventory",
+  },
+  // Wave 72 — new KPI primitives
+  {
+    id: "webcare.incidents-monthly-bars",
+    product: "webcare",
+    label: "Incidents per month",
+    description: "Monthly bar series of incidents over the last 6 months.",
+    category: "chart",
+  },
+  {
+    id: "webcare.uptime-sla-bars",
+    product: "webcare",
+    label: "Uptime SLA target vs actual",
+    description: "Side-by-side bar comparison of uptime SLA target vs actual uptime.",
+    category: "chart",
   },
 ] as const;
 

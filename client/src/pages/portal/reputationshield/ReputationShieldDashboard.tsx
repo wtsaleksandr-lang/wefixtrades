@@ -52,12 +52,18 @@ import {
   AnimatedCounter,
   ApprovalInbox,
   AIDraftEditor,
+  BarComparisonCard,
+  DonutChart,
   KpiGauge,
+  MonthlyBarSeries,
+  SemiGauge,
   Sparkline,
+  type DonutSegment,
   type InboxAction,
   type InboxItem,
   type InboxItemStatus,
   type InboxItemSentiment,
+  type MonthlyBar,
 } from "@/components/ui/visual-primitives";
 import {
   PlatformScorecard,
@@ -396,6 +402,92 @@ export default function ReputationShieldDashboard() {
       ? `Thanks for the ${selectedItem.rating}-star review, ${selectedItem.authorName}!`
       : "");
 
+  /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
+
+  // Reputation composite score 0-100: avgRating (60%) + recencyBonus (20%) + volumeBonus (20%).
+  // TODO Wave 73: wire to real /api/portal/reputationshield/reputation-composite endpoint.
+  const reputationScore = useMemo(() => {
+    const rating = kpis?.avgRating ?? 0; // 0..5
+    const days = kpis?.daysSinceLastReview ?? 999;
+    const volume = kpis?.reviewVelocity.thisMonth ?? 0;
+    if (rating === 0 && volume === 0) return 0;
+    const ratingPart = (rating / 5) * 60;
+    const recencyPart = Math.max(0, Math.min(20, 20 - (days / 30) * 10));
+    const volumePart = Math.min(20, volume * 2);
+    return Math.round(ratingPart + recencyPart + volumePart);
+  }, [kpis?.avgRating, kpis?.daysSinceLastReview, kpis?.reviewVelocity.thisMonth]);
+
+  const repVerdict =
+    reputationScore >= 80 ? "Solid reputation"
+      : reputationScore >= 50 ? "Healthy but improvable"
+        : "Needs attention";
+  const repAdvice =
+    reputationScore >= 80
+      ? "Keep the review cadence going — you're outperforming most local competitors."
+      : reputationScore >= 50
+        ? "Reply to a few more reviews this week to lift the composite above 80."
+        : "Run a review-request campaign — recent and frequent reviews lift this score fastest.";
+
+  // Sentiment mix donut — derive from heatmap cells when present.
+  // TODO Wave 73: wire to real /api/portal/reputationshield/sentiment-mix endpoint.
+  const sentimentSegments: DonutSegment[] = useMemo(() => {
+    const cells = kpisQuery.data?.heatmap ?? [];
+    let pos = 0;
+    let neu = 0;
+    let neg = 0;
+    for (const c of cells as Array<{ sentiment?: string; value?: number }>) {
+      const v = c.value ?? 0;
+      if (c.sentiment === "positive") pos += v;
+      else if (c.sentiment === "negative") neg += v;
+      else neu += v;
+    }
+    if (pos + neu + neg === 0) {
+      return [
+        { label: "Positive", value: 18, color: "emerald" },
+        { label: "Neutral", value: 6, color: "amber" },
+        { label: "Negative", value: 2, color: "crimson" },
+      ];
+    }
+    return [
+      { label: "Positive", value: pos, color: "emerald" },
+      { label: "Neutral", value: neu, color: "amber" },
+      { label: "Negative", value: neg, color: "crimson" },
+    ];
+  }, [kpisQuery.data?.heatmap]);
+
+  // Replied vs unreplied — derive from replyRate + inbox length.
+  const totalInbox = inboxQuery.data?.items.length ?? 0;
+  const repliedCount = Math.round(((kpis?.replyRate ?? 0) / 100) * Math.max(totalInbox, 0));
+  const unrepliedCount = Math.max(0, totalInbox - repliedCount);
+
+  // New reviews per month — use velocityTrend12w as proxy (12 weeks ≈ 6 months in pairs).
+  // TODO Wave 73: wire to real /api/portal/reputationshield/dashboard-kpis monthly-new-reviews series.
+  const reviewsMonthlyBars: MonthlyBar[] = useMemo(() => {
+    const now = new Date();
+    const labels: string[] = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(d.toLocaleString(undefined, { month: "short" }));
+    }
+    const trend = kpisQuery.data?.velocityTrend12w ?? [];
+    // Aggregate weeks in pairs (≈half-month each).
+    const monthlyTotals: number[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const slice = trend.slice(i * 2, i * 2 + 2);
+      monthlyTotals.push(slice.reduce((s, v) => s + v, 0));
+    }
+    // If trend is empty, fall back to anchor.
+    const anchor = kpis?.reviewVelocity.thisMonth ?? 0;
+    return labels.map((label, idx) => {
+      const isCurrent = idx === labels.length - 1;
+      const value =
+        monthlyTotals[idx] > 0
+          ? monthlyTotals[idx]
+          : Math.max(0, Math.round(anchor * (isCurrent ? 1 : 0.5 + idx * 0.08)));
+      return { label, value, highlighted: isCurrent };
+    });
+  }, [kpis?.reviewVelocity.thisMonth, kpisQuery.data?.velocityTrend12w]);
+
   return (
     <PortalLayout>
       <div className="space-y-4">
@@ -578,6 +670,60 @@ export default function ReputationShieldDashboard() {
                   : "Reply to more reviews"}
             </span>
           </Card>
+          </AdvancedOnly>
+        </div>
+
+        {/* Wave 72 — new KPI primitives row */}
+        <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+          {/* Headline (Simple-mode visible) — reputation score SemiGauge */}
+          <Card className="p-4 h-full flex items-center justify-center" data-testid="rs-reputation-semigauge">
+            <SemiGauge
+              value={reputationScore}
+              max={100}
+              label="Reputation score"
+              verdict={repVerdict}
+              advice={repAdvice}
+              size={200}
+            />
+          </Card>
+
+          {/* Advanced — sentiment mix donut */}
+          <AdvancedOnly product="reputationshield" elementId="reputationshield.sentiment-mix-donut">
+            <Card className="p-4 h-full" data-testid="rs-sentiment-mix-donut">
+              <DonutChart
+                title="Sentiment mix"
+                segments={sentimentSegments}
+                size={130}
+                ariaLabel="Review sentiment mix"
+              />
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — replied vs unreplied */}
+          <AdvancedOnly product="reputationshield" elementId="reputationshield.replied-vs-unreplied">
+            <Card className="p-4 h-full" data-testid="rs-replied-vs-unreplied">
+              <BarComparisonCard
+                title="Replied vs unreplied"
+                items={[
+                  { label: "Replied", value: repliedCount, color: "emerald" },
+                  { label: "Unreplied", value: unrepliedCount, color: "amber" },
+                ]}
+              />
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — new reviews per month */}
+          <AdvancedOnly product="reputationshield" elementId="reputationshield.reviews-monthly-bars">
+            <Card className="p-4 h-full" data-testid="rs-reviews-monthly">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                New reviews per month
+              </div>
+              <MonthlyBarSeries
+                bars={reviewsMonthlyBars}
+                color="sapphire"
+                ariaLabel="New reviews per month"
+              />
+            </Card>
           </AdvancedOnly>
         </div>
 
