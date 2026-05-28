@@ -14,7 +14,7 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { requireSessionOrBearer } from "../lib/mobileAuth";
-import { sendSMS, isTwilioConfigured } from "../twilioClient";
+import { sendSMS, sendSmsAsClient, isTwilioConfigured } from "../twilioClient";
 import { db } from "../db";
 import { clients, clientServices } from "@shared/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -174,7 +174,12 @@ export function registerMobileApiRoutes(app: Express) {
 
         const eta = parsed.data.etaMinutes;
         const body = `On my way! ETA about ${eta} minute${eta === 1 ? "" : "s"}. - ${businessName}`;
-        const sid = await sendSMS(parsed.data.to.trim(), body);
+        // Wave 77 — ETA text goes to the homeowner. Route via per-tenant
+        // number with per-client opt-out scoping when we have a clientId;
+        // otherwise fall back to the shared brand line.
+        const sid = clientId
+          ? await sendSmsAsClient({ clientId, to: parsed.data.to.trim(), body, channel: "sms" })
+          : await sendSMS(parsed.data.to.trim(), body);
 
         return res.json({ ok: true, sid });
       } catch (err) {
