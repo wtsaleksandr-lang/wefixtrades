@@ -1,19 +1,26 @@
 /**
- * IntegrationsTrustStrip — replaces the prior TrustMarquee (which used
- * fabricated customer logos). Shows real, recognizable integrations
- * that signal "this product is built on industry-standard rails."
+ * IntegrationsTrustStrip — silent-trust logos + a competitive comparison
+ * block that lands the WeFixTrades positioning: "compete with the big
+ * chains without the big-chain overhead."
  *
- * Picked deliberately to cover the buyer's main "does this actually
- * work?" questions:
- *   - Stripe  → payments + subscriptions are first-class
- *   - Twilio  → real phone numbers + SMS, not gimmicks
- *   - Google  → Maps / Search / Business Profile wired in
- *   - Anthropic Claude → AI brain, named (not a generic "AI" claim)
- *   - Vapi    → real-time voice AI for the 24/7 phone line
+ * Wave 102 — rebuilt per Alex's psychology insight: brand NAMES mean
+ * nothing to a plumber who doesn't know what Anthropic is; brand LOGOS
+ * create recognition through "I've seen that somewhere" memory. So:
  *
- * Wordmarks are simplified inline SVG so we don't pull external assets.
- * Brand colors muted to neutral-on-dark so the strip reads as a quiet
- * trust signal rather than competing logos.
+ *   - Tagline "Powered by the rails you already trust" REMOVED. Naming
+ *     the rails out loud was the part that read as jargon.
+ *   - The 5 logos stay as silent visual trust signals (no caption).
+ *   - Twilio + Anthropic logos upgraded to versions that look closer to
+ *     the real marks (the prior hand-drawn Twilio dots-circle and the
+ *     orange "A" for Anthropic were inventions, not the official marks).
+ *   - A "us vs them" comparison table is added BELOW the logos. Tradies
+ *     don't read paragraphs — the table scans in 5 seconds and tells the
+ *     whole positioning story without prose.
+ *
+ * The SOC 2 / GDPR row Alex earlier debated lives in the footer already,
+ * so it's intentionally not duplicated here.
+ *
+ * Wordmarks remain inline SVG (no external assets, no copyright risk).
  */
 
 import { mkt } from "@/theme/tokens";
@@ -28,6 +35,7 @@ interface IntegrationLogo {
 
 const INTEGRATIONS: IntegrationLogo[] = [
   {
+    // Stripe — official wordmark, accurate.
     name: "Stripe",
     svg: (
       <svg width="56" height="20" viewBox="0 0 56 20" fill="currentColor" aria-label="Stripe">
@@ -36,23 +44,34 @@ const INTEGRATIONS: IntegrationLogo[] = [
     ),
   },
   {
+    // Twilio — official mark is the lowercase "twilio" wordmark in their
+    // signature red (#F22F46). The prior 4-dots-in-a-circle was a custom
+    // invention that didn't match any real Twilio asset.
     name: "Twilio",
     svg: (
-      <svg width="62" height="20" viewBox="0 0 62 20" fill="currentColor" aria-label="Twilio">
-        <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" strokeWidth="2"/>
-        <circle cx="6.5" cy="6.5" r="1.7" fill="#F22F46"/>
-        <circle cx="13.5" cy="6.5" r="1.7" fill="#F22F46"/>
-        <circle cx="6.5" cy="13.5" r="1.7" fill="#F22F46"/>
-        <circle cx="13.5" cy="13.5" r="1.7" fill="#F22F46"/>
-        <text x="24" y="14" fontFamily="-apple-system, system-ui, sans-serif" fontSize="11.5" fontWeight="700" letterSpacing="0">twilio</text>
+      <svg width="52" height="20" viewBox="0 0 52 20" aria-label="Twilio">
+        <text
+          x="0"
+          y="15"
+          fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+          fontSize="14"
+          fontWeight="800"
+          fill="#F22F46"
+          letterSpacing="-0.4"
+        >
+          twilio
+        </text>
       </svg>
     ),
   },
   {
-    name: "Google Business",
+    // Google — multicolor wordmark. "Business" callout dropped; the
+    // strip is logos-only now, and "Google" alone covers Maps / Search /
+    // Business Profile equally well.
+    name: "Google",
     svg: (
-      <svg width="78" height="20" viewBox="0 0 78 20" fill="currentColor" aria-label="Google Business">
-        <text x="0" y="14" fontFamily="-apple-system, system-ui, sans-serif" fontSize="11.5" fontWeight="700" letterSpacing="-0.2">
+      <svg width="58" height="20" viewBox="0 0 58 20" aria-label="Google">
+        <text x="0" y="15" fontFamily="-apple-system, system-ui, sans-serif" fontSize="14" fontWeight="700" letterSpacing="-0.3">
           <tspan fill="#4285F4">G</tspan>
           <tspan fill="#EA4335">o</tspan>
           <tspan fill="#FBBC04">o</tspan>
@@ -60,69 +79,103 @@ const INTEGRATIONS: IntegrationLogo[] = [
           <tspan fill="#34A853">l</tspan>
           <tspan fill="#EA4335">e</tspan>
         </text>
-        <text x="42" y="14" fontFamily="-apple-system, system-ui, sans-serif" fontSize="11.5" fontWeight="500" letterSpacing="-0.2">Business</text>
       </svg>
     ),
   },
   {
+    // Anthropic Claude — the real Anthropic mark is a stylized burst /
+    // 8-point asterisk in their sienna orange (#CC785C). Approximated
+    // here as 8 tapered petals around a center. Plus "Claude" wordmark.
     name: "Anthropic Claude",
     svg: (
-      <svg width="74" height="20" viewBox="0 0 74 20" fill="currentColor" aria-label="Anthropic Claude">
-        <path d="M10.6 4 6.1 16h2.5l.85-2.4h4.55l.85 2.4h2.5L12.85 4h-2.25Zm.2 7.6 1.55-4.4 1.55 4.4h-3.1Z" fill="#D97706"/>
-        <text x="20" y="14" fontFamily="-apple-system, system-ui, sans-serif" fontSize="11.5" fontWeight="600" letterSpacing="-0.15">Claude</text>
+      <svg width="76" height="20" viewBox="0 0 76 20" aria-label="Anthropic Claude">
+        {/* Asterisk burst — 4 long axes (N/S/E/W) + 4 short diagonals.
+            Approximates the official Anthropic mark without copying it. */}
+        <g transform="translate(10 10)" fill="#CC785C">
+          {/* Long vertical + horizontal */}
+          <rect x="-1" y="-7" width="2" height="14" rx="1" />
+          <rect x="-7" y="-1" width="14" height="2" rx="1" />
+          {/* Short diagonals */}
+          <g transform="rotate(45)">
+            <rect x="-0.8" y="-5" width="1.6" height="10" rx="0.8" />
+            <rect x="-5" y="-0.8" width="10" height="1.6" rx="0.8" />
+          </g>
+        </g>
+        <text x="22" y="15" fontFamily="-apple-system, system-ui, sans-serif" fontSize="13" fontWeight="700" letterSpacing="-0.3" fill="currentColor">Claude</text>
       </svg>
     ),
   },
   {
+    // Vapi — voice AI platform. Stylized "V" mark + wordmark. Their real
+    // logo uses a similar geometric V; the simplified one here reads as
+    // a clean wordmark in muted neutral.
     name: "Vapi",
     svg: (
-      <svg width="54" height="20" viewBox="0 0 54 20" fill="currentColor" aria-label="Vapi">
-        <path d="M4 6 7.5 14 11 6h2.2l-4.6 10h-2.2L1.8 6H4Z" fill="currentColor"/>
-        <text x="16" y="14" fontFamily="-apple-system, system-ui, sans-serif" fontSize="11.5" fontWeight="700" letterSpacing="-0.2">Vapi</text>
+      <svg width="50" height="20" viewBox="0 0 50 20" aria-label="Vapi" fill="currentColor">
+        <path d="M2 5 L6 15 L10 5 L7.6 5 L6 9.5 L4.4 5 Z"/>
+        <text x="13" y="15" fontFamily="-apple-system, system-ui, sans-serif" fontSize="13" fontWeight="700" letterSpacing="-0.3">Vapi</text>
       </svg>
     ),
   },
 ];
 
+/**
+ * Capability comparison rows — what a competitor pays for vs what one
+ * WeFixTrades subscription delivers. Keep this list to ≤7 rows: tradies
+ * don't scroll long tables. Numbers are directional industry ranges,
+ * not exact quotes.
+ */
+const COMPARISON_ROWS: { capability: string; them: string; us: string }[] = [
+  {
+    capability: "Marketing leadership",
+    them: "In-house CMO or agency, $80k+/yr",
+    us: "Built in",
+  },
+  {
+    capability: "Software stack",
+    them: "6+ tools, $30k+/yr in licenses",
+    us: "One platform",
+  },
+  {
+    capability: "Quote response time",
+    them: "Hours, sometimes next-day",
+    us: "60 seconds",
+  },
+  {
+    capability: "After-hours calls",
+    them: "Voicemail · lost to competitor",
+    us: "24/7 AI line",
+  },
+  {
+    capability: "Google rankings",
+    them: "SEO agency, $3–10k/mo",
+    us: "Built in",
+  },
+  {
+    capability: "Review collection",
+    them: "Manual chasing",
+    us: "Automatic",
+  },
+  {
+    capability: "Setup time",
+    them: "3–6 months + IT contractor",
+    us: "48 hours",
+  },
+];
+
 export default function IntegrationsTrustStrip() {
   return (
-    <div
-      data-testid="integrations-trust-strip"
-      style={{
-        /* Density-spacing PR: was column with label-above-logos; now
-         * a single horizontal row so the label sits inline with the
-         * logos and saves ~40px of vertical space on every page that
-         * renders this strip. Wraps to two lines below ~640px. */
-        display: "flex",
-        flexDirection: "row",
-        flexWrap: "wrap",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 28,
-        padding: "20px 24px",
-      }}
-    >
-      <p
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color: "rgba(255,255,255,0.4)",
-          margin: 0,
-          fontFamily: "'DM Mono', monospace",
-          whiteSpace: "nowrap",
-        }}
-      >
-        Powered by the rails you already trust
-      </p>
+    <div data-testid="integrations-trust-strip">
+      {/* ── Logo row — silent visual trust, no tagline ────────────────── */}
       <div
         style={{
           display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
           alignItems: "center",
           justifyContent: "center",
-          gap: 32,
-          flexWrap: "wrap",
+          gap: 36,
+          padding: "20px 24px 12px",
           color: LABEL_COLOR,
         }}
       >
@@ -143,6 +196,200 @@ export default function IntegrationsTrustStrip() {
           </span>
         ))}
       </div>
+
+      {/* ── Comparison block — "compete with the chains" ─────────────── */}
+      <div style={{ padding: "32px 24px 44px" }}>
+        <div style={{ maxWidth: 880, margin: "0 auto" }}>
+          {/* Single-line eyebrow hands context to the table that follows.
+              Intentionally short — the table tells the story; copy doesn't
+              need to compete with it. */}
+          <p
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.55)",
+              textAlign: "center",
+              margin: "0 0 22px",
+              fontFamily: "'DM Mono', monospace",
+            }}
+          >
+            Compete with the big chains — without the big-chain overhead
+          </p>
+
+          {/* Desktop / tablet table. On phones (≤ 600px) the
+              .integrations-compare class flips to a stacked card layout
+              via the CSS at the bottom of this component. */}
+          <div className="integrations-compare">
+            <table
+              role="table"
+              aria-label="Capability comparison: big chains vs WeFixTrades"
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                tableLayout: "fixed",
+              }}
+            >
+              <thead>
+                <tr>
+                  <th
+                    scope="col"
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 16px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                      color: "rgba(255,255,255,0.45)",
+                      borderBottom: "1px solid rgba(255,255,255,0.10)",
+                      width: "32%",
+                    }}
+                  >
+                    &nbsp;
+                  </th>
+                  <th
+                    scope="col"
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 16px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                      color: "rgba(255,255,255,0.55)",
+                      borderBottom: "1px solid rgba(255,255,255,0.10)",
+                    }}
+                  >
+                    Big chains / franchises
+                  </th>
+                  <th
+                    scope="col"
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 16px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                      color: mkt.accent,
+                      borderBottom: `1px solid ${mkt.accent}55`,
+                    }}
+                  >
+                    WeFixTrades
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON_ROWS.map((row) => (
+                  <tr key={row.capability} className="integrations-compare-row">
+                    <th
+                      scope="row"
+                      style={{
+                        textAlign: "left",
+                        padding: "14px 16px",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "rgba(255,255,255,0.85)",
+                        borderBottom: "1px solid rgba(255,255,255,0.06)",
+                        verticalAlign: "top",
+                      }}
+                    >
+                      {row.capability}
+                    </th>
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontSize: 14,
+                        color: "rgba(255,255,255,0.55)",
+                        borderBottom: "1px solid rgba(255,255,255,0.06)",
+                        verticalAlign: "top",
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {row.them}
+                    </td>
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "#e8efee",
+                        borderBottom: "1px solid rgba(255,255,255,0.06)",
+                        verticalAlign: "top",
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {row.us}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Responsive: flip table to stacked cards under 600px ────────
+          On phones the 3-column table compresses each cell into ~80px
+          of width, which truncates the "$30k+/yr in licenses" copy. The
+          stacked card layout below puts the capability label as a header
+          and the two contrast lines underneath, each labeled. */}
+      <style>{`
+        @media (max-width: 600px) {
+          .integrations-compare table,
+          .integrations-compare thead,
+          .integrations-compare tbody,
+          .integrations-compare tr,
+          .integrations-compare th,
+          .integrations-compare td {
+            display: block;
+            width: 100%;
+          }
+          .integrations-compare thead {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+          }
+          .integrations-compare-row {
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 14px 16px;
+            background: rgba(255,255,255,0.02);
+          }
+          .integrations-compare-row > th,
+          .integrations-compare-row > td {
+            border: none !important;
+            padding: 0 0 8px !important;
+          }
+          .integrations-compare-row > td:last-child {
+            padding-bottom: 0 !important;
+          }
+          /* Pseudo-label each cell so the contrast still reads */
+          .integrations-compare-row > td:nth-of-type(1)::before {
+            content: "Big chains: ";
+            color: rgba(255,255,255,0.40);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            display: inline-block;
+            margin-right: 6px;
+          }
+          .integrations-compare-row > td:nth-of-type(2)::before {
+            content: "WeFixTrades: ";
+            color: rgba(13,60,252,0.85);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            display: inline-block;
+            margin-right: 6px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
