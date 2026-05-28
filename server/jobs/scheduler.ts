@@ -83,6 +83,8 @@ import { runVapiRecordingMirrorTick } from "../cron/vapiRecordingMirror";
 import { runVapiAssistantHealthCheck } from "./vapiAssistantHealthCheck";
 import { processCitationTrackerDailyScan } from "./citationTrackerDailyScan";
 import { runRankfluxAlertTick } from "./rankfluxAlertWorker";
+import { processQuotequickExpiresSoon } from "./quotequickExpiresSoonWorker";
+import { processQuotequickPostJob } from "./quotequickPostJobWorker";
 
 const log = createLogger("Scheduler");
 
@@ -1355,6 +1357,47 @@ export function initScheduler() {
       log.error("vapi_assistant_health_check cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
+
+  // Wave 81 — QuoteQuick homeowner SMS workers.
+  //
+  // 1. Expires-soon reminder — hourly at :07 (off-minute). Picks rows
+  //    where quote_expires_at is between now+23h and now+25h. Idempotent
+  //    via leads.expires_soon_sent_at. Overlap-guarded so a slow tick on
+  //    a busy DB can't double-text the same homeowner.
+  let quotequickExpiresSoonRunning = false;
+  cron.schedule("7 * * * *", async () => {
+    if (quotequickExpiresSoonRunning) {
+      log.debug("quotequick_expires_soon skipped — previous tick still running");
+      return;
+    }
+    quotequickExpiresSoonRunning = true;
+    try {
+      await runJob("quotequick_expires_soon", processQuotequickExpiresSoon);
+    } catch (err: any) {
+      log.error("quotequick_expires_soon cron handler error", { error: err.message });
+    } finally {
+      quotequickExpiresSoonRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // 2. Post-job thank-you — every 30 min. Picks QuoteQuick-source
+  //    completed bookings updated >= 1h ago. Idempotent via
+  //    bookflow_appointments.post_job_thank_you_sent_at.
+  let quotequickPostJobRunning = false;
+  cron.schedule("*/30 * * * *", async () => {
+    if (quotequickPostJobRunning) {
+      log.debug("quotequick_post_job skipped — previous tick still running");
+      return;
+    }
+    quotequickPostJobRunning = true;
+    try {
+      await runJob("quotequick_post_job", processQuotequickPostJob);
+    } catch (err: any) {
+      log.error("quotequick_post_job cron handler error", { error: err.message });
+    } finally {
+      quotequickPostJobRunning = false;
+    }
+  });
 
   // Vapi recording mirror — every 2h at :47 UTC. Streams Vapi-hosted
   // call recordings into Replit Object Storage before Vapi's ~30-day
