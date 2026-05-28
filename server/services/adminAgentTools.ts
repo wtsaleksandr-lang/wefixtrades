@@ -68,7 +68,6 @@ import { aiChannelGateOn } from "./aiChannelGate";
 import { getClientBudgetBand } from "./aiBudget";
 import { fireAlert } from "./alertService";
 import { sendSMS } from "../twilioClient";
-import { recordSmsCostForClient } from "./clientCostBilling";
 import {
   registerCopilotAction,
   type CopilotAction,
@@ -706,9 +705,19 @@ async function executeSendAdminSms(
   // 1. Send the SMS via Twilio. sendSMS throws on Twilio credential gaps
   //    or API failure; let those surface as a tool error so the loop
   //    reports them rather than silently swallowing a failed send.
+  //
+  //    Wave 84 — scopeClientId pins the cost ledger increment + cap
+  //    pre-flight to this tenant. sendSMS itself records the segment
+  //    cost via `recordSmsCostForClient` and respects per-client SMS
+  //    monthly cap from `clients.metadata.sms_monthly_cap_usd`.
   let twilioSid: string;
   try {
-    twilioSid = await sendSMS(resolvedPhone, bodyWithFooter, "sms");
+    twilioSid = await sendSMS({
+      to: resolvedPhone,
+      body: bodyWithFooter,
+      channel: "sms",
+      scopeClientId: ticket.client_id,
+    });
   } catch (err: any) {
     log.error("send_admin_sms Twilio send failed", {
       ticketId,
@@ -717,20 +726,14 @@ async function executeSendAdminSms(
     throw new Error(`Couldn't send the SMS — ${err?.message ?? "Twilio error"}`);
   }
 
-  // 2. Record the SMS cost on the per-client variable-cost ledger.
-  //    Treat anything over 160 chars as a 2-segment send (Twilio's
-  //    GSM-7 boundary). Best-effort — never block on metering failure.
+  // Segment count for the audit-log + narrative copy. The actual ledger
+  // increment happens inside sendSMS (Wave 84). Use the simple 160-char
+  // heuristic here to match the historical figure shown to admins — the
+  // proper segment math (calculateSmsSegments) is applied at the cost
+  // chokepoint inside the wrapper.
   const segments = bodyWithFooter.length > 160 ? 2 : 1;
-  try {
-    await recordSmsCostForClient({ clientId: ticket.client_id, segments });
-  } catch (err: any) {
-    log.warn("recordSmsCostForClient failed — non-fatal", {
-      clientId: ticket.client_id,
-      error: err?.message,
-    });
-  }
 
-  // 3. Add a ticket event so the audit trail picks up the SMS send.
+  // 2. Add a ticket event so the audit trail picks up the SMS send.
   try {
     await storage.createTicketEvent({
       ticket_id: ticketId,
@@ -746,14 +749,14 @@ async function executeSendAdminSms(
     });
   }
 
-  // 4. Bump updated_at on the ticket so it surfaces in admin views.
+  // 3. Bump updated_at on the ticket so it surfaces in admin views.
   try {
     await storage.updateSupportTicket(ticketId, {});
   } catch {
     // Non-fatal — purely a freshness signal.
   }
 
-  // 5. Record the send to audit_log.
+  // 4. Record the send to audit_log.
   await writeAudit({
     actorId: String(confirmedByUserId),
     actorType: "admin",

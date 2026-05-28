@@ -2,12 +2,93 @@ import twilio from "twilio";
 const { validateRequest } = twilio as any;
 import type { Request } from "express";
 import { db } from "./db";
-import { smsMessages, leads, smsOptOuts, tradelinePhoneSetups } from "@shared/schema";
+import {
+  smsMessages,
+  leads,
+  smsOptOuts,
+  tradelinePhoneSetups,
+  clients,
+  clientVariableCosts,
+} from "@shared/schema";
 import { eq, and, or, gte, sql, desc, isNull } from "drizzle-orm";
 import type { InsertSmsMessage } from "@shared/schema";
 import { createLogger } from "./lib/logger";
+import { calculateSmsSegments } from "./lib/smsSegments";
+import { recordSmsCostForClient } from "./services/clientCostBilling";
 
 const smsLog = createLogger("twilio-sms");
+
+/**
+ * Wave 84 — per-tenant SMS monthly cost cap (USD).
+ *
+ * Read from `clients.metadata.sms_monthly_cap_usd`. When set and the
+ * client's current-month SMS spend (from `client_variable_costs`) meets
+ * or exceeds the cap, sends short-circuit with `sms_cap_reached`.
+ *
+ * Cached for 5 min per-client to avoid a DB roundtrip on every send.
+ * Null = no cap (unlimited). The cap check is silently skipped when
+ * `scopeClientId` is unset — platform-level sends aren't capped.
+ */
+const SMS_CAP_CACHE_TTL_MS = 5 * 60 * 1000;
+interface SmsCapCacheEntry {
+  capUsd: number | null;
+  spentCents: number;
+  fetchedAt: number;
+}
+const smsCapCache = new Map<number, SmsCapCacheEntry>();
+
+async function loadSmsCapStatus(clientId: number): Promise<SmsCapCacheEntry> {
+  const now = Date.now();
+  const cached = smsCapCache.get(clientId);
+  if (cached && now - cached.fetchedAt < SMS_CAP_CACHE_TTL_MS) {
+    return cached;
+  }
+  try {
+    const [clientRow] = await db
+      .select({ metadata: clients.metadata })
+      .from(clients)
+      .where(eq(clients.id, clientId))
+      .limit(1);
+    const meta = (clientRow?.metadata ?? null) as Record<string, unknown> | null;
+    const rawCap =
+      meta && typeof meta === "object" ? (meta as any).sms_monthly_cap_usd : null;
+    const capUsd =
+      typeof rawCap === "number" && Number.isFinite(rawCap) && rawCap > 0
+        ? rawCap
+        : null;
+
+    let spentCents = 0;
+    if (capUsd != null) {
+      const [costRow] = await db
+        .select({ sms_cost_cents_month: clientVariableCosts.sms_cost_cents_month })
+        .from(clientVariableCosts)
+        .where(eq(clientVariableCosts.client_id, clientId))
+        .limit(1);
+      spentCents = costRow?.sms_cost_cents_month ?? 0;
+    }
+    const entry: SmsCapCacheEntry = { capUsd, spentCents, fetchedAt: now };
+    smsCapCache.set(clientId, entry);
+    return entry;
+  } catch (err: any) {
+    smsLog.warn(`[cap] lookup failed for client ${clientId}: ${err?.message}`);
+    // Fail-open — better to send than to block on a metering read error.
+    const entry: SmsCapCacheEntry = { capUsd: null, spentCents: 0, fetchedAt: now };
+    smsCapCache.set(clientId, entry);
+    return entry;
+  }
+}
+
+/**
+ * Invalidate the cap cache for a client. Exported so admin tools that
+ * update the cap can force the next send to re-read.
+ */
+export function invalidateSmsCapCache(clientId?: number): void {
+  if (clientId == null) {
+    smsCapCache.clear();
+  } else {
+    smsCapCache.delete(clientId);
+  }
+}
 
 /**
  * Returns the configured Twilio sender phone number.
@@ -264,6 +345,24 @@ export async function sendSMS(
     throw new Error("sms_recipient_opted_out");
   }
 
+  // Wave 84 — per-tenant cost cap pre-flight. Only enforced when the send
+  // is scoped to a client (platform-level sends aren't capped). Fails
+  // closed: cap met → throw `sms_cap_reached`, caller decides whether to
+  // surface or defer. Cache is 5 min so a stale read can briefly
+  // overshoot — acceptable at 1c/segment granularity.
+  if (channel === "sms" && scopeClientId != null) {
+    const capStatus = await loadSmsCapStatus(scopeClientId);
+    if (capStatus.capUsd != null) {
+      const capCents = Math.round(capStatus.capUsd * 100);
+      if (capStatus.spentCents >= capCents) {
+        smsLog.warn(
+          `[cap] blocked outbound SMS for client ${scopeClientId} — spent ${capStatus.spentCents}c >= cap ${capCents}c ($${capStatus.capUsd})`,
+        );
+        throw new Error("sms_cap_reached");
+      }
+    }
+  }
+
   const client = getTwilioClient();
 
   let from: string;
@@ -292,6 +391,45 @@ export async function sendSMS(
   createParams.statusCallbackMethod = "POST";
 
   const message = await client.messages.create(createParams as any);
+
+  // Wave 84 — single chokepoint for per-tenant SMS cost attribution.
+  // Every outbound send funnels through here, so this is the only
+  // place that needs to record cost. WhatsApp is excluded — billing
+  // there is template-based and tracked separately. Cost-recording is
+  // best-effort: any failure logs + continues, never blocks the SID
+  // return (the message has already left Twilio).
+  if (channel === "sms") {
+    try {
+      const { segments } = calculateSmsSegments(body);
+      if (scopeClientId != null) {
+        await recordSmsCostForClient({
+          clientId: scopeClientId,
+          segments,
+        }).catch((err: any) => {
+          smsLog.warn(
+            `[cost] recordSmsCostForClient failed for client ${scopeClientId}: ${err?.message}`,
+          );
+        });
+        // Bump the cached spent figure optimistically so a burst within
+        // the 5-min cache TTL eventually trips the cap on a future send.
+        // 1c per segment matches the SMS_CENTS_PER_SEGMENT constant in
+        // clientCostBilling.ts.
+        const cached = smsCapCache.get(scopeClientId);
+        if (cached) {
+          cached.spentCents += segments;
+        }
+      } else {
+        // Platform-level send (no per-tenant attribution). Log so we
+        // can audit which call sites are still bypassing scopeClientId.
+        smsLog.warn(
+          `[cost] outbound SMS sent without scopeClientId — cost not attributed (sid=${message.sid}, segments=${segments})`,
+        );
+      }
+    } catch (err: any) {
+      smsLog.warn(`[cost] unexpected error in auto-record: ${err?.message}`);
+    }
+  }
+
   return message.sid;
 }
 
