@@ -9,6 +9,9 @@ channel = "stable-24_05"
 # builds. Without these the build silently skipped prerender (it was
 # marked non-fatal), which shipped an unhydrated /sms-consent-disclosure
 # and blocked the A2P 10DLC campaign vetting. See PR for Wave 90.
+# Wave 95 — added mesa (provides libgbm.so.1, the immediate Replit publish
+# blocker per build diagnostic), plus libxshmfence and dbus which are
+# commonly co-required for Chromium-on-Nix runtime.
 packages = [
   "unzip",
   "lsof",
@@ -24,6 +27,9 @@ packages = [
   "cairo",
   "alsa-lib",
   "libxkbcommon",
+  "mesa",
+  "libxshmfence",
+  "dbus",
 ]
 
 [[ports]]
