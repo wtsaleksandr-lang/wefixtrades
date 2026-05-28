@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { createHash } from "node:crypto";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
 import {
@@ -39,6 +40,13 @@ export function registerDemoLeadRoutes(app: Express): void {
         quoteAmount,
         answers,
         smsConsent,
+        // Wave 79 — TCPA audit trail. Client-supplied page URL the visitor
+        // was on at the moment of consent; the server fills in IP hash +
+        // user agent below (never trust the client for those).
+        consentUrl,
+        consentTextVersion,
+        consentTimestamp,
+        consentMethod,
         source_tool,
         source_page,
       } = req.body;
@@ -57,6 +65,43 @@ export function registerDemoLeadRoutes(app: Express): void {
         return res.status(400).json({ error: "Invalid email format" });
       }
 
+      // Wave 79 — TCPA audit trail. Same forward-only capture pattern as
+      // /api/leads. Only filled when smsConsent=true.
+      const consentHasContext = !!smsConsent;
+      const rawIp = consentHasContext
+        ? (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+            || req.ip
+            || req.socket.remoteAddress
+            || null
+        : null;
+      const consentIpHash = rawIp && rawIp !== "unknown"
+        ? createHash("sha256").update(rawIp).digest("hex")
+        : null;
+      const rawUserAgent = consentHasContext
+        ? (req.headers["user-agent"] as string | undefined) ?? null
+        : null;
+      const consentUserAgent = rawUserAgent
+        ? rawUserAgent.slice(0, 200)
+        : null;
+      const consentCapturedAt = consentHasContext && typeof consentTimestamp === "string"
+        ? new Date(consentTimestamp)
+        : (consentHasContext ? new Date() : null);
+      const consentUrlNormalized = consentHasContext
+        ? (typeof consentUrl === "string" ? consentUrl.trim() : null)
+            || (typeof source_page === "string" ? source_page.trim() : null)
+        : null;
+      const consentMethodNormalized = consentHasContext
+        ? (typeof consentMethod === "string"
+            && ["web_form", "sms_keyword", "phone_call", "paper"].includes(consentMethod)
+            ? consentMethod
+            : "web_form")
+        : null;
+      const consentTextVersionNormalized = consentHasContext
+        ? (typeof consentTextVersion === "string" && consentTextVersion.length <= 50
+            ? consentTextVersion
+            : null)
+        : null;
+
       // 1. Persist lead
       const lead = await storage.createDemoQuoteLead({
         email: trimmedEmail || null,
@@ -68,6 +113,12 @@ export function registerDemoLeadRoutes(app: Express): void {
         quote_amount: quoteAmount || null,
         answers: answers || null,
         sms_consent: smsConsent || false,
+        consent_captured_at: consentCapturedAt,
+        consent_text_version: consentTextVersionNormalized,
+        consent_url: consentUrlNormalized,
+        consent_ip_hash: consentIpHash,
+        consent_user_agent: consentUserAgent,
+        consent_method: consentMethodNormalized,
         source: "quote_demo",
         page: "quote-demo",
         source_tool: source_tool || "demo",

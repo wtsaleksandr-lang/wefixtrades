@@ -128,11 +128,15 @@ export async function sendTradeLineCallNotifications(params: TradeLineNotificati
         // so route through the client's per-tenant TradeLine number with
         // per-client opt-out scoping. Owner alerts above (smsNumbers) stay
         // on the shared brand line.
+        // Wave 79 — this fires as a direct response to a call the homeowner
+        // JUST placed. That's transactional (the recipient initiated the
+        // contact), so it bypasses the carrier quiet-hours window.
         await sendSmsAsClient({
           clientId,
           to: callerPhoneNumber,
           body: outboundMsg,
           channel: "sms",
+          quietHoursBypass: "transactional",
         });
         markOutboundCallerSmsSent(callerPhoneNumber);
         log.info("Outbound after-hours SMS sent to caller", { callerPhoneNumber, callLogId });

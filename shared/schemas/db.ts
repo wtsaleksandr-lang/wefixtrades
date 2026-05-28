@@ -187,6 +187,11 @@ export const leads = pgTable("leads", {
   sms_consent: boolean("sms_consent").default(false),
   consent_timestamp: timestamp("consent_timestamp"),
   consent_text_version: varchar("consent_text_version", { length: 50 }),
+  // Wave 79 — TCPA audit trail. Populated forward-only by leadRoutes.
+  consent_url: text("consent_url"),
+  consent_ip_hash: text("consent_ip_hash"),
+  consent_user_agent: text("consent_user_agent"),
+  consent_method: varchar("consent_method", { length: 20 }),
   ai_paused: boolean("ai_paused").default(false),
   replied_at: timestamp("replied_at"),
   // UTM / source attribution (P1-4)
@@ -207,6 +212,12 @@ export const leads = pgTable("leads", {
     table.calculator_id,
     table.created_date.desc().nullsFirst(),
   ),
+  // migrations/0069_tcpa_consent_audit_trail.sql — partial index for the
+  // reverse "show all consents for phone X" lookup needed to defend a
+  // TCPA challenge. WHERE sms_consent = true keeps it lean.
+  consentPhoneIdx: index("idx_leads_consent_phone")
+    .on(table.phone, table.consent_timestamp.desc().nullsFirst())
+    .where(sql`${table.sms_consent} = true`),
 }));
 
 export const notificationQueue = pgTable("notification_queue", {
@@ -716,12 +727,26 @@ export const demoQuoteLeads = pgTable("demo_quote_leads", {
   quote_amount: integer("quote_amount"),
   answers: jsonb("answers"),
   sms_consent: boolean("sms_consent").default(false),
+  // Wave 79 — TCPA audit trail. Populated forward-only by demoLeadRoutes.
+  consent_captured_at: timestamp("consent_captured_at"),
+  consent_text_version: varchar("consent_text_version", { length: 50 }),
+  consent_url: text("consent_url"),
+  consent_ip_hash: text("consent_ip_hash"),
+  consent_user_agent: text("consent_user_agent"),
+  consent_method: varchar("consent_method", { length: 20 }),
   source: varchar("source", { length: 50 }).default("quote_demo"),
   page: varchar("page", { length: 100 }).default("quote-demo"),
   source_tool: varchar("source_tool", { length: 50 }),
   source_page: text("source_page"),
   created_at: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // migrations/0069_tcpa_consent_audit_trail.sql — partial index for the
+  // reverse "show all consents for phone X" lookup needed to defend a
+  // TCPA challenge. WHERE sms_consent = true keeps it lean.
+  consentPhoneIdx: index("idx_demo_quote_leads_consent_phone")
+    .on(table.phone, table.consent_captured_at.desc().nullsFirst())
+    .where(sql`${table.sms_consent} = true`),
+}));
 
 export const insertDemoQuoteLeadSchema = createInsertSchema(demoQuoteLeads).omit({
   id: true,

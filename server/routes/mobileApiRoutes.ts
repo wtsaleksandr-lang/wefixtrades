@@ -177,8 +177,16 @@ export function registerMobileApiRoutes(app: Express) {
         // Wave 77 — ETA text goes to the homeowner. Route via per-tenant
         // number with per-client opt-out scoping when we have a clientId;
         // otherwise fall back to the shared brand line.
+        // Wave 79 — ETA is operationally sent by the trade en route to a
+        // scheduled appointment. Transactional — bypass quiet-hours.
         const sid = clientId
-          ? await sendSmsAsClient({ clientId, to: parsed.data.to.trim(), body, channel: "sms" })
+          ? await sendSmsAsClient({
+              clientId,
+              to: parsed.data.to.trim(),
+              body,
+              channel: "sms",
+              quietHoursBypass: "transactional",
+            })
           : await sendSMS(parsed.data.to.trim(), body);
 
         return res.json({ ok: true, sid });

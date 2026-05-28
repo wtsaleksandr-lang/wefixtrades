@@ -308,15 +308,50 @@ export async function sendSMS(
  * opt-out lookup is STILL scoped to the client — a homeowner who already
  * texted STOP to John's Plumbing's tenant line stays opted out for John,
  * regardless of what number ends up actually carrying the send.
+ *
+ * Wave 79 — `quietHoursBypass` controls whether this send is exempt from
+ * the 21:00 – 08:00 (Sun 10:00) carrier-compliance quiet-hours gate:
+ *   - 'transactional' — exempt. Use only when the homeowner JUST took an
+ *                       action (booking confirm, support reply, 2FA).
+ *   - 'reminder' (default) — gated. Re-runs natural-retry next window.
+ *   - 'marketing' — gated. Same enforcement as 'reminder' today; reserved
+ *                   for future stricter rules (e.g. weekend opt-in).
+ *
+ * When the gate trips, the function throws `sms_quiet_hours_blocked`
+ * so the caller can defer rather than silently swallow the send.
  */
+export type SmsQuietHoursBypass = "transactional" | "reminder" | "marketing";
+
 export async function sendSmsAsClient(args: {
   clientId: number;
   to: string;
   body: string;
   channel?: "sms" | "whatsapp";
+  quietHoursBypass?: SmsQuietHoursBypass;
+  /** Trade's configured business timezone (overrides area-code lookup). */
+  fallbackTimezone?: string | null;
 }): Promise<string> {
   const { clientId, to, body } = args;
   const channel = args.channel ?? "sms";
+  const bypass: SmsQuietHoursBypass = args.quietHoursBypass ?? "reminder";
+
+  // Wave 79 — quiet-hours gate. Only applies to SMS (WhatsApp uses its
+  // own opt-in template flow). Skip for transactional sends.
+  if (channel === "sms" && bypass !== "transactional") {
+    const { isQuietHour } = await import("./lib/smsQuietHours");
+    if (
+      isQuietHour({
+        phoneE164: to,
+        fallbackTimezone: args.fallbackTimezone ?? null,
+      })
+    ) {
+      smsLog.info(
+        `[quiet-hours] deferred outbound SMS to ${to} — local quiet window (bypass=${bypass})`,
+      );
+      throw new Error("sms_quiet_hours_blocked");
+    }
+  }
+
   const assigned = await getClientAssignedNumber(clientId);
   if (!assigned) {
     smsLog.warn(

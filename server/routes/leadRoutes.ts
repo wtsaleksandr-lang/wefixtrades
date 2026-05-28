@@ -1,5 +1,6 @@
 import type { Express, Request } from "express";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 import * as Sentry from "@sentry/node";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
@@ -31,6 +32,14 @@ const createLeadBody = z.object({
   sms_consent: z.boolean().optional(),
   consent_timestamp: z.string().nullable().optional(),
   consent_text_version: z.string().max(50).nullable().optional(),
+  // Wave 79 — TCPA audit trail. Client-supplied URL the homeowner was on
+  // when they consented. IP hash + user-agent are computed/captured by
+  // the server below (never trust the client for those).
+  consent_url: z.string().max(500).nullable().optional(),
+  consent_method: z
+    .enum(["web_form", "sms_keyword", "phone_call", "paper"])
+    .nullable()
+    .optional(),
   coupon_code: z.string().nullable().optional(),
   // UTM / source attribution
   landing_page: z.string().nullable().optional(),
@@ -318,6 +327,30 @@ export function registerLeadRoutes(app: Express): void {
 
       const safeQuoteAmount = quoteAmount != null && Number.isFinite(quoteAmount) ? quoteAmount : null;
 
+      // Wave 79 — TCPA audit trail. Capture immutable context at the moment
+      // of consent so we can defend a future challenge: which URL the
+      // homeowner consented on, a SHA-256 of their IP (privacy-preserving
+      // — enough to correlate with access logs without storing raw PII),
+      // and a truncated user-agent. Only populated when sms_consent=true;
+      // a row without SMS consent doesn't need audit metadata.
+      const consentHasContext = !!parsed.data.sms_consent;
+      const rawIp = consentHasContext ? getClientIp(req) : null;
+      const consentIpHash = rawIp && rawIp !== "unknown"
+        ? createHash("sha256").update(rawIp).digest("hex")
+        : null;
+      const rawUserAgent = consentHasContext
+        ? (req.headers["user-agent"] as string | undefined) ?? null
+        : null;
+      const consentUserAgent = rawUserAgent
+        ? rawUserAgent.slice(0, 200)
+        : null;
+      const consentUrl = consentHasContext
+        ? (parsed.data.consent_url?.trim() || parsed.data.landing_page?.trim() || null)
+        : null;
+      const consentMethod = consentHasContext
+        ? (parsed.data.consent_method ?? "web_form")
+        : null;
+
       const lead = await storage.createLead({
         calculator_id: parsed.data.calculator_id,
         name,
@@ -334,6 +367,12 @@ export function registerLeadRoutes(app: Express): void {
         consent_text_version: parsed.data.sms_consent && parsed.data.consent_text_version
           ? parsed.data.consent_text_version
           : null,
+        // Wave 79 — TCPA audit trail fields. Forward-only; pre-existing
+        // rows remain NULL on these columns.
+        consent_url: consentUrl,
+        consent_ip_hash: consentIpHash,
+        consent_user_agent: consentUserAgent,
+        consent_method: consentMethod,
         // UTM / source attribution
         landing_page: parsed.data.landing_page?.trim() || null,
         referrer: parsed.data.referrer?.trim() || null,

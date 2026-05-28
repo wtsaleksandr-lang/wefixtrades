@@ -442,11 +442,16 @@ export async function sendT24hBookingReminders(): Promise<{
       // Wave 77 — booking reminders go to the homeowner, so route them
       // through the client's per-tenant TradeLine number with per-client
       // opt-out scoping.
+      // Wave 79 — the T-24h reminder is NOT transactional (the homeowner
+      // booked >24h ago), so it honors the local quiet-hours window.
+      // When the gate trips we leave t24h_sms_sent_at unset; the worker
+      // re-runs hourly and naturally retries when the window reopens.
       await sendSmsAsClient({
         clientId: appt.client_id,
         to: appt.customer_phone,
         body,
         channel: "sms",
+        quietHoursBypass: "reminder",
       });
       result.sent++;
       await db
@@ -458,6 +463,9 @@ export async function sendT24hBookingReminders(): Promise<{
         .where(eq(bookflowAppointments.id, appt.id));
     } catch (err: any) {
       if (err?.message === "sms_recipient_opted_out") {
+        result.skipped++;
+      } else if (err?.message === "sms_quiet_hours_blocked") {
+        // Defer — don't mark sent, don't increment failure count.
         result.skipped++;
       } else {
         result.failed++;
