@@ -28,6 +28,7 @@ import {
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Search, MapPin, AlertCircle, Star, Globe } from "lucide-react";
+import { BarComparisonCard } from "@/components/ui/visual-primitives";
 
 const TOOL_PATH = "/tools/local-serp-checker";
 
@@ -338,6 +339,33 @@ export default function LocalSerpChecker() {
           <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 500, opacity: 0.7 }}>cached</span>
         )}
       </div>
+
+      {/* Wave 73b — Top-of-page vs the rest. For Maps the prize is the
+          3-pack; for Search the above-the-fold prize is top-5. The card
+          lets the visitor see at a glance how saturated the prize tier is. */}
+      {resultCount > 0 && (() => {
+        const isMaps = result.engine === "maps";
+        const prizeCutoff = isMaps ? 3 : 5;
+        const list = isMaps ? (result.localPack ?? []) : result.organic;
+        const prizeCount = list.filter((r) => r.position <= prizeCutoff).length;
+        const restCount = Math.max(0, list.length - prizeCount);
+        const prizeLabel = isMaps ? "Local Pack (Top 3)" : "Top 5 (above the fold)";
+        const restLabel = isMaps ? `Positions 4-${list.length}` : `Positions 6-${list.length}`;
+        return (
+          <div
+            data-testid="serp-kpi-card"
+            style={{ padding: 14, border: "1px solid rgba(0,0,0,0.06)", borderRadius: 12, background: "rgb(255,255,255)" }}
+          >
+            <BarComparisonCard
+              title={isMaps ? "Map-pack slots vs the rest" : "Above-the-fold vs the rest"}
+              items={[
+                { label: prizeLabel, value: prizeCount, color: "emerald" },
+                { label: restLabel, value: restCount, color: "sapphire" },
+              ]}
+            />
+          </div>
+        );
+      })()}
 
       {/* Local Pack (Maps engine) */}
       {result.engine === "maps" && (

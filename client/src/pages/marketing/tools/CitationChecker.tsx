@@ -18,6 +18,10 @@ import {
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { CheckCircle2, XCircle, HelpCircle, ExternalLink, AlertCircle } from "lucide-react";
+import {
+  BarComparisonCard,
+  DonutChart,
+} from "@/components/ui/visual-primitives";
 
 const TOOL_PATH = "/tools/citation-checker";
 
@@ -181,6 +185,15 @@ export default function CitationChecker() {
     </form>
   );
 
+  // Wave 73b — derive 3-way segment counts from the raw status list
+  // (server's `summary.missing` lumps missing + unable-to-check together).
+  const foundCount = result ? result.results.filter((r) => r.status === "found").length : 0;
+  const missingCount = result ? result.results.filter((r) => r.status === "missing").length : 0;
+  const unableCount = result ? result.results.filter((r) => r.status === "unable-to-check").length : 0;
+  // Clean = listed correctly (found). Flagged = missing or unable-to-check.
+  const cleanCount = foundCount;
+  const flaggedCount = missingCount + unableCount;
+
   const resultPanel = result ? (
     <div style={{
       background: "rgb(255,255,255)",
@@ -195,6 +208,39 @@ export default function CitationChecker() {
         </div>
         <div style={{ fontSize: 13, color: "rgba(0,0,0,0.65)" }}>
           <strong style={{ color: "#22C55E" }}>{result.summary.found}</strong> found · <strong style={{ color: "#B91C1C" }}>{result.summary.missing}</strong> missing of {result.summary.checked}
+        </div>
+      </div>
+
+      {/* Wave 73b — KPI primitives above the directory table. */}
+      <div
+        data-testid="citation-kpi-cards"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 14,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ padding: 14, border: "1px solid rgba(0,0,0,0.06)", borderRadius: 12, background: "rgb(255,255,255)" }}>
+          <DonutChart
+            title="Listing breakdown"
+            centerLabel={String(result.summary.checked)}
+            centerSub="directories"
+            segments={[
+              { label: "Listed", value: foundCount, color: "emerald" },
+              { label: "Missing", value: missingCount, color: "crimson" },
+              { label: "Unable to check", value: unableCount, color: "amber" },
+            ]}
+          />
+        </div>
+        <div style={{ padding: 14, border: "1px solid rgba(0,0,0,0.06)", borderRadius: 12, background: "rgb(255,255,255)" }}>
+          <BarComparisonCard
+            title="Clean vs flagged"
+            items={[
+              { label: "Clean (listed)", value: cleanCount, color: "emerald" },
+              { label: "Flagged (missing / errored)", value: flaggedCount, color: "crimson" },
+            ]}
+          />
         </div>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
