@@ -9,6 +9,10 @@ import { createLogger } from "../lib/logger";
 import { isTwilioConfigured, sendSMS, sendSmsAsClient, truncateSms } from "../twilioClient";
 import { sendTradeLineCallNotificationEmail } from "../lib/tradelineCallNotificationEmail";
 import { respectPreferences } from "../lib/notificationPreferences";
+// Wave 82 — owner-facing missed-call alert + homeowner-facing after-hours
+// apology now resolve through the central registry. Tenant overrides land
+// here once Wave 83's settings UI ships.
+import { resolveSmsTemplate } from "../lib/smsTemplateResolver";
 import type { TradelineLeadData } from "@shared/schema";
 import type { VapiCallReport } from "./vapiService";
 
@@ -68,13 +72,27 @@ export async function sendTradeLineCallNotifications(params: TradeLineNotificati
   const summary = (leadData.job_description || report.summary || "").slice(0, 30);
   const portalUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://app.wefixtrades.com";
 
-  const smsBody = truncateSms(
-    `New call from ${callerName} (${callerPhone}). ${jobType} - ${urgency}. ${summary}. View: ${portalUrl}/portal`,
-    160,
-  );
+  // Wave 82 — owner-facing missed-call alert through the central registry.
+  // Truncate to 160 chars to match the previous behaviour (Twilio
+  // single-segment friendly). The resolver returns the registry default
+  // unless the tenant has an override row.
+  const ownerAlert = await resolveSmsTemplate({
+    templateId: "tradeline.owner_missed_call_alert",
+    clientId,
+    vars: {
+      caller_name: callerName,
+      caller_phone: callerPhone,
+      job_type: jobType,
+      urgency,
+      summary,
+      portal_url: `${portalUrl}/portal`,
+    },
+  });
+  const smsBody = truncateSms(ownerAlert.body, 160);
 
-  // Send SMS to all configured numbers (with rate limiting)
-  if (isTwilioConfigured() && smsNumbers.length > 0 && smsAllowed) {
+  // Send SMS to all configured numbers (with rate limiting). Skip the
+  // whole block when the tenant has disabled the owner alert template.
+  if (ownerAlert.enabled && isTwilioConfigured() && smsNumbers.length > 0 && smsAllowed) {
     for (const phone of smsNumbers) {
       if (!canSendSmsTo(phone)) {
         log.debug("SMS rate limited — skipping", { phone, clientServiceId });
@@ -119,10 +137,25 @@ export async function sendTradeLineCallNotifications(params: TradeLineNotificati
     const callerPhoneNumber = leadData.caller_phone || report.customerNumber;
     if (callerPhoneNumber && canSendOutboundToCallerPhone(callerPhoneNumber)) {
       const biz = businessName || "Our team";
-      const outboundMsg = truncateSms(
-        `Thanks for calling ${biz}! We received your message about ${leadData.job_type || "your inquiry"}. We'll get back to you during business hours. — ${biz}`,
-        160,
-      );
+      // Wave 82 — homeowner-facing after-hours apology through the central
+      // registry. Tenant may have disabled it; resolver returns
+      // `enabled: false` and we skip the send.
+      const apology = await resolveSmsTemplate({
+        templateId: "tradeline.after_hours_apology",
+        clientId,
+        vars: {
+          brand_name: biz,
+          job_type: leadData.job_type || "your inquiry",
+        },
+      });
+      if (!apology.enabled) {
+        log.debug("After-hours apology disabled by tenant — skipping", {
+          clientId,
+          callLogId,
+        });
+        return;
+      }
+      const outboundMsg = truncateSms(apology.body, 160);
       try {
         // Wave 77 — after-hours apology is sent to the homeowner caller,
         // so route through the client's per-tenant TradeLine number with

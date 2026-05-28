@@ -19,11 +19,10 @@ import { db } from "../db";
 import { clients, clientServices } from "@shared/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
-import {
-  BOOKFLOW_SMS_TEMPLATES,
-  interpolate,
-  formatAppointmentTime,
-} from "../lib/bookflowSmsTemplates";
+import { formatAppointmentTime } from "../lib/bookflowSmsTemplates";
+// Wave 82 — ETA template body comes from the central registry; per-tenant
+// overrides land here once Wave 83 ships the settings UI.
+import { resolveSmsTemplate } from "../lib/smsTemplateResolver";
 
 const log = createLogger("MobileApi");
 
@@ -196,15 +195,25 @@ export function registerMobileApiRoutes(app: Express) {
 
         let body: string;
         if (parsed.data.techName || parsed.data.trackLink) {
-          body = interpolate(BOOKFLOW_SMS_TEMPLATES.eta, {
-            tech_name: techName,
-            brand_name: businessName,
-            eta_time: etaTimeStr,
-            track_link: trackLink,
+          // Wave 82 — resolver-backed body. The tenant can override the
+          // wording in Wave 83's portal; until then the registry default
+          // matches the Wave 80 template byte-for-byte.
+          const resolved = await resolveSmsTemplate({
+            templateId: "bookflow.eta",
+            clientId: clientId ?? null,
+            vars: {
+              tech_name: techName,
+              brand_name: businessName,
+              eta_time: etaTimeStr,
+              track_link: trackLink,
+            },
           });
+          if (!resolved.enabled) {
+            return res.json({ ok: false, skipped: "disabled_by_tenant" });
+          }
           // Drop the "Track: " suffix entirely if no link was provided
           // (rather than leaving a dangling "Track: " in the SMS).
-          body = body.replace(/\s+Track:\s*$/i, "");
+          body = resolved.body.replace(/\s+Track:\s*$/i, "");
         } else {
           // Back-compat: legacy mobile clients that send only
           // (to, etaMinutes) get the original Wave 77 body so the

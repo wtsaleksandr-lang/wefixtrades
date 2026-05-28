@@ -18,11 +18,13 @@ import { createLogger } from "../../lib/logger";
 import { sendBookingConfirmationToCustomer, sendBookingNotificationToTradesperson } from "../../lib/bookingConfirmationEmail";
 import { sendSmsAsClient } from "../../twilioClient";
 import {
-  BOOKFLOW_SMS_TEMPLATES,
-  interpolate,
   formatAppointmentDate,
   formatAppointmentTime,
 } from "../../lib/bookflowSmsTemplates";
+// Wave 82 — template bodies + per-tenant overrides now go through the
+// central registry resolver. The pre-existing helpers above stay because
+// formatting (date / time / timezone) is still local to BookFlow.
+import { resolveSmsTemplate } from "../../lib/smsTemplateResolver";
 
 const log = createLogger("BookFlow");
 
@@ -374,18 +376,34 @@ export async function sendBookingConfirmationSms(args: {
       ? `${baseUrl}/book/${args.slug}?cancel=${args.appointmentId}`
       : `${baseUrl}/book`;
 
-    const body = interpolate(BOOKFLOW_SMS_TEMPLATES.confirmation, {
-      brand_name: args.brandName,
-      service_name: args.serviceName,
-      date: formatAppointmentDate(args.startTime, args.timezone),
-      time: formatAppointmentTime(args.startTime, args.timezone),
-      manage_link: manageLink,
+    // Wave 82 — registry resolver. `enabled === false` short-circuits the
+    // send and we stamp confirmation_sent_at so the path doesn't retry
+    // forever; this template is registry-pinned `canBeDisabled: false`,
+    // so the resolver will refuse a tenant toggle and always return
+    // enabled — defence in depth.
+    const resolved = await resolveSmsTemplate({
+      templateId: "bookflow.confirmation",
+      clientId: args.clientId,
+      vars: {
+        brand_name: args.brandName,
+        service_name: args.serviceName,
+        date: formatAppointmentDate(args.startTime, args.timezone),
+        time: formatAppointmentTime(args.startTime, args.timezone),
+        manage_link: manageLink,
+      },
     });
+    if (!resolved.enabled) {
+      await db
+        .update(bookflowAppointments)
+        .set({ confirmation_sent_at: new Date(), updated_at: new Date() })
+        .where(eq(bookflowAppointments.id, args.appointmentId));
+      return { sent: false, reason: "disabled_by_tenant" };
+    }
 
     await sendSmsAsClient({
       clientId: args.clientId,
       to: args.to,
-      body,
+      body: resolved.body,
       channel: "sms",
       quietHoursBypass: "transactional",
       fallbackTimezone: args.timezone,

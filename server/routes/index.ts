@@ -63,6 +63,8 @@ import { registerMediaRoute } from "../services/socialSync/mediaService";
 import { registerRankFlowRoutes } from "./rankflowRoutes";
 import { registerContentFlowRoutes } from "./contentflowRoutes";
 import { registerPortalContentflowQuotaRoutes } from "./portal/contentflowQuota";
+// Wave 82 — central SMS template registry portal endpoints (GET / PATCH / test).
+import { registerPortalSmsTemplatesRoutes } from "./portal/smsTemplates";
 import { registerUnsubscribeRoutes } from "./unsubscribeRoutes";
 import { registerEmailChartsRoute } from "../services/emailCharts";
 import { registerAdminSupplierRoutes } from "./adminSupplierRoutes";
@@ -207,6 +209,8 @@ export async function registerRoutes(
   registerContentFlowRoutes(app);
   // Phase 4 — typed quota endpoint (disjoint from contentflow.ts which Phase 3 owns).
   registerPortalContentflowQuotaRoutes(app);
+  // Wave 82 — central SMS template registry endpoints (Wave 83 UI consumer).
+  registerPortalSmsTemplatesRoutes(app);
   registerEmailChartsRoute(app);
   registerAdminSupplierRoutes(app);
   registerSupplierWebhookRoutes(app);
