@@ -5,6 +5,13 @@ import AuditChatWidget from "@/components/AuditChatWidget";
 import { OptimizedImage } from "@/components/ui/Picture";
 import { PageMeta } from "@/components/seo/PageMeta";
 import {
+  SemiGauge,
+  DonutChart,
+  BarComparisonCard,
+  type DonutSegment,
+  type SemiGaugePalette,
+} from "@/components/ui/visual-primitives";
+import {
   MapPin, Globe, Search, Trophy, Megaphone, Clock,
   Check, X as XIcon, Zap, ExternalLink,
 } from "lucide-react";
@@ -73,6 +80,38 @@ function fmtNumber(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+/* ─── Wave 73c — KPI helpers ─── */
+function bandPalette(pct: number): SemiGaugePalette {
+  if (pct >= 80) return "emerald";
+  if (pct >= 50) return "amber";
+  return "crimson";
+}
+function overallVerdict(pct: number): string {
+  if (pct >= 80) return "Strong";
+  if (pct >= 50) return "Needs Work";
+  return "Major Issues";
+}
+function overallAdvice(pct: number): string {
+  if (pct >= 80) return "Keep maintaining — review monthly to defend your lead.";
+  if (pct >= 50) return "Several fixable gaps. Tackle high-priority items first to move the needle.";
+  return "Major issues are leaking leads. Focus on the top 3 actions to recover fast.";
+}
+function categoryVerdict(pct: number): string {
+  if (pct >= 80) return "Strong";
+  if (pct >= 50) return "Fair";
+  return "Weak";
+}
+function categoryAdvice(key: string, pct: number): string {
+  if (pct >= 80) return "Maintain";
+  const tips: Record<string, string> = {
+    googleMaps: "Complete your profile + collect more reviews.",
+    websiteQuality: "Speed + mobile fixes will lift this fastest.",
+    searchVisibility: "Add location-targeted SEO content.",
+    competitorPosition: "Differentiate on reviews + response time.",
+  };
+  return tips[key] ?? "Address the high-priority items below.";
+}
+
 export default function SharedAuditReport() {
   const [, params] = useRoute("/audit/report/:id");
   const id = params?.id || "";
@@ -126,6 +165,44 @@ export default function SharedAuditReport() {
 
   const circumference = 2 * Math.PI * 48;
   const arcLength = (overall / 100) * circumference;
+
+  /* Wave 73c — KPI data */
+  const overallPct = Math.max(0, Math.min(100, overall));
+
+  // 4-up category gauges — pick the 4 most actionable
+  const FOUR_UP_CATEGORIES: Array<{ key: string; label: string }> = [
+    { key: "googleMaps", label: "Google Maps" },
+    { key: "websiteQuality", label: "Website" },
+    { key: "searchVisibility", label: "Search Visibility" },
+    { key: "competitorPosition", label: "Competitor Position" },
+  ];
+
+  // Issue breakdown by priority (DonutChart segments)
+  const priorityCounts = actionPlan.reduce(
+    (acc: Record<string, number>, item: any) => {
+      const p = (item.priority || "medium").toLowerCase();
+      acc[p] = (acc[p] || 0) + 1;
+      return acc;
+    },
+    {}
+  );
+  const issueSegments: DonutSegment[] = (
+    [
+      { label: "High priority", value: priorityCounts.high || 0, color: "crimson" as const },
+      { label: "Medium", value: priorityCounts.medium || 0, color: "amber" as const },
+      { label: "Low", value: priorityCounts.low || 0, color: "emerald" as const },
+    ] satisfies DonutSegment[]
+  ).filter((seg) => seg.value > 0);
+  const totalIssues = issueSegments.reduce((sum, seg) => sum + seg.value, 0);
+
+  // Competitor benchmark — average competitor score
+  const competitorAvg =
+    competitors.length > 0
+      ? Math.round(
+          competitors.reduce((sum: number, c: any) => sum + (c.score || 0), 0) /
+            competitors.length
+        )
+      : null;
 
   const reportTitle = biz.name ? `Free SEO audit — ${biz.name}` : "Shared SEO audit report";
 
@@ -200,6 +277,121 @@ export default function SharedAuditReport() {
             Generated on {data.createdAt ? new Date(data.createdAt).toLocaleDateString() : "N/A"} · Powered by WeFixTrades AI · Viewed {data.viewCount || 1} times
           </div>
         </div>
+
+        {/* Wave 73c — KPI primitives row (overall health + 4 categories) */}
+        <div className={s.sectionCard} data-testid="audit-kpi-row">
+          <div className={s.sectionTitle}>At a Glance</div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 16,
+              alignItems: "start",
+            }}
+          >
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                display: "flex",
+                justifyContent: "center",
+                padding: "8px 0",
+              }}
+            >
+              <SemiGauge
+                value={overallPct}
+                max={100}
+                label="Overall Site Health"
+                verdict={overallVerdict(overallPct)}
+                advice={overallAdvice(overallPct)}
+                unit="/100"
+                palette={bandPalette(overallPct)}
+                size={240}
+              />
+            </div>
+            {FOUR_UP_CATEGORIES.map((cat) => {
+              const sc = scores[cat.key] || { score: 0, max: 1 };
+              const pct = sc.max > 0 ? (sc.score / sc.max) * 100 : 0;
+              return (
+                <div
+                  key={cat.key}
+                  style={{ display: "flex", justifyContent: "center" }}
+                  data-testid={`audit-kpi-${cat.key}`}
+                >
+                  <SemiGauge
+                    value={Math.round(pct)}
+                    max={100}
+                    label={cat.label}
+                    verdict={categoryVerdict(pct)}
+                    advice={categoryAdvice(cat.key, pct)}
+                    unit="%"
+                    palette={bandPalette(pct)}
+                    size={150}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Wave 73c — Issue breakdown + competitor benchmark */}
+        {(totalIssues > 0 || competitorAvg != null) && (
+          <div
+            className={s.sectionCard}
+            data-testid="audit-kpi-breakdown"
+            style={{ display: "grid", gridTemplateColumns: "1fr", gap: 24 }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  totalIssues > 0 && competitorAvg != null
+                    ? "1fr 1fr"
+                    : "1fr",
+                gap: 24,
+                alignItems: "center",
+              }}
+              className={s.kpiBreakdownGrid}
+            >
+              {totalIssues > 0 && (
+                <div data-testid="audit-issue-donut">
+                  <div className={s.sectionTitle} style={{ marginBottom: 8 }}>
+                    Issue Breakdown
+                  </div>
+                  <DonutChart
+                    segments={issueSegments}
+                    centerLabel={String(totalIssues)}
+                    centerSub={totalIssues === 1 ? "issue" : "issues"}
+                    size={180}
+                  />
+                </div>
+              )}
+              {competitorAvg != null && (
+                <div data-testid="audit-benchmark-bars">
+                  <div className={s.sectionTitle} style={{ marginBottom: 8 }}>
+                    Vs Local Competitors
+                  </div>
+                  <BarComparisonCard
+                    items={[
+                      {
+                        label: "Your site",
+                        value: overallPct,
+                        color:
+                          overallPct >= competitorAvg ? "emerald" : "crimson",
+                        formatValue: (n) => `${Math.round(n)}/100`,
+                      },
+                      {
+                        label: "Local average",
+                        value: competitorAvg,
+                        color: "sapphire",
+                        formatValue: (n) => `${Math.round(n)}/100`,
+                      },
+                    ]}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* C2 — Score Breakdown */}
         <div className={s.sectionCard}>
