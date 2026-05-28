@@ -37,6 +37,7 @@ import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerIntegrationHealthRoutes } from "./integrationHealthRoutes";
+import { registerDeploymentHealthRoutes } from "./deploymentHealthRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
 import { registerPortalEmailDomainRoutes } from "./portalEmailDomainRoutes";
 import { registerPortalSecurityRoutes } from "./portalSecurityRoutes";
@@ -181,6 +182,7 @@ export async function registerRoutes(
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);
   registerIntegrationHealthRoutes(app);
+  registerDeploymentHealthRoutes(app);
   registerPortalRoutes(app);
   registerPortalEmailDomainRoutes(app);
   registerPortalSecurityRoutes(app);

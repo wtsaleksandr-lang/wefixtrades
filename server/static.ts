@@ -1,8 +1,31 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
+import * as Sentry from "@sentry/node";
 import { ogTagMiddleware } from "./lib/ogMiddleware";
 import { gtagMiddleware, addGtagToHtml } from "./lib/gtagMiddleware";
+
+/**
+ * Wave 93 — critical routes that MUST have a prerendered file. If any of
+ * these falls through to the SPA shell, that means the prerender step
+ * silently skipped (or the file got pruned) and external no-JS scrapers
+ * are getting garbage. We rate-limit Sentry events to one per route per
+ * process so a sustained outage doesn't flood the project.
+ *
+ * Kept in sync with `scripts/seo/prerender-routes.mjs`,
+ * `scripts/deploy/content-verification.mjs`, and
+ * `tests/build-output-smoke.test.ts`.
+ */
+const CRITICAL_PRERENDERED_ROUTES = new Set<string>([
+  "/sms-consent-disclosure",
+  "/privacy",
+  "/terms",
+  "/products/quickquotepro",
+  "/products/tradeline",
+  "/pricing",
+  "/about",
+]);
+const _criticalRouteAlertSent = new Set<string>();
 
 export function serveStatic(app: Express) {
   const distPath = path.resolve(__dirname, "public");
@@ -82,6 +105,32 @@ export function serveStatic(app: Express) {
       const html = await fs.promises.readFile(candidate, "utf-8");
       res.status(200).type("html").send(addGtagToHtml(html));
     } catch {
+      // Wave 93 — if a CRITICAL route falls through, the prerender
+      // silently skipped. Tag Sentry once per process so we don't
+      // flood the project during a sustained outage. The request
+      // itself still falls through to the SPA shell (200) — we
+      // don't want to break the user-facing route, only flag the
+      // SEO / compliance regression.
+      if (CRITICAL_PRERENDERED_ROUTES.has(req.path) && !_criticalRouteAlertSent.has(req.path)) {
+        _criticalRouteAlertSent.add(req.path);
+        try {
+          Sentry.withScope((scope) => {
+            scope.setTag("source", "prerender-fallback");
+            scope.setTag("failed_route", req.path);
+            scope.setLevel("error");
+            scope.setExtras({
+              path: req.path,
+              candidate,
+              userAgent: req.headers["user-agent"] ?? null,
+            });
+            Sentry.captureMessage(
+              `Critical prerendered route missing: ${req.path} (served SPA shell fallback)`,
+            );
+          });
+        } catch {
+          // Sentry capture is best-effort — never let it break the response.
+        }
+      }
       // No prerendered file for this route — fall through to shell.
       return next();
     }

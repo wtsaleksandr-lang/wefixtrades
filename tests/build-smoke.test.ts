@@ -1,5 +1,6 @@
 /**
  * Wave 90 — post-build smoke test.
+ * Wave 93 — extended to every critical SEO + compliance route.
  *
  * Runs against `dist/public/` after `npm run build` completes. Verifies
  * that the prerender step actually produced the static HTML files that
@@ -7,7 +8,10 @@
  * vetting bot in particular fetches /sms-consent-disclosure and reads
  * the response body without executing JavaScript — if the file is
  * missing, tiny (just the SPA shell), or missing the consent keywords,
- * the campaign submission is rejected.
+ * the campaign submission is rejected. The same regression mode applies
+ * to every other prerendered route (Bing crawler, link previews,
+ * privacy/terms compliance checkers), so Wave 93 expands the coverage
+ * to all eight critical routes instead of just /sms-consent-disclosure.
  *
  * Why a standalone script and not a Playwright/vitest spec:
  *   - The repo has no node-level test runner; Playwright is for
@@ -24,6 +28,12 @@
  * Invocation:
  *   tsx tests/build-smoke.test.ts
  *   npm run test:build-smoke
+ *
+ * Sibling files kept in sync:
+ *   - scripts/seo/prerender-routes.mjs              (what we render)
+ *   - scripts/deploy/content-verification.mjs       (post-deploy CI probe)
+ *   - server/routes/deploymentHealthRoutes.ts       (admin dashboard probe)
+ *   - server/static.ts CRITICAL_PRERENDERED_ROUTES  (runtime fallback alarm)
  */
 
 import { readFile, stat } from "node:fs/promises";
@@ -51,6 +61,14 @@ interface CriticalPage {
 
 const CRITICAL_PAGES: CriticalPage[] = [
   {
+    route: "/",
+    file: "index.html",
+    // Home is the heaviest prerender (hero, features, social proof) —
+    // 8 KB is well below the realistic floor but above the empty shell.
+    minBytes: 8000,
+    mustContain: ["WeFixTrades"],
+  },
+  {
     route: "/sms-consent-disclosure",
     file: path.join("sms-consent-disclosure", "index.html"),
     // The empty SPA shell is ~3-4 KB. A real disclosure with body content
@@ -58,6 +76,43 @@ const CRITICAL_PAGES: CriticalPage[] = [
     // headroom for template tweaks.
     minBytes: 6000,
     mustContain: ["STOP", "consent", "opt-in"],
+  },
+  {
+    route: "/privacy",
+    file: path.join("privacy", "index.html"),
+    minBytes: 5000,
+    mustContain: ["Privacy"],
+  },
+  {
+    route: "/terms",
+    file: path.join("terms", "index.html"),
+    minBytes: 5000,
+    mustContain: ["Terms"],
+  },
+  {
+    route: "/products/quickquotepro",
+    file: path.join("products", "quickquotepro", "index.html"),
+    minBytes: 5000,
+    // QuoteQuick is the brand name for the QuickQuotePro product page.
+    mustContain: ["QuoteQuick"],
+  },
+  {
+    route: "/products/tradeline",
+    file: path.join("products", "tradeline", "index.html"),
+    minBytes: 5000,
+    mustContain: ["TradeLine"],
+  },
+  {
+    route: "/pricing",
+    file: path.join("pricing", "index.html"),
+    minBytes: 5000,
+    mustContain: ["$"],
+  },
+  {
+    route: "/about",
+    file: path.join("about", "index.html"),
+    minBytes: 5000,
+    mustContain: ["About"],
   },
 ];
 

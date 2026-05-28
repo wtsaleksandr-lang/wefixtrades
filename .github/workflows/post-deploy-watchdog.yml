@@ -60,6 +60,10 @@ jobs:
       failed_status: ${{ steps.monitor.outputs.failed_status }}
       previous_sha: ${{ steps.prev.outputs.previous_sha }}
       previous_sha_short: ${{ steps.prev.outputs.previous_sha_short }}
+      content_verdict: ${{ steps.content.outputs.content_verdict }}
+      content_reason: ${{ steps.content.outputs.content_reason }}
+      content_failed_route: ${{ steps.content.outputs.content_failed_route }}
+      content_failed_assertion: ${{ steps.content.outputs.content_failed_assertion }}
 
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +96,107 @@ jobs:
           DEPLOY_URL: ${{ env.DEPLOY_URL }}
           LAST_BODY_PATH: ${{ runner.temp }}/watchdog-last-body.json
         continue-on-error: true
+
+      - name: Verify critical-route content
+        id: content
+        # Wave 93 — defense in depth against the prerender silent-skip
+        # regression. /api/healthz can be green while the prerendered
+        # HTML files are empty SPA shells (which is exactly how
+        # /sms-consent-disclosure shipped broken for weeks).
+        #
+        # Only runs when the healthz monitor passed — if the API itself
+        # is degraded, content verification adds nothing actionable and
+        # we want the healthz failure to drive the rollback flow.
+        if: steps.monitor.outputs.verdict == 'pass'
+        run: node scripts/deploy/content-verification.mjs
+        env:
+          DEPLOY_URL: ${{ env.DEPLOY_URL }}
+          LAST_REPORT_PATH: ${{ runner.temp }}/content-verification-report.json
+        continue-on-error: true
+
+      - name: Upload content-verification report
+        if: always() && steps.monitor.outputs.verdict == 'pass'
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-verification-report
+          path: ${{ runner.temp }}/content-verification-report.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Open content-verification issue
+        if: steps.content.outputs.content_verdict == 'fail'
+        uses: actions/github-script@v7
+        env:
+          DEPLOYED_SHA: ${{ env.DEPLOYED_SHA }}
+          CONTENT_REASON: ${{ steps.content.outputs.content_reason }}
+          CONTENT_FAILED_ROUTE: ${{ steps.content.outputs.content_failed_route }}
+          CONTENT_FAILED_ASSERTION: ${{ steps.content.outputs.content_failed_assertion }}
+          TARGET_URL: ${{ env.DEPLOY_URL }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const deployed = process.env.DEPLOYED_SHA;
+            const reason = process.env.CONTENT_REASON;
+            const failedRoute = process.env.CONTENT_FAILED_ROUTE;
+            const failedAssertion = process.env.CONTENT_FAILED_ASSERTION;
+            const url = process.env.TARGET_URL;
+            const run = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            const title = `Post-deploy content verification FAILED — ${deployed.substring(0,7)} (${failedRoute || 'unknown route'})`;
+            const issueBody = [
+              `**Deployed commit:** \`${deployed.substring(0,7)}\` (\`${deployed}\`)`,
+              `**Target URL:** ${url}`,
+              `**Workflow run:** ${run}`,
+              ``,
+              `## Verdict`,
+              `- **Reason:** ${reason}`,
+              `- **First failed route:** \`${failedRoute || '(none)'}\``,
+              `- **First failed assertion:** ${failedAssertion || '(none)'}`,
+              ``,
+              `## What this means`,
+              `Prod \`/api/healthz\` is green — the server is up. But at least one critical`,
+              `SEO / compliance route is serving an unhydrated SPA shell instead of real`,
+              `prerendered content. External no-JS scrapers (TCR vetting bot, search`,
+              `crawlers, link previews) will get garbage.`,
+              ``,
+              `## What to do`,
+              `1. Download the \`content-verification-report\` artifact from the workflow run for the full per-route breakdown.`,
+              `2. Check the \`Post-deploy Replit build\` logs for prerender warnings.`,
+              `3. If prerender is the culprit, the fix is local (re-run \`npm run build\`, confirm \`dist/public/<route>/index.html\` has body content, push).`,
+              `4. \`/api/healthz\` is still green so we are NOT auto-reverting \`main\`. If the regression is in code (not a prerender flake), open a manual revert PR.`,
+              ``,
+              `See [docs/operations/auto-rollback-playbook.md](../blob/main/docs/operations/auto-rollback-playbook.md).`,
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: issueBody,
+              labels: ['post-deploy-watchdog-failed', 'content-verification', 'prerender'],
+            });
+
+      - name: Ping Sentry on content-verification fail (best-effort)
+        if: steps.content.outputs.content_verdict == 'fail' && env.SENTRY_DSN != ''
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          FAILED_ROUTE: ${{ steps.content.outputs.content_failed_route }}
+          FAILED_ASSERTION: ${{ steps.content.outputs.content_failed_assertion }}
+        run: |
+          curl -sS -X POST "https://sentry.io/api/0/projects/" \
+            -H "Authorization: DSN ${SENTRY_DSN}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "message": "Post-deploy content verification failed for '"${DEPLOYED_SHA:0:7}"' ('"${FAILED_ROUTE}"')",
+              "level": "error",
+              "tags": {
+                "source": "post-deploy-watchdog",
+                "category": "content-verification",
+                "failed_route": "'"${FAILED_ROUTE}"'",
+                "sha": "'"${DEPLOYED_SHA:0:7}"'"
+              },
+              "extra": {"assertion": "'"${FAILED_ASSERTION}"'"}
+            }' || echo "Sentry ping failed (non-fatal)"
 
       - name: Read captured healthz body
         id: body
@@ -299,7 +404,12 @@ jobs:
             core.notice(`Opened rollback PR #${pr.number}: ${pr.html_url}`);
 
       - name: Mark workflow as failed
-        if: steps.monitor.outputs.verdict == 'fail'
+        if: steps.monitor.outputs.verdict == 'fail' || steps.content.outputs.content_verdict == 'fail'
         run: |
-          echo "::error::Post-deploy watchdog failed: ${{ steps.monitor.outputs.reason }}"
+          if [ "${{ steps.monitor.outputs.verdict }}" = "fail" ]; then
+            echo "::error::Post-deploy watchdog failed (healthz): ${{ steps.monitor.outputs.reason }}"
+          fi
+          if [ "${{ steps.content.outputs.content_verdict }}" = "fail" ]; then
+            echo "::error::Post-deploy watchdog failed (content verification): ${{ steps.content.outputs.content_reason }}"
+          fi
           exit 1

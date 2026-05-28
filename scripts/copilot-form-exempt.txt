@@ -25,6 +25,7 @@ client/src/pages/admin/CrmOverview.tsx
 client/src/pages/admin/InboxPage.tsx
 client/src/pages/admin/InstallQueuePage.tsx
 client/src/pages/admin/IntegrationHealthPage.tsx
+client/src/pages/admin/DeploymentHealthPage.tsx
 client/src/pages/admin/MapguardDashboard.tsx
 client/src/pages/admin/MobilePreview/PhoneFrame.tsx
 client/src/pages/admin/MobilePreview/PreviewScreens.tsx

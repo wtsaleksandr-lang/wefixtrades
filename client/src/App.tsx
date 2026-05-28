@@ -148,6 +148,7 @@ const AuditLogPage = lazy(() => import("@/pages/admin/AuditLogPage"));
 const AuditLeadsPage = lazy(() => import("@/pages/admin/AuditLeadsPage"));
 const AdminChatHistoryPage = lazy(() => import("@/pages/admin/AdminChatHistoryPage"));
 const IntegrationHealthPage = lazy(() => import("@/pages/admin/IntegrationHealthPage"));
+const DeploymentHealthPage = lazy(() => import("@/pages/admin/DeploymentHealthPage"));
 const SeoIntegrationsPage = lazy(() => import("@/pages/admin/SeoIntegrationsPage"));
 const BillingPage = lazy(() => import("@/pages/admin/BillingPage"));
 const ServicesPage = lazy(() => import("@/pages/admin/ServicesPage"));
@@ -436,6 +437,8 @@ function Router() {
       <Route path="/admin/system/jobs">{() => <RequirePortal><SystemJobsPage /></RequirePortal>}</Route>
       <Route path="/admin/system/workers">{() => <RequirePortal><SystemWorkersPage /></RequirePortal>}</Route>
       <Route path="/admin/system/availability">{() => <RequirePortal><SystemAvailabilityPage /></RequirePortal>}</Route>
+      {/* Wave 93 — Deployment Health (critical-route content verification) */}
+      <Route path="/admin/system/deployment-health">{() => <RequirePortal><DeploymentHealthPage /></RequirePortal>}</Route>
 
       {/* Outbound lead management */}
       <Route path="/admin/outbound/prospects">{() => <RequirePortal><ProspectsPage /></RequirePortal>}</Route>
