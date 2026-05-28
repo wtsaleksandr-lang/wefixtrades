@@ -1147,6 +1147,12 @@ async function handleQuoteQuickInstall(session: Stripe.Checkout.Session) {
  * Mark the matching widget_deposits row paid when its Checkout session
  * completes. Lookup is by metadata.widget_deposit_id (preferred) with a
  * fallback to stripe_session_id for resilience.
+ *
+ * Wave 81 — after marking paid, fire the homeowner deposit-receipt SMS
+ * via sendDepositReceiptSms (transactional, bypasses quiet hours). The
+ * row's deposit_receipt_sent_at column gives per-deposit idempotency
+ * across pod restarts and Stripe webhook redeliveries (Stripe retries
+ * webhooks on 5xx — without the stamp we'd double-text on retry).
  */
 async function handleWidgetDepositCompleted(session: Stripe.Checkout.Session) {
   const depositIdRaw = session.metadata?.widget_deposit_id;
@@ -1187,6 +1193,60 @@ async function handleWidgetDepositCompleted(session: Stripe.Checkout.Session) {
   }
 
   log.info(`[widget-deposit] Deposit #${updated.id} marked paid (session ${session.id})`);
+
+  // Wave 81 — homeowner deposit-receipt SMS. Idempotent via the
+  // deposit_receipt_sent_at column: if Stripe redelivers the webhook
+  // we don't double-text. Non-blocking so a Twilio outage doesn't 5xx
+  // the webhook and trigger a retry storm.
+  if (updated.deposit_receipt_sent_at) {
+    log.info(`[widget-deposit] Deposit #${updated.id} already sent deposit-receipt SMS — skipping`);
+    return;
+  }
+
+  void (async () => {
+    try {
+      const lead = updated.lead_id != null
+        ? await storage.getLeadById(updated.lead_id)
+        : null;
+
+      if (!lead?.phone || !lead.sms_consent) {
+        // No phone or no consent — stamp anyway so we don't re-attempt
+        // on Stripe webhook retry; the answer won't change.
+        await db
+          .update(widgetDeposits)
+          .set({ deposit_receipt_sent_at: new Date() })
+          .where(eq(widgetDeposits.id, updated.id));
+        return;
+      }
+
+      const { sendDepositReceiptSms } = await import(
+        "../services/quotequickHomeownerSmsService"
+      );
+      const result = await sendDepositReceiptSms({
+        depositId: updated.id,
+        calculatorId: updated.calculator_id,
+        leadId: updated.lead_id,
+        phone: lead.phone,
+        amountCents: updated.amount_cents,
+        smsConsent: !!lead.sms_consent,
+        stripeSessionId: session.id,
+      });
+
+      if (result.ok || result.reason === "no_consent" || result.reason === "no_phone") {
+        // Either sent, or permanent skip — stamp so we don't retry.
+        await db
+          .update(widgetDeposits)
+          .set({ deposit_receipt_sent_at: new Date() })
+          .where(eq(widgetDeposits.id, updated.id));
+      }
+      // On "deferred" or "send_failed" we deliberately leave the stamp
+      // NULL so a future cron sweep (or Stripe webhook redelivery)
+      // re-attempts. Transactional sends shouldn't trip quiet hours but
+      // the fail-safe is worth keeping.
+    } catch (err: any) {
+      log.error(`[widget-deposit] deposit-receipt SMS failed for #${updated.id}: ${err.message}`);
+    }
+  })();
 }
 
 /* ─── Wave AJ-3 — API Platform Subscription Handlers ─────────────────
