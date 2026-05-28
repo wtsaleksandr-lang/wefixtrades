@@ -1,24 +1,45 @@
 /**
  * Three-option choice card for the tradeline phone-number setup wizard.
  *
- * Default-expanded: Option A (get a new number).
- * Other two cards are collapsed with "Show details". Clicking a collapsed
- * card expands it AND collapses the previously-open card (radio-style).
+ * Default-expanded: Option C (port) — the recommended path for serious
+ * businesses (Wave 87). Other two cards are collapsed with "Show details".
+ * Clicking a collapsed card expands it AND collapses the previously-open
+ * card (radio-style).
+ *
+ * Wave 87 — copy rewrite. Each card now leads with a clear tradeoff
+ * narrative:
+ *   - mode "new"     → fastest, requires updating business listings
+ *   - mode "forward" → voice forwards, SMS does NOT (two-number problem)
+ *   - mode "port"    → recommended; keep number forever; 1-4 weeks
+ *
+ * "Important tradeoff" lines that exceed the card real estate are surfaced
+ * via a small "?" trigger using the existing Radix Tooltip primitive
+ * (mounted globally in App.tsx — no new dependency).
  */
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   PhoneCall,
   ArrowRightLeft,
   Repeat,
   Check,
+  X,
   ChevronDown,
   Clock,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import type { TradelineSetupMode } from "@shared/schema";
+
+/* ── Tradeoff line — text plus optional tooltip detail for deeper context. */
+interface TradeoffLine {
+  tone: "good" | "bad" | "neutral";
+  text: string;
+  tooltip?: string;
+}
 
 interface OptionConfig {
   key: TradelineSetupMode;
@@ -27,84 +48,107 @@ interface OptionConfig {
   icon: React.ElementType;
   tag?: { text: string; tone: "recommended" };
   timeToActive: string;
-  cost: string;
-  bullets: string[];
-  youHandle: string[];
-  weHandle: string[];
+  bestFor: string;
+  /** Heading shown above the tradeoff list. */
+  tradeoffsLabel: string;
+  tradeoffs: TradeoffLine[];
+  /** Optional note rendered at the bottom of the expanded card. */
+  note?: string;
+  /** When-to-choose hint shown below tradeoffs (forward mode). */
+  whenToChoose?: string;
 }
 
 const OPTIONS: OptionConfig[] = [
   {
     key: "new",
-    title: "Get a new WeFixTrades number",
+    title: "Get a new dedicated business number",
     subtitle: "We assign you a fresh local or toll-free number, ready in seconds.",
     icon: PhoneCall,
-    tag: { text: "Recommended", tone: "recommended" },
-    timeToActive: "Immediate",
-    cost: "Included in your plan",
-    bullets: [
-      "We pick a local or toll-free number based on your service area.",
-      "Number is live in seconds and connected to your AI assistant.",
-      "Update your Google Business Profile, website, and invoices over ~30 days.",
-      "Customers reach AI 24/7 — no missed calls.",
+    timeToActive: "Live in 5 minutes",
+    bestFor: "Starting fresh, or if you don't mind updating your Google Business / website",
+    tradeoffsLabel: "Includes",
+    tradeoffs: [
+      { tone: "good", text: "Your AI receptionist answers" },
+      { tone: "good", text: "SMS automation works immediately" },
+      { tone: "good", text: "Pick a number with your area code" },
     ],
-    youHandle: [
-      "Update your business listings over a month",
-      "Hand out the new number on business cards",
-    ],
-    weHandle: [
-      "Number provisioning and carrier paperwork",
-      "Connecting it to your AI assistant",
-      "Template copy + a 30-day checklist",
-    ],
+    note:
+      "You'll keep your personal number for personal calls. We just give you a dedicated line for business.",
   },
   {
     key: "forward",
-    title: "Keep your existing number",
-    subtitle: "Forward unanswered calls to your AI. Customers never see a new number.",
+    title: "Forward your existing number",
+    subtitle: "Forward unanswered calls to your AI. Customers never see a new number for voice.",
     icon: ArrowRightLeft,
-    timeToActive: "About 5 minutes",
-    cost: "Included in your plan",
-    bullets: [
-      "We give you a hidden WeFixTrades number — your customers never see it.",
-      "We detect your carrier and show the exact code to dial.",
-      "One tap activates conditional call forwarding on your phone.",
-      "A test call verifies forwarding is working before you finish.",
+    timeToActive: "~10 minutes to set up",
+    bestFor: "Trades who want to keep their existing voice line without porting",
+    tradeoffsLabel: "Important tradeoff",
+    tradeoffs: [
+      { tone: "good", text: "Voice calls forward perfectly to our AI" },
+      {
+        tone: "bad",
+        text: "SMS doesn't forward — customers can't text your existing number",
+        tooltip:
+          "SMS forwarding is not supported by carriers the way voice call-forwarding is. Customer texts to your existing number stay on your personal phone — they don't reach the AI.",
+      },
+      {
+        tone: "bad",
+        text: "Automated SMS replies come from a new number your customers haven't seen before",
+        tooltip:
+          "When the AI sends an SMS (appointment confirmation, follow-up), it goes out from a separate WeFixTrades number. To the customer, that's a different sender than the number they called.",
+      },
+      {
+        tone: "neutral",
+        text: "Net result: customers see two different numbers from you (voice vs. text)",
+        tooltip:
+          "Voice goes to your existing number (forwarded to AI). Text goes to a new WeFixTrades number. Some customers will be confused by the mismatch.",
+      },
     ],
-    youHandle: [
-      "Tap once to dial the activation code",
-      "Pick up the test call to confirm",
-    ],
-    weHandle: [
-      "Carrier detection and the right code for your network",
-      "Number provisioning behind the scenes",
-      "Test call to verify it's all wired up",
-    ],
+    whenToChoose:
+      "Choose this only if you're trying it temporarily, or your business doesn't rely on SMS.",
   },
   {
     key: "port",
-    title: "Port your existing number into WeFixTrades",
-    subtitle: "Your number becomes a WeFixTrades number with full AI integration.",
+    title: "Keep your existing number forever",
+    subtitle: "Port your number into WeFixTrades. Voice and SMS both work after the port completes.",
     icon: Repeat,
-    timeToActive: "1–3 weeks",
-    cost: "Included in your plan",
-    bullets: [
-      "Your existing number is transferred to WeFixTrades.",
-      "Full AI integration on the number your customers already know.",
-      "We submit the port to your current carrier on your behalf.",
-      "Your existing number keeps working normally during the transfer.",
-      "Note: you'll lose the ability to text personally from this number.",
+    tag: { text: "Recommended", tone: "recommended" },
+    timeToActive: "1-4 weeks for the port to complete",
+    bestFor: "Established trades who want zero customer confusion",
+    tradeoffsLabel: "The good",
+    tradeoffs: [
+      { tone: "good", text: "Customers keep using your existing number for everything" },
+      { tone: "good", text: "Voice AND SMS both work after porting completes" },
+      { tone: "good", text: "You own the number permanently — no carrier lock-in" },
+      {
+        tone: "good",
+        text: "We handle 100% of the paperwork",
+        tooltip:
+          "Our AI extracts the carrier info from your phone bill, generates the Letter of Authorization, submits the port to Twilio, and tracks progress through every milestone.",
+      },
+      {
+        tone: "good",
+        text: "Free — we cover Twilio's porting fee",
+      },
+      {
+        tone: "bad",
+        text: "7-14 business days for carrier processing",
+        tooltip:
+          "Number porting is regulated by the FCC / CRTC. The 7-14 business day window is set by your current carrier and the receiving carrier — we can't speed this up.",
+      },
+      {
+        tone: "neutral",
+        text: "We send SMS + email updates at every milestone",
+      },
+      {
+        tone: "neutral",
+        text: "During the wait, we set up call forwarding from a new number you can use immediately",
+        tooltip:
+          "While the port is processing, your existing number stays with your old carrier. We give you a temporary WeFixTrades number you can hand out today, then auto-switch on port completion.",
+      },
     ],
-    youHandle: [
-      "Upload a recent phone bill (PDF or photo)",
-      "E-sign the Letter of Authorization in the app",
-      "Wait 1–3 weeks while your carrier processes the port",
-    ],
-    weHandle: [
-      "Twilio porting submission and paperwork",
-      "Status tracking with email updates",
-      "Activation when the port completes",
-    ],
+    note:
+      "Your existing carrier might charge a small final bill (last month's service). After they're paid, the port completes.",
   },
 ];
 
@@ -114,18 +158,20 @@ export interface ChoiceCardProps {
 }
 
 export function ChoiceCard({ onContinue, isContinuing = false }: ChoiceCardProps) {
-  const [openId, setOpenId] = useState<TradelineSetupMode>("new");
+  /* Wave 87: default-open the recommended option (port). */
+  const [openId, setOpenId] = useState<TradelineSetupMode>("port");
 
   return (
     <div className="space-y-3">
       {OPTIONS.map((opt) => {
         const isOpen = openId === opt.key;
+        const isRecommended = opt.tag?.tone === "recommended";
 
         return (
           <Collapsible
             key={opt.key}
             open={isOpen}
-            onOpenChange={(open) => {
+            onOpenChange={(open: boolean) => {
               if (open) setOpenId(opt.key);
             }}
           >
@@ -133,8 +179,12 @@ export function ChoiceCard({ onContinue, isContinuing = false }: ChoiceCardProps
               className={cn(
                 "rounded-xl border bg-white transition-colors",
                 isOpen
-                  ? "border-brand-blue-500 ring-2 ring-brand-blue-100"
-                  : "border-gray-200 hover:border-gray-300",
+                  ? isRecommended
+                    ? "border-emerald-500 ring-2 ring-emerald-100"
+                    : "border-brand-blue-500 ring-2 ring-brand-blue-100"
+                  : isRecommended
+                    ? "border-emerald-300 hover:border-emerald-400"
+                    : "border-gray-200 hover:border-gray-300",
               )}
             >
               <CollapsibleTrigger asChild>
@@ -142,11 +192,16 @@ export function ChoiceCard({ onContinue, isContinuing = false }: ChoiceCardProps
                   type="button"
                   className="w-full text-left p-4 flex items-start gap-3"
                   aria-expanded={isOpen}
+                  data-testid={`choice-card-${opt.key}`}
                 >
                   <div
                     className={cn(
                       "p-2 rounded-lg flex-shrink-0",
-                      isOpen ? "bg-brand-blue-100 text-brand-blue-700" : "bg-gray-100 text-gray-600",
+                      isOpen
+                        ? isRecommended
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-brand-blue-100 text-brand-blue-700"
+                        : "bg-gray-100 text-gray-600",
                     )}
                   >
                     <opt.icon className="w-5 h-5" />
@@ -171,9 +226,11 @@ export function ChoiceCard({ onContinue, isContinuing = false }: ChoiceCardProps
                         <Clock className="w-3 h-3" />
                         {opt.timeToActive}
                       </span>
-                      <span aria-hidden="true">•</span>
-                      <span>{opt.cost}</span>
                     </div>
+                    <p className="mt-1.5 text-xs text-gray-600">
+                      <span className="font-semibold text-gray-700">Best for: </span>
+                      {opt.bestFor}
+                    </p>
                   </div>
                   <ChevronDown
                     className={cn(
@@ -191,46 +248,60 @@ export function ChoiceCard({ onContinue, isContinuing = false }: ChoiceCardProps
                   "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-1",
                 )}
               >
-                <div className="px-4 pb-4 pt-3 border-t border-gray-100 space-y-4">
+                <div className="px-4 pb-4 pt-3 border-t border-gray-100 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                    {opt.tradeoffsLabel}
+                  </p>
                   <ul className="space-y-1.5 text-sm text-gray-700">
-                    {opt.bullets.map((b, i) => (
-                      <li key={i} className="flex gap-2">
-                        <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                        <span>{b}</span>
+                    {opt.tradeoffs.map((line, i) => (
+                      <li key={i} className="flex gap-2 items-start">
+                        <TradeoffIcon tone={line.tone} />
+                        <span className="flex-1 flex items-start gap-1.5">
+                          <span>{line.text}</span>
+                          {line.tooltip && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label={`More detail: ${line.text}`}
+                                  className="text-gray-400 hover:text-gray-600 focus:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-400 rounded-full flex-shrink-0 mt-0.5"
+                                  data-testid={`tradeoff-tooltip-${opt.key}-${i}`}
+                                >
+                                  <HelpCircle className="w-3 h-3" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="top"
+                                className="max-w-xs text-xs leading-snug"
+                              >
+                                {line.tooltip}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                      <p className="text-xs font-semibold text-blue-900 mb-1.5 uppercase tracking-wide">
-                        What you do
-                      </p>
-                      <ul className="space-y-1 text-xs text-blue-800">
-                        {opt.youHandle.map((y, i) => (
-                          <li key={i}>• {y}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                      <p className="text-xs font-semibold text-gray-900 mb-1.5 uppercase tracking-wide">
-                        What we handle
-                      </p>
-                      <ul className="space-y-1 text-xs text-gray-700">
-                        {opt.weHandle.map((w, i) => (
-                          <li key={i}>• {w}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                  {opt.whenToChoose && (
+                    <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <span className="font-semibold">When to choose this: </span>
+                      {opt.whenToChoose}
+                    </p>
+                  )}
+
+                  {opt.note && (
+                    <p className="text-xs text-gray-600 leading-relaxed">{opt.note}</p>
+                  )}
 
                   <Button
                     type="button"
                     className="w-full"
                     onClick={() => onContinue(opt.key)}
                     disabled={isContinuing}
+                    data-testid={`choice-card-${opt.key}-continue`}
                   >
-                    {isContinuing ? "Loading…" : continueLabel(opt.key)}
+                    {isContinuing ? "Loading…" : `Choose this — ${chooseLabel(opt.key)}`}
                   </Button>
                 </div>
               </CollapsibleContent>
@@ -242,8 +313,25 @@ export function ChoiceCard({ onContinue, isContinuing = false }: ChoiceCardProps
   );
 }
 
-function continueLabel(mode: TradelineSetupMode): string {
-  if (mode === "new") return "Continue — get a new number";
-  if (mode === "forward") return "Continue — forward my existing number";
-  return "Continue — port my existing number";
+function TradeoffIcon({ tone }: { tone: TradeoffLine["tone"] }) {
+  if (tone === "good") {
+    return <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" aria-hidden="true" />;
+  }
+  if (tone === "bad") {
+    return <X className="w-4 h-4 text-rose-600 mt-0.5 flex-shrink-0" aria-hidden="true" />;
+  }
+  return (
+    <span
+      className="w-4 h-4 mt-0.5 flex-shrink-0 flex items-center justify-center text-gray-400"
+      aria-hidden="true"
+    >
+      •
+    </span>
+  );
+}
+
+function chooseLabel(mode: TradelineSetupMode): string {
+  if (mode === "new") return "get a new number";
+  if (mode === "forward") return "forward my existing number";
+  return "keep my existing number";
 }
