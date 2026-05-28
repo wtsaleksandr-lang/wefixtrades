@@ -36,6 +36,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { Link } from "wouter";
+import { MonthlyBarSeries } from "@/components/ui/visual-primitives";
 
 const TOOL_PATH = "/tools/local-rank-tracker";
 
@@ -390,8 +391,48 @@ export default function LocalRankTracker() {
     );
   };
 
+  // Wave 73b — cross-engine visibility KPI card. Position is inverted
+  // (lower rank = better) so the bar reflects "visibility": a #1 spot
+  // gets a 20-unit bar, "not ranking / unavailable" gets 0. Highlight
+  // the strongest engine.
+  const visibilityBars = result
+    ? ENGINES.map((eng) => {
+        const r = result.engines[eng.key];
+        const visibility = r.position != null ? Math.max(0, 21 - r.position) : 0;
+        return { label: eng.label.replace(" Local Pack", ""), value: visibility, raw: r };
+      })
+    : [];
+  const peakVisibility = visibilityBars.reduce((m, b) => (b.value > m ? b.value : m), 0);
+  const monthlyBars = visibilityBars.map((b) => ({
+    label: b.label,
+    value: b.value,
+    highlighted: b.value > 0 && b.value === peakVisibility,
+  }));
+  // Format the tooltip value back into "rank #N" or "Not in top 20".
+  const formatRankTooltip = (n: number) => (n > 0 ? `Rank #${21 - n}` : "Not in top 20");
+
   const resultPanel = result ? (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Wave 73b — visibility-across-engines KPI card. */}
+      <div
+        data-testid="rank-tracker-kpi-card"
+        style={{
+          padding: 16,
+          border: "1px solid rgba(0,0,0,0.06)",
+          borderRadius: 14,
+          background: "rgb(255,255,255)",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.04)",
+        }}
+      >
+        <MonthlyBarSeries
+          bars={monthlyBars}
+          lede="Visibility across engines"
+          caption="Taller bar = stronger rank. Hover for the raw position."
+          color="emerald"
+          formatValue={formatRankTooltip}
+        />
+      </div>
+
       <div
         style={{
           display: "grid",

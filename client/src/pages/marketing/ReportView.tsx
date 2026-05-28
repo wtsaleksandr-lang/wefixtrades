@@ -20,6 +20,7 @@ const MarketSizerTab = lazy(() => import("@/components/marketing/audit-tabs/Mark
 const TrustInspectorTab = lazy(() => import("@/components/marketing/audit-tabs/TrustInspectorTab"));
 import { trackEvent } from "@/lib/trackEvent";
 import { useToast } from "@/hooks/use-toast";
+import { SemiGauge } from "@/components/ui/visual-primitives";
 
 /**
  * Trade → noun phrasing for the friendly hero summary.
@@ -1560,6 +1561,39 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           }
         `}</style>
         <div data-testid="score-breakdown" style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
+
+        {/* Wave 73b — SemiGauge headline for the overall audit score with
+            verdict + advice. Hover the arc for the exact value. */}
+        <div
+          data-testid="audit-semi-gauge"
+          style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}
+        >
+          <SemiGauge
+            value={liveTotal}
+            min={0}
+            max={100}
+            label="Overall audit score"
+            unit="/100"
+            verdict={
+              liveTotal >= 80
+                ? "Strong"
+                : liveTotal >= 60
+                ? "Room to improve"
+                : liveTotal >= 40
+                ? "Below average"
+                : "Critical — needs attention"
+            }
+            advice={
+              liveTotal >= 80
+                ? "You're outperforming most local competitors. Focus on widening the moat with reviews + content."
+                : liveTotal >= 60
+                ? "Closing the next 20 points typically lifts calls 30–50%. Tackle the lowest scoring category first."
+                : liveTotal >= 40
+                ? "You're leaking leads to competitors with cleaner profiles. The Full Audit shows the fastest fixes."
+                : "Most customers can't find you online. Even one or two of the recommended fixes can change that quickly."
+            }
+          />
+        </div>
         {scoreRows.map((row, i) => (
           <div key={row.key} data-testid={`breakdown-row-${row.key}`} data-score={row.score} data-max={row.max}>
             {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0 14px' }}/>}

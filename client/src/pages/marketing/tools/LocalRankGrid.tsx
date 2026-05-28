@@ -35,6 +35,7 @@ import {
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { AlertCircle, ArrowRight, Star, Trophy } from "lucide-react";
+import { BarComparisonCard } from "@/components/ui/visual-primitives";
 
 const TOOL_PATH = "/tools/local-rank-grid";
 
@@ -405,6 +406,29 @@ export default function LocalRankGrid() {
             grid on mobile via the media query in the inline <style> at
             the bottom of this panel. */}
         <CompetitorSidebar competitors={result.competitors} />
+      </div>
+
+      {/* Wave 73b — Top-3 zones vs Off-page zones KPI card. Sits above
+          the MapGuard upsell so visitors see the visual coverage summary
+          right before the convert CTA. */}
+      <div
+        data-testid="rankgrid-kpi-card"
+        style={{
+          marginTop: 18,
+          padding: 16,
+          border: "1px solid rgba(0,0,0,0.06)",
+          borderRadius: 14,
+          background: "rgb(255,255,255)",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.04)",
+        }}
+      >
+        <BarComparisonCard
+          title="Coverage at a glance"
+          items={[
+            { label: "Top-3 zones (Local Pack)", value: result.summary.top3Count, color: "emerald" },
+            { label: "Off-page zones (not in top 20)", value: result.summary.missedCount, color: "crimson" },
+          ]}
+        />
       </div>
 
       {/* Wave 6A — MapGuard upsell nudge. Reframed per Alex's Q1 (hybrid):
