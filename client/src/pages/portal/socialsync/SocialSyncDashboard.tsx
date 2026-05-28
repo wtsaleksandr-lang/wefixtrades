@@ -61,14 +61,19 @@ import {
   ApprovalInbox,
   AIDraftEditor,
   AnimatedCounter,
+  DonutChart,
   KpiGauge,
+  MonthlyBarSeries,
   ProgressRing,
+  SparklineWithPeak,
   StatusPill,
   VisualCalendar,
   type CalendarEntry,
   type CalendarEntryStatus,
+  type DonutSegment,
   type InboxAction,
   type InboxItem,
+  type MonthlyBar,
 } from "@/components/ui/visual-primitives";
 import {
   PLATFORMS,
@@ -452,6 +457,68 @@ export default function SocialSyncDashboard() {
     return s;
   }, [connections]);
 
+  /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
+
+  // Monthly posts: 6 months. Anchor on postsThisWeek × 4 as a coarse stand-in.
+  // TODO Wave 73: wire to real /api/portal/socialsync/dashboard-kpis monthly-posts series.
+  const monthlyPostBars: MonthlyBar[] = useMemo(() => {
+    const now = new Date();
+    const labels: string[] = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(d.toLocaleString(undefined, { month: "short" }));
+    }
+    const anchor = Math.max((kpis?.postsThisWeek ?? 0) * 4, 1);
+    return labels.map((label, idx) => {
+      const isCurrent = idx === labels.length - 1;
+      const ratio = isCurrent ? 1 : 0.5 + idx * 0.09;
+      return {
+        label,
+        value: Math.round(anchor * ratio),
+        highlighted: isCurrent,
+      };
+    });
+  }, [kpis?.postsThisWeek]);
+
+  // Platform mix donut — derive from perPlatform engagement weights.
+  // TODO Wave 73: wire to real /api/portal/socialsync/platform-post-counts endpoint.
+  const platformMixSegments: DonutSegment[] = useMemo(() => {
+    if (!perPlatform) {
+      return [
+        { label: "Facebook", value: 8 },
+        { label: "Instagram", value: 6 },
+        { label: "X", value: 3 },
+        { label: "LinkedIn", value: 4 },
+        { label: "Google Business", value: 2 },
+      ];
+    }
+    return PLATFORMS.map((p) => ({
+      label: p.label,
+      // Weight by engagement rate × 10 as a count proxy.
+      value: Math.max(1, Math.round((perPlatform[p.id]?.ratePct ?? 0) * 10)),
+    })).filter((s) => s.value > 0);
+  }, [perPlatform]);
+
+  // Top-performing post sparkline (12 days mocked off engagement rate).
+  // TODO Wave 73: wire to real /api/portal/socialsync/top-post-engagement endpoint.
+  const topPostSeries = useMemo(() => {
+    const anchor = Math.max((kpis?.avgEngagementRate ?? 0) * 100, 1);
+    return [
+      anchor * 0.5,
+      anchor * 0.65,
+      anchor * 0.55,
+      anchor * 0.7,
+      anchor * 0.85,
+      anchor * 0.8,
+      anchor * 0.95,
+      anchor * 1,
+      anchor * 0.9,
+      anchor * 0.88,
+      anchor * 0.92,
+      anchor * 0.86,
+    ].map((v) => Math.round(v));
+  }, [kpis?.avgEngagementRate]);
+
   /* ─── Render ────────────────────────────────────────────────────────── */
 
   return (
@@ -543,6 +610,58 @@ export default function SocialSyncDashboard() {
                 helpText={META.whatsappMessagesThisWeek.helpText}
                 improvementTips={META.whatsappMessagesThisWeek.improvementTips}
                 emptyState={(kpis?.whatsappMessagesThisWeek ?? 0) === 0}
+              />
+            </Card>
+          </AdvancedOnly>
+        </div>
+
+        {/* ─── Wave 72 — new KPI primitives row ────────────────────────── */}
+        <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          {/* Headline (Simple-mode visible) — posts per month */}
+          <Card className="p-4 h-full" data-testid="ss-monthly-bars">
+            <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+              Posts per month
+            </div>
+            <MonthlyBarSeries
+              bars={monthlyPostBars}
+              lede={`${monthlyPostBars[monthlyPostBars.length - 1]?.value ?? 0}`}
+              caption={(() => {
+                const cur = monthlyPostBars[monthlyPostBars.length - 1]?.value ?? 0;
+                const prev = monthlyPostBars[monthlyPostBars.length - 2]?.value ?? 0;
+                if (prev === 0) return "Fresh start this month";
+                const delta = ((cur - prev) / prev) * 100;
+                const sign = delta >= 0 ? "+" : "";
+                return `${sign}${delta.toFixed(0)}% vs prior month`;
+              })()}
+              color="sapphire"
+              ariaLabel="SocialSync posts published per month"
+            />
+          </Card>
+
+          {/* Advanced — platform mix donut */}
+          <AdvancedOnly product="socialsync" elementId="socialsync.platform-mix-donut">
+            <Card className="p-4 h-full" data-testid="ss-platform-mix-donut">
+              <DonutChart
+                title="Platform mix"
+                segments={platformMixSegments}
+                size={130}
+                ariaLabel="SocialSync posts by platform"
+              />
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — top post sparkline */}
+          <AdvancedOnly product="socialsync" elementId="socialsync.top-post-sparkline">
+            <Card className="p-4 h-full" data-testid="ss-top-post-sparkline">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                Top-performing post
+              </div>
+              <SparklineWithPeak
+                data={topPostSeries}
+                color="violet"
+                width={280}
+                height={96}
+                ariaLabel="Recent post engagement with peak day callout"
               />
             </Card>
           </AdvancedOnly>

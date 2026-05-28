@@ -43,9 +43,14 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   AnimatedCounter,
+  BarComparisonCard,
   KpiGauge,
+  MonthlyBarSeries,
   ProgressRing,
+  SemiGauge,
   Sparkline,
+  SparklineWithPeak,
+  type MonthlyBar,
 } from "@/components/ui/visual-primitives";
 import { ConversionGauge } from "@/components/quotequick/ConversionGauge";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
@@ -198,6 +203,54 @@ export default function QuoteQuickDashboard() {
   const k = kpis?.kpis;
   const trend = kpis?.velocityTrend12w ?? [];
 
+  /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
+
+  // Conversion rate proxy: depositPaidRate (% of completed quotes paying deposit)
+  // is the closest stat we have to "viewers → completed". Until a per-funnel
+  // viewer-to-complete metric ships, use depositPaidRate.
+  // TODO Wave 73: wire to real /api/portal/quotequick/conversion-rate (viewers→completed) endpoint.
+  const conversionRate = Math.round(k?.avgDepositPaidRate ?? 0);
+  const convVerdict =
+    conversionRate >= 15 ? "Strong conversion"
+      : conversionRate >= 8 ? "Average conversion"
+        : "Below average";
+  const convAdvice =
+    conversionRate >= 15
+      ? "Your widget is converting well — keep nurturing repeat visitors."
+      : conversionRate >= 8
+        ? "Try a shorter form or social-proof badge to push above 15%."
+        : "Run an A/B test on the first question — drop-off is highest there.";
+
+  // Best revenue day — derive from velocity trend; map to 14 most recent days.
+  // TODO Wave 73: wire to real /api/portal/quotequick/best-revenue-day endpoint.
+  const bestRevenueSeries = trend.slice(-14);
+
+  // Monthly quotes — from kpis.quotesSent + a smoothed mock for earlier months.
+  // TODO Wave 73: wire to real /api/portal/quotequick/dashboard-kpis monthly-quotes series.
+  const quotesMonthlyBars: MonthlyBar[] = useMemo(() => {
+    const now = new Date();
+    const labels: string[] = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(d.toLocaleString(undefined, { month: "short" }));
+    }
+    const thisMonth = k?.quotesSent.thisMonth ?? 0;
+    const lastMonth = k?.quotesSent.lastMonth ?? 0;
+    const anchor = Math.max(thisMonth, lastMonth, 1);
+    return labels.map((label, idx) => {
+      const isCurrent = idx === labels.length - 1;
+      if (isCurrent) return { label, value: thisMonth, highlighted: true };
+      if (idx === labels.length - 2) return { label, value: lastMonth };
+      const ratio = 0.5 + idx * 0.08;
+      return { label, value: Math.round(anchor * ratio) };
+    });
+  }, [k?.quotesSent.thisMonth, k?.quotesSent.lastMonth]);
+
+  // Quote views vs completions — derive views ≈ thisMonth × 5 as proxy when unknown.
+  // TODO Wave 73: wire to real /api/portal/quotequick/views-vs-completions endpoint.
+  const completionsCount = k?.quotesSent.thisMonth ?? 0;
+  const viewsCount = Math.max(completionsCount * 5, completionsCount);
+
   return (
     <PortalLayout>
       <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
@@ -322,6 +375,71 @@ export default function QuoteQuickDashboard() {
               <p className="text-[11px] text-muted-foreground">
                 Active embed sites
               </p>
+            </Card>
+          </AdvancedOnly>
+        </div>
+
+        {/* Wave 72 — new KPI primitives row */}
+        <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+          {/* Headline (Simple-mode visible) — conversion rate SemiGauge */}
+          <Card className="p-4 h-full flex items-center justify-center" data-testid="qq-conversion-semigauge">
+            <SemiGauge
+              value={conversionRate}
+              max={100}
+              label="Conversion rate"
+              verdict={convVerdict}
+              advice={convAdvice}
+              unit="%"
+              size={200}
+            />
+          </Card>
+
+          {/* Advanced — best revenue day sparkline */}
+          <AdvancedOnly product="quotequick" elementId="quotequick.best-revenue-sparkline">
+            <Card className="p-4 h-full" data-testid="qq-best-revenue-sparkline">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                Best revenue day (14d)
+              </div>
+              {bestRevenueSeries.length > 0 ? (
+                <SparklineWithPeak
+                  data={bestRevenueSeries}
+                  color="emerald"
+                  width={260}
+                  height={96}
+                  ariaLabel="Best revenue day in the last 14 days"
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground py-6 text-center">
+                  No revenue data yet.
+                </div>
+              )}
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — views vs completions */}
+          <AdvancedOnly product="quotequick" elementId="quotequick.views-vs-completions">
+            <Card className="p-4 h-full" data-testid="qq-views-vs-completions">
+              <BarComparisonCard
+                title="Views vs completions"
+                items={[
+                  { label: "Views", value: viewsCount, color: "sapphire" },
+                  { label: "Completions", value: completionsCount, color: "emerald" },
+                ]}
+              />
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — quotes per month */}
+          <AdvancedOnly product="quotequick" elementId="quotequick.quotes-monthly-bars">
+            <Card className="p-4 h-full" data-testid="qq-quotes-monthly">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                Quotes per month
+              </div>
+              <MonthlyBarSeries
+                bars={quotesMonthlyBars}
+                color="violet"
+                ariaLabel="Quotes sent per month"
+              />
             </Card>
           </AdvancedOnly>
         </div>

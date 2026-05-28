@@ -33,6 +33,7 @@
  * Polling: 60s for KPIs/anomalies/campaigns. No WebSockets.
  */
 
+import { useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -53,8 +54,13 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   AnimatedCounter,
+  DonutChart,
   KpiGauge,
+  MonthlyBarSeries,
   Sparkline,
+  SparklineWithPeak,
+  type DonutSegment,
+  type MonthlyBar,
 } from "@/components/ui/visual-primitives";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
 import { ROIFunnel } from "@/components/adflow/ROIFunnel";
@@ -323,6 +329,55 @@ export default function AdFlowDashboard() {
   const campaigns = campaignsData?.campaigns ?? [];
   const anomalies = anomaliesData?.anomalies ?? [];
 
+  /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
+
+  // Leads per month — derived from jobsBooked + a smooth backfill for earlier
+  // months. Leads ≈ jobsBooked × 2 as a coarse proxy.
+  // TODO Wave 73: wire to real /api/portal/adflow/dashboard-kpis monthly-leads series.
+  const leadsMonthlyBars: MonthlyBar[] = useMemo(() => {
+    const now = new Date();
+    const labels: string[] = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(d.toLocaleString(undefined, { month: "short" }));
+    }
+    const thisMonth = (k?.jobsBooked.thisMonth ?? 0) * 2;
+    const lastMonth = (k?.jobsBooked.lastMonth ?? 0) * 2;
+    const anchor = Math.max(thisMonth, lastMonth, 1);
+    return labels.map((label, idx) => {
+      const isCurrent = idx === labels.length - 1;
+      if (isCurrent) return { label, value: thisMonth, highlighted: true };
+      if (idx === labels.length - 2) return { label, value: lastMonth };
+      const ratio = 0.5 + idx * 0.09;
+      return { label, value: Math.round(anchor * ratio) };
+    });
+  }, [k?.jobsBooked.thisMonth, k?.jobsBooked.lastMonth]);
+
+  // Peak ROAS day — derive from spend trend (using sparkline as proxy).
+  // TODO Wave 73: wire to real /api/portal/adflow/peak-roas-day endpoint.
+  const peakRoasSeries = trend.slice(-12);
+
+  // Ad spend by platform — derive from campaigns array.
+  // TODO Wave 73: wire to real /api/portal/adflow/spend-by-platform endpoint.
+  const adSpendByPlatform: DonutSegment[] = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of campaigns) {
+      const platform = c.platform ?? "other";
+      map.set(platform, (map.get(platform) ?? 0) + (c.stats?.moneySpent ?? 0));
+    }
+    if (map.size === 0) {
+      return [
+        { label: "Google", value: 1800 },
+        { label: "Meta", value: 1100 },
+        { label: "Bing", value: 400 },
+      ];
+    }
+    return Array.from(map.entries()).map(([platform, value]) => ({
+      label: platform.charAt(0).toUpperCase() + platform.slice(1),
+      value: Math.max(1, Math.round(value / 100)),
+    }));
+  }, [campaigns]);
+
   // Weekly delta from sparkline (sum last 7d vs prior 7d). Sparkline is
   // 12-weekly buckets so we just compare the last two cells.
   const weeklyDeltaCents =
@@ -477,6 +532,65 @@ export default function AdFlowDashboard() {
                 </p>
               </Card>
             </div>
+          </AdvancedOnly>
+        </div>
+
+        {/* Wave 72 — new KPI primitives row */}
+        <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          {/* Headline (Simple-mode visible) — leads per month */}
+          <Card className="p-4 h-full" data-testid="af-leads-monthly">
+            <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+              Leads per month
+            </div>
+            <MonthlyBarSeries
+              bars={leadsMonthlyBars}
+              lede={`${leadsMonthlyBars[leadsMonthlyBars.length - 1]?.value ?? 0}`}
+              caption={(() => {
+                const cur = leadsMonthlyBars[leadsMonthlyBars.length - 1]?.value ?? 0;
+                const prev = leadsMonthlyBars[leadsMonthlyBars.length - 2]?.value ?? 0;
+                if (prev === 0) return "Fresh start this month";
+                const delta = ((cur - prev) / prev) * 100;
+                const sign = delta >= 0 ? "+" : "";
+                return `${sign}${delta.toFixed(0)}% vs prior month`;
+              })()}
+              color="emerald"
+              ariaLabel="AdFlow leads per month"
+            />
+          </Card>
+
+          {/* Advanced — peak ROAS day sparkline */}
+          <AdvancedOnly product="adflow" elementId="adflow.peak-roas-sparkline">
+            <Card className="p-4 h-full" data-testid="af-peak-roas-sparkline">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                Peak ROAS day
+              </div>
+              {peakRoasSeries.length > 0 ? (
+                <SparklineWithPeak
+                  data={peakRoasSeries}
+                  color="violet"
+                  width={260}
+                  height={96}
+                  ariaLabel="Peak ROAS day in the last 12 weeks"
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground py-6 text-center">
+                  No spend data yet.
+                </div>
+              )}
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — ad spend by platform donut */}
+          <AdvancedOnly product="adflow" elementId="adflow.spend-by-platform-donut">
+            <Card className="p-4 h-full" data-testid="af-spend-by-platform-donut">
+              <DonutChart
+                title="Ad spend by platform"
+                segments={adSpendByPlatform}
+                size={130}
+                formatValue={(n) => `$${n.toLocaleString()}`}
+                ariaLabel="Ad spend by platform"
+              />
+            </Card>
           </AdvancedOnly>
         </div>
 

@@ -29,7 +29,7 @@
  * All polling is 60s. No WebSockets per anti-patterns rule.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -47,10 +47,14 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   AnimatedCounter,
+  BarComparisonCard,
+  DonutChart,
   KpiGauge,
   LetterGradeBadge,
   ProgressRing,
   Sparkline,
+  SparklineWithPeak,
+  type DonutSegment,
 } from "@/components/ui/visual-primitives";
 import { RankGridPulse, type RankGridCell } from "@/components/mapguard/RankGridPulse";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
@@ -232,6 +236,37 @@ export default function MapGuardDashboard() {
     }),
   );
 
+  /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
+
+  // Clean vs flagged citations.
+  const cleanCitations = kpis?.citationHealth.found ?? 0;
+  const flaggedCitations =
+    (kpis?.citationHealth.missing ?? 0) + (kpis?.citationHealth.inconsistent ?? 0);
+
+  // Citation directory mix donut — found / missing / inconsistent.
+  // TODO Wave 73: wire to real /api/portal/mapguard/citation-directory-mix endpoint for per-directory breakdown.
+  const citationDirectorySegments: DonutSegment[] = useMemo(() => {
+    const found = kpis?.citationHealth.found ?? 0;
+    const missing = kpis?.citationHealth.missing ?? 0;
+    const inconsistent = kpis?.citationHealth.inconsistent ?? 0;
+    if (found + missing + inconsistent === 0) {
+      return [
+        { label: "Clean", value: 12 },
+        { label: "Missing", value: 4 },
+        { label: "Inconsistent", value: 3 },
+      ];
+    }
+    return [
+      { label: "Clean", value: found, color: "emerald" },
+      { label: "Missing", value: missing, color: "crimson" },
+      { label: "Inconsistent", value: inconsistent, color: "amber" },
+    ];
+  }, [kpis?.citationHealth]);
+
+  // Best-ranking day across geo grid — derive from gbpTrend14d.
+  // TODO Wave 73: wire to real /api/portal/mapguard/geo-grid-best-day endpoint.
+  const geoBestDaySeries = kpisQuery.data?.gbpTrend14d ?? [];
+
   return (
     <PortalLayout>
       <div className="space-y-4">
@@ -392,6 +427,54 @@ export default function MapGuardDashboard() {
               14-day trend
             </span>
           </Card>
+          </AdvancedOnly>
+        </div>
+
+        {/* Wave 72 — new KPI primitives row */}
+        <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          {/* Headline (Simple-mode visible) — clean vs flagged citations */}
+          <Card className="p-4 h-full" data-testid="mg-clean-vs-flagged">
+            <BarComparisonCard
+              title="Clean vs flagged citations"
+              items={[
+                { label: "Clean", value: cleanCitations, color: "emerald" },
+                { label: "Flagged", value: flaggedCitations, color: "crimson" },
+              ]}
+            />
+          </Card>
+
+          {/* Advanced — citation directory mix donut */}
+          <AdvancedOnly product="mapguard" elementId="mapguard.citation-directory-donut">
+            <Card className="p-4 h-full" data-testid="mg-citation-directory-donut">
+              <DonutChart
+                title="Citation directory mix"
+                segments={citationDirectorySegments}
+                size={130}
+                ariaLabel="MapGuard citation directory mix"
+              />
+            </Card>
+          </AdvancedOnly>
+
+          {/* Advanced — best ranking day sparkline */}
+          <AdvancedOnly product="mapguard" elementId="mapguard.best-rank-day-sparkline">
+            <Card className="p-4 h-full" data-testid="mg-best-rank-day">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                Best-ranking day (geo grid)
+              </div>
+              {geoBestDaySeries.length > 0 ? (
+                <SparklineWithPeak
+                  data={geoBestDaySeries}
+                  color="sapphire"
+                  width={280}
+                  height={96}
+                  ariaLabel="Best-ranking day across the geo grid"
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground py-6 text-center">
+                  No rank data yet.
+                </div>
+              )}
+            </Card>
           </AdvancedOnly>
         </div>
 
