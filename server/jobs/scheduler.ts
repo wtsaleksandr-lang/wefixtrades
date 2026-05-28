@@ -46,6 +46,9 @@ import { processRecurringTasks } from "./recurringTaskWorker";
 import { processUpsellEmails } from "./upsellWorker";
 import { processWebcareMaintenance } from "./webcareMaintenanceWorker";
 import { processWebcareMonthlyDigest } from "./webcareMonthlyDigest";
+import { processContentflowMonthlyDigest } from "./contentflowMonthlyDigest";
+import { processTradelineMonthlyDigest } from "./tradelineMonthlyDigest";
+import { processQuotequickMonthlyDigest } from "./quotequickMonthlyDigest";
 import { processRetention } from "./retentionWorker";
 import { processTradeLineModeSync } from "./tradelineModeWorker";
 import { processTradeLineRetries } from "./tradelineRetryWorker";
@@ -889,6 +892,67 @@ export function initScheduler() {
       log.error("webcare_monthly_digest cron handler error", { error: err.message });
     } finally {
       webcareDigestRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Wave 75 — ContentFlow monthly recap email. Runs on the 1st of each
+  // month at 09:05 UTC (off-minute, staggered after the WebCare digest
+  // at 09:00 to avoid email-provider pile-up). Idempotent per month via
+  // client_service.metadata.last_contentflow_digest_period.
+  let contentflowDigestRunning = false;
+  cron.schedule("5 9 1 * *", async () => {
+    if (contentflowDigestRunning) {
+      log.debug("contentflow_monthly_digest skipped — previous run still active");
+      return;
+    }
+    contentflowDigestRunning = true;
+    log.info("Running ContentFlow monthly digest...");
+    try {
+      await runJob("contentflow_monthly_digest", processContentflowMonthlyDigest);
+    } catch (err: any) {
+      log.error("contentflow_monthly_digest cron handler error", { error: err.message });
+    } finally {
+      contentflowDigestRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Wave 75 — TradeLine monthly recap email. 09:10 UTC on the 1st,
+  // staggered after ContentFlow. Idempotent per month via
+  // client_service.metadata.last_tradeline_digest_period.
+  let tradelineDigestRunning = false;
+  cron.schedule("10 9 1 * *", async () => {
+    if (tradelineDigestRunning) {
+      log.debug("tradeline_monthly_digest skipped — previous run still active");
+      return;
+    }
+    tradelineDigestRunning = true;
+    log.info("Running TradeLine monthly digest...");
+    try {
+      await runJob("tradeline_monthly_digest", processTradelineMonthlyDigest);
+    } catch (err: any) {
+      log.error("tradeline_monthly_digest cron handler error", { error: err.message });
+    } finally {
+      tradelineDigestRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Wave 75 — QuoteQuick monthly recap email. 09:15 UTC on the 1st,
+  // staggered after TradeLine. Idempotent per month via
+  // client_service.metadata.last_quotequick_digest_period.
+  let quotequickDigestRunning = false;
+  cron.schedule("15 9 1 * *", async () => {
+    if (quotequickDigestRunning) {
+      log.debug("quotequick_monthly_digest skipped — previous run still active");
+      return;
+    }
+    quotequickDigestRunning = true;
+    log.info("Running QuoteQuick monthly digest...");
+    try {
+      await runJob("quotequick_monthly_digest", processQuotequickMonthlyDigest);
+    } catch (err: any) {
+      log.error("quotequick_monthly_digest cron handler error", { error: err.message });
+    } finally {
+      quotequickDigestRunning = false;
     }
   }, { timezone: "UTC" });
 
