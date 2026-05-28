@@ -377,15 +377,23 @@ async function writeRouteHtml(route, html) {
  *
  * Returns true if a template was found AND successfully written.
  */
+// Wave 95 — fallback mapping for all critical routes whose Playwright
+// prerender may fail when headless Chromium can't launch. The Wave 90
+// fallback only covered /sms-consent-disclosure; /privacy and /terms are
+// also in CRITICAL_ROUTES and are TCR-relevant (the A2P 10DLC vetting bot
+// may inspect them to verify business legitimacy), so they need static
+// fallbacks too.
+const CRITICAL_TEMPLATE_FALLBACKS = {
+  "/sms-consent-disclosure": "consent-disclosure-template.html",
+  "/privacy": "privacy-template.html",
+  "/terms": "terms-template.html",
+};
+
 async function tryWriteTemplateFallback(route) {
-  const templates = {
-    "/sms-consent-disclosure": path.join(
-      __dirname,
-      "consent-disclosure-template.html",
-    ),
-  };
-  const templatePath = templates[route];
-  if (!templatePath || !existsSync(templatePath)) return false;
+  const filename = CRITICAL_TEMPLATE_FALLBACKS[route];
+  if (!filename) return false;
+  const templatePath = path.join(__dirname, filename);
+  if (!existsSync(templatePath)) return false;
   try {
     const html = await readFile(templatePath, "utf-8");
     await writeRouteHtml(route, html);
