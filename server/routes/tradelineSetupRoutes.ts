@@ -42,8 +42,51 @@ import { createLogger } from "../lib/logger";
 import { writeAudit } from "../lib/auditLog";
 import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
 import * as crypto from "crypto";
+import { getTwilioClient, isTwilioConfigured } from "../twilioClient";
+import { RateLimiter, MemoryRateLimitStore } from "../services/rateLimiter";
 
 const log = createLogger("TradelineSetup");
+
+/* ─── Wave 85 — available-numbers cache + rate limit ─── */
+
+/**
+ * Wave 85 — 5-minute in-memory cache for Twilio availability searches.
+ * Twilio's available-phone-numbers inventory doesn't change rapidly for
+ * a given area code + vanity pattern, and a single user resizing/
+ * refreshing the picker shouldn't burn 4-5 Twilio search calls. Key is
+ * `${country}|${areaCode||''}|${contains||''}`. Inventory CAN turn over —
+ * if the user picks a number that's gone, the purchase fails with a clean
+ * Twilio error which the wizard surfaces as "Try a different number".
+ */
+const NUMBER_SEARCH_CACHE_TTL_MS = 5 * 60_000;
+interface CachedSearch {
+  numbers: AvailableNumber[];
+  fetchedAt: number;
+}
+const numberSearchCache = new Map<string, CachedSearch>();
+
+interface AvailableNumber {
+  phoneNumber: string;       // E.164, exactly what Twilio returns
+  friendlyName: string;      // Twilio's pretty form, e.g. "(415) 555-1234"
+  locality: string | null;   // e.g. "San Francisco" — may be null/empty
+  region: string | null;     // e.g. "CA"
+}
+
+function buildSearchCacheKey(country: string, areaCode?: string, contains?: string): string {
+  return `${country}|${areaCode || ""}|${contains || ""}`;
+}
+
+/**
+ * Wave 85 — per-user cap on POST /api/portal/tradeline/setup/available-numbers.
+ * The picker fires one search per user click on "Search". 10/min/user is
+ * plenty for normal use (try a handful of area codes / vanity patterns)
+ * and bounds the worst case if the UI ever loops.
+ */
+const availableNumbersRateLimiter = new RateLimiter(
+  new MemoryRateLimitStore(),
+  10,
+  60_000,
+);
 
 /* ─── Client-id resolution (same pattern as portalRoutes) ─── */
 
@@ -156,10 +199,150 @@ export function registerTradelineSetupRoutes(app: Express) {
     },
   );
 
+  /* ─── Wave 85 — Option A: list available numbers for the picker ─── */
+  const availableNumbersBody = z.object({
+    country: z.enum(["US", "CA"]),
+    // 3-digit area code (NANP). Optional — leave blank for nationwide pool.
+    areaCode: z
+      .string()
+      .regex(/^\d{3}$/, "areaCode must be exactly 3 digits")
+      .optional(),
+    // Vanity pattern like "777", "LOVE". Twilio accepts up to ~8 chars
+    // and translates letters per the standard phone-keypad mapping.
+    contains: z
+      .string()
+      .min(1)
+      .max(8)
+      .regex(/^[A-Za-z0-9*]+$/, "contains may only include letters, digits, or *")
+      .optional(),
+  });
+  app.post(
+    "/api/portal/tradeline/setup/available-numbers",
+    requireClient,
+    async (req: Request, res: Response) => {
+      try {
+        // Any signed-in client may search the inventory. Cost is bounded by
+        // the 5-min cache + per-user rate limit. We don't gate on a setup
+        // row existing — admins previewing the wizard for a future client
+        // and brand-new clients both hit this before completing other
+        // setup steps.
+        if (!req.user) return res.status(401).json({ error: "Not signed in" });
+
+        const parsed = availableNumbersBody.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+        const { country, areaCode, contains } = parsed.data;
+
+        const limiterKey = `tradeline-available-numbers:user:${req.user.id}`;
+        const allowed = await availableNumbersRateLimiter.check(limiterKey);
+        if (!allowed) {
+          return res
+            .status(429)
+            .json({ error: "Too many searches — please wait a minute and try again." });
+        }
+
+        // Cache hit short-circuits the Twilio API entirely.
+        const cacheKey = buildSearchCacheKey(country, areaCode, contains);
+        const cached = numberSearchCache.get(cacheKey);
+        const now = Date.now();
+        if (cached && now - cached.fetchedAt < NUMBER_SEARCH_CACHE_TTL_MS) {
+          return res.json({
+            numbers: cached.numbers,
+            cached: true,
+            country,
+            areaCode: areaCode ?? null,
+            contains: contains ?? null,
+          });
+        }
+
+        // TRADELINE_SETUP_TEST_MODE — return deterministic fake numbers so
+        // the wizard renders end-to-end without a real Twilio bill. The
+        // provision-new path already short-circuits to the magic test
+        // number in this mode, so the picked number is purely cosmetic.
+        if (process.env.TRADELINE_SETUP_TEST_MODE === "true") {
+          const ac = areaCode || (country === "CA" ? "416" : "415");
+          const seed = (contains || "").padEnd(4, "0").slice(0, 4).toUpperCase();
+          const fake: AvailableNumber[] = Array.from({ length: 8 }, (_, i) => {
+            const last4 = String((parseInt(seed.replace(/[^0-9]/g, "0"), 10) + i * 13) % 10000).padStart(4, "0");
+            const mid3 = String(555 + i).padStart(3, "0");
+            const phone = `+1${ac}${mid3}${last4}`;
+            return {
+              phoneNumber: phone,
+              friendlyName: `(${ac}) ${mid3}-${last4}`,
+              locality: country === "CA" ? "Toronto" : "San Francisco",
+              region: country === "CA" ? "ON" : "CA",
+            };
+          });
+          numberSearchCache.set(cacheKey, { numbers: fake, fetchedAt: now });
+          return res.json({
+            numbers: fake,
+            cached: false,
+            country,
+            areaCode: areaCode ?? null,
+            contains: contains ?? null,
+            testMode: true,
+          });
+        }
+
+        if (!isTwilioConfigured()) {
+          // Without Twilio credentials we can't return real numbers. The
+          // wizard will hide the picker and fall back to "Pick for me",
+          // which itself queues the provision until admin lands the key.
+          return res.json({
+            numbers: [],
+            cached: false,
+            country,
+            areaCode: areaCode ?? null,
+            contains: contains ?? null,
+            unavailable: true,
+            reason: "Number search isn't ready yet — use Pick for me to reserve a number.",
+          });
+        }
+
+        const client = getTwilioClient();
+        const searchOpts: Record<string, unknown> = {
+          smsEnabled: true,
+          voiceEnabled: true,
+          limit: 12,
+        };
+        if (areaCode) searchOpts.areaCode = parseInt(areaCode, 10);
+        if (contains) searchOpts.contains = contains;
+
+        const results = await client.availablePhoneNumbers(country).local.list(searchOpts as any);
+        const numbers: AvailableNumber[] = results.map((r: any) => ({
+          phoneNumber: r.phoneNumber,
+          friendlyName: r.friendlyName || r.phoneNumber,
+          locality: r.locality || null,
+          region: r.region || null,
+        }));
+
+        numberSearchCache.set(cacheKey, { numbers, fetchedAt: now });
+
+        return res.json({
+          numbers,
+          cached: false,
+          country,
+          areaCode: areaCode ?? null,
+          contains: contains ?? null,
+        });
+      } catch (err) {
+        log.error("available-numbers failed", { err: (err as Error).message });
+        return res.status(502).json({ error: "Number search failed — try a different area code or use Pick for me." });
+      }
+    },
+  );
+
   /* ─── Option A: provision new number ─── */
   const provisionBody = z.object({
     countryCode: z.enum(["US", "CA"]),
     preference: z.enum(["local", "toll_free"]).optional().default("local"),
+    // Wave 85 — when the wizard's number-picker step is used, the user's
+    // chosen E.164 number is forwarded here so we purchase it directly
+    // instead of auto-picking the first available. Optional so the
+    // existing "Pick for me" path still works unchanged.
+    targetPhoneNumber: z
+      .string()
+      .regex(/^\+[1-9]\d{6,15}$/, "Must be E.164 (e.g. +14155551234)")
+      .optional(),
   });
   app.post(
     "/api/portal/tradeline/setup/provision-new",
@@ -171,7 +354,11 @@ export function registerTradelineSetupRoutes(app: Express) {
         const parsed = provisionBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
-        const result = await provisionNumber(parsed.data.countryCode, parsed.data.preference);
+        const result = await provisionNumber(
+          parsed.data.countryCode,
+          parsed.data.preference,
+          parsed.data.targetPhoneNumber ? { targetPhoneNumber: parsed.data.targetPhoneNumber } : {},
+        );
 
         if (result.ok && !result.queued) {
           const existing = await getSetupRow(clientId);

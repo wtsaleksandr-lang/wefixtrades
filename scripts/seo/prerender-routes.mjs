@@ -216,8 +216,17 @@ function startStaticServer(rootDir, port) {
  * shell, then inject the rendered set before `</head>`. Body stays
  * as the original shell's empty React mount-point so hydration
  * happens as normal.
+ *
+ * Wave 88 — body-noscript splice. Some routes (notably
+ * `/sms-consent-disclosure`, scraped by the Twilio / TCR A2P 10DLC
+ * vetting bot, which does NOT execute JavaScript) need critical content
+ * visible to no-JS crawlers. The page renders the fallback inside a
+ * `<noscript>` block in its React tree; here we lift that block out of
+ * the captured DOM and inline it inside the shell's `<div id="root">`.
+ * Hydration is unaffected — React 18 happily mounts over arbitrary
+ * SSR-emitted children of the root.
  */
-function spliceHead(shellHtml, rendered) {
+function spliceHead(shellHtml, rendered, noscriptBody) {
   let out = shellHtml;
   // Remove existing <title>, all <meta>, <link rel="canonical">, and
   // existing JSON-LD scripts. We keep <link rel="icon">, <link
@@ -241,6 +250,20 @@ function spliceHead(shellHtml, rendered) {
 
   const injected = `${baseline}\n    ${rendered.join("\n    ")}`;
   out = out.replace("</head>", `    ${injected}\n  </head>`);
+
+  // Wave 88 — inline any captured noscript-fallback body content inside
+  // the React mount, wrapped in a real `<noscript>` tag so it only
+  // renders for no-JS clients (the TCR A2P vetting bot etc.). Hydrated
+  // browsers ignore <noscript> entirely. Only routes that actually emit
+  // a `data-noscript-fallback` element (currently just
+  // /sms-consent-disclosure) get this; other routes pass through with
+  // an unchanged shell body.
+  if (noscriptBody && noscriptBody.trim().length > 0) {
+    out = out.replace(
+      '<div id="root"></div>',
+      `<div id="root"><noscript>${noscriptBody}</noscript></div>`,
+    );
+  }
   return out;
 }
 
@@ -265,10 +288,10 @@ async function snapshotRoute(page, baseUrl, route) {
     // capture whatever head it has and the shell defaults remain.
   });
 
-  const tags = await page.evaluate(() => {
-    const out = [];
+  const captured = await page.evaluate(() => {
+    const tags = [];
     const title = document.querySelector("title");
-    if (title) out.push(title.outerHTML);
+    if (title) tags.push(title.outerHTML);
     document.querySelectorAll("meta").forEach((el) => {
       // Skip charset/viewport/theme-color — those are re-added by the
       // splicer from a fixed baseline. Everything else (description,
@@ -278,21 +301,41 @@ async function snapshotRoute(page, baseUrl, route) {
       const charset = el.getAttribute("charset");
       if (charset) return;
       if (name === "viewport" || name === "theme-color") return;
-      out.push(el.outerHTML);
+      tags.push(el.outerHTML);
     });
     document.querySelectorAll('link[rel="canonical"]').forEach((el) => {
-      out.push(el.outerHTML);
+      tags.push(el.outerHTML);
     });
     document
       .querySelectorAll('script[type="application/ld+json"]')
       .forEach((el) => {
         // Clone so the textContent serializes cleanly.
-        out.push(el.outerHTML);
+        tags.push(el.outerHTML);
       });
-    return out;
+
+    // Wave 88 — also capture body content marked with
+    // `data-noscript-fallback`. Components that need crawler-visible
+    // content (e.g. the SMS consent disclosure, fetched by the Twilio /
+    // TCR A2P 10DLC vetting bot which does not execute JS) render a
+    // hidden `<div data-noscript-fallback="...">` with the disclosure
+    // copy. We serialize that div's innerHTML; the splicer wraps it in
+    // a real `<noscript>` tag and inlines it into the shell's
+    // `<div id="root">`. Most routes emit no such element and this
+    // returns an empty string.
+    //
+    // Why not a literal <noscript> in the React tree? In a JS-enabled
+    // browser, <noscript> contents are parsed as raw text/CDATA and are
+    // not addressable as DOM children, so querySelector cannot extract
+    // them during capture. A plain hidden div is fully addressable.
+    const fallbacks = document.querySelectorAll("[data-noscript-fallback]");
+    const noscriptBody = Array.from(fallbacks)
+      .map((el) => el.innerHTML)
+      .join("\n");
+
+    return { tags, noscriptBody };
   });
 
-  return tags;
+  return captured;
 }
 
 async function writeRouteHtml(route, html) {
@@ -307,9 +350,12 @@ async function writeRouteHtml(route, html) {
 
 async function main() {
   const t0 = Date.now();
-  console.log("[prerender] booting static server on 127.0.0.1:4173...");
-  const server = await startStaticServer(DIST_DIR, 4173);
-  const baseUrl = "http://127.0.0.1:4173";
+  // Wave 88 — port is overridable to avoid EADDRINUSE collisions with a
+  // long-running `vite preview` or an orphan prerender server in dev.
+  const port = Number(process.env.PRERENDER_PORT) || 4173;
+  console.log(`[prerender] booting static server on 127.0.0.1:${port}...`);
+  const server = await startStaticServer(DIST_DIR, port);
+  const baseUrl = `http://127.0.0.1:${port}`;
 
   console.log("[prerender] launching Chromium...");
   const browser = await chromium.launch();
@@ -334,13 +380,13 @@ async function main() {
   let fail = 0;
   for (const route of routes) {
     try {
-      const tags = await snapshotRoute(page, baseUrl, route);
+      const { tags, noscriptBody } = await snapshotRoute(page, baseUrl, route);
       if (!tags || tags.length === 0) {
         console.warn(`[prerender] ${route}: no head tags captured`);
         fail += 1;
         continue;
       }
-      const html = spliceHead(shell, tags);
+      const html = spliceHead(shell, tags, noscriptBody);
       await writeRouteHtml(route, html);
       ok += 1;
     } catch (err) {
