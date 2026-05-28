@@ -32,12 +32,15 @@ import { clients, calculators } from "@shared/schema";
 import { sendSmsAsClient, storeSmsMessage } from "../twilioClient";
 import { createLogger } from "../lib/logger";
 import {
-  QUOTEQUICK_SMS_TEMPLATES,
   formatAmountDollars,
   formatAmountCents,
   formatExpiresTime,
-  interpolate,
 } from "../lib/quotequickHomeownerSms";
+// Wave 82 — template bodies move to the central registry, per-tenant
+// overrides resolve through the new resolver. The Wave 81 helper module
+// stays around for formatting (amount + expires-time + interpolate that
+// other code paths still import).
+import { resolveSmsTemplate } from "../lib/smsTemplateResolver";
 import { buildHostedUrl } from "@shared/slugUtils";
 
 const log = createLogger("QuotequickHomeownerSms");
@@ -118,11 +121,22 @@ export async function sendQuoteReadySms(
   const { clientId, calculator } = await resolveClientIdForCalculator(calculatorId);
   if (!calculator) return { ok: false, reason: "no_calculator" };
 
-  const body = interpolate(QUOTEQUICK_SMS_TEMPLATES.quoteReady, {
-    trade_name: calculator.business_name || "your trade",
-    amount: formatAmountDollars(quoteAmountDollars),
-    quote_link: buildQuoteLink(calculator),
+  const resolved = await resolveSmsTemplate({
+    templateId: "quotequick.quote_ready",
+    clientId,
+    vars: {
+      trade_name: calculator.business_name || "your trade",
+      amount: formatAmountDollars(quoteAmountDollars),
+      quote_link: buildQuoteLink(calculator),
+    },
   });
+  if (!resolved.enabled) {
+    // Registry pins this template as non-disable-able (first-touch +
+    // carrier opt-out footer), so the resolver should never return
+    // disabled. Guard rail in case the registry flag is ever loosened.
+    return { ok: false, reason: "no_consent" };
+  }
+  const body = resolved.body;
 
   try {
     let twilioSid: string;
@@ -209,12 +223,22 @@ export async function sendDepositReceiptSms(
     ? `${buildHostedUrl(calculator.slug)}?deposit=success&deposit_id=${depositId}`
     : buildQuoteLink(calculator);
 
-  const body = interpolate(QUOTEQUICK_SMS_TEMPLATES.depositReceipt, {
-    trade_name: calculator.business_name || "your trade",
-    amount: formatAmountCents(amountCents),
-    ref,
-    link,
+  const resolved = await resolveSmsTemplate({
+    templateId: "quotequick.deposit_receipt",
+    clientId,
+    vars: {
+      trade_name: calculator.business_name || "your trade",
+      amount: formatAmountCents(amountCents),
+      ref,
+      link,
+    },
   });
+  if (!resolved.enabled) {
+    // Deposit receipt is registry-pinned as non-disable-able — defence
+    // in depth in case the flag is ever loosened.
+    return { ok: false, reason: "no_consent" };
+  }
+  const body = resolved.body;
 
   try {
     let twilioSid: string;
@@ -293,11 +317,19 @@ export async function sendExpiresSoonSms(
     settings.integrations?.timezone ||
     "America/Toronto";
 
-  const body = interpolate(QUOTEQUICK_SMS_TEMPLATES.expiresSoon, {
-    trade_name: calculator.business_name || "your trade",
-    time: formatExpiresTime(expiresAt, timezone),
-    quote_link: buildQuoteLink(calculator),
+  const resolved = await resolveSmsTemplate({
+    templateId: "quotequick.expires_soon",
+    clientId,
+    vars: {
+      trade_name: calculator.business_name || "your trade",
+      time: formatExpiresTime(expiresAt, timezone),
+      quote_link: buildQuoteLink(calculator),
+    },
   });
+  if (!resolved.enabled) {
+    return { ok: false, reason: "no_consent" };
+  }
+  const body = resolved.body;
 
   try {
     let twilioSid: string;
@@ -396,10 +428,18 @@ export async function sendPostJobThankYouSms(
     if (c?.business_name) tradeName = c.business_name;
   }
 
-  const body = interpolate(QUOTEQUICK_SMS_TEMPLATES.postJobThankYou, {
-    trade_name: tradeName,
-    review_link: reviewLink,
+  const resolved = await resolveSmsTemplate({
+    templateId: "quotequick.post_job_thank_you",
+    clientId,
+    vars: {
+      trade_name: tradeName,
+      review_link: reviewLink,
+    },
   });
+  if (!resolved.enabled) {
+    return { ok: false, reason: "no_consent" };
+  }
+  const body = resolved.body;
 
   try {
     const twilioSid = await sendSmsAsClient({

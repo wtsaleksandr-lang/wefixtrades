@@ -27,10 +27,8 @@ import { db } from "../db";
 import { bookflowAppointments, bookflowSettings } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { sendSmsAsClient } from "../twilioClient";
-import {
-  BOOKFLOW_SMS_TEMPLATES,
-  interpolate,
-} from "../lib/bookflowSmsTemplates";
+// Wave 82 — template body + override resolution via the central registry.
+import { resolveSmsTemplate } from "../lib/smsTemplateResolver";
 
 const log = createLogger("BookFlowNoShowRecovery");
 
@@ -89,17 +87,29 @@ export async function processBookflowNoShowRecovery(): Promise<NoShowRecoveryRes
       (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
     const rescheduleLink = slug ? `${baseUrl}/book/${slug}` : `${baseUrl}/book`;
 
-    const body = interpolate(BOOKFLOW_SMS_TEMPLATES.no_show_recovery, {
-      brand_name: brandName,
-      service_name: appt.service_name ?? "your scheduled",
-      reschedule_link: rescheduleLink,
+    const resolved = await resolveSmsTemplate({
+      templateId: "bookflow.no_show_recovery",
+      clientId: appt.client_id,
+      vars: {
+        brand_name: brandName,
+        service_name: appt.service_name ?? "your scheduled",
+        reschedule_link: rescheduleLink,
+      },
     });
+    if (!resolved.enabled) {
+      await db
+        .update(bookflowAppointments)
+        .set({ no_show_recovery_sent_at: new Date(), updated_at: new Date() })
+        .where(eq(bookflowAppointments.id, appt.id));
+      result.skipped++;
+      continue;
+    }
 
     try {
       await sendSmsAsClient({
         clientId: appt.client_id,
         to: appt.customer_phone,
-        body,
+        body: resolved.body,
         channel: "sms",
         quietHoursBypass: "reminder",
         fallbackTimezone: timezone,

@@ -28,11 +28,9 @@ import { db } from "../db";
 import { bookflowAppointments, bookflowSettings } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { sendSmsAsClient } from "../twilioClient";
-import {
-  BOOKFLOW_SMS_TEMPLATES,
-  interpolate,
-  formatAppointmentTime,
-} from "../lib/bookflowSmsTemplates";
+import { formatAppointmentTime } from "../lib/bookflowSmsTemplates";
+// Wave 82 — template body + per-tenant override resolution.
+import { resolveSmsTemplate } from "../lib/smsTemplateResolver";
 
 const log = createLogger("BookFlowDayOfReminder");
 
@@ -85,16 +83,30 @@ export async function processBookflowDayOfReminders(): Promise<DayOfReminderResu
     const brandName = settings?.business_name ?? "Your tradesperson";
     const timezone = settings?.timezone ?? null;
 
-    const body = interpolate(BOOKFLOW_SMS_TEMPLATES.day_of_reminder, {
-      brand_name: brandName,
-      time: formatAppointmentTime(new Date(appt.start_time), timezone),
+    // Wave 82 — resolver handles per-tenant body / enabled override.
+    const resolved = await resolveSmsTemplate({
+      templateId: "bookflow.day_of_reminder",
+      clientId: appt.client_id,
+      vars: {
+        brand_name: brandName,
+        time: formatAppointmentTime(new Date(appt.start_time), timezone),
+      },
     });
+    if (!resolved.enabled) {
+      // Stamp so we don't keep re-evaluating the same row each tick.
+      await db
+        .update(bookflowAppointments)
+        .set({ day_of_reminder_sent_at: new Date(), updated_at: new Date() })
+        .where(eq(bookflowAppointments.id, appt.id));
+      result.skipped++;
+      continue;
+    }
 
     try {
       await sendSmsAsClient({
         clientId: appt.client_id,
         to: appt.customer_phone,
-        body,
+        body: resolved.body,
         channel: "sms",
         quietHoursBypass: "transactional",
         fallbackTimezone: timezone,

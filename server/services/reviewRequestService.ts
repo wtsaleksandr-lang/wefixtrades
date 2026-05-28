@@ -363,7 +363,27 @@ export async function processReviewRequest(rr: ReviewRequest): Promise<{ sent: b
     const payload = rr.payload as any;
     const businessName = payload?.business_name || "your service provider";
     const feedbackUrl = `${baseUrl}/review/${rr.access_token}`;
-    const smsBody = `Hi ${rr.customer_name || "there"}, how was your experience with ${businessName}? Share your feedback: ${feedbackUrl}`;
+    // Wave 82 — registry-resolved body. Template is per-tenant editable via
+    // the portal API (Wave 83 UI). `enabled: false` here means the tenant
+    // muted review-request SMS entirely; surface that as a permanent stop.
+    const { resolveSmsTemplate } = await import("../lib/smsTemplateResolver");
+    const resolved = await resolveSmsTemplate({
+      templateId: "reputation.review_request",
+      clientId: rr.client_id,
+      vars: {
+        customer_name: rr.customer_name || "there",
+        business_name: businessName,
+        feedback_url: feedbackUrl,
+      },
+    });
+    if (!resolved.enabled) {
+      await storage.updateReviewRequest(rr.id, {
+        status: "stopped",
+        last_error: "Disabled by tenant",
+      });
+      return { sent: false, error: "disabled_by_tenant" };
+    }
+    const smsBody = resolved.body;
 
     try {
       // Wave 77 — send from the client's per-tenant TradeLine number so

@@ -33,10 +33,9 @@ import { db } from "../db";
 import { bookflowAppointments, bookflowSettings } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { sendSmsAsClient } from "../twilioClient";
-import {
-  BOOKFLOW_SMS_TEMPLATES,
-  interpolate,
-} from "../lib/bookflowSmsTemplates";
+// Wave 82 — template body + override resolution moved to the central
+// registry. The wording stays identical to Wave 80.
+import { resolveSmsTemplate } from "../lib/smsTemplateResolver";
 import { getReviewLink } from "../services/reputation/reviewRequestService";
 
 const log = createLogger("BookFlowPostAppointment");
@@ -92,10 +91,26 @@ export async function processBookflowPostAppointment(): Promise<PostAppointmentR
       log.warn(`[bookflow-thank-you] review-link lookup failed for client ${appt.client_id}: ${err?.message}`);
     }
 
-    const body = interpolate(BOOKFLOW_SMS_TEMPLATES.post_thank_you, {
-      brand_name: brandName,
-      review_link: reviewLink ?? "",
-    }).replace(/\s+Or leave a review:\s*$/i, "");
+    const resolved = await resolveSmsTemplate({
+      templateId: "bookflow.post_appointment",
+      clientId: appt.client_id,
+      vars: {
+        brand_name: brandName,
+        review_link: reviewLink ?? "",
+      },
+    });
+    if (!resolved.enabled) {
+      // Tenant disabled — stamp + skip so we don't re-evaluate.
+      await db
+        .update(bookflowAppointments)
+        .set({ post_thank_you_sent_at: new Date(), updated_at: new Date() })
+        .where(eq(bookflowAppointments.id, appt.id));
+      result.skipped++;
+      continue;
+    }
+    // Strip a dangling "Or leave a review:" tail when the review link
+    // came back empty — same scrub the Wave-80 site applied.
+    const body = resolved.body.replace(/\s+Or leave a review:\s*$/i, "");
 
     try {
       await sendSmsAsClient({

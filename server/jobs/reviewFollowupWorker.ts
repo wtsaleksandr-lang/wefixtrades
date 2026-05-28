@@ -19,9 +19,13 @@ import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import {
   buildReminderEmailHtml,
   getReminderSubject,
-  getReminderSmsBody,
 } from "../lib/reviewRequestEmail";
 import { isTwilioConfigured, sendSmsAsClient, storeSmsMessage } from "../twilioClient";
+// Wave 82 — SMS reminder body comes from the central registry; per-tenant
+// override flows through resolveSmsTemplate. The legacy getReminderSmsBody
+// helper stays around in reviewRequestEmail.ts for tests + back-compat
+// callers we haven't fully replaced.
+import { resolveSmsTemplate } from "../lib/smsTemplateResolver";
 import type { ReviewRequest } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 
@@ -121,12 +125,32 @@ async function sendFollowup(rr: ReviewRequest): Promise<{ sent: boolean; error?:
     if (!isTwilioConfigured()) {
       sendError = sendError || "Twilio not configured";
     } else {
-      const smsBody = getReminderSmsBody({
-        customerName,
-        businessName,
-        feedbackUrl,
-        step: nextStep,
+      // Wave 82 — resolve the followup body through the central registry.
+      // Step 1 → reputation.review_followup_1, step 2 → review_followup_2.
+      const templateId = nextStep === 1
+        ? ("reputation.review_followup_1" as const)
+        : ("reputation.review_followup_2" as const);
+      const resolved = await resolveSmsTemplate({
+        templateId,
+        clientId: fresh.client_id,
+        vars: {
+          customer_name: customerName,
+          business_name: businessName,
+          feedback_url: feedbackUrl,
+        },
       });
+      if (!resolved.enabled) {
+        // Tenant muted this followup step. Treat as a "done" — advance
+        // the sequence so we don't poll the row forever.
+        await storage.updateReviewRequest(fresh.id, {
+          sequence_step: nextStep,
+          status: nextStep >= MAX_SEQUENCE_STEP ? "completed" : "sent",
+          next_followup_at: null,
+          completed_at: nextStep >= MAX_SEQUENCE_STEP ? new Date() : null,
+        });
+        return { sent: false, error: "disabled_by_tenant" };
+      }
+      const smsBody = resolved.body;
       try {
         // Wave 77 — send from the client's per-tenant TradeLine number.
         // Wave 79 — homeowner review follow-up is a reminder send, so it
