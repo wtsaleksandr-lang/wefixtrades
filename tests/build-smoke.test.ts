@@ -41,6 +41,21 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
+// Wave 96 — CI-aware skip. When SKIP_PRERENDER=1 the build also skips
+// scripts/seo/prerender-routes.mjs, which means dist/public/<route>/index.html
+// won't exist for routes that lack a static-template fallback. Asserting on
+// those files would be a guaranteed false-positive failure (GitHub CI runs
+// on ubuntu-latest without Chromium system libs, so prerender can't run
+// there). Defer to the build's own gate instead — production builds on Replit
+// do NOT set this flag, so the smoke check still enforces every critical
+// route at deploy time.
+if (process.env.SKIP_PRERENDER === "1") {
+  console.log(
+    "[build-smoke] SKIP_PRERENDER=1 detected — skipping smoke test (CI mode).",
+  );
+  process.exit(0);
+}
+
 // `import.meta.url` is a file:// URL; on Windows the .pathname form
 // gives "/C:/..." which path.resolve mangles into "C:/C:/...". Use
 // fileURLToPath so the same code works on both POSIX and Windows.
