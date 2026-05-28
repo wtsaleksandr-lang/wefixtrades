@@ -180,6 +180,7 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/contact", priority: "0.6", changefreq: "monthly", lastmod: "2026-04-01" },
   { loc: "/privacy", priority: "0.3", changefreq: "yearly", lastmod: "2026-01-01" },
   { loc: "/terms", priority: "0.3", changefreq: "yearly", lastmod: "2026-01-01" },
+  { loc: "/sms-consent-disclosure", priority: "0.3", changefreq: "yearly", lastmod: "2026-05-28" },
 ];
 
 function escapeXml(value: string): string {

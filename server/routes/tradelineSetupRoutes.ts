@@ -190,7 +190,11 @@ export function registerTradelineSetupRoutes(app: Express) {
             mode: "new",
             time_elapsed_seconds: elapsed,
           });
-          return res.json({ setup: row, queued: false });
+          return res.json({
+            setup: row,
+            queued: false,
+            ...(result.warning ? { warning: result.warning } : {}),
+          });
         }
 
         if (result.ok && result.queued) {

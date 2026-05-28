@@ -13,13 +13,56 @@ import { db } from "../db";
 import { storage } from "../storage";
 import {
   fulfillmentTasks,
+  tradelinePhoneSetups,
   type ClientService,
 } from "@shared/schema";
-import { getTradeLineReadiness } from "@shared/schema";
+import { getTradeLineReadiness, type TradeLinePhoneSetupHealth } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
+import { getTwilioClient, isTwilioConfigured } from "../twilioClient";
 
 const log = createLogger("ReadinessChecker");
+
+/**
+ * Wave 76 — small in-memory cache keyed by IncomingPhoneNumber SID so the
+ * readiness check doesn't spam Twilio every time the worker tick fires.
+ * 5-minute TTL is generous — webhook URLs only drift when ops mutates them.
+ */
+const WEBHOOK_CACHE_TTL_MS = 5 * 60 * 1000;
+interface WebhookCacheEntry {
+  voiceAttached: boolean;
+  smsAttached: boolean;
+  cachedAt: number;
+}
+const WEBHOOK_CACHE = new Map<string, WebhookCacheEntry>();
+
+async function fetchTwilioWebhookAttachment(sid: string): Promise<{ voiceAttached: boolean; smsAttached: boolean } | null> {
+  const now = Date.now();
+  const cached = WEBHOOK_CACHE.get(sid);
+  if (cached && now - cached.cachedAt < WEBHOOK_CACHE_TTL_MS) {
+    return { voiceAttached: cached.voiceAttached, smsAttached: cached.smsAttached };
+  }
+  if (!isTwilioConfigured()) return null;
+  try {
+    const client = getTwilioClient();
+    const resource: any = await client.incomingPhoneNumbers(sid).fetch();
+    const voiceUrl: string = resource?.voiceUrl ?? resource?.voice_url ?? "";
+    const smsUrl: string = resource?.smsUrl ?? resource?.sms_url ?? "";
+    const entry: WebhookCacheEntry = {
+      voiceAttached: typeof voiceUrl === "string" && voiceUrl.trim().length > 0,
+      smsAttached: typeof smsUrl === "string" && smsUrl.trim().length > 0,
+      cachedAt: now,
+    };
+    WEBHOOK_CACHE.set(sid, entry);
+    return { voiceAttached: entry.voiceAttached, smsAttached: entry.smsAttached };
+  } catch (err) {
+    log.warn("Twilio incomingPhoneNumbers fetch failed (treating as no signal)", {
+      sid: `...${sid.slice(-4)}`,
+      err: (err as Error).message,
+    });
+    return null;
+  }
+}
 
 export interface ReadinessResult {
   ready: boolean;
@@ -86,7 +129,45 @@ async function checkTradeLine(cs: ClientService): Promise<ReadinessResult> {
     return { ready: false, issues: ["TradeLine config not initialized"] };
   }
 
-  const configReadiness = getTradeLineReadiness(config);
+  // Wave 76 — pull tradeline_phone_setups for this client to extend the
+  // readiness check with provisioning_status + live Twilio webhook attachment.
+  // Mirrors the audit fix: a number can be marked "provisioned" in our DB but
+  // still have empty voiceUrl/smsUrl on Twilio's side if the webhooks were
+  // never wired on the create call.
+  let phoneSetupHealth: TradeLinePhoneSetupHealth | undefined;
+  try {
+    const [setupRow] = await db
+      .select({
+        provisioningStatus: tradelinePhoneSetups.provisioning_status,
+        assignedNumberSid: tradelinePhoneSetups.assigned_number_sid,
+      })
+      .from(tradelinePhoneSetups)
+      .where(eq(tradelinePhoneSetups.client_id, cs.client_id))
+      .limit(1);
+
+    if (setupRow) {
+      phoneSetupHealth = {
+        provisioningStatus: (setupRow.provisioningStatus as TradeLinePhoneSetupHealth["provisioningStatus"]) ?? null,
+        voiceWebhookAttached: null,
+        smsWebhookAttached: null,
+      };
+
+      if (setupRow.assignedNumberSid && setupRow.provisioningStatus === "provisioned") {
+        const live = await fetchTwilioWebhookAttachment(setupRow.assignedNumberSid);
+        if (live) {
+          phoneSetupHealth.voiceWebhookAttached = live.voiceAttached;
+          phoneSetupHealth.smsWebhookAttached = live.smsAttached;
+        }
+      }
+    }
+  } catch (err) {
+    log.warn("phone-setup health lookup failed (treating as no signal)", {
+      clientId: cs.client_id,
+      err: (err as Error).message,
+    });
+  }
+
+  const configReadiness = getTradeLineReadiness(config, phoneSetupHealth);
   issues.push(...configReadiness.issues);
 
   const taskIssues = await checkNonHumanReviewTasks(cs.id);
