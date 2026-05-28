@@ -25,7 +25,7 @@ import {
 import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
-import { generateLineChart } from "./emailCharts";
+import { generateLineChart, generateSparklineWithPeakPng } from "./emailCharts";
 import { createLogger } from "../lib/logger";
 import {
   REPORT_COLORS,
@@ -39,6 +39,7 @@ import {
   buildRecommendations,
   buildCtaButton,
   buildMetricGlossary,
+  buildSparklinePeakCard,
   deriveHeaderBadge,
   type KpiTile,
   type HeaderBadge,
@@ -321,11 +322,45 @@ async function tryGenerateRankingChart(
   return result?.url || null;
 }
 
+/**
+ * Wave 74: render the sparkline-with-peak PNG for the "best-rank spike"
+ * KPI card. Same source data as the integrated trend chart but with the
+ * peak (best rank) point called out. Returns null if the series is too
+ * short or the PNG pipeline fails — caller still renders the always-on
+ * text fallback inside the card.
+ */
+async function tryGenerateBestRankSparkline(
+  clientId: number,
+  data: RankflowMonthlyReportData,
+): Promise<string | null> {
+  if (data.position_history.length < 4) return null;
+  const visSeries = data.position_history.map((p) =>
+    Math.round(Math.max(0, 100 - p.avg_position) * 10) / 10);
+  let peakIdx = 0;
+  for (let i = 1; i < data.position_history.length; i++) {
+    if (data.position_history[i].avg_position < data.position_history[peakIdx].avg_position) {
+      peakIdx = i;
+    }
+  }
+  const peakDate = new Date(data.position_history[peakIdx].date)
+    .toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const periodKey = data.period_start.slice(0, 7);
+
+  return generateSparklineWithPeakPng({
+    cacheKey: `rankflow-bestrank-cs${clientId}-${periodKey}`,
+    data: visSeries,
+    peakIndex: peakIdx,
+    peakLabel: `Best — ${peakDate}`,
+  });
+}
+
 /* ─── Compose ─── */
 
 interface ComposeOpts {
   data: RankflowMonthlyReportData;
   chartUrl: string | null;
+  /** Wave 74: optional pre-generated URL for the best-rank sparkline KPI card. */
+  bestRankChartUrl?: string | null;
   portalUrl: string;
   recipientEmail: string;
 }
@@ -459,6 +494,36 @@ function composeRankflowReport(o: ComposeOpts): { subject: string; html: string;
     ? d.recommendations
     : buildDefaultRecommendations(d);
 
+  // Wave 74: best-rank sparkline KPI card.
+  // The chart's data series is "visibility-style" (100 - avg_position) so
+  // higher = better and the peak point reads correctly. The peak index
+  // is the position_history entry with the lowest avg_position
+  // (= best rank). Fallback cells show visibility points 0-100 — paired
+  // with the "Visibility trend" eyebrow in the existing chart above, the
+  // reader has the position values one section up.
+  let bestRankCard = "";
+  if (d.position_history.length >= 4) {
+    const visSeries = d.position_history.map((p) =>
+      Math.round(Math.max(0, 100 - p.avg_position) * 10) / 10);
+    let peakIdx = 0;
+    for (let i = 1; i < d.position_history.length; i++) {
+      if (d.position_history[i].avg_position < d.position_history[peakIdx].avg_position) {
+        peakIdx = i;
+      }
+    }
+    const peakDate = new Date(d.position_history[peakIdx].date)
+      .toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    bestRankCard = buildSparklinePeakCard({
+      chartUrl: o.bestRankChartUrl ?? null,
+      title: "Best-rank spike",
+      data: visSeries,
+      peakIndex: peakIdx,
+      peakLabel: `Best — ${peakDate}`,
+      startLabel: "Start visibility",
+      endLabel: "End visibility",
+    });
+  }
+
   // Compose body — every block opt-in based on real data
   const body = [
     buildReportHero({
@@ -471,6 +536,7 @@ function composeRankflowReport(o: ComposeOpts): { subject: string; html: string;
     buildKpiGrid(kpis),
     o.chartUrl ? buildIntegratedChart({ chartUrl: o.chartUrl, alt: `Visibility trend across ${d.month_label}`, height: 280 }) : "",
     fallbackCells.length > 0 ? buildChartFallback({ title: "What the chart shows", cells: fallbackCells }) : "",
+    bestRankCard,
     topWinnerCard ? buildSection({ title: "Biggest gain this month", content: topWinnerCard }) : "",
     activityItems.length > 0 ? buildSection({ title: "What we worked on", content: buildActivityList(activityItems) }) : "",
     buildRecommendations({ items: recommendations }),
@@ -557,10 +623,12 @@ export async function sendRankflowReport(
 
   const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
   const chartUrl = await tryGenerateRankingChart(cs.client_id, data);
+  const bestRankChartUrl = await tryGenerateBestRankSparkline(cs.client_id, data);
 
   const { subject, html } = composeRankflowReport({
     data,
     chartUrl,
+    bestRankChartUrl,
     portalUrl: baseUrl,
     recipientEmail: client.contact_email,
   });

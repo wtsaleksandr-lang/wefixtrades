@@ -15,6 +15,8 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildEmailHeader, buildLegalFooter, buildChatBubble } from "./emailFooter";
 import { createLogger } from "./logger";
+import { generateSemiGaugePng } from "../services/emailCharts";
+import { buildSemiGaugeCard } from "./reportShell";
 
 const log = createLogger("WebCareDigest");
 
@@ -42,7 +44,26 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildDigestHtml(data: MonthlyDigestData, portalUrl: string): string {
+/**
+ * Derive a 0-100 site-health score from the existing digest signals.
+ * Composition (kept conservative — never down-weights uptime since
+ * customers read uptime as the headline number):
+ *   - 70% weight: uptime percentage (0-100)
+ *   - 30% weight: security letter grade (A=100, B=85, C=70, D=55, F=40)
+ */
+function computeSiteHealthScore(stats: MonthlyDigestStats): number {
+  const uptime = Math.max(0, Math.min(100, stats.uptimePct));
+  const letter = (stats.securityLetter || "").trim().toUpperCase()[0];
+  const letterScore = letter === "A" ? 100
+    : letter === "B" ? 85
+    : letter === "C" ? 70
+    : letter === "D" ? 55
+    : letter === "F" ? 40
+    : 70; // unknown grades default to neutral
+  return Math.round(uptime * 0.7 + letterScore * 0.3);
+}
+
+function buildDigestHtml(data: MonthlyDigestData, portalUrl: string, healthCardHtml: string): string {
   const { stats } = data;
   const uptimeStr = `${stats.uptimePct.toFixed(1)}%`;
   return `
@@ -57,6 +78,8 @@ function buildDigestHtml(data: MonthlyDigestData, portalUrl: string): string {
           <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 22px;">
             Five numbers that summarise the work we did on your website last month. Open the portal for the live Maintenance Log.
           </p>
+
+          ${healthCardHtml}
 
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:8px;margin:0 0 22px;">
             <tr>
@@ -140,13 +163,39 @@ export async function sendWebcareMonthlyDigest(
 
   const subject = `Your WebCare report — ${data.periodLabel}: ${data.stats.securityLetter} grade, ${data.stats.uptimePct.toFixed(1)}% uptime`;
 
+  // Wave 74: site-health semi-gauge KPI card. Generation failure is
+  // graceful — the card still renders with text-only fallback.
+  const healthScore = computeSiteHealthScore(data.stats);
+  const verdict = healthScore >= 80 ? "Excellent"
+    : healthScore >= 50 ? "Holding up"
+    : "Needs attention";
+  const advice = healthScore >= 80
+    ? "Site stayed online and patched. Nothing for you to do."
+    : healthScore >= 50
+    ? "Stable, with room to improve. We're tightening loose ends this cycle."
+    : "We're prioritizing recovery work this cycle — expect a follow-up.";
+  const periodSlug = data.periodLabel.replace(/\s+/g, "-").toLowerCase();
+  const gaugeUrl = await generateSemiGaugePng({
+    cacheKey: `webcare-health-${data.recipientEmail.split("@")[0]}-${periodSlug}`,
+    value: healthScore,
+    max: 100,
+  });
+  const healthCardHtml = buildSemiGaugeCard({
+    chartUrl: gaugeUrl,
+    label: "Site health score",
+    value: healthScore,
+    max: 100,
+    verdict,
+    advice,
+  });
+
   try {
     await transporter.sendMail({
       from: `WeFixTrades WebCare <${getFromAddress()}>`,
       to: data.recipientEmail,
       replyTo: "support@wefixtrades.com",
       subject,
-      html: buildDigestHtml(data, baseUrl),
+      html: buildDigestHtml(data, baseUrl, healthCardHtml),
     });
 
     log.info("Monthly digest sent", {

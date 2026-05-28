@@ -12,7 +12,7 @@ import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { monitoredReviews, reviewRequests, clients } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { isEmailUnsubscribed } from "./unsubscribeStorage";
-import { generateLineChart } from "../services/emailCharts";
+import { generateLineChart, generateSemiGaugePng } from "../services/emailCharts";
 import {
   REPORT_COLORS,
   buildReportShell,
@@ -24,6 +24,7 @@ import {
   buildRecommendations,
   buildCtaButton,
   buildMetricGlossary,
+  buildSemiGaugeCard,
   deriveHeaderBadge,
   type KpiTile,
   type HeaderBadge,
@@ -269,8 +270,29 @@ async function tryGenerateVelocityChart(
 interface ComposeOpts {
   data: ReportData;
   chartUrl: string | null;
+  /** Wave 74: pre-generated URL for the reputation-score semi-gauge card. */
+  reputationGaugeUrl?: string | null;
   portalUrl: string;
   recipientEmail: string;
+}
+
+/**
+ * Wave 74: derive a 0-100 reputation score from existing fields.
+ * Composition (weights chosen so a 4.5★ store with healthy response rate
+ * lands in the "Holding up / Excellent" band, while a 4.5★ store with no
+ * responses lands in "Needs attention"):
+ *   - 60%: average rating (0-5★ mapped linearly to 0-100)
+ *   - 40%: response rate ((total - reviewsWithoutResponse) / total)
+ * Caller may pass a hand-computed score directly when available; this is
+ * a safe default that uses only fields already collected by aggregateReportData.
+ */
+export function deriveReputationScore(d: ReportData): number {
+  const ratingPart = Math.max(0, Math.min(100, (d.averageRating / 5) * 100));
+  const respondedShare = d.totalReviews > 0
+    ? (d.totalReviews - d.reviewsWithoutResponse) / d.totalReviews
+    : 0;
+  const responsePart = Math.max(0, Math.min(100, respondedShare * 100));
+  return Math.round(ratingPart * 0.6 + responsePart * 0.4);
 }
 
 function composeReputationReport(o: ComposeOpts): { subject: string; html: string; badge: HeaderBadge } {
@@ -401,6 +423,26 @@ function composeReputationReport(o: ComposeOpts): { subject: string; html: strin
     ? d.recommendations
     : buildDefaultRecommendations(d);
 
+  // Wave 74: reputation-score semi-gauge KPI card. Skipped when there are
+  // zero reviews on file (gauge would be meaningless at 0/100).
+  const reputationScore = d.totalReviews > 0 ? deriveReputationScore(d) : null;
+  const reputationCard = reputationScore != null
+    ? buildSemiGaugeCard({
+        chartUrl: o.reputationGaugeUrl ?? null,
+        label: "Reputation score",
+        value: reputationScore,
+        max: 100,
+        verdict: reputationScore >= 80 ? "Excellent"
+          : reputationScore >= 50 ? "Holding up"
+          : "Needs attention",
+        advice: reputationScore >= 80
+          ? "Strong ratings and active replies — keep the cadence going."
+          : reputationScore >= 50
+          ? "Solid foundation. Reply to a few more reviews this month to climb."
+          : "Reply to pending reviews and request fresh ones from happy customers.",
+      })
+    : "";
+
   // Compose body
   const body = [
     buildReportHero({
@@ -410,6 +452,7 @@ function composeReputationReport(o: ComposeOpts): { subject: string; html: strin
       businessName: d.businessName,
       summary,
     }),
+    reputationCard,
     buildKpiGrid(kpis),
     o.chartUrl ? buildIntegratedChart({ chartUrl: o.chartUrl, alt: `Cumulative reviews over ${d.periodLabel}`, height: 280 }) : "",
     fallbackCells.length > 0 ? buildChartFallback({ title: "What the chart shows", cells: fallbackCells }) : "",
@@ -491,9 +534,21 @@ export async function sendReputationReport(data: ReportData, portalUrl: string):
   // Pre-generate chart at send time (best-effort; null is fine)
   const chartUrl = await tryGenerateVelocityChart(0 /* clientId is unknown here; cache key uses 0 */, data);
 
+  // Wave 74: pre-generate the reputation-score semi-gauge PNG (best-effort)
+  const reputationScore = data.totalReviews > 0 ? deriveReputationScore(data) : null;
+  const periodSlug = data.periodLabel.replace(/\s+/g, "-").toLowerCase().slice(0, 40);
+  const reputationGaugeUrl = reputationScore != null
+    ? await generateSemiGaugePng({
+        cacheKey: `reputation-score-${data.contactEmail.split("@")[0]}-${periodSlug}`,
+        value: reputationScore,
+        max: 100,
+      })
+    : null;
+
   const { subject, html } = composeReputationReport({
     data,
     chartUrl,
+    reputationGaugeUrl,
     portalUrl,
     recipientEmail: data.contactEmail,
   });

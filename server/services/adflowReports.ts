@@ -15,7 +15,7 @@ import { eq, and, sql, desc } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { storage } from "../storage";
-import { generateLineChart } from "./emailCharts";
+import { generateLineChart, generateMonthlyBarSeriesPng } from "./emailCharts";
 import { chat } from "./aiService";
 import {
   REPORT_COLORS,
@@ -28,6 +28,7 @@ import {
   buildSection,
   buildCtaButton,
   buildMetricGlossary,
+  buildMonthlyBarCard,
   deriveHeaderBadge,
   type KpiTile,
   type HeaderBadge,
@@ -173,6 +174,8 @@ interface AdFlowComposeOpts {
   period: string;
   metrics: AdFlowReportMetrics;
   chartUrl: string | null;
+  /** Wave 74: pre-generated URL for the leads-this-month vs prior bar card. */
+  leadsBarChartUrl?: string | null;
   portalUrl: string;
   recipientEmail: string;
   summary: string;
@@ -260,6 +263,24 @@ async function composeAdFlowReport(o: AdFlowComposeOpts): Promise<{ subject: str
     <p style="font-size:13px;color:${REPORT_COLORS.text};line-height:1.55;margin:0;">${escapeHtml(m.notes)}</p>
   ` : "";
 
+  // Wave 74: leads-this-month vs prior-month bar card. Skipped when both
+  // periods have zero leads (avoids a zero-zero card on first baseline).
+  const leadsCurr = m.leads_generated ?? 0;
+  const leadsPrior = prior?.leads_generated ?? 0;
+  const leadsBarCard = (leadsCurr + leadsPrior) > 0
+    ? buildMonthlyBarCard({
+        chartUrl: o.leadsBarChartUrl ?? null,
+        title: "Leads per month",
+        bars: [
+          { label: "Prior", value: leadsPrior },
+          { label: "This month", value: leadsCurr, highlight: true },
+        ],
+        caption: leadsPrior === 0
+          ? `${leadsCurr} lead${leadsCurr === 1 ? "" : "s"} this month — first month of tracked performance.`
+          : `${leadsCurr} lead${leadsCurr === 1 ? "" : "s"} this month vs ${leadsPrior} prior.`,
+      })
+    : "";
+
   // Compose body
   const body = [
     buildReportHero({
@@ -268,6 +289,7 @@ async function composeAdFlowReport(o: AdFlowComposeOpts): Promise<{ subject: str
       period: o.period,
       summary: o.summary,
     }),
+    leadsBarCard,
     buildKpiGrid(kpis),
     o.chartUrl ? buildIntegratedChart({ chartUrl: o.chartUrl, alt: `Daily leads trend, ${o.period}`, height: 280 }) : "",
     fallbackCells.length ? buildChartFallback({ cells: fallbackCells }) : "",
@@ -401,6 +423,18 @@ export async function compileAndSendAdFlowReport(
     ? new Date(metrics.period_start).toISOString().slice(0, 7)
     : new Date().toISOString().slice(0, 7);
   const chartUrl = await tryGenerateChart(`adflow-cs${cs.id}-${periodKey}-fb`, metrics);
+  // Wave 74: monthly-bar PNG for leads-per-month KPI card.
+  const leadsCurr = metrics.leads_generated ?? 0;
+  const leadsPrior = metrics.prior_period?.leads_generated ?? 0;
+  const leadsBarChartUrl = (leadsCurr + leadsPrior) > 0
+    ? await generateMonthlyBarSeriesPng({
+        cacheKey: `adflow-leadsbar-cs${cs.id}-${periodKey}`,
+        bars: [
+          { label: "Prior", value: leadsPrior },
+          { label: "This month", value: leadsCurr, highlight: true },
+        ],
+      })
+    : null;
 
   const summary = await writeSummary(serviceName, metrics, period);
   const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
@@ -413,6 +447,7 @@ export async function compileAndSendAdFlowReport(
     period,
     metrics,
     chartUrl,
+    leadsBarChartUrl,
     portalUrl: `${baseUrl}/portal/services`,
     recipientEmail: client.contact_email,
     summary,

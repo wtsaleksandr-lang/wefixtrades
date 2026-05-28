@@ -13,6 +13,8 @@ import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { createLogger } from "./logger";
 import type { MasterAuditReport } from "../services/fullAuditMaster/types";
 import { renderReportEmailBody } from "../services/fullAuditMaster/reportRenderer";
+import { generateSemiGaugePng } from "../services/emailCharts";
+import { buildSemiGaugeCard } from "./reportShell";
 
 const log = createLogger("FullAuditDelivery");
 
@@ -33,11 +35,40 @@ export async function sendFullAuditDeliveryEmail(data: FullAuditDeliveryData): P
 
   const subject = "Your Full Audit Master is ready";
 
+  // Wave 74: overall-score semi-gauge card. Generation is best-effort —
+  // gauge card always renders with the text-only fallback. Inserted
+  // ABOVE the existing section table so the score is the eye-catch.
+  let scoreCardHtml = "";
+  if (data.report) {
+    const score = Math.max(0, Math.min(100, data.report.overallScore));
+    const verdict = score >= 80 ? "Excellent"
+      : score >= 50 ? "Holding up"
+      : "Needs attention";
+    const advice = score >= 80
+      ? "Strong foundation across all five sections."
+      : score >= 50
+      ? "A few sections need attention — see the breakdown below."
+      : "Several areas are at risk — open the full report for details.";
+    const gaugeUrl = await generateSemiGaugePng({
+      cacheKey: `fullaudit-score-${data.report.orderId || data.recipientEmail.split("@")[0]}`,
+      value: score,
+      max: 100,
+    });
+    scoreCardHtml = buildSemiGaugeCard({
+      chartUrl: gaugeUrl,
+      label: "Overall audit score",
+      value: score,
+      max: 100,
+      verdict,
+      advice,
+    });
+  }
+
   // Prefer the rendered section table when the pipeline supplied a
   // validated report; fall back to the legacy bullet list so the email
   // still goes out if a stale caller (or test) skipped the field.
   const bodyHtml = data.report
-    ? renderReportEmailBody(data.report, data.resultUrl)
+    ? scoreCardHtml + renderReportEmailBody(data.report, data.resultUrl)
     : `
       <p style="font-size:14px;color:rgb(205,209,214);line-height:1.6;margin:0 0 16px;">
         Your Full Audit Master report for <strong style="color:rgb(240,240,240);">${escapeHtml(data.businessUrl)}</strong> is ready.

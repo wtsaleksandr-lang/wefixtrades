@@ -25,6 +25,8 @@ import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { isEmailUnsubscribed } from "./unsubscribeStorage";
 import { respectPreferences } from "./notificationPreferences";
 import { createLogger } from "./logger";
+import { generateMonthlyBarSeriesPng } from "../services/emailCharts";
+import { buildMonthlyBarCard } from "./reportShell";
 
 const log = createLogger("weekly-digest-email");
 
@@ -102,6 +104,30 @@ export async function sendWeeklyDigestEmail(data: WeeklyDigestData): Promise<boo
     </div>
   `;
 
+  // Wave 74: weekly-activity bar card. Bars come from the section values
+  // (parsed to numbers where possible). The largest numeric bar is
+  // highlighted as the "win of the week". Skipped entirely when no
+  // numeric values can be extracted.
+  const numericBars = data.sections
+    .map((s) => {
+      const n = typeof s.value === "number" ? s.value : parseInt(String(s.value).replace(/[,$★]/g, ""), 10);
+      return { label: s.label.length > 14 ? s.label.slice(0, 14) + "…" : s.label, raw: n };
+    })
+    .filter((b) => Number.isFinite(b.raw)) as Array<{ label: string; raw: number }>;
+  let activityBarCard = "";
+  if (numericBars.length >= 2) {
+    const maxVal = Math.max(...numericBars.map((b) => b.raw));
+    const bars = numericBars.map((b) => ({ label: b.label, value: b.raw, highlight: b.raw === maxVal && maxVal > 0 }));
+    const chartCacheKey = `weekly-activity-${data.to.split("@")[0]}-${data.weekRange.replace(/\W+/g, "-").toLowerCase().slice(0, 40)}`;
+    const chartUrl = maxVal > 0 ? await generateMonthlyBarSeriesPng({ cacheKey: chartCacheKey, bars }) : null;
+    activityBarCard = buildMonthlyBarCard({
+      chartUrl,
+      title: "This week's activity",
+      bars,
+      caption: maxVal > 0 ? `Biggest win: ${bars.find((b) => b.highlight)?.label}.` : undefined,
+    });
+  }
+
   const highlightHtml = data.highlight
     ? `<p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0 0 16px;padding:14px 16px;border-left:2px solid #0d3cfc;background:#0F141A;border-radius:8px;">${escapeHtml(data.highlight)}</p>`
     : "";
@@ -111,7 +137,7 @@ export async function sendWeeklyDigestEmail(data: WeeklyDigestData): Promise<boo
     recipientEmail: data.to,
     headline: "Your week in review",
     intro: `${greeting} here's what happened with <strong>${escapeHtml(data.businessName)}</strong> from ${escapeHtml(data.weekRange)}.`,
-    bodyHtml: sectionsHtml + highlightHtml,
+    bodyHtml: activityBarCard + sectionsHtml + highlightHtml,
     cta: {
       label: "Open your portal",
       url: data.portalUrl,
