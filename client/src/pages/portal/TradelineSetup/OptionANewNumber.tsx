@@ -7,12 +7,18 @@
  *   'queued'     → "Number reserved, email within 24h" success-soft state
  *   'provisioned'→ success: number revealed + 30-day checklist + template copy
  *   'failed'     → error + retry button
+ *
+ * Wave 85 — between the market/type pick and the [Reserve my number]
+ * action, the user can search Twilio's inventory by area code and an
+ * optional vanity pattern, then pick a specific number from a grid. The
+ * "Pick for me instead" link bypasses the picker and falls back to the
+ * original auto-pick behavior.
  */
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, Copy, ArrowLeft, AlertTriangle, MailCheck } from "lucide-react";
+import { Loader2, CheckCircle2, Copy, ArrowLeft, AlertTriangle, MailCheck, Search, MapPin } from "lucide-react";
 import type { TradelinePhoneSetup } from "@shared/schema";
 import { apiFetch } from "./apiClient";
 import { buildChecklist } from "./templateCopy";
@@ -23,10 +29,37 @@ interface ProvisionResponse {
   reason?: string;
 }
 
+interface AvailableNumber {
+  phoneNumber: string;       // E.164
+  friendlyName: string;
+  locality: string | null;
+  region: string | null;
+}
+
+interface AvailableNumbersResponse {
+  numbers: AvailableNumber[];
+  cached: boolean;
+  country: "US" | "CA";
+  areaCode: string | null;
+  contains: string | null;
+  unavailable?: boolean;
+  reason?: string;
+  testMode?: boolean;
+}
+
 interface Props {
   setup: TradelinePhoneSetup;
   onBack: () => void;
   onDone: () => void;
+}
+
+/** Pretty-format an E.164 NANP number as XXX-XXX-XXXX. */
+function prettyPhone(e164: string): string {
+  const digits = e164.replace(/\D/g, "");
+  // Strip leading "1" for NANP
+  const local = digits.startsWith("1") && digits.length === 11 ? digits.slice(1) : digits;
+  if (local.length !== 10) return e164;
+  return `${local.slice(0, 3)}-${local.slice(3, 6)}-${local.slice(6)}`;
 }
 
 export function OptionANewNumber({ setup, onBack, onDone }: Props) {
@@ -36,14 +69,43 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const provisionMutation = useMutation({
-    mutationFn: () =>
+  /* Wave 85 — picker-step local state */
+  const [areaCodeInput, setAreaCodeInput] = useState<string>("");
+  const [vanityInput, setVanityInput] = useState<string>("");
+  const [pickerResults, setPickerResults] = useState<AvailableNumber[] | null>(null);
+  const [pickerUnavailable, setPickerUnavailable] = useState<string | null>(null);
+  const [selectedNumber, setSelectedNumber] = useState<string | null>(null);
+  const [forceAutoPick, setForceAutoPick] = useState<boolean>(false);
+
+  const provisionMutation = useMutation<ProvisionResponse, Error, string | undefined>({
+    mutationFn: (targetPhoneNumber) =>
       apiFetch<ProvisionResponse>("/api/portal/tradeline/setup/provision-new", {
         method: "POST",
-        body: JSON.stringify({ countryCode, preference }),
+        body: JSON.stringify({
+          countryCode,
+          preference,
+          ...(targetPhoneNumber ? { targetPhoneNumber } : {}),
+        }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline/setup"] });
+    },
+  });
+
+  const searchMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<AvailableNumbersResponse>("/api/portal/tradeline/setup/available-numbers", {
+        method: "POST",
+        body: JSON.stringify({
+          country: countryCode,
+          ...(areaCodeInput.trim() ? { areaCode: areaCodeInput.trim() } : {}),
+          ...(vanityInput.trim() ? { contains: vanityInput.trim() } : {}),
+        }),
+      }),
+    onSuccess: (data) => {
+      setPickerResults(data.numbers);
+      setSelectedNumber(null);
+      setPickerUnavailable(data.unavailable ? data.reason || "Number search isn't ready yet." : null);
     },
   });
 
@@ -161,14 +223,19 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
           <p className="text-sm font-semibold text-rose-900">Provisioning failed</p>
           <p className="text-xs text-rose-700">{setup.provisioning_failed_reason || "Try again, or contact support."}</p>
         </div>
-        <Button onClick={() => provisionMutation.mutate()} disabled={provisionMutation.isPending} className="w-full">
+        <Button onClick={() => provisionMutation.mutate(undefined)} disabled={provisionMutation.isPending} className="w-full">
           {provisionMutation.isPending ? "Trying again…" : "Try again"}
         </Button>
       </div>
     );
   }
 
-  /* ─── Initial: market + type picker ─── */
+  /* ─── Initial: market + type picker, then number-picker for local ─── */
+  // Wave 85 — picker is local-only. Toll-free still uses the auto-pick
+  // path because Twilio's toll-free inventory doesn't expose meaningful
+  // locality/region metadata for the per-area-code UX.
+  const showPicker = preference === "local" && !forceAutoPick;
+
   return (
     <div className="space-y-5">
       <BackLink onBack={onBack} />
@@ -188,14 +255,18 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
               <button
                 type="button"
                 key={c}
-                onClick={() => setCountryCode(c)}
+                onClick={() => {
+                  setCountryCode(c);
+                  setPickerResults(null);
+                  setSelectedNumber(null);
+                }}
                 className={
                   countryCode === c
                     ? "rounded-lg border-2 border-brand-blue-500 bg-brand-blue-50 p-3 text-sm font-medium text-brand-blue-900"
                     : "rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700 hover:border-gray-300"
                 }
               >
-                {c === "US" ? "🇺🇸 United States" : "🇨🇦 Canada"}
+                {c === "US" ? "United States" : "Canada"}
               </button>
             ))}
           </div>
@@ -206,19 +277,145 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
           <div className="grid grid-cols-2 gap-2">
             <TypeOption
               selected={preference === "local"}
-              onClick={() => setPreference("local")}
+              onClick={() => {
+                setPreference("local");
+                setForceAutoPick(false);
+              }}
               title="Local"
               subtitle="Local area code"
             />
             <TypeOption
               selected={preference === "toll_free"}
-              onClick={() => setPreference("toll_free")}
+              onClick={() => {
+                setPreference("toll_free");
+                setPickerResults(null);
+                setSelectedNumber(null);
+              }}
               title="Toll-free"
               subtitle="800, 833, 844…"
             />
           </div>
         </div>
       </div>
+
+      {/* Wave 85 — number picker (local only) */}
+      {showPicker && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Search for a number</p>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Enter an area code and (optionally) a vanity pattern like "777" or "LOVE".
+            </p>
+          </div>
+
+          <div className="grid grid-cols-[1fr_1.4fr_auto] gap-2">
+            <div>
+              <label htmlFor="wave85-area-code" className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">Area code</label>
+              <input
+                id="wave85-area-code"
+                type="text"
+                inputMode="numeric"
+                maxLength={3}
+                value={areaCodeInput}
+                onChange={(e) => setAreaCodeInput(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                placeholder="415"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-blue-500 focus:outline-none focus:ring-1 focus:ring-brand-blue-500"
+                data-testid="wave85-area-code-input"
+              />
+            </div>
+            <div>
+              <label htmlFor="wave85-vanity" className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">Contains (optional)</label>
+              <input
+                id="wave85-vanity"
+                type="text"
+                maxLength={8}
+                value={vanityInput}
+                onChange={(e) => setVanityInput(e.target.value.replace(/[^A-Za-z0-9*]/g, "").slice(0, 8))}
+                placeholder="777 or LOVE"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-blue-500 focus:outline-none focus:ring-1 focus:ring-brand-blue-500"
+                data-testid="wave85-vanity-input"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                onClick={() => searchMutation.mutate()}
+                disabled={searchMutation.isPending}
+                className="h-[38px]"
+                data-testid="wave85-search-button"
+              >
+                {searchMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <><Search className="w-4 h-4 mr-1.5" /> Search</>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {searchMutation.isError && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+              {(searchMutation.error as Error).message}
+            </div>
+          )}
+
+          {pickerUnavailable && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {pickerUnavailable}
+            </div>
+          )}
+
+          {pickerResults && pickerResults.length === 0 && !pickerUnavailable && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              No numbers found{areaCodeInput ? ` for area code ${areaCodeInput}` : ""}{vanityInput ? ` matching "${vanityInput}"` : ""}. Try a different area code or pattern.
+            </div>
+          )}
+
+          {pickerResults && pickerResults.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-testid="wave85-results-grid">
+              {pickerResults.map((n) => {
+                const isSelected = selectedNumber === n.phoneNumber;
+                return (
+                  <button
+                    type="button"
+                    key={n.phoneNumber}
+                    onClick={() => setSelectedNumber(n.phoneNumber)}
+                    data-testid={`wave85-number-${n.phoneNumber}`}
+                    className={
+                      isSelected
+                        ? "rounded-lg border-2 border-brand-blue-500 bg-brand-blue-50 p-3 text-left"
+                        : "rounded-lg border border-gray-200 bg-white p-3 text-left hover:border-gray-300"
+                    }
+                  >
+                    <p className={isSelected ? "text-sm font-bold text-brand-blue-900 tracking-tight" : "text-sm font-bold text-gray-900 tracking-tight"}>
+                      {prettyPhone(n.phoneNumber)}
+                    </p>
+                    {(n.locality || n.region) && (
+                      <p className={isSelected ? "text-xs text-brand-blue-700 mt-0.5 inline-flex items-center gap-1" : "text-xs text-gray-500 mt-0.5 inline-flex items-center gap-1"}>
+                        <MapPin className="w-3 h-3" />
+                        {[n.locality, n.region].filter(Boolean).join(", ")}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setForceAutoPick(true);
+              setPickerResults(null);
+              setSelectedNumber(null);
+            }}
+            className="text-xs text-brand-blue-600 hover:text-brand-blue-700 underline-offset-2 hover:underline"
+            data-testid="wave85-pick-for-me"
+          >
+            Pick for me instead →
+          </button>
+        </div>
+      )}
 
       {provisionMutation.isError && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
@@ -227,12 +424,15 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
       )}
 
       <Button
-        onClick={() => provisionMutation.mutate()}
-        disabled={provisionMutation.isPending}
+        onClick={() => provisionMutation.mutate(showPicker ? (selectedNumber || undefined) : undefined)}
+        disabled={provisionMutation.isPending || (showPicker && !selectedNumber && (pickerResults?.length ?? 0) > 0)}
         className="w-full"
+        data-testid="wave85-reserve-button"
       >
         {provisionMutation.isPending ? (
           <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Reserving your number…</>
+        ) : selectedNumber ? (
+          `Reserve ${prettyPhone(selectedNumber)}`
         ) : (
           "Reserve my number"
         )}
