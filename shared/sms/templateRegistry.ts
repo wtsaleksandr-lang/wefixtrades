@@ -46,7 +46,13 @@ export type SmsTemplateId =
   | "reputation.review_followup_2"
   // TradeLine homeowner-direction sends
   | "tradeline.after_hours_apology"
-  | "tradeline.owner_missed_call_alert";
+  | "tradeline.owner_missed_call_alert"
+  // Wave 86 — port-status milestone updates fired from the status poller.
+  | "tradeline.port_status_submitted"
+  | "tradeline.port_status_pending_carrier"
+  | "tradeline.port_status_pending_loa"
+  | "tradeline.port_status_failed"
+  | "tradeline.port_status_complete";
 
 export type SmsTemplateProduct =
   | "bookflow"
@@ -295,6 +301,76 @@ export const SMS_TEMPLATE_REGISTRY: Record<SmsTemplateId, SmsTemplate> = {
       "Owner-facing alert sent to the trade's configured numbers after a TradeLine call closes.",
     quietHoursBypass: "transactional",
     canBeDisabled: true,
+  },
+
+  /* ── TradeLine port-status updates (Wave 86) ───────────────────────── */
+  "tradeline.port_status_submitted": {
+    id: "tradeline.port_status_submitted",
+    product: "tradeline",
+    category: "transactional",
+    defaultEnabled: true,
+    defaultBody:
+      "Your port to keep {phone_number} is in progress. Typical timeline is 7-14 business days; we'll update you at each milestone. Track: {status_url}",
+    vars: ["phone_number", "status_url"],
+    description:
+      "Fires when the port is successfully submitted to Twilio. Sets the timeline expectation.",
+    quietHoursBypass: "transactional",
+    // Port milestone updates are transactional but tenants can mute if they
+    // prefer to email-only — the customer can also opt out via STOP.
+    canBeDisabled: true,
+  },
+  "tradeline.port_status_pending_carrier": {
+    id: "tradeline.port_status_pending_carrier",
+    product: "tradeline",
+    category: "transactional",
+    defaultEnabled: true,
+    defaultBody:
+      "Update on porting {phone_number}: your current carrier is reviewing. {progress}. Account is in good standing. Track: {status_url}",
+    vars: ["phone_number", "progress", "status_url"],
+    description:
+      "Fires when Twilio reports the losing carrier is now reviewing the request. Reassures the customer that no action is required.",
+    quietHoursBypass: "transactional",
+    canBeDisabled: true,
+  },
+  "tradeline.port_status_pending_loa": {
+    id: "tradeline.port_status_pending_loa",
+    product: "tradeline",
+    category: "transactional",
+    defaultEnabled: true,
+    defaultBody:
+      "Quick action needed for porting {phone_number}: please check your email for the next step. Or tap: {status_url}",
+    vars: ["phone_number", "status_url"],
+    description:
+      "Rare path — carrier asked for additional documentation. Customer needs to take an action.",
+    quietHoursBypass: "transactional",
+    // Customer-action template — never silence.
+    canBeDisabled: false,
+  },
+  "tradeline.port_status_failed": {
+    id: "tradeline.port_status_failed",
+    product: "tradeline",
+    category: "transactional",
+    defaultEnabled: true,
+    defaultBody:
+      "Porting {phone_number} didn't go through: {reason_title}. {fix_action}. Details: {status_url}",
+    vars: ["phone_number", "reason_title", "fix_action", "status_url"],
+    description:
+      "Fires when the port is rejected. Uses portRejectionTranslator output for plain-English copy.",
+    quietHoursBypass: "transactional",
+    canBeDisabled: false,
+  },
+  "tradeline.port_status_complete": {
+    id: "tradeline.port_status_complete",
+    product: "tradeline",
+    category: "transactional",
+    defaultEnabled: true,
+    defaultBody:
+      "Done! Your number {phone_number} is now active on WeFixTrades. Try calling it to test. — {brand_name}",
+    vars: ["phone_number", "brand_name"],
+    description:
+      "Fires when the port completes successfully. Celebratory + call-to-action.",
+    quietHoursBypass: "transactional",
+    canBeDisabled: false,
   },
 };
 

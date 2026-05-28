@@ -33,6 +33,10 @@ export const AI_SURFACES = {
   wft_audit: "wft_audit",
   wft_sales: "wft_sales",
   tradeline_voice: "tradeline_voice",
+  // Wave 86 — Claude vision OCR for phone-bill extraction during the
+  // port-existing-number flow. Per-call ~$0.03 (Sonnet vision); gated
+  // behind tier eligibility upstream so abuse risk is low.
+  tradeline_port_ocr: "tradeline_port_ocr",
   ops_engine: "ops_engine",
   demo: "demo",
   // Wave 7 — AI Insights bundled with MapGuard. Generates prioritized
@@ -73,6 +77,7 @@ export const DEFAULT_BUDGET_CENTS: Record<AiSurface, number | null> = {
   wft_audit: 2000,
   wft_sales: 500,
   tradeline_voice: 2000,
+  tradeline_port_ocr: 1000,
   ops_engine: 500,
   demo: 500,
   // 24h cache + max 1 refresh/hr/customer keeps spend bounded. Conservative
@@ -103,6 +108,7 @@ export const AI_SURFACE_LABELS: Record<AiSurface, string> = {
   wft_audit: "WeFix Audit Narrative",
   wft_sales: "WeFix Sales Line",
   tradeline_voice: "TradeLine Voice",
+  tradeline_port_ocr: "TradeLine Port OCR",
   ops_engine: "Ops Engine Summary",
   demo: "Public Demos",
   ai_insights: "AI Insights (MapGuard)",

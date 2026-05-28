@@ -56,6 +56,8 @@ import { fireAlert } from "../services/alertService";
 import { processEmailQueue } from "../services/emailQueueService";
 import { processEmbedBrokenDetection } from "./embedBrokenDetector";
 import { processBillRetention } from "./tradelineBillRetentionWorker";
+// Wave 86 — port-status polling worker (every 4h sweep of in-flight ports).
+import { processPortStatusPolls } from "./portStatusPollWorker";
 import { processProTrialExpiry } from "./trialProExpiryWorker";
 import { sendT24hBookingReminders } from "../services/booking/bookflowService";
 import { processBookflowDayOfReminders } from "./bookflowDayOfReminderWorker";
@@ -335,6 +337,25 @@ export function initScheduler() {
       await runJob("tradeline_bill_retention", processBillRetention);
     } catch (err: any) {
       log.error("tradeline_bill_retention cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // Wave 86 — port-status polling worker. Every 4h, sweeps every in-flight
+  // tradeline_phone_setups row and asks Twilio for the latest status. Fires
+  // SMS milestone updates to the customer + admin audit log when status flips.
+  let portStatusPollRunning = false;
+  cron.schedule("13 */4 * * *", async () => {
+    if (portStatusPollRunning) {
+      log.debug("port_status_poll skipped — previous tick still running");
+      return;
+    }
+    portStatusPollRunning = true;
+    try {
+      await runJob("port_status_poll", processPortStatusPolls);
+    } catch (err: any) {
+      log.error("port_status_poll cron handler error", { error: err.message });
+    } finally {
+      portStatusPollRunning = false;
     }
   }, { timezone: "UTC" });
 

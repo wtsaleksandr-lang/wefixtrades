@@ -31,10 +31,17 @@ import { provisionNumber } from "../services/tradelineSetup/provisionNumber";
 import { lookupCarrier } from "../services/tradelineSetup/carrierLookup";
 import { placeTestCall, checkTestCallStatus } from "../services/tradelineSetup/forwardingVerifier";
 import { submitPort } from "../services/tradelineSetup/portRequest";
+// Wave 86 — AI-assisted porting flow.
+import { extractBill, type BillMediaType } from "../services/tradelineSetup/billExtraction";
+import { generateLoaPdf } from "../services/tradelineSetup/loaGenerator";
+import { submitPortToTwilio } from "../services/tradelineSetup/portSubmission";
+import { translatePortRejection } from "../services/tradelineSetup/portRejectionTranslator";
 import { uploadEncryptedBuffer, downloadDecrypted } from "../lib/objectStorage";
 import { trackEvent } from "../lib/analytics";
 import { createLogger } from "../lib/logger";
+import { writeAudit } from "../lib/auditLog";
 import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
+import * as crypto from "crypto";
 
 const log = createLogger("TradelineSetup");
 
@@ -489,10 +496,118 @@ export function registerTradelineSetupRoutes(app: Express) {
     },
   );
 
+  /* ─── Wave 86 Layer 1: AI bill OCR extraction ─── */
+  app.post(
+    "/api/portal/tradeline/setup/port/extract-bill",
+    LARGE_JSON,
+    requireClient,
+    async (req: Request, res: Response) => {
+      try {
+        const clientId = await withClientId(req, res);
+        if (!clientId) return;
+        const parsed = billUploadBody.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+
+        const buf = Buffer.from(parsed.data.fileBase64, "base64");
+
+        // Encrypt + persist the bill so it can be referenced later (and so
+        // the user doesn't have to re-upload between extraction and submit).
+        const billKey = `tradeline-ports/${clientId}/bill-${Date.now()}.bin`;
+        const uploaded = await uploadEncryptedBuffer(billKey, buf);
+        if (!uploaded.ok) return res.status(502).json({ error: uploaded.error });
+
+        const extraction = await extractBill({
+          bytes: buf,
+          mimeType: parsed.data.contentType as BillMediaType,
+          userId: req.user?.id,
+        });
+
+        // Audit log — never includes raw PII; only outcome + duration.
+        writeAudit({
+          actorId: req.user?.id ? String(req.user.id) : null,
+          actorType: "user",
+          action: "tradeline_port_bill_extract",
+          entityType: "tradeline_phone_setup",
+          entityId: `client:${clientId}`,
+          metadata: {
+            outcome: extraction.ok ? "ok" : extraction.code,
+            durationMs: extraction.durationMs,
+            bytes: buf.length,
+            mimeType: parsed.data.contentType,
+          },
+          req,
+        });
+
+        if (!extraction.ok) {
+          // Keep the bill key even when extraction failed — the user may
+          // retry the OCR or submit manually-entered values referencing
+          // the same uploaded bill.
+          await dualWriteSetup({
+            clientId,
+            setupPatch: {
+              mode: "port",
+              port_bill_object_key: billKey,
+              port_bill_uploaded_at: new Date(),
+              port_status: "bill_uploaded",
+              last_step: "port_bill_extract_failed",
+            },
+          });
+          return res.status(422).json({
+            ok: false,
+            code: extraction.code,
+            message: extraction.message,
+          });
+        }
+
+        const row = await dualWriteSetup({
+          clientId,
+          setupPatch: {
+            mode: "port",
+            port_bill_object_key: billKey,
+            port_bill_uploaded_at: new Date(),
+            port_extraction_json: extraction.extraction as any,
+            port_extraction_at: new Date(),
+            port_status: "bill_extracted",
+            last_step: "port_bill_extracted",
+            // Pre-fill customer_number from the extraction so downstream
+            // steps don't need re-input. User may still edit before submit.
+            ...(extraction.extraction.phoneNumber && {
+              customer_number: extraction.extraction.phoneNumber,
+            }),
+          },
+          tradelineConfigPatch: { setupStage: "port_in_progress" },
+        });
+
+        return res.json({
+          ok: true,
+          setup: row,
+          extraction: extraction.extraction,
+          durationMs: extraction.durationMs,
+        });
+      } catch (err) {
+        log.error("extract-bill failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Bill extraction failed" });
+      }
+    },
+  );
+
   /* ─── Option C: sign LOA (signature PNG as base64) ─── */
   const loaSignBody = z.object({
     signatureBase64: z.string().min(1).max(2_000_000),
     signerName: z.string().min(1).max(120),
+    /** Wave 86 — businessName + confirmed bill fields, used to render the PDF. */
+    businessName: z.string().min(1).max(200),
+    /** Wave 86 — user may edit the OCR fields before signing. */
+    confirmedFields: z
+      .object({
+        accountHolderName: z.string().default(""),
+        accountNumber: z.string().default(""),
+        phoneNumber: z.string().default(""),
+        currentCarrier: z.string().default(""),
+        serviceAddressLine1: z.string().default(""),
+        serviceAddressLine2: z.string().default(""),
+      })
+      .optional(),
   });
   app.post(
     "/api/portal/tradeline/setup/port/sign-loa",
@@ -505,24 +620,94 @@ export function registerTradelineSetupRoutes(app: Express) {
         const parsed = loaSignBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
-        // For v1 the LOA "document" is the signature PNG plus typed name.
-        // Future: render a full PDF LOA combining signer info + signature into
-        // a Twilio-portable LOA document. Captured as a TODO in batch 3+.
-        const buf = Buffer.from(parsed.data.signatureBase64, "base64");
-        const objectKey = `tradeline-ports/${clientId}/loa-${Date.now()}.png`;
-        const uploaded = await uploadEncryptedBuffer(objectKey, buf);
-        if (!uploaded.ok) return res.status(502).json({ error: uploaded.error });
+        // Persist the raw signature PNG — audit artefact of which canvas
+        // bytes were embedded into the LOA PDF. The PDF below is what
+        // Twilio actually receives.
+        const sigBuf = Buffer.from(parsed.data.signatureBase64, "base64");
+        const sigKey = `tradeline-ports/${clientId}/signature-${Date.now()}.png`;
+        const sigUpload = await uploadEncryptedBuffer(sigKey, sigBuf);
+        if (!sigUpload.ok) return res.status(502).json({ error: sigUpload.error });
+
+        // Pull the saved extraction so the LOA carries the confirmed fields
+        // (caller may also pass confirmedFields — the request body wins).
+        const existing = await getSetupRow(clientId);
+        const extraction = (existing?.port_extraction_json ?? {}) as any;
+        const fields = (parsed.data.confirmedFields ?? {}) as {
+          accountHolderName?: string;
+          accountNumber?: string;
+          phoneNumber?: string;
+          currentCarrier?: string;
+          serviceAddressLine1?: string;
+          serviceAddressLine2?: string;
+        };
+        const accountHolderName = fields.accountHolderName || extraction.accountHolderName || parsed.data.signerName;
+        const phoneNumber = fields.phoneNumber || extraction.phoneNumber || existing?.customer_number || "";
+        const currentCarrier = fields.currentCarrier || extraction.currentCarrier || "your current carrier";
+        const accountNumber = fields.accountNumber || extraction.accountNumber || "";
+        const svc = extraction.serviceAddress || {};
+        const serviceAddressLine1 = fields.serviceAddressLine1 || svc.street || "";
+        const serviceAddressLine2 =
+          fields.serviceAddressLine2 ||
+          [svc.city, svc.state, svc.zip].filter(Boolean).join(", ");
+
+        // Generate the LOA PDF — embeds the signature image.
+        const pdfBuf = await generateLoaPdf({
+          authorizedSignerName: parsed.data.signerName,
+          businessName: parsed.data.businessName,
+          portingNumber: phoneNumber,
+          losingCarrier: currentCarrier,
+          accountHolderName,
+          accountNumber,
+          serviceAddressLine1,
+          serviceAddressLine2,
+          signaturePng: sigBuf,
+        });
+        const pdfKey = `tradeline-ports/${clientId}/loa-${Date.now()}.pdf`;
+        const pdfUpload = await uploadEncryptedBuffer(pdfKey, pdfBuf);
+        if (!pdfUpload.ok) return res.status(502).json({ error: pdfUpload.error });
+
+        // E-signature audit fields — TCPA-style attestation record.
+        const ipRaw = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
+        const ipHash = ipRaw
+          ? crypto.createHash("sha256").update(ipRaw).digest("hex")
+          : null;
+        const userAgent = (req.headers["user-agent"] || "").slice(0, 240);
 
         const row = await dualWriteSetup({
           clientId,
           setupPatch: {
-            port_loa_object_key: objectKey,
+            // Preserve port_loa_object_key for backward compat — points at
+            // the signature PNG (existing retention sweep already wipes it).
+            port_loa_object_key: sigKey,
+            port_loa_pdf_object_key: pdfKey,
+            port_signature_object_key: sigKey,
+            port_signature_method: "web_canvas",
+            port_signature_ip_hash: ipHash || undefined,
+            port_signature_user_agent: userAgent || undefined,
             port_loa_signed_at: new Date(),
             port_status: "loa_signed",
             last_step: "port_loa_signed",
           },
         });
-        return res.json({ setup: row, objectKey, signerName: parsed.data.signerName });
+
+        writeAudit({
+          actorId: req.user?.id ? String(req.user.id) : null,
+          actorType: "user",
+          action: "tradeline_port_loa_signed",
+          entityType: "tradeline_phone_setup",
+          entityId: `client:${clientId}`,
+          metadata: {
+            signature_method: "web_canvas",
+            pdf_bytes: pdfBuf.length,
+          },
+          req,
+        });
+
+        return res.json({
+          setup: row,
+          loaPdfObjectKey: pdfKey,
+          signerName: parsed.data.signerName,
+        });
       } catch (err) {
         log.error("sign-loa failed", { err: (err as Error).message });
         return res.status(500).json({ error: "LOA submission failed" });
@@ -530,7 +715,7 @@ export function registerTradelineSetupRoutes(app: Express) {
     },
   );
 
-  /* ─── Option C: submit port to Twilio ─── */
+  /* ─── Option C: submit port to Twilio (Wave 86 — real porting API) ─── */
   const portSubmitBody = z.object({
     authorizedSignerName: z.string().min(1).max(120),
     businessName: z.string().min(1).max(200),
@@ -546,23 +731,60 @@ export function registerTradelineSetupRoutes(app: Express) {
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
         const existing = await getSetupRow(clientId);
-        if (!existing?.customer_number || !existing.port_bill_object_key || !existing.port_loa_object_key) {
-          return res.status(400).json({ error: "customer_number, bill, and LOA must all be present before submitting" });
+        if (
+          !existing?.customer_number ||
+          !existing.port_bill_object_key ||
+          (!existing.port_loa_pdf_object_key && !existing.port_loa_object_key)
+        ) {
+          return res
+            .status(400)
+            .json({ error: "customer_number, bill, and signed LOA must all be present before submitting" });
         }
 
-        const result = await submitPort({
+        // Prefer the generated PDF LOA (Wave 86); fall back to the older
+        // signature-PNG path if a row was created before the new flow shipped.
+        const loaPdfKey =
+          existing.port_loa_pdf_object_key || existing.port_loa_object_key!;
+
+        const extraction = (existing.port_extraction_json ?? {}) as any;
+
+        // Wave 86 — go through the real Twilio porting API. Test-mode bypass
+        // lives inside submitPortToTwilio. The legacy submitPort path stays
+        // available for callers still wired against portRequest.ts.
+        const result = await submitPortToTwilio({
           customerNumber: existing.customer_number,
+          loaPdfObjectKey: loaPdfKey,
           billObjectKey: existing.port_bill_object_key,
-          loaObjectKey: existing.port_loa_object_key,
           authorizedSignerName: parsed.data.authorizedSignerName,
           businessName: parsed.data.businessName,
+          losingCarrier: extraction.currentCarrier || "Unknown carrier",
+          accountNumber: extraction.accountNumber || "",
         });
-        if (!result.ok) return res.status(502).json({ error: result.error });
+        if (!result.ok) {
+          const translated = translatePortRejection(result.code);
+          writeAudit({
+            actorId: req.user?.id ? String(req.user.id) : null,
+            actorType: "user",
+            action: "tradeline_port_submit_failed",
+            entityType: "tradeline_phone_setup",
+            entityId: `client:${clientId}`,
+            metadata: { code: result.code, twilioCode: result.twilioCode },
+            req,
+          });
+          return res.status(502).json({
+            error: result.message,
+            code: result.code,
+            translation: translated,
+          });
+        }
 
         const row = await dualWriteSetup({
           clientId,
           setupPatch: {
             port_request_id: result.portRequestId,
+            port_twilio_order_sid: result.twilioOrderSid ?? undefined,
+            port_twilio_target_date: result.targetDate,
+            port_estimated_completion: result.targetDate,
             port_status: result.status,
             port_submitted_at: new Date(),
             completed_at: new Date(),
@@ -577,18 +799,116 @@ export function registerTradelineSetupRoutes(app: Express) {
           port_status: result.status,
           time_elapsed_seconds: elapsed,
         });
+        writeAudit({
+          actorId: req.user?.id ? String(req.user.id) : null,
+          actorType: "user",
+          action: "tradeline_port_submitted",
+          entityType: "tradeline_phone_setup",
+          entityId: `client:${clientId}`,
+          metadata: {
+            twilio_order_sid: result.twilioOrderSid,
+            target_date: result.targetDate.toISOString(),
+          },
+          req,
+        });
 
-        // 14-21 day window for v1 — Twilio porting timelines vary by source
-        // carrier; we'll narrow this per-carrier once real porting data comes
-        // back from the admin Twilio integration in batch 3+.
         return res.json({
           setup: row,
           portRequestId: result.portRequestId,
-          estimatedResolutionDays: { min: 14, max: 21 },
+          twilioOrderSid: result.twilioOrderSid,
+          targetDate: result.targetDate.toISOString(),
+          estimatedResolutionDays: { min: 7, max: 14 },
         });
       } catch (err) {
         log.error("port submit failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Port submission failed" });
+      }
+    },
+  );
+
+  /* ─── Wave 86 Layer 7: port status (customer-facing GET) ─── */
+  app.get(
+    "/api/portal/tradeline/setup/port/status",
+    requireClient,
+    async (req: Request, res: Response) => {
+      try {
+        const clientId = await withClientId(req, res);
+        if (!clientId) return;
+        const row = await getSetupRow(clientId);
+        if (!row) return res.json({ ok: true, port: null });
+
+        const translation = row.port_rejection_code
+          ? translatePortRejection(row.port_rejection_code)
+          : null;
+
+        return res.json({
+          ok: true,
+          port: {
+            status: row.port_status,
+            phoneNumber: row.customer_number,
+            submittedAt: row.port_submitted_at,
+            targetDate: row.port_twilio_target_date,
+            estimatedCompletion: row.port_estimated_completion,
+            lastPolledAt: row.port_last_polled_at,
+            twilioOrderSid: row.port_twilio_order_sid,
+            rejectionCode: row.port_rejection_code,
+            rejectionReason: row.port_rejection_reason,
+            translation,
+            canceledAt: row.port_canceled_at,
+            canceledBy: row.port_canceled_by,
+            resolvedAt: row.port_resolved_at,
+          },
+        });
+      } catch (err) {
+        log.error("port-status failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Status lookup failed" });
+      }
+    },
+  );
+
+  /* ─── Wave 86 Layer 7: cancel port request (customer-fired) ─── */
+  app.post(
+    "/api/portal/tradeline/setup/port/cancel",
+    requireClient,
+    async (req: Request, res: Response) => {
+      try {
+        const clientId = await withClientId(req, res);
+        if (!clientId) return;
+
+        const row = await getSetupRow(clientId);
+        if (!row?.port_status) return res.status(400).json({ error: "No port request to cancel" });
+
+        const cancelable = ["bill_uploaded", "bill_extracted", "loa_signed", "submitted", "pending_carrier_action", "pending_loa", "in_progress"];
+        if (!cancelable.includes(row.port_status)) {
+          return res.status(409).json({
+            error: "This port is past the cancellation window",
+            currentStatus: row.port_status,
+          });
+        }
+
+        const updated = await dualWriteSetup({
+          clientId,
+          setupPatch: {
+            port_status: "canceled",
+            port_canceled_at: new Date(),
+            port_canceled_by: "customer",
+            port_resolved_at: new Date(),
+            last_step: "port_canceled",
+          },
+        });
+        writeAudit({
+          actorId: req.user?.id ? String(req.user.id) : null,
+          actorType: "user",
+          action: "tradeline_port_canceled",
+          entityType: "tradeline_phone_setup",
+          entityId: `client:${clientId}`,
+          metadata: { from_status: row.port_status },
+          req,
+        });
+        return res.json({ ok: true, setup: updated });
+      } catch (err) {
+        log.error("port-cancel failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Cancellation failed" });
       }
     },
   );
