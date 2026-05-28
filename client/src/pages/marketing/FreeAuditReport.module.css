@@ -222,6 +222,13 @@
   margin-top: 16px;
 }
 @media (min-width: 768px) { .sectionCard { padding: 28px; } }
+
+/* Wave 73c — KPI breakdown grid stacks on mobile */
+.kpiBreakdownGrid { grid-template-columns: 1fr !important; }
+@media (min-width: 720px) {
+  .kpiBreakdownGrid { grid-template-columns: 1fr 1fr !important; }
+}
+
 .sectionTitle {
   font-size: 20px;
   font-weight: 900;
