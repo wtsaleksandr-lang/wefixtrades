@@ -27,7 +27,7 @@ import {
 import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
-import { generateLineChart } from "./emailCharts";
+import { generateLineChart, generateMonthlyBarSeriesPng } from "./emailCharts";
 import { createLogger } from "../lib/logger";
 import {
   REPORT_COLORS,
@@ -41,6 +41,7 @@ import {
   buildRecommendations,
   buildCtaButton,
   buildMetricGlossary,
+  buildMonthlyBarCard,
   deriveHeaderBadge,
   type KpiTile,
   type HeaderBadge,
@@ -410,11 +411,33 @@ async function tryGenerateCadenceChart(
   return result?.url || null;
 }
 
+/**
+ * Wave 74: render the monthly-bar PNG (posts this month vs prior). Returns
+ * null when both periods are zero — caller also skips the card in that
+ * case. Text fallback inside the card always shows.
+ */
+async function tryGeneratePostsBarChart(
+  clientId: number,
+  data: SocialsyncMonthlyReportData,
+): Promise<string | null> {
+  if (data.posts_published + data.posts_published_prior === 0) return null;
+  const periodKey = data.period_start.slice(0, 7);
+  return generateMonthlyBarSeriesPng({
+    cacheKey: `socialsync-postsbar-cs${clientId}-${periodKey}`,
+    bars: [
+      { label: "Prior", value: data.posts_published_prior },
+      { label: "This month", value: data.posts_published, highlight: true },
+    ],
+  });
+}
+
 /* ─── Compose ─── */
 
 interface ComposeOpts {
   data: SocialsyncMonthlyReportData;
   chartUrl: string | null;
+  /** Wave 74: optional URL for the monthly-bar (posts/mo) KPI card. */
+  postsByMonthChartUrl?: string | null;
   portalUrl: string;
   recipientEmail: string;
 }
@@ -593,6 +616,23 @@ function composeSocialsyncReport(o: ComposeOpts): { subject: string; html: strin
     ? d.recommendations
     : buildDefaultRecommendations(d);
 
+  // Wave 74: posts-this-month vs prior-month bar card. Skipped entirely
+  // when both periods are zero (avoids a noisy empty card on the first
+  // baseline report).
+  const postsBarCard = (d.posts_published + d.posts_published_prior) > 0
+    ? buildMonthlyBarCard({
+        chartUrl: o.postsByMonthChartUrl ?? null,
+        title: "Posts published per month",
+        bars: [
+          { label: "Prior", value: d.posts_published_prior },
+          { label: "This month", value: d.posts_published, highlight: true },
+        ],
+        caption: d.posts_published_prior === 0
+          ? `${d.posts_published} post${d.posts_published === 1 ? "" : "s"} this month — first month of tracked cadence.`
+          : `${d.posts_published} post${d.posts_published === 1 ? "" : "s"} this month vs ${d.posts_published_prior} prior.`,
+      })
+    : "";
+
   // Compose body
   const body = [
     buildReportHero({
@@ -602,6 +642,7 @@ function composeSocialsyncReport(o: ComposeOpts): { subject: string; html: strin
       businessName: d.business_name,
       summary,
     }),
+    postsBarCard,
     buildKpiGrid(kpis),
     o.chartUrl ? buildIntegratedChart({ chartUrl: o.chartUrl, alt: `Posting cadence across ${d.month_label}`, height: 280 }) : "",
     fallbackCells.length > 0 ? buildChartFallback({ title: "What the chart shows", cells: fallbackCells }) : "",
@@ -701,10 +742,12 @@ export async function sendSocialsyncReport(
 
   const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
   const chartUrl = await tryGenerateCadenceChart(cs.client_id, data);
+  const postsByMonthChartUrl = await tryGeneratePostsBarChart(cs.client_id, data);
 
   const { subject, html } = composeSocialsyncReport({
     data,
     chartUrl,
+    postsByMonthChartUrl,
     portalUrl: baseUrl,
     recipientEmail: client.contact_email,
   });

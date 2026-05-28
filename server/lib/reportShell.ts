@@ -247,6 +247,225 @@ export function buildChartFallback(opts: ChartFallbackOpts): string {
     </div>`;
 }
 
+/* ─── Wave 74: KPI primitive cards (PNG chart + always-on text fallback) ─── */
+
+/**
+ * Shared shell wrapping a small KPI card with title eyebrow, chart image (if
+ * the renderer returned a URL), and an always-rendered text-summary table
+ * via buildChartFallback. The chart is decorative — the text table is the
+ * truth, so email clients that block images still see the data.
+ *
+ * The card uses inline styles only (no <style> blocks), hex/rgba colors,
+ * and pixel sizes — same constraints as the rest of reportShell.ts.
+ */
+function buildKpiCardShell(opts: {
+  eyebrow: string;
+  chartUrl: string | null;
+  chartAlt: string;
+  chartHeight?: number;
+  fallbackTitle?: string;
+  fallbackCells: Array<{ label: string; value: string; emphasis?: boolean }>;
+  bodyHtml?: string;
+}): string {
+  const c = REPORT_COLORS;
+  const chartH = opts.chartHeight ?? 200;
+  const imgHtml = opts.chartUrl ? `
+    <div style="margin:4px 0 12px;text-align:center;">
+      <img src="${opts.chartUrl}" alt="${escapeHtml(opts.chartAlt)}" height="${chartH}"
+           style="display:inline-block;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
+    </div>` : "";
+  const fallback = opts.fallbackCells.length ? buildChartFallback({
+    title: opts.fallbackTitle,
+    cells: opts.fallbackCells,
+  }) : "";
+  return `
+    <div style="background:${c.card};border:1px solid ${c.border};border-radius:14px;padding:18px 20px 6px;margin:0 0 18px;">
+      <p style="font-size:10.5px;color:${c.muted};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin:0 0 10px;">${escapeHtml(opts.eyebrow)}</p>
+      ${imgHtml}
+      ${opts.bodyHtml || ""}
+      ${fallback}
+    </div>`;
+}
+
+/* — Semi-gauge card (verdict-colored half-arc) — */
+
+export interface SemiGaugeCardOpts {
+  /** Public URL of the gauge PNG. Pass null if generation failed; the
+   * card still renders with the text-only fallback. */
+  chartUrl: string | null;
+  /** Card title eyebrow. e.g. "Site health". */
+  label: string;
+  /** Current value. */
+  value: number;
+  /** Maximum on the gauge. Default 100. */
+  max?: number;
+  /** Optional verdict string ("Excellent", "Needs attention", etc.). */
+  verdict?: string;
+  /** Optional one-line advice rendered below the verdict. */
+  advice?: string;
+}
+
+export function buildSemiGaugeCard(opts: SemiGaugeCardOpts): string {
+  const c = REPORT_COLORS;
+  const max = opts.max ?? 100;
+  const value = Math.max(0, Math.min(max, opts.value));
+  const ratio = max > 0 ? value / max : 0;
+  // Match the renderer's verdict palette
+  const verdictColor = ratio >= 0.8 ? "#10b981"
+    : ratio >= 0.5 ? "#f59e0b"
+    : "#ef4444";
+
+  const bodyHtml = `
+    <div style="text-align:center;margin:0 0 12px;">
+      <div style="font-size:34px;font-weight:800;color:${verdictColor};line-height:1;letter-spacing:-0.02em;">${value}<span style="font-size:14px;color:${c.muted};font-weight:600;margin-left:4px;">/ ${max}</span></div>
+      ${opts.verdict ? `<div style="font-size:12px;font-weight:700;color:${verdictColor};margin-top:6px;text-transform:uppercase;letter-spacing:0.06em;">${escapeHtml(opts.verdict)}</div>` : ""}
+      ${opts.advice ? `<div style="font-size:12px;color:${c.text};margin-top:6px;line-height:1.5;">${escapeHtml(opts.advice)}</div>` : ""}
+    </div>`;
+
+  return buildKpiCardShell({
+    eyebrow: opts.label,
+    chartUrl: opts.chartUrl,
+    chartAlt: `${opts.label}: ${value} of ${max}`,
+    chartHeight: 160,
+    fallbackTitle: "Score detail",
+    fallbackCells: [
+      { label: "Current", value: `${value}`, emphasis: true },
+      { label: "Out of", value: `${max}` },
+    ],
+    bodyHtml,
+  });
+}
+
+/* — Two-bar comparison card — */
+
+export interface BarComparisonCardOpts {
+  chartUrl: string | null;
+  /** Card title eyebrow. e.g. "Citation cleanup". */
+  title: string;
+  /** Exactly 2 items; the first is treated as the "good" side by default. */
+  items: Array<{ label: string; value: number; tone?: "good" | "warn" | "neutral" }>;
+}
+
+export function buildBarComparisonCard(opts: BarComparisonCardOpts): string {
+  const items = opts.items.slice(0, 2);
+  if (items.length < 2) return "";
+  return buildKpiCardShell({
+    eyebrow: opts.title,
+    chartUrl: opts.chartUrl,
+    chartAlt: `${opts.title}: ${items[0].label} ${items[0].value} vs ${items[1].label} ${items[1].value}`,
+    chartHeight: 200,
+    fallbackTitle: "Counts",
+    fallbackCells: items.map((i, idx) => ({
+      label: i.label,
+      value: `${i.value}`,
+      emphasis: idx === 0,
+    })),
+  });
+}
+
+/* — Donut card (with right-side text legend in fallback) — */
+
+export interface DonutCardOpts {
+  chartUrl: string | null;
+  title: string;
+  segments: Array<{ label: string; value: number }>;
+}
+
+export function buildDonutCard(opts: DonutCardOpts): string {
+  const segs = opts.segments.filter((s) => s.value > 0).slice(0, 8);
+  if (!segs.length) return "";
+  const total = segs.reduce((acc, s) => acc + s.value, 0);
+  return buildKpiCardShell({
+    eyebrow: opts.title,
+    chartUrl: opts.chartUrl,
+    chartAlt: `${opts.title} breakdown`,
+    chartHeight: 200,
+    fallbackTitle: "Mix",
+    fallbackCells: segs.map((s, i) => ({
+      label: s.label,
+      value: total > 0 ? `${Math.round((s.value / total) * 100)}%` : "0%",
+      emphasis: i === 0,
+    })),
+  });
+}
+
+/* — Sparkline-with-peak card — */
+
+export interface SparklinePeakCardOpts {
+  chartUrl: string | null;
+  title: string;
+  /** Numeric series (not rendered as fallback cells beyond the peak). */
+  data: number[];
+  /** Index of the peak point (used to drive the fallback "peak" cell). */
+  peakIndex: number;
+  /** Short label describing the peak (e.g. "Best rank — Apr 18"). */
+  peakLabel: string;
+  /** Optional context for the start/end fallback values. */
+  startLabel?: string;
+  endLabel?: string;
+}
+
+export function buildSparklinePeakCard(opts: SparklinePeakCardOpts): string {
+  if (!opts.data.length) return "";
+  const peakIdx = Math.max(0, Math.min(opts.data.length - 1, opts.peakIndex));
+  const peakValue = opts.data[peakIdx];
+  const startValue = opts.data[0];
+  const endValue = opts.data[opts.data.length - 1];
+
+  const cells: Array<{ label: string; value: string; emphasis?: boolean }> = [
+    { label: opts.startLabel || "Start", value: `${startValue}` },
+    { label: opts.peakLabel, value: `${peakValue}`, emphasis: true },
+    { label: opts.endLabel || "End", value: `${endValue}` },
+  ];
+
+  return buildKpiCardShell({
+    eyebrow: opts.title,
+    chartUrl: opts.chartUrl,
+    chartAlt: `${opts.title} — peak ${opts.peakLabel}`,
+    chartHeight: 180,
+    fallbackTitle: "Trend points",
+    fallbackCells: cells,
+  });
+}
+
+/* — Monthly bar series card — */
+
+export interface MonthlyBarCardOpts {
+  chartUrl: string | null;
+  title: string;
+  /** Bars in chronological order; one should be marked `highlight: true`. */
+  bars: Array<{ label: string; value: number; highlight?: boolean }>;
+  /** Optional caption shown below the chart (one-line context). */
+  caption?: string;
+}
+
+export function buildMonthlyBarCard(opts: MonthlyBarCardOpts): string {
+  if (!opts.bars.length) return "";
+  const c = REPORT_COLORS;
+  const highlighted = opts.bars.find((b) => b.highlight);
+  const total = opts.bars.reduce((acc, b) => acc + b.value, 0);
+  const avg = total / opts.bars.length;
+
+  const cells: Array<{ label: string; value: string; emphasis?: boolean }> = [];
+  if (highlighted) cells.push({ label: highlighted.label, value: `${highlighted.value}`, emphasis: true });
+  cells.push({ label: `${opts.bars.length}-mo avg`, value: `${avg.toFixed(avg >= 10 ? 0 : 1)}` });
+  cells.push({ label: "Total", value: `${total}` });
+
+  const captionHtml = opts.caption
+    ? `<p style="font-size:12px;color:${c.muted};margin:0 0 12px;line-height:1.5;text-align:center;">${escapeHtml(opts.caption)}</p>`
+    : "";
+
+  return buildKpiCardShell({
+    eyebrow: opts.title,
+    chartUrl: opts.chartUrl,
+    chartAlt: `${opts.title} — ${opts.bars.length} months`,
+    chartHeight: 180,
+    fallbackTitle: "Monthly detail",
+    fallbackCells: cells,
+    bodyHtml: captionHtml,
+  });
+}
+
 /* ─── Recommendations panel ─── */
 
 export function buildRecommendations(opts: { title?: string; items: string[] }): string {

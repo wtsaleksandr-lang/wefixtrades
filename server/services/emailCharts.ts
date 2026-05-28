@@ -352,6 +352,430 @@ function applyHorizontalAlphaFade(input: Buffer, opts: { fadeFraction?: number }
   return PNG.sync.write(png);
 }
 
+/* ─── Wave 74: shared QuickChart fetch + cache helper ─── */
+
+/**
+ * Internal: fetch a QuickChart-rendered PNG, cache it, return the public URL.
+ *
+ * Used by the Wave 74 KPI-card renderers (semi-gauge, bar comparison, donut,
+ * sparkline-with-peak, monthly bar series). Mirrors the caching contract of
+ * `generateLineChart`: same cacheKey → same cached file → no re-fetch.
+ *
+ * Returns the public URL of the cached PNG, or null on any failure (caller
+ * falls back to the always-rendered text summary).
+ */
+async function renderQuickChartPng(opts: {
+  cacheKey: string;
+  config: object;
+  width: number;
+  height: number;
+  backgroundColor?: string;
+}): Promise<string | null> {
+  const dir = getChartDir();
+  const filename = sanitizeFilename(`${opts.cacheKey}.png`);
+  const filepath = path.join(dir, filename);
+  const cachedUrl = `${getPublicBaseUrl()}${URL_PREFIX}/${filename}`;
+
+  // Idempotent — return cached file if present
+  if (fs.existsSync(filepath)) return cachedUrl;
+
+  const params = new URLSearchParams({
+    c: JSON.stringify(opts.config),
+    width: String(opts.width),
+    height: String(opts.height),
+    backgroundColor: opts.backgroundColor || "transparent",
+    devicePixelRatio: "2",
+    format: "png",
+    version: "4",
+  });
+  const apiKey = process.env.QUICKCHART_API_KEY;
+  if (apiKey) params.set("key", apiKey);
+
+  const upstreamUrl = `https://quickchart.io/chart?${params.toString()}`;
+
+  try {
+    const res = await fetch(upstreamUrl, { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) {
+      log.warn(`[email-charts] QuickChart returned ${res.status} for ${opts.cacheKey}`);
+      return null;
+    }
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length < 200) {
+      log.warn(`[email-charts] Suspiciously small response (${buffer.length} bytes) for ${opts.cacheKey}`);
+      return null;
+    }
+    try {
+      fs.writeFileSync(filepath, buffer);
+    } catch (cacheErr: any) {
+      log.warn(`[email-charts] local cache write failed for ${opts.cacheKey}:`, cacheErr?.message || cacheErr);
+      // Without a local file we can still return the upstream URL — degraded
+      // but functional (email clients fetch upstream directly).
+      return upstreamUrl;
+    }
+    return cachedUrl;
+  } catch (err: any) {
+    log.warn(`[email-charts] generation failed for ${opts.cacheKey}:`, err?.message || err);
+    return null;
+  }
+}
+
+/* ─── Wave 74: Semi-gauge (half-arc doughnut) ─── */
+
+export interface SemiGaugeSpec {
+  cacheKey: string;
+  /** Current value (0..max). */
+  value: number;
+  /** Maximum on the gauge. Default 100. */
+  max?: number;
+  /** Pixel dimensions. Defaults 360 × 220 — half-arc reads as wider than tall. */
+  width?: number;
+  height?: number;
+  /** Override the verdict color (hex). Default: derived from value/max ratio
+   * — ≥80% emerald, 50-79% amber, <50% crimson. */
+  verdictColor?: string;
+  /** Background hex; defaults to the report card surface. */
+  backgroundColor?: string;
+}
+
+/**
+ * Render a half-arc gauge PNG via QuickChart. Implemented as a doughnut
+ * with `rotation: -90` + `circumference: 180` so only the upper half
+ * displays. The numeric label is rendered in HTML alongside the image
+ * (not in the chart itself) — gives us crisp typography + email-safe
+ * fallback text without baking the value into a bitmap.
+ *
+ * QuickChart support: `doughnut` with `rotation` and `circumference` is
+ * a clean fit. No degradation needed.
+ */
+export async function generateSemiGaugePng(spec: SemiGaugeSpec): Promise<string | null> {
+  const max = spec.max ?? 100;
+  const value = Math.max(0, Math.min(max, spec.value));
+  const ratio = max > 0 ? value / max : 0;
+
+  const verdictColor = spec.verdictColor
+    || (ratio >= 0.8 ? "#10b981"      // emerald
+      : ratio >= 0.5 ? "#f59e0b"      // amber
+      : "#ef4444");                   // crimson
+
+  const remainder = max - value;
+
+  const config = {
+    type: "doughnut",
+    data: {
+      datasets: [
+        {
+          data: [value, remainder],
+          backgroundColor: [verdictColor, "rgba(255,255,255,0.08)"],
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      rotation: -90,
+      circumference: 180,
+      cutout: "72%",
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      layout: { padding: { top: 10, bottom: 0, left: 10, right: 10 } },
+    },
+  };
+
+  return renderQuickChartPng({
+    cacheKey: spec.cacheKey,
+    config,
+    width: spec.width ?? 360,
+    height: spec.height ?? 220,
+    backgroundColor: spec.backgroundColor ?? "#0F141A",
+  });
+}
+
+/* ─── Wave 74: Two-bar comparison ─── */
+
+export interface BarComparisonSpec {
+  cacheKey: string;
+  /** Exactly 2 items. If more are passed, only the first two are used. */
+  items: Array<{ label: string; value: number; color?: string }>;
+  width?: number;
+  height?: number;
+  backgroundColor?: string;
+}
+
+/**
+ * Render a two-bar comparison PNG. Used for "good vs flagged", "current vs
+ * previous", etc. QuickChart `bar` is a direct fit — no degradation.
+ */
+export async function generateBarComparisonPng(spec: BarComparisonSpec): Promise<string | null> {
+  const items = spec.items.slice(0, 2);
+  if (items.length < 2) return null;
+
+  const labels = items.map((i) => i.label);
+  const values = items.map((i) => i.value);
+  const colors = items.map((i, idx) => i.color || (idx === 0 ? "#10b981" : "#ef4444"));
+
+  const config = {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: colors,
+          borderWidth: 0,
+          borderRadius: 8,
+          maxBarThickness: 80,
+        },
+      ],
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: {
+          ticks: { color: "#CDD1D6", font: { size: 12, weight: "600" } },
+          grid: { display: false, drawBorder: false },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: "#8B919A", font: { size: 11 }, precision: 0 },
+          grid: { color: "rgba(255,255,255,0.06)", drawBorder: false },
+        },
+      },
+      layout: { padding: { top: 12, right: 14, bottom: 6, left: 6 } },
+    },
+  };
+
+  return renderQuickChartPng({
+    cacheKey: spec.cacheKey,
+    config,
+    width: spec.width ?? 360,
+    height: spec.height ?? 220,
+    backgroundColor: spec.backgroundColor ?? "#0F141A",
+  });
+}
+
+/* ─── Wave 74: Donut chart ─── */
+
+export interface DonutChartSpec {
+  cacheKey: string;
+  /** Up to 8 segments. Additional segments are dropped. */
+  segments: Array<{ label: string; value: number; color?: string }>;
+  width?: number;
+  height?: number;
+  backgroundColor?: string;
+}
+
+/** Default 8-color palette tuned to the dark report card. */
+const DONUT_DEFAULT_COLORS = [
+  "#0d3cfc", "#10b981", "#f59e0b", "#ef4444",
+  "#a855f7", "#06b6d4", "#facc15", "#64748b",
+];
+
+/**
+ * Render a donut chart PNG. Up to 8 segments. QuickChart `doughnut` is a
+ * direct fit. Legend is rendered as the HTML text-fallback table — keeping
+ * the bitmap clean for compact-email use.
+ */
+export async function generateDonutChartPng(spec: DonutChartSpec): Promise<string | null> {
+  const segments = spec.segments
+    .filter((s) => s.value > 0)
+    .slice(0, 8);
+  if (!segments.length) return null;
+
+  const values = segments.map((s) => s.value);
+  const colors = segments.map((s, i) => s.color || DONUT_DEFAULT_COLORS[i % DONUT_DEFAULT_COLORS.length]);
+
+  const config = {
+    type: "doughnut",
+    data: {
+      labels: segments.map((s) => s.label),
+      datasets: [
+        {
+          data: values,
+          backgroundColor: colors,
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      cutout: "62%",
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      layout: { padding: 6 },
+    },
+  };
+
+  return renderQuickChartPng({
+    cacheKey: spec.cacheKey,
+    config,
+    width: spec.width ?? 280,
+    height: spec.height ?? 220,
+    backgroundColor: spec.backgroundColor ?? "#0F141A",
+  });
+}
+
+/* ─── Wave 74: Sparkline with peak callout ─── */
+
+export interface SparklinePeakSpec {
+  cacheKey: string;
+  /** Numeric series — index order is the X axis (no labels rendered). */
+  data: number[];
+  /** Index into `data` of the peak point to highlight. */
+  peakIndex: number;
+  /** Short label drawn near the peak (e.g. "Best rank — Apr 18"). */
+  peakLabel: string;
+  /** Optional line color override. */
+  lineColor?: string;
+  /** Optional peak-marker color override. */
+  peakColor?: string;
+  width?: number;
+  height?: number;
+  backgroundColor?: string;
+}
+
+/**
+ * Render a small sparkline PNG with a single highlighted data point + a
+ * small floating callout label near the peak. QuickChart's `line` chart
+ * supports per-point `pointRadius` and `pointBackgroundColor` arrays —
+ * we use that to single out the peak. The callout label is drawn via
+ * the built-in `chartjs-plugin-annotation` plugin that ships with
+ * QuickChart's default plugin set.
+ *
+ * Note: QuickChart's annotation plugin syntax is Chart.js v4. If a
+ * future version of QuickChart removes annotation-plugin support, the
+ * fallback text card (which always renders) keeps the truth intact —
+ * but the callout label would be missing. Acceptable degradation.
+ */
+export async function generateSparklineWithPeakPng(spec: SparklinePeakSpec): Promise<string | null> {
+  if (!spec.data.length) return null;
+  const peakIdx = Math.max(0, Math.min(spec.data.length - 1, spec.peakIndex));
+  const lineColor = spec.lineColor || "#0d3cfc";
+  const peakColor = spec.peakColor || "#10b981";
+
+  const pointRadii = spec.data.map((_, i) => (i === peakIdx ? 6 : 0));
+  const pointColors = spec.data.map((_, i) => (i === peakIdx ? peakColor : lineColor));
+
+  const config = {
+    type: "line",
+    data: {
+      labels: spec.data.map((_, i) => `${i}`),
+      datasets: [
+        {
+          data: spec.data,
+          borderColor: lineColor,
+          backgroundColor: "rgba(13,60,252,0.14)",
+          fill: true,
+          tension: 0.38,
+          borderWidth: 2.4,
+          pointRadius: pointRadii,
+          pointBackgroundColor: pointColors,
+          pointBorderColor: pointColors,
+          pointHoverRadius: pointRadii,
+        },
+      ],
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+        annotation: {
+          annotations: {
+            peakLabel: {
+              type: "label",
+              xValue: peakIdx,
+              yValue: spec.data[peakIdx],
+              content: spec.peakLabel,
+              color: "#F0F0F0",
+              backgroundColor: "rgba(16,185,129,0.18)",
+              borderColor: "rgba(16,185,129,0.45)",
+              borderWidth: 1,
+              borderRadius: 6,
+              padding: { top: 4, bottom: 4, left: 8, right: 8 },
+              font: { size: 11, weight: "600" },
+              yAdjust: -22,
+            },
+          },
+        },
+      },
+      scales: {
+        x: { display: false },
+        y: { display: false, beginAtZero: true },
+      },
+      layout: { padding: { top: 24, right: 14, bottom: 8, left: 6 } },
+    },
+  };
+
+  return renderQuickChartPng({
+    cacheKey: spec.cacheKey,
+    config,
+    width: spec.width ?? 480,
+    height: spec.height ?? 200,
+    backgroundColor: spec.backgroundColor ?? "#0F141A",
+  });
+}
+
+/* ─── Wave 74: Monthly bar series with one highlighted bar ─── */
+
+export interface MonthlyBarSeriesSpec {
+  cacheKey: string;
+  /** Bars in display order. */
+  bars: Array<{ label: string; value: number; highlight?: boolean }>;
+  /** Color used for the highlighted bar. */
+  highlightColor?: string;
+  /** Color used for non-highlighted bars. */
+  neutralColor?: string;
+  width?: number;
+  height?: number;
+  backgroundColor?: string;
+}
+
+/**
+ * Render a small bar-series PNG with one bar in the accent color and the
+ * rest in a neutral tone — used for "this month vs last 5 months" cadence
+ * cards. Direct fit for QuickChart `bar`.
+ */
+export async function generateMonthlyBarSeriesPng(spec: MonthlyBarSeriesSpec): Promise<string | null> {
+  if (!spec.bars.length) return null;
+
+  const highlight = spec.highlightColor || "#0d3cfc";
+  const neutral = spec.neutralColor || "rgba(205,209,214,0.22)";
+
+  const config = {
+    type: "bar",
+    data: {
+      labels: spec.bars.map((b) => b.label),
+      datasets: [
+        {
+          data: spec.bars.map((b) => b.value),
+          backgroundColor: spec.bars.map((b) => (b.highlight ? highlight : neutral)),
+          borderWidth: 0,
+          borderRadius: 6,
+          maxBarThickness: 38,
+        },
+      ],
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: {
+          ticks: { color: "#8B919A", font: { size: 10 } },
+          grid: { display: false, drawBorder: false },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: "#8B919A", font: { size: 10 }, precision: 0 },
+          grid: { color: "rgba(255,255,255,0.05)", drawBorder: false },
+        },
+      },
+      layout: { padding: { top: 10, right: 10, bottom: 4, left: 4 } },
+    },
+  };
+
+  return renderQuickChartPng({
+    cacheKey: spec.cacheKey,
+    config,
+    width: spec.width ?? 480,
+    height: spec.height ?? 200,
+    backgroundColor: spec.backgroundColor ?? "#0F141A",
+  });
+}
+
 /* ─── Express route registration ─── */
 
 /**

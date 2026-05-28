@@ -13,7 +13,7 @@ import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCr
 import { eq, and, sql, desc, gte, lte } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
-import { generateLineChart } from "./emailCharts";
+import { generateLineChart, generateBarComparisonPng } from "./emailCharts";
 import { createLogger } from "../lib/logger";
 import { storage } from "../storage";
 import {
@@ -28,6 +28,7 @@ import {
   buildChecklist,
   buildCtaButton,
   buildMetricGlossary,
+  buildBarComparisonCard,
   deriveHeaderBadge,
   type KpiTile,
   type HeaderBadge,
@@ -295,6 +296,30 @@ async function tryGenerateScoreChart(
   return result?.url || null;
 }
 
+/**
+ * Wave 74: render the bar-comparison PNG for the citation-cleanup KPI card.
+ * Skipped when both clean + flagged counts are zero (the card itself is
+ * also skipped in that case). Returns null on any failure — caller still
+ * renders the text-only fallback.
+ */
+async function tryGenerateCitationsChart(
+  clientId: number,
+  data: MonthlyReportData,
+): Promise<string | null> {
+  const clean = data.total_completed ?? 0;
+  const flagged = data.total_active ?? 0;
+  if (clean + flagged === 0) return null;
+
+  const periodKey = data.period_start.slice(0, 7);
+  return generateBarComparisonPng({
+    cacheKey: `mapguard-citations-cs${clientId}-${periodKey}`,
+    items: [
+      { label: "Clean", value: clean, color: "#10b981" },
+      { label: "Flagged", value: flagged, color: "#ef4444" },
+    ],
+  });
+}
+
 /* ═══════════════════════════════════════════
    EMAIL COMPOSITION
    ═══════════════════════════════════════════ */
@@ -302,6 +327,10 @@ async function tryGenerateScoreChart(
 interface ComposeOpts {
   data: MonthlyReportData;
   chartUrl: string | null;
+  /** Wave 74: optional pre-generated URL for the citation-cleanup
+   * bar-comparison KPI card. Card still renders (with text-only
+   * fallback) when null. */
+  citationsChartUrl?: string | null;
   portalUrl: string;
   recipientEmail: string;
 }
@@ -415,6 +444,23 @@ function composeMapguardReport(o: ComposeOpts): { subject: string; html: string;
     return `Your visibility held steady this month. We continued monitoring and shipped ${d.total_completed} small improvement${d.total_completed === 1 ? "" : "s"}.`;
   })();
 
+  // Wave 74: citation cleanup bar-comparison KPI card. "Clean" =
+  // completed cleanup-style actions this period; "Flagged" = currently
+  // open work items still in flight. Skipped entirely if both are 0
+  // (avoids a noisy zero-zero card on the very first baseline report).
+  const cleanCount = d.total_completed ?? 0;
+  const flaggedCount = d.total_active ?? 0;
+  const citationCard = (cleanCount + flaggedCount) > 0
+    ? buildBarComparisonCard({
+        chartUrl: o.citationsChartUrl ?? null,
+        title: "Citation cleanup",
+        items: [
+          { label: "Clean", value: cleanCount, tone: "good" },
+          { label: "Flagged", value: flaggedCount, tone: "warn" },
+        ],
+      })
+    : "";
+
   // Compose body
   const body = [
     buildReportHero({
@@ -424,6 +470,7 @@ function composeMapguardReport(o: ComposeOpts): { subject: string; html: string;
       businessName: d.business_name,
       summary,
     }),
+    citationCard,
     buildKpiGrid(kpis),
     o.chartUrl ? buildIntegratedChart({ chartUrl: o.chartUrl, alt: `Visibility score over ${d.month_label}`, height: 280 }) : "",
     fallbackCells.length ? buildChartFallback({ cells: fallbackCells }) : "",
@@ -519,7 +566,8 @@ export async function sendMonthlyReportEmail(
     || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
 
   const chartUrl = await tryGenerateScoreChart(clientId, data);
-  const { subject, html } = composeMapguardReport({ data, chartUrl, portalUrl, recipientEmail });
+  const citationsChartUrl = await tryGenerateCitationsChart(clientId, data);
+  const { subject, html } = composeMapguardReport({ data, chartUrl, citationsChartUrl, portalUrl, recipientEmail });
 
   try {
     await transporter.sendMail({
