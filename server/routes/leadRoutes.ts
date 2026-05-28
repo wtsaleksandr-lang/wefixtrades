@@ -12,6 +12,7 @@ import {
   leadsIpRateLimiter,
   LEADS_RATE_LIMIT_WINDOW_MS,
 } from "../services/rateLimiter";
+import { sendQuoteReadySms } from "../services/quotequickHomeownerSmsService";
 
 const log = createLogger("Leads");
 
@@ -351,6 +352,19 @@ export function registerLeadRoutes(app: Express): void {
         ? (parsed.data.consent_method ?? "web_form")
         : null;
 
+      // Wave 81 — quote_expires_at drives the expires-soon SMS reminder
+      // worker. TTL is per-calculator configurable via
+      // settings.appearance.quote.ttl_days; default 7 days. Computed at
+      // submission time so legacy rows (pre-Wave-81) stay NULL and never
+      // trigger a spurious reminder.
+      const calcSettings = (calculator.calculator_settings as any) || {};
+      const ttlDaysRaw = Number(calcSettings.appearance?.quote?.ttl_days);
+      const ttlDays =
+        Number.isFinite(ttlDaysRaw) && ttlDaysRaw > 0 && ttlDaysRaw <= 90
+          ? ttlDaysRaw
+          : 7;
+      const quoteExpiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
+
       const lead = await storage.createLead({
         calculator_id: parsed.data.calculator_id,
         name,
@@ -373,6 +387,8 @@ export function registerLeadRoutes(app: Express): void {
         consent_ip_hash: consentIpHash,
         consent_user_agent: consentUserAgent,
         consent_method: consentMethod,
+        // Wave 81 — QuoteQuick homeowner SMS expiry tracking.
+        quote_expires_at: quoteExpiresAt,
         // UTM / source attribution
         landing_page: parsed.data.landing_page?.trim() || null,
         referrer: parsed.data.referrer?.trim() || null,
@@ -396,6 +412,42 @@ export function registerLeadRoutes(app: Express): void {
       enqueueLeadNotificationsAndFollowups(lead, parsed.data.calculator_id).catch(err => {
         log.error("Failed to enqueue lead notifications:", err.message);
       });
+
+      // Wave 81 — homeowner quote-ready SMS. Transactional (the homeowner
+      // JUST clicked Submit), so quiet hours are bypassed. Fire-and-forget
+      // with a stamp on success; if the send defers (quiet hours) or
+      // fails, leads.quote_ready_sent_at stays NULL — but we deliberately
+      // do NOT re-attempt later. Quote-ready is "right now or never";
+      // the homeowner's expectation is an immediate acknowledgment, not
+      // a delayed one. expires-soon + post-job handle the later
+      // touchpoints.
+      if (lead.phone && lead.sms_consent && safeQuoteAmount != null) {
+        sendQuoteReadySms({
+          leadId: lead.id,
+          calculatorId: parsed.data.calculator_id,
+          phone: lead.phone,
+          quoteAmountDollars: safeQuoteAmount,
+          smsConsent: !!lead.sms_consent,
+        })
+          .then((result) => {
+            if (result.ok) {
+              storage
+                .updateLead(lead.id, { quote_ready_sent_at: new Date() })
+                .catch((err: any) =>
+                  log.warn("[quote-ready] stamp failed", { error: err?.message, leadId: lead.id }),
+                );
+            } else if (result.reason === "no_consent") {
+              // Permanent — homeowner is opted out. Stamp so we don't
+              // retry from any future code path that re-checks this row.
+              storage
+                .updateLead(lead.id, { quote_ready_sent_at: new Date() })
+                .catch(() => {});
+            }
+          })
+          .catch((err: any) =>
+            log.error("[quote-ready] send threw unexpectedly", { error: err?.message, leadId: lead.id }),
+          );
+      }
 
       // Wave AQ-3 — emit a webhook event for any API-platform user who
       // owns this calculator AND subscribes to `submission.created`. The

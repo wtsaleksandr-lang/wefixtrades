@@ -203,6 +203,14 @@ export const leads = pgTable("leads", {
   // Won-value tracking (P1-3)
   won_value: integer("won_value"),   // cents
   won_at: timestamp("won_at"),
+  // Wave 81 — QuoteQuick homeowner SMS flows. `quote_expires_at` drives
+  // the expires-soon worker; the three `*_sent_at` columns give per-flow
+  // idempotency across pod restarts and parallel cron ticks. All four
+  // populated forward-only; legacy rows stay NULL.
+  quote_expires_at: timestamp("quote_expires_at"),
+  quote_ready_sent_at: timestamp("quote_ready_sent_at"),
+  expires_soon_sent_at: timestamp("expires_soon_sent_at"),
+  post_job_thank_you_sent_at: timestamp("post_job_thank_you_sent_at"),
   created_date: timestamp("created_date").defaultNow(),
 }, (table) => ({
   // migrations/0050_perf_indexes.sql: (calculator_id, created_date DESC).
@@ -218,6 +226,11 @@ export const leads = pgTable("leads", {
   consentPhoneIdx: index("idx_leads_consent_phone")
     .on(table.phone, table.consent_timestamp.desc().nullsFirst())
     .where(sql`${table.sms_consent} = true`),
+  // migrations/0071_quotequick_homeowner_sms.sql — partial index for the
+  // expires-soon worker poll. Only indexes rows that still need a notify.
+  expiresSoonPendingIdx: index("idx_leads_expires_soon_pending")
+    .on(table.quote_expires_at)
+    .where(sql`${table.expires_soon_sent_at} IS NULL AND ${table.quote_expires_at} IS NOT NULL AND ${table.status} = 'new'`),
 }));
 
 export const notificationQueue = pgTable("notification_queue", {
@@ -397,6 +410,8 @@ export const widgetDeposits = pgTable("widget_deposits", {
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
   paid_at: timestamp("paid_at"),
+  // Wave 81 — QuoteQuick deposit-receipt SMS idempotency stamp.
+  deposit_receipt_sent_at: timestamp("deposit_receipt_sent_at"),
 }, (table) => ({
   calcIdx: index("idx_widget_deposits_calc").on(table.calculator_id, table.created_at),
   sessionIdx: index("idx_widget_deposits_session").on(table.stripe_session_id),
@@ -1073,12 +1088,22 @@ export const bookflowAppointments = pgTable("bookflow_appointments", {
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
+  // Wave 81 — QuoteQuick post-job thank-you SMS idempotency stamp.
+  // Populated by the post-job worker after a quotequick-source booking
+  // flips to status='completed'. Forward-only; legacy rows stay NULL.
+  post_job_thank_you_sent_at: timestamp("post_job_thank_you_sent_at"),
 }, (table) => ({
   // migrations/0050_perf_indexes.sql: (client_id, start_time) — ASC.
   clientStartIdx: index("idx_bookflow_appointments_client_start").on(
     table.client_id,
     table.start_time,
   ),
+  // migrations/0071_quotequick_homeowner_sms.sql — partial index for the
+  // post-job worker poll. Scopes to QuoteQuick-source completed bookings
+  // that still need the thank-you SMS sent.
+  postJobPendingIdx: index("idx_bookflow_appointments_postjob_pending")
+    .on(table.updated_at)
+    .where(sql`${table.post_job_thank_you_sent_at} IS NULL AND ${table.status} = 'completed' AND ${table.source} = 'quotequick'`),
 }));
 
 export const insertBookflowAppointmentSchema = createInsertSchema(bookflowAppointments).omit({
