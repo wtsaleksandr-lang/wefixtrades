@@ -57,9 +57,28 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const DIST_DIR = path.join(REPO_ROOT, "dist", "public");
 const SHELL_PATH = path.join(DIST_DIR, "index.html");
 
+// Wave 99 — SKIP_PRERENDER is IGNORED on production builds.
+// See script/build.ts isPrerenderSkipped() for the diagnostic. Without
+// this gate, a stray SKIP_PRERENDER=1 in the Replit deploy env ships
+// dist/public/ with zero route HTML files, which sends the TCR vetting
+// bot, Bing, and the LLM crawlers an empty SPA shell.
 if (process.env.SKIP_PRERENDER === "1") {
-  console.log("[prerender] SKIP_PRERENDER=1 — skipping per-route prerender.");
-  process.exit(0);
+  const isProdBuild =
+    process.env.NODE_ENV === "production" ||
+    process.env.REPLIT_DEPLOYMENT === "1" ||
+    !!process.env.REPL_DEPLOYMENT_ID ||
+    !!process.env.REPLIT_DEPLOYMENT_ID;
+  if (isProdBuild) {
+    console.log(
+      `[prerender] SKIP_PRERENDER=1 IGNORED — production builds must prerender. ` +
+        `Detected: NODE_ENV=${process.env.NODE_ENV ?? "<unset>"}, ` +
+        `REPLIT_DEPLOYMENT=${process.env.REPLIT_DEPLOYMENT ?? "<unset>"}, ` +
+        `REPL_DEPLOYMENT_ID=${process.env.REPL_DEPLOYMENT_ID ? "<set>" : "<unset>"}.`,
+    );
+  } else {
+    console.log("[prerender] SKIP_PRERENDER=1 — skipping per-route prerender.");
+    process.exit(0);
+  }
 }
 
 if (!existsSync(SHELL_PATH)) {
