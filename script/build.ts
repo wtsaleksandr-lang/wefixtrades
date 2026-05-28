@@ -2,6 +2,45 @@ import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "fs/promises";
 import { spawn } from "node:child_process";
+import * as Sentry from "@sentry/node";
+
+/**
+ * Wave 93 — best-effort Sentry tagging for build-time failures so
+ * prerender / esbuild regressions are filterable next to runtime errors.
+ *
+ * No-op when SENTRY_DSN is missing (dev / local). When DSN is present
+ * (Replit prod build), tags every captured event with source=build so
+ * the operator can filter on `tags["source"]:build` in the Sentry UI.
+ */
+const SENTRY_BUILD_INITIALIZED = (() => {
+  const dsn = process.env.SENTRY_DSN;
+  if (!dsn) return false;
+  Sentry.init({
+    dsn,
+    environment: process.env.NODE_ENV ?? "production",
+    release:
+      process.env.SENTRY_RELEASE ??
+      process.env.GIT_SHA ??
+      process.env.REPL_DEPLOYMENT_ID ??
+      process.env.SOURCE_VERSION ??
+      undefined,
+    // Builds happen once per deploy — no need to sample tracing.
+    tracesSampleRate: 0,
+  });
+  Sentry.setTag("source", "build");
+  return true;
+})();
+
+function reportBuildIssue(category: string, message: string, extra?: Record<string, unknown>) {
+  console.warn(`[build] ${category}: ${message}`);
+  if (!SENTRY_BUILD_INITIALIZED) return;
+  Sentry.withScope((scope) => {
+    scope.setTag("build_category", category);
+    scope.setLevel("error");
+    if (extra) scope.setExtras(extra);
+    Sentry.captureMessage(`[build/${category}] ${message}`);
+  });
+}
 
 // server deps to bundle to reduce openat(2) syscalls
 // which helps cold start times
@@ -55,14 +94,18 @@ async function prerenderRoutes(): Promise<void> {
       { stdio: "inherit" },
     );
     child.on("error", (err) => {
-      console.warn(`[build] prerender spawn error (non-fatal): ${err.message}`);
+      reportBuildIssue("prerender", `spawn error: ${err.message}`, { stage: "spawn" });
       resolve();
     });
     child.on("exit", (code) => {
       if (code === 0) {
         resolve();
       } else {
-        console.warn(`[build] prerender exited with code ${code} — skipping (non-fatal). Set SKIP_PRERENDER=1 to suppress this warning.`);
+        reportBuildIssue(
+          "prerender",
+          `exited with code ${code} — set SKIP_PRERENDER=1 to suppress`,
+          { exit_code: code, stage: "exit" },
+        );
         resolve();
       }
     });
@@ -100,7 +143,19 @@ async function buildAll() {
   });
 }
 
-buildAll().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+buildAll()
+  .then(async () => {
+    if (SENTRY_BUILD_INITIALIZED) {
+      await Sentry.flush(2000).catch(() => undefined);
+    }
+  })
+  .catch(async (err) => {
+    console.error(err);
+    reportBuildIssue("build-fatal", err?.message ?? String(err), {
+      stack: err?.stack,
+    });
+    if (SENTRY_BUILD_INITIALIZED) {
+      await Sentry.flush(2000).catch(() => undefined);
+    }
+    process.exit(1);
+  });
