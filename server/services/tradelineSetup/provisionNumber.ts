@@ -9,6 +9,13 @@
  *      wizard surfaces the "We're finalizing your setup" copy and the
  *      provision is retried by the autoActivation worker when admin
  *      drops the Twilio admin key into Doppler.
+ *
+ * Wave 85 — provisionNumber() now accepts an optional `targetPhoneNumber`
+ * (E.164). When the wizard's number-picker step picks one specifically,
+ * the route forwards that value and we skip the availability search and
+ * purchase the chosen number directly. The webhook wiring from Wave 76
+ * is preserved verbatim either way. "Pick for me" still works — it just
+ * calls this function without `targetPhoneNumber`.
  */
 
 import { getTwilioClient, isTwilioConfigured } from "../../twilioClient";
@@ -92,19 +99,39 @@ export interface ProvisionFailure {
 export type ProvisionResult = ProvisionSuccess | ProvisionQueued | ProvisionFailure;
 
 /**
+ * Wave 85 — optional explicit-target signature. When `targetPhoneNumber`
+ * is provided (from the wizard's picker step), we skip the availability
+ * search and purchase that number directly. Otherwise the original
+ * search-and-pick-first behavior is preserved as the auto-pick fallback.
+ */
+export interface ProvisionOptions {
+  /** Specific E.164 number to purchase. Bypasses the availability search. */
+  targetPhoneNumber?: string;
+}
+
+/**
  * @param countryCode  ISO-3166-1 alpha-2, "US" or "CA".
  * @param preference   "local" or "toll_free". Local is default.
+ * @param options      Wave 85 — optional `targetPhoneNumber` overrides search.
  */
 export async function provisionNumber(
   countryCode: "US" | "CA",
   preference: "local" | "toll_free" = "local",
+  options: ProvisionOptions = {},
 ): Promise<ProvisionResult> {
+  const targetPhoneNumber = options.targetPhoneNumber?.trim() || undefined;
+
   if (TEST_MODE()) {
-    log.info("test-mode: returning magic test number");
+    log.info("test-mode: returning magic test number", {
+      targeted: Boolean(targetPhoneNumber),
+    });
     return {
       ok: true,
       queued: false,
-      number: "+15005550006",
+      // If the wizard passed a specific target in test-mode, echo it back so
+      // the success screen reads naturally. Otherwise return the Twilio
+      // magic test number as before.
+      number: targetPhoneNumber || "+15005550006",
       sid: "PN" + "0".repeat(32),
     };
   }
@@ -121,14 +148,24 @@ export async function provisionNumber(
   try {
     const client = getTwilioClient();
 
-    // Search available numbers
-    const available = preference === "toll_free"
-      ? await client.availablePhoneNumbers(countryCode).tollFree.list({ smsEnabled: true, voiceEnabled: true, limit: 5 })
-      : await client.availablePhoneNumbers(countryCode).local.list({ smsEnabled: true, voiceEnabled: true, limit: 5 });
+    // Wave 85 — if the wizard handed us a specific number, skip the search
+    // entirely and try to purchase it directly. Twilio will surface an
+    // error if the number was claimed between the picker render and submit
+    // (inventory turns over fast) — we propagate that as ok:false so the
+    // UI can offer "Try a different number" or "Pick for me".
+    let candidatePhoneNumber: string | undefined = targetPhoneNumber;
 
-    const candidate = available[0];
-    if (!candidate) {
-      return { ok: false, error: `No ${preference} numbers available in ${countryCode}` };
+    if (!candidatePhoneNumber) {
+      // Search available numbers (auto-pick fallback)
+      const available = preference === "toll_free"
+        ? await client.availablePhoneNumbers(countryCode).tollFree.list({ smsEnabled: true, voiceEnabled: true, limit: 5 })
+        : await client.availablePhoneNumbers(countryCode).local.list({ smsEnabled: true, voiceEnabled: true, limit: 5 });
+
+      const candidate = available[0];
+      if (!candidate) {
+        return { ok: false, error: `No ${preference} numbers available in ${countryCode}` };
+      }
+      candidatePhoneNumber = candidate.phoneNumber;
     }
 
     // Purchase + wire webhooks atomically. Wave 76 — without these URLs,
@@ -147,7 +184,7 @@ export async function provisionNumber(
     }
 
     const createParams: Record<string, unknown> = {
-      phoneNumber: candidate.phoneNumber,
+      phoneNumber: candidatePhoneNumber,
       voiceUrl: webhookCfg.voiceUrl,
       voiceMethod: webhookCfg.voiceMethod,
       voiceFallbackUrl: webhookCfg.voiceFallbackUrl,
@@ -167,6 +204,7 @@ export async function provisionNumber(
       sid: purchased.sid,
       number: purchased.phoneNumber,
       messagingServiceAttached: Boolean(messagingServiceSid),
+      targeted: Boolean(targetPhoneNumber),
     });
 
     // A2P 10DLC pre-flight (non-blocking).
@@ -181,7 +219,7 @@ export async function provisionNumber(
     };
   } catch (err) {
     const msg = (err as Error).message;
-    log.error("Provision failed", { err: msg });
+    log.error("Provision failed", { err: msg, targeted: Boolean(targetPhoneNumber) });
     return { ok: false, error: msg };
   }
 }
