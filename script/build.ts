@@ -74,10 +74,19 @@ const allowlist = [
 
 /**
  * SEO Wave E — per-route prerender step. Runs after the Vite client
- * build so the rendered dist/public is ready to serve. Non-fatal:
- * if Playwright/Chromium is unavailable in the build environment
- * (missing libglib-2.0.so.0 etc.) we warn and continue rather than
- * aborting the whole deployment.
+ * build so the rendered dist/public is ready to serve.
+ *
+ * Wave 90 — failure semantics changed.
+ *   Previously: any non-zero exit from prerender-routes.mjs was warned
+ *   and swallowed ("skipping — non-fatal"). That silent skip shipped an
+ *   unhydrated /sms-consent-disclosure and blocked the A2P 10DLC
+ *   campaign vetting for several deploys.
+ *   Now: a non-zero exit aborts the build. The prerender script itself
+ *   only exits non-zero when a CRITICAL_ROUTES entry (see
+ *   scripts/seo/prerender-routes.mjs) failed BOTH the Playwright path
+ *   AND the static-template fallback. Non-critical route failures are
+ *   still warned and continue, so a single flaky landing page doesn't
+ *   break the deploy.
  *
  * Skip with SKIP_PRERENDER=1 for quick iteration on the server side.
  */
@@ -87,15 +96,18 @@ async function prerenderRoutes(): Promise<void> {
     return;
   }
   console.log("prerendering routes for Bing/LLM crawlers...");
-  await new Promise<void>((resolve) => {
+  await new Promise<void>((resolve, reject) => {
     const child = spawn(
       process.execPath,
       ["scripts/seo/prerender-routes.mjs"],
       { stdio: "inherit" },
     );
     child.on("error", (err) => {
+      // Wave 90 — prerender errors abort the build (no longer silent skip).
+      // Wave 93 — also tag Sentry so the failure shows up in the dashboard
+      // next to runtime errors.
       reportBuildIssue("prerender", `spawn error: ${err.message}`, { stage: "spawn" });
-      resolve();
+      reject(new Error(`prerender spawn error: ${err.message}`));
     });
     child.on("exit", (code) => {
       if (code === 0) {
@@ -103,11 +115,48 @@ async function prerenderRoutes(): Promise<void> {
       } else {
         reportBuildIssue(
           "prerender",
-          `exited with code ${code} — set SKIP_PRERENDER=1 to suppress`,
+          `exited with code ${code} — see CRITICAL_ROUTES in scripts/seo/prerender-routes.mjs`,
           { exit_code: code, stage: "exit" },
         );
-        resolve();
+        reject(
+          new Error(
+            `prerender exited with code ${code} — see CRITICAL_ROUTES in scripts/seo/prerender-routes.mjs. Set SKIP_PRERENDER=1 to bypass for local iteration only.`,
+          ),
+        );
       }
+    });
+  });
+}
+
+/**
+ * Wave 90 — post-build smoke check.
+ *
+ * After the client + prerender + server bundles are emitted, verify
+ * that the critical static pages (currently /sms-consent-disclosure)
+ * actually made it to disk with the expected content. This catches
+ * regressions like the prerender silently skipping a page, or a
+ * template-fallback writer running but emitting an empty file.
+ *
+ * Skipped if SKIP_PRERENDER=1 (no prerendered output to check).
+ */
+async function runBuildSmoke(): Promise<void> {
+  if (process.env.SKIP_PRERENDER === "1") {
+    console.log("[build] SKIP_PRERENDER=1 — skipping post-build smoke check.");
+    return;
+  }
+  console.log("running post-build smoke check...");
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      ["--import", "tsx", "tests/build-smoke.test.ts"],
+      { stdio: "inherit" },
+    );
+    child.on("error", (err) => {
+      reject(new Error(`build-smoke spawn error: ${err.message}`));
+    });
+    child.on("exit", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`build-smoke exited with code ${code}`));
     });
   });
 }
@@ -141,6 +190,8 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  await runBuildSmoke();
 }
 
 buildAll()

@@ -1,48 +1,55 @@
 /**
- * Wave 93 — extended post-build smoke test.
+ * Wave 90 — post-build smoke test.
+ * Wave 93 — extended to every critical SEO + compliance route.
  *
- * Wave 88 / 90 added a minimal smoke check focused on the consent
- * disclosure (because the TCR 10DLC vetting bot was rejecting on it).
- * This file extends the coverage to EVERY critical SEO + compliance
- * route so a future prerender regression can't silently ship empty
- * shells on /pricing, /privacy, /about, etc. — same failure mode,
- * different page.
+ * Runs against `dist/public/` after `npm run build` completes. Verifies
+ * that the prerender step actually produced the static HTML files that
+ * external no-JS scrapers depend on. The Twilio / TCR A2P 10DLC
+ * vetting bot in particular fetches /sms-consent-disclosure and reads
+ * the response body without executing JavaScript — if the file is
+ * missing, tiny (just the SPA shell), or missing the consent keywords,
+ * the campaign submission is rejected. The same regression mode applies
+ * to every other prerendered route (Bing crawler, link previews,
+ * privacy/terms compliance checkers), so Wave 93 expands the coverage
+ * to all eight critical routes instead of just /sms-consent-disclosure.
  *
- * Runs after `npm run build` finishes and `dist/public/` is on disk.
- * Reads each prerendered HTML file and asserts:
- *   1. File exists at `dist/public/<route>/index.html`
- *      (or `dist/public/index.html` for `/`)
- *   2. Size >= minBytes (defends against the unhydrated SPA shell,
- *      which is ~3-4 KB)
- *   3. Every case-insensitive token in `mustContain` is present in
- *      the file body
- *
- * Wire into `npm run build` so a regression aborts the deploy locally
- * before it ever leaves the dev machine.
+ * Why a standalone script and not a Playwright/vitest spec:
+ *   - The repo has no node-level test runner; Playwright is for
+ *     end-to-end browser tests against a running server.
+ *   - This check is a static file-shape assertion, no browser needed.
+ *   - Runs as part of the build chain (see `npm run build`) so a
+ *     regression is caught locally and in CI before merge, not at
+ *     post-deploy time.
  *
  * Exit codes:
  *   0 — all critical pages present, correctly sized, contain required tokens
  *   1 — at least one critical page missing or malformed (build fails)
  *
  * Invocation:
- *   tsx tests/build-output-smoke.test.ts
- *   npm run test:build-output-smoke
+ *   tsx tests/build-smoke.test.ts
+ *   npm run test:build-smoke
  *
  * Sibling files kept in sync:
- *   - scripts/seo/prerender-routes.mjs        (what we render)
- *   - scripts/deploy/content-verification.mjs (post-deploy probes)
- *   - server/static.ts                         (CRITICAL_PRERENDERED_ROUTES)
+ *   - scripts/seo/prerender-routes.mjs              (what we render)
+ *   - scripts/deploy/content-verification.mjs       (post-deploy CI probe)
+ *   - server/routes/deploymentHealthRoutes.ts       (admin dashboard probe)
+ *   - server/static.ts CRITICAL_PRERENDERED_ROUTES  (runtime fallback alarm)
  */
 
 import { readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const REPO_ROOT = path.resolve(new URL(".", import.meta.url).pathname, "..");
+// `import.meta.url` is a file:// URL; on Windows the .pathname form
+// gives "/C:/..." which path.resolve mangles into "C:/C:/...". Use
+// fileURLToPath so the same code works on both POSIX and Windows.
+const __filename = fileURLToPath(import.meta.url);
+const REPO_ROOT = path.resolve(path.dirname(__filename), "..");
 const DIST_DIR = path.join(REPO_ROOT, "dist", "public");
 
 interface CriticalPage {
-  /** Route as used in the URL. */
+  /** Route as used in the URL (e.g. "/sms-consent-disclosure"). */
   route: string;
   /** Generated file path, relative to dist/public. */
   file: string;
@@ -58,7 +65,7 @@ const CRITICAL_PAGES: CriticalPage[] = [
     file: "index.html",
     // Home is the heaviest prerender (hero, features, social proof) —
     // 8 KB is well below the realistic floor but above the empty shell.
-    minBytes: 8_000,
+    minBytes: 8000,
     mustContain: ["WeFixTrades"],
   },
   {
@@ -67,43 +74,44 @@ const CRITICAL_PAGES: CriticalPage[] = [
     // The empty SPA shell is ~3-4 KB. A real disclosure with body content
     // is >12 KB. 6000 catches the silent-skip regression while leaving
     // headroom for template tweaks.
-    minBytes: 6_000,
+    minBytes: 6000,
     mustContain: ["STOP", "consent", "opt-in"],
   },
   {
     route: "/privacy",
     file: path.join("privacy", "index.html"),
-    minBytes: 5_000,
+    minBytes: 5000,
     mustContain: ["Privacy"],
   },
   {
     route: "/terms",
     file: path.join("terms", "index.html"),
-    minBytes: 5_000,
+    minBytes: 5000,
     mustContain: ["Terms"],
   },
   {
     route: "/products/quickquotepro",
     file: path.join("products", "quickquotepro", "index.html"),
-    minBytes: 5_000,
+    minBytes: 5000,
+    // QuoteQuick is the brand name for the QuickQuotePro product page.
     mustContain: ["QuoteQuick"],
   },
   {
     route: "/products/tradeline",
     file: path.join("products", "tradeline", "index.html"),
-    minBytes: 5_000,
+    minBytes: 5000,
     mustContain: ["TradeLine"],
   },
   {
     route: "/pricing",
     file: path.join("pricing", "index.html"),
-    minBytes: 5_000,
+    minBytes: 5000,
     mustContain: ["$"],
   },
   {
     route: "/about",
     file: path.join("about", "index.html"),
-    minBytes: 5_000,
+    minBytes: 5000,
     mustContain: ["About"],
   },
 ];
@@ -142,16 +150,10 @@ async function checkPage(page: CriticalPage): Promise<CheckResult> {
 }
 
 async function main(): Promise<void> {
-  if (process.env.SKIP_PRERENDER === "1") {
-    console.log(
-      "[build-output-smoke] SKIP_PRERENDER=1 — skipping (prerender step was skipped, so prerendered files are not expected).",
-    );
-    return;
-  }
-  console.log("[build-output-smoke] checking critical prerendered pages...");
+  console.log("[build-smoke] checking critical prerendered pages...");
   if (!existsSync(DIST_DIR)) {
     console.error(
-      `[build-output-smoke] FATAL: ${DIST_DIR} does not exist. Run \`npm run build\` first.`,
+      `[build-smoke] FATAL: ${DIST_DIR} does not exist. Run \`npm run build\` first.`,
     );
     process.exit(1);
   }
@@ -160,10 +162,10 @@ async function main(): Promise<void> {
   let anyFail = false;
   for (const result of results) {
     if (result.ok) {
-      console.log(`[build-output-smoke] OK   ${result.route}`);
+      console.log(`[build-smoke] OK  ${result.route}`);
     } else {
       anyFail = true;
-      console.error(`[build-output-smoke] FAIL ${result.route}`);
+      console.error(`[build-smoke] FAIL ${result.route}`);
       for (const problem of result.problems) {
         console.error(`  - ${problem}`);
       }
@@ -172,14 +174,14 @@ async function main(): Promise<void> {
 
   if (anyFail) {
     console.error(
-      "[build-output-smoke] one or more critical pages failed validation; aborting build.",
+      "[build-smoke] one or more critical pages failed validation; aborting build.",
     );
     process.exit(1);
   }
-  console.log(`[build-output-smoke] all ${results.length} critical pages OK.`);
+  console.log("[build-smoke] all critical pages OK.");
 }
 
 main().catch((err) => {
-  console.error("[build-output-smoke] FATAL:", err);
+  console.error("[build-smoke] FATAL:", err);
   process.exit(1);
 });
