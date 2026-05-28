@@ -591,6 +591,18 @@ export const smsMessages = pgTable("sms_messages", {
   to_number: varchar("to_number", { length: 30 }),
   twilio_sid: varchar("twilio_sid", { length: 60 }),
   is_ai: boolean("is_ai").default(true),
+  // Wave 78 — Twilio delivery-status visibility. `status` mirrors the
+  // Twilio `MessageStatus` callback values: queued | sending | sent |
+  // delivered | undelivered | failed. Nullable until first callback fires.
+  // error_code/error_message are populated only on failure paths
+  // (Twilio sends them with `undelivered` and `failed`). delivered_at is
+  // set once when status === 'delivered'. updated_at tracks the last
+  // callback write.
+  status: varchar("status", { length: 20 }),
+  error_code: integer("error_code"),
+  error_message: text("error_message"),
+  delivered_at: timestamp("delivered_at", { withTimezone: true }),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   created_at: timestamp("created_at").defaultNow(),
 }, (table) => ({
   // migrations/0050_perf_indexes.sql: two separate (col, created_at DESC)
@@ -603,6 +615,8 @@ export const smsMessages = pgTable("sms_messages", {
     table.lead_id,
     table.created_at.desc().nullsFirst(),
   ),
+  // Wave 78 — status-callback lookups by Twilio MessageSid.
+  twilioSidIdx: index("idx_sms_messages_twilio_sid").on(table.twilio_sid),
 }));
 
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({

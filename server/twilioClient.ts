@@ -125,7 +125,17 @@ export async function sendSMS(
     toFormatted = to;
   }
 
-  const message = await client.messages.create({ from, to: toFormatted, body });
+  // Wave 78 — wire delivery-status callback so we learn whether the
+  // message actually delivered, failed, or hard-bounced. Endpoint at
+  // POST /api/twilio/sms-status (see server/routes/twilioStatusCallbackRoutes.ts).
+  // PUBLIC_BASE_URL convention matches sitemapRoutes / robotsRoutes /
+  // cron/seoIndexing — falls back to wefixtrades.com if unset.
+  const createParams: Record<string, unknown> = { from, to: toFormatted, body };
+  const publicBaseUrl = process.env.PUBLIC_BASE_URL?.replace(/\/$/, "") || "https://wefixtrades.com";
+  createParams.statusCallback = `${publicBaseUrl}/api/twilio/sms-status`;
+  createParams.statusCallbackMethod = "POST";
+
+  const message = await client.messages.create(createParams as any);
   return message.sid;
 }
 
