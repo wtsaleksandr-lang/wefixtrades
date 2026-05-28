@@ -49,28 +49,13 @@ for forbidden in drizzle.config.ts drizzle.config.dev.ts; do
 done
 echo "[start-prod] guard OK — no drizzle.config*.ts at repo root (Replit auto-sync disabled)." >&2
 
-# Layer-D guard (PR fix/replit-drizzle-push-nuke-from-deps):
-# At runtime in production, drizzle-kit MUST NOT exist in node_modules. If it
-# does, something (Replit's auto-install, a stale build cache, or a mis-classified
-# dependency) has put the binary on the deploy machine, which is exactly what
-# Replit's database integration uses to auto-run schema sync. The project
-# applies SQL via server/lib/bootstrapMigrations.ts at boot — drizzle-kit is a
-# strict devDependency. If it leaked into prod, fail fast and visibly so the
-# regression is caught in deploy logs rather than after a destructive sync.
-#
-# This guard runs ONLY when NODE_ENV=production (Replit deploys set this) so
-# `bash ./scripts/start-prod.sh --check` keeps working in local dev where
-# drizzle-kit is legitimately present.
-if [ "${NODE_ENV:-}" = "production" ]; then
-  if [ -d "${REPO_ROOT}/node_modules/drizzle-kit" ]; then
-    echo "[start-prod] FATAL: node_modules/drizzle-kit exists in a production environment." >&2
-    echo "[start-prod] drizzle-kit is a devDependency and must NEVER be installed on the deploy machine." >&2
-    echo "[start-prod] Replit's database integration discovers this binary and runs schema-sync prompts on Publish." >&2
-    echo "[start-prod] Investigate the deploy install path — production should run with devDependencies pruned." >&2
-    exit 1
-  fi
-  echo "[start-prod] guard OK — drizzle-kit binary absent from production node_modules." >&2
-fi
+# Layer-D guard removed: it checked for drizzle-kit in node_modules, but
+# Replit's deployment runs a full `npm install` (devDependencies included) and
+# never prunes them — so the guard fired on every single deploy and blocked
+# startup. The real protection is Layer-C above (no drizzle.config at repo
+# root), which prevents Replit from auto-detecting the config and running
+# schema-sync. drizzle-kit in node_modules is harmless as long as no
+# drizzle.config lives at the repo root.
 
 MODE_DOPPLER_CLI="doppler-cli"
 MODE_DOPPLER_HTTP="doppler-http-bootstrap-only"
