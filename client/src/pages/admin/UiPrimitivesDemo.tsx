@@ -90,10 +90,17 @@ const WALKTHROUGH_STEPS: WalkthroughStep[] = [
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  // Wave 71.5 — mobile fix: min-w-0 + overflow-hidden so a wide child
+  // (e.g. a fixed-pixel SVG primitive) can't push the Section past the
+  // viewport. Reduce padding on phones so the inner usable width stays
+  // closer to the viewport. Inner flex stacks (gap-4) on mobile, wraps
+  // back to gap-6 from sm: up.
   return (
-    <Card className="p-6 space-y-4">
+    <Card className="p-4 sm:p-6 space-y-4 min-w-0 overflow-hidden">
       <h2 className="text-lg font-semibold">{title}</h2>
-      <div className="flex flex-wrap items-start gap-6">{children}</div>
+      <div className="flex flex-wrap items-start gap-4 sm:gap-6 min-w-0">
+        {children}
+      </div>
     </Card>
   );
 }
@@ -389,7 +396,11 @@ export default function UiPrimitivesDemo() {
 
   return (
     <AdminLayout pageContext={{ page: "ui-primitives" }}>
-      <div className="space-y-6">
+      {/* Wave 71.5 — mobile fix: min-w-0 + overflow-x-hidden so no demo
+          block (some primitives ship at fixed pixel widths) can push the
+          whole page wider than the viewport, which produced the "white
+          shade" overflow Alex hit at ≤480px. */}
+      <div className="space-y-6 min-w-0 overflow-x-hidden">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight inline-flex items-center gap-2">
@@ -1297,14 +1308,18 @@ function Wave71Block({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-2">
+    <div className="rounded-lg border bg-card p-4 space-y-2 min-w-0 overflow-hidden">
       <div className="space-y-0.5">
         <div className="text-sm font-semibold">{title}</div>
         <div className="text-xs text-muted-foreground leading-snug max-w-prose">
           {caption}
         </div>
       </div>
-      <div className="pt-2">{children}</div>
+      {/* Wave 71.5 — mobile fix: each demo chart can be a fixed-pixel
+          SVG. Allow horizontal scroll within the block so the chart is
+          still inspectable on narrow viewports without blowing out the
+          page width. */}
+      <div className="pt-2 max-w-full overflow-x-auto">{children}</div>
     </div>
   );
 }
