@@ -489,6 +489,8 @@ function Router() {
           to this one via the redirect shims in each product's
           NotificationSettings.tsx / AlertSettings.tsx file. */}
       <Route path="/portal/settings/notifications">{() => <RequireClient><UniversalNotificationsPage /></RequireClient>}</Route>
+      {/* Wave 83 — deep-link to the SMS template tab on PortalSettings. */}
+      <Route path="/portal/settings/sms-templates">{() => <Redirect to="/portal/settings?tab=sms-templates" />}</Route>
       <Route path="/portal/ai-insights">{() => <RequireClient><AiInsightsPage /></RequireClient>}</Route>
       <Route path="/portal/citation-tracker">{() => <RequireClient><CitationTrackerDashboard /></RequireClient>}</Route>
       <Route path="/portal/citation-builder">{() => <RequireClient><CitationBuilderDashboard /></RequireClient>}</Route>
