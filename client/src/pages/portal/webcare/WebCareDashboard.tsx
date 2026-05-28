@@ -75,6 +75,7 @@ import {
 } from "@/components/webcare/SiteInventory";
 import { DaysWithoutIncident } from "@/components/webcare/DaysWithoutIncident";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 
 const META = {
   securityGrade: getMetricMeta("webcare", "securityGrade")!,
@@ -194,6 +195,32 @@ export default function WebCareDashboard() {
     },
   });
 
+  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  type WcScoreResponse = {
+    value: number;
+    verdict: string;
+    advice: string;
+    data_status: "real" | "illustrative";
+  };
+  type WcMonthlyResponse = {
+    data: MonthlyBar[];
+    data_status: "real" | "illustrative";
+  };
+  const scoreStatsQuery = useQuery<WcScoreResponse>({
+    queryKey: ["portal", "webcare", "stats", "score"],
+    queryFn: () =>
+      fetch("/api/portal/webcare/stats/score", { credentials: "include" }).then(
+        (r) => r.json(),
+      ),
+  });
+  const monthlyStatsQuery = useQuery<WcMonthlyResponse>({
+    queryKey: ["portal", "webcare", "stats", "monthly"],
+    queryFn: () =>
+      fetch("/api/portal/webcare/stats/monthly?months=6", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+
   const runAction = useMutation({
     mutationFn: async (input: {
       action: string;
@@ -234,30 +261,33 @@ export default function WebCareDashboard() {
 
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
-  // Site health composite — uptime (50%) + perf avg (30%) + security score (20%).
-  // TODO Wave 73: wire to real /api/portal/webcare/site-health-composite endpoint.
-  const siteHealthScore = useMemo(() => {
+  // Site health composite — Wave 73a: backed by /stats/score.
+  const siteHealthScoreFallback = useMemo(() => {
     const up = k?.uptimePct ?? 0;
     const perf = k?.performanceScore.avg ?? 0;
     const sec = k?.securityGrade.score ?? 0;
     if (up + perf + sec === 0) return 0;
     return Math.round(up * 0.5 + perf * 0.3 + sec * 0.2);
   }, [k?.uptimePct, k?.performanceScore.avg, k?.securityGrade.score]);
+  const siteHealthScore = scoreStatsQuery.data?.value ?? siteHealthScoreFallback;
+  const siteHealthIllustrative =
+    scoreStatsQuery.data?.data_status === "illustrative";
 
   const siteHealthVerdict =
-    siteHealthScore >= 80 ? "Healthy site"
+    scoreStatsQuery.data?.verdict ??
+    (siteHealthScore >= 80 ? "Healthy site"
       : siteHealthScore >= 50 ? "Improvements available"
-        : "Action required";
+        : "Action required");
   const siteHealthAdvice =
-    siteHealthScore >= 80
+    scoreStatsQuery.data?.advice ??
+    (siteHealthScore >= 80
       ? "Uptime, performance, and security all in good shape."
       : siteHealthScore >= 50
         ? "Run pending updates and check the Lighthouse score to lift this above 80."
-        : "Apply security hardening and pending updates — site needs attention.";
+        : "Apply security hardening and pending updates — site needs attention.");
 
-  // Incidents per month — derive count from entries grouped by month.
-  // TODO Wave 73: wire to real /api/portal/webcare/monthly-incidents series.
-  const incidentsMonthlyBars: MonthlyBar[] = useMemo(() => {
+  // Incidents per month — Wave 73a: backed by /stats/monthly.
+  const incidentsMonthlyBarsFallback: MonthlyBar[] = useMemo(() => {
     const now = new Date();
     const labels: string[] = [];
     const buckets: number[] = [];
@@ -288,10 +318,16 @@ export default function WebCareDashboard() {
     const hasData = buckets.some((b) => b > 0);
     return labels.map((label, idx) => {
       const isCurrent = idx === labels.length - 1;
-      const value = hasData ? buckets[idx] : Math.max(0, 3 - idx);
+      const value = hasData ? (buckets[idx] ?? 0) : Math.max(0, 3 - idx);
       return { label, value, highlighted: isCurrent };
     });
   }, [entries]);
+  const incidentsMonthlyBars: MonthlyBar[] =
+    monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
+      ? monthlyStatsQuery.data.data
+      : incidentsMonthlyBarsFallback;
+  const incidentsMonthlyIllustrative =
+    monthlyStatsQuery.data?.data_status === "illustrative";
 
   // Uptime SLA actual vs target.
   const uptimeTarget = 99.9;
@@ -388,7 +424,10 @@ export default function WebCareDashboard() {
         {/* Wave 72 — new KPI primitives row */}
         <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
           {/* Headline (Simple-mode visible) — site health SemiGauge */}
-          <Card className="p-4 h-full flex items-center justify-center" data-testid="wc-site-health-semigauge">
+          <Card className="p-4 h-full flex flex-col items-center justify-center gap-2" data-testid="wc-site-health-semigauge">
+            <div className="self-end">
+              <IllustrativeDataBadge show={siteHealthIllustrative} />
+            </div>
             <SemiGauge
               value={siteHealthScore}
               max={100}
@@ -402,8 +441,11 @@ export default function WebCareDashboard() {
           {/* Advanced — incidents per month */}
           <AdvancedOnly product="webcare" elementId="webcare.incidents-monthly-bars">
             <Card className="p-4 h-full" data-testid="wc-incidents-monthly">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                Incidents per month
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Incidents per month
+                </div>
+                <IllustrativeDataBadge show={incidentsMonthlyIllustrative} />
               </div>
               <MonthlyBarSeries
                 bars={incidentsMonthlyBars}

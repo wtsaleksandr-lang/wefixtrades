@@ -86,6 +86,7 @@ import { PostScoreOverlay } from "@/components/socialsync/PostScoreOverlay";
 import { ChannelPicker } from "@/components/socialsync/ChannelPicker";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 
 /* Wave 26.6: registry-driven gauge meta. Same strings the Copilot reads. */
 const META = {
@@ -212,6 +213,43 @@ export default function SocialSyncDashboard() {
       return res.json();
     },
     refetchInterval: 5 * 60_000, // scores move slowly
+  });
+
+  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  type SsMonthlyResponse = {
+    data: MonthlyBar[];
+    data_status: "real" | "illustrative";
+  };
+  type SsSegmentResponse = {
+    data: DonutSegment[];
+    data_status: "real" | "illustrative";
+  };
+  type SsPeakResponse = {
+    data: number[];
+    peakLabel: string;
+    peakIndex: number;
+    data_status: "real" | "illustrative";
+  };
+  const monthlyStatsQuery = useQuery<SsMonthlyResponse>({
+    queryKey: ["portal", "socialsync", "stats", "monthly"],
+    queryFn: () =>
+      fetch("/api/portal/socialsync/stats/monthly?months=6", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const segmentStatsQuery = useQuery<SsSegmentResponse>({
+    queryKey: ["portal", "socialsync", "stats", "segments"],
+    queryFn: () =>
+      fetch("/api/portal/socialsync/stats/segments", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const peakStatsQuery = useQuery<SsPeakResponse>({
+    queryKey: ["portal", "socialsync", "stats", "peak"],
+    queryFn: () =>
+      fetch("/api/portal/socialsync/stats/peak", {
+        credentials: "include",
+      }).then((r) => r.json()),
   });
 
   const invalidateAll = () => {
@@ -459,9 +497,8 @@ export default function SocialSyncDashboard() {
 
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
-  // Monthly posts: 6 months. Anchor on postsThisWeek × 4 as a coarse stand-in.
-  // TODO Wave 73: wire to real /api/portal/socialsync/dashboard-kpis monthly-posts series.
-  const monthlyPostBars: MonthlyBar[] = useMemo(() => {
+  // Monthly posts — Wave 73a: backed by /stats/monthly.
+  const monthlyPostBarsFallback: MonthlyBar[] = useMemo(() => {
     const now = new Date();
     const labels: string[] = [];
     for (let i = 5; i >= 0; i -= 1) {
@@ -479,10 +516,15 @@ export default function SocialSyncDashboard() {
       };
     });
   }, [kpis?.postsThisWeek]);
+  const monthlyPostBars: MonthlyBar[] =
+    monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
+      ? monthlyStatsQuery.data.data
+      : monthlyPostBarsFallback;
+  const monthlyPostBarsIllustrative =
+    monthlyStatsQuery.data?.data_status === "illustrative";
 
-  // Platform mix donut — derive from perPlatform engagement weights.
-  // TODO Wave 73: wire to real /api/portal/socialsync/platform-post-counts endpoint.
-  const platformMixSegments: DonutSegment[] = useMemo(() => {
+  // Platform mix donut — Wave 73a: backed by /stats/segments.
+  const platformMixSegmentsFallback: DonutSegment[] = useMemo(() => {
     if (!perPlatform) {
       return [
         { label: "Facebook", value: 8 },
@@ -494,14 +536,18 @@ export default function SocialSyncDashboard() {
     }
     return PLATFORMS.map((p) => ({
       label: p.label,
-      // Weight by engagement rate × 10 as a count proxy.
       value: Math.max(1, Math.round((perPlatform[p.id]?.ratePct ?? 0) * 10)),
     })).filter((s) => s.value > 0);
   }, [perPlatform]);
+  const platformMixSegments: DonutSegment[] =
+    segmentStatsQuery.data?.data && segmentStatsQuery.data.data.length > 0
+      ? segmentStatsQuery.data.data
+      : platformMixSegmentsFallback;
+  const platformMixIllustrative =
+    segmentStatsQuery.data?.data_status === "illustrative";
 
-  // Top-performing post sparkline (12 days mocked off engagement rate).
-  // TODO Wave 73: wire to real /api/portal/socialsync/top-post-engagement endpoint.
-  const topPostSeries = useMemo(() => {
+  // Top-performing post sparkline — Wave 73a: backed by /stats/peak.
+  const topPostSeriesFallback = useMemo(() => {
     const anchor = Math.max((kpis?.avgEngagementRate ?? 0) * 100, 1);
     return [
       anchor * 0.5,
@@ -518,6 +564,11 @@ export default function SocialSyncDashboard() {
       anchor * 0.86,
     ].map((v) => Math.round(v));
   }, [kpis?.avgEngagementRate]);
+  const topPostSeries =
+    peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
+      ? peakStatsQuery.data.data
+      : topPostSeriesFallback;
+  const topPostIllustrative = peakStatsQuery.data?.data_status === "illustrative";
 
   /* ─── Render ────────────────────────────────────────────────────────── */
 
@@ -619,8 +670,11 @@ export default function SocialSyncDashboard() {
         <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
           {/* Headline (Simple-mode visible) — posts per month */}
           <Card className="p-4 h-full" data-testid="ss-monthly-bars">
-            <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-              Posts per month
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                Posts per month
+              </div>
+              <IllustrativeDataBadge show={monthlyPostBarsIllustrative} />
             </div>
             <MonthlyBarSeries
               bars={monthlyPostBars}
@@ -641,6 +695,9 @@ export default function SocialSyncDashboard() {
           {/* Advanced — platform mix donut */}
           <AdvancedOnly product="socialsync" elementId="socialsync.platform-mix-donut">
             <Card className="p-4 h-full" data-testid="ss-platform-mix-donut">
+              <div className="flex items-center justify-end gap-2 mb-2">
+                <IllustrativeDataBadge show={platformMixIllustrative} />
+              </div>
               <DonutChart
                 title="Platform mix"
                 segments={platformMixSegments}
@@ -653,8 +710,11 @@ export default function SocialSyncDashboard() {
           {/* Advanced — top post sparkline */}
           <AdvancedOnly product="socialsync" elementId="socialsync.top-post-sparkline">
             <Card className="p-4 h-full" data-testid="ss-top-post-sparkline">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                Top-performing post
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Top-performing post
+                </div>
+                <IllustrativeDataBadge show={topPostIllustrative} />
               </div>
               <SparklineWithPeak
                 data={topPostSeries}

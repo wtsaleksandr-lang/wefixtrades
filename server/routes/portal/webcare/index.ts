@@ -21,6 +21,7 @@ import { registerPortalWebcareMaintenanceLogRoutes } from "./maintenanceLog";
 import { registerPortalWebcareSiteInventoryRoutes } from "./siteInventory";
 import { registerPortalWebcareRunActionRoutes } from "./runAction";
 import { registerPortalWebcareNotificationSettingsRoutes } from "./notificationSettings";
+import { registerPortalWebcareWave73KpiStatsRoutes } from "./wave73KpiStats";
 
 export function registerPortalWebcareDashboardRoutes(app: Express) {
   registerPortalWebcareDashboardKpisRoutes(app);
@@ -28,4 +29,5 @@ export function registerPortalWebcareDashboardRoutes(app: Express) {
   registerPortalWebcareSiteInventoryRoutes(app);
   registerPortalWebcareRunActionRoutes(app);
   registerPortalWebcareNotificationSettingsRoutes(app);
+  registerPortalWebcareWave73KpiStatsRoutes(app);
 }

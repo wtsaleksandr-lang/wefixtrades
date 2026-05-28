@@ -22,6 +22,7 @@ import { registerPortalQuotequickBrandSettingsRoutes } from "./brandSettings";
 import { registerPortalQuotequickRunActionRoutes } from "./runAction";
 import { registerPortalQuotequickNotificationSettingsRoutes } from "./notificationSettings";
 import { registerPortalQuotequickLiveStreamRoutes } from "./liveStream";
+import { registerPortalQuotequickWave73KpiStatsRoutes } from "./wave73KpiStats";
 
 export function registerPortalQuotequickDashboardRoutes(app: Express) {
   registerPortalQuotequickDashboardKpisRoutes(app);
@@ -30,4 +31,5 @@ export function registerPortalQuotequickDashboardRoutes(app: Express) {
   registerPortalQuotequickRunActionRoutes(app);
   registerPortalQuotequickNotificationSettingsRoutes(app);
   registerPortalQuotequickLiveStreamRoutes(app);
+  registerPortalQuotequickWave73KpiStatsRoutes(app);
 }

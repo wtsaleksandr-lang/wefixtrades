@@ -70,6 +70,7 @@ import {
   type AIBrainRecommendation,
 } from "@/components/rankflow/AIBrainPanel";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
+import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 
 /* Wave 26.6: registry-driven gauge meta. Same strings the Copilot reads. */
 const META = {
@@ -227,6 +228,32 @@ export default function RankFlowDashboard() {
     refetchInterval: 30_000,
   });
 
+  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  type RfMonthlyResponse = {
+    data: MonthlyBar[];
+    data_status: "real" | "illustrative";
+  };
+  type RfPeakResponse = {
+    data: number[];
+    peakLabel: string;
+    peakIndex: number;
+    data_status: "real" | "illustrative";
+  };
+  const monthlyStatsQuery = useQuery<RfMonthlyResponse>({
+    queryKey: ["portal", "rankflow", "stats", "monthly"],
+    queryFn: () =>
+      fetch("/api/portal/rankflow/stats/monthly?months=6", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const peakStatsQuery = useQuery<RfPeakResponse>({
+    queryKey: ["portal", "rankflow", "stats", "peak"],
+    queryFn: () =>
+      fetch("/api/portal/rankflow/stats/peak", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+
   const dispatchMutation = useMutation({
     mutationFn: async ({
       topic,
@@ -311,9 +338,8 @@ export default function RankFlowDashboard() {
 
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
-  // Monthly top-10 keywords trend.
-  // TODO Wave 73: wire to real /api/portal/rankflow/dashboard-kpis monthly-top10 series.
-  const top10MonthlyBars: MonthlyBar[] = useMemo(() => {
+  // Monthly top-10 keywords — Wave 73a: backed by /stats/monthly.
+  const top10MonthlyBarsFallback: MonthlyBar[] = useMemo(() => {
     const now = new Date();
     const labels: string[] = [];
     for (let i = 5; i >= 0; i -= 1) {
@@ -331,11 +357,15 @@ export default function RankFlowDashboard() {
       };
     });
   }, [kpis?.keywordsTop10]);
+  const top10MonthlyBars: MonthlyBar[] =
+    monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
+      ? monthlyStatsQuery.data.data
+      : top10MonthlyBarsFallback;
+  const top10MonthlyIllustrative =
+    monthlyStatsQuery.data?.data_status === "illustrative";
 
-  // Best-ranking spike — proxy from improved keywords; reduce to a recent
-  // ~12-week mock that climbs toward the latest peak.
-  // TODO Wave 73: wire to real /api/portal/rankflow/weekly-best-rank-spike endpoint.
-  const bestSpikeSeries = useMemo(() => {
+  // Best-ranking spike — Wave 73a: backed by /stats/peak.
+  const bestSpikeFallback = useMemo(() => {
     const anchor = Math.max(kpis?.keywordsImproved ?? 0, 1);
     return [
       anchor * 0.4,
@@ -352,6 +382,12 @@ export default function RankFlowDashboard() {
       anchor * 0.92,
     ].map((v) => Math.round(v));
   }, [kpis?.keywordsImproved]);
+  const bestSpikeSeries =
+    peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
+      ? peakStatsQuery.data.data
+      : bestSpikeFallback;
+  const bestSpikeIllustrative =
+    peakStatsQuery.data?.data_status === "illustrative";
 
   // Page-1 vs Page-2 keywords for the comparison card.
   const page1Count = kpis?.keywordsTop10 ?? 0;
@@ -483,8 +519,11 @@ export default function RankFlowDashboard() {
         <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
           {/* Headline (Simple-mode visible) — top-10 keywords per month */}
           <Card className="p-4 h-full" data-testid="rf-monthly-bars">
-            <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-              Top-10 keywords per month
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                Top-10 keywords per month
+              </div>
+              <IllustrativeDataBadge show={top10MonthlyIllustrative} />
             </div>
             <MonthlyBarSeries
               bars={top10MonthlyBars}
@@ -505,8 +544,11 @@ export default function RankFlowDashboard() {
           {/* Advanced — best-ranking spike sparkline */}
           <AdvancedOnly product="rankflow" elementId="rankflow.best-spike-sparkline">
             <Card className="p-4 h-full" data-testid="rf-best-spike-sparkline">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                Best-ranking spike (12 weeks)
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Best-ranking spike (12 weeks)
+                </div>
+                <IllustrativeDataBadge show={bestSpikeIllustrative} />
               </div>
               <SparklineWithPeak
                 data={bestSpikeSeries}

@@ -78,6 +78,7 @@ import {
 import { ProfitableTradeHeatmap } from "@/components/adflow/ProfitableTradeHeatmap";
 import { DayPartingHeatmap } from "@/components/adflow/DayPartingHeatmap";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 
 const META = {
   moneySpent: getMetricMeta("adflow", "moneySpent")!,
@@ -270,6 +271,43 @@ export default function AdFlowDashboard() {
     },
   });
 
+  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  type MonthlyResponse = {
+    data: MonthlyBar[];
+    data_status: "real" | "illustrative";
+  };
+  type PeakResponse = {
+    data: number[];
+    peakLabel: string;
+    peakIndex: number;
+    data_status: "real" | "illustrative";
+  };
+  type SegmentResponse = {
+    data: DonutSegment[];
+    data_status: "real" | "illustrative";
+  };
+  const { data: monthlyStats } = useQuery<MonthlyResponse>({
+    queryKey: ["portal", "adflow", "stats", "monthly"],
+    queryFn: () =>
+      fetch("/api/portal/adflow/stats/monthly?months=6", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const { data: peakStats } = useQuery<PeakResponse>({
+    queryKey: ["portal", "adflow", "stats", "peak"],
+    queryFn: () =>
+      fetch("/api/portal/adflow/stats/peak", { credentials: "include" }).then(
+        (r) => r.json(),
+      ),
+  });
+  const { data: segmentStats } = useQuery<SegmentResponse>({
+    queryKey: ["portal", "adflow", "stats", "segments"],
+    queryFn: () =>
+      fetch("/api/portal/adflow/stats/segments", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+
   const runAction = useMutation({
     mutationFn: async (input: {
       action: string;
@@ -331,10 +369,9 @@ export default function AdFlowDashboard() {
 
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
-  // Leads per month — derived from jobsBooked + a smooth backfill for earlier
-  // months. Leads ≈ jobsBooked × 2 as a coarse proxy.
-  // TODO Wave 73: wire to real /api/portal/adflow/dashboard-kpis monthly-leads series.
-  const leadsMonthlyBars: MonthlyBar[] = useMemo(() => {
+  // Leads per month — Wave 73a: backed by /stats/monthly. Local mock kept
+  // for first-render fallback while the query is loading.
+  const leadsMonthlyFallback: MonthlyBar[] = useMemo(() => {
     const now = new Date();
     const labels: string[] = [];
     for (let i = 5; i >= 0; i -= 1) {
@@ -352,14 +389,18 @@ export default function AdFlowDashboard() {
       return { label, value: Math.round(anchor * ratio) };
     });
   }, [k?.jobsBooked.thisMonth, k?.jobsBooked.lastMonth]);
+  const leadsMonthlyBars: MonthlyBar[] =
+    monthlyStats?.data && monthlyStats.data.length > 0
+      ? monthlyStats.data
+      : leadsMonthlyFallback;
+  const leadsMonthlyIllustrative = monthlyStats?.data_status === "illustrative";
 
-  // Peak ROAS day — derive from spend trend (using sparkline as proxy).
-  // TODO Wave 73: wire to real /api/portal/adflow/peak-roas-day endpoint.
-  const peakRoasSeries = trend.slice(-12);
+  // Peak ROAS day — Wave 73a: backed by /stats/peak.
+  const peakRoasSeries = peakStats?.data ?? trend.slice(-12);
+  const peakRoasIllustrative = peakStats?.data_status === "illustrative";
 
-  // Ad spend by platform — derive from campaigns array.
-  // TODO Wave 73: wire to real /api/portal/adflow/spend-by-platform endpoint.
-  const adSpendByPlatform: DonutSegment[] = useMemo(() => {
+  // Ad spend by platform — Wave 73a: backed by /stats/segments.
+  const adSpendByPlatformFallback: DonutSegment[] = useMemo(() => {
     const map = new Map<string, number>();
     for (const c of campaigns) {
       const platform = c.platform ?? "other";
@@ -377,6 +418,12 @@ export default function AdFlowDashboard() {
       value: Math.max(1, Math.round(value / 100)),
     }));
   }, [campaigns]);
+  const adSpendByPlatform: DonutSegment[] =
+    segmentStats?.data && segmentStats.data.length > 0
+      ? segmentStats.data
+      : adSpendByPlatformFallback;
+  const adSpendByPlatformIllustrative =
+    segmentStats?.data_status === "illustrative";
 
   // Weekly delta from sparkline (sum last 7d vs prior 7d). Sparkline is
   // 12-weekly buckets so we just compare the last two cells.
@@ -539,8 +586,11 @@ export default function AdFlowDashboard() {
         <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
           {/* Headline (Simple-mode visible) — leads per month */}
           <Card className="p-4 h-full" data-testid="af-leads-monthly">
-            <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-              Leads per month
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                Leads per month
+              </div>
+              <IllustrativeDataBadge show={leadsMonthlyIllustrative} />
             </div>
             <MonthlyBarSeries
               bars={leadsMonthlyBars}
@@ -561,8 +611,11 @@ export default function AdFlowDashboard() {
           {/* Advanced — peak ROAS day sparkline */}
           <AdvancedOnly product="adflow" elementId="adflow.peak-roas-sparkline">
             <Card className="p-4 h-full" data-testid="af-peak-roas-sparkline">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                Peak ROAS day
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Peak ROAS day
+                </div>
+                <IllustrativeDataBadge show={peakRoasIllustrative} />
               </div>
               {peakRoasSeries.length > 0 ? (
                 <SparklineWithPeak
@@ -583,6 +636,10 @@ export default function AdFlowDashboard() {
           {/* Advanced — ad spend by platform donut */}
           <AdvancedOnly product="adflow" elementId="adflow.spend-by-platform-donut">
             <Card className="p-4 h-full" data-testid="af-spend-by-platform-donut">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="sr-only">Ad spend by platform</span>
+                <IllustrativeDataBadge show={adSpendByPlatformIllustrative} />
+              </div>
               <DonutChart
                 title="Ad spend by platform"
                 segments={adSpendByPlatform}

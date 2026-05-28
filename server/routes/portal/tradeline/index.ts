@@ -22,10 +22,12 @@ import { registerPortalTradelineDashboardKpisRoutes } from "./dashboardKpis";
 import { registerPortalTradelineActiveCallsRoutes } from "./activeCalls";
 import { registerPortalTradelineSentimentRoutes } from "./sentiment";
 import { registerPortalTradelineFunnelRoutes } from "./funnel";
+import { registerPortalTradelineWave73KpiStatsRoutes } from "./wave73KpiStats";
 
 export function registerPortalTradelineDashboardRoutes(app: Express) {
   registerPortalTradelineDashboardKpisRoutes(app);
   registerPortalTradelineActiveCallsRoutes(app);
   registerPortalTradelineSentimentRoutes(app);
   registerPortalTradelineFunnelRoutes(app);
+  registerPortalTradelineWave73KpiStatsRoutes(app);
 }

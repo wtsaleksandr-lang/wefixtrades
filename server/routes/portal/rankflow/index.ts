@@ -19,10 +19,12 @@ import { registerPortalRankflowDashboardKpisRoutes } from "./dashboardKpis";
 import { registerPortalRankflowCompetitorComparisonRoutes } from "./competitorComparison";
 import { registerPortalRankflowAiBrainRoutes } from "./aiBrain";
 import { registerPortalRankflowActivityFeedRoutes } from "./activityFeed";
+import { registerPortalRankflowWave73KpiStatsRoutes } from "./wave73KpiStats";
 
 export function registerPortalRankflowDashboardRoutes(app: Express) {
   registerPortalRankflowDashboardKpisRoutes(app);
   registerPortalRankflowCompetitorComparisonRoutes(app);
   registerPortalRankflowAiBrainRoutes(app);
   registerPortalRankflowActivityFeedRoutes(app);
+  registerPortalRankflowWave73KpiStatsRoutes(app);
 }

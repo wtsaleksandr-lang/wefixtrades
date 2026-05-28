@@ -72,6 +72,7 @@ import {
   type CompetitorAlertEvent,
 } from "@/components/mapguard/CompetitorAlertFeed";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
+import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 
 /* Registry-driven metric meta — same strings the Copilot reads. */
 const META = {
@@ -167,6 +168,32 @@ export default function MapGuardDashboard() {
     refetchInterval: 5 * 60_000,
   });
 
+  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  type MgSegmentResponse = {
+    data: DonutSegment[];
+    data_status: "real" | "illustrative";
+  };
+  type MgPeakResponse = {
+    data: number[];
+    peakLabel: string;
+    peakIndex: number;
+    data_status: "real" | "illustrative";
+  };
+  const segmentStatsQuery = useQuery<MgSegmentResponse>({
+    queryKey: ["portal", "mapguard", "stats", "segments"],
+    queryFn: () =>
+      fetch("/api/portal/mapguard/stats/segments", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const peakStatsQuery = useQuery<MgPeakResponse>({
+    queryKey: ["portal", "mapguard", "stats", "peak"],
+    queryFn: () =>
+      fetch("/api/portal/mapguard/stats/peak", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+
   const runAction = useMutation({
     mutationFn: async (input: {
       cardId: string;
@@ -243,9 +270,8 @@ export default function MapGuardDashboard() {
   const flaggedCitations =
     (kpis?.citationHealth.missing ?? 0) + (kpis?.citationHealth.inconsistent ?? 0);
 
-  // Citation directory mix donut — found / missing / inconsistent.
-  // TODO Wave 73: wire to real /api/portal/mapguard/citation-directory-mix endpoint for per-directory breakdown.
-  const citationDirectorySegments: DonutSegment[] = useMemo(() => {
+  // Citation directory mix donut — Wave 73a: backed by /stats/segments.
+  const citationDirectoryFallback: DonutSegment[] = useMemo(() => {
     const found = kpis?.citationHealth.found ?? 0;
     const missing = kpis?.citationHealth.missing ?? 0;
     const inconsistent = kpis?.citationHealth.inconsistent ?? 0;
@@ -262,10 +288,19 @@ export default function MapGuardDashboard() {
       { label: "Inconsistent", value: inconsistent, color: "amber" },
     ];
   }, [kpis?.citationHealth]);
+  const citationDirectorySegments: DonutSegment[] =
+    segmentStatsQuery.data?.data && segmentStatsQuery.data.data.length > 0
+      ? segmentStatsQuery.data.data
+      : citationDirectoryFallback;
+  const citationDirectoryIllustrative =
+    segmentStatsQuery.data?.data_status === "illustrative";
 
-  // Best-ranking day across geo grid — derive from gbpTrend14d.
-  // TODO Wave 73: wire to real /api/portal/mapguard/geo-grid-best-day endpoint.
-  const geoBestDaySeries = kpisQuery.data?.gbpTrend14d ?? [];
+  // Best-ranking day across geo grid — Wave 73a: backed by /stats/peak.
+  const geoBestDaySeries =
+    peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
+      ? peakStatsQuery.data.data
+      : kpisQuery.data?.gbpTrend14d ?? [];
+  const geoBestDayIllustrative = peakStatsQuery.data?.data_status === "illustrative";
 
   return (
     <PortalLayout>
@@ -446,6 +481,9 @@ export default function MapGuardDashboard() {
           {/* Advanced — citation directory mix donut */}
           <AdvancedOnly product="mapguard" elementId="mapguard.citation-directory-donut">
             <Card className="p-4 h-full" data-testid="mg-citation-directory-donut">
+              <div className="flex items-center justify-end gap-2 mb-2">
+                <IllustrativeDataBadge show={citationDirectoryIllustrative} />
+              </div>
               <DonutChart
                 title="Citation directory mix"
                 segments={citationDirectorySegments}
@@ -458,8 +496,11 @@ export default function MapGuardDashboard() {
           {/* Advanced — best ranking day sparkline */}
           <AdvancedOnly product="mapguard" elementId="mapguard.best-rank-day-sparkline">
             <Card className="p-4 h-full" data-testid="mg-best-rank-day">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                Best-ranking day (geo grid)
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Best-ranking day (geo grid)
+                </div>
+                <IllustrativeDataBadge show={geoBestDayIllustrative} />
               </div>
               {geoBestDaySeries.length > 0 ? (
                 <SparklineWithPeak

@@ -55,6 +55,7 @@ import {
 import { ConversionGauge } from "@/components/quotequick/ConversionGauge";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -174,6 +175,56 @@ export default function QuoteQuickDashboard() {
     return [{ id: summary.calculator.id, name: summary.calculator.business_name }];
   }, [summary]);
 
+  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  type QqScoreResponse = {
+    value: number;
+    verdict: string;
+    advice: string;
+    data_status: "real" | "illustrative";
+  };
+  type QqPeakResponse = {
+    data: number[];
+    peakLabel: string;
+    peakIndex: number;
+    data_status: "real" | "illustrative";
+  };
+  type QqMonthlyResponse = {
+    data: MonthlyBar[];
+    data_status: "real" | "illustrative";
+  };
+  type QqComparisonResponse = {
+    data: Array<{ label: string; value: number }>;
+    data_status: "real" | "illustrative";
+  };
+  const scoreStatsQuery = useQuery<QqScoreResponse>({
+    queryKey: ["portal", "quotequick", "stats", "score"],
+    queryFn: () =>
+      fetch("/api/portal/quotequick/stats/score", { credentials: "include" }).then(
+        (r) => r.json(),
+      ),
+  });
+  const peakStatsQuery = useQuery<QqPeakResponse>({
+    queryKey: ["portal", "quotequick", "stats", "peak"],
+    queryFn: () =>
+      fetch("/api/portal/quotequick/stats/peak", { credentials: "include" }).then(
+        (r) => r.json(),
+      ),
+  });
+  const monthlyStatsQuery = useQuery<QqMonthlyResponse>({
+    queryKey: ["portal", "quotequick", "stats", "monthly"],
+    queryFn: () =>
+      fetch("/api/portal/quotequick/stats/monthly?months=6", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const comparisonStatsQuery = useQuery<QqComparisonResponse>({
+    queryKey: ["portal", "quotequick", "stats", "comparison"],
+    queryFn: () =>
+      fetch("/api/portal/quotequick/stats/comparison", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+
   const runAction = useMutation({
     mutationFn: async (action: QuickActionId) => {
       return apiRequest("POST", "/api/portal/quotequick/run-action", {
@@ -205,29 +256,34 @@ export default function QuoteQuickDashboard() {
 
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
-  // Conversion rate proxy: depositPaidRate (% of completed quotes paying deposit)
-  // is the closest stat we have to "viewers → completed". Until a per-funnel
-  // viewer-to-complete metric ships, use depositPaidRate.
-  // TODO Wave 73: wire to real /api/portal/quotequick/conversion-rate (viewers→completed) endpoint.
-  const conversionRate = Math.round(k?.avgDepositPaidRate ?? 0);
+  // Conversion rate — Wave 73a: backed by /stats/score.
+  const conversionRateFallback = Math.round(k?.avgDepositPaidRate ?? 0);
+  const conversionRate = scoreStatsQuery.data?.value ?? conversionRateFallback;
+  const conversionRateIllustrative =
+    scoreStatsQuery.data?.data_status === "illustrative";
   const convVerdict =
-    conversionRate >= 15 ? "Strong conversion"
+    scoreStatsQuery.data?.verdict ??
+    (conversionRate >= 15 ? "Strong conversion"
       : conversionRate >= 8 ? "Average conversion"
-        : "Below average";
+        : "Below average");
   const convAdvice =
-    conversionRate >= 15
+    scoreStatsQuery.data?.advice ??
+    (conversionRate >= 15
       ? "Your widget is converting well — keep nurturing repeat visitors."
       : conversionRate >= 8
         ? "Try a shorter form or social-proof badge to push above 15%."
-        : "Run an A/B test on the first question — drop-off is highest there.";
+        : "Run an A/B test on the first question — drop-off is highest there.");
 
-  // Best revenue day — derive from velocity trend; map to 14 most recent days.
-  // TODO Wave 73: wire to real /api/portal/quotequick/best-revenue-day endpoint.
-  const bestRevenueSeries = trend.slice(-14);
+  // Best revenue day — Wave 73a: backed by /stats/peak.
+  const bestRevenueSeries =
+    peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
+      ? peakStatsQuery.data.data
+      : trend.slice(-14);
+  const bestRevenueIllustrative =
+    peakStatsQuery.data?.data_status === "illustrative";
 
-  // Monthly quotes — from kpis.quotesSent + a smoothed mock for earlier months.
-  // TODO Wave 73: wire to real /api/portal/quotequick/dashboard-kpis monthly-quotes series.
-  const quotesMonthlyBars: MonthlyBar[] = useMemo(() => {
+  // Monthly quotes — Wave 73a: backed by /stats/monthly.
+  const quotesMonthlyBarsFallback: MonthlyBar[] = useMemo(() => {
     const now = new Date();
     const labels: string[] = [];
     for (let i = 5; i >= 0; i -= 1) {
@@ -245,11 +301,27 @@ export default function QuoteQuickDashboard() {
       return { label, value: Math.round(anchor * ratio) };
     });
   }, [k?.quotesSent.thisMonth, k?.quotesSent.lastMonth]);
+  const quotesMonthlyBars: MonthlyBar[] =
+    monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
+      ? monthlyStatsQuery.data.data
+      : quotesMonthlyBarsFallback;
+  const quotesMonthlyIllustrative =
+    monthlyStatsQuery.data?.data_status === "illustrative";
 
-  // Quote views vs completions — derive views ≈ thisMonth × 5 as proxy when unknown.
-  // TODO Wave 73: wire to real /api/portal/quotequick/views-vs-completions endpoint.
-  const completionsCount = k?.quotesSent.thisMonth ?? 0;
-  const viewsCount = Math.max(completionsCount * 5, completionsCount);
+  // Quote views vs completions — Wave 73a: backed by /stats/comparison.
+  const completionsCountFallback = k?.quotesSent.thisMonth ?? 0;
+  const viewsCountFallback = Math.max(
+    completionsCountFallback * 5,
+    completionsCountFallback,
+  );
+  const comparisonData = comparisonStatsQuery.data?.data;
+  const viewsCount =
+    comparisonData?.find((d) => d.label === "Views")?.value ?? viewsCountFallback;
+  const completionsCount =
+    comparisonData?.find((d) => d.label === "Completions")?.value ??
+    completionsCountFallback;
+  const comparisonIllustrative =
+    comparisonStatsQuery.data?.data_status === "illustrative";
 
   return (
     <PortalLayout>
@@ -382,7 +454,10 @@ export default function QuoteQuickDashboard() {
         {/* Wave 72 — new KPI primitives row */}
         <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {/* Headline (Simple-mode visible) — conversion rate SemiGauge */}
-          <Card className="p-4 h-full flex items-center justify-center" data-testid="qq-conversion-semigauge">
+          <Card className="p-4 h-full flex flex-col items-center justify-center gap-2" data-testid="qq-conversion-semigauge">
+            <div className="self-end">
+              <IllustrativeDataBadge show={conversionRateIllustrative} />
+            </div>
             <SemiGauge
               value={conversionRate}
               max={100}
@@ -397,8 +472,11 @@ export default function QuoteQuickDashboard() {
           {/* Advanced — best revenue day sparkline */}
           <AdvancedOnly product="quotequick" elementId="quotequick.best-revenue-sparkline">
             <Card className="p-4 h-full" data-testid="qq-best-revenue-sparkline">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                Best revenue day (14d)
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Best revenue day (14d)
+                </div>
+                <IllustrativeDataBadge show={bestRevenueIllustrative} />
               </div>
               {bestRevenueSeries.length > 0 ? (
                 <SparklineWithPeak
@@ -419,6 +497,9 @@ export default function QuoteQuickDashboard() {
           {/* Advanced — views vs completions */}
           <AdvancedOnly product="quotequick" elementId="quotequick.views-vs-completions">
             <Card className="p-4 h-full" data-testid="qq-views-vs-completions">
+              <div className="flex items-center justify-end gap-2 mb-2">
+                <IllustrativeDataBadge show={comparisonIllustrative} />
+              </div>
               <BarComparisonCard
                 title="Views vs completions"
                 items={[
@@ -432,8 +513,11 @@ export default function QuoteQuickDashboard() {
           {/* Advanced — quotes per month */}
           <AdvancedOnly product="quotequick" elementId="quotequick.quotes-monthly-bars">
             <Card className="p-4 h-full" data-testid="qq-quotes-monthly">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                Quotes per month
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Quotes per month
+                </div>
+                <IllustrativeDataBadge show={quotesMonthlyIllustrative} />
               </div>
               <MonthlyBarSeries
                 bars={quotesMonthlyBars}

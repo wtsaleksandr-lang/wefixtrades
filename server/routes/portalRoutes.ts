@@ -27,6 +27,7 @@ import { registerPortalOnboardingRoutes } from "./portal/onboarding";
 import { registerPortalReviewQueueRoutes } from "./portal/review-queue";
 import { registerPortalContentflowRoutes } from "./portal/contentflow";
 import { registerPortalContentflowDashboardRoutes } from "./portal/contentflowDashboard";
+import { registerPortalContentflowWave73KpiStatsRoutes } from "./portal/contentflowWave73KpiStats";
 import { registerPortalAdflowDashboardRoutes } from "./portal/adflow/index";
 import { registerPortalWebcareDashboardRoutes } from "./portal/webcare/index";
 import { registerPortalMapguardRoutes } from "./portal/mapguard";
@@ -95,6 +96,8 @@ export function registerPortalRoutes(app: Express) {
   registerPortalReviewQueueRoutes(app);
   registerPortalContentflowRoutes(app);
   registerPortalContentflowDashboardRoutes(app);
+  // Wave 73a: ContentFlow new KPI stat endpoints (monthly/segments/peak).
+  registerPortalContentflowWave73KpiStatsRoutes(app);
   // Wave 30: AdFlow dashboard sub-registrar mounts BEFORE the legacy
   // /api/portal/adflow/:csId/reports route so the new dashboard-kpis,
   // campaigns, copy, anomalies, run-action, notification-settings, and

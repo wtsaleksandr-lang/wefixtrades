@@ -21,6 +21,7 @@ import { registerPortalReputationshieldFunnelRoutes } from "./funnel";
 import { registerPortalReputationshieldRunActionRoutes } from "./runAction";
 import { registerPortalReputationshieldNotificationSettingsRoutes } from "./notificationSettings";
 import { registerPortalReputationshieldSaveReplyRoutes } from "./saveReply";
+import { registerPortalReputationshieldWave73KpiStatsRoutes } from "./wave73KpiStats";
 
 export function registerPortalReputationshieldDashboardRoutes(app: Express) {
   registerPortalReputationshieldDashboardKpisRoutes(app);
@@ -29,4 +30,5 @@ export function registerPortalReputationshieldDashboardRoutes(app: Express) {
   registerPortalReputationshieldRunActionRoutes(app);
   registerPortalReputationshieldNotificationSettingsRoutes(app);
   registerPortalReputationshieldSaveReplyRoutes(app);
+  registerPortalReputationshieldWave73KpiStatsRoutes(app);
 }

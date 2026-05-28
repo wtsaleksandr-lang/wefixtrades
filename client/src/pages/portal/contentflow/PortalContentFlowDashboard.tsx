@@ -70,6 +70,7 @@ import {
   type StatusPillStatus,
 } from "@/components/ui/visual-primitives";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
+import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 
 /* Wave 26.6: single source of truth for the dashboard gauge meta. Same
  * strings the Copilot reads, so explanations never drift. */
@@ -259,6 +260,43 @@ export default function PortalContentFlowDashboard() {
     },
   });
 
+  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  type CfMonthlyResponse = {
+    data: MonthlyBar[];
+    data_status: "real" | "illustrative";
+  };
+  type CfSegmentResponse = {
+    data: DonutSegment[];
+    data_status: "real" | "illustrative";
+  };
+  type CfPeakResponse = {
+    data: number[];
+    peakLabel: string;
+    peakIndex: number;
+    data_status: "real" | "illustrative";
+  };
+  const monthlyStatsQuery = useQuery<CfMonthlyResponse>({
+    queryKey: ["portal", "contentflow", "stats", "monthly"],
+    queryFn: () =>
+      fetch("/api/portal/contentflow/stats/monthly?months=6", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const segmentStatsQuery = useQuery<CfSegmentResponse>({
+    queryKey: ["portal", "contentflow", "stats", "segments"],
+    queryFn: () =>
+      fetch("/api/portal/contentflow/stats/segments", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const peakStatsQuery = useQuery<CfPeakResponse>({
+    queryKey: ["portal", "contentflow", "stats", "peak"],
+    queryFn: () =>
+      fetch("/api/portal/contentflow/stats/peak", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+
   const rescheduleMutation = useMutation({
     mutationFn: async ({ requestId, date }: { requestId: string; date: Date }) => {
       const res = await apiRequest("PATCH", `/api/portal/contentflow/pipeline/${encodeURIComponent(requestId)}`, {
@@ -302,11 +340,9 @@ export default function PortalContentFlowDashboard() {
 
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
-  // Monthly bars: derive 6 most-recent months from 14d daily history; pad
-  // earlier months with a smoothed plausible series so the chart reads well
-  // even before the API exposes monthly buckets.
-  // TODO Wave 73: wire to real /api/portal/contentflow/dashboard-kpis monthly buckets endpoint.
-  const monthlyBars: MonthlyBar[] = useMemo(() => {
+  // Monthly bars — Wave 73a: backed by /stats/monthly. Local mock as
+  // first-render loading-state fallback.
+  const monthlyBarsFallback: MonthlyBar[] = useMemo(() => {
     const now = new Date();
     const monthLabels: string[] = [];
     for (let i = 5; i >= 0; i -= 1) {
@@ -316,11 +352,9 @@ export default function PortalContentFlowDashboard() {
     const currentTotal = kpis?.articlesThisMonth ?? 0;
     const history = kpis?.articlesHistory ?? [];
     const recent14dSum = history.reduce((s, v) => s + v, 0);
-    // Use the heavier of the two as the "current" anchor.
     const anchor = Math.max(currentTotal, recent14dSum, 1);
     return monthLabels.map((label, idx) => {
       const isCurrent = idx === monthLabels.length - 1;
-      // Plausible mock for earlier months: smoothly approach the anchor.
       const ratio = isCurrent ? 1 : 0.45 + idx * 0.1;
       return {
         label,
@@ -329,17 +363,21 @@ export default function PortalContentFlowDashboard() {
       };
     });
   }, [kpis?.articlesThisMonth, kpis?.articlesHistory]);
+  const monthlyBars: MonthlyBar[] =
+    monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
+      ? monthlyStatsQuery.data.data
+      : monthlyBarsFallback;
+  const monthlyBarsIllustrative =
+    monthlyStatsQuery.data?.data_status === "illustrative";
 
-  // Content type donut: derive from recent items by contentType.
-  // TODO Wave 73: extend /dashboard-kpis to return content-type counts for full 30d window.
-  const contentTypeSegments: DonutSegment[] = useMemo(() => {
+  // Content type donut — Wave 73a: backed by /stats/segments.
+  const contentTypeSegmentsFallback: DonutSegment[] = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of recent) {
       const key = (r.contentType ?? "other").replace(/_/g, " ");
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     if (counts.size === 0) {
-      // Plausible mock so the card isn't blank in dev.
       return [
         { label: "Article", value: 4 },
         { label: "Social post", value: 6 },
@@ -352,10 +390,19 @@ export default function PortalContentFlowDashboard() {
       value,
     }));
   }, [recent]);
+  const contentTypeSegments: DonutSegment[] =
+    segmentStatsQuery.data?.data && segmentStatsQuery.data.data.length > 0
+      ? segmentStatsQuery.data.data
+      : contentTypeSegmentsFallback;
+  const contentTypeIllustrative =
+    segmentStatsQuery.data?.data_status === "illustrative";
 
-  // Top-performing sparkline: use the 14d history as engagement proxy.
-  // TODO Wave 73: wire to real /api/portal/contentflow/top-post-engagement endpoint.
-  const topPostHistory = kpis?.articlesHistory ?? [];
+  // Top-performing sparkline — Wave 73a: backed by /stats/peak.
+  const topPostHistory =
+    peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
+      ? peakStatsQuery.data.data
+      : kpis?.articlesHistory ?? [];
+  const topPostIllustrative = peakStatsQuery.data?.data_status === "illustrative";
 
   return (
     <PortalLayout>
@@ -516,8 +563,11 @@ export default function PortalContentFlowDashboard() {
             <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {/* Headline (Simple-mode visible) — posts published per month */}
               <Card className="p-4 h-full" data-testid="cf-monthly-bars">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                  Posts per month
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Posts per month
+                  </div>
+                  <IllustrativeDataBadge show={monthlyBarsIllustrative} />
                 </div>
                 <MonthlyBarSeries
                   bars={monthlyBars}
@@ -538,6 +588,9 @@ export default function PortalContentFlowDashboard() {
               {/* Advanced — content type mix */}
               <AdvancedOnly product="contentflow" elementId="contentflow.content-type-mix-donut">
                 <Card className="p-4 h-full" data-testid="cf-content-type-donut">
+                  <div className="flex items-center justify-end gap-2 mb-2">
+                    <IllustrativeDataBadge show={contentTypeIllustrative} />
+                  </div>
                   <DonutChart
                     title="Content type mix"
                     segments={contentTypeSegments}
@@ -550,8 +603,11 @@ export default function PortalContentFlowDashboard() {
               {/* Advanced — top-performing post sparkline */}
               <AdvancedOnly product="contentflow" elementId="contentflow.top-post-sparkline">
                 <Card className="p-4 h-full" data-testid="cf-top-post-sparkline">
-                  <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                    Top-performing post
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                      Top-performing post
+                    </div>
+                    <IllustrativeDataBadge show={topPostIllustrative} />
                   </div>
                   {topPostHistory.length > 0 ? (
                     <SparklineWithPeak
