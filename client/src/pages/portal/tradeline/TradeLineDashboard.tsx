@@ -70,6 +70,7 @@ import {
 } from "@/components/tradeline/SentimentHeatmap";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
+import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 
 /* Wave 26.6: registry-driven gauge meta. Same strings the Copilot reads. */
 const META = {
@@ -205,6 +206,45 @@ export default function TradeLineDashboard() {
     },
   });
 
+  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  type TlScoreResponse = {
+    value: number;
+    verdict: string;
+    advice: string;
+    data_status: "real" | "illustrative";
+  };
+  type TlPeakResponse = {
+    data: number[];
+    peakLabel: string;
+    peakIndex: number;
+    data_status: "real" | "illustrative";
+  };
+  type TlMonthlyResponse = {
+    data: MonthlyBar[];
+    data_status: "real" | "illustrative";
+  };
+  const scoreStatsQuery = useQuery<TlScoreResponse>({
+    queryKey: ["portal", "tradeline", "stats", "score"],
+    queryFn: () =>
+      fetch("/api/portal/tradeline/stats/score", { credentials: "include" }).then(
+        (r) => r.json(),
+      ),
+  });
+  const peakStatsQuery = useQuery<TlPeakResponse>({
+    queryKey: ["portal", "tradeline", "stats", "peak"],
+    queryFn: () =>
+      fetch("/api/portal/tradeline/stats/peak", { credentials: "include" }).then(
+        (r) => r.json(),
+      ),
+  });
+  const monthlyStatsQuery = useQuery<TlMonthlyResponse>({
+    queryKey: ["portal", "tradeline", "stats", "monthly"],
+    queryFn: () =>
+      fetch("/api/portal/tradeline/stats/monthly?months=6", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+
   const kpis = kpisQuery.data?.kpis;
   const funnel = funnelQuery.data?.funnel;
   const isAdmin = useMemo(() => {
@@ -217,10 +257,8 @@ export default function TradeLineDashboard() {
 
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
-  // Customer Satisfaction Score — derived from answered-share + booking
-  // conversion as a coarse proxy until we ship per-call CSAT collection.
-  // TODO Wave 73: wire to real /api/portal/tradeline/csat endpoint.
-  const csatScore = useMemo(() => {
+  // Customer Satisfaction Score — Wave 73a: backed by /stats/score.
+  const csatScoreFallback = useMemo(() => {
     const calls = kpis?.callsToday ?? 0;
     const answered = kpis?.answeredToday ?? 0;
     const bookings = kpis?.bookingsThisMonth ?? 0;
@@ -229,33 +267,41 @@ export default function TradeLineDashboard() {
     const bookingBonus = Math.min(20, bookings * 0.6);
     return Math.round(Math.min(100, Math.max(0, answeredShare * 0.85 + bookingBonus)));
   }, [kpis?.callsToday, kpis?.answeredToday, kpis?.bookingsThisMonth]);
+  const csatScore = scoreStatsQuery.data?.value ?? csatScoreFallback;
+  const csatIllustrative = scoreStatsQuery.data?.data_status === "illustrative";
+  const csatVerdict =
+    scoreStatsQuery.data?.verdict ??
+    (csatScore >= 80 ? "Excellent" : csatScore >= 50 ? "Good, room to improve" : "Needs attention");
+  const csatAdvice =
+    scoreStatsQuery.data?.advice ??
+    (csatScore >= 80
+      ? "Customers are happy — keep response times tight."
+      : csatScore >= 50
+        ? "Focus on faster pickup times to push above 80."
+        : "Many calls are going unanswered — review staffing and AI escalation rules.");
 
-  const csatVerdict = csatScore >= 80 ? "Excellent" : csatScore >= 50 ? "Good, room to improve" : "Needs attention";
-  const csatAdvice = csatScore >= 80
-    ? "Customers are happy — keep response times tight."
-    : csatScore >= 50
-      ? "Focus on faster pickup times to push above 80."
-      : "Many calls are going unanswered — review staffing and AI escalation rules.";
-
-  // Peak call hour — mocked 24-hour proxy.
-  // TODO Wave 73: wire to real /api/portal/tradeline/stats/peak-call-hour endpoint.
-  const peakCallHourSeries = useMemo(() => {
+  // Peak call hour — Wave 73a: backed by /stats/peak (24-hour series).
+  const peakCallHourFallback = useMemo(() => {
     const anchor = Math.max(kpis?.callsToday ?? 0, 1);
-    // Plausible business-hours curve peaking around 11 AM.
     const curve = [
       0.1, 0.05, 0.05, 0.05, 0.05, 0.1, 0.3, 0.5, 0.7, 0.85, 0.95, 1, 0.9,
       0.85, 0.8, 0.7, 0.65, 0.55, 0.4, 0.3, 0.25, 0.15, 0.1, 0.08,
     ];
     return curve.map((c) => Math.round(c * anchor));
   }, [kpis?.callsToday]);
+  const peakCallHourSeries =
+    peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
+      ? peakStatsQuery.data.data
+      : peakCallHourFallback;
+  const peakCallHourIllustrative =
+    peakStatsQuery.data?.data_status === "illustrative";
   const peakCallHourLabels = [
     "12a", "1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a",
     "12p", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p",
   ];
 
-  // Calls per month — derive from callsToday × 22 as a coarse anchor.
-  // TODO Wave 73: wire to real /api/portal/tradeline/dashboard-kpis monthly-calls series.
-  const callsMonthlyBars: MonthlyBar[] = useMemo(() => {
+  // Calls per month — Wave 73a: backed by /stats/monthly.
+  const callsMonthlyBarsFallback: MonthlyBar[] = useMemo(() => {
     const now = new Date();
     const labels: string[] = [];
     for (let i = 5; i >= 0; i -= 1) {
@@ -273,6 +319,12 @@ export default function TradeLineDashboard() {
       };
     });
   }, [kpis?.callsToday]);
+  const callsMonthlyBars: MonthlyBar[] =
+    monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
+      ? monthlyStatsQuery.data.data
+      : callsMonthlyBarsFallback;
+  const callsMonthlyIllustrative =
+    monthlyStatsQuery.data?.data_status === "illustrative";
 
   /* ─── Render ────────────────────────────────────────────────────────── */
 
@@ -365,7 +417,10 @@ export default function TradeLineDashboard() {
         {/* ─── Wave 72 — new KPI primitives row ────────────────────────── */}
         <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {/* Headline (Simple-mode visible) — CSAT SemiGauge */}
-          <Card className="p-4 h-full flex items-center justify-center" data-testid="tl-csat-semigauge">
+          <Card className="p-4 h-full flex flex-col items-center justify-center gap-2" data-testid="tl-csat-semigauge">
+            <div className="self-end">
+              <IllustrativeDataBadge show={csatIllustrative} />
+            </div>
             <SemiGauge
               value={csatScore}
               max={100}
@@ -393,8 +448,11 @@ export default function TradeLineDashboard() {
           {/* Advanced — peak call hour sparkline */}
           <AdvancedOnly product="tradeline" elementId="tradeline.peak-call-hour-sparkline">
             <Card className="p-4 h-full" data-testid="tl-peak-call-hour">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                Peak call hour today
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Peak call hour today
+                </div>
+                <IllustrativeDataBadge show={peakCallHourIllustrative} />
               </div>
               <SparklineWithPeak
                 data={peakCallHourSeries}
@@ -410,8 +468,11 @@ export default function TradeLineDashboard() {
           {/* Advanced — calls per month */}
           <AdvancedOnly product="tradeline" elementId="tradeline.calls-monthly-bars">
             <Card className="p-4 h-full" data-testid="tl-calls-monthly">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                Calls per month
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Calls per month
+                </div>
+                <IllustrativeDataBadge show={callsMonthlyIllustrative} />
               </div>
               <MonthlyBarSeries
                 bars={callsMonthlyBars}

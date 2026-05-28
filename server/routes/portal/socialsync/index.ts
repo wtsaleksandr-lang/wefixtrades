@@ -20,10 +20,12 @@ import { registerPortalSocialsyncDashboardKpisRoutes } from "./dashboardKpis";
 import { registerPortalSocialsyncApprovalsRoutes } from "./approvals";
 import { registerPortalSocialsyncCalendarRoutes } from "./calendar";
 import { registerPortalSocialsyncBestTimeScoresRoutes } from "./bestTimeScores";
+import { registerPortalSocialsyncWave73KpiStatsRoutes } from "./wave73KpiStats";
 
 export function registerPortalSocialsyncDashboardRoutes(app: Express) {
   registerPortalSocialsyncDashboardKpisRoutes(app);
   registerPortalSocialsyncApprovalsRoutes(app);
   registerPortalSocialsyncCalendarRoutes(app);
   registerPortalSocialsyncBestTimeScoresRoutes(app);
+  registerPortalSocialsyncWave73KpiStatsRoutes(app);
 }

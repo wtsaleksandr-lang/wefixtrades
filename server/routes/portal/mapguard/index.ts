@@ -18,10 +18,12 @@ import { registerPortalMapguardDashboardKpisRoutes } from "./dashboardKpis";
 import { registerPortalMapguardCompetitorAlertsRoutes } from "./competitorAlerts";
 import { registerPortalMapguardRunActionRoutes } from "./runAction";
 import { registerPortalMapguardNotificationSettingsRoutes } from "./notificationSettings";
+import { registerPortalMapguardWave73KpiStatsRoutes } from "./wave73KpiStats";
 
 export function registerPortalMapguardDashboardRoutes(app: Express) {
   registerPortalMapguardDashboardKpisRoutes(app);
   registerPortalMapguardCompetitorAlertsRoutes(app);
   registerPortalMapguardRunActionRoutes(app);
   registerPortalMapguardNotificationSettingsRoutes(app);
+  registerPortalMapguardWave73KpiStatsRoutes(app);
 }

@@ -25,6 +25,7 @@ import { registerPortalAdflowAnomaliesRoutes } from "./anomalies";
 import { registerPortalAdflowRunActionRoutes } from "./runAction";
 import { registerPortalAdflowNotificationSettingsRoutes } from "./notificationSettings";
 import { registerPortalAdflowHeatmapsRoutes } from "./heatmaps";
+import { registerPortalAdflowWave73KpiStatsRoutes } from "./wave73KpiStats";
 
 export function registerPortalAdflowDashboardRoutes(app: Express) {
   registerPortalAdflowDashboardKpisRoutes(app);
@@ -34,4 +35,5 @@ export function registerPortalAdflowDashboardRoutes(app: Express) {
   registerPortalAdflowRunActionRoutes(app);
   registerPortalAdflowNotificationSettingsRoutes(app);
   registerPortalAdflowHeatmapsRoutes(app);
+  registerPortalAdflowWave73KpiStatsRoutes(app);
 }

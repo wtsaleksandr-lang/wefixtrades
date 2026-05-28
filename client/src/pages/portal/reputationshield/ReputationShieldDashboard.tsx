@@ -79,6 +79,7 @@ import type { FunnelStage } from "@/components/reputationshield/RequestFunnel";
 import { DaysSinceGauge } from "@/components/reputationshield/DaysSinceGauge";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
+import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 
 const META = {
   avgRating: getMetricMeta("reputationshield", "avgRating")!,
@@ -197,6 +198,43 @@ export default function ReputationShieldDashboard() {
       return res.json();
     },
     refetchInterval: 60_000,
+  });
+
+  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  type RsScoreResponse = {
+    value: number;
+    verdict: string;
+    advice: string;
+    data_status: "real" | "illustrative";
+  };
+  type RsSegmentResponse = {
+    data: DonutSegment[];
+    data_status: "real" | "illustrative";
+  };
+  type RsMonthlyResponse = {
+    data: MonthlyBar[];
+    data_status: "real" | "illustrative";
+  };
+  const scoreStatsQuery = useQuery<RsScoreResponse>({
+    queryKey: ["portal", "reputationshield", "stats", "score"],
+    queryFn: () =>
+      fetch("/api/portal/reputationshield/stats/score", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const segmentStatsQuery = useQuery<RsSegmentResponse>({
+    queryKey: ["portal", "reputationshield", "stats", "segments"],
+    queryFn: () =>
+      fetch("/api/portal/reputationshield/stats/segments", {
+        credentials: "include",
+      }).then((r) => r.json()),
+  });
+  const monthlyStatsQuery = useQuery<RsMonthlyResponse>({
+    queryKey: ["portal", "reputationshield", "stats", "monthly"],
+    queryFn: () =>
+      fetch("/api/portal/reputationshield/stats/monthly?months=6", {
+        credentials: "include",
+      }).then((r) => r.json()),
   });
 
   /* ── Mutations ────────────────────────────────────────────────────── */
@@ -404,10 +442,9 @@ export default function ReputationShieldDashboard() {
 
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
-  // Reputation composite score 0-100: avgRating (60%) + recencyBonus (20%) + volumeBonus (20%).
-  // TODO Wave 73: wire to real /api/portal/reputationshield/reputation-composite endpoint.
-  const reputationScore = useMemo(() => {
-    const rating = kpis?.avgRating ?? 0; // 0..5
+  // Reputation composite score — Wave 73a: backed by /stats/score.
+  const reputationScoreFallback = useMemo(() => {
+    const rating = kpis?.avgRating ?? 0;
     const days = kpis?.daysSinceLastReview ?? 999;
     const volume = kpis?.reviewVelocity.thisMonth ?? 0;
     if (rating === 0 && volume === 0) return 0;
@@ -416,21 +453,26 @@ export default function ReputationShieldDashboard() {
     const volumePart = Math.min(20, volume * 2);
     return Math.round(ratingPart + recencyPart + volumePart);
   }, [kpis?.avgRating, kpis?.daysSinceLastReview, kpis?.reviewVelocity.thisMonth]);
+  const reputationScore =
+    scoreStatsQuery.data?.value ?? reputationScoreFallback;
+  const reputationScoreIllustrative =
+    scoreStatsQuery.data?.data_status === "illustrative";
 
   const repVerdict =
-    reputationScore >= 80 ? "Solid reputation"
+    scoreStatsQuery.data?.verdict ??
+    (reputationScore >= 80 ? "Solid reputation"
       : reputationScore >= 50 ? "Healthy but improvable"
-        : "Needs attention";
+        : "Needs attention");
   const repAdvice =
-    reputationScore >= 80
+    scoreStatsQuery.data?.advice ??
+    (reputationScore >= 80
       ? "Keep the review cadence going — you're outperforming most local competitors."
       : reputationScore >= 50
         ? "Reply to a few more reviews this week to lift the composite above 80."
-        : "Run a review-request campaign — recent and frequent reviews lift this score fastest.";
+        : "Run a review-request campaign — recent and frequent reviews lift this score fastest.");
 
-  // Sentiment mix donut — derive from heatmap cells when present.
-  // TODO Wave 73: wire to real /api/portal/reputationshield/sentiment-mix endpoint.
-  const sentimentSegments: DonutSegment[] = useMemo(() => {
+  // Sentiment mix donut — Wave 73a: backed by /stats/segments.
+  const sentimentSegmentsFallback: DonutSegment[] = useMemo(() => {
     const cells = kpisQuery.data?.heatmap ?? [];
     let pos = 0;
     let neu = 0;
@@ -454,15 +496,20 @@ export default function ReputationShieldDashboard() {
       { label: "Negative", value: neg, color: "crimson" },
     ];
   }, [kpisQuery.data?.heatmap]);
+  const sentimentSegments: DonutSegment[] =
+    segmentStatsQuery.data?.data && segmentStatsQuery.data.data.length > 0
+      ? segmentStatsQuery.data.data
+      : sentimentSegmentsFallback;
+  const sentimentIllustrative =
+    segmentStatsQuery.data?.data_status === "illustrative";
 
   // Replied vs unreplied — derive from replyRate + inbox length.
   const totalInbox = inboxQuery.data?.items.length ?? 0;
   const repliedCount = Math.round(((kpis?.replyRate ?? 0) / 100) * Math.max(totalInbox, 0));
   const unrepliedCount = Math.max(0, totalInbox - repliedCount);
 
-  // New reviews per month — use velocityTrend12w as proxy (12 weeks ≈ 6 months in pairs).
-  // TODO Wave 73: wire to real /api/portal/reputationshield/dashboard-kpis monthly-new-reviews series.
-  const reviewsMonthlyBars: MonthlyBar[] = useMemo(() => {
+  // New reviews per month — Wave 73a: backed by /stats/monthly.
+  const reviewsMonthlyBarsFallback: MonthlyBar[] = useMemo(() => {
     const now = new Date();
     const labels: string[] = [];
     for (let i = 5; i >= 0; i -= 1) {
@@ -470,23 +517,27 @@ export default function ReputationShieldDashboard() {
       labels.push(d.toLocaleString(undefined, { month: "short" }));
     }
     const trend = kpisQuery.data?.velocityTrend12w ?? [];
-    // Aggregate weeks in pairs (≈half-month each).
     const monthlyTotals: number[] = [];
     for (let i = 0; i < 6; i += 1) {
       const slice = trend.slice(i * 2, i * 2 + 2);
       monthlyTotals.push(slice.reduce((s, v) => s + v, 0));
     }
-    // If trend is empty, fall back to anchor.
     const anchor = kpis?.reviewVelocity.thisMonth ?? 0;
     return labels.map((label, idx) => {
       const isCurrent = idx === labels.length - 1;
       const value =
-        monthlyTotals[idx] > 0
-          ? monthlyTotals[idx]
+        (monthlyTotals[idx] ?? 0) > 0
+          ? monthlyTotals[idx]!
           : Math.max(0, Math.round(anchor * (isCurrent ? 1 : 0.5 + idx * 0.08)));
       return { label, value, highlighted: isCurrent };
     });
   }, [kpis?.reviewVelocity.thisMonth, kpisQuery.data?.velocityTrend12w]);
+  const reviewsMonthlyBars: MonthlyBar[] =
+    monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
+      ? monthlyStatsQuery.data.data
+      : reviewsMonthlyBarsFallback;
+  const reviewsMonthlyIllustrative =
+    monthlyStatsQuery.data?.data_status === "illustrative";
 
   return (
     <PortalLayout>
@@ -676,7 +727,10 @@ export default function ReputationShieldDashboard() {
         {/* Wave 72 — new KPI primitives row */}
         <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {/* Headline (Simple-mode visible) — reputation score SemiGauge */}
-          <Card className="p-4 h-full flex items-center justify-center" data-testid="rs-reputation-semigauge">
+          <Card className="p-4 h-full flex flex-col items-center justify-center gap-2" data-testid="rs-reputation-semigauge">
+            <div className="self-end">
+              <IllustrativeDataBadge show={reputationScoreIllustrative} />
+            </div>
             <SemiGauge
               value={reputationScore}
               max={100}
@@ -690,6 +744,9 @@ export default function ReputationShieldDashboard() {
           {/* Advanced — sentiment mix donut */}
           <AdvancedOnly product="reputationshield" elementId="reputationshield.sentiment-mix-donut">
             <Card className="p-4 h-full" data-testid="rs-sentiment-mix-donut">
+              <div className="flex items-center justify-end gap-2 mb-2">
+                <IllustrativeDataBadge show={sentimentIllustrative} />
+              </div>
               <DonutChart
                 title="Sentiment mix"
                 segments={sentimentSegments}
@@ -715,8 +772,11 @@ export default function ReputationShieldDashboard() {
           {/* Advanced — new reviews per month */}
           <AdvancedOnly product="reputationshield" elementId="reputationshield.reviews-monthly-bars">
             <Card className="p-4 h-full" data-testid="rs-reviews-monthly">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-                New reviews per month
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  New reviews per month
+                </div>
+                <IllustrativeDataBadge show={reviewsMonthlyIllustrative} />
               </div>
               <MonthlyBarSeries
                 bars={reviewsMonthlyBars}
