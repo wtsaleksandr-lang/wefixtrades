@@ -228,7 +228,12 @@ export function registerAdminTradelineSetupsRoutes(app: Express) {
               updated_at: new Date(),
             })
             .where(eq(tradelinePhoneSetups.id, id));
-          return res.json({ ok: true, provisioned: true, number: result.number });
+          return res.json({
+            ok: true,
+            provisioned: true,
+            number: result.number,
+            ...(result.warning ? { warning: result.warning } : {}),
+          });
         }
 
         if (result.ok && result.queued) {

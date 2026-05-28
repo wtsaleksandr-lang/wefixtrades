@@ -18,11 +18,64 @@ const log = createLogger("ProvisionNumber");
 
 const TEST_MODE = () => process.env.TRADELINE_SETUP_TEST_MODE === "true";
 
+/**
+ * Derive the public base URL used to construct Twilio webhook callbacks.
+ * Mirrors the convention used by tradelineNotifications / adflowReports.
+ * Returns no trailing slash.
+ */
+function getPublicBaseUrl(): string {
+  const raw =
+    process.env.APP_URL ||
+    process.env.APP_PUBLIC_URL ||
+    "https://wefixtrades.com";
+  return raw.replace(/\/+$/, "");
+}
+
+/**
+ * Build the desired webhook-URL set for an IncomingPhoneNumber. Centralized
+ * so the live provision (Fix 1) and the one-shot patch script (Fix 2) can
+ * agree on the exact URLs without drift.
+ *
+ * /api/twilio/voice/inbound      — primary voice handler (Wave 77+ lands the route)
+ * /api/twilio/voice-fallback     — already live; surfaces Vapi outages
+ * /api/twilio/inbound            — already live; inbound SMS dispatcher
+ * /api/twilio/sms-status         — status callbacks (Wave 78 lands the route)
+ */
+export function buildTwilioWebhookConfig(): {
+  voiceUrl: string;
+  voiceMethod: "POST";
+  voiceFallbackUrl: string;
+  voiceFallbackMethod: "POST";
+  smsUrl: string;
+  smsMethod: "POST";
+  statusCallback: string;
+  statusCallbackMethod: "POST";
+} {
+  const base = getPublicBaseUrl();
+  return {
+    voiceUrl: `${base}/api/twilio/voice/inbound`,
+    voiceMethod: "POST",
+    voiceFallbackUrl: `${base}/api/twilio/voice-fallback`,
+    voiceFallbackMethod: "POST",
+    smsUrl: `${base}/api/twilio/inbound`,
+    smsMethod: "POST",
+    statusCallback: `${base}/api/twilio/sms-status`,
+    statusCallbackMethod: "POST",
+  };
+}
+
 export interface ProvisionSuccess {
   ok: true;
   queued: false;
   number: string;          // E.164
   sid: string;             // Twilio Incoming-Phone-Number SID (PNxxxx…)
+  /**
+   * Non-blocking warning surfaced to the wizard. Currently populated by the
+   * A2P 10DLC campaign-status pre-flight (Wave 76 Fix 5). The number is
+   * provisioned regardless — the admin just sees the warning so they know
+   * outbound SMS may be filtered until the campaign is VERIFIED.
+   */
+  warning?: string;
 }
 
 export interface ProvisionQueued {
@@ -78,23 +131,108 @@ export async function provisionNumber(
       return { ok: false, error: `No ${preference} numbers available in ${countryCode}` };
     }
 
-    // Purchase
-    const purchased = await client.incomingPhoneNumbers.create({
+    // Purchase + wire webhooks atomically. Wave 76 — without these URLs,
+    // inbound calls fall through to Twilio default voicemail and inbound
+    // SMS is dropped at Twilio's edge, so the "your number is ready" email
+    // would lie. messagingServiceSid attaches the number to the brand-wide
+    // A2P 10DLC campaign so outbound SMS gets the registered sender id.
+    const webhookCfg = buildTwilioWebhookConfig();
+    const messagingServiceSid = process.env.TWILIO_LINKED_MESSAGING_SERVICE?.trim() || "";
+
+    if (!messagingServiceSid) {
+      log.warn(
+        "TWILIO_LINKED_MESSAGING_SERVICE not set — provisioning number without messaging service. " +
+          "A2P 10DLC sender registration will not apply until this is configured.",
+      );
+    }
+
+    const createParams: Record<string, unknown> = {
       phoneNumber: candidate.phoneNumber,
-      // Voice + SMS webhooks wired in Phase 4. Numbers without webhooks just
-      // ring the Twilio-default voicemail until the inbound router lands.
+      voiceUrl: webhookCfg.voiceUrl,
+      voiceMethod: webhookCfg.voiceMethod,
+      voiceFallbackUrl: webhookCfg.voiceFallbackUrl,
+      voiceFallbackMethod: webhookCfg.voiceFallbackMethod,
+      smsUrl: webhookCfg.smsUrl,
+      smsMethod: webhookCfg.smsMethod,
+      statusCallback: webhookCfg.statusCallback,
+      statusCallbackMethod: webhookCfg.statusCallbackMethod,
+    };
+    if (messagingServiceSid) {
+      createParams.messagingServiceSid = messagingServiceSid;
+    }
+
+    const purchased = await client.incomingPhoneNumbers.create(createParams as any);
+
+    log.info("Provisioned number", {
+      sid: purchased.sid,
+      number: purchased.phoneNumber,
+      messagingServiceAttached: Boolean(messagingServiceSid),
     });
 
-    log.info("Provisioned number", { sid: purchased.sid, number: purchased.phoneNumber });
+    // A2P 10DLC pre-flight (non-blocking).
+    const a2pCheck = await validateA2PReadiness();
+
     return {
       ok: true,
       queued: false,
       number: purchased.phoneNumber,
       sid: purchased.sid,
+      ...(a2pCheck.warning ? { warning: a2pCheck.warning } : {}),
     };
   } catch (err) {
     const msg = (err as Error).message;
     log.error("Provision failed", { err: msg });
     return { ok: false, error: msg };
+  }
+}
+
+/**
+ * A2P 10DLC campaign-status pre-flight (Wave 76 Fix 5).
+ *
+ * If TWILIO_CAMPAIGN_SID is set, fetch the underlying usAppToPerson resource
+ * from the linked Messaging Service and report whether its campaignStatus is
+ * VERIFIED. Non-blocking: returns a warning when status is anything else.
+ *
+ * Exported so a runtime health card on the admin dashboard can surface the
+ * same signal without re-implementing the Twilio call.
+ */
+export async function validateA2PReadiness(): Promise<{
+  ok: boolean;
+  status: string | null;
+  warning?: string;
+}> {
+  const campaignSid = process.env.TWILIO_CAMPAIGN_SID?.trim() || "";
+  const messagingServiceSid = process.env.TWILIO_LINKED_MESSAGING_SERVICE?.trim() || "";
+
+  if (!campaignSid || !messagingServiceSid) {
+    // Not configured — nothing to validate. No warning surfaced; this is the
+    // legitimate state during initial setup before A2P registration lands.
+    return { ok: true, status: null };
+  }
+
+  if (!isTwilioConfigured()) {
+    return { ok: true, status: null };
+  }
+
+  try {
+    const client = getTwilioClient();
+    // Twilio SDK: client.messaging.v1.services(SID).usAppToPerson(CAMPAIGN_SID).fetch()
+    const a2p = await (client as any)
+      .messaging.v1.services(messagingServiceSid)
+      .usAppToPerson(campaignSid)
+      .fetch();
+    const status: string = a2p?.campaignStatus || a2p?.campaign_status || "UNKNOWN";
+
+    if (status === "VERIFIED") {
+      return { ok: true, status };
+    }
+
+    const warning = `A2P 10DLC campaign status is "${status}" (not VERIFIED) — outbound SMS may be filtered by carriers until the campaign is approved.`;
+    log.warn("A2P campaign not VERIFIED", { status, campaignSid });
+    return { ok: true, status, warning };
+  } catch (err) {
+    const msg = (err as Error).message;
+    log.warn("A2P readiness check failed (non-blocking)", { err: msg });
+    return { ok: true, status: null };
   }
 }

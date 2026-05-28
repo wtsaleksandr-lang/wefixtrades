@@ -137,6 +137,7 @@ const STATIC_ROUTES = [
   "/contact",
   "/privacy",
   "/terms",
+  "/sms-consent-disclosure",
 ];
 
 async function loadProductSlugs() {

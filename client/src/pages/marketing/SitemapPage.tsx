@@ -215,6 +215,7 @@ const SECTIONS: SitemapSection[] = [
       { href: "/privacy", label: "Privacy Policy" },
       { href: "/terms", label: "Terms of Service" },
       { href: "/terms", label: "Cookie Policy" },
+      { href: "/sms-consent-disclosure", label: "SMS Consent & Disclosure" },
     ],
   },
 ];

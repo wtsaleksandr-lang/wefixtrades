@@ -761,12 +761,38 @@ export function getTradeLineDefaultConfig(serviceId: string): TradelineConfig | 
 }
 
 /**
- * Check whether a TradeLine config is ready for go-live.
- * Pure logic — no DB calls.
+ * Optional phone-setup health signal that callers can supply to extend the
+ * readiness check past pure-config validation. Wave 76 introduced this so
+ * the readinessChecker can verify the actual Twilio IncomingPhoneNumber has
+ * voice + SMS webhooks attached — the symptom that motivated the audit was
+ * provisioned numbers ringing the Twilio default voicemail because the
+ * webhook URLs were never wired on the create call.
+ *
+ * Derived at runtime by checkTradeLine() via a cached Twilio fetch — kept
+ * out of the DB to avoid a schema migration just for two booleans.
  */
-export function getTradeLineReadiness(config: TradelineConfig): { ready: boolean; issues: string[] } {
+export interface TradeLinePhoneSetupHealth {
+  /** From tradeline_phone_setups.provisioning_status. */
+  provisioningStatus?: "pending" | "queued" | "provisioned" | "failed" | null;
+  /** True if the IncomingPhoneNumber resource has a non-empty voiceUrl. */
+  voiceWebhookAttached?: boolean | null;
+  /** True if the IncomingPhoneNumber resource has a non-empty smsUrl. */
+  smsWebhookAttached?: boolean | null;
+}
+
+/**
+ * Check whether a TradeLine config is ready for go-live.
+ * Pure logic — no DB calls. The second arg is optional so all existing
+ * callers (computeSetupStage, admin routes, portal route) keep working
+ * unchanged; readinessChecker.checkTradeLine() supplies it when available.
+ */
+export function getTradeLineReadiness(
+  config: TradelineConfig,
+  phoneSetupHealth?: TradeLinePhoneSetupHealth,
+): { ready: boolean; issues: string[] } {
   const issues: string[] = [];
   const needsVoice = config.variant === "call_backup" || config.variant === "complete";
+  const needsSms = config.channels?.sms === true;
   const needsWebsite = config.variant === "chat" || config.variant === "complete";
 
   // Stage check
@@ -777,6 +803,23 @@ export function getTradeLineReadiness(config: TradelineConfig): { ready: boolean
   // Voice checks
   if (needsVoice && !config.phoneRouting.primaryBusinessNumber) {
     issues.push("Primary business phone number is required");
+  }
+
+  // Phone-setup health checks (Wave 76) — only when the caller supplied a
+  // health snapshot AND the variant uses voice or SMS. Skipped silently
+  // when phoneSetupHealth is undefined (preserves legacy call sites).
+  if (phoneSetupHealth && (needsVoice || needsSms)) {
+    if (phoneSetupHealth.provisioningStatus && phoneSetupHealth.provisioningStatus !== "provisioned") {
+      issues.push(
+        `Number provisioning status is "${phoneSetupHealth.provisioningStatus}" — must be "provisioned"`,
+      );
+    }
+    if (needsVoice && phoneSetupHealth.voiceWebhookAttached === false) {
+      issues.push("Voice webhook not attached to the provisioned number");
+    }
+    if (needsSms && phoneSetupHealth.smsWebhookAttached === false) {
+      issues.push("SMS webhook not attached to the provisioned number");
+    }
   }
 
   // Website checks

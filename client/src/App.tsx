@@ -66,6 +66,7 @@ const MarketingDocs = lazy(() => import("@/pages/marketing/docs"));
 const MarketingContact = lazy(() => import("@/pages/marketing/contact"));
 const MarketingPrivacy = lazy(() => import("@/pages/marketing/privacy"));
 const MarketingTerms = lazy(() => import("@/pages/marketing/terms"));
+const MarketingSmsConsentDisclosure = lazy(() => import("@/pages/marketing/SmsConsentDisclosure"));
 const FeatureInstantQuotes = lazy(() => import("@/pages/marketing/features/instant-quotes"));
 const FeatureBooking = lazy(() => import("@/pages/marketing/features/booking"));
 const FeatureAiEmployee = lazy(() => import("@/pages/marketing/features/ai-employee"));
@@ -619,6 +620,7 @@ function Router() {
       <Route path="/contact" component={MarketingContact} />
       <Route path="/privacy" component={MarketingPrivacy} />
       <Route path="/terms" component={MarketingTerms} />
+      <Route path="/sms-consent-disclosure" component={MarketingSmsConsentDisclosure} />
       <Route path="/features/instant-quotes" component={FeatureInstantQuotes} />
       <Route path="/features/booking" component={FeatureBooking} />
       <Route path="/features/ai-employee" component={FeatureAiEmployee} />
