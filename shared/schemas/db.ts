@@ -1071,6 +1071,16 @@ export const bookflowAppointments = pgTable("bookflow_appointments", {
   // "direct" | "quotequick" | "tradeline_chat" | "tradeline_voice" | "whatsapp" | "sms"
   cancellation_reason: text("cancellation_reason"),
   metadata: jsonb("metadata"),
+  // Wave 80 — per-flow homeowner SMS idempotency timestamps. Each new
+  // BookFlow lifecycle SMS (confirmation / day-of / thank-you /
+  // no-show recovery) writes its own *_sent_at on send so the worker
+  // can do a cheap NULL filter. T-24h continues to use
+  // metadata.t24h_sms_sent_at for back-compat.
+  confirmation_sent_at: timestamp("confirmation_sent_at"),
+  day_of_reminder_sent_at: timestamp("day_of_reminder_sent_at"),
+  post_thank_you_sent_at: timestamp("post_thank_you_sent_at"),
+  no_show_recovery_sent_at: timestamp("no_show_recovery_sent_at"),
+  completed_at: timestamp("completed_at"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -1079,6 +1089,12 @@ export const bookflowAppointments = pgTable("bookflow_appointments", {
     table.client_id,
     table.start_time,
   ),
+  // Wave 80 — partial indexes backing the new SMS lifecycle workers.
+  // The actual partial-WHERE clause lives in migrations/0070; the
+  // names are declared here so check-schema-drift sees them.
+  dayOfPendingIdx: index("idx_bookflow_appt_day_of_pending").on(table.start_time),
+  thankYouPendingIdx: index("idx_bookflow_appt_thank_you_pending").on(table.completed_at),
+  noShowPendingIdx: index("idx_bookflow_appt_no_show_pending").on(table.start_time),
 }));
 
 export const insertBookflowAppointmentSchema = createInsertSchema(bookflowAppointments).omit({
