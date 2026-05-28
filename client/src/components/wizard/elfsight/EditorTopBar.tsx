@@ -155,7 +155,12 @@ export default function EditorTopBar({
               className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
               onClick={() => onTabChange(id)}
               style={{
-                color: isActive ? '#ffffff' : p.colors.muted,
+                // Wave 94 — bump inactive-tab text from p.colors.muted
+                // (#6B7280) to p.colors.body (#374151) so the pill clears
+                // WCAG-AA on the #E4EDF1 topbar background. The previous
+                // 4.07:1 was below the 4.5:1 threshold and was the dominant
+                // contributor to axe color-contrast failures in the audit.
+                color: isActive ? '#ffffff' : p.colors.body,
                 background: isActive ? p.colors.accent : 'transparent',
               }}
             >

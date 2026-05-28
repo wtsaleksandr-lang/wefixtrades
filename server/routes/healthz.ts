@@ -34,7 +34,11 @@ import Stripe from "stripe";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { isTwilioConfigured, getTwilioClient } from "../twilioClient";
-import { getSites as bingGetSites, getQuota as bingGetQuota } from "../lib/seo/bingClient";
+import {
+  getSites as bingGetSites,
+  getQuota as bingGetQuota,
+  BingApiError,
+} from "../lib/seo/bingClient";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Healthz");
@@ -176,13 +180,77 @@ async function checkGoogleMaps(): Promise<ProbeOutcome> {
   return { ok: true, status: "ok", detail: "key present (probe is non-invasive)" };
 }
 
+/**
+ * Classify a Bing failure into healthz status. We intentionally narrow what
+ * counts as `down` because the Post-Deploy Watchdog (scripts/post-deploy-
+ * watchdog.mjs) treats `down` as needing a rollback — and most Bing failures
+ * we see in practice are transient (5xx, timeouts, brief quota dips), not
+ * "WeFixTrades is broken". Real auth misconfiguration (401/403) is the only
+ * case that warrants a rollback signal.
+ *
+ *   network failure / timeout (status=0) → degraded (bing_api_timeout)
+ *   HTTP 5xx                              → degraded (bing_api_5xx)
+ *   HTTP 429 (quota)                      → degraded (bing_api_quota)
+ *   HTTP 401 / 403 (auth)                 → down     (real config issue)
+ *   other 4xx                             → degraded (transient / client-side)
+ */
+function classifyBingError(err: unknown): ProbeOutcome {
+  if (err instanceof BingApiError) {
+    // status=0 means the bingClient's fetchWithRetry exhausted its 3 retries
+    // without reaching Bing — network-level / timeout.
+    if (err.status === 0) {
+      return { ok: false, status: "degraded", detail: "bing_api_timeout" };
+    }
+    if (err.status >= 500) {
+      return { ok: false, status: "degraded", detail: "bing_api_5xx" };
+    }
+    if (err.status === 429) {
+      return { ok: false, status: "degraded", detail: "bing_api_quota" };
+    }
+    if (err.status === 401 || err.status === 403) {
+      return { ok: false, status: "down", detail: "bing_api_auth" };
+    }
+    // Other 4xx — treat as transient client-side issue, not a deploy regression.
+    return { ok: false, status: "degraded", detail: `bing_api_http_${err.status}` };
+  }
+  // Non-BingApiError (unexpected). Don't trigger a rollback for an unknown
+  // upstream shape — degrade and surface an opaque label.
+  return { ok: false, status: "degraded", detail: "bing_api_unknown" };
+}
+
+/** Internal soft-timeout — must fire before the probe() wrapper's 2 s race so
+ * that a slow Bing response degrades rather than becoming a generic `down`. */
+const BING_SOFT_TIMEOUT_MS = 1_700;
+
 async function checkBing(): Promise<ProbeOutcome> {
   if (!process.env.BING_WEBMASTER_API_KEY) {
     return { ok: false, status: "degraded", detail: "BING_WEBMASTER_API_KEY not set" };
   }
   // Cheap auth probe + quota readout. Both must succeed within the
   // per-probe 2s timeout. Sequential is fine — each call is sub-second.
-  const sites = await bingGetSites();
+  //
+  // NOTE: classifyBingError narrows what counts as `down`. Only genuine auth
+  // failures (401/403) bubble up as `down` — 5xx, network timeouts, and quota
+  // hits are `degraded` so the Post-Deploy Watchdog doesn't roll back on
+  // transient Bing flakes. See PRs #911 and #892 for prior false rollbacks.
+  //
+  // We race against an internal soft timeout (1.7 s) shorter than the probe
+  // wrapper's 2 s so we catch slow-Bing as a classified `degraded` instead of
+  // letting the wrapper convert it to a generic `down`.
+  let sites: Awaited<ReturnType<typeof bingGetSites>>;
+  try {
+    sites = await Promise.race([
+      bingGetSites(),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new BingApiError("GetUserSites", 0, null, "soft timeout")),
+          BING_SOFT_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+  } catch (err) {
+    return classifyBingError(err);
+  }
   if (!Array.isArray(sites) || sites.length === 0) {
     return { ok: false, status: "degraded", detail: "no sites returned" };
   }
