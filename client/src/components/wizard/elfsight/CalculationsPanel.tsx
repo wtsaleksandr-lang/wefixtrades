@@ -163,11 +163,14 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
           /* W-SECTIONS — subtle all-caps label, per Alex's global rule
            * "section titles smaller, more subtle, closer to inputs".
            * W-AO-7 — inline-flex so the InfoCue trigger sits to the
-           * immediate right of the title text (top-left of the section). */
+           * immediate right of the title text (top-left of the section).
+           * Wave 94 — color bumped from p.colors.muted (#6B7280) to
+           * p.colors.body (#374151) so the label clears WCAG-AA on the
+           * #E4EDF1 panel background. Previous 4.07:1 → ~9:1. */
           margin: 0;
           display: inline-flex; align-items: center; gap: 6px;
           font-size: 11.5px; font-weight: 600;
-          color: ${p.colors.muted};
+          color: ${p.colors.body};
           text-transform: uppercase; letter-spacing: 0.04em;
         }
         .qq-calcs-sub {

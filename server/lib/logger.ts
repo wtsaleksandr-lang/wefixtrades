@@ -4,14 +4,23 @@ type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 const LEVELS: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
 
 // Sentry bridge: capture rate for log.error() calls.
-// Default: 100% in production, 10% in dev. Override via SENTRY_LOG_BRIDGE_SAMPLE_RATE.
+//
+// Default: 25 % in production, 10 % in dev. Override via Doppler env var
+// SENTRY_LOG_BRIDGE_SAMPLE_RATE (range 0..1) — bump to 1.0 during an incident
+// to capture every log.error() and revert once the spike is understood.
+//
+// Rationale: production was sampling at 100 % which made every transient log
+// line into a Sentry issue + a notification email. 25 % keeps real spikes
+// statistically visible (a 4-event burst still surfaces ~1 alert) while
+// cutting routine background-noise emails by ~75 %. Going lower than 0.25
+// risks missing low-frequency real errors entirely.
 const SENTRY_BRIDGE_SAMPLE_RATE = (() => {
   const raw = process.env.SENTRY_LOG_BRIDGE_SAMPLE_RATE;
   if (raw !== undefined && raw !== '') {
     const n = Number(raw);
     if (Number.isFinite(n) && n >= 0 && n <= 1) return n;
   }
-  return process.env.NODE_ENV === 'production' ? 1 : 0.1;
+  return process.env.NODE_ENV === 'production' ? 0.25 : 0.1;
 })();
 
 // Tag fields lifted from the data payload into Sentry scope (for grouping/search).
