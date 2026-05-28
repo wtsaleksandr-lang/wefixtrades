@@ -128,6 +128,13 @@ jobs:
           STAGING_URL: ${{ env.STAGING_URL }}
 
       - name: Pre-build (catches typecheck / build errors before any deploy)
+        # Wave 96 — SKIP_PRERENDER=1 here because the rolling staging Replit
+        # rebuilds from the pushed staging branch with FULL prerender. This
+        # pre-build is purely a typecheck + bundle sanity gate before the
+        # push; running Chromium under ubuntu-latest with no Playwright
+        # browser bundle would fail and block every PR.
+        env:
+          SKIP_PRERENDER: "1"
         run: |
           npm run check
           npm run build
