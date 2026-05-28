@@ -37,15 +37,28 @@ export async function processBillRetention(): Promise<RetentionStats> {
       id: tradelinePhoneSetups.id,
       bill: tradelinePhoneSetups.port_bill_object_key,
       loa: tradelinePhoneSetups.port_loa_object_key,
+      // Wave 86 — additional PII payloads kept for the audit window.
+      loaPdf: tradelinePhoneSetups.port_loa_pdf_object_key,
+      signature: tradelinePhoneSetups.port_signature_object_key,
     })
     .from(tradelinePhoneSetups)
     .where(
       and(
-        inArray(tradelinePhoneSetups.port_status, ["approved", "rejected"]),
+        // Wave 86 added new terminal statuses; include them so the sweep
+        // doesn't ignore newly completed/failed/canceled rows.
+        inArray(tradelinePhoneSetups.port_status, [
+          "approved",
+          "rejected",
+          "port_complete",
+          "port_failed",
+          "canceled",
+        ]),
         lt(tradelinePhoneSetups.port_resolved_at, cutoff),
         or(
           isNotNull(tradelinePhoneSetups.port_bill_object_key),
           isNotNull(tradelinePhoneSetups.port_loa_object_key),
+          isNotNull(tradelinePhoneSetups.port_loa_pdf_object_key),
+          isNotNull(tradelinePhoneSetups.port_signature_object_key),
         ),
       ),
     );
@@ -56,20 +69,24 @@ export async function processBillRetention(): Promise<RetentionStats> {
   for (const row of candidates) {
     const billOk = row.bill ? await deleteObject(row.bill) : true;
     const loaOk = row.loa ? await deleteObject(row.loa) : true;
+    const loaPdfOk = row.loaPdf ? await deleteObject(row.loaPdf) : true;
+    const sigOk = row.signature ? await deleteObject(row.signature) : true;
 
-    if (billOk && loaOk) {
+    if (billOk && loaOk && loaPdfOk && sigOk) {
       await db
         .update(tradelinePhoneSetups)
         .set({
           port_bill_object_key: null,
           port_loa_object_key: null,
+          port_loa_pdf_object_key: null,
+          port_signature_object_key: null,
           updated_at: new Date(),
         })
         .where(eq(tradelinePhoneSetups.id, row.id));
       cleared++;
     } else {
       partial++;
-      log.warn("partial retention failure", { id: row.id, billOk, loaOk });
+      log.warn("partial retention failure", { id: row.id, billOk, loaOk, loaPdfOk, sigOk });
     }
   }
 

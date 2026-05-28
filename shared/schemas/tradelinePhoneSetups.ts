@@ -24,7 +24,7 @@
  * don't get orphaned.
  */
 
-import { pgTable, serial, integer, varchar, text, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, varchar, text, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { clients } from "./adminCrm";
@@ -76,6 +76,31 @@ export const tradelinePhoneSetups = pgTable(
     port_resolved_at: timestamp("port_resolved_at"), // approved or rejected → drives 90-day retention
     port_rejection_reason: text("port_rejection_reason"),
 
+    /* ─── Wave 86 — AI-assisted porting automation ─── */
+    // Claude vision bill OCR result + per-field confidence. Structured fields
+    // also surface in the wizard for user review/edit before submit.
+    port_extraction_json: jsonb("port_extraction_json"),
+    port_extraction_at: timestamp("port_extraction_at"),
+    // Generated LOA PDF (encrypted object key). Distinct from the raw
+    // signature PNG below — the PDF is what Twilio receives, the PNG is
+    // retained as an audit artefact of which canvas bytes were embedded.
+    port_loa_pdf_object_key: text("port_loa_pdf_object_key"),
+    port_signature_object_key: text("port_signature_object_key"),
+    port_signature_method: varchar("port_signature_method", { length: 40 }),
+    port_signature_ip_hash: varchar("port_signature_ip_hash", { length: 64 }),
+    port_signature_user_agent: varchar("port_signature_user_agent", { length: 255 }),
+    // Twilio porting API integration (Layer 4).
+    port_twilio_order_sid: varchar("port_twilio_order_sid", { length: 64 }),
+    port_twilio_target_date: timestamp("port_twilio_target_date"),
+    port_estimated_completion: timestamp("port_estimated_completion"),
+    // Status poller (Layer 5) + rejection translator (Layer 6).
+    port_last_polled_at: timestamp("port_last_polled_at"),
+    port_rejection_code: varchar("port_rejection_code", { length: 64 }),
+    // Cancellation tracking — customer can cancel via portal, admin via panel,
+    // or carrier denies (port_canceled_by='twilio_rejection').
+    port_canceled_at: timestamp("port_canceled_at"),
+    port_canceled_by: varchar("port_canceled_by", { length: 24 }),
+
     created_at: timestamp("created_at").notNull().defaultNow(),
     updated_at: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -90,6 +115,15 @@ export const tradelinePhoneSetups = pgTable(
     ),
     /** Analytics funnel queries (completed-at distribution, mode breakdown). */
     completedAtIdx: index("idx_tps_completed_at").on(table.completed_at),
+    /** Wave 86 — Status poller sweeps every 4h on (status, last_polled_at). */
+    portPollingIdx: index("idx_tps_port_polling").on(
+      table.port_status,
+      table.port_last_polled_at,
+    ),
+    /** Wave 86 — Twilio order SID lookups (webhook + admin search). */
+    portTwilioOrderSidIdx: index("idx_tps_port_twilio_order_sid").on(
+      table.port_twilio_order_sid,
+    ),
   }),
 );
 
@@ -108,15 +142,52 @@ export type TradelineSetupMode = z.infer<typeof tradelineSetupModeSchema>;
 
 export const portStatusSchema = z.enum([
   "draft",
+  // Wave 86 — bill OCR ran successfully but user hasn't confirmed yet.
+  "bill_extracted",
   "bill_uploaded",
   "loa_signed",
   "submitted",
+  // Wave 86 — Twilio porting order accepted by Twilio + losing carrier
+  // acknowledged. Polling for milestone updates.
+  "pending_carrier_action",
+  // Wave 86 — Twilio asked for additional docs. Rare; usually means LOA was
+  // rejected for a fixable reason.
+  "pending_loa",
   "in_progress",
   "approved",
+  // Wave 86 — terminal: port completed and number is live on Twilio.
+  "port_complete",
   "rejected",
+  // Wave 86 — terminal: port failed; rejection translator has a fix.
+  "port_failed",
+  // Wave 86 — terminal: customer or admin canceled mid-flight.
+  "canceled",
   "test_submitted", // TRADELINE_SETUP_TEST_MODE bypass
 ]);
 export type PortStatus = z.infer<typeof portStatusSchema>;
+
+/**
+ * Wave 86 — In-transit statuses the poller should keep checking.
+ * Terminal statuses (port_complete, port_failed, rejected, approved,
+ * canceled) are excluded so the worker query stays small.
+ */
+export const PORT_IN_TRANSIT_STATUSES: PortStatus[] = [
+  "submitted",
+  "pending_carrier_action",
+  "pending_loa",
+  "in_progress",
+];
+
+/**
+ * Wave 86 — Terminal statuses (no further polling, drives retention).
+ */
+export const PORT_TERMINAL_STATUSES: PortStatus[] = [
+  "approved",
+  "port_complete",
+  "rejected",
+  "port_failed",
+  "canceled",
+];
 
 export const provisioningStatusSchema = z.enum([
   "pending",

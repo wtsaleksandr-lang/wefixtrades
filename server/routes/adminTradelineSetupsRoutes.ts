@@ -19,9 +19,13 @@ import { requireAdmin } from "../auth";
 import { db } from "../db";
 import { tradelinePhoneSetups, clients } from "@shared/schema";
 import { portStatusSchema } from "@shared/schema";
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { provisionNumber } from "../services/tradelineSetup/provisionNumber";
 import { createLogger } from "../lib/logger";
+import { writeAudit } from "../lib/auditLog";
+import { translatePortRejection, listKnownRejections } from "../services/tradelineSetup/portRejectionTranslator";
+import { isTwilioConfigured, sendSmsAsClient } from "../twilioClient";
+import { PORT_IN_TRANSIT_STATUSES } from "@shared/schema";
 
 const log = createLogger("AdminTradelineSetups");
 
@@ -306,6 +310,206 @@ export function registerAdminTradelineSetupsRoutes(app: Express) {
         log.error("mark-port-status failed", { err: (err as Error).message });
         res.status(500).json({ error: "Update failed" });
       }
+    },
+  );
+
+  /* ─── Wave 86 Layer 8: admin override panel ────────────────────────── */
+
+  /** List all in-flight ports, sorted by oldest-first (days-in-flight). */
+  app.get(
+    "/api/admin/tradeline-ports/in-flight",
+    requireAdmin,
+    async (_req: Request, res: Response) => {
+      try {
+        const rows = await db
+          .select({
+            id: tradelinePhoneSetups.id,
+            client_id: tradelinePhoneSetups.client_id,
+            customer_number: tradelinePhoneSetups.customer_number,
+            port_status: tradelinePhoneSetups.port_status,
+            port_submitted_at: tradelinePhoneSetups.port_submitted_at,
+            port_last_polled_at: tradelinePhoneSetups.port_last_polled_at,
+            port_twilio_order_sid: tradelinePhoneSetups.port_twilio_order_sid,
+            port_rejection_code: tradelinePhoneSetups.port_rejection_code,
+            client_business_name: clients.business_name,
+            client_contact_email: clients.contact_email,
+          })
+          .from(tradelinePhoneSetups)
+          .innerJoin(clients, eq(clients.id, tradelinePhoneSetups.client_id))
+          .where(inArray(tradelinePhoneSetups.port_status, PORT_IN_TRANSIT_STATUSES as unknown as string[]))
+          .orderBy(tradelinePhoneSetups.port_submitted_at);
+
+        const now = Date.now();
+        const enriched = rows.map((r) => {
+          const submitted = r.port_submitted_at?.getTime() ?? now;
+          const daysInFlight = Math.max(0, Math.floor((now - submitted) / (24 * 60 * 60 * 1000)));
+          return {
+            ...r,
+            daysInFlight,
+            translation: r.port_rejection_code ? translatePortRejection(r.port_rejection_code) : null,
+          };
+        });
+
+        return res.json({ rows: enriched, count: enriched.length });
+      } catch (err) {
+        log.error("in-flight list failed", { err: (err as Error).message });
+        res.status(500).json({ error: "Failed to load list" });
+      }
+    },
+  );
+
+  /** Force-cancel a port (last-resort escape hatch). */
+  const forceCancelBody = z.object({
+    reason: z.string().max(500).optional(),
+  });
+  app.post(
+    "/api/admin/tradeline-ports/:id/force-cancel",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+        const parsed = forceCancelBody.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+
+        const [row] = await db
+          .select()
+          .from(tradelinePhoneSetups)
+          .where(eq(tradelinePhoneSetups.id, id))
+          .limit(1);
+        if (!row) return res.status(404).json({ error: "Not found" });
+
+        await db
+          .update(tradelinePhoneSetups)
+          .set({
+            port_status: "canceled",
+            port_canceled_at: new Date(),
+            port_canceled_by: "admin",
+            port_resolved_at: new Date(),
+            port_rejection_reason: parsed.data.reason ?? "Admin-initiated cancellation",
+            updated_at: new Date(),
+          })
+          .where(eq(tradelinePhoneSetups.id, id));
+
+        writeAudit({
+          actorId: (req.user as any)?.id ? String((req.user as any).id) : null,
+          actorType: "admin",
+          action: "tradeline_port_force_cancel",
+          entityType: "tradeline_phone_setup",
+          entityId: String(id),
+          metadata: { reason: parsed.data.reason ?? null, from_status: row.port_status },
+          req,
+        });
+        return res.json({ ok: true });
+      } catch (err) {
+        log.error("force-cancel failed", { err: (err as Error).message });
+        res.status(500).json({ error: "Force cancel failed" });
+      }
+    },
+  );
+
+  /** Force-complete a port (e.g. when carrier confirmed out-of-band). */
+  app.post(
+    "/api/admin/tradeline-ports/:id/force-complete",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+
+        const [row] = await db
+          .select()
+          .from(tradelinePhoneSetups)
+          .where(eq(tradelinePhoneSetups.id, id))
+          .limit(1);
+        if (!row) return res.status(404).json({ error: "Not found" });
+
+        await db
+          .update(tradelinePhoneSetups)
+          .set({
+            port_status: "port_complete",
+            port_resolved_at: new Date(),
+            updated_at: new Date(),
+          })
+          .where(eq(tradelinePhoneSetups.id, id));
+
+        writeAudit({
+          actorId: (req.user as any)?.id ? String((req.user as any).id) : null,
+          actorType: "admin",
+          action: "tradeline_port_force_complete",
+          entityType: "tradeline_phone_setup",
+          entityId: String(id),
+          metadata: { from_status: row.port_status },
+          req,
+        });
+
+        return res.json({ ok: true });
+      } catch (err) {
+        log.error("force-complete failed", { err: (req as any).message });
+        res.status(500).json({ error: "Force complete failed" });
+      }
+    },
+  );
+
+  /** Send a custom SMS to the customer (free-form admin message). */
+  const customMsgBody = z.object({
+    body: z.string().min(1).max(320),
+  });
+  app.post(
+    "/api/admin/tradeline-ports/:id/send-message",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+        const parsed = customMsgBody.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+
+        const [row] = await db
+          .select()
+          .from(tradelinePhoneSetups)
+          .where(eq(tradelinePhoneSetups.id, id))
+          .limit(1);
+        if (!row) return res.status(404).json({ error: "Not found" });
+        if (!row.customer_number) {
+          return res.status(400).json({ error: "Row has no customer_number" });
+        }
+        if (!isTwilioConfigured()) {
+          return res.status(503).json({ error: "Twilio not configured" });
+        }
+
+        await sendSmsAsClient({
+          clientId: row.client_id,
+          to: row.customer_number,
+          body: parsed.data.body,
+          channel: "sms",
+          quietHoursBypass: "transactional",
+        });
+
+        writeAudit({
+          actorId: (req.user as any)?.id ? String((req.user as any).id) : null,
+          actorType: "admin",
+          action: "tradeline_port_admin_custom_sms",
+          entityType: "tradeline_phone_setup",
+          entityId: String(id),
+          metadata: { body_length: parsed.data.body.length },
+          req,
+        });
+
+        return res.json({ ok: true });
+      } catch (err) {
+        log.error("admin send-message failed", { err: (err as Error).message });
+        res.status(500).json({ error: "Send failed" });
+      }
+    },
+  );
+
+  /** Reference list of known Twilio rejection codes + their translations. */
+  app.get(
+    "/api/admin/tradeline-ports/rejection-codes",
+    requireAdmin,
+    async (_req: Request, res: Response) => {
+      res.json({ rejections: listKnownRejections() });
     },
   );
 

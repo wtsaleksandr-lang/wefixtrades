@@ -44,6 +44,8 @@ client/src/pages/admin/SystemWorkersPage.tsx
 client/src/pages/admin/TradeLineOpsPage.tsx
 client/src/pages/admin/TradelineLearningPage.tsx
 client/src/pages/admin/TradelineSetupsPage.tsx
+# Wave 86 — admin port override panel: list + button-driven actions, no editable text form.
+client/src/pages/admin/AdminTradelinePorts.tsx
 client/src/pages/admin/TradelineTemplatesPage.tsx
 client/src/pages/admin/outbound/CampaignsPage.tsx
 client/src/pages/admin/outbound/PipelinePage.tsx
@@ -53,6 +55,8 @@ client/src/pages/admin/ChangePasswordPage.tsx
 client/src/pages/admin/SeoIntegrationsPage.tsx
 
 # ── Portal: dashboards / lists / read-only views ──
+# Wave 86 — customer port-status tracker: live status + cancel button, no editable form.
+client/src/pages/portal/PortStatusPage.tsx
 client/src/pages/portal/ChatWidgetInstallEntry.tsx
 client/src/pages/portal/ChatWidgetInstallOnboarding.tsx
 client/src/pages/portal/DispatchPage.tsx

@@ -183,6 +183,8 @@ const TradelineSetupsPage = lazy(() => import("@/pages/admin/TradelineSetupsPage
 const TradelineTemplatesPage = lazy(() => import("@/pages/admin/TradelineTemplatesPage"));
 const TradelineLearningPage = lazy(() => import("@/pages/admin/TradelineLearningPage"));
 const TradelineVoicesPage = lazy(() => import("@/pages/admin/TradelineVoicesPage"));
+// Wave 86 — admin port override panel.
+const AdminTradelinePorts = lazy(() => import("@/pages/admin/AdminTradelinePorts"));
 const MobilePreviewPage = lazy(() => import("@/pages/admin/MobilePreview"));
 const QuoteQuickPage = lazy(() => import("@/pages/admin/QuoteQuickPage"));
 const QuoteQuickTradesPage = lazy(() => import("@/pages/admin/QuoteQuickTradesPage"));
@@ -209,6 +211,8 @@ const PortalBilling = lazy(() => import("@/pages/portal/PortalBilling"));
 const PortalSettings = lazy(() => import("@/pages/portal/PortalSettings"));
 const PortalOnboarding = lazy(() => import("@/pages/portal/PortalOnboarding"));
 const TradelineSetupPage = lazy(() => import("@/pages/portal/TradelineSetup"));
+// Wave 86 — customer-facing port-status tracker.
+const PortStatusPage = lazy(() => import("@/pages/portal/PortStatusPage"));
 const TradeLineDashboard = lazy(() => import("@/pages/portal/tradeline/TradeLineDashboard"));
 const PortalTradelineKnowledgePage = lazy(() => import("@/pages/portal/PortalTradelineKnowledgePage"));
 const PortalTradelineVoicePage = lazy(() => import("@/pages/portal/PortalTradelineVoicePage"));
@@ -394,6 +398,8 @@ function Router() {
       <Route path="/admin/tradeline/templates">{() => <RequirePortal><TradelineTemplatesPage /></RequirePortal>}</Route>
       <Route path="/admin/tradeline/learning">{() => <RequirePortal><TradelineLearningPage /></RequirePortal>}</Route>
       <Route path="/admin/tradeline/voices">{() => <RequirePortal><TradelineVoicesPage /></RequirePortal>}</Route>
+      {/* Wave 86 — admin port override panel (in-flight ports, force-cancel, force-complete, custom SMS). */}
+      <Route path="/admin/tradeline/ports">{() => <RequirePortal><AdminTradelinePorts /></RequirePortal>}</Route>
       <Route path="/admin/mobile-preview">{() => <RequirePortal><MobilePreviewPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/quotequick">{() => <RequirePortal><QuoteQuickPage /></RequirePortal>}</Route>
       <Route path="/admin/quotequick/trades/:id">{(params) => <RequirePortal><QuoteQuickTradeDetailPage tradeId={params.id} /></RequirePortal>}</Route>
@@ -441,6 +447,8 @@ function Router() {
       {/* Client portal */}
       <Route path="/portal/tradeline/dashboard">{() => <RequireClient><TradeLineDashboard /></RequireClient>}</Route>
       <Route path="/portal/tradeline/setup">{() => <RequireClient><TradelineSetupPage /></RequireClient>}</Route>
+      {/* Wave 86 — customer-facing live port-status tracker. Polls every 30s. */}
+      <Route path="/portal/tradeline/port-status">{() => <RequireClient><PortStatusPage /></RequireClient>}</Route>
       <Route path="/portal/tradeline/knowledge">{() => <RequireClient><PortalTradelineKnowledgePage /></RequireClient>}</Route>
       <Route path="/portal/tradeline/voice">{() => <RequireClient><PortalTradelineVoicePage /></RequireClient>}</Route>
       <Route path="/portal/tradeline/email-domain/setup">{() => <RequireClient><PortalEmailDomainSetup /></RequireClient>}</Route>
