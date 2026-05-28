@@ -1,9 +1,12 @@
 import { storage } from "../storage";
-import { isTwilioConfigured, checkRateLimit, sendSMS, storeSmsMessage } from "../twilioClient";
+import { isTwilioConfigured, checkRateLimit, sendSMS, sendSmsAsClient, storeSmsMessage } from "../twilioClient";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { buildUnsubscribeUrl } from "../lib/unsubscribeToken";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { createLogger } from "../lib/logger";
+import { db } from "../db";
+import { clients } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const log = createLogger("FollowupWorker");
 
@@ -226,7 +229,38 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
         const smsTemplate = payload.template || {};
         const smsBody = replaceVariables(smsTemplate.sms || smsTemplate.body || '', templateVars);
 
-        const twilioSid = await sendSMS(lead.phone, smsBody, smsChannel);
+        // Wave 77 — QuoteQuick follow-ups go to the homeowner lead. Resolve
+        // the owning client via calculator.user_id → clients.user_id and
+        // route through their per-tenant TradeLine number when one exists.
+        // WhatsApp keeps the existing global path; per-tenant routing is
+        // SMS-only for now (W-SMS-3 scope).
+        let twilioSid: string;
+        if (smsChannel === 'whatsapp') {
+          twilioSid = await sendSMS(lead.phone, smsBody, smsChannel);
+        } else {
+          const ownerUserId = calculator?.user_id ?? null;
+          let clientId: number | null = null;
+          if (ownerUserId != null) {
+            const [c] = await db
+              .select({ id: clients.id })
+              .from(clients)
+              .where(eq(clients.user_id, ownerUserId))
+              .limit(1);
+            clientId = c?.id ?? null;
+          }
+          if (clientId != null) {
+            twilioSid = await sendSmsAsClient({
+              clientId,
+              to: lead.phone,
+              body: smsBody,
+              channel: 'sms',
+            });
+          } else {
+            // Calculator has no linked client row (legacy / demo flows).
+            // Fall back to the shared brand line — preserves prior behavior.
+            twilioSid = await sendSMS(lead.phone, smsBody, smsChannel);
+          }
+        }
 
         await storeSmsMessage({
           lead_id: lead.id,

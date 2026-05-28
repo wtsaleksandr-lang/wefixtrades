@@ -11,6 +11,7 @@ import {
   verifyTwilioSignature,
   getTwilioFromNumber,
   recordSmsOptOut,
+  getClientIdByAssignedNumber,
 } from "../twilioClient";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { getOpenAI } from "../openaiClient";
@@ -64,6 +65,7 @@ export function registerTwilioRoutes(app: Express): void {
       }
 
       const from: string = req.body?.From || "";
+      const to: string = req.body?.To || "";
       const body: string = req.body?.Body || "";
       const messageSid: string = req.body?.MessageSid || "";
 
@@ -94,20 +96,35 @@ export function registerTwilioRoutes(app: Express): void {
           "STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT",
         ]);
         if (STOP_KEYWORDS.has(trimmed)) {
-          await recordSmsOptOut(cleanFrom, "stop_keyword");
-          log.info("[Twilio] inbound STOP keyword — opt-out recorded", { from: cleanFrom });
+          // Wave 77 — STOP routed via a per-tenant TradeLine number scopes
+          // the opt-out to THAT client only. STOP routed via the shared
+          // WeFixTrades brand line records a global opt-out (unchanged
+          // pre-Wave-77 behavior). `To` is the number the homeowner
+          // actually texted — we reverse-lookup the owning client.
+          const scopeClientId = to
+            ? await getClientIdByAssignedNumber(to.replace(/^whatsapp:/i, ""))
+            : null;
+          await recordSmsOptOut(cleanFrom, "stop_keyword", scopeClientId ?? undefined);
+          log.info("[Twilio] inbound STOP keyword — opt-out recorded", {
+            from: cleanFrom,
+            to,
+            scope: scopeClientId ?? "global",
+          });
           res.set("Content-Type", "text/xml");
           return res.send(
             `<Response><Message>You're opted out of WeFixTrades SMS. Reply START to re-subscribe.</Message></Response>`,
           );
         }
         // START / UNSTOP — clear the opt-out row so the sender can opt
-        // back in without a manual admin step.
+        // back in without a manual admin step. Wave 77 — when the START
+        // comes in via a per-tenant number we only clear THAT client's
+        // opt-out; a global opt-out persists until the user texts START
+        // to the shared brand line.
         if (trimmed === "START" || trimmed === "UNSTOP" || trimmed === "YES") {
           try {
             const { db } = await import("../db");
             const { smsOptOuts } = await import("@shared/schema");
-            const { eq } = await import("drizzle-orm");
+            const { eq, and, isNull } = await import("drizzle-orm");
             // Reuse the same E.164 normalization as the writer
             const e164 = cleanFrom.startsWith("+")
               ? cleanFrom
@@ -117,8 +134,34 @@ export function registerTwilioRoutes(app: Express): void {
                   if (d.length === 11 && d.startsWith("1")) return `+${d}`;
                   return `+${d}`;
                 })();
-            await db.delete(smsOptOuts).where(eq(smsOptOuts.phone_e164, e164));
-            log.info("[Twilio] inbound START — opt-out cleared", { from: cleanFrom });
+            const scopeClientId = to
+              ? await getClientIdByAssignedNumber(to.replace(/^whatsapp:/i, ""))
+              : null;
+            if (scopeClientId != null) {
+              await db
+                .delete(smsOptOuts)
+                .where(
+                  and(
+                    eq(smsOptOuts.phone_e164, e164),
+                    eq(smsOptOuts.scope_client_id, scopeClientId),
+                  ),
+                );
+            } else {
+              // No per-tenant match → clear the global opt-out only.
+              await db
+                .delete(smsOptOuts)
+                .where(
+                  and(
+                    eq(smsOptOuts.phone_e164, e164),
+                    isNull(smsOptOuts.scope_client_id),
+                  ),
+                );
+            }
+            log.info("[Twilio] inbound START — opt-out cleared", {
+              from: cleanFrom,
+              to,
+              scope: scopeClientId ?? "global",
+            });
           } catch (err: any) {
             log.warn("[Twilio] failed to clear opt-out on START", { error: err.message });
           }

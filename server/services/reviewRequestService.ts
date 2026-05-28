@@ -7,7 +7,7 @@ import crypto from "crypto";
 import { storage } from "../storage";
 import { generateGoogleReviewLink, generateFacebookReviewLink } from "../lib/reviewLink";
 import { sendReviewRequestEmail } from "../lib/reviewRequestEmail";
-import { isTwilioConfigured, sendSMS, checkRateLimit, storeSmsMessage } from "../twilioClient";
+import { isTwilioConfigured, sendSmsAsClient, checkRateLimit, storeSmsMessage } from "../twilioClient";
 import type { Booking, Calculator, ReviewRequest } from "@shared/schema";
 
 function generateAccessToken(): string {
@@ -366,7 +366,15 @@ export async function processReviewRequest(rr: ReviewRequest): Promise<{ sent: b
     const smsBody = `Hi ${rr.customer_name || "there"}, how was your experience with ${businessName}? Share your feedback: ${feedbackUrl}`;
 
     try {
-      const twilioSid = await sendSMS(rr.customer_phone, smsBody, "sms");
+      // Wave 77 — send from the client's per-tenant TradeLine number so
+      // the homeowner sees the trade's own line, and scope opt-out lookups
+      // per-client. Falls back to the shared brand line if not provisioned.
+      const twilioSid = await sendSmsAsClient({
+        clientId: rr.client_id,
+        to: rr.customer_phone,
+        body: smsBody,
+        channel: "sms",
+      });
 
       if (rr.lead_id) {
         await storeSmsMessage({

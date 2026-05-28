@@ -16,7 +16,7 @@ import {
 } from "@shared/schema";
 import { createLogger } from "../../lib/logger";
 import { sendBookingConfirmationToCustomer, sendBookingNotificationToTradesperson } from "../../lib/bookingConfirmationEmail";
-import { sendSMS } from "../../twilioClient";
+import { sendSmsAsClient } from "../../twilioClient";
 
 const log = createLogger("BookFlow");
 
@@ -439,7 +439,15 @@ export async function sendT24hBookingReminders(): Promise<{
     const body = `Reminder: your ${service} appointment is tomorrow at ${time}`;
 
     try {
-      await sendSMS(appt.customer_phone, body, "sms");
+      // Wave 77 — booking reminders go to the homeowner, so route them
+      // through the client's per-tenant TradeLine number with per-client
+      // opt-out scoping.
+      await sendSmsAsClient({
+        clientId: appt.client_id,
+        to: appt.customer_phone,
+        body,
+        channel: "sms",
+      });
       result.sent++;
       await db
         .update(bookflowAppointments)

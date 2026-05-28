@@ -6,7 +6,7 @@
  */
 
 import { createLogger } from "../lib/logger";
-import { isTwilioConfigured, sendSMS, truncateSms } from "../twilioClient";
+import { isTwilioConfigured, sendSMS, sendSmsAsClient, truncateSms } from "../twilioClient";
 import { sendTradeLineCallNotificationEmail } from "../lib/tradelineCallNotificationEmail";
 import { respectPreferences } from "../lib/notificationPreferences";
 import type { TradelineLeadData } from "@shared/schema";
@@ -124,7 +124,16 @@ export async function sendTradeLineCallNotifications(params: TradeLineNotificati
         160,
       );
       try {
-        await sendSMS(callerPhoneNumber, outboundMsg);
+        // Wave 77 — after-hours apology is sent to the homeowner caller,
+        // so route through the client's per-tenant TradeLine number with
+        // per-client opt-out scoping. Owner alerts above (smsNumbers) stay
+        // on the shared brand line.
+        await sendSmsAsClient({
+          clientId,
+          to: callerPhoneNumber,
+          body: outboundMsg,
+          channel: "sms",
+        });
         markOutboundCallerSmsSent(callerPhoneNumber);
         log.info("Outbound after-hours SMS sent to caller", { callerPhoneNumber, callLogId });
       } catch (err) {

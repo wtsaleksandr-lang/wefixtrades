@@ -21,7 +21,7 @@ import {
   getReminderSubject,
   getReminderSmsBody,
 } from "../lib/reviewRequestEmail";
-import { isTwilioConfigured, sendSMS, storeSmsMessage } from "../twilioClient";
+import { isTwilioConfigured, sendSmsAsClient, storeSmsMessage } from "../twilioClient";
 import type { ReviewRequest } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 
@@ -128,7 +128,13 @@ async function sendFollowup(rr: ReviewRequest): Promise<{ sent: boolean; error?:
         step: nextStep,
       });
       try {
-        const sid = await sendSMS(fresh.customer_phone, smsBody, "sms");
+        // Wave 77 — send from the client's per-tenant TradeLine number.
+        const sid = await sendSmsAsClient({
+          clientId: fresh.client_id,
+          to: fresh.customer_phone,
+          body: smsBody,
+          channel: "sms",
+        });
         if (fresh.lead_id) {
           await storeSmsMessage({
             lead_id: fresh.lead_id,

@@ -164,11 +164,17 @@ function buildEmailHtml(customerName: string, businessName: string, reviewLink: 
 
 /* ─── SMS Delivery ─── */
 
-async function sendSms(phone: string, message: string): Promise<{ success: boolean; sid?: string; error?: string }> {
+async function sendSms(
+  phone: string,
+  message: string,
+  clientId: number,
+): Promise<{ success: boolean; sid?: string; error?: string }> {
   try {
-    const { sendSMS, isTwilioConfigured } = await import("../../twilioClient");
+    const { sendSmsAsClient, isTwilioConfigured } = await import("../../twilioClient");
     if (!isTwilioConfigured()) return { success: false, error: "Twilio not configured" };
-    const sid = await sendSMS(phone, message, "sms");
+    // Wave 77 — homeowner-facing review request; route through the client's
+    // per-tenant TradeLine number with per-client opt-out scoping.
+    const sid = await sendSmsAsClient({ clientId, to: phone, body: message, channel: "sms" });
     return { success: true, sid };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -342,7 +348,7 @@ export async function processReviewRequests(): Promise<ProcessResult> {
     try {
       if (req.channel === "sms" && req.customer_phone) {
         const message = req.message_text || buildSmsMessage(req.customer_name || "there", businessName, req.review_link);
-        const smsResult = await sendSms(req.customer_phone, message);
+        const smsResult = await sendSms(req.customer_phone, message, req.client_id);
 
         if (smsResult.success) {
           logSmsCost(req.client_id).catch(() => {});
