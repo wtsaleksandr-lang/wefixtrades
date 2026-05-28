@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { storage } from "../storage";
 import { sendBookingConfirmationToCustomer, sendBookingNotificationToBusiness } from "../bookingEmails";
 import { createLogger } from "../lib/logger";
+import { noisyCatch } from "../lib/silentFailureGuard";
 
 const log = createLogger("Booking");
 
@@ -174,8 +175,16 @@ export function registerBookingRoutes(app: Express): void {
       });
 
       if (!requiresDeposit) {
-        sendBookingConfirmationToCustomer(booking, calc).catch(() => {});
-        sendBookingNotificationToBusiness(booking, calc).catch(() => {});
+        // Wave 92: previously `.catch(() => {})` swallowed delivery failures.
+        // Now any failure is logged with the booking id so we can backfill.
+        noisyCatch(sendBookingConfirmationToCustomer(booking, calc), {
+          op: "booking.confirmation.customer",
+          meta: { booking_id: booking.id, calculator_id: calc.id },
+        });
+        noisyCatch(sendBookingNotificationToBusiness(booking, calc), {
+          op: "booking.notification.business",
+          meta: { booking_id: booking.id, calculator_id: calc.id },
+        });
       }
 
       res.json({
@@ -291,8 +300,15 @@ export function registerBookingRoutes(app: Express): void {
 
       if (calc) {
         const updatedBooking = { ...booking, status: "confirmed", deposit_paid: true };
-        sendBookingConfirmationToCustomer(updatedBooking, calc).catch(() => {});
-        sendBookingNotificationToBusiness(updatedBooking, calc).catch(() => {});
+        // Wave 92: see note on /api/bookings — deposit-path confirmations.
+        noisyCatch(sendBookingConfirmationToCustomer(updatedBooking, calc), {
+          op: "booking.confirmation.customer.deposit",
+          meta: { booking_id: booking.id, calculator_id: calc.id },
+        });
+        noisyCatch(sendBookingNotificationToBusiness(updatedBooking, calc), {
+          op: "booking.notification.business.deposit",
+          meta: { booking_id: booking.id, calculator_id: calc.id },
+        });
       }
 
       const confirmParams = new URLSearchParams({
@@ -351,8 +367,15 @@ export function registerBookingRoutes(app: Express): void {
       const updated = await storage.updateBookingStatus(bookingId, status);
 
       if (status === "confirmed" && booking.status !== "confirmed") {
-        sendBookingConfirmationToCustomer(updated!, calc).catch(() => {});
-        sendBookingNotificationToBusiness(updated!, calc).catch(() => {});
+        // Wave 92: see note on /api/bookings — manual status-change confirmations.
+        noisyCatch(sendBookingConfirmationToCustomer(updated!, calc), {
+          op: "booking.confirmation.customer.status_change",
+          meta: { booking_id: booking.id, calculator_id: calc.id },
+        });
+        noisyCatch(sendBookingNotificationToBusiness(updated!, calc), {
+          op: "booking.notification.business.status_change",
+          meta: { booking_id: booking.id, calculator_id: calc.id },
+        });
       }
 
       // Trigger review request when job marked completed

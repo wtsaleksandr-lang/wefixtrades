@@ -14,6 +14,7 @@
 
 import { storage } from "../storage";
 import { createLogger } from "../lib/logger";
+import { noisyCatch } from "../lib/silentFailureGuard";
 
 const log = createLogger("BookingTools");
 
@@ -375,13 +376,23 @@ export async function executeCreateBooking(
       notes: combinedNotes,
     });
 
-    // Send confirmation emails in the background
+    // Send confirmation emails in the background.
+    // Wave 92: previously `.catch(() => {})` swallowed delivery failures —
+    // AI-booked appointments would skip the confirmation silently.
     try {
       const { sendBookingConfirmationToCustomer, sendBookingNotificationToBusiness } = await import("../bookingEmails");
-      sendBookingConfirmationToCustomer(booking, calc).catch(() => {});
-      sendBookingNotificationToBusiness(booking, calc).catch(() => {});
-    } catch {
-      log.debug("Booking email module not available");
+      noisyCatch(sendBookingConfirmationToCustomer(booking, calc), {
+        op: "booking.confirmation.customer.ai_tool",
+        meta: { booking_id: booking.id, calculator_id: calc.id },
+      });
+      noisyCatch(sendBookingNotificationToBusiness(booking, calc), {
+        op: "booking.notification.business.ai_tool",
+        meta: { booking_id: booking.id, calculator_id: calc.id },
+      });
+    } catch (err: unknown) {
+      log.warn("Booking email module not available", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     const displayTime = formatTimeDisplay(hours, minutes);

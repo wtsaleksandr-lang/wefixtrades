@@ -5,6 +5,7 @@ import { salesLeads, clientServices, adminActivityLog } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { sendContactAck, sendContactInternalNotification } from "../lib/contactEmails";
 import { createLogger } from "../lib/logger";
+import { noisyCatch } from "../lib/silentFailureGuard";
 
 const log = createLogger("Marketing");
 
@@ -44,11 +45,32 @@ export function registerMarketingRoutes(app: Express): void {
       // Don't fail the request — still try to send notifications
     }
 
-    // Fire both emails in parallel, non-blocking to the HTTP response
-    Promise.allSettled([
-      sendContactAck({ name, email, subject, message }),
-      leadId ? sendContactInternalNotification({ name, email, subject, message }, leadId) : Promise.resolve(false),
-    ]).catch(() => {});
+    // Fire both emails in parallel, non-blocking to the HTTP response.
+    // Wave 92: previously `.catch(() => {})` swallowed delivery failures —
+    // so the customer got a "success" message while their inquiry never
+    // reached Alex. Now any rejection is logged with structured context.
+    noisyCatch(
+      Promise.allSettled([
+        sendContactAck({ name, email, subject, message }),
+        leadId
+          ? sendContactInternalNotification({ name, email, subject, message }, leadId)
+          : Promise.resolve(false),
+      ]).then((results) => {
+        // Promise.allSettled never throws, but each settle may be a
+        // rejection — surface those individually.
+        results.forEach((r, idx) => {
+          if (r.status === "rejected") {
+            const channel = idx === 0 ? "contact_ack" : "contact_internal";
+            log.error(`[contact] ${channel} email failed`, {
+              error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+              lead_id: leadId,
+              email,
+            });
+          }
+        });
+      }),
+      { op: "contact.email_fanout", meta: { lead_id: leadId, email } },
+    );
 
     return res.json({ success: true, lead_id: leadId || undefined });
   });
