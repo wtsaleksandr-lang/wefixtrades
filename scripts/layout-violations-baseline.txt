@@ -159,8 +159,8 @@ client/src/pages/portal/PortalReviews.tsx:978:46	rule-c	square w-1.5 h-1.5
 client/src/pages/portal/PortalReviewsSetup.tsx:154:17	rule-c	square w-12 h-12
 client/src/pages/portal/PortalServiceDetail.tsx:682:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalServices.tsx:145:22	rule-c	square w-9 h-9
-client/src/pages/portal/PortalSettings.tsx:1611:13	rule-c	square w-16 h-16
-client/src/pages/portal/PortalSettings.tsx:1616:16	rule-c	square w-16 h-16
+client/src/pages/portal/PortalSettings.tsx:1618:13	rule-c	square w-16 h-16
+client/src/pages/portal/PortalSettings.tsx:1623:16	rule-c	square w-16 h-16
 client/src/pages/portal/PortalSocialSync.tsx:389:26	rule-c	square w-14 h-14
 client/src/pages/portal/PortalSocialSync.tsx:394:26	rule-c	square w-14 h-14
 client/src/pages/portal/PortalWidget.tsx:459:17	rule-c	square w-12 h-12

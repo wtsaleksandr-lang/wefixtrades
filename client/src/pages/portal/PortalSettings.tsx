@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Bell, Mail, MessageSquare, Image as ImageIcon, ShieldCheck, Smartphone } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { SmsTemplatesSection } from "@/components/portal/SmsTemplatesSection";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -66,8 +67,8 @@ interface SettingsData {
   account_email: string | null;
 }
 
-type TabKey = "account" | "notifications" | "display" | "ai" | "security";
-const VALID_TABS: TabKey[] = ["account", "notifications", "display", "ai", "security"];
+type TabKey = "account" | "notifications" | "sms-templates" | "display" | "ai" | "security";
+const VALID_TABS: TabKey[] = ["account", "notifications", "sms-templates", "display", "ai", "security"];
 
 function parseTabFromHash(): TabKey {
   if (typeof window === "undefined") return "account";
@@ -267,6 +268,7 @@ export default function PortalSettings() {
               <TabsList className="w-full sm:w-auto">
                 <TabsTrigger value="account" data-testid="tab-trigger-account">Account</TabsTrigger>
                 <TabsTrigger value="notifications" data-testid="tab-trigger-notifications">Notifications</TabsTrigger>
+                <TabsTrigger value="sms-templates" data-testid="tab-trigger-sms-templates">Text messages</TabsTrigger>
                 <TabsTrigger value="display" data-testid="tab-trigger-display">Display</TabsTrigger>
                 <TabsTrigger value="ai" data-testid="tab-trigger-ai">AI</TabsTrigger>
                 <FirstVisitTooltip
@@ -383,6 +385,11 @@ export default function PortalSettings() {
             {/* ─── Notifications ─── */}
             <TabsContent value="notifications" className="space-y-6">
               <NotificationPreferencesSection />
+            </TabsContent>
+
+            {/* ─── Text messages (Wave 83 — SMS template settings) ─── */}
+            <TabsContent value="sms-templates" className="space-y-3">
+              <SmsTemplatesSection />
             </TabsContent>
 
             {/* ─── AI ─── */}
