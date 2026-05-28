@@ -58,6 +58,9 @@ import { processEmbedBrokenDetection } from "./embedBrokenDetector";
 import { processBillRetention } from "./tradelineBillRetentionWorker";
 import { processProTrialExpiry } from "./trialProExpiryWorker";
 import { sendT24hBookingReminders } from "../services/booking/bookflowService";
+import { processBookflowDayOfReminders } from "./bookflowDayOfReminderWorker";
+import { processBookflowPostAppointment } from "./bookflowPostAppointmentWorker";
+import { processBookflowNoShowRecovery } from "./bookflowNoShowRecoveryWorker";
 import { processContentFlowReminders } from "./contentflowReminderWorker";
 import { processTradelineProvisionRetry } from "./tradelineProvisionRetryWorker";
 import { processRoutingEngine } from "../engine/routingWorker";
@@ -363,6 +366,68 @@ export function initScheduler() {
       log.error("bookflow_t24h_reminder cron handler error", { error: err.message });
     } finally {
       bookflowReminderRunning = false;
+    }
+  });
+
+  // Wave 80 — BookFlow day-of reminder (Flow 2). Every 15 minutes; the
+  // matching window inside the worker ([+3h, +4h15m]) is wider than the
+  // cron interval, so each appointment is matched on multiple ticks
+  // until day_of_reminder_sent_at flips. Transactional bypass on
+  // quiet-hours — see worker docstring.
+  let bookflowDayOfRunning = false;
+  cron.schedule("*/15 * * * *", async () => {
+    if (bookflowDayOfRunning) {
+      log.debug("bookflow_day_of_reminder skipped — previous tick still running");
+      return;
+    }
+    bookflowDayOfRunning = true;
+    try {
+      await runJob("bookflow_day_of_reminder", processBookflowDayOfReminders);
+    } catch (err: any) {
+      log.error("bookflow_day_of_reminder cron handler error", { error: err.message });
+    } finally {
+      bookflowDayOfRunning = false;
+    }
+  });
+
+  // Wave 80 — BookFlow post-appointment thank-you (Flow 4). Every 15
+  // minutes; picks up rows where status='completed' AND completed_at
+  // is at least 30 minutes ago AND post_thank_you_sent_at IS NULL.
+  // Quiet-hours honored ('reminder' bypass) — late-evening completions
+  // defer to the next morning.
+  let bookflowThankYouRunning = false;
+  cron.schedule("*/15 * * * *", async () => {
+    if (bookflowThankYouRunning) {
+      log.debug("bookflow_post_thank_you skipped — previous tick still running");
+      return;
+    }
+    bookflowThankYouRunning = true;
+    try {
+      await runJob("bookflow_post_thank_you", processBookflowPostAppointment);
+    } catch (err: any) {
+      log.error("bookflow_post_thank_you cron handler error", { error: err.message });
+    } finally {
+      bookflowThankYouRunning = false;
+    }
+  });
+
+  // Wave 80 — BookFlow no-show recovery (Flow 5). Every 30 minutes.
+  // Recovery window is end_time 1-3 hours ago, status NOT IN
+  // ('completed', 'cancelled'). Quiet-hours honored — same evening-
+  // defer behavior as the thank-you flow.
+  let bookflowNoShowRunning = false;
+  cron.schedule("*/30 * * * *", async () => {
+    if (bookflowNoShowRunning) {
+      log.debug("bookflow_no_show_recovery skipped — previous tick still running");
+      return;
+    }
+    bookflowNoShowRunning = true;
+    try {
+      await runJob("bookflow_no_show_recovery", processBookflowNoShowRecovery);
+    } catch (err: any) {
+      log.error("bookflow_no_show_recovery cron handler error", { error: err.message });
+    } finally {
+      bookflowNoShowRunning = false;
     }
   });
 

@@ -19,6 +19,11 @@ import { db } from "../db";
 import { clients, clientServices } from "@shared/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
+import {
+  BOOKFLOW_SMS_TEMPLATES,
+  interpolate,
+  formatAppointmentTime,
+} from "../lib/bookflowSmsTemplates";
 
 const log = createLogger("MobileApi");
 
@@ -142,9 +147,16 @@ export function registerMobileApiRoutes(app: Express) {
   );
 
   /* ─── POST "on my way" ETA text to a customer ─── */
+  // Wave 80 — schema extended with optional tech_name and track_link.
+  // Mobile clients that have not been updated yet continue to work with
+  // the to + etaMinutes pair; the new fields just enrich the body when
+  // the caller provides them. The body itself is now rendered from the
+  // shared BookFlow ETA template so future tweaks land in one place.
   const etaBody = z.object({
     to: z.string().min(7).max(20),
     etaMinutes: z.number().int().min(1).max(480),
+    techName: z.string().trim().min(1).max(80).optional(),
+    trackLink: z.string().trim().url().max(500).optional(),
   });
 
   app.post(
@@ -172,8 +184,34 @@ export function registerMobileApiRoutes(app: Express) {
           if (c?.business_name) businessName = c.business_name;
         }
 
+        // Wave 80 — render the body through the shared BookFlow ETA
+        // template. tech_name and track_link are optional; the
+        // interpolator leaves unknown vars literal so missing inputs
+        // result in a fallback line rather than a broken body.
         const eta = parsed.data.etaMinutes;
-        const body = `On my way! ETA about ${eta} minute${eta === 1 ? "" : "s"}. - ${businessName}`;
+        const etaTime = new Date(Date.now() + eta * 60 * 1000);
+        const etaTimeStr = formatAppointmentTime(etaTime);
+        const trackLink = parsed.data.trackLink ?? "";
+        const techName = parsed.data.techName ?? businessName;
+
+        let body: string;
+        if (parsed.data.techName || parsed.data.trackLink) {
+          body = interpolate(BOOKFLOW_SMS_TEMPLATES.eta, {
+            tech_name: techName,
+            brand_name: businessName,
+            eta_time: etaTimeStr,
+            track_link: trackLink,
+          });
+          // Drop the "Track: " suffix entirely if no link was provided
+          // (rather than leaving a dangling "Track: " in the SMS).
+          body = body.replace(/\s+Track:\s*$/i, "");
+        } else {
+          // Back-compat: legacy mobile clients that send only
+          // (to, etaMinutes) get the original Wave 77 body so the
+          // SMS reads identically until they upgrade.
+          body = `On my way! ETA about ${eta} minute${eta === 1 ? "" : "s"}. - ${businessName}`;
+        }
+
         // Wave 77 — ETA text goes to the homeowner. Route via per-tenant
         // number with per-client opt-out scoping when we have a clientId;
         // otherwise fall back to the shared brand line.

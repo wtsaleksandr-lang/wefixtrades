@@ -17,6 +17,12 @@ import {
 import { createLogger } from "../../lib/logger";
 import { sendBookingConfirmationToCustomer, sendBookingNotificationToTradesperson } from "../../lib/bookingConfirmationEmail";
 import { sendSmsAsClient } from "../../twilioClient";
+import {
+  BOOKFLOW_SMS_TEMPLATES,
+  interpolate,
+  formatAppointmentDate,
+  formatAppointmentTime,
+} from "../../lib/bookflowSmsTemplates";
 
 const log = createLogger("BookFlow");
 
@@ -302,7 +308,111 @@ export async function createAppointment(
     notes: input.notes,
   }).catch((err) => log.error("Failed to send tradesperson notification", { error: err.message }));
 
+  // Wave 80 — booking confirmation SMS (Flow 1). Fires immediately after
+  // the appointment row lands so the homeowner gets a same-second
+  // confirmation in their texting app. Transactional bypass on quiet
+  // hours: the homeowner just hit "Book" so they're definitionally
+  // awake / engaged. Idempotency stamped on bookflow_appointments.
+  // confirmation_sent_at — if the send fails we don't write the column
+  // and a future replay path (none today) can pick up cleanly.
+  if (input.customerPhone) {
+    void sendBookingConfirmationSms({
+      appointmentId: appointment.id,
+      clientId,
+      to: input.customerPhone,
+      brandName: businessName,
+      serviceName: input.serviceName ?? "your appointment",
+      startTime,
+      timezone: settings.timezone ?? null,
+      slug: settings.slug ?? null,
+    });
+  }
+
   return appointment;
+}
+
+/**
+ * Wave 80 — Flow 1: Booking confirmation SMS.
+ *
+ * Best-effort fire-and-forget from createAppointment. Failures are
+ * logged but do NOT block the booking from being returned to the
+ * homeowner — the email confirmation still goes out and the trade
+ * still gets their notification, so a failed SMS isn't a failed
+ * booking.
+ *
+ * Exported for the unit-test smoke + so a future replay/repair path
+ * can drive it directly. Idempotent — bails if confirmation_sent_at
+ * is already set on the row.
+ */
+export async function sendBookingConfirmationSms(args: {
+  appointmentId: number;
+  clientId: number;
+  to: string;
+  brandName: string;
+  serviceName: string;
+  startTime: Date;
+  timezone: string | null;
+  slug: string | null;
+}): Promise<{ sent: boolean; reason?: string }> {
+  try {
+    const [row] = await db
+      .select({
+        confirmation_sent_at: bookflowAppointments.confirmation_sent_at,
+      })
+      .from(bookflowAppointments)
+      .where(eq(bookflowAppointments.id, args.appointmentId))
+      .limit(1);
+    if (row?.confirmation_sent_at) {
+      return { sent: false, reason: "already_sent" };
+    }
+
+    const baseUrl =
+      process.env.APP_URL ||
+      process.env.APP_PUBLIC_URL ||
+      (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
+    const manageLink = args.slug
+      ? `${baseUrl}/book/${args.slug}?cancel=${args.appointmentId}`
+      : `${baseUrl}/book`;
+
+    const body = interpolate(BOOKFLOW_SMS_TEMPLATES.confirmation, {
+      brand_name: args.brandName,
+      service_name: args.serviceName,
+      date: formatAppointmentDate(args.startTime, args.timezone),
+      time: formatAppointmentTime(args.startTime, args.timezone),
+      manage_link: manageLink,
+    });
+
+    await sendSmsAsClient({
+      clientId: args.clientId,
+      to: args.to,
+      body,
+      channel: "sms",
+      quietHoursBypass: "transactional",
+      fallbackTimezone: args.timezone,
+    });
+
+    await db
+      .update(bookflowAppointments)
+      .set({ confirmation_sent_at: new Date(), updated_at: new Date() })
+      .where(eq(bookflowAppointments.id, args.appointmentId));
+    return { sent: true };
+  } catch (err: any) {
+    if (err?.message === "sms_recipient_opted_out") {
+      // Opt-out is a permanent "do not send" — stamp it so the worker
+      // path (if we ever add one) doesn't retry forever.
+      await db
+        .update(bookflowAppointments)
+        .set({ confirmation_sent_at: new Date(), updated_at: new Date() })
+        .where(eq(bookflowAppointments.id, args.appointmentId))
+        .catch(() => {});
+      return { sent: false, reason: "opted_out" };
+    }
+    log.error("Failed to send booking confirmation SMS", {
+      appointmentId: args.appointmentId,
+      error: err?.message,
+    });
+    return { sent: false, reason: err?.message ?? "unknown" };
+  }
 }
 
 export async function cancelAppointment(
@@ -360,6 +470,14 @@ export async function updateAppointmentStatus(
   };
   if (cancellationReason !== undefined) {
     updates.cancellation_reason = cancellationReason;
+  }
+  // Wave 80 — stamp completed_at when the trade marks the appointment
+  // complete. The post-appointment thank-you worker queries on this
+  // column ({status='completed' AND completed_at < now-30min}) so it
+  // must be set distinctly from updated_at to survive subsequent edits.
+  // We only set it on the first transition to 'completed'.
+  if (status === "completed") {
+    updates.completed_at = sql`COALESCE(${bookflowAppointments.completed_at}, now())`;
   }
 
   const [updated] = await db

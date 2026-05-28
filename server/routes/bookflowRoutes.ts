@@ -857,9 +857,18 @@ export function registerBookflowRoutes(app: Express): void {
         return res.status(400).json({ error: "Invalid status" });
       }
 
+      // Wave 80 — stamp completed_at on the first transition to
+      // 'completed' so the post-appointment thank-you worker can find
+      // this row by status + completed_at-age. COALESCE preserves the
+      // original completion time across subsequent status edits.
+      const updates: Record<string, unknown> = { status, updated_at: new Date() };
+      if (status === "completed") {
+        updates.completed_at = sql`COALESCE(${bookflowAppointments.completed_at}, now())`;
+      }
+
       const [updated] = await db
         .update(bookflowAppointments)
-        .set({ status, updated_at: new Date() })
+        .set(updates)
         .where(and(
           eq(bookflowAppointments.id, appointmentId),
           eq(bookflowAppointments.client_id, clientId),
