@@ -13,7 +13,6 @@
  * Costs stored as micro-USD (× 1,000,000) in integer column.
  */
 import { storage } from "../../storage";
-import { recordSmsCostForClient } from "../clientCostBilling";
 
 /* ─── Cost Rates ─── */
 
@@ -119,8 +118,11 @@ export async function logSmsCost(clientId: number): Promise<void> {
       description: "Review request SMS",
     } as any);
   } catch { /* non-blocking */ }
-  // W-BA-2 (Phase 3b §5) — feed the per-client variable-cost cache too.
-  await recordSmsCostForClient({ clientId, segments: 1 }).catch(() => {});
+  // Wave 84 — the per-client variable-cost ledger increment used to live
+  // here; it has moved into `sendSMS()` (server/twilioClient.ts) which
+  // funnels every outbound and is the single chokepoint for cost
+  // attribution. We keep the `storage.logServiceCost` above because that
+  // ledger is a separate reputationshield service-cost log.
 }
 
 export async function logEmailCost(clientId: number, description: string = "Email"): Promise<void> {

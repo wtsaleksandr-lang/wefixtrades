@@ -430,9 +430,20 @@ async function executeSendSupportSms(
     throw new Error(`${client.business_name} has no contact phone on file — add one before sending.`);
   }
 
-  const sid = await sendSMS(client.contact_phone, message);
+  // Wave 84 — route as the client so sendSMS auto-records the per-tenant
+  // variable cost ledger (clientCostBilling), enforces the per-tenant
+  // monthly cap, and scopes opt-out lookup. `logSmsCost` below remains
+  // for the reputationshield service-cost log (a separate ledger).
+  const sid = await sendSMS({
+    to: client.contact_phone,
+    body: message,
+    channel: "sms",
+    scopeClientId: clientId,
+  });
 
-  // Log the SMS cost so it surfaces in the per-client cost ledger.
+  // Log the SMS cost so it surfaces in the per-client cost ledger
+  // (reputationshield service-cost log). The per-tenant variable-cost
+  // ledger increment is now handled inside sendSMS.
   await logSmsCost(clientId);
 
   await storage.logAdminActivity({
