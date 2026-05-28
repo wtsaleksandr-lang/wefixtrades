@@ -33,87 +33,61 @@ interface IntegrationLogo {
   svg: React.ReactNode;
 }
 
+/**
+ * Wave 103 — official brand marks from simple-icons (MIT-licensed,
+ * https://simpleicons.org). Each is the canonical single-path icon the
+ * brand uses for compact contexts (app icons, social, favicons). The
+ * monochrome marks are coloured here with each brand's published primary
+ * colour, so a tradie scanning the strip sees marks they recognise
+ * visually — even if they couldn't name the company.
+ *
+ * Vapi was swapped for Cloudflare in this wave (Alex's call). Cloudflare
+ * is the rail under the WeFixTrades domain + edge cache, and the orange
+ * cloud is far more recognisable to a non-technical buyer than Vapi.
+ */
 const INTEGRATIONS: IntegrationLogo[] = [
   {
-    // Stripe — official wordmark, accurate.
     name: "Stripe",
     svg: (
-      <svg width="56" height="20" viewBox="0 0 56 20" fill="currentColor" aria-label="Stripe">
-        <path d="M3.61 7.4c0-.55.46-.77 1.21-.77 1.08 0 2.45.33 3.53.91V4.18A9.34 9.34 0 0 0 4.82 3.5C2.04 3.5 0 5 0 7.51c0 3.93 5.4 3.3 5.4 5 0 .64-.56.85-1.36.85-1.18 0-2.7-.49-3.9-1.14v3.39c1.33.57 2.68.82 3.9.82 2.85 0 5.02-1.41 5.02-3.96-.02-4.25-5.45-3.49-5.45-5.07Zm9.06-5.05L9.05 3.12v11.94c0 2.21 1.66 3.84 3.87 3.84 1.22 0 2.12-.22 2.61-.49v-2.95c-.48.2-2.83.88-2.83-1.33V7.04h2.83V3.85h-2.83V2.35Zm7.6 2.84-.24-1.34h-3.07v11.27h3.55V8.5c.84-1.1 2.27-.89 2.71-.74V4.7c-.46-.17-2.14-.49-2.95.49Zm3.39-1.34h3.57v11.27h-3.57V3.85ZM27.23 2.55l3.57-.76V0L27.23.76v1.79Zm6.92 1.31c-1.39 0-2.28.65-2.78 1.1l-.18-.87h-3.13v15.05L31.61 19l.02-3.65c.51.37 1.27.9 2.51.9 2.52 0 4.82-2.03 4.82-6.13-.01-3.75-2.34-5.9-4.83-5.9Zm-.86 9.06c-.83 0-1.32-.3-1.66-.66l-.02-5.26c.37-.4.87-.69 1.68-.69 1.28 0 2.17 1.43 2.17 3.3 0 1.91-.87 3.3-2.17 3.3Zm15.13-3.27c0-3.3-1.6-5.9-4.65-5.9-3.07 0-4.93 2.6-4.93 5.87 0 3.87 2.19 5.83 5.33 5.83 1.53 0 2.69-.35 3.57-.83v-2.85c-.88.44-1.89.71-3.16.71-1.25 0-2.36-.44-2.5-1.96h6.31c.01-.17.03-.85.03-1.16v.29Zm-6.38-1.22c0-1.46.89-2.07 1.71-2.07.79 0 1.63.61 1.63 2.07h-3.34Z"/>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#635BFF" aria-label="Stripe">
+        <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z"/>
       </svg>
     ),
   },
   {
-    // Twilio — official mark is the lowercase "twilio" wordmark in their
-    // signature red (#F22F46). The prior 4-dots-in-a-circle was a custom
-    // invention that didn't match any real Twilio asset.
     name: "Twilio",
     svg: (
-      <svg width="52" height="20" viewBox="0 0 52 20" aria-label="Twilio">
-        <text
-          x="0"
-          y="15"
-          fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
-          fontSize="14"
-          fontWeight="800"
-          fill="#F22F46"
-          letterSpacing="-0.4"
-        >
-          twilio
-        </text>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#F22F46" aria-label="Twilio">
+        <path d="M12 0C5.381-.008.008 5.352 0 11.971V12c0 6.64 5.359 12 12 12 6.64 0 12-5.36 12-12 0-6.641-5.36-12-12-12zm0 20.801c-4.846.015-8.786-3.904-8.801-8.75V12c-.014-4.846 3.904-8.786 8.75-8.801H12c4.847-.014 8.786 3.904 8.801 8.75V12c.015 4.847-3.904 8.786-8.75 8.801H12zm5.44-11.76c0 1.359-1.12 2.479-2.481 2.479-1.366-.007-2.472-1.113-2.479-2.479 0-1.361 1.12-2.481 2.479-2.481 1.361 0 2.481 1.12 2.481 2.481zm0 5.919c0 1.36-1.12 2.48-2.481 2.48-1.367-.008-2.473-1.114-2.479-2.48 0-1.359 1.12-2.479 2.479-2.479 1.361-.001 2.481 1.12 2.481 2.479zm-5.919 0c0 1.36-1.12 2.48-2.479 2.48-1.368-.007-2.475-1.113-2.481-2.48 0-1.359 1.12-2.479 2.481-2.479 1.358-.001 2.479 1.12 2.479 2.479zm0-5.919c0 1.359-1.12 2.479-2.479 2.479-1.367-.007-2.475-1.112-2.481-2.479 0-1.361 1.12-2.481 2.481-2.481 1.358 0 2.479 1.12 2.479 2.481z"/>
       </svg>
     ),
   },
   {
-    // Google — multicolor wordmark. "Business" callout dropped; the
-    // strip is logos-only now, and "Google" alone covers Maps / Search /
-    // Business Profile equally well.
     name: "Google",
     svg: (
-      <svg width="58" height="20" viewBox="0 0 58 20" aria-label="Google">
-        <text x="0" y="15" fontFamily="-apple-system, system-ui, sans-serif" fontSize="14" fontWeight="700" letterSpacing="-0.3">
-          <tspan fill="#4285F4">G</tspan>
-          <tspan fill="#EA4335">o</tspan>
-          <tspan fill="#FBBC04">o</tspan>
-          <tspan fill="#4285F4">g</tspan>
-          <tspan fill="#34A853">l</tspan>
-          <tspan fill="#EA4335">e</tspan>
-        </text>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#4285F4" aria-label="Google">
+        <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
       </svg>
     ),
   },
   {
-    // Anthropic Claude — the real Anthropic mark is a stylized burst /
-    // 8-point asterisk in their sienna orange (#CC785C). Approximated
-    // here as 8 tapered petals around a center. Plus "Claude" wordmark.
-    name: "Anthropic Claude",
+    // Anthropic — angular "A" mark from the official brand assets.
+    // Single path, sienna orange #D97757 (Anthropic's current primary).
+    name: "Anthropic",
     svg: (
-      <svg width="76" height="20" viewBox="0 0 76 20" aria-label="Anthropic Claude">
-        {/* Asterisk burst — 4 long axes (N/S/E/W) + 4 short diagonals.
-            Approximates the official Anthropic mark without copying it. */}
-        <g transform="translate(10 10)" fill="#CC785C">
-          {/* Long vertical + horizontal */}
-          <rect x="-1" y="-7" width="2" height="14" rx="1" />
-          <rect x="-7" y="-1" width="14" height="2" rx="1" />
-          {/* Short diagonals */}
-          <g transform="rotate(45)">
-            <rect x="-0.8" y="-5" width="1.6" height="10" rx="0.8" />
-            <rect x="-5" y="-0.8" width="10" height="1.6" rx="0.8" />
-          </g>
-        </g>
-        <text x="22" y="15" fontFamily="-apple-system, system-ui, sans-serif" fontSize="13" fontWeight="700" letterSpacing="-0.3" fill="currentColor">Claude</text>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#D97757" aria-label="Anthropic">
+        <path d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z"/>
       </svg>
     ),
   },
   {
-    // Vapi — voice AI platform. Stylized "V" mark + wordmark. Their real
-    // logo uses a similar geometric V; the simplified one here reads as
-    // a clean wordmark in muted neutral.
-    name: "Vapi",
+    // Cloudflare — replaces Vapi (Alex's call). Cloudflare runs the
+    // domain edge for wefixtrades.com and is far more visually familiar
+    // to a non-technical buyer than Vapi.
+    name: "Cloudflare",
     svg: (
-      <svg width="50" height="20" viewBox="0 0 50 20" aria-label="Vapi" fill="currentColor">
-        <path d="M2 5 L6 15 L10 5 L7.6 5 L6 9.5 L4.4 5 Z"/>
-        <text x="13" y="15" fontFamily="-apple-system, system-ui, sans-serif" fontSize="13" fontWeight="700" letterSpacing="-0.3">Vapi</text>
+      <svg width="26" height="22" viewBox="0 0 24 24" fill="#F38020" aria-label="Cloudflare">
+        <path d="M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727"/>
       </svg>
     ),
   },
