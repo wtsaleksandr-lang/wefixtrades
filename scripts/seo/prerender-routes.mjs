@@ -481,6 +481,26 @@ async function main() {
 
   if (page) {
     for (const route of routes) {
+      // Wave 100 — critical compliance routes (TCR / A2P 10DLC vetting,
+      // Bing, LLM crawlers) ship the hand-written template instead of
+      // the Playwright head-only splice. The Playwright path captures
+      // <head> tags into the empty SPA shell, leaving the body as just
+      // an empty <div id="root"> — fine for SEO meta but useless to the
+      // TCR scraper which needs the actual policy/consent text inline.
+      // The Wave 90/95 templates contain the full body content; their
+      // heads include title/description/canonical/OG/robots so SEO is
+      // preserved.
+      if (CRITICAL_TEMPLATE_FALLBACKS[route]) {
+        const wrote = await tryWriteTemplateFallback(route);
+        if (wrote) {
+          succeeded.add(route);
+          ok += 1;
+        } else {
+          fail += 1;
+          failedCritical.push(route);
+        }
+        continue;
+      }
       try {
         const { tags, noscriptBody } = await snapshotRoute(page, baseUrl, route);
         if (!tags || tags.length === 0) {
