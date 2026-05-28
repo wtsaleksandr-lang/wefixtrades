@@ -55,7 +55,7 @@ test.describe("Tradeline setup wizard", () => {
     await page.waitForTimeout(500);
   }
 
-  test("ChoiceCard renders three options, Option A default-expanded", async ({ page }) => {
+  test("ChoiceCard renders three options, Option C (port) default-expanded", async ({ page }) => {
     await ensureClientLogin(page);
     await page.goto("/portal/tradeline/setup", { waitUntil: "domcontentloaded" });
 
@@ -63,34 +63,34 @@ test.describe("Tradeline setup wizard", () => {
     await expect(page.getByText(/Set up your AI tradeline/i)).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(/Choose how customers reach your business/i)).toBeVisible();
 
-    // Three options visible
-    await expect(page.getByText(/Get a new WeFixTrades number/i)).toBeVisible();
-    await expect(page.getByText(/Keep your existing number/i)).toBeVisible();
-    await expect(page.getByText(/Port your existing number/i)).toBeVisible();
+    // Three options visible (Wave 87 copy)
+    await expect(page.getByText(/Get a new dedicated business number/i)).toBeVisible();
+    await expect(page.getByText(/Forward your existing number/i)).toBeVisible();
+    await expect(page.getByText(/Keep your existing number forever/i)).toBeVisible();
 
-    // Option A unfolded (RECOMMENDED badge + Continue button visible)
+    // Wave 87: Option C (port) is the recommended default-expanded option.
     await expect(page.getByText(/RECOMMENDED/i).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /Continue.*new number/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Choose this.*keep my existing number/i })).toBeVisible();
 
     // Skip-for-now link present
     await expect(page.getByText(/Skip for now/i)).toBeVisible();
   });
 
-  test("ChoiceCard radio-style: clicking B closes A and opens B", async ({ page }) => {
+  test("ChoiceCard radio-style: clicking A closes C and opens A", async ({ page }) => {
     await ensureClientLogin(page);
     await page.goto("/portal/tradeline/setup", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
 
-    // Click Option B header
-    await page.getByText(/Keep your existing number/i).first().click();
+    // Click Option A header (Wave 87 copy)
+    await page.getByText(/Get a new dedicated business number/i).first().click();
     await page.waitForTimeout(300);
 
-    // Option B Continue button now visible
-    await expect(page.getByRole("button", { name: /Continue.*forward.*existing/i })).toBeVisible();
+    // Option A Continue button now visible
+    await expect(page.getByRole("button", { name: /Choose this.*get a new number/i })).toBeVisible();
 
-    // Option A Continue button no longer visible (animation may take a moment)
-    const aButton = page.getByRole("button", { name: /Continue.*new number/i });
-    await expect(aButton).not.toBeVisible({ timeout: 2000 }).catch(() => {
+    // Option C Continue button no longer visible (animation may take a moment)
+    const cButton = page.getByRole("button", { name: /Choose this.*keep my existing number/i });
+    await expect(cButton).not.toBeVisible({ timeout: 2000 }).catch(() => {
       // collapse animation can leave the button momentarily — soft assert
     });
   });
@@ -99,7 +99,7 @@ test.describe("Tradeline setup wizard", () => {
     test("default landing shows market + type picker", async ({ page }) => {
       await ensureClientLogin(page);
       await resetWizard(page);
-      await page.getByRole("button", { name: /Continue.*new number/i }).click();
+      await page.getByRole("button", { name: /Choose this.*get a new number/i }).click();
       await page.waitForTimeout(800);
 
       // Country picker (US default)
@@ -118,7 +118,7 @@ test.describe("Tradeline setup wizard", () => {
       test.skip(!TEST_MODE_ACTIVE, "Requires TRADELINE_SETUP_TEST_MODE=true on the server");
       await ensureClientLogin(page);
       await resetWizard(page);
-      await page.getByRole("button", { name: /Continue.*new number/i }).click();
+      await page.getByRole("button", { name: /Choose this.*get a new number/i }).click();
       await page.waitForTimeout(500);
       await page.getByRole("button", { name: /Reserve my number/i }).click();
 
@@ -131,7 +131,7 @@ test.describe("Tradeline setup wizard", () => {
       test.skip(!TEST_MODE_ACTIVE, "Requires TRADELINE_SETUP_TEST_MODE=true");
       await ensureClientLogin(page);
       await resetWizard(page);
-      await page.getByRole("button", { name: /Continue.*new number/i }).click();
+      await page.getByRole("button", { name: /Choose this.*get a new number/i }).click();
       await page.waitForTimeout(500);
       await page.getByRole("button", { name: /Reserve my number/i }).click();
       await page.waitForTimeout(1000);
@@ -156,9 +156,9 @@ test.describe("Tradeline setup wizard", () => {
       await resetWizard(page);
 
       // Pick Option B
-      await page.getByText(/Keep your existing number/i).first().click();
+      await page.getByText(/Forward your existing number/i).first().click();
       await page.waitForTimeout(300);
-      await page.getByRole("button", { name: /Continue.*forward/i }).click();
+      await page.getByRole("button", { name: /Choose this.*forward my existing number/i }).click();
       await page.waitForTimeout(500);
 
       // Phone number input visible
@@ -170,9 +170,9 @@ test.describe("Tradeline setup wizard", () => {
       test.skip(!TEST_MODE_ACTIVE, "Requires TRADELINE_SETUP_TEST_MODE=true");
       await ensureClientLogin(page);
       await resetWizard(page);
-      await page.getByText(/Keep your existing number/i).first().click();
+      await page.getByText(/Forward your existing number/i).first().click();
       await page.waitForTimeout(300);
-      await page.getByRole("button", { name: /Continue.*forward/i }).click();
+      await page.getByRole("button", { name: /Choose this.*forward my existing number/i }).click();
       await page.waitForTimeout(500);
 
       // Enter a number ending in 2 → Rogers in test mode
@@ -194,9 +194,9 @@ test.describe("Tradeline setup wizard", () => {
       test.skip(!TEST_MODE_ACTIVE, "Requires TRADELINE_SETUP_TEST_MODE=true");
       await ensureClientLogin(page);
       await resetWizard(page);
-      await page.getByText(/Keep your existing number/i).first().click();
+      await page.getByText(/Forward your existing number/i).first().click();
       await page.waitForTimeout(300);
-      await page.getByRole("button", { name: /Continue.*forward/i }).click();
+      await page.getByRole("button", { name: /Choose this.*forward my existing number/i }).click();
       await page.waitForTimeout(500);
       await page.locator('input[type="tel"]').fill("+14165550003");
       await page.getByRole("button", { name: /^Continue/i }).click();
@@ -222,8 +222,8 @@ test.describe("Tradeline setup wizard", () => {
       await ensureClientLogin(page);
       await page.goto("/portal/tradeline/setup", { waitUntil: "domcontentloaded" });
 
-      // Open Option C card
-      await page.getByText(/Port your existing number/i).first().click();
+      // Open Option C card (Wave 87 copy — default-expanded but click is a no-op)
+      await page.getByText(/Keep your existing number forever/i).first().click();
       await page.waitForTimeout(300);
 
       // No Pro tag, no locked-state copy
@@ -231,7 +231,9 @@ test.describe("Tradeline setup wizard", () => {
       await expect(page.getByText(/Porting requires the Pro plan/i)).not.toBeVisible();
 
       // Continue button is rendered for all clients
-      await expect(page.getByRole("button", { name: /Continue.*port.*existing/i })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /Choose this.*keep my existing number/i }),
+      ).toBeVisible();
     });
   });
 
