@@ -36,7 +36,6 @@
  *     actionable message.
  */
 
-import { read as xlsxRead, utils as xlsxUtils } from "xlsx";
 // Import the lib entry directly to bypass pdf-parse's index.js debug shim,
 // which under ESM detects `!module.parent` and tries to read a missing
 // test fixture on first require. The lib export is the same function.
@@ -46,6 +45,50 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("PricingDocExtractor");
+
+/* ─── Lazy xlsx loader ──────────────────────────────────────────────────
+ * Wave 97: xlsx is only needed for the Excel-MIME branch. We dynamic-import
+ * it instead of a top-level static import so the server bundle compiles even
+ * when xlsx isn't installed in the build environment (e.g. drifted
+ * node_modules on Replit's publish container, where the workspace lockfile
+ * lists xlsx but the install step has skipped it). If xlsx is missing at
+ * runtime, the Excel branch fails with a clear 503 instead of taking down
+ * the whole extractor — PDF / image / email / text paths keep working.
+ *
+ * Keep xlsx in package.json: it's still a real dependency for the runtime
+ * Excel path when the install is healthy.
+ */
+// Types are erased at compile time; this `import("xlsx")` in a type position
+// never reaches esbuild's bundle graph.
+type XlsxRead = typeof import("xlsx").read;
+type XlsxUtils = typeof import("xlsx").utils;
+type XlsxModule =
+  | { ok: true; read: XlsxRead; utils: XlsxUtils }
+  | { ok: false; reason: "xlsx_module_unavailable" };
+
+async function loadXlsx(): Promise<XlsxModule> {
+  try {
+    // Dynamic `import()` — esbuild keeps this as a runtime resolution and
+    // does NOT hard-fail the bundle when xlsx is missing from node_modules
+    // (unlike a top-level static `import`, which made Replit's publish step
+    // crash with `Could not resolve "xlsx"` whenever the workspace drifted
+    // from the lockfile). At runtime, a missing xlsx is caught here and the
+    // Excel branch degrades to a clear 503 instead of crashing the request.
+    const mod = (await import("xlsx")) as
+      | { read: XlsxRead; utils: XlsxUtils }
+      | { default: { read: XlsxRead; utils: XlsxUtils } };
+    const resolved =
+      "read" in mod
+        ? mod
+        : (mod as { default: { read: XlsxRead; utils: XlsxUtils } }).default;
+    return { ok: true, read: resolved.read, utils: resolved.utils };
+  } catch (err) {
+    log.warn("xlsx module unavailable, Excel extraction disabled", {
+      error: String((err as { message?: string })?.message ?? err).slice(0, 200),
+    });
+    return { ok: false, reason: "xlsx_module_unavailable" };
+  }
+}
 
 /* ─── Accepted MIME types (single source of truth for both routes) ──── */
 
@@ -121,7 +164,8 @@ export class ExtractionError extends Error {
     | "empty_spreadsheet"
     | "empty_text"
     | "too_little_text"
-    | "parse_failed";
+    | "parse_failed"
+    | "xlsx_unavailable";
   /** Suggested HTTP status (the route is free to override). */
   status: number;
   /** Customer-facing message; the route can use as-is. */
@@ -217,14 +261,25 @@ async function extractFromPdf(
 
 /* ─── Excel extraction ──────────────────────────────────────────────── */
 
-function extractFromExcel(buffer: Buffer): {
+async function extractFromExcel(buffer: Buffer): Promise<{
   text: string;
   sheetUsed: string;
   totalSheets: number;
-} {
-  let workbook: ReturnType<typeof xlsxRead>;
+}> {
+  const xlsx = await loadXlsx();
+  if (!xlsx.ok) {
+    // Bundle was built without xlsx available (drifted node_modules etc.).
+    // Surface a clear, actionable message instead of a 500 — the uploader
+    // can fall back to PDF/photo/email of the same price list.
+    throw new ExtractionError(
+      "xlsx_unavailable",
+      503,
+      "Excel uploads are temporarily unavailable on this deployment. Please upload a PDF, photo, or email of your pricing instead.",
+    );
+  }
+  let workbook: ReturnType<typeof xlsx.read>;
   try {
-    workbook = xlsxRead(buffer, { type: "buffer" });
+    workbook = xlsx.read(buffer, { type: "buffer" });
   } catch (err: any) {
     log.warn("xlsx read threw", { error: String(err?.message ?? err).slice(0, 200) });
     throw new ExtractionError(
@@ -254,7 +309,7 @@ function extractFromExcel(buffer: Buffer): {
   // Render as 2D array → join rows with \n, cells with \t. Matches how a
   // plain-text dump of a price list reads in chat, which is what the
   // extraction prompt was trained against.
-  const rows: unknown[][] = xlsxUtils.sheet_to_json(sheet, {
+  const rows: unknown[][] = xlsx.utils.sheet_to_json(sheet, {
     header: 1,
     blankrows: false,
     defval: "",
@@ -339,7 +394,7 @@ export async function extractFromFile(
 
   /* ─── Excel. ─── */
   if (isExcelMime(mime)) {
-    const { text, sheetUsed, totalSheets } = extractFromExcel(buffer);
+    const { text, sheetUsed, totalSheets } = await extractFromExcel(buffer);
     if (!text || text.length < MIN_TEXT_LENGTH) {
       throw new ExtractionError(
         "too_little_text",
