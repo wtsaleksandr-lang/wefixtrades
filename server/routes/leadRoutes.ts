@@ -6,6 +6,7 @@ import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
 import { buildHostedUrl } from "@shared/slugUtils";
 import { createLogger } from "../lib/logger";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { emitApiWebhookEvent } from "../services/apiWebhookDispatcher";
 import {
   leadsSubmissionRateLimiter,
@@ -476,17 +477,23 @@ export function registerLeadRoutes(app: Express): void {
         })
         .catch((err) => log.warn("Webhook emit lookup failed", { error: err?.message }));
 
-      captureIntakeEvent({
-        sourceType:    'public_form',
-        eventType:     'lead.submitted',
-        correlationId: `lead-${lead.id}`,
-        actorType:     'anonymous',
-        entityType:    'lead',
-        entityId:      String(lead.id),
-        accountId:     parsed.data.calculator_id,
-        rawPayload:    req.body,
-        context:       { ipAddress: req.ip, userAgent: req.headers['user-agent'] as string | undefined },
-      }).catch(() => {});
+      // Wave 92: captureIntakeEvent feeds the audit trail. Previously a
+      // `.catch(() => {})` swallowed write failures so lead-source attribution
+      // would silently miss entries when intake_events had any DB pressure.
+      noisyCatch(
+        captureIntakeEvent({
+          sourceType:    'public_form',
+          eventType:     'lead.submitted',
+          correlationId: `lead-${lead.id}`,
+          actorType:     'anonymous',
+          entityType:    'lead',
+          entityId:      String(lead.id),
+          accountId:     parsed.data.calculator_id,
+          rawPayload:    req.body,
+          context:       { ipAddress: req.ip, userAgent: req.headers['user-agent'] as string | undefined },
+        }),
+        { op: "intake.lead.submitted", meta: { lead_id: lead.id, calculator_id: parsed.data.calculator_id } },
+      );
 
       res.json({ success: true, lead });
     } catch (error: any) {

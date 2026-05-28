@@ -14,6 +14,7 @@ import { adminAgentTools } from "../services/adminAgentTools";
 import { storePendingAction, getCopilotAction, getCopilotActionsForSurface } from "../services/copilotActionRegistry";
 import { executorFromCopilotAction } from "../services/aiAgentLoop";
 import { createLogger } from "../lib/logger";
+import { noisyCatch } from "../lib/silentFailureGuard";
 
 const log = createLogger("Chat");
 
@@ -397,7 +398,13 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
     res.write("data: [DONE]\n\n");
     res.end();
 
-    onComplete(fullReply).catch(() => {});
+    // Wave 92: onComplete persists chat history + emits analytics.
+    // Previously `.catch(() => {})` swallowed history-save failures so chat
+    // turns vanished from the audit trail.
+    noisyCatch(onComplete(fullReply), {
+      op: "chat.onComplete",
+      meta: { reply_length: fullReply.length },
+    });
   } catch (err: any) {
     log.error("[chat] Stream error:", err?.message);
     if (headersSent) {

@@ -3,6 +3,7 @@ import { createLogger } from "../lib/logger";
 import { aiGateAllowed, recordAiSpend } from "./aiSystemGate";
 import { logUsage } from "./usageTracker";
 import { estimateCostMicroCents, rateForModel } from "./aiPricing";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { db } from "../db";
 import { aiSystemGates } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -325,17 +326,22 @@ export async function chat(opts: ChatOptions): Promise<string> {
           input_rate_per_1m: rate.input,
         });
         if (opts.surface) {
-          logUsage({
-            model,
-            surface: opts.surface as any,
-            provider: "anthropic",
-            channel: "chat",
-            userId: opts.userId,
-            sessionId: opts.sessionId,
-            latencyMs: 0,
-            success: false,
-            errorMessage: "pre_flight_budget_exceeded",
-          }).catch(() => {});
+          // Wave 92: previously `.catch(() => {})` swallowed usage-log failures,
+          // which means cost tracking silently drifted from reality. Now logged.
+          noisyCatch(
+            logUsage({
+              model,
+              surface: opts.surface as any,
+              provider: "anthropic",
+              channel: "chat",
+              userId: opts.userId,
+              sessionId: opts.sessionId,
+              latencyMs: 0,
+              success: false,
+              errorMessage: "pre_flight_budget_exceeded",
+            }),
+            { op: "ai.logUsage.preflight_budget_exceeded", meta: { surface: opts.surface } },
+          );
         }
         throw new Error(
           `AI surface "${opts.surface}" would exceed its monthly budget on this call ` +
@@ -374,28 +380,8 @@ export async function chat(opts: ChatOptions): Promise<string> {
       if (opts.surface) {
         const inputTokens = usage?.input_tokens ?? 0;
         const outputTokens = usage?.output_tokens ?? 0;
-        logUsage({
-          model,
-          surface: opts.surface as any,
-          provider: "anthropic",
-          channel: "chat",
-          userId: opts.userId,
-          sessionId: opts.sessionId,
-          inputTokens,
-          outputTokens,
-          latencyMs: Date.now() - tStart,
-          success: true,
-        }).catch(() => {});
-        const microCents = estimateCostMicroCents(model, inputTokens, outputTokens);
-        // micro-cents (× 1,000,000) → cents — divide by 10,000.
-        recordAiSpend(opts.surface, microCents / 10_000).catch(() => {});
-      }
-
-      return block.type === "text" ? block.text : "";
-    } catch (err: any) {
-      lastError = err;
-      if (err?.status === 401 || err?.status === 400) {
-        if (opts.surface) {
+        // Wave 92: usage logging + spend accounting now noisy on failure.
+        noisyCatch(
           logUsage({
             model,
             surface: opts.surface as any,
@@ -403,10 +389,42 @@ export async function chat(opts: ChatOptions): Promise<string> {
             channel: "chat",
             userId: opts.userId,
             sessionId: opts.sessionId,
+            inputTokens,
+            outputTokens,
             latencyMs: Date.now() - tStart,
-            success: false,
-            errorMessage: err?.message?.slice(0, 500),
-          }).catch(() => {});
+            success: true,
+          }),
+          { op: "ai.logUsage.success", meta: { surface: opts.surface, model } },
+        );
+        const microCents = estimateCostMicroCents(model, inputTokens, outputTokens);
+        // micro-cents (× 1,000,000) → cents — divide by 10,000.
+        // Wave 92: failure to record spend means the gate cap will drift.
+        noisyCatch(recordAiSpend(opts.surface, microCents / 10_000), {
+          op: "ai.recordSpend",
+          meta: { surface: opts.surface, cents: microCents / 10_000 },
+        });
+      }
+
+      return block.type === "text" ? block.text : "";
+    } catch (err: any) {
+      lastError = err;
+      if (err?.status === 401 || err?.status === 400) {
+        if (opts.surface) {
+          // Wave 92: noisy on usage-log failure.
+          noisyCatch(
+            logUsage({
+              model,
+              surface: opts.surface as any,
+              provider: "anthropic",
+              channel: "chat",
+              userId: opts.userId,
+              sessionId: opts.sessionId,
+              latencyMs: Date.now() - tStart,
+              success: false,
+              errorMessage: err?.message?.slice(0, 500),
+            }),
+            { op: "ai.logUsage.4xx", meta: { surface: opts.surface, status: err?.status } },
+          );
         }
         throw err;
       }
@@ -418,17 +436,21 @@ export async function chat(opts: ChatOptions): Promise<string> {
   }
 
   if (opts.surface) {
-    logUsage({
-      model,
-      surface: opts.surface as any,
-      provider: "anthropic",
-      channel: "chat",
-      userId: opts.userId,
-      sessionId: opts.sessionId,
-      latencyMs: Date.now() - tStart,
-      success: false,
-      errorMessage: lastError?.message?.slice(0, 500),
-    }).catch(() => {});
+    // Wave 92: noisy on usage-log failure at retry-exhaustion.
+    noisyCatch(
+      logUsage({
+        model,
+        surface: opts.surface as any,
+        provider: "anthropic",
+        channel: "chat",
+        userId: opts.userId,
+        sessionId: opts.sessionId,
+        latencyMs: Date.now() - tStart,
+        success: false,
+        errorMessage: lastError?.message?.slice(0, 500),
+      }),
+      { op: "ai.logUsage.exhausted", meta: { surface: opts.surface, model } },
+    );
   }
 
   /* Reliability fallback: Anthropic exhausted (5xx after MAX_RETRIES, or
@@ -453,33 +475,41 @@ export async function chat(opts: ChatOptions): Promise<string> {
 
     if (opts.surface) {
       const usage = completion.usage;
-      logUsage({
-        model: OPENAI_FALLBACK_MODEL,
-        surface: opts.surface as any,
-        provider: "openai",
-        channel: "chat",
-        userId: opts.userId,
-        sessionId: opts.sessionId,
-        inputTokens: usage?.prompt_tokens ?? 0,
-        outputTokens: usage?.completion_tokens ?? 0,
-        latencyMs: Date.now() - tFallbackStart,
-        success: true,
-      }).catch(() => {});
+      // Wave 92: noisy on usage-log failure for OpenAI fallback success.
+      noisyCatch(
+        logUsage({
+          model: OPENAI_FALLBACK_MODEL,
+          surface: opts.surface as any,
+          provider: "openai",
+          channel: "chat",
+          userId: opts.userId,
+          sessionId: opts.sessionId,
+          inputTokens: usage?.prompt_tokens ?? 0,
+          outputTokens: usage?.completion_tokens ?? 0,
+          latencyMs: Date.now() - tFallbackStart,
+          success: true,
+        }),
+        { op: "ai.logUsage.openai_fallback_success", meta: { surface: opts.surface } },
+      );
     }
     return text;
   } catch (fallbackErr: any) {
     if (opts.surface) {
-      logUsage({
-        model: OPENAI_FALLBACK_MODEL,
-        surface: opts.surface as any,
-        provider: "openai",
-        channel: "chat",
-        userId: opts.userId,
-        sessionId: opts.sessionId,
-        latencyMs: Date.now() - tFallbackStart,
-        success: false,
-        errorMessage: fallbackErr?.message?.slice(0, 500),
-      }).catch(() => {});
+      // Wave 92: noisy on usage-log failure for OpenAI fallback failure.
+      noisyCatch(
+        logUsage({
+          model: OPENAI_FALLBACK_MODEL,
+          surface: opts.surface as any,
+          provider: "openai",
+          channel: "chat",
+          userId: opts.userId,
+          sessionId: opts.sessionId,
+          latencyMs: Date.now() - tFallbackStart,
+          success: false,
+          errorMessage: fallbackErr?.message?.slice(0, 500),
+        }),
+        { op: "ai.logUsage.openai_fallback_failed", meta: { surface: opts.surface } },
+      );
     }
     // Both providers exhausted — propagate the ORIGINAL Anthropic error.
     throw lastError || fallbackErr || new Error("Chat request failed after retries");

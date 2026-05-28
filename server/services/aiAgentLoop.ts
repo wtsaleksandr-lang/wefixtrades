@@ -36,6 +36,7 @@ import { getCopilotAction, type ActionSurface, type PendingAction } from "./copi
 import { runAgentLoopCore, type AgentLoopDeps, type AgentLoopInput, type AgentLoopResult, type ToolExecutor, type AgentLoopStep } from "./aiAgentLoopCore";
 import type { ChatSurface } from "./promptBuilder";
 import { createLogger } from "../lib/logger";
+import { noisyCatch } from "../lib/silentFailureGuard";
 
 const log = createLogger("AgentLoop");
 
@@ -57,24 +58,38 @@ function bindDeps(): AgentLoopDeps {
     getModel,
     gate: (surface) => aiGateAllowed(surface),
     logUsage: (params) => {
-      logUsage({
-        model: params.model,
-        surface: params.surface as ChatSurface,
-        provider: "anthropic",
-        channel: "agent_loop",
-        userId: params.userId,
-        sessionId: params.sessionId,
-        inputTokens: params.inputTokens,
-        outputTokens: params.outputTokens,
-        latencyMs: params.latencyMs,
-        success: params.success,
-        errorMessage: params.errorMessage,
-        loopRunId: params.loopRunId,
-        stepIndex: params.stepIndex,
-      }).catch(() => {});
+      // Wave 92: previously `.catch(() => {})` swallowed usage-log failures
+      // for the multi-step agent loop, so any DB outage would silently break
+      // cost attribution + the spend cap on long agent runs.
+      noisyCatch(
+        logUsage({
+          model: params.model,
+          surface: params.surface as ChatSurface,
+          provider: "anthropic",
+          channel: "agent_loop",
+          userId: params.userId,
+          sessionId: params.sessionId,
+          inputTokens: params.inputTokens,
+          outputTokens: params.outputTokens,
+          latencyMs: params.latencyMs,
+          success: params.success,
+          errorMessage: params.errorMessage,
+          loopRunId: params.loopRunId,
+          stepIndex: params.stepIndex,
+        }),
+        {
+          op: "ai.agent_loop.logUsage",
+          meta: { surface: params.surface, loop_run_id: params.loopRunId, step_index: params.stepIndex },
+        },
+      );
     },
     recordSpend: (surface, cents) => {
-      recordAiSpend(surface, cents).catch(() => {});
+      // Wave 92: silent spend-record drop meant the agent could exceed the
+      // monthly cap if the spend write failed — surface failures loudly.
+      noisyCatch(recordAiSpend(surface, cents), {
+        op: "ai.agent_loop.recordSpend",
+        meta: { surface, cents },
+      });
     },
     estimateCostMicroCents,
     getActionRiskTier: (surface, name) => getCopilotAction(surface, name)?.riskTier,
