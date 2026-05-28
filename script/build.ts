@@ -88,10 +88,16 @@ const allowlist = [
  *   still warned and continue, so a single flaky landing page doesn't
  *   break the deploy.
  *
- * Skip with SKIP_PRERENDER=1 for quick iteration on the server side.
+ * Wave 99 — SKIP_PRERENDER is IGNORED on production builds.
+ *   Diagnostic on 2026-05-28 showed prod was shipping dist/public/ with
+ *   ZERO route HTML files — root cause was SKIP_PRERENDER=1 leaking into
+ *   the Replit deploy build environment. Result: TCR vetting bot saw the
+ *   empty SPA shell on /sms-consent-disclosure, /privacy, /terms and
+ *   rejected the A2P 10DLC campaign. The env-flag escape hatch must not
+ *   be honoured in production — local iteration only.
  */
 async function prerenderRoutes(): Promise<void> {
-  if (process.env.SKIP_PRERENDER === "1") {
+  if (isPrerenderSkipped("build")) {
     console.log("[build] SKIP_PRERENDER=1 — skipping prerender step.");
     return;
   }
@@ -129,6 +135,36 @@ async function prerenderRoutes(): Promise<void> {
 }
 
 /**
+ * Wave 99 — production-build prerender enforcement.
+ *
+ * Returns true only when SKIP_PRERENDER=1 AND the build is NOT a
+ * production deploy. Replit autoscale sets one or more of
+ * REPLIT_DEPLOYMENT / REPL_DEPLOYMENT_ID / NODE_ENV=production during
+ * the deploy build; any of those forces prerender to run regardless of
+ * the env flag, with a loud diagnostic line so the override is visible
+ * in deploy logs.
+ *
+ * @param tag short label that prefixes the override-ignored log line.
+ */
+function isPrerenderSkipped(tag: string): boolean {
+  if (process.env.SKIP_PRERENDER !== "1") return false;
+  const isProdBuild =
+    process.env.NODE_ENV === "production" ||
+    process.env.REPLIT_DEPLOYMENT === "1" ||
+    !!process.env.REPL_DEPLOYMENT_ID ||
+    !!process.env.REPLIT_DEPLOYMENT_ID;
+  if (!isProdBuild) return true;
+  console.log(
+    `[${tag}] SKIP_PRERENDER=1 IGNORED — production builds must prerender. ` +
+      `Detected: NODE_ENV=${process.env.NODE_ENV ?? "<unset>"}, ` +
+      `REPLIT_DEPLOYMENT=${process.env.REPLIT_DEPLOYMENT ?? "<unset>"}, ` +
+      `REPL_DEPLOYMENT_ID=${process.env.REPL_DEPLOYMENT_ID ? "<set>" : "<unset>"}. ` +
+      `Skipping prerender in prod ships an empty SPA shell to TCR/Bing/LLM crawlers.`,
+  );
+  return false;
+}
+
+/**
  * Wave 90 — post-build smoke check.
  *
  * After the client + prerender + server bundles are emitted, verify
@@ -137,10 +173,10 @@ async function prerenderRoutes(): Promise<void> {
  * regressions like the prerender silently skipping a page, or a
  * template-fallback writer running but emitting an empty file.
  *
- * Skipped if SKIP_PRERENDER=1 (no prerendered output to check).
+ * Wave 99 — see isPrerenderSkipped(): production builds always run.
  */
 async function runBuildSmoke(): Promise<void> {
-  if (process.env.SKIP_PRERENDER === "1") {
+  if (isPrerenderSkipped("build")) {
     console.log("[build] SKIP_PRERENDER=1 — skipping post-build smoke check.");
     return;
   }

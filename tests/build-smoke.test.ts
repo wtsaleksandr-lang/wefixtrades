@@ -52,14 +52,34 @@ import path from "node:path";
 // won't exist for routes that lack a static-template fallback. Asserting on
 // those files would be a guaranteed false-positive failure (GitHub CI runs
 // on ubuntu-latest without Chromium system libs, so prerender can't run
-// there). Defer to the build's own gate instead — production builds on Replit
-// do NOT set this flag, so the smoke check still enforces every critical
-// route at deploy time.
+// there).
+//
+// Wave 99 — production-build override. Earlier we assumed prod builds on
+// Replit never set SKIP_PRERENDER. 2026-05-28 diagnostic proved otherwise:
+// the deploy build was setting the flag (somewhere — likely an inherited
+// Replit Secret), which caused prerender + this smoke check to both
+// short-circuit, shipping dist/public/ with zero route HTML files and an
+// empty TCR/Bing/LLM crawler response. Now SKIP_PRERENDER is ignored when
+// any production indicator is set; CI on ubuntu-latest still gets to skip.
 if (process.env.SKIP_PRERENDER === "1") {
-  console.log(
-    "[build-smoke] SKIP_PRERENDER=1 detected — skipping smoke test (CI mode).",
-  );
-  process.exit(0);
+  const isProdBuild =
+    process.env.NODE_ENV === "production" ||
+    process.env.REPLIT_DEPLOYMENT === "1" ||
+    !!process.env.REPL_DEPLOYMENT_ID ||
+    !!process.env.REPLIT_DEPLOYMENT_ID;
+  if (isProdBuild) {
+    console.log(
+      `[build-smoke] SKIP_PRERENDER=1 IGNORED — production builds must validate. ` +
+        `Detected: NODE_ENV=${process.env.NODE_ENV ?? "<unset>"}, ` +
+        `REPLIT_DEPLOYMENT=${process.env.REPLIT_DEPLOYMENT ?? "<unset>"}, ` +
+        `REPL_DEPLOYMENT_ID=${process.env.REPL_DEPLOYMENT_ID ? "<set>" : "<unset>"}.`,
+    );
+  } else {
+    console.log(
+      "[build-smoke] SKIP_PRERENDER=1 detected — skipping smoke test (CI mode).",
+    );
+    process.exit(0);
+  }
 }
 
 // `import.meta.url` is a file:// URL; on Windows the .pathname form

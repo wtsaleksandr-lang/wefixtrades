@@ -456,6 +456,8 @@ function MarketingFooter() {
             <span style={legalDividerStyle} />
             <Link href="/terms" className="mkt-ft-soft" style={legalLinkStyle}>Cookies</Link>
             <span style={legalDividerStyle} />
+            <Link href="/sms-consent-disclosure" className="mkt-ft-soft" style={legalLinkStyle}>SMS Consent</Link>
+            <span style={legalDividerStyle} />
             <Link href="/sitemap" className="mkt-ft-soft" style={legalLinkStyle}>Sitemap</Link>
             {isAuthenticated && (
               <>
