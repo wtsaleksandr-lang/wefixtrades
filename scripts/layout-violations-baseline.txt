@@ -4,7 +4,7 @@
 # here and re-run `npm run check:layout-rules` to confirm.
 # Format: <file>:<line>:<col>\t<kind>\t<snippet>
 client/src/components/admin/AdminCopilot.tsx:1504:13	rule-c	square w-9 h-9
-client/src/components/admin/AdminLayout.tsx:1289:25	rule-c	square w-7 h-7
+client/src/components/admin/AdminLayout.tsx:1475:25	rule-c	square w-7 h-7
 client/src/components/admin/LucideIconPicker.tsx:159:32	rule-c	square w-2.5 h-2.5
 client/src/components/admin/LucideIconPicker.tsx:163:23	rule-c	square w-12 h-12
 client/src/components/admin/MapguardTaskCard.tsx:189:17	rule-c	square w-7 h-7

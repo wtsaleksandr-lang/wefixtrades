@@ -4,7 +4,7 @@ import { storage } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness, getTradeLineDefaultConfig } from "@shared/schema";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { tiersSchema } from "@shared/tiers";
-import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
+import { QUOTEQUICK_PLAN_REVENUE_CENTS, ALL_PRODUCTS } from "@shared/pricing";
 import { automationConfigSchema } from "@shared/automationConfig";
 import { engineConfigSchema } from "@shared/engineConfig";
 import { z } from "zod";
@@ -166,6 +166,37 @@ export function registerAdminCrmRoutes(app: Express): void {
     const n = raw ? parseInt(raw, 10) : 1;
     return Number.isFinite(n) && n >= 1 ? n : 1;
   })();
+
+  // GET /api/admin/products — active/hidden state for ALL catalog products.
+  // Returns one row per ProductDef in ALL_PRODUCTS, reducing across the
+  // product's tier rows the SAME way resolveProductRow / the :id handler
+  // does: is_active iff ANY tier is active; hidden iff EVERY tier is hidden.
+  // Used by the admin sidebar to decide which products belong in the
+  // "live" (simple) section vs behind the Advanced reveal. requireAdmin-gated.
+  app.get("/api/admin/products", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const all = await storage.listServicesWithClientCounts();
+      const rows = ALL_PRODUCTS.map((p) => {
+        // A product family's catalog rows are its tier rows, whose ids are
+        // prefixed with `${p.id}-` (e.g. "tradeline-starter"). Some single-
+        // tier products carry a bare id equal to the family id (e.g.
+        // "sitelaunch", "webfix") — include those too.
+        const tiers = all.filter((r) => r.id === p.id || r.id.startsWith(`${p.id}-`));
+        const anyActive = tiers.length > 0 ? tiers.some((t) => t.is_active) : false;
+        const allHidden = tiers.length > 0 ? tiers.every((t) => (t as any).hidden === true) : false;
+        return {
+          id: p.id,
+          name: p.name,
+          is_active: anyActive,
+          hidden: allHidden,
+        };
+      });
+      res.json(rows);
+    } catch (err: any) {
+      log.error("[products list GET] Error:", err.message);
+      res.status(500).json({ error: "Failed to list products" });
+    }
+  });
 
   // GET /api/admin/products/:id — current published row + latest pending draft (if any)
   app.get("/api/admin/products/:id", requireAdmin, async (req: Request, res: Response) => {
