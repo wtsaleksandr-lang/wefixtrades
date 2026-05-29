@@ -65,7 +65,7 @@ client/src/pages/admin/ApiPlatformUserDetailPage.tsx:376:25	rule-c	square w-12 h
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h-12
 client/src/pages/admin/BookingCalendarPage.tsx:53:16	rule-c	square w-10 h-10
 client/src/pages/admin/BookingCalendarPage.tsx:138:24	rule-c	square w-10 h-10
-client/src/pages/admin/ClientDetailPage.tsx:766:7	rule-b	<div> contains 2 cues
+client/src/pages/admin/ClientDetailPage.tsx:767:7	rule-b	<div> contains 2 cues
 client/src/pages/admin/CommunicationsPage.tsx:1123:21	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CommunicationsPage.tsx:1128:21	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CommunicationsPage.tsx:1231:23	rule-c	square w-2 h-2
@@ -102,8 +102,8 @@ client/src/pages/admin/QuoteQuickTradesPage.tsx:227:9	rule-c	square w-10 h-10
 client/src/pages/admin/QuoteQuickTradesPage.tsx:233:22	rule-c	size={18}
 client/src/pages/admin/QuoteQuickTradesPage.tsx:347:19	rule-c	square w-10 h-10
 client/src/pages/admin/QuoteQuickTradesPage.tsx:353:32	rule-c	size={18}
-client/src/pages/admin/ReviewsPage.tsx:485:5	rule-b	<div> contains 3 cues
-client/src/pages/admin/ReviewsPage.tsx:673:29	rule-c	square w-2 h-2
+client/src/pages/admin/ReviewsPage.tsx:488:5	rule-b	<div> contains 3 cues
+client/src/pages/admin/ReviewsPage.tsx:674:29	rule-c	square w-2 h-2
 client/src/pages/admin/SupportTicketDetailPage.tsx:288:39	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/SystemAlertsPage.tsx:182:26	rule-c	square w-10 h-10
 client/src/pages/admin/SystemWorkersPage.tsx:199:16	rule-c	square w-2.5 h-2.5

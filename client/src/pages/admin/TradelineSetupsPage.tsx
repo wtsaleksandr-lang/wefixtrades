@@ -89,6 +89,13 @@ export default function TradelineSetupsPage() {
   const [mode, setMode] = useState<string>("all");
   const [completed, setCompleted] = useState<"all" | "yes" | "no">("all");
   const [detailId, setDetailId] = useState<number | null>(null);
+  /** Page size matches the backend default limit (max 200). */
+  const PAGE_SIZE = 50;
+  const [offset, setOffset] = useState(0);
+
+  // Filters reset paging to the first page so results stay in sync.
+  function changeMode(v: string) { setMode(v); setOffset(0); }
+  function changeCompleted(v: "all" | "yes" | "no") { setCompleted(v); setOffset(0); }
 
   const stats = useQuery<Stats>({
     queryKey: ["/api/admin/tradeline-setups/stats"],
@@ -96,12 +103,14 @@ export default function TradelineSetupsPage() {
   });
 
   const list = useQuery<ListResponse>({
-    queryKey: ["/api/admin/tradeline-setups", mode, completed],
+    queryKey: ["/api/admin/tradeline-setups", mode, completed, offset],
     queryFn: () => {
       const params = new URLSearchParams();
       if (mode !== "all") params.set("mode", mode);
       if (completed !== "all") params.set("completed", completed);
-      const qs = params.toString() ? `?${params.toString()}` : "";
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(offset));
+      const qs = `?${params.toString()}`;
       return apiRequest("GET", `/api/admin/tradeline-setups${qs}`).then((r) => r.json());
     },
   });
@@ -156,13 +165,13 @@ export default function TradelineSetupsPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-end">
-          <FilterSelect label="Mode" value={mode} onChange={setMode} options={[
+          <FilterSelect label="Mode" value={mode} onChange={changeMode} options={[
             { value: "all", label: "All modes" },
             { value: "new", label: "New number" },
             { value: "forward", label: "Forward existing" },
             { value: "port", label: "Port existing" },
           ]} />
-          <FilterSelect label="Completed" value={completed} onChange={(v) => setCompleted(v as any)} options={[
+          <FilterSelect label="Completed" value={completed} onChange={(v) => changeCompleted(v as any)} options={[
             { value: "all", label: "All" },
             { value: "yes", label: "Completed" },
             { value: "no", label: "In progress" },
@@ -243,10 +252,34 @@ export default function TradelineSetupsPage() {
           )}
         </Card>
 
-        {list.data && list.data.total > list.data.rows.length && (
-          <p className="text-xs text-gray-500 text-center">
-            Showing {list.data.rows.length} of {list.data.total}. Pagination controls coming in a follow-up.
-          </p>
+        {list.data && (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-xs text-gray-500">
+              {list.data.total > 0 ? (
+                <>Showing {offset + 1}–{Math.min(offset + list.data.rows.length, list.data.total)} of {list.data.total}</>
+              ) : (
+                <>No setups</>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                disabled={offset === 0 || list.isFetching}
+                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                disabled={offset + PAGE_SIZE >= list.data.total || list.isFetching}
+                onClick={() => setOffset(offset + PAGE_SIZE)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 
