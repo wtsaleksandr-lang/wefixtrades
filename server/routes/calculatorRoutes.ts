@@ -8,6 +8,7 @@ import { calculatorSettingsSchema } from "@shared/schema";
 import { BRAND_STUDIO_STYLE_KEYS, FLOATING_LAUNCHER_PRO_KEYS } from "@shared/templatePresets";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
 import { touchCalculatorActivity } from "../services/quotequickSlugLifecycle";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Calculator");
@@ -508,7 +509,11 @@ export function registerCalculatorRoutes(app: Express): void {
 
       // Wave P-E — owner edit counts as activity. Resets the slug-release
       // warning and bumps updated_at so the cron leaves the slug alone.
-      touchCalculatorActivity(calculator.id).catch(() => {});
+      // Wave 108 — noisyCatch so slug-lifecycle drift is logged.
+      noisyCatch(touchCalculatorActivity(calculator.id), {
+        op: "calculator.touchActivity.ownerEdit",
+        meta: { calculatorId: calculator.id },
+      });
 
       res.json({ success: true, calculator: updated, auto_republished: autoRepublished });
     } catch (error: any) {
@@ -653,16 +658,24 @@ export function registerCalculatorRoutes(app: Express): void {
         // slug-release warning the moment a real visitor lands. Same
         // call is also made by the PATCH /api/calculators route so any
         // owner edit counts as activity too.
-        touchCalculatorActivity(parsed.data.calculator_id).catch(() => {});
+        // Wave 108 — noisyCatch wrap.
+        noisyCatch(touchCalculatorActivity(parsed.data.calculator_id), {
+          op: "calculator.touchActivity.track",
+          meta: { calculatorId: parsed.data.calculator_id },
+        });
         const ua = _req.headers['user-agent'] || '';
         const isMobile = /Mobile|Android|iPhone/i.test(ua);
         const isTablet = /iPad|Tablet/i.test(ua);
         const device_type = isMobile ? 'mobile' : isTablet ? 'tablet' : 'desktop';
-        storage.trackEvent({
+        // Wave 108 — noisyCatch so analytics-view writes don't drop silently.
+        noisyCatch(storage.trackEvent({
           calculator_id: parsed.data.calculator_id,
           event_type: 'view',
           metadata: { device_type, user_agent: ua.substring(0, 200) },
-        }).catch(() => {});
+        }), {
+          op: "calculator.trackEvent.view",
+          meta: { calculatorId: parsed.data.calculator_id, deviceType: device_type },
+        });
       }
       res.json({ success: true });
     } catch {
@@ -677,11 +690,15 @@ export function registerCalculatorRoutes(app: Express): void {
       if (!event || typeof event !== 'string') return res.json({ ok: true });
       // Store activation events using a calculator_id=0 sentinel for non-calculator events
       const calcId = typeof data?.calculator_id === 'number' ? data.calculator_id : 0;
-      storage.trackEvent({
+      // Wave 108 — noisyCatch so activation-event drift is logged.
+      noisyCatch(storage.trackEvent({
         calculator_id: calcId,
         event_type: event,
         metadata: { ...data, ts: Date.now() },
-      }).catch(() => {});
+      }), {
+        op: "calculator.trackEvent.activation",
+        meta: { calculatorId: calcId, eventType: event },
+      });
       res.json({ ok: true });
     } catch {
       res.json({ ok: true });
@@ -759,12 +776,15 @@ export function registerCalculatorRoutes(app: Express): void {
         allow_promotion_codes: true,
       });
 
-      // Track plan selection
-      storage.trackEvent({
+      // Track plan selection — Wave 108 noisyCatch.
+      noisyCatch(storage.trackEvent({
         calculator_id: calculator.id,
         event_type: 'plan_selected',
         metadata: { plan: parsed.data.plan, billing: parsed.data.billing },
-      }).catch(() => {});
+      }), {
+        op: "calculator.trackEvent.planSelected",
+        meta: { calculatorId: calculator.id, plan: parsed.data.plan, billing: parsed.data.billing },
+      });
 
       res.json({ checkout_url: session.url });
     } catch (err: any) {
@@ -818,11 +838,15 @@ export function registerCalculatorRoutes(app: Express): void {
         cancel_url: `${baseUrl}/dashboard?token=${parsed.data.token}&install_cancelled=1`,
       });
 
-      storage.trackEvent({
+      // Wave 108 — noisyCatch so install-request analytics drift logs.
+      noisyCatch(storage.trackEvent({
         calculator_id: calculator.id,
         event_type: 'install_requested',
         metadata: { stripe_session_id: session.id },
-      }).catch(() => {});
+      }), {
+        op: "calculator.trackEvent.installRequested",
+        meta: { calculatorId: calculator.id, sessionId: session.id },
+      });
 
       res.json({ checkout_url: session.url });
     } catch (err: any) {
