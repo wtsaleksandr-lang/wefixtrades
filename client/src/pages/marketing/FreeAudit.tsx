@@ -8,7 +8,7 @@ import { useFaqSchema } from "@/lib/useFaqSchema";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import TrustStrip from "@/components/marketing/TrustStrip";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { colors } from "@/theme/tokens";
+import { colors, mkt } from "@/theme/tokens";
 import { Search, CheckCircle2, Calculator, ArrowRight, ChevronDown } from "lucide-react";
 import ReportView from "./ReportView";
 import AuditGate from "@/components/marketing/AuditGate";
@@ -666,7 +666,7 @@ export default function FreeAudit() {
           .audit-container { padding: 120px 24px 80px; }
         }
         .audit-input:focus {
-          border-color: #0d3cfc !important;
+          border-color: ${mkt.accent} !important;
           box-shadow: 0 0 0 4px rgba(13,60,252,0.16) !important;
         }
         /* BG-2: floating-label hero input — placeholder-shown drops the
@@ -683,7 +683,7 @@ export default function FreeAudit() {
           font-weight: 700;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-          color: #0d3cfc;
+          color: ${mkt.accent};
           background: #fff;
           padding: 0 2px;
           transition: top 0.15s ease, font-size 0.15s ease,
@@ -705,7 +705,7 @@ export default function FreeAudit() {
           transform: none;
           font-size: 10px;
           font-weight: 700;
-          color: #0d3cfc;
+          color: ${mkt.accent};
           text-transform: uppercase;
           letter-spacing: 0.06em;
         }
@@ -733,7 +733,7 @@ export default function FreeAudit() {
           position: absolute;
           inset: 0;
           border-radius: 4px;
-          background: linear-gradient(90deg, transparent, #0d3cfc, transparent);
+          background: linear-gradient(90deg, transparent, ${mkt.accent}, transparent);
           animation: audit-shimmer-move 1.4s ease-in-out infinite;
         }
         @keyframes audit-shimmer-move {
@@ -786,7 +786,7 @@ export default function FreeAudit() {
                   width: 14,
                   height: 14,
                   border: "2px solid rgba(13,60,252,0.3)",
-                  borderTopColor: "#0d3cfc",
+                  borderTopColor: mkt.accent,
                   borderRadius: "50%",
                   animation: "spin 0.7s linear infinite",
                   flexShrink: 0,
@@ -1049,7 +1049,7 @@ export default function FreeAudit() {
                       width: 18,
                       height: 18,
                       border: "2px solid rgba(13,60,252,0.2)",
-                      borderTopColor: "#0d3cfc",
+                      borderTopColor: mkt.accent,
                       borderRadius: "50%",
                       animation: "spin 0.7s linear infinite",
                     }}
@@ -1155,7 +1155,7 @@ export default function FreeAudit() {
                               width: 36, height: 36, borderRadius: "50%",
                               background: "rgba(13,60,252,0.08)",
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              flexShrink: 0, fontSize: 15, fontWeight: 700, color: "#0d3cfc",
+                              flexShrink: 0, fontSize: 15, fontWeight: 700, color: mkt.accent,
                             }}>
                               {p.name?.charAt(0) || "?"}
                             </div>
@@ -1252,7 +1252,7 @@ export default function FreeAudit() {
                             width: 15,
                             height: 15,
                             border: "2px solid rgba(13,60,252,0.3)",
-                            borderTopColor: "#0d3cfc",
+                            borderTopColor: mkt.accent,
                             borderRadius: "50%",
                             animation: "spin 0.7s linear infinite",
                           }}
@@ -1299,7 +1299,7 @@ export default function FreeAudit() {
                     textAlign: 'center', padding: '6px 0 2px',
                     fontSize: 12, color: '#6B7280',
                   }}>
-                    Report generated earlier today — <span style={{ color: '#0d3cfc', cursor: 'pointer' }}
+                    Report generated earlier today — <span style={{ color: mkt.accent, cursor: 'pointer' }}
                       onClick={() => { if (lastPredRef.current) runAudit(lastPredRef.current, lastTradeRef.current || undefined); }}>
                       Refresh for latest data
                     </span>
@@ -1375,7 +1375,7 @@ export default function FreeAudit() {
                   background: "rgba(13,60,252,0.08)",
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
-                  <Calculator size={16} color="#0d3cfc" strokeWidth={1.8} />
+                  <Calculator size={16} color=mkt.accent strokeWidth={1.8} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 650, color: "#111827" }}>Instant Quote Demo</div>

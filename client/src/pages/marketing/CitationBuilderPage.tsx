@@ -30,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { mkt } from "@/theme/tokens";
 
 const PAGE_PATH = "/citation-builder";
 const SITE_URL = "https://wefixtrades.com";
@@ -244,7 +245,7 @@ function TierCard({
       data-testid={`tier-card-${tier.id}`}
       style={{
         background: "rgb(255,255,255)",
-        border: isHighlighted ? "2px solid #0d3cfc" : "1px solid rgba(0,0,0,0.10)",
+        border: isHighlighted ? `2px solid ${mkt.accent}` : "1px solid rgba(0,0,0,0.10)",
         borderRadius: 18,
         padding: 24,
         boxShadow: isHighlighted
@@ -262,7 +263,7 @@ function TierCard({
             position: "absolute",
             top: -12,
             right: 16,
-            background: "#0d3cfc",
+            background: mkt.accent,
             color: "rgb(255,255,255)",
             fontSize: 11,
             fontWeight: 700,
@@ -276,7 +277,7 @@ function TierCard({
         </div>
       )}
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#0d3cfc", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: mkt.accent, letterSpacing: "0.06em", textTransform: "uppercase" }}>
           {tier.name}
         </div>
         <div style={{ fontSize: 32, fontWeight: 900, color: "#111827", marginTop: 6 }}>
@@ -311,9 +312,9 @@ function TierCard({
           alignItems: "center",
           justifyContent: "center",
           gap: 6,
-          background: isHighlighted ? "#0d3cfc" : "rgb(255,255,255)",
-          color: isHighlighted ? "rgb(255,255,255)" : "#0d3cfc",
-          border: isHighlighted ? "none" : "1.5px solid #0d3cfc",
+          background: isHighlighted ? mkt.accent : "rgb(255,255,255)",
+          color: isHighlighted ? "rgb(255,255,255)" : mkt.accent,
+          border: isHighlighted ? "none" : `1.5px solid ${mkt.accent}`,
           padding: "11px 16px",
           borderRadius: 12,
           fontSize: 14,
@@ -487,7 +488,7 @@ export default function CitationBuilderPage() {
               fontWeight: 700,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
-              color: "#0d3cfc",
+              color: mkt.accent,
               marginBottom: 12,
             }}
           >
@@ -528,7 +529,7 @@ export default function CitationBuilderPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                background: "#0d3cfc",
+                background: mkt.accent,
                 color: "rgb(255,255,255)",
                 padding: "12px 20px",
                 borderRadius: 12,
@@ -547,8 +548,8 @@ export default function CitationBuilderPage() {
                 alignItems: "center",
                 gap: 6,
                 background: "rgb(255,255,255)",
-                color: "#0d3cfc",
-                border: "1.5px solid #0d3cfc",
+                color: mkt.accent,
+                border: `1.5px solid ${mkt.accent}`,
                 padding: "12px 20px",
                 borderRadius: 12,
                 fontSize: 14,
@@ -633,7 +634,7 @@ export default function CitationBuilderPage() {
                   padding: 20,
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#0d3cfc", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: mkt.accent, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
                   {t.name} · ${t.price}
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "#111827", marginBottom: 12 }}>{t.count}</div>
@@ -697,13 +698,13 @@ export default function CitationBuilderPage() {
                       height: 36,
                       borderRadius: 10,
                       background: "rgba(13,60,252,0.10)",
-                      color: "#0d3cfc",
+                      color: mkt.accent,
                       marginBottom: 12,
                     }}
                   >
                     <Icon size={18} strokeWidth={2} />
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#0d3cfc", letterSpacing: "0.06em", marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.06em", marginBottom: 4 }}>
                     STEP {i + 1}
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 800, color: "#111827", marginBottom: 6 }}>{s.title}</div>
@@ -788,7 +789,7 @@ export default function CitationBuilderPage() {
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              background: "#0d3cfc",
+              background: mkt.accent,
               color: "rgb(255,255,255)",
               padding: "12px 22px",
               borderRadius: 12,

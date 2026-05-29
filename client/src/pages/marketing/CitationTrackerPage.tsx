@@ -19,6 +19,7 @@ import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Link } from "wouter";
 import { Activity, Bell, Globe, Check, ArrowRight, Loader2, AlertTriangle, Code, Wrench } from "lucide-react";
+import { mkt } from "@/theme/tokens";
 
 const PAGE_PATH = "/citation-tracker";
 const SITE_URL = "https://wefixtrades.com";
@@ -526,7 +527,7 @@ function CitationTrackerFeatures() {
               padding: 20, borderRadius: 12, border: "1px solid rgba(0,0,0,0.08)",
               background: "rgba(248,250,252,1)",
             }}>
-              <f.icon size={22} style={{ color: "#0d3cfc", marginBottom: 10 }} />
+              <f.icon size={22} style={{ color: mkt.accent, marginBottom: 10 }} />
               <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "#0b1220" }}>{f.title}</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "#374151" }}>{f.body}</p>
             </div>
@@ -593,13 +594,13 @@ function PlanCard({ plan }: { plan: PlanOption }) {
   return (
     <div style={{
       padding: 20, borderRadius: 12,
-      border: `1px solid ${plan.highlight ? "#0d3cfc" : "rgba(0,0,0,0.08)"}`,
+      border: `1px solid ${plan.highlight ? mkt.accent : "rgba(0,0,0,0.08)"}`,
       background: "rgba(255,255,255,1)",
       position: "relative",
       boxShadow: plan.highlight ? "0 8px 24px rgba(13,60,252,0.12)" : "0 1px 2px rgba(0,0,0,0.04)",
     }}>
       {plan.badge && (
-        <div style={{ position: "absolute", top: -10, left: 14, background: "#0d3cfc", color: "rgb(255,255,255)", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+        <div style={{ position: "absolute", top: -10, left: 14, background: mkt.accent, color: "rgb(255,255,255)", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
           {plan.badge}
         </div>
       )}
@@ -609,7 +610,7 @@ function PlanCard({ plan }: { plan: PlanOption }) {
       <ul style={{ listStyle: "none", padding: 0, margin: "0 0 16px", display: "grid", gap: 2 }}>
         {plan.features.map((f) => (
           <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#1f2937", lineHeight: 1.5 }}>
-            <Check size={14} style={{ color: "#0d3cfc", flexShrink: 0, marginTop: 3 }} />
+            <Check size={14} style={{ color: mkt.accent, flexShrink: 0, marginTop: 3 }} />
             <span>{f}</span>
           </li>
         ))}
@@ -620,7 +621,7 @@ function PlanCard({ plan }: { plan: PlanOption }) {
         style={{
           width: "100%",
           padding: "10px 14px",
-          background: plan.highlight ? "#0d3cfc" : "#0b1220",
+          background: plan.highlight ? mkt.accent : "#0b1220",
           color: "rgb(255,255,255)",
           border: "none",
           borderRadius: 8,
@@ -653,7 +654,7 @@ function CitationTrackerHowItWorks() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
           {steps.map((s) => (
             <div key={s.n} style={{ padding: 20, borderRadius: 12, background: "rgba(248,250,252,1)", border: "1px solid rgba(0,0,0,0.08)" }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "#0d3cfc", textTransform: "uppercase" }}>Step {s.n}</div>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: mkt.accent, textTransform: "uppercase" }}>Step {s.n}</div>
               <h3 style={{ margin: "4px 0 6px", fontSize: 16, fontWeight: 700, color: "#0b1220" }}>{s.title}</h3>
               <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>{s.body}</p>
             </div>
@@ -704,7 +705,7 @@ function StickyCtaBar() {
       <a
         href="#pricing"
         style={{
-          background: "#0d3cfc",
+          background: mkt.accent,
           color: "rgb(255,255,255)",
           padding: "8px 14px",
           borderRadius: 999,
