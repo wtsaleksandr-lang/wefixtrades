@@ -284,13 +284,19 @@ function NavParentItem({
     writeExpanded(next);
   };
 
+  // Wave 104 — font-medium is now on EVERY state (active, has-active-child,
+  // default). Previously only the active states bolded the label, so
+  // navigating to a section visibly widened the row text by ~3-5px — Alex
+  // reported this as "text shifts on hover". Uniform weight = no reflow.
+  // Active/hover still differ via color + background tint + border accent.
+  // Dark-mode tokens: text-gray-* → text-foreground / text-muted-foreground.
   const parentClass = cn(
-    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px] flex-1",
+    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[40px] flex-1",
     directActive
-      ? "bg-[#EEF3FF] text-brand-blue font-medium border border-brand-blue/30"
+      ? "bg-[#EEF3FF] dark:bg-brand-blue/15 text-brand-blue border border-brand-blue/30"
       : hasActiveChild
-        ? "text-gray-800 font-medium border-l-2 border-brand-blue pl-[10px]"
-        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
+        ? "text-foreground border-l-2 border-brand-blue pl-[10px]"
+        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-transparent"
   );
 
   return (
@@ -300,7 +306,7 @@ function NavParentItem({
           <item.icon
             className={cn(
               "w-4 h-4 shrink-0",
-              directActive || hasActiveChild ? "text-brand-blue" : "text-gray-400"
+              directActive || hasActiveChild ? "text-brand-blue" : "text-muted-foreground/70"
             )}
           />
           <span className="flex-1">{item.label}</span>
@@ -311,12 +317,12 @@ function NavParentItem({
             onClick={toggle}
             aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
             aria-expanded={open}
-            className="p-1.5 rounded hover:bg-gray-100 shrink-0"
+            className="p-1.5 rounded hover:bg-muted shrink-0"
             data-testid={`nav-expand-${item.label.toLowerCase()}`}
           >
             <ChevronDown
               className={cn(
-                "w-3.5 h-3.5 text-gray-500 motion-safe:transition-transform",
+                "w-3.5 h-3.5 text-muted-foreground motion-safe:transition-transform",
                 open && "rotate-180"
               )}
             />
@@ -324,7 +330,7 @@ function NavParentItem({
         )}
       </div>
       {open && item.children && item.children.length > 0 && (
-        <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l border-gray-100 pl-2">
+        <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l border-border pl-2">
           {item.children.map((child) => {
             const active = isActive(location, child.href);
             return (
@@ -333,16 +339,19 @@ function NavParentItem({
                 href={child.href}
                 onClick={onNavigate}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-1.5 rounded-lg text-[13px] transition-colors min-h-[34px]",
+                  // Wave 104 — font-medium on every state so the active
+                  // nav child doesn't widen the row text. Dark-mode tokens
+                  // for the rest.
+                  "flex items-center gap-3 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors min-h-[34px]",
                   active
-                    ? "bg-[#EEF3FF] text-brand-blue font-medium border border-brand-blue/30"
-                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-800 border border-transparent"
+                    ? "bg-[#EEF3FF] dark:bg-brand-blue/15 text-brand-blue border border-brand-blue/30"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-transparent"
                 )}
               >
                 <child.icon
                   className={cn(
                     "w-3.5 h-3.5 shrink-0",
-                    active ? "text-brand-blue" : "text-gray-400"
+                    active ? "text-brand-blue" : "text-muted-foreground/70"
                   )}
                 />
                 <span className="flex-1">{child.label}</span>
