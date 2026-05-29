@@ -204,7 +204,7 @@ export default function TradelineLearningPage() {
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${statusFilter === s ? "bg-brand-blue-600 border-brand-blue-600 text-white" : "border-gray-200 text-gray-700"}`}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${statusFilter === s ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-gray-200 text-gray-700"}`}
                 >
                   {s}
                 </button>

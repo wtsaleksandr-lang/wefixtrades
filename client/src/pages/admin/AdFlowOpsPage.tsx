@@ -269,7 +269,7 @@ export default function AdFlowOpsPage() {
           <p className="text-sm text-gray-500">No active AdFlow services found.</p>
         </Card>
       ) : (
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-gray-500 border-b border-gray-100 bg-gray-50/50">

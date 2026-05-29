@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/admin/AdminLayout";
 import BackButton from "@/components/ui/back-button";
 import { Card } from "@/components/ui/card";
@@ -95,7 +96,7 @@ export default function InstallQueuePage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === "all" ? "bg-brand-blue-600 border-brand-blue-600 text-white" : "border-gray-200 text-gray-700"}`}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === "all" ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-gray-200 text-gray-700"}`}
           >
             All
           </button>
@@ -103,7 +104,7 @@ export default function InstallQueuePage() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === s ? "bg-brand-blue-600 border-brand-blue-600 text-white" : "border-gray-200 text-gray-700"}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === s ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-gray-200 text-gray-700"}`}
             >
               {STATUS_LABELS[s]?.label ?? s}
             </button>
@@ -125,7 +126,7 @@ export default function InstallQueuePage() {
             </table>
           </Card>
         ) : (
-          <Card className="overflow-hidden">
+          <Card className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
@@ -199,6 +200,7 @@ export default function InstallQueuePage() {
 
 function InstallDetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const detail = useQuery<{ request: any; client: any }>({
     queryKey: [`/api/admin/install-queue/${id}`],
     queryFn: () => fetch(`/api/admin/install-queue/${id}`, { credentials: "include" }).then((r) => r.json()),
@@ -220,6 +222,11 @@ function InstallDetailDialog({ id, onClose }: { id: number; onClose: () => void 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/install-queue"] });
       queryClient.invalidateQueries({ queryKey: [`/api/admin/install-queue/${id}`] });
+    },
+    onError: (err: Error) => {
+      // Was silently failing — a status/assign/notes change that errored
+      // left the dialog looking unchanged with no feedback.
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
     },
   });
 

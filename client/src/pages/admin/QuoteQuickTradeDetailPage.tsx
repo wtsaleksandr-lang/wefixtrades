@@ -549,15 +549,8 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
               )}
             </Card>
 
-            {/* Audit history placeholder */}
-            <Card className="p-5">
-              <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-                Audit history
-              </h2>
-              <div className="text-sm text-gray-500">
-                Audit log coming soon — see AI-3c.
-              </div>
-            </Card>
+            {/* Audit history — hidden until AI-3c wires the audit endpoint.
+                A "coming soon" placeholder card is clutter in the ops UI. */}
           </>
         )}
       </div>

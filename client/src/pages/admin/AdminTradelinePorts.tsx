@@ -185,6 +185,7 @@ export default function AdminTradelinePorts() {
               No ports currently in flight.
             </p>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -257,6 +258,7 @@ export default function AdminTradelinePorts() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </Card>
 

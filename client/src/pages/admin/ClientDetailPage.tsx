@@ -282,25 +282,12 @@ function VideoGenerationSection({ clientId }: { clientId: number }) {
   );
 }
 
-function ActivitySection({ clientId }: { clientId: number }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Card>
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center justify-between w-full p-4 text-left min-h-[44px]"
-      >
-        <span className="text-sm font-medium text-muted-foreground">Activity Log</span>
-        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground/70" /> : <ChevronDown className="w-4 h-4 text-muted-foreground/70" />}
-      </button>
-      {open && (
-        <div className="px-4 pb-4 border-t border-border pt-3">
-          <p className="text-sm text-muted-foreground">Activity log will show all actions taken on this client — by humans and AI agents. Coming in the next iteration.</p>
-        </div>
-      )}
-    </Card>
-  );
+// Activity Log — hidden until the feature is actually built. Shipping a
+// permanent "Coming in the next iteration" placeholder card to the ops UI
+// is clutter, so this renders nothing for now. Restore the collapsible
+// Card body (button + activity list) once the log endpoint is wired.
+function ActivitySection(_props: { clientId: number }) {
+  return null;
 }
 
 /* ─── Main Component ─── */
@@ -1155,7 +1142,7 @@ export default function ClientDetailPage() {
                     )}
                   </div>
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-border">
                   {qqData.calculators.map((calc) => (
                     <div key={calc.id} className="p-4">
                       <div className="flex items-start justify-between gap-3">
@@ -1264,7 +1251,7 @@ export default function ClientDetailPage() {
                 </div>
                 {/* Show responses if submitted */}
                 {ob.responses && ob.status !== "not_sent" && ob.status !== "sent" && (
-                  <div className="mt-3 ml-6 space-y-1.5 border-t border-gray-50 pt-3">
+                  <div className="mt-3 ml-6 space-y-1.5 border-t border-border pt-3">
                     {Object.entries(ob.responses).map(([key, val]) => (
                       <div key={key} className="flex gap-2 text-xs">
                         <span className="text-muted-foreground/70 shrink-0 w-28 truncate">{key.replace(/_/g, " ")}</span>
@@ -2912,7 +2899,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                           <th className="px-3 py-2 font-medium">Summary</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-50">
+                      <tbody className="divide-y divide-border">
                         {data.recentCalls.map((c) => (
                           <tr key={c.id}>
                             <td className="px-3 py-2"><TLCallIcon outcome={c.outcome} /></td>

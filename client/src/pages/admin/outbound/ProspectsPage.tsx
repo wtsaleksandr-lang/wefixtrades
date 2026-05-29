@@ -556,7 +556,7 @@ export default function ProspectsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {rows.map(({ prospect: p, enrichment: e }) => (
-                  <tr key={p.id} className={`hover:bg-muted/50 transition-colors ${selected.includes(p.id) ? "bg-green-50" : ""}`}>
+                  <tr key={p.id} className={`hover:bg-muted/50 transition-colors ${selected.includes(p.id) ? "bg-brand-blue-50/60 ring-1 ring-inset ring-brand-blue-300" : ""}`}>
                     <td className="px-3 py-2.5">
                       <input
                         type="checkbox"
