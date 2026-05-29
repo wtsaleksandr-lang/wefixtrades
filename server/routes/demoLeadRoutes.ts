@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createHash } from "node:crypto";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import {
   buildDemoQuoteEmail,
   buildInternalNotificationEmail,
@@ -190,7 +191,10 @@ export function registerDemoLeadRoutes(app: Express): void {
         });
       }
 
-      captureIntakeEvent({
+      // Wave 109 — was silent .catch(() => {}); audit trail entries
+      // are non-blocking but their loss invalidates the lead-source
+      // attribution dashboard.
+      noisyCatch(captureIntakeEvent({
         sourceType:    'public_form',
         eventType:     'demo_lead.submitted',
         correlationId: `demo-lead-${lead.id}`,
@@ -199,7 +203,10 @@ export function registerDemoLeadRoutes(app: Express): void {
         entityId:      String(lead.id),
         rawPayload:    req.body,
         context:       { ipAddress: req.ip, userAgent: req.headers['user-agent'] as string | undefined },
-      }).catch(() => {});
+      }), {
+        op: "intake.demoLead.submitted",
+        meta: { leadId: lead.id },
+      });
 
       log.info("Saved lead", {
         leadId: lead.id,

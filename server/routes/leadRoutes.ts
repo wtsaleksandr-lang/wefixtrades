@@ -404,11 +404,16 @@ export function registerLeadRoutes(app: Express): void {
         });
       }
 
-      storage.trackEvent({
+      // Wave 109 — noisyCatch so the lead-event analytics row reaches
+      // the dashboards or surfaces in Sentry on failure.
+      noisyCatch(storage.trackEvent({
         calculator_id: parsed.data.calculator_id,
         event_type: 'lead',
         metadata: { quote_amount: safeQuoteAmount },
-      }).catch(() => {});
+      }), {
+        op: "lead.trackEvent.created",
+        meta: { calculatorId: parsed.data.calculator_id, leadId: lead.id, quoteAmount: safeQuoteAmount },
+      });
 
       enqueueLeadNotificationsAndFollowups(lead, parsed.data.calculator_id).catch(err => {
         log.error("Failed to enqueue lead notifications:", err.message);
@@ -440,9 +445,13 @@ export function registerLeadRoutes(app: Express): void {
             } else if (result.reason === "no_consent") {
               // Permanent — homeowner is opted out. Stamp so we don't
               // retry from any future code path that re-checks this row.
-              storage
-                .updateLead(lead.id, { quote_ready_sent_at: new Date() })
-                .catch(() => {});
+              // Wave 109 — noisyCatch so a stamp-write failure is logged
+              // instead of leaving a no-consent lead at risk of repeated
+              // re-attempts on each future code-path visit.
+              noisyCatch(
+                storage.updateLead(lead.id, { quote_ready_sent_at: new Date() }),
+                { op: "lead.stampNoConsent", meta: { leadId: lead.id } },
+              );
             }
           })
           .catch((err: any) =>
