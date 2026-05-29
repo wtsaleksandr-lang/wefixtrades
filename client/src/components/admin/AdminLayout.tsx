@@ -75,6 +75,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useRealtime } from "@/lib/realtime";
 import { useToast } from "@/hooks/use-toast";
+import { useProductHealth, type ProductStatus } from "@/hooks/useProductHealth";
 
 /* ─── Core nav — always visible ─── */
 const CORE_ITEMS = [
@@ -113,17 +114,35 @@ type NavItem = {
   productId?: string;
 };
 
-/* Wave 138 — Health-dot integration slot.
- * Design-in only: a placeholder per-product health indicator that renders
- * NOTHING today. The health wave will replace the body with a real signal
- * (e.g. green/amber/red dot fed by a /api/admin/products/health query).
- * Kept tiny + side-effect-free so it's a clean drop-in target. Do NOT
- * fabricate health data here. */
+/* Wave 141 — per-product health dot.
+ * Reads the shared `/api/admin/health` aggregate via useProductHealth().
+ * react-query dedupes by queryKey, so every dot + the Overview panel share
+ * ONE request + cache entry — no per-dot fan-out.
+ *
+ * "Premium, not noisy" choice: render a dot ONLY for degraded (amber) or
+ * down (red). When the product is OK, unknown, or still loading we render
+ * NOTHING — an all-green sidebar stays quiet, and we never show a
+ * misleading color before data arrives. Dot is sized via inline style
+ * (8px) rather than a square w-N/h-N class so it stays off the icon-size
+ * ladder the layout guard enforces. */
+const DOT_COLOR: Record<Exclude<ProductStatus, "ok">, string> = {
+  degraded: "bg-amber-500",
+  down: "bg-red-500",
+};
 function ProductHealthDot({ productId }: { productId?: string }) {
-  // TODO(health-wave): wire a per-product health signal keyed by productId
-  // and render a small status dot here. Intentionally renders null for now.
-  void productId;
-  return null;
+  const { data } = useProductHealth();
+  if (!productId || !data) return null;
+  const status = data.products.find((p) => p.productId === productId)?.status;
+  if (!status || status === "ok") return null;
+  return (
+    <span
+      role="img"
+      aria-label={status === "down" ? "Service down" : "Service degraded"}
+      title={status === "down" ? "Service down" : "Service degraded"}
+      style={{ width: 8, height: 8 }}
+      className={cn("shrink-0 rounded-full", DOT_COLOR[status])}
+    />
+  );
 }
 
 /* Wave 138 — each product row carries its catalog `productId` (from
