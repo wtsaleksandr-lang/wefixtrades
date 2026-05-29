@@ -96,14 +96,14 @@ const C = {
   white: "#FFFFFF",
   grey: "#6B7280",
   lightGrey: "#E5E7EB",
-  cyan: "#0d3cfc",
+  brandBlue: "#0d3cfc", // brand accent blue (renamed from misleading "cyan" — teal-era leftover)
   green: "#22C55E",
   amber: "#F59E0B",
   red: "#EF4444",
 };
 
 function gradeColor(g: string): string {
-  return g === "A" ? C.green : g === "B" ? C.cyan : g === "C" ? C.amber : C.red;
+  return g === "A" ? C.green : g === "B" ? C.brandBlue : g === "C" ? C.amber : C.red;
 }
 
 function scoreColor(score: number, max: number): string {
