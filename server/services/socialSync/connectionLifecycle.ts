@@ -20,6 +20,7 @@ import { storage } from "../../storage";
 import { sendMetaReauthEmail } from "../../lib/metaReauthEmail";
 import { createLogger } from "../../lib/logger";
 import { fireAlert } from "../alertService";
+import { noisyCatch } from "../../lib/silentFailureGuard";
 
 const log = createLogger("ConnectionLifecycle");
 
@@ -237,7 +238,14 @@ export async function checkConnectionExpiry(): Promise<ExpiryCheckResult> {
 
         // Send re-auth email to admin
         await sendReauthEmailForConnection(conn, 0);
-        fireAlert({ severity: "warning", category: "oauth_expiry", title: `${conn.platform} token expired for client #${conn.client_id}`, details: `Token expired. Reconnection required.`, metadata: { client_id: conn.client_id, platform: conn.platform } }).catch(() => {});
+        // Wave 107 — was silent .catch(() => {}); OAuth-expiry alerts
+        // are the only signal the operator gets that a client's social
+        // posting is about to break — losing this alert silently means
+        // a client publishes nothing for days before anyone notices.
+        noisyCatch(
+          fireAlert({ severity: "warning", category: "oauth_expiry", title: `${conn.platform} token expired for client #${conn.client_id}`, details: `Token expired. Reconnection required.`, metadata: { client_id: conn.client_id, platform: conn.platform } }),
+          { op: "socialSync.oauthExpiredAlert", meta: { clientId: conn.client_id, platform: conn.platform } },
+        );
 
         result.expired++;
       } else if (health.status === "expiring_soon" && conn.connection_status === "connected") {
@@ -262,7 +270,12 @@ export async function checkConnectionExpiry(): Promise<ExpiryCheckResult> {
 
         // Send re-auth email to admin
         await sendReauthEmailForConnection(conn, health.days_until_expiry ?? 0);
-        fireAlert({ severity: "info", category: "oauth_expiry", title: `${conn.platform} token expiring soon for client #${conn.client_id}`, details: `Token expires in ${health.days_until_expiry} day(s).`, metadata: { client_id: conn.client_id, platform: conn.platform } }).catch(() => {});
+        // Wave 107 — same noisyCatch pattern; expiring-soon alerts
+        // are the lead-time signal we don't want to silently lose.
+        noisyCatch(
+          fireAlert({ severity: "info", category: "oauth_expiry", title: `${conn.platform} token expiring soon for client #${conn.client_id}`, details: `Token expires in ${health.days_until_expiry} day(s).`, metadata: { client_id: conn.client_id, platform: conn.platform } }),
+          { op: "socialSync.oauthExpiringSoonAlert", meta: { clientId: conn.client_id, platform: conn.platform, daysRemaining: health.days_until_expiry } },
+        );
 
         result.expiring_soon++;
       }
