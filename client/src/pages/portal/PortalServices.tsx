@@ -94,7 +94,7 @@ export default function PortalServices() {
             {/* Same-tab route to the in-portal catalog so customers stay
                 authenticated and we keep the analytics funnel coherent. */}
             <Link href="/portal/catalog">
-              <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors min-h-[36px]">
+              <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-primary-foreground bg-primary rounded-lg hover:bg-brand-blue-600 transition-colors min-h-[36px]">
                 <Plus className="w-3.5 h-3.5" />
                 Add a service
               </button>
@@ -123,7 +123,7 @@ export default function PortalServices() {
         {error && (
           <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
             <span>We couldn't pull up your services. Try again — if it keeps failing, the Help tab is the fastest way to reach us.</span>
-            <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+            <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-card border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
               <RefreshCw className="w-3 h-3" /> Try again
             </button>
           </div>
