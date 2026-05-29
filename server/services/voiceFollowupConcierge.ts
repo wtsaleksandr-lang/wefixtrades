@@ -47,6 +47,7 @@ import { runAgentLoop, type AgentLoopResult } from "./aiAgentLoop";
 import { adminAgentTools } from "./adminAgentTools";
 import { getCopilotAction, type PendingAction } from "./copilotActionRegistry";
 import { writeAudit } from "../lib/auditLog";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { createLogger } from "../lib/logger";
 import { storage } from "../storage";
 import type { Client } from "@shared/schema";
@@ -390,26 +391,35 @@ export async function processVoiceFollowupViaLoop(
         callLogId,
         error: String(err?.message ?? err),
       });
-      await writeAudit({
-        actorId: String(confirmedByUserId),
-        actorType: "system",
-        action: "ai_drafted_voice_followup",
-        entityType: "support_ticket",
-        entityId: String(ticketId),
-        metadata: {
-          ticket_id: ticketId,
-          client_id: clientId,
-          client_service_id: clientServiceId,
-          call_log_id: callLogId,
-          call_id: report.callId,
-          caller_phone: callerPhone,
-          caller_email: callerEmail ?? null,
-          channel: "voice_followup",
-          loop_status: "error",
-          reason: `loop threw: ${String(err?.message ?? err)}`,
-          session_id: sessionId,
+      // Wave 115 — noisyCatch on the loop-crash audit. Without it, the
+      // post-mortem trail for "voice followup agent loop threw" has no
+      // entry — admins can't see what failed or why.
+      await noisyCatch(
+        writeAudit({
+          actorId: String(confirmedByUserId),
+          actorType: "system",
+          action: "ai_drafted_voice_followup",
+          entityType: "support_ticket",
+          entityId: String(ticketId),
+          metadata: {
+            ticket_id: ticketId,
+            client_id: clientId,
+            client_service_id: clientServiceId,
+            call_log_id: callLogId,
+            call_id: report.callId,
+            caller_phone: callerPhone,
+            caller_email: callerEmail ?? null,
+            channel: "voice_followup",
+            loop_status: "error",
+            reason: `loop threw: ${String(err?.message ?? err)}`,
+            session_id: sessionId,
+          },
+        }),
+        {
+          op: "voiceFollowup.writeLoopCrashAudit",
+          meta: { ticketId, clientId, loopError: String(err?.message ?? err) },
         },
-      }).catch(() => {});
+      );
       // Loop crashed — DON'T claim ownership; the caller's legacy path can try.
       return { handled: false };
     }
@@ -440,32 +450,40 @@ export async function processVoiceFollowupViaLoop(
     // No reply tool was called. Record an `ai_drafted_voice_followup` audit
     // row with the loop's final state + reason. Claim ownership so the
     // caller does not also fire the legacy single-call dispatch.
-    await writeAudit({
-      actorId: String(confirmedByUserId),
-      actorType: "system",
-      action: "ai_drafted_voice_followup",
-      entityType: "support_ticket",
-      entityId: String(ticketId),
-      metadata: {
-        ticket_id: ticketId,
-        client_id: clientId,
-        client_service_id: clientServiceId,
-        call_log_id: callLogId,
-        call_id: report.callId,
-        caller_phone: callerPhone,
-        caller_email: callerEmail ?? null,
-        channel: "voice_followup",
-        loop_run_id: result.loopRunId,
-        loop_status: result.status,
-        total_cost_cents: result.totalCostCents,
-        step_count: result.steps.length,
-        reply_text: result.reply || null,
-        reason:
-          result.errorMessage ||
-          `loop ended without calling ${SMS_REPLY_TOOL} or ${EMAIL_REPLY_TOOL}`,
-        session_id: sessionId,
+    // Wave 115 — noisyCatch on the no-reply audit; this row is the only
+    // trace admins see when the loop ended without calling a reply tool.
+    await noisyCatch(
+      writeAudit({
+        actorId: String(confirmedByUserId),
+        actorType: "system",
+        action: "ai_drafted_voice_followup",
+        entityType: "support_ticket",
+        entityId: String(ticketId),
+        metadata: {
+          ticket_id: ticketId,
+          client_id: clientId,
+          client_service_id: clientServiceId,
+          call_log_id: callLogId,
+          call_id: report.callId,
+          caller_phone: callerPhone,
+          caller_email: callerEmail ?? null,
+          channel: "voice_followup",
+          loop_run_id: result.loopRunId,
+          loop_status: result.status,
+          total_cost_cents: result.totalCostCents,
+          step_count: result.steps.length,
+          reply_text: result.reply || null,
+          reason:
+            result.errorMessage ||
+            `loop ended without calling ${SMS_REPLY_TOOL} or ${EMAIL_REPLY_TOOL}`,
+          session_id: sessionId,
+        },
+      }),
+      {
+        op: "voiceFollowup.writeNoReplyAudit",
+        meta: { ticketId, clientId, loopStatus: result.status },
       },
-    }).catch(() => {});
+    );
 
     log.info("voice follow-up drafted via agent loop (no reply sent)", {
       ticketId,

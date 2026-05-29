@@ -54,6 +54,7 @@ import multer from "multer";
 import crypto from "crypto";
 import { z } from "zod";
 import { createLogger } from "../lib/logger";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import {
   chat as aiChat,
   validateConfig as validateAnthropicConfig,
@@ -669,15 +670,21 @@ export function registerAiDemoRoutes(app: Express): void {
        *     the cap. */
       const bump = bumpMonthlyAndOverCap();
       if (bump.count === bump.cap + 1) {
-        fireAlert({
-          severity: "critical",
-          category: "ai_cost",
-          title: `BI-1 anonymous AI demo hit monthly cap (${bump.cap})`,
-          details:
-            "The /api/ai/demo/image-to-template-anonymous endpoint just exceeded BI1_MONTHLY_CAP. " +
-            "Subsequent requests this month are returning 429. Raise the cap via env if intentional.",
-          metadata: { count: bump.count, cap: bump.cap },
-        }).catch(() => {});
+        // Wave 115 — was silent .catch(() => {}); if this cap-hit alert
+        // fails to deliver, you'd never know the BI-1 demo had been
+        // returning 429s for the rest of the month.
+        noisyCatch(
+          fireAlert({
+            severity: "critical",
+            category: "ai_cost",
+            title: `BI-1 anonymous AI demo hit monthly cap (${bump.cap})`,
+            details:
+              "The /api/ai/demo/image-to-template-anonymous endpoint just exceeded BI1_MONTHLY_CAP. " +
+              "Subsequent requests this month are returning 429. Raise the cap via env if intentional.",
+            metadata: { count: bump.count, cap: bump.cap },
+          }),
+          { op: "aiDemo.bi1CapHitAlert", meta: { count: bump.count, cap: bump.cap } },
+        );
       }
 
       /* (9) Audit success — IP is hashed, file bytes are NOT logged. */

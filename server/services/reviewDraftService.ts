@@ -15,6 +15,7 @@
 
 import { chat, getModel } from "./aiService";
 import { logUsage } from "./usageTracker";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { storage } from "../storage";
 import type { MonitoredReview, Client } from "@shared/schema";
 
@@ -172,40 +173,47 @@ export async function generateReviewDraft(
 
     const latencyMs = Date.now() - startMs;
 
-    // Log usage (fire-and-forget)
-    logUsage({
-      model,
-      surface: "admin",
-      provider: "anthropic",
-      channel: "review_draft",
-      success: true,
-      latencyMs,
-      metadata: {
-        review_id: review.id,
-        client_id: review.client_id,
-        rating: review.rating,
-        tone,
-      },
-    }).catch(() => {});
+    // Log usage (fire-and-forget). Wave 115 — noisyCatch so success-path
+    // usage drift is logged instead of silently lost.
+    noisyCatch(
+      logUsage({
+        model,
+        surface: "admin",
+        provider: "anthropic",
+        channel: "review_draft",
+        success: true,
+        latencyMs,
+        metadata: {
+          review_id: review.id,
+          client_id: review.client_id,
+          rating: review.rating,
+          tone,
+        },
+      }),
+      { op: "reviewDraft.logUsage.success", meta: { reviewId: review.id, model } },
+    );
 
     return { draft, tone, model, generated: true };
   } catch (err: any) {
     const latencyMs = Date.now() - startMs;
 
-    // Log failure
-    logUsage({
-      model,
-      surface: "admin",
-      provider: "anthropic",
-      channel: "review_draft",
-      success: false,
-      errorMessage: err.message,
-      latencyMs,
-      metadata: {
-        review_id: review.id,
-        tone,
-      },
-    }).catch(() => {});
+    // Log failure. Wave 115 — same noisyCatch on the error-path usage row.
+    noisyCatch(
+      logUsage({
+        model,
+        surface: "admin",
+        provider: "anthropic",
+        channel: "review_draft",
+        success: false,
+        errorMessage: err.message,
+        latencyMs,
+        metadata: {
+          review_id: review.id,
+          tone,
+        },
+      }),
+      { op: "reviewDraft.logUsage.failure", meta: { reviewId: review.id, model, errorMessage: err.message } },
+    );
 
     // Fallback: provide a safe generic response
     const fallback = tone === "positive"

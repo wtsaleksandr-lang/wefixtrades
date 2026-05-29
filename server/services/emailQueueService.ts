@@ -9,6 +9,7 @@ import { storage } from "../storage";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { createLogger } from "../lib/logger";
 import { fireAlert } from "./alertService";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { respectPreferences, isTransactionalCategory } from "../lib/notificationPreferences";
 import type { NotificationCategoryKey } from "@shared/schemas/notificationPreferences";
@@ -133,13 +134,22 @@ export async function processEmailQueue(): Promise<{ sent: number; failed: numbe
       log.error(`Email #${item.id} send failed (attempt ${attempts}/${maxAttempts})`, { error: err.message });
 
       if (isFinal) {
-        fireAlert({
-          severity: "warning",
-          category: "email_failed",
-          title: `Email delivery failed after ${maxAttempts} attempts`,
-          details: `To: ${item.to_email}\nSubject: ${item.subject}\nError: ${err.message}`,
-          metadata: { email_queue_id: item.id, to_email: item.to_email },
-        }).catch(() => {});
+        // Wave 115 — noisyCatch on the final-attempt-failed alert.
+        // Losing this alert means the operator never knows an email
+        // gave up after maxAttempts (customer never got their message).
+        noisyCatch(
+          fireAlert({
+            severity: "warning",
+            category: "email_failed",
+            title: `Email delivery failed after ${maxAttempts} attempts`,
+            details: `To: ${item.to_email}\nSubject: ${item.subject}\nError: ${err.message}`,
+            metadata: { email_queue_id: item.id, to_email: item.to_email },
+          }),
+          {
+            op: "emailQueue.finalFailureAlert",
+            meta: { emailQueueId: item.id, toEmail: item.to_email, attempts: maxAttempts },
+          },
+        );
       }
     }
   }
