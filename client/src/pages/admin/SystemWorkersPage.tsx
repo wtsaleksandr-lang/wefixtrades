@@ -119,7 +119,7 @@ function WorkerHistory({ jobName }: { jobName: string }) {
   if (isLoading) {
     return (
       <div data-theme="light" className="py-4 text-center">
-        <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto" />
+        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mx-auto" />
       </div>
     );
   }
@@ -128,15 +128,15 @@ function WorkerHistory({ jobName }: { jobName: string }) {
 
   return (
     <div className="mt-3 border-t pt-3">
-      <p className="text-xs font-medium text-gray-500 mb-2">Last 10 runs</p>
+      <p className="text-xs font-medium text-muted-foreground mb-2">Last 10 runs</p>
       {rows.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">No run history</p>
+        <p className="text-xs text-muted-foreground italic">No run history</p>
       ) : (
         <div className="space-y-1">
           {rows.map((row) => (
             <div
               key={row.id}
-              className="flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-gray-50"
+              className="flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-muted/50"
             >
               <div className="flex items-center gap-2">
                 <span
@@ -151,9 +151,9 @@ function WorkerHistory({ jobName }: { jobName: string }) {
                 >
                   {row.status}
                 </span>
-                <span className="text-gray-400">{formatRelativeTime(row.started_at)}</span>
+                <span className="text-muted-foreground">{formatRelativeTime(row.started_at)}</span>
               </div>
-              <span className="text-gray-400">{formatDuration(row.started_at, row.finished_at)}</span>
+              <span className="text-muted-foreground">{formatDuration(row.started_at, row.finished_at)}</span>
             </div>
           ))}
         </div>
@@ -189,7 +189,7 @@ function WorkerCard({ worker }: { worker: Worker }) {
 
   return (
     <div className={cn(
-      "bg-white rounded-lg border p-4",
+      "bg-card rounded-lg border p-4",
       worker.last_status === "failed" && "border-red-200",
       worker.stale && worker.last_status !== "failed" && "border-amber-200",
     )}>
@@ -197,15 +197,15 @@ function WorkerCard({ worker }: { worker: Worker }) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={cn("w-2.5 h-2.5 rounded-full shrink-0", color)} />
-          <h3 className="text-sm font-medium text-gray-900">{worker.name}</h3>
+          <h3 className="text-sm font-medium text-foreground">{worker.name}</h3>
         </div>
-        <span className="text-[10px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+        <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
           {worker.schedule}
         </span>
       </div>
 
       {/* Status info */}
-      <div className="space-y-1.5 text-xs text-gray-500">
+      <div className="space-y-1.5 text-xs text-muted-foreground">
         <div className="flex justify-between">
           <span>Status</span>
           <span className={cn(
@@ -213,14 +213,14 @@ function WorkerCard({ worker }: { worker: Worker }) {
             worker.last_status === "completed" && "text-emerald-600",
             worker.last_status === "failed" && "text-red-600",
             worker.last_status === "running" && "text-blue-600",
-            worker.last_status === "never_run" && "text-gray-400",
+            worker.last_status === "never_run" && "text-muted-foreground",
           )}>
             {label}
           </span>
         </div>
         <div className="flex justify-between">
           <span>Last run</span>
-          <span className="text-gray-700">{formatRelativeTime(worker.last_run_at)}</span>
+          <span className="text-muted-foreground">{formatRelativeTime(worker.last_run_at)}</span>
         </div>
         {worker.last_error && (
           <div className="mt-1">
@@ -239,7 +239,7 @@ function WorkerCard({ worker }: { worker: Worker }) {
             runMutation.mutate();
           }}
           disabled={running}
-          className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition-colors"
+          className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-muted/50 text-foreground hover:bg-gray-200 disabled:opacity-50 transition-colors"
         >
           {running ? (
             <Loader2 className="w-3 h-3 animate-spin" />
@@ -250,7 +250,7 @@ function WorkerCard({ worker }: { worker: Worker }) {
         </button>
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors ml-auto"
+          className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors ml-auto"
         >
           History
           {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -300,8 +300,8 @@ export default function SystemWorkersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Worker Status</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h1 className="text-xl font-bold text-foreground">Worker Status</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Real-time status of all {workersData?.summary.total ?? "..."} cron workers
               </p>
             </div>
@@ -330,7 +330,7 @@ export default function SystemWorkersPage() {
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
                 autoRefresh
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  : "bg-card text-muted-foreground border-border hover:bg-muted/50"
               )}
             >
               <RefreshCw className={cn("w-3.5 h-3.5", autoRefresh && "animate-spin")} />
@@ -338,7 +338,7 @@ export default function SystemWorkersPage() {
             </button>
             <button
               onClick={() => refetch()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-card text-muted-foreground border border-border hover:bg-muted/50"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Refresh
@@ -349,31 +349,31 @@ export default function SystemWorkersPage() {
         {/* Summary row */}
         {summary && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center gap-2 mb-1">
-                <Server className="w-4 h-4 text-gray-500" />
-                <span className="text-xs font-medium text-gray-500 uppercase">Total Workers</span>
+                <Server className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase">Total Workers</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{summary.total}</p>
+              <p className="text-2xl font-bold text-foreground">{summary.total}</p>
             </div>
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center gap-2 mb-1">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs font-medium text-gray-500 uppercase">Healthy</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase">Healthy</span>
               </div>
               <p className="text-2xl font-bold text-emerald-600">{summary.healthy}</p>
             </div>
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center gap-2 mb-1">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span className="text-xs font-medium text-gray-500 uppercase">Stale</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase">Stale</span>
               </div>
               <p className="text-2xl font-bold text-amber-600">{summary.stale}</p>
             </div>
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-card rounded-lg border p-4">
               <div className="flex items-center gap-2 mb-1">
                 <XCircle className="w-4 h-4 text-red-500" />
-                <span className="text-xs font-medium text-gray-500 uppercase">Failed</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase">Failed</span>
               </div>
               <p className="text-2xl font-bold text-red-600">{summary.failed}</p>
             </div>
@@ -399,7 +399,7 @@ export default function SystemWorkersPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-lg border p-4 space-y-3">
+              <div key={i} className="bg-card rounded-lg border p-4 space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <Skeleton className="w-2.5 h-2.5 rounded-full" />

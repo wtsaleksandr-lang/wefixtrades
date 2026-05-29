@@ -137,8 +137,8 @@ export default function InboxPage() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">Inbox</h2>
-            <p className="text-sm text-gray-500">{totalOpen} open task{totalOpen !== 1 ? "s" : ""}</p>
+            <h2 className="text-lg font-semibold text-foreground">Inbox</h2>
+            <p className="text-sm text-muted-foreground">{totalOpen} open task{totalOpen !== 1 ? "s" : ""}</p>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-[130px]">
@@ -187,7 +187,7 @@ export default function InboxPage() {
         />
 
         {/* Priority legend */}
-        <div className="flex items-center gap-4 text-[10px] text-gray-400">
+        <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500 shrink-0" /> Urgent</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 shrink-0" /> High priority</span>
         </div>
@@ -205,8 +205,8 @@ export default function InboxPage() {
           <div className="space-y-5">
             {sections.filter((s) => s.show).map((section) => (
               <div key={section.label}>
-                <p className="text-xs font-medium text-gray-400 mb-2 px-0.5">
-                  {section.label} <span className="text-gray-300">({section.items.length})</span>
+                <p className="text-xs font-medium text-muted-foreground mb-2 px-0.5">
+                  {section.label} <span className="text-muted-foreground">({section.items.length})</span>
                 </p>
                 <div className="space-y-1.5">
                   {section.items.map((task) => (

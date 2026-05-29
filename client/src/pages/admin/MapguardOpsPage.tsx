@@ -75,9 +75,9 @@ function StatCard({
     <Card data-theme="light" className="p-4">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
-          {hint && <p className="text-xs text-gray-500 mt-1">{hint}</p>}
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+          <p className="text-2xl font-semibold text-foreground mt-1">{value}</p>
+          {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
         </div>
         {Icon && (
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
@@ -119,8 +119,8 @@ export default function MapguardOpsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">MapGuard Ops Health</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-xl font-semibold text-foreground">MapGuard Ops Health</h1>
+            <p className="text-sm text-muted-foreground">
               Live scan reliability + Serper / Places error signals.
               {data && <> Last refreshed {new Date(data.generated_at).toLocaleTimeString()}.</>}
             </p>
@@ -128,7 +128,7 @@ export default function MapguardOpsPage() {
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1"
+            className="text-xs text-muted-foreground hover:text-muted-foreground inline-flex items-center gap-1"
             data-testid="ops-refresh"
           >
             {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
@@ -137,7 +137,7 @@ export default function MapguardOpsPage() {
         </div>
 
         {isLoading && (
-          <div className="text-sm text-gray-500 flex items-center gap-2">
+          <div className="text-sm text-muted-foreground flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" />
             Loading…
           </div>
@@ -205,7 +205,7 @@ export default function MapguardOpsPage() {
             {/* Latency */}
             {data.duration_ms.sample_size > 0 && (
               <Card className="p-4">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                   Per-scan duration ({data.duration_ms.sample_size} samples)
                 </p>
                 <div className="flex flex-wrap gap-6">
@@ -218,17 +218,17 @@ export default function MapguardOpsPage() {
 
             {/* Error breakdown */}
             <Card className="p-4">
-              <p className="text-sm font-semibold text-gray-900 mb-2">Scan error breakdown (7d)</p>
+              <p className="text-sm font-semibold text-foreground mb-2">Scan error breakdown (7d)</p>
               {Object.keys(data.scan_errors_breakdown).length === 0 ? (
-                <p className="text-xs text-gray-500">No errors recorded in the last 7 days.</p>
+                <p className="text-xs text-muted-foreground">No errors recorded in the last 7 days.</p>
               ) : (
-                <ul className="text-sm divide-y divide-gray-100">
+                <ul className="text-sm divide-y divide-border">
                   {Object.entries(data.scan_errors_breakdown)
                     .sort(([, a], [, b]) => b - a)
                     .map(([code, count]) => (
                       <li key={code} className="py-1.5 flex items-center justify-between">
-                        <code className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-700">{code}</code>
-                        <span className="font-medium text-gray-900">{count}</span>
+                        <code className="text-xs bg-muted/50 px-2 py-0.5 rounded text-muted-foreground">{code}</code>
+                        <span className="font-medium text-foreground">{count}</span>
                       </li>
                     ))}
                 </ul>
@@ -238,15 +238,15 @@ export default function MapguardOpsPage() {
             {/* Recent failed scans */}
             {data.recent_failed_scans.length > 0 && (
               <Card className="p-4">
-                <p className="text-sm font-semibold text-gray-900 mb-2">
+                <p className="text-sm font-semibold text-foreground mb-2">
                   Recent hard-failed scans ({data.recent_failed_scans.length})
                 </p>
-                <ul className="text-sm divide-y divide-gray-100">
+                <ul className="text-sm divide-y divide-border">
                   {data.recent_failed_scans.map(s => (
                     <li key={s.snapshot_id} className="py-2 flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{s.business_name}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="font-medium text-foreground truncate">{s.business_name}</p>
+                        <p className="text-xs text-muted-foreground">
                           client #{s.client_id} · {formatRel(s.captured_at)}
                         </p>
                         {s.errors.length > 0 && (
@@ -266,15 +266,15 @@ export default function MapguardOpsPage() {
             {/* Coverage gap */}
             {data.uncovered_clients.length > 0 && (
               <Card className="p-4">
-                <p className="text-sm font-semibold text-gray-900 mb-2">
+                <p className="text-sm font-semibold text-foreground mb-2">
                   Active clients without a scan in 14 days
                 </p>
-                <ul className="text-sm divide-y divide-gray-100">
+                <ul className="text-sm divide-y divide-border">
                   {data.uncovered_clients.map(c => (
                     <li key={c.client_id} className="py-1.5 flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{c.business_name}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="font-medium text-foreground truncate">{c.business_name}</p>
+                        <p className="text-xs text-muted-foreground">
                           client #{c.client_id} · last scan: {formatRel(c.last_scan_at)}
                         </p>
                       </div>
@@ -287,14 +287,14 @@ export default function MapguardOpsPage() {
             {/* Alerts breakdown */}
             {data.alerts_last_7d.total > 0 && (
               <Card className="p-4">
-                <p className="text-sm font-semibold text-gray-900 mb-2">Alerts by type (7d)</p>
-                <ul className="text-sm divide-y divide-gray-100">
+                <p className="text-sm font-semibold text-foreground mb-2">Alerts by type (7d)</p>
+                <ul className="text-sm divide-y divide-border">
                   {Object.entries(data.alerts_last_7d.by_type)
                     .sort(([, a], [, b]) => b - a)
                     .map(([type, count]) => (
                       <li key={type} className="py-1.5 flex items-center justify-between">
-                        <code className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-700">{type}</code>
-                        <span className="font-medium text-gray-900">{count}</span>
+                        <code className="text-xs bg-muted/50 px-2 py-0.5 rounded text-muted-foreground">{type}</code>
+                        <span className="font-medium text-foreground">{count}</span>
                       </li>
                     ))}
                 </ul>
@@ -310,9 +310,9 @@ export default function MapguardOpsPage() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wide text-gray-500 font-medium">{label}</p>
-      <p className="text-lg font-semibold text-gray-900 mt-0.5 flex items-center gap-1">
-        <Clock className="w-3.5 h-3.5 text-gray-400" />
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</p>
+      <p className="text-lg font-semibold text-foreground mt-0.5 flex items-center gap-1">
+        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
         {value}
       </p>
     </div>

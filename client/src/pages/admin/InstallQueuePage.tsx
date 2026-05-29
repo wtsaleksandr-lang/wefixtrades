@@ -87,8 +87,8 @@ export default function InstallQueuePage() {
       <div className="space-y-5">
         <BackButton to="/admin/crm" label="Back to admin" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Chat widget install queue</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Chat widget install queue</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Service-delivery queue for the $79 chat-widget install (free for Pro tier).
           </p>
         </div>
@@ -96,7 +96,7 @@ export default function InstallQueuePage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === "all" ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-gray-200 text-gray-700"}`}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === "all" ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-border text-foreground"}`}
           >
             All
           </button>
@@ -104,7 +104,7 @@ export default function InstallQueuePage() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === s ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-gray-200 text-gray-700"}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === s ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-border text-foreground"}`}
             >
               {STATUS_LABELS[s]?.label ?? s}
             </button>
@@ -116,7 +116,7 @@ export default function InstallQueuePage() {
             <table className="w-full text-sm">
               <tbody>
                 {Array.from({ length: 5 }).map((_, r) => (
-                  <tr key={r} className="border-t border-gray-100">
+                  <tr key={r} className="border-t border-border">
                     {Array.from({ length: 6 }).map((_, c) => (
                       <td key={c} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
                     ))}
@@ -128,14 +128,14 @@ export default function InstallQueuePage() {
         ) : (
           <Card className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted/50">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Business</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Site</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Platform</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Tier</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Site</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Platform</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tier</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Created</th>
                 </tr>
               </thead>
               <tbody>
@@ -145,11 +145,11 @@ export default function InstallQueuePage() {
                     <tr
                       key={request.id}
                       onClick={() => setOpenId(request.id)}
-                      className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      className="border-t border-border hover:bg-muted/50 cursor-pointer"
                     >
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-gray-900">{client?.business_name ?? "—"}</div>
-                        <div className="text-xs text-gray-500">{client?.contact_email}</div>
+                        <div className="font-semibold text-foreground">{client?.business_name ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground">{client?.contact_email}</div>
                       </td>
                       <td className="px-4 py-3 text-xs">
                         {request.website_url ? (
@@ -157,7 +157,7 @@ export default function InstallQueuePage() {
                             {request.website_url} <ExternalLink className="w-3 h-3" />
                           </a>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs capitalize">{request.website_platform ?? "—"}</td>
@@ -175,14 +175,14 @@ export default function InstallQueuePage() {
                           "Starter"
                         )}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{new Date(request.created_at).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(request.created_at).toLocaleString()}</td>
                     </tr>
                   );
                 })}
                 {(query.data?.rows ?? []).length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
-                      <Wrench className="w-5 h-5 mx-auto mb-2 text-gray-300" />
+                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      <Wrench className="w-5 h-5 mx-auto mb-2 text-muted-foreground" />
                       No install requests match this filter.
                     </td>
                   </tr>
@@ -243,8 +243,8 @@ function InstallDetailDialog({ id, onClose }: { id: number; onClose: () => void 
         {r && (
           <div className="space-y-4 text-sm">
             <div>
-              <div className="font-semibold text-gray-900">{c?.business_name}</div>
-              <div className="text-xs text-gray-500">{c?.contact_email} {c?.contact_phone ? `· ${c.contact_phone}` : ""}</div>
+              <div className="font-semibold text-foreground">{c?.business_name}</div>
+              <div className="text-xs text-muted-foreground">{c?.contact_email} {c?.contact_phone ? `· ${c.contact_phone}` : ""}</div>
             </div>
             <Field label="Website URL" value={r.website_url} />
             <Field label="Platform" value={r.website_platform} />
@@ -259,8 +259,8 @@ function InstallDetailDialog({ id, onClose }: { id: number; onClose: () => void 
             <Field label="Started" value={r.started_at ? new Date(r.started_at).toLocaleString() : "—"} />
             <Field label="Completed" value={r.completed_at ? new Date(r.completed_at).toLocaleString() : "—"} />
 
-            <div className="border-t border-gray-100 pt-4">
-              <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1 block">Admin notes</label>
+            <div className="border-t border-border pt-4">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wide mb-1 block">Admin notes</label>
               <Textarea
                 value={adminNotes || r.admin_notes || ""}
                 onChange={(e) => setAdminNotes(e.target.value)}
@@ -296,11 +296,11 @@ function Field({ label, value, multiline }: { label: string; value: any; multili
   if (value == null || value === "") return null;
   return (
     <div>
-      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{label}</div>
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">{label}</div>
       {multiline ? (
-        <pre className="text-sm whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded px-2 py-1 font-mono">{String(value)}</pre>
+        <pre className="text-sm whitespace-pre-wrap bg-muted/50 border border-border rounded px-2 py-1 font-mono">{String(value)}</pre>
       ) : (
-        <div className="text-sm text-gray-900">{String(value)}</div>
+        <div className="text-sm text-foreground">{String(value)}</div>
       )}
     </div>
   );

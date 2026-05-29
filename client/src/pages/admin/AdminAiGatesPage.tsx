@@ -114,7 +114,7 @@ export default function AdminAiGatesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">AI Surface Gates</h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               System-wide kill switches + monthly spend caps for every AI surface in the product.
             </p>
           </div>
@@ -155,10 +155,10 @@ export default function AdminAiGatesPage() {
               <TableBody>
                 {(data?.gates || []).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10 text-gray-500">
-                      <ShieldOff className="w-6 h-6 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm font-medium text-gray-700 mb-0.5">No AI surfaces configured</p>
-                      <p className="text-xs text-gray-500">Kill switches and budgets per AI surface appear here once the AI gates table is seeded.</p>
+                    <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                      <ShieldOff className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm font-medium text-foreground mb-0.5">No AI surfaces configured</p>
+                      <p className="text-xs text-muted-foreground">Kill switches and budgets per AI surface appear here once the AI gates table is seeded.</p>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -246,7 +246,7 @@ function GateRowEditor({
     <TableRow data-testid={`ai-gate-row-${row.surface}`}>
       <TableCell className="font-medium">
         {row.label}
-        <span className="block text-xs text-gray-400">{row.surface}</span>
+        <span className="block text-xs text-muted-foreground">{row.surface}</span>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
@@ -293,12 +293,12 @@ function GateRowEditor({
       <TableCell>{formatCents(row.monthly_spent_cents)}</TableCell>
       <TableCell>
         {pct == null ? (
-          <span className="text-gray-400">—</span>
+          <span className="text-muted-foreground">—</span>
         ) : (
           <Badge variant={overThreshold ? "destructive" : "secondary"}>{pct}%</Badge>
         )}
       </TableCell>
-      <TableCell className="text-sm text-gray-500">
+      <TableCell className="text-sm text-muted-foreground">
         {formatRelative(row.last_activity_at)}
       </TableCell>
     </TableRow>

@@ -57,7 +57,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span data-theme="light" className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[status] || "bg-gray-100 text-gray-600"}`}>
+    <span data-theme="light" className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[status] || "bg-muted/50 text-muted-foreground"}`}>
       {status}
     </span>
   );
@@ -352,8 +352,8 @@ export default function ClientsPage() {
         {/* Header */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">Clients</h2>
-            <p className="text-sm text-gray-500">{data?.total ?? 0} total</p>
+            <h2 className="text-lg font-semibold text-foreground">Clients</h2>
+            <p className="text-sm text-muted-foreground">{data?.total ?? 0} total</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
@@ -547,7 +547,7 @@ export default function ClientsPage() {
                 ))
               ) : visibleRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {search || sourceFilter.length > 0 || statusFilter !== "all" ? (
                       "No clients match your search or filters."
                     ) : (
@@ -574,7 +574,7 @@ export default function ClientsPage() {
                         navigate(`/admin/crm/clients/${client.id}`);
                       }
                     }}
-                    className="cursor-pointer transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:bg-gray-50 focus-visible:ring-2 focus-visible:ring-brand-blue/40"
+                    className="cursor-pointer transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-brand-blue/40"
                   >
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <input
@@ -586,26 +586,26 @@ export default function ClientsPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-foreground">
                         {client.business_name}
                       </span>
-                      <p className="text-xs text-gray-500 md:hidden">{client.contact_email}</p>
+                      <p className="text-xs text-muted-foreground md:hidden">{client.contact_email}</p>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      <div className="text-sm text-gray-700">{client.contact_name || "-"}</div>
-                      <div className="text-xs text-gray-500">{client.contact_email || ""}</div>
+                      <div className="text-sm text-muted-foreground">{client.contact_name || "-"}</div>
+                      <div className="text-xs text-muted-foreground">{client.contact_email || ""}</div>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      <span className="text-sm text-gray-600 capitalize">{client.trade_type || "-"}</span>
+                      <span className="text-sm text-muted-foreground capitalize">{client.trade_type || "-"}</span>
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={client.status} />
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      <span className="text-xs text-gray-500 capitalize">{client.source || "-"}</span>
+                      <span className="text-xs text-muted-foreground capitalize">{client.source || "-"}</span>
                     </TableCell>
                     <TableCell className="hidden xl:table-cell">
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         {client.created_at
                           ? new Date(client.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
                           : "-"}
@@ -626,7 +626,7 @@ export default function ClientsPage() {
                           <UserCheck className="w-3 h-3 mr-1" /> View as
                         </Button>
                       ) : (
-                        <span className="text-[11px] text-gray-400" title="No linked portal user">—</span>
+                        <span className="text-[11px] text-muted-foreground" title="No linked portal user">—</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -645,30 +645,30 @@ export default function ClientsPage() {
             <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }}>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Business Name *</label>
+                  <label className="text-xs font-medium text-muted-foreground">Business Name *</label>
                   <Input value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Contact Name</label>
+                    <label className="text-xs font-medium text-muted-foreground">Contact Name</label>
                     <Input value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Phone</label>
+                    <label className="text-xs font-medium text-muted-foreground">Phone</label>
                     <Input value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Email</label>
+                  <label className="text-xs font-medium text-muted-foreground">Email</label>
                   <Input value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Trade Type</label>
+                    <label className="text-xs font-medium text-muted-foreground">Trade Type</label>
                     <Input value={form.trade_type} onChange={(e) => setForm({ ...form, trade_type: e.target.value })} placeholder="e.g. plumber" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Status</label>
+                    <label className="text-xs font-medium text-muted-foreground">Status</label>
                     <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -701,7 +701,7 @@ export default function ClientsPage() {
               <DialogTitle>Tag {selectedIds.size} client{selectedIds.size === 1 ? "" : "s"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={(e) => { e.preventDefault(); submitBulkTag(); }}>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Tag name</label>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Tag name</label>
               <Input
                 value={tagValue}
                 onChange={(e) => setTagValue(e.target.value)}
@@ -709,7 +709,7 @@ export default function ClientsPage() {
                 autoFocus
                 maxLength={64}
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 Created on the fly if it doesn't exist. Existing tags on each client are preserved.
               </p>
               <DialogFooter className="mt-4">
@@ -799,8 +799,8 @@ function SortableHeader<K extends string>({
       aria-label={`Sort by ${label}${active ? ` (${dir})` : ""}`}
       aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
       className={`inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wider transition-colors ${
-        active ? "text-gray-900" : "text-gray-500"
-      } hover:text-gray-900`}
+        active ? "text-foreground" : "text-muted-foreground"
+      } hover:text-foreground`}
     >
       {label}
       <Icon className={`w-3 h-3 ${active ? "" : "opacity-60"}`} />

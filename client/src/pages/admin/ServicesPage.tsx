@@ -127,8 +127,8 @@ export default function ServicesPage() {
     }}>
       <div className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Services</h2>
-          <p className="text-sm text-gray-500">{merged.length} services in your catalog</p>
+          <h2 className="text-lg font-semibold text-foreground">Services</h2>
+          <p className="text-sm text-muted-foreground">{merged.length} services in your catalog</p>
         </div>
 
         {isLoading ? (
@@ -150,13 +150,13 @@ export default function ServicesPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-semibold text-gray-900">{svc.name}</h3>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${CATEGORY_COLORS[svc.category] || "bg-gray-100 text-gray-600"}`}>
+                      <h3 className="text-sm font-semibold text-foreground">{svc.name}</h3>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${CATEGORY_COLORS[svc.category] || "bg-muted/50 text-muted-foreground"}`}>
                         {svc.category}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{svc.description}</p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{svc.description}</p>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                       {svc.default_price != null && (
                         <span>{fmt(svc.default_price)}{svc.billing_period === "monthly" ? "/mo" : " one-time"}</span>
                       )}
@@ -167,10 +167,10 @@ export default function ServicesPage() {
                     {svc.is_active ? (
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${SERVICE_STATUS.active.color}`}>Active</span>
                     ) : (
-                      <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">Inactive</span>
+                      <span className="text-[10px] font-medium text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">Inactive</span>
                     )}
                     {!svc.inDatabase && (
-                      <span className="text-[10px] text-gray-300">Not yet active</span>
+                      <span className="text-[10px] text-muted-foreground">Not yet active</span>
                     )}
                   </div>
                 </div>
@@ -181,11 +181,11 @@ export default function ServicesPage() {
         )}
 
         <Card className="p-4 space-y-2">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-muted-foreground">
             These are all available services in your catalog. Services marked "Not yet active" need to be set up before they can be assigned to clients. Contact support if you need help activating a service.
           </p>
-          <p className="text-[11px] text-gray-400">
-            <strong className="text-gray-500">Source of truth:</strong>{" "}
+          <p className="text-[11px] text-muted-foreground">
+            <strong className="text-muted-foreground">Source of truth:</strong>{" "}
             Marketing pricing pages read from <code>shared/pricing.ts</code> (compiled into the
             client bundle). The admin product editor writes to the <code>service_catalog</code>{" "}
             DB table, which is seeded from the same file via{" "}

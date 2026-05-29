@@ -111,7 +111,7 @@ export default function AdminAiChannelsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">AI Channel Kill Switches</h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Per-channel emergency cut-off. Defaults are OFF — flip a channel on only when
               you're ready for the AI to respond live on it.
             </p>
@@ -152,10 +152,10 @@ export default function AdminAiChannelsPage() {
               <TableBody>
                 {(data?.gates || []).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10 text-gray-500">
-                      <Radio className="w-6 h-6 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm font-medium text-gray-700 mb-0.5">No AI channels configured</p>
-                      <p className="text-xs text-gray-500">Channel gates appear here once the AI channels migration has run.</p>
+                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                      <Radio className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm font-medium text-foreground mb-0.5">No AI channels configured</p>
+                      <p className="text-xs text-muted-foreground">Channel gates appear here once the AI channels migration has run.</p>
                     </TableCell>
                   </TableRow>
                 ) : (data?.gates || []).map((row) => {
@@ -169,10 +169,10 @@ export default function AdminAiChannelsPage() {
                     <TableRow key={row.channel} data-testid={`ai-channel-row-${row.channel}`}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-gray-500" />
+                          <Icon className="w-4 h-4 text-muted-foreground" />
                           <div>
                             <div>{meta.label}</div>
-                            <div className="text-xs text-gray-400">{meta.description}</div>
+                            <div className="text-xs text-muted-foreground">{meta.description}</div>
                           </div>
                         </div>
                       </TableCell>
@@ -194,10 +194,10 @@ export default function AdminAiChannelsPage() {
                           data-testid={`ai-channel-toggle-${row.channel}`}
                         />
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">
+                      <TableCell className="text-sm text-muted-foreground">
                         {formatRelative(row.updated_at)}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">
+                      <TableCell className="text-sm text-muted-foreground">
                         {row.updated_by ? `user #${row.updated_by}` : "—"}
                       </TableCell>
                     </TableRow>

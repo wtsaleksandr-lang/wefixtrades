@@ -49,16 +49,16 @@ function ConnectDialog({ open, onClose }: { open: boolean; onClose: () => void }
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}><DialogContent data-theme="light" className="sm:max-w-md"><DialogHeader><DialogTitle>Connect Calendar</DialogTitle></DialogHeader>
       {!platform ? <div className="grid gap-3 py-2">{(["google", "calcom", "calendly", "manual"] as const).map((p) => (
-        <button key={p} onClick={() => setPlatform(p)} className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50/50 text-left">
+        <button key={p} onClick={() => setPlatform(p)} className="flex items-center gap-3 p-4 rounded-xl border border-border hover:border-border hover:bg-muted/50 text-left">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${PC[p]}`}>{p === "manual" ? <LinkIcon className="w-5 h-5" /> : <CalendarDays className="w-5 h-5" />}</div>
-          <div><p className="text-sm font-semibold text-gray-900">{PL[p]}</p><p className="text-xs text-gray-500">{p === "google" ? "OAuth" : p === "calcom" ? "API key" : p === "calendly" ? "Access token" : "Booking URL"}</p></div>
+          <div><p className="text-sm font-semibold text-foreground">{PL[p]}</p><p className="text-xs text-muted-foreground">{p === "google" ? "OAuth" : p === "calcom" ? "API key" : p === "calendly" ? "Access token" : "Booking URL"}</p></div>
         </button>))}</div>
       : <div className="space-y-4 py-2">
-        <button onClick={() => setPlatform("")} className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"><ChevronDown className="w-3 h-3 rotate-90" />Back</button>
-        {platform === "google" && <p className="text-sm text-gray-500">You will be redirected to Google.</p>}
-        {platform === "calcom" && <><div><label className="text-xs font-medium text-gray-600 mb-1 block">API Key *</label><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} /></div><div><label className="text-xs font-medium text-gray-600 mb-1 block">Event Type ID *</label><Input value={eventTypeId} onChange={(e) => setEventTypeId(e.target.value)} /></div></>}
-        {platform === "calendly" && <div><label className="text-xs font-medium text-gray-600 mb-1 block">Access Token *</label><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} /></div>}
-        {platform === "manual" && <div><label className="text-xs font-medium text-gray-600 mb-1 block">Booking URL *</label><Input type="url" value={bookingUrl} onChange={(e) => setBookingUrl(e.target.value)} /></div>}
+        <button onClick={() => setPlatform("")} className="text-xs text-muted-foreground hover:text-muted-foreground flex items-center gap-1"><ChevronDown className="w-3 h-3 rotate-90" />Back</button>
+        {platform === "google" && <p className="text-sm text-muted-foreground">You will be redirected to Google.</p>}
+        {platform === "calcom" && <><div><label className="text-xs font-medium text-muted-foreground mb-1 block">API Key *</label><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} /></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Event Type ID *</label><Input value={eventTypeId} onChange={(e) => setEventTypeId(e.target.value)} /></div></>}
+        {platform === "calendly" && <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Access Token *</label><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} /></div>}
+        {platform === "manual" && <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Booking URL *</label><Input type="url" value={bookingUrl} onChange={(e) => setBookingUrl(e.target.value)} /></div>}
       </div>}
       {platform && <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={connect} disabled={connecting} className="bg-brand-blue hover:bg-brand-blue-600">{connecting ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />Connecting...</> : "Connect"}</Button></DialogFooter>}
     </DialogContent></Dialog>
@@ -76,14 +76,14 @@ function HoursEditor() {
   });
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3"><label className="text-sm font-medium text-gray-700 shrink-0">Timezone</label>
+      <div className="flex items-center gap-3"><label className="text-sm font-medium text-foreground shrink-0">Timezone</label>
         <Select value={tz} onValueChange={setTz}><SelectTrigger className="w-64"><SelectValue /></SelectTrigger><SelectContent>{TZS.map((t) => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}</SelectContent></Select>
       </div>
-      <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+      <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
         {hours.map((h, i) => (
-          <div key={h.day} className={`flex items-center gap-4 px-4 py-3 ${h.enabled ? "bg-white" : "bg-gray-50"}`}>
-            <div className="flex items-center gap-3 w-32 shrink-0"><Switch checked={h.enabled} onCheckedChange={() => setHours((p) => p.map((x, j) => j === i ? { ...x, enabled: !x.enabled } : x))} /><span className={`text-sm font-medium ${h.enabled ? "text-gray-900" : "text-gray-400"}`}>{h.day.slice(0, 3)}</span></div>
-            {h.enabled ? <div className="flex items-center gap-2"><Input type="time" value={h.start} onChange={(e) => setHours((p) => p.map((x, j) => j === i ? { ...x, start: e.target.value } : x))} className="w-32 h-9 text-sm" /><span className="text-gray-400 text-sm">to</span><Input type="time" value={h.end} onChange={(e) => setHours((p) => p.map((x, j) => j === i ? { ...x, end: e.target.value } : x))} className="w-32 h-9 text-sm" /></div> : <span className="text-sm text-gray-400 italic">Closed</span>}
+          <div key={h.day} className={`flex items-center gap-4 px-4 py-3 ${h.enabled ? "bg-card" : "bg-muted/50"}`}>
+            <div className="flex items-center gap-3 w-32 shrink-0"><Switch checked={h.enabled} onCheckedChange={() => setHours((p) => p.map((x, j) => j === i ? { ...x, enabled: !x.enabled } : x))} /><span className={`text-sm font-medium ${h.enabled ? "text-foreground" : "text-muted-foreground"}`}>{h.day.slice(0, 3)}</span></div>
+            {h.enabled ? <div className="flex items-center gap-2"><Input type="time" value={h.start} onChange={(e) => setHours((p) => p.map((x, j) => j === i ? { ...x, start: e.target.value } : x))} className="w-32 h-9 text-sm" /><span className="text-muted-foreground text-sm">to</span><Input type="time" value={h.end} onChange={(e) => setHours((p) => p.map((x, j) => j === i ? { ...x, end: e.target.value } : x))} className="w-32 h-9 text-sm" /></div> : <span className="text-sm text-muted-foreground italic">Closed</span>}
           </div>))}
       </div>
       <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-brand-blue hover:bg-brand-blue-600">{save.isPending ? "Saving..." : "Save Working Hours"}</Button>
@@ -105,11 +105,11 @@ export default function BookingCalendarPage() {
   return (
     <AdminLayout pageContext={{ page: "booking" }}>
       <div className="space-y-6">
-        <div><h1 className="text-xl font-bold text-gray-900">Booking Calendar</h1><p className="text-sm text-gray-500 mt-0.5">Manage calendars, hours, and bookings</p></div><div className="flex items-start gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm"><Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" /><p className="text-blue-800">Manage your business's calendar connections and booking hours. Customers see their own booking flow when they accept a quote &mdash; this is admin configuration, not a customer preview.</p></div>
+        <div><h1 className="text-xl font-bold text-foreground">Booking Calendar</h1><p className="text-sm text-muted-foreground mt-0.5">Manage calendars, hours, and bookings</p></div><div className="flex items-start gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm"><Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" /><p className="text-blue-800">Manage your business's calendar connections and booking hours. Customers see their own booking flow when they accept a quote &mdash; this is admin configuration, not a customer preview.</p></div>
         <Tabs defaultValue="connections" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="connections">Connections</TabsTrigger><TabsTrigger value="hours">Working Hours</TabsTrigger><TabsTrigger value="bookings">Bookings</TabsTrigger></TabsList>
           <TabsContent value="connections" className="space-y-4">
-            <div className="flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">Calendar Connections</h2><Button size="sm" onClick={() => setConnectOpen(true)} className="bg-brand-blue hover:bg-brand-blue-600 gap-1.5"><Plus className="w-3.5 h-3.5" />Connect</Button></div>
+            <div className="flex items-center justify-between"><h2 className="text-base font-semibold text-foreground">Calendar Connections</h2><Button size="sm" onClick={() => setConnectOpen(true)} className="bg-brand-blue hover:bg-brand-blue-600 gap-1.5"><Plus className="w-3.5 h-3.5" />Connect</Button></div>
             {cErr ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
@@ -123,7 +123,7 @@ export default function BookingCalendarPage() {
                 </Button>
               </div>
             ) : cl ? <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
+              <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
                 <div className="flex items-center gap-3">
                   <Skeleton className="w-8 h-8 rounded-lg" />
                   <div className="space-y-1.5"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-20" /></div>
@@ -131,30 +131,30 @@ export default function BookingCalendarPage() {
                 <Skeleton className="h-6 w-24" />
               </div>
             ))}</div>
-            : !conns?.length ? <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center"><CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-3" /><p className="text-sm font-medium text-gray-600">No calendars connected</p></div>
+            : !conns?.length ? <div className="rounded-xl border-2 border-dashed border-border p-8 text-center"><CalendarDays className="w-8 h-8 text-muted-foreground mx-auto mb-3" /><p className="text-sm font-medium text-muted-foreground">No calendars connected</p></div>
             : <div className="space-y-3">{conns.map((c) => (
-              <div key={c.id} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
+              <div key={c.id} className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${PC[c.platform] || PC.manual}`}><CalendarDays className="w-5 h-5" /></div>
-                  <div><div className="flex items-center gap-2"><span className="text-sm font-semibold text-gray-900">{PL[c.platform] || c.platform}</span><Badge variant="outline" className={SS[c.status] || "bg-gray-100 text-gray-500"}>{c.status}</Badge></div>
-                    <div className="flex gap-3 mt-0.5">{c.slot_duration_minutes && <span className="text-xs text-gray-400">{c.slot_duration_minutes}min</span>}{c.last_synced_at && <span className="text-xs text-gray-400">Synced {new Date(c.last_synced_at).toLocaleDateString()}</span>}</div></div>
+                  <div><div className="flex items-center gap-2"><span className="text-sm font-semibold text-foreground">{PL[c.platform] || c.platform}</span><Badge variant="outline" className={SS[c.status] || "bg-muted/50 text-muted-foreground"}>{c.status}</Badge></div>
+                    <div className="flex gap-3 mt-0.5">{c.slot_duration_minutes && <span className="text-xs text-muted-foreground">{c.slot_duration_minutes}min</span>}{c.last_synced_at && <span className="text-xs text-muted-foreground">Synced {new Date(c.last_synced_at).toLocaleDateString()}</span>}</div></div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <Switch checked={c.metadata?.accepting_bookings !== false} disabled={acceptingM.isPending} onCheckedChange={(v) => acceptingM.mutate({ id: c.id, metadata: c.metadata, accepting: v })} />
-                    <span className="text-xs text-gray-500 hidden sm:inline">Accepting bookings</span>
+                    <span className="text-xs text-muted-foreground hidden sm:inline">Accepting bookings</span>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600" onClick={() => testM.mutate(c.id)}>{testM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-600" onClick={() => testM.mutate(c.id)}>{testM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</Button>
                     {c.booking_url && <Button variant="ghost" size="icon" className="h-8 w-8" asChild><a href={c.booking_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a></Button>}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => setPendingDisconnect(c)}><Trash2 className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-600" onClick={() => setPendingDisconnect(c)}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>
               </div>))}</div>}
           </TabsContent>
-          <TabsContent value="hours" className="space-y-4"><h2 className="text-base font-semibold text-gray-900">Working Hours</h2><HoursEditor /></TabsContent>
+          <TabsContent value="hours" className="space-y-4"><h2 className="text-base font-semibold text-foreground">Working Hours</h2><HoursEditor /></TabsContent>
           <TabsContent value="bookings" className="space-y-4">
-            <h2 className="text-base font-semibold text-gray-900">Recent Bookings</h2>
+            <h2 className="text-base font-semibold text-foreground">Recent Bookings</h2>
             {bErr ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
@@ -167,7 +167,7 @@ export default function BookingCalendarPage() {
                   Retry
                 </Button>
               </div>
-            ) : bl ? <div className="rounded-xl border border-gray-200 overflow-hidden"><div className="divide-y divide-gray-100">{Array.from({ length: 5 }).map((_, i) => (
+            ) : bl ? <div className="rounded-xl border border-border overflow-hidden"><div className="divide-y divide-border">{Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="px-4 py-3 flex items-center gap-4">
                   <Skeleton className="h-9 w-16" />
                   <Skeleton className="h-4 w-32" />
@@ -175,12 +175,12 @@ export default function BookingCalendarPage() {
                   <Skeleton className="h-5 w-20 rounded-full ml-auto" />
                 </div>
               ))}</div></div>
-            : !bk?.data?.length ? <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center"><CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-3" /><p className="text-sm text-gray-600">No bookings yet</p></div>
-            : <div className="rounded-xl border border-gray-200 overflow-hidden"><table className="w-full text-sm"><thead><tr className="bg-gray-50 border-b"><th className="text-left px-4 py-3 font-medium text-gray-500">Date</th><th className="text-left px-4 py-3 font-medium text-gray-500">Customer</th><th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Phone</th><th className="text-left px-4 py-3 font-medium text-gray-500">Status</th></tr></thead>
-              <tbody className="divide-y divide-gray-100">{bk.data.map((b) => (
-                <tr key={b.id} className="hover:bg-gray-50"><td className="px-4 py-3"><div className="font-medium text-gray-900">{new Date(b.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div><div className="text-xs text-gray-500">{b.time}</div></td>
-                  <td className="px-4 py-3"><div className="font-medium text-gray-900">{b.customer_name}</div></td><td className="px-4 py-3 hidden sm:table-cell text-gray-600">{b.customer_phone || "--"}</td>
-                  <td className="px-4 py-3"><Badge variant="outline" className={SS[b.status] || "bg-gray-100 text-gray-500"}>{b.status}</Badge></td></tr>))}</tbody></table></div>}
+            : !bk?.data?.length ? <div className="rounded-xl border-2 border-dashed border-border p-8 text-center"><CalendarDays className="w-8 h-8 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">No bookings yet</p></div>
+            : <div className="rounded-xl border border-border overflow-hidden"><table className="w-full text-sm"><thead><tr className="bg-muted/50 border-b"><th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th><th className="text-left px-4 py-3 font-medium text-muted-foreground">Customer</th><th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Phone</th><th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th></tr></thead>
+              <tbody className="divide-y divide-border">{bk.data.map((b) => (
+                <tr key={b.id} className="hover:bg-muted/50"><td className="px-4 py-3"><div className="font-medium text-foreground">{new Date(b.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div><div className="text-xs text-muted-foreground">{b.time}</div></td>
+                  <td className="px-4 py-3"><div className="font-medium text-foreground">{b.customer_name}</div></td><td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">{b.customer_phone || "--"}</td>
+                  <td className="px-4 py-3"><Badge variant="outline" className={SS[b.status] || "bg-muted/50 text-muted-foreground"}>{b.status}</Badge></td></tr>))}</tbody></table></div>}
           </TabsContent>
         </Tabs>
       </div>
