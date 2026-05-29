@@ -12,6 +12,7 @@
  */
 import { storage } from "../../storage";
 import { logSmsCost, logEmailCost } from "../socialSync/costTracker";
+import { noisyCatch } from "../../lib/silentFailureGuard";
 import nodemailer from "nodemailer";
 import type { ReviewRequest } from "@shared/schema";
 
@@ -364,7 +365,12 @@ export async function processReviewRequests(): Promise<ProcessResult> {
         const smsResult = await sendSms(req.customer_phone, message, req.client_id);
 
         if (smsResult.success) {
-          logSmsCost(req.client_id).catch(() => {});
+          // Wave 113 — per-review SMS cost write must be loud or the
+          // per-client SMS cap can drift past actual spend.
+          noisyCatch(logSmsCost(req.client_id), {
+            op: "reviewRequest.logSmsCost",
+            meta: { clientId: req.client_id, requestId: req.id },
+          });
           await storage.updateReviewRequest(req.id, {
             status: "sent",
             sent_at: new Date(),
@@ -381,7 +387,11 @@ export async function processReviewRequests(): Promise<ProcessResult> {
         const emailResult = await sendEmail(req.customer_email, businessName, req.customer_name || "there", req.review_link);
 
         if (emailResult.success) {
-          logEmailCost(req.client_id, "Review request email").catch(() => {});
+          // Wave 113 — same noisyCatch pattern for email cost tracking.
+          noisyCatch(logEmailCost(req.client_id, "Review request email"), {
+            op: "reviewRequest.logEmailCost",
+            meta: { clientId: req.client_id, requestId: req.id },
+          });
           await storage.updateReviewRequest(req.id, {
             status: "sent",
             sent_at: new Date(),

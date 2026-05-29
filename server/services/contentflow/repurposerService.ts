@@ -37,6 +37,7 @@ import { storage } from "../../storage";
 import { db } from "../../db";
 import { contentDrafts } from "@shared/schema";
 import { generateContentflowText } from "./aiText";
+import { noisyCatch } from "../../lib/silentFailureGuard";
 import { autoApproveDraft } from "./approvalService";
 import { enqueueSocialSyncDraft, enqueueEmailDraft } from "./wordpressQueue";
 import { generateForDraft as generateImageForDraft } from "./imageGenerationService";
@@ -223,7 +224,11 @@ async function aiDerivations(
       maxTokens: 2000,
     });
     raw = gen.text;
-    storage.addDraftGenerationCost(article.id, gen.costMicroUsd).catch(() => {});
+    // Wave 113 — cost drift on repurposer AI call must be loud.
+    noisyCatch(storage.addDraftGenerationCost(article.id, gen.costMicroUsd), {
+      op: "contentflow.repurposer.addDraftGenerationCost",
+      meta: { parentArticleId: article.id, costMicroUsd: gen.costMicroUsd },
+    });
   } catch (err: any) {
     log.error(`[contentflow][repurposer] AI call failed for parent=${article.id}: ${err?.message || err}`);
     return null;
@@ -494,7 +499,13 @@ export async function repurposeArticle(parentDraftId: number): Promise<Repurpose
         /* Sprint 11/12: image generation (FB/IG/GBP). Sync-await but
          * never throws. Email children skip image gen entirely. */
         if (item.kind !== "email_post") {
-          await generateImageForDraft(child.id).catch(() => {});
+          // Wave 113 — image-gen failures in repurposer were silenced;
+          // surface via noisyCatch (the publisher still treats null
+          // image_url as a soft fail, behaviour unchanged).
+          await noisyCatch(generateImageForDraft(child.id), {
+            op: "contentflow.repurposer.generateImageForDraft",
+            meta: { childDraftId: child.id, parentDraftId, variantIndex: item.variantIndex },
+          });
         }
 
         /* Auto-approve + enqueue. */
