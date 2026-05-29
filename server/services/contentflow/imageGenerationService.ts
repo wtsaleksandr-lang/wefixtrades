@@ -30,6 +30,7 @@ import { generateImage as generateImageViaRotator } from "../ai/imageRotator";
 import type { ContentDraft } from "@shared/schema";
 import { readBrandProfile } from "./brandProfile";
 import { createLogger } from "../../lib/logger";
+import { noisyCatch } from "../../lib/silentFailureGuard";
 import { postProcessAIImage, isPostProcessEnabled } from "./imagePostProcess";
 import {
   applyStylePreset,
@@ -456,12 +457,20 @@ export async function generateForDraft(
     const apiResult = await callImageApi(finalPrompt, { customerTier });
     if (!apiResult.ok) {
       log(`api_failed reason=${apiResult.reason} msg=${apiResult.message}`);
-      /* Persist failure marker so admin can see why no image. */
-      await persistImageMeta(draftId, {
-        image_generation_status: "failed",
-        image_generation_error: apiResult.message?.slice(0, 500),
-        image_generation_at: new Date().toISOString(),
-      }).catch(() => {});
+      /* Persist failure marker so admin can see why no image.
+         Wave 111 — was silent .catch(() => {}); if THIS write itself
+         fails, the admin loses the "why" diagnostic — surface it. */
+      await noisyCatch(
+        persistImageMeta(draftId, {
+          image_generation_status: "failed",
+          image_generation_error: apiResult.message?.slice(0, 500),
+          image_generation_at: new Date().toISOString(),
+        }),
+        {
+          op: "contentflow.imageGen.persistFailureMeta",
+          meta: { draftId, reason: apiResult.reason },
+        },
+      );
       return { ok: false, reason: apiResult.reason, message: apiResult.message, prompt_used: finalPrompt };
     }
 
@@ -520,7 +529,15 @@ export async function generateForDraft(
       } else {
         logger.warn(`[contentflow][image-gen] draft=${draftId} R2 upload failed (${upload.error}) — falling back to provider URL`);
         // Fire-and-forget background re-upload (only meaningful for url responses).
-        if (apiResult.url) scheduleR2Reupload(draftId, apiResult.url, key).catch(() => {});
+        // Wave 111 — was silent .catch(() => {}); re-upload failure
+        // means the ephemeral OpenAI URL expires (~1h TTL) and the
+        // hosted image dies silently. noisyCatch surfaces it.
+        if (apiResult.url) {
+          noisyCatch(scheduleR2Reupload(draftId, apiResult.url, key), {
+            op: "contentflow.imageGen.scheduleR2Reupload",
+            meta: { draftId, key },
+          });
+        }
         /* If post-process consumed the provider URL (finalUrl=undefined)
          * but R2 then failed, restore the original ephemeral URL so the
          * publish flow has SOMETHING to use — un-processed beats no image. */
@@ -532,11 +549,19 @@ export async function generateForDraft(
      * of persisting a giant data URI or crashing on finalUrl.slice(). */
     if (!finalUrl) {
       log(`r2_failed_no_fallback`);
-      await persistImageMeta(draftId, {
-        image_generation_status: "failed",
-        image_generation_error: "R2 upload failed; gpt-image returned no hostable URL",
-        image_generation_at: new Date().toISOString(),
-      }).catch(() => {});
+      // Wave 111 — same noisyCatch wrap; admin loses the "why" if this
+      // write fails silently.
+      await noisyCatch(
+        persistImageMeta(draftId, {
+          image_generation_status: "failed",
+          image_generation_error: "R2 upload failed; gpt-image returned no hostable URL",
+          image_generation_at: new Date().toISOString(),
+        }),
+        {
+          op: "contentflow.imageGen.persistR2FailureMeta",
+          meta: { draftId },
+        },
+      );
       return { ok: false, reason: "api_failed", message: "R2 upload failed and provider returned no hostable URL", prompt_used: finalPrompt };
     }
 
