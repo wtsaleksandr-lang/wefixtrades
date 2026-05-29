@@ -1100,7 +1100,7 @@ export default function PortalServiceDetail() {
                 )}
 
                 {/* Next report note */}
-                <div className="px-5 py-3 border-t border-border bg-muted/50/50">
+                <div className="px-5 py-3 border-t border-border bg-muted/50">
                   <p className="text-xs text-muted-foreground">
                     Next report drops on the 2nd of every month. Ad spend is funded separately — you pay the ad platforms directly.
                   </p>
@@ -1127,7 +1127,7 @@ export default function PortalServiceDetail() {
                   {adflowReports.map((rpt) => {
                     const m = rpt.metrics || {};
                     return (
-                      <div key={rpt.id} className="px-5 py-3 flex items-center justify-between hover:bg-muted/50/50 transition-colors">
+                      <div key={rpt.id} className="px-5 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors">
                         <div>
                           <p className="text-sm font-medium text-foreground">{rpt.period_label}</p>
                           {rpt.sent_at && (
@@ -1216,7 +1216,7 @@ export default function PortalServiceDetail() {
                   </table>
                 </div>
                 {qqSummary?.calculator && (
-                  <div className="px-5 py-3 border-t border-border bg-muted/50/50 text-xs text-muted-foreground">
+                  <div className="px-5 py-3 border-t border-border bg-muted/50 text-xs text-muted-foreground">
                     {qqSummary.calculator.total_leads} total leads &middot; {qqSummary.calculator.total_views} total views
                   </div>
                 )}

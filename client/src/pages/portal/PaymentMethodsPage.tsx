@@ -144,11 +144,9 @@ export default function PaymentMethodsPage() {
     <PortalLayout>
       <div data-theme="light" className="max-w-2xl space-y-6">
         <div>
-          <Link href="/portal/billing">
-            <a className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-blue transition-colors mb-2" data-testid="link-back-to-billing">
-              <ChevronLeft className="w-3.5 h-3.5" />
-              Back to Billing
-            </a>
+          <Link href="/portal/billing" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-blue transition-colors mb-2" data-testid="link-back-to-billing">
+            <ChevronLeft className="w-3.5 h-3.5" />
+            Back to Billing
           </Link>
           <h1 className="text-xl font-semibold text-gray-900">Payment Methods</h1>
           <p className="text-sm text-gray-500 mt-0.5">

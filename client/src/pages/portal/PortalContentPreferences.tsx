@@ -489,7 +489,7 @@ export default function PortalContentPreferences() {
                     onClick={() => toggleMulti(o.value)}
                     className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
                       selected
-                        ? "border-brand-blue-500 bg-brand-blue-500 text-white"
+                        ? "border-brand-blue-500 bg-brand-blue-500/10 text-brand-blue-700"
                         : "border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                   >

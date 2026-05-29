@@ -265,9 +265,9 @@ export default function InvoicesPage() {
             style={{
               fontSize: 12,
               fontWeight: statusFilter === s ? 700 : 500,
-              color: statusFilter === s ? "#111" : "#6b7280",
-              background: statusFilter === s ? "#e5e7eb" : "#f9fafb",
-              border: "1px solid #e5e7eb",
+              color: statusFilter === s ? "#0d3cfc" : "#6b7280",
+              background: statusFilter === s ? "rgba(13,60,252,0.08)" : "#f9fafb",
+              border: `1px solid ${statusFilter === s ? "#0d3cfc" : "#e5e7eb"}`,
               borderRadius: 20,
               padding: "4px 12px",
               cursor: "pointer",

@@ -256,7 +256,7 @@ export default function SocialSyncSetup() {
                     const label = p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1);
                     return (
                       <button key={p} type="button"
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selected ? "bg-brand-blue text-white border-brand-blue" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selected ? "bg-brand-blue/10 text-brand-blue border-brand-blue" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}
                         onClick={() => setForm({
                           ...form,
                           platform_preferences: selected

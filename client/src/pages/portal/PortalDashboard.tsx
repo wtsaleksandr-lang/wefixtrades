@@ -1,6 +1,6 @@
 import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Wrench, ClipboardList, AlertCircle, CreditCard, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus, Sparkles, LifeBuoy } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -170,6 +170,7 @@ export default function PortalDashboard() {
 function PortalDashboardInner() {
   usePageTitle("Dashboard");
   const { user } = useAuth();
+  const qc = useQueryClient();
   // Q20a: capture the API error code so admin-without-client gets a friendly
   // empty state instead of the generic red error box.
   const { data, isLoading, error, refetch } = useQuery<OverviewData, Error & { code?: string }>({
@@ -627,7 +628,11 @@ function PortalDashboardInner() {
                     currentMode={tlData.config.currentMode as any}
                     clientServiceId={tradeLineService.id}
                     apiBase="/api/portal/tradeline"
-                    onModeChanged={() => {}}
+                    onModeChanged={() => {
+                      // Refresh the TradeLine slice so the dashboard reflects
+                      // the new mode immediately (was a no-op before).
+                      qc.invalidateQueries({ queryKey: ["/api/portal/tradeline", tradeLineService.id] });
+                    }}
                   />
                   {tlData.usage ? (
                     <div>
