@@ -37,6 +37,7 @@ import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { respectPreferences } from "../lib/notificationPreferences";
 import { createLogger } from "../lib/logger";
 import { sendSMS } from "../twilioClient";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { parseNotificationPreferences } from "@shared/schemas/notificationPreferences";
 
 const log = createLogger("DunningService");
@@ -453,13 +454,24 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
     // Fire payment_at_risk alert on day_7_warning (3rd and final dunning step)
     if (row.kind === "day_7_warning") {
       const { fireAlert } = await import("./alertService");
-      fireAlert({
-        severity: "critical",
-        category: "payment_at_risk",
-        title: `Payment at risk: ${client.business_name || `Client #${clientId}`}`,
-        details: `Day-7 final warning sent to ${client.contact_email}. Subscription ${row.stripe_subscription_id || "unknown"} may churn.`,
-        metadata: { client_id: clientId, stripe_subscription_id: row.stripe_subscription_id, dunning_row_id: row.id },
-      }).catch(() => {});
+      // Wave 115 — noisyCatch on the day-7 payment-at-risk alert. The
+      // audit doc flagged this as LOW-leaning MEDIUM because the
+      // upstream code already logs the warning loudly, but losing the
+      // alert delivery means the operator misses a payment-churn signal
+      // that's already 7 days into the dunning sequence. Surface it.
+      noisyCatch(
+        fireAlert({
+          severity: "critical",
+          category: "payment_at_risk",
+          title: `Payment at risk: ${client.business_name || `Client #${clientId}`}`,
+          details: `Day-7 final warning sent to ${client.contact_email}. Subscription ${row.stripe_subscription_id || "unknown"} may churn.`,
+          metadata: { client_id: clientId, stripe_subscription_id: row.stripe_subscription_id, dunning_row_id: row.id },
+        }),
+        {
+          op: "dunning.day7PaymentAtRiskAlert",
+          meta: { clientId, subscriptionId: row.stripe_subscription_id, dunningRowId: row.id },
+        },
+      );
 
       // Dunning attempt 3+ — switch to SMS for urgency. Respects
       // notification_preferences.channels.sms + billing category and the
