@@ -52,7 +52,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { loadCopilotOpenState, saveCopilotOpenState } from "@/lib/chatHelpers";
 import { extractPageContext, pushPageContext } from "@/lib/chat/pageContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -106,13 +106,37 @@ type NavItem = {
   /** Nested admin sub-pages of this parent product. Rendered as
    *  indented rows below the parent only when the parent is expanded. */
   children?: NavChild[];
+  /** Wave 138 — catalog product id (from @shared/pricing ALL_PRODUCTS) for
+   *  the product rows in PRODUCTS_ITEMS. Lets the sidebar split products
+   *  into the "live" (active) simple set vs the Advanced reveal using the
+   *  /api/admin/products active-state map. Non-product rows omit this. */
+  productId?: string;
 };
 
+/* Wave 138 — Health-dot integration slot.
+ * Design-in only: a placeholder per-product health indicator that renders
+ * NOTHING today. The health wave will replace the body with a real signal
+ * (e.g. green/amber/red dot fed by a /api/admin/products/health query).
+ * Kept tiny + side-effect-free so it's a clean drop-in target. Do NOT
+ * fabricate health data here. */
+function ProductHealthDot({ productId }: { productId?: string }) {
+  // TODO(health-wave): wire a per-product health signal keyed by productId
+  // and render a small status dot here. Intentionally renders null for now.
+  void productId;
+  return null;
+}
+
+/* Wave 138 — each product row carries its catalog `productId` (from
+ * @shared/pricing ALL_PRODUCTS ids) so the sidebar can split active vs
+ * inactive products using the /api/admin/products map. Labels are display
+ * names; the explicit productId is the robust match (no fragile
+ * label→id string munging). */
 const PRODUCTS_ITEMS: NavItem[] = [
   {
     label: "QuoteQuick",
     href: "/admin/crm/quotequick",
     icon: Sparkles,
+    productId: "quotequick",
     children: [
       { label: "Templates", href: "/admin/quotequick/templates", icon: Sparkles },
       { label: "Trades", href: "/admin/quotequick/trades", icon: Sparkles },
@@ -122,24 +146,25 @@ const PRODUCTS_ITEMS: NavItem[] = [
     label: "TradeLine",
     href: "/admin/crm/tradeline-ops",
     icon: Phone,
+    productId: "tradeline",
     children: [
       { label: "Setups", href: "/admin/crm/tradeline-setups", icon: Phone },
       { label: "Templates", href: "/admin/tradeline/templates", icon: Sparkles },
     ],
   },
-  { label: "MapGuard", href: "/admin/crm/mapguard", icon: Shield },
-  { label: "WebCare", href: "/admin/crm/webcare/ops", icon: ShieldCheck },
-  { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
-  { label: "ReputationShield", href: "/admin/crm/reviews", icon: Star },
-  { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
-  { label: "ContentFlow", href: "/admin/crm/contentflow", icon: Layers },
-  { label: "AdFlow", href: "/admin/crm/adflow", icon: Zap },
+  { label: "MapGuard", href: "/admin/crm/mapguard", icon: Shield, productId: "mapguard" },
+  { label: "WebCare", href: "/admin/crm/webcare/ops", icon: ShieldCheck, productId: "webcare" },
+  { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp, productId: "rankflow" },
+  { label: "ReputationShield", href: "/admin/crm/reviews", icon: Star, productId: "reputationshield" },
+  { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2, productId: "socialsync" },
+  { label: "ContentFlow", href: "/admin/crm/contentflow", icon: Layers, productId: "contentflow" },
+  { label: "AdFlow", href: "/admin/crm/adflow", icon: Zap, productId: "adflow" },
   /* 2026-05-23: SiteLaunch + WebFix — only reachable today via the
    * Services catalogue editor pages. No dedicated CRM ops surface yet,
    * so the parent row points at the catalog editor per PR #569's
    * "parent path = most useful entry point" convention. */
-  { label: "SiteLaunch", href: "/admin/products/sitelaunch", icon: Rocket },
-  { label: "WebFix", href: "/admin/products/webfix", icon: Hammer },
+  { label: "SiteLaunch", href: "/admin/products/sitelaunch", icon: Rocket, productId: "sitelaunch" },
+  { label: "WebFix", href: "/admin/products/webfix", icon: Hammer, productId: "webfix" },
 ];
 
 /* Cross-product admin tooling — not a customer product itself.
@@ -221,6 +246,29 @@ function writeExpanded(state: Record<string, boolean>) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(NAV_EXPANDED_KEY, JSON.stringify(state));
+  } catch {
+    /* quota / disabled — non-fatal */
+  }
+}
+
+/* Wave 138 — Tesla-simple sidebar. The default view shows only Core +
+ * live (active) products + Billing. Everything else (inactive products,
+ * the rest of Finance, Operations, Outbound, AI, System) hides behind a
+ * single "Show all · Advanced" toggle, persisted under this key so the
+ * admin's choice survives reloads. Mirrors readExpanded/writeExpanded. */
+const NAV_ADVANCED_KEY = "admin-nav-advanced";
+function readAdvanced(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(NAV_ADVANCED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function writeAdvanced(open: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(NAV_ADVANCED_KEY, open ? "1" : "0");
   } catch {
     /* quota / disabled — non-fatal */
   }
@@ -310,6 +358,8 @@ function NavParentItem({
             )}
           />
           <span className="flex-1">{item.label}</span>
+          {/* Wave 138 — per-product health-dot slot (renders null today). */}
+          {item.productId && <ProductHealthDot productId={item.productId} />}
         </Link>
         {item.children && item.children.length > 0 && (
           <button
@@ -492,6 +542,8 @@ function NavGroup({
               >
                 <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
                 <span className="flex-1">{item.label}</span>
+                {/* Wave 138 — per-product health-dot slot (renders null today). */}
+                {item.productId && <ProductHealthDot productId={item.productId} />}
                 {badgeCount > 0 && (
                   <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
                     {badgeCount}
@@ -521,6 +573,74 @@ function SidebarNav({
   // Per-parent expansion state, persisted in localStorage so the
   // layout survives page reloads. Default: hydrate from storage.
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>(() => readExpanded());
+
+  /* Wave 138 — single "Advanced" reveal. When OFF (default) the nav shows
+   * only Core + live products + Billing. When ON it renders the full
+   * grouped layout (inactive products + Finance/Operations/Outbound/AI/
+   * System). Persisted in localStorage under NAV_ADVANCED_KEY. */
+  const [advancedOpen, setAdvancedOpen] = useState<boolean>(() => readAdvanced());
+  const toggleAdvanced = () => {
+    const next = !advancedOpen;
+    setAdvancedOpen(next);
+    writeAdvanced(next);
+  };
+
+  /* Active-state map for every catalog product, keyed by ProductDef.id.
+   * Drives which PRODUCTS_ITEMS land in the "live" simple set vs behind
+   * Advanced. While the query is loading we treat ALL products as active
+   * so the nav never flickers to an empty "live" section on first paint. */
+  const { data: productStates } = useQuery<{ id: string; name: string; is_active: boolean; hidden: boolean }[]>({
+    queryKey: ["/api/admin/products"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/products", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load products");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const activeById = useMemo(() => {
+    const m: Record<string, boolean> = {};
+    for (const p of productStates ?? []) m[p.id] = p.is_active;
+    return m;
+  }, [productStates]);
+  // Loading (no data yet) → treat every product as active so we never
+  // render an empty "Products · live" section.
+  const isProductActive = (productId?: string): boolean => {
+    if (!productStates) return true;
+    if (!productId) return true;
+    return activeById[productId] ?? false;
+  };
+  const activeProducts = PRODUCTS_ITEMS.filter((p) => isProductActive(p.productId));
+  const inactiveProducts = PRODUCTS_ITEMS.filter((p) => !isProductActive(p.productId));
+
+  // Finance split: Billing always shows in the simple view; the rest
+  // (Suppliers, Sales, Audit Leads) move behind Advanced.
+  const billingItems = FINANCE_ITEMS.filter((i) => i.href === "/admin/crm/billing");
+  const financeAdvancedItems = FINANCE_ITEMS.filter((i) => i.href !== "/admin/crm/billing");
+
+  /* If the admin lands (e.g. via direct URL or breadcrumb) on a page that
+   * only exists behind Advanced — an inactive product, or any Operations /
+   * Outbound / AI / System / non-Billing Finance row — auto-reveal Advanced
+   * so the active row is visible & highlighted. We never auto-close it. */
+  const advancedHrefs = useMemo(() => {
+    const collect = (items: NavItem[]) =>
+      items.flatMap((i) => [i.href, ...(i.children?.map((c) => c.href) ?? [])]);
+    return [
+      ...collect(inactiveProducts),
+      ...collect(OPERATIONS_ITEMS),
+      ...collect(financeAdvancedItems),
+      ...collect(OUTBOUND_ITEMS),
+      ...collect(AI_ITEMS),
+      ...collect(SYSTEM_ITEMS),
+    ];
+  }, [inactiveProducts, financeAdvancedItems]);
+  useEffect(() => {
+    if (advancedOpen) return;
+    if (advancedHrefs.some((h) => isActive(location, h))) {
+      setAdvancedOpen(true);
+      writeAdvanced(true);
+    }
+  }, [location, advancedHrefs, advancedOpen]);
 
   /* Persist + restore the sidebar's scroll position across route
    * changes. Each admin page mounts its own <AdminLayout>, so the
@@ -579,12 +699,78 @@ function SidebarNav({
         })}
       </div>
 
-      <NavGroup label="Products" items={PRODUCTS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} headerHref="/admin/crm/services" expandedMap={expandedMap} setExpandedMap={setExpandedMap} />
-      <NavGroup label="Operations" items={OPERATIONS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
-      <NavGroup label="Finance" items={FINANCE_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
-      <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
-      <NavGroup label="AI" items={AI_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} expandedMap={expandedMap} setExpandedMap={setExpandedMap} />
-      <NavGroup label="System" items={SYSTEM_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
+      {/* Wave 138 — Tesla-simple default view: only the live (active)
+          products + Billing show up front. The header still clicks through
+          to the catalog (headerHref) and the per-product children still
+          nest under their parent. */}
+      <NavGroup label="Products · live" items={activeProducts} location={location} onNavigate={onNavigate} defaultOpen={true} headerHref="/admin/crm/services" expandedMap={expandedMap} setExpandedMap={setExpandedMap} />
+
+      {/* Billing — the one Finance row that stays in the simple view. */}
+      <div className="space-y-0.5 mt-3">
+        {billingItems.map((item) => {
+          const active = isActive(location, item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
+                active
+                  ? "bg-[#EEF3FF] text-brand-blue font-medium border border-brand-blue/30"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-transparent"
+              )}
+            >
+              <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-muted-foreground/70")} />
+              <span className="flex-1">{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Wave 138 — single "Show all · Advanced" reveal toggle. Collapsed by
+          default; state persisted in localStorage (NAV_ADVANCED_KEY). When
+          open it renders the inactive products + the full Finance /
+          Operations / Outbound / AI / System grouped layout. */}
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={toggleAdvanced}
+          aria-expanded={advancedOpen}
+          aria-label={advancedOpen ? "Hide advanced navigation" : "Show all advanced navigation"}
+          data-testid="nav-advanced-toggle"
+          className={cn(
+            "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[40px] border",
+            advancedOpen
+              ? "text-foreground border-border bg-muted/40"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border-transparent"
+          )}
+        >
+          <ChevronDown className={cn("w-4 h-4 shrink-0 text-muted-foreground motion-safe:transition-transform", advancedOpen ? "" : "-rotate-90")} />
+          <span className="flex-1 text-left">{advancedOpen ? "Hide advanced" : "Show all · Advanced"}</span>
+          {!advancedOpen && inactiveProducts.length > 0 && (
+            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground">
+              {inactiveProducts.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {advancedOpen && (
+        <>
+          {/* Inactive / not-yet-live products. Reuses the same NavGroup so
+              children still nest and the catalog header still links out. */}
+          {inactiveProducts.length > 0 && (
+            <NavGroup label="Products · inactive" items={inactiveProducts} location={location} onNavigate={onNavigate} defaultOpen={true} headerHref="/admin/crm/services" expandedMap={expandedMap} setExpandedMap={setExpandedMap} />
+          )}
+          <NavGroup label="Operations" items={OPERATIONS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
+          {/* Finance minus Billing (Billing is shown in the simple view above). */}
+          <NavGroup label="Finance" items={financeAdvancedItems} location={location} onNavigate={onNavigate} defaultOpen={true} />
+          <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
+          <NavGroup label="AI" items={AI_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} expandedMap={expandedMap} setExpandedMap={setExpandedMap} />
+          <NavGroup label="System" items={SYSTEM_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
+        </>
+      )}
 
       {/* Other */}
       <div className="mt-4 pt-2 border-t border-border">
