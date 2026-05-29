@@ -18,6 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { HelpCue } from "@/components/admin/ServiceOps";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import ShareableReviewCard, { isShareable } from "@/components/admin/ShareableReviewCard";
 import {
   Star, TrendingUp, AlertTriangle, MessageSquare, Eye, CheckCircle2, RefreshCw,
@@ -155,6 +156,8 @@ export default function ReviewsPage() {
     details: { id: number; status: string; reason?: string }[];
   } | null>(null);
   const [showBulkDetails, setShowBulkDetails] = useState(false);
+  /** Reviews pending bulk-post to Google — drives the shared <ConfirmDialog>. */
+  const [pendingPost, setPendingPost] = useState<{ ids: number[]; skipped: number } | null>(null);
 
   function toggleSelect(id: number) {
     setSelectedIds((prev) => {
@@ -559,9 +562,7 @@ export default function ReviewsPage() {
               disabled={bulkPostMutation.isPending || postEligible.length === 0}
               onClick={() => {
                 const skippedCount = selectedIds.size - postEligible.length;
-                if (confirm(`Post ${postEligible.length} response${postEligible.length !== 1 ? "s" : ""} to Google?\n\nThis will be publicly visible on Google.${skippedCount > 0 ? `\n${skippedCount} selected review(s) are not eligible and will be skipped.` : ""}`)) {
-                  bulkPostMutation.mutate(postEligible);
-                }
+                setPendingPost({ ids: postEligible, skipped: skippedCount });
               }}
             >
               {bulkPostMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
@@ -955,6 +956,7 @@ export default function ReviewsPage() {
   );
 
   return (
+    <>
     <AdminLayout
       pageContext={{
         page: "reviews",
@@ -989,5 +991,28 @@ export default function ReviewsPage() {
         onToggleHidden={(next) => hiddenToggle.mutate(next)}
       />
     </AdminLayout>
+    <ConfirmDialog
+      open={pendingPost !== null}
+      onOpenChange={(o) => { if (!o) setPendingPost(null); }}
+      title={
+        pendingPost
+          ? `Post ${pendingPost.ids.length} response${pendingPost.ids.length !== 1 ? "s" : ""} to Google?`
+          : "Post responses to Google?"
+      }
+      description={
+        pendingPost
+          ? `These responses will be publicly visible on Google and cannot be unpublished from here.${pendingPost.skipped > 0 ? ` ${pendingPost.skipped} selected review(s) are not eligible and will be skipped.` : ""}`
+          : undefined
+      }
+      confirmLabel="Post to Google"
+      pending={bulkPostMutation.isPending}
+      onConfirm={() => {
+        if (pendingPost) {
+          bulkPostMutation.mutate(pendingPost.ids);
+          setPendingPost(null);
+        }
+      }}
+    />
+    </>
   );
 }

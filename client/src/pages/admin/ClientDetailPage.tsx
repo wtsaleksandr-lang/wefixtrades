@@ -29,6 +29,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TaskCard, ClientTasksEmptyState, isOverdue, type TaskItem } from "@/components/admin/TaskCard";
@@ -2147,6 +2148,8 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
     },
     onSuccess: () => { refetch(); toast({ title: "Google disconnected" }); },
   });
+  /** Drives the shared <ConfirmDialog> for the Google-disconnect action. */
+  const [confirmDisconnectGoogle, setConfirmDisconnectGoogle] = useState(false);
 
   const syncMutation = useMutation({
     mutationFn: async () => {
@@ -2210,6 +2213,7 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
   const opsDone = opsTasks.filter((x) => x.done).length;
 
   return (
+    <>
     <div className="space-y-4">
       {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -2282,7 +2286,7 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
                 </button>
               ) : (
                 <button
-                  onClick={() => { if (confirm("Disconnect Google for this client?")) disconnectGoogleMutation.mutate(); }}
+                  onClick={() => setConfirmDisconnectGoogle(true)}
                   className="text-[11px] text-red-600 hover:underline"
                 >
                   Disconnect
@@ -2387,6 +2391,20 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
         </div>
       </ServiceOpsSection>
     </div>
+    <ConfirmDialog
+      open={confirmDisconnectGoogle}
+      onOpenChange={setConfirmDisconnectGoogle}
+      title="Disconnect Google for this client?"
+      description="This revokes the client's Google connection — review syncing and posting to Google will stop until they reconnect."
+      confirmLabel="Disconnect"
+      destructive
+      pending={disconnectGoogleMutation.isPending}
+      onConfirm={() => {
+        disconnectGoogleMutation.mutate();
+        setConfirmDisconnectGoogle(false);
+      }}
+    />
+    </>
   );
 }
 
