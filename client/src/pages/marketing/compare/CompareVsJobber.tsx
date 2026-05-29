@@ -40,7 +40,7 @@ export default function CompareVsJobber() {
           <span style={{ color: mkt.accent }}>which is right for your business?</span>
         </>
       }
-      heroSub="Jobber is 15+ years deep in field-service ops. WeFixTrades is a newer AI-first platform that bundles voice, content, reputation, and Google Business in one. Here's a straight-up read on both."
+      heroSub="Jobber has spent 15 years optimising the field-service ops board. WeFixTrades is the AI-first platform built for what trades actually need today: 24/7 voice answering calls, content generated for you, Google Business managed in the same dashboard, and a native iOS + Android softphone for the owner. Bundled, not bolted on."
       tldrRows={[
         {
           label: "Starts at",
@@ -68,9 +68,9 @@ export default function CompareVsJobber() {
           them: "Industry-leading — drag-drop calendar, route optimisation",
         },
         {
-          label: "Mobile field app",
-          us: "Web-responsive only (no native app yet)",
-          them: "Native iOS + Android apps for techs",
+          label: "Mobile app",
+          us: "Native iOS + Android softphone — calls, voicemail, dialer, ETA",
+          them: "Native iOS + Android field-tech app",
         },
         {
           label: "Google Business management",
@@ -100,10 +100,10 @@ export default function CompareVsJobber() {
         { feature: "Reputation / review collection", us: true, them: true, note: "Both ship review-request flows" },
         { feature: "SMS automation", us: true, them: true },
         { feature: "Online booking + quotes", us: true, them: true },
-        { feature: "Job scheduling + dispatching", us: "partial", them: true, note: "Jobber's strongest area" },
+        { feature: "Job scheduling + dispatching", us: "partial", them: true, note: "Jobber leans here; WeFixTrades keeps it light" },
         { feature: "Route optimisation", us: false, them: true },
         { feature: "Customer portal (client hub)", us: true, them: true },
-        { feature: "Mobile field app (native iOS/Android)", us: false, them: true },
+        { feature: "Native iOS + Android app", us: true, them: true, note: "WeFixTrades ships a softphone (calls + voicemail + ETA + portal); Jobber ships a field-tech job board. Different focus, both native." },
         { feature: "Invoicing + payments", us: true, them: true },
         { feature: "Free tier", us: true, them: false },
         { feature: "Starts at", us: "$9/mo", them: "$69/mo" },
@@ -134,16 +134,16 @@ export default function CompareVsJobber() {
         "14-day free trial, no credit card required.",
       ]}
       whenThemBetter={[
-        "You run 5+ techs and need a serious dispatch board with drag-drop routing and crew assignments.",
-        "Your techs live on a phone in the truck and you need a polished native iOS/Android app today.",
+        "You run 5+ techs and the dispatch board with drag-drop routing and crew assignments is the heart of your day.",
+        "Your techs are in the truck full-time and they need a job-board app that hands them today's schedule, payment capture, and offline photo upload.",
         "You've already standardised your back office on QuickBooks Online and want the deepest two-way sync available.",
-        "You don't need AI marketing — you have an agency or internal team handling SEO, content, and reviews.",
+        "You're paying an agency for SEO + content + reviews and you'd rather keep paying them than bring it in-house.",
       ]}
       whenUsBetter={[
-        "You want AI answering the phone 24/7 so you stop losing leads after-hours — without hiring a receptionist.",
-        "You need Google Business Profile monitored, content generated, and reviews collected in one tool, not five.",
-        "Budget matters. $9-49/mo for the AI stack beats $69-349/mo for scheduling-first software.",
-        "You want to sign up today and be live tonight — no 1-2 week onboarding call.",
+        "You want AI answering the phone 24/7 — booking jobs at 9pm instead of going to voicemail. Jobber doesn't do this; we built the whole platform around it.",
+        "You want Google Business Profile, content generation, reviews, and AI voice in ONE bill instead of stitching together five tools.",
+        "Budget matters. Our $9-49/mo replaces what Jobber's $69-349/mo + a $300/mo marketing agency costs you today. Same outcomes, fraction of the spend.",
+        "You'd rather sign up today and be live tonight than spend 1-2 weeks in onboarding calls before your first lead.",
       ]}
       testimonialQuote="We almost went with Jobber because everyone uses it. Switched plans after the demo — we needed someone answering the phone at 9pm more than we needed a fancier dispatch board. WeFixTrades' AI booked our first $400 job that same week."
       testimonialAttribution="— Case study placeholder · plumbing, 3 techs"
@@ -166,7 +166,7 @@ export default function CompareVsJobber() {
         {
           question: "Does WeFixTrades have a mobile app like Jobber?",
           answer:
-            "Not a native iOS/Android app — the WeFixTrades dashboard is fully web-responsive and works on mobile browsers, but we don't yet have an App Store app the way Jobber does. If your techs work primarily in the field and need offline-capable mobile job entry, Jobber wins this category today.",
+            "Yes — a native iOS + Android app for the owner-operator. Different focus from Jobber's app: WeFixTrades is a softphone (real Twilio Voice calls, voicemail, dialer, one-tap 'on my way' ETA text, in-app portal) built for the person taking the call. Jobber's app is a field-tech job board. If your techs need to start jobs, take payment, and capture photos offline in basements and rooftops, Jobber wins that dimension; if YOU want the calls coming to your phone with the AI handling triage, WeFixTrades wins.",
         },
         {
           question: "Is WeFixTrades only for trades, or any service business?",

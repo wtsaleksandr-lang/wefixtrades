@@ -310,23 +310,26 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       display: "grid",
                       gridTemplateColumns: "minmax(160px, 1.2fr) 1fr 1fr",
                       borderBottom: i < tldrRows.length - 1 ? `1px solid ${mkt.onDarkBorder}` : undefined,
-                      fontSize: 14,
+                      // Wave 112 — fontSize bumped 14 → 15 and body cells
+                      // promoted from onDarkMuted → onDark for max readability.
+                      // Alex flagged "text must be visible very well".
+                      fontSize: 15,
                       fontFamily: SANS,
                     }}
                   >
                     <div
                       style={{
-                        padding: "14px 18px",
+                        padding: "16px 18px",
                         color: mkt.onDark,
                         fontWeight: 600,
                       }}
                     >
                       {r.label}
                     </div>
-                    <div style={{ padding: "14px 18px", color: mkt.onDarkMuted, lineHeight: 1.45 }}>
+                    <div style={{ padding: "16px 18px", color: mkt.onDark, lineHeight: 1.5 }}>
                       {r.us}
                     </div>
-                    <div style={{ padding: "14px 18px", color: mkt.onDarkMuted, lineHeight: 1.45 }}>
+                    <div style={{ padding: "16px 18px", color: "rgba(232,239,238,0.78)", lineHeight: 1.5 }}>
                       {r.them}
                     </div>
                   </div>
@@ -384,14 +387,17 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       alignItems: "center",
                     }}
                   >
-                    <div style={{ padding: "12px 18px", fontSize: 14, color: mkt.onDark, fontFamily: SANS }}>
+                    <div style={{ padding: "14px 18px", fontSize: 15, color: mkt.onDark, fontFamily: SANS }}>
+                      {/* Wave 112 — bumped fontSize 14 → 15, note 12 → 13,
+                          note color faint → muted (still secondary but legible). */}
                       <div style={{ fontWeight: 500 }}>{row.feature}</div>
                       {row.note && (
                         <div
                           style={{
-                            fontSize: 12,
-                            color: mkt.onDarkFaint,
-                            marginTop: 2,
+                            fontSize: 13,
+                            color: mkt.onDarkMuted,
+                            marginTop: 3,
+                            lineHeight: 1.45,
                           }}
                         >
                           {row.note}

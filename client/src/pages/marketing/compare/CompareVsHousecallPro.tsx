@@ -41,7 +41,7 @@ export default function CompareVsHousecallPro() {
           <span style={{ color: mkt.accent }}>which is right for your business?</span>
         </>
       }
-      heroSub="Housecall Pro is a mobile-first FSM platform popular with HVAC, plumbing, and electrical. WeFixTrades layers AI voice, content, and reputation on top of lighter ops. Here's how they actually stack up."
+      heroSub="Housecall Pro is the mobile-first FSM for residential trades. WeFixTrades is the AI-first competitor that bundles 24/7 voice answering, content generation, Google Business management, and a native owner-side softphone — for a fraction of HCP's bill once you add their marketing add-ons. Straight comparison below."
       tldrRows={[
         {
           label: "Starts at",
@@ -64,9 +64,9 @@ export default function CompareVsHousecallPro() {
           them: "Not built-in",
         },
         {
-          label: "Mobile field app",
-          us: "Web-responsive only (no native app yet)",
-          them: "Strong native iOS + Android — Housecall Pro's flagship",
+          label: "Mobile app",
+          us: "Native iOS + Android softphone — owner-side call answering, voicemail, ETA",
+          them: "Native iOS + Android field-tech app — HCP's flagship",
         },
         {
           label: "Job scheduling / dispatching",
@@ -101,10 +101,10 @@ export default function CompareVsHousecallPro() {
         { feature: "Reputation / review collection", us: true, them: true, note: "Both ship review flows" },
         { feature: "SMS automation", us: true, them: true },
         { feature: "Online booking + quotes", us: true, them: true },
-        { feature: "Job scheduling + dispatching", us: "partial", them: true, note: "HCP's strongest area" },
+        { feature: "Job scheduling + dispatching", us: "partial", them: true, note: "HCP leans into dispatch + GPS; we keep ops light and AI-first" },
         { feature: "GPS technician tracking", us: false, them: true },
         { feature: "Customer portal", us: true, them: true },
-        { feature: "Mobile field app (native iOS/Android)", us: false, them: true, note: "HCP is mobile-first" },
+        { feature: "Native iOS + Android app", us: true, them: true, note: "WeFixTrades ships a softphone for the owner; HCP ships a field-tech app for the technician. Both native, different focus." },
         { feature: "Invoicing + payments (incl. card-on-file)", us: true, them: true },
         { feature: "Free tier", us: true, them: false },
         { feature: "Starts at", us: "$9/mo", them: "$69/mo" },
@@ -135,16 +135,16 @@ export default function CompareVsHousecallPro() {
         "14-day free trial.",
       ]}
       whenThemBetter={[
-        "You're a mobile-first HVAC, plumbing, or electrical shop and your techs need a polished native app with offline mode.",
-        "GPS technician tracking and a serious dispatch board are non-negotiable.",
-        "Recurring maintenance contracts / membership plans (annual tune-ups, service agreements) are core to your revenue.",
-        "Direct-mail postcards are part of your marketing mix — Housecall Pro has it built-in; we don't.",
+        "Your techs need a field-tech app that starts jobs, takes payment, captures photos offline in basements and rooftops. HCP's field app is the category leader.",
+        "GPS technician tracking and a heavy dispatch board are non-negotiable to how you run dispatch.",
+        "Recurring maintenance contracts / membership plans (annual tune-ups, service agreements) drive most of your revenue.",
+        "Direct-mail postcards are still part of your marketing mix.",
       ]}
       whenUsBetter={[
-        "You're losing leads to voicemail and need AI answering the phone 24/7, not just routing it.",
-        "You want content, reviews, and Google Business management bundled — instead of bolting on three marketing add-ons.",
-        "Budget is real. Our Growth plan at $49/mo replaces what HCP charges $179+/mo for.",
-        "You want to sign up today and be live tonight — no onboarding call required.",
+        "You're losing leads to voicemail and you need AI ACTUALLY ANSWERING the phone 24/7 — not just routing it. HCP doesn't do this. We built the platform around it.",
+        "You want content, reviews, Google Business management, AND AI voice bundled into ONE bill — instead of paying HCP for the base plan plus 3+ marketing add-ons.",
+        "Budget is real. Our Growth plan at $49/mo replaces what HCP charges $179+/mo + add-ons for. Same outcomes, ⅓ the spend.",
+        "You want to sign up today and be live tonight — no onboarding call, no salesperson, no waiting list.",
       ]}
       testimonialQuote="HCP's app is genuinely great for our techs. But we were paying $179 a month for Essentials, another $79 for postcards, and a separate $200 to a reputation tool. WeFixTrades rolled all three into one $49 plan and added an AI receptionist on top."
       testimonialAttribution="— Case study placeholder · HVAC, 4 techs"
@@ -162,7 +162,7 @@ export default function CompareVsHousecallPro() {
         {
           question: "Does WeFixTrades have a native mobile app?",
           answer:
-            "Not yet — the dashboard is fully responsive and works in mobile browsers, but there's no App Store app today. HCP wins on field mobility. If your techs need to start jobs, take payment, and capture photos offline in basements and rooftops, that gap matters.",
+            "Yes — a native iOS + Android softphone for the owner. Real Twilio Voice integration, voicemail, dialer, one-tap 'on my way' ETA text, and an in-app portal. Different focus from HCP's field-tech app: ours is built for the person taking the call, theirs is built for the tech doing the job. If your techs need offline-capable mobile job entry, HCP still wins that dimension. If YOU want the calls coming to your phone with the AI handling triage, that's our wheelhouse.",
         },
         {
           question: "How does WeFixTrades' AI compare to Housecall Pro's AI assistant?",
