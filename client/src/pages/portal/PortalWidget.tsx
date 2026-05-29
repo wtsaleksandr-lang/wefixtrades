@@ -526,7 +526,7 @@ export default function PortalWidget() {
               role="switch"
               aria-checked={settings.enabled}
               aria-label="Toggle widget enabled"
-              className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-blue/30 ${settings.enabled ? "bg-brand-blue" : "bg-gray-300"}`}
+              className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-blue/30 ${settings.enabled ? "bg-brand-blue" : "bg-input"}`}
               onClick={() => updateMutation.mutate({ enabled: !settings.enabled })}
             >
               <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.enabled ? "left-[18px]" : "left-0.5"}`} />
@@ -671,7 +671,7 @@ export default function PortalWidget() {
                 role="switch"
                 aria-checked={settings.show_reviewer_name}
                 aria-label="Toggle show reviewer names"
-                className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-blue/30 ${settings.show_reviewer_name ? "bg-brand-blue" : "bg-gray-300"}`}
+                className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-blue/30 ${settings.show_reviewer_name ? "bg-brand-blue" : "bg-input"}`}
                 onClick={() => updateMutation.mutate({ show_reviewer_name: !settings.show_reviewer_name })}
               >
                 <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.show_reviewer_name ? "left-[18px]" : "left-0.5"}`} />
@@ -686,7 +686,7 @@ export default function PortalWidget() {
                 role="switch"
                 aria-checked={settings.show_date}
                 aria-label="Toggle show review dates"
-                className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-blue/30 ${settings.show_date ? "bg-brand-blue" : "bg-gray-300"}`}
+                className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-blue/30 ${settings.show_date ? "bg-brand-blue" : "bg-input"}`}
                 onClick={() => updateMutation.mutate({ show_date: !settings.show_date })}
               >
                 <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.show_date ? "left-[18px]" : "left-0.5"}`} />

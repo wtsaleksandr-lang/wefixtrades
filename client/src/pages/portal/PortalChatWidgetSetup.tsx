@@ -267,7 +267,7 @@ export default function PortalChatWidgetSetup() {
               <select
                 value={(draft.position as string) || site.position}
                 onChange={(e) => setDraft({ ...draft, position: e.target.value as any })}
-                className="w-full mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="w-full mt-1 rounded-md border border-gray-300 px-3 py-2.5 text-sm"
               >
                 <option value="bottom-right">Bottom-right</option>
                 <option value="bottom-left">Bottom-left</option>

@@ -342,7 +342,7 @@ export default function PortalTradelineKnowledgePage() {
                   <label className="block text-sm">
                     <span className="text-gray-700 font-medium">Kind</span>
                     <select
-                      className="mt-1 w-full border rounded px-2 py-1"
+                      className="mt-1 w-full border rounded px-3 py-2.5"
                       value={editing.kind}
                       onChange={(e) => setEditing({ ...editing, kind: e.target.value as Kind })}
                     >
@@ -361,7 +361,7 @@ export default function PortalTradelineKnowledgePage() {
                   <label className="block text-sm">
                     <span className="text-gray-700 font-medium">Status</span>
                     <select
-                      className="mt-1 w-full border rounded px-2 py-1"
+                      className="mt-1 w-full border rounded px-3 py-2.5"
                       value={editing.status}
                       onChange={(e) => setEditing({ ...editing, status: e.target.value as Entry["status"] })}
                     >
