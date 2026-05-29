@@ -154,16 +154,35 @@ if [ -f "${INDEXNOW_SCRIPT}" ]; then
   disown 2>/dev/null || true
 fi
 
-# Wave 124 — Social cache busters. After IndexNow, push a re-scrape to
-# Facebook's Graph API (so OG previews refresh on the next share) and log
-# clickable inspector URLs for Twitter + LinkedIn (no public re-scrape API).
-# Same soft-fork pattern as IndexNow: stderr to log file, script exits 0,
-# never blocks the deploy.
+# Wave 120 — Google Search Console sitemap auto-submit. Mirror of the
+# Bing register above. Reads GOOGLE_APPLICATION_CREDENTIALS_JSON (the
+# service-account JSON blob) and auths via googleapis. Idempotent: if
+# the sitemap is already on file, exits silently; otherwise calls
+# sitemaps.submit. NEVER blocks the deploy (every code path exits 0).
+GSC_REGISTER_SCRIPT="${REPO_ROOT}/scripts/seo/register-sitemap-gsc.mjs"
+GSC_REGISTER_LOG="${REPO_ROOT}/gsc-register.log"
+if [ -f "${GSC_REGISTER_SCRIPT}" ]; then
+  (
+    sleep 30  # after Bing register + IndexNow
+    if [ -z "${GOOGLE_APPLICATION_CREDENTIALS_JSON:-}" ]; then
+      echo "[start-prod] gsc-register: skipped — GOOGLE_APPLICATION_CREDENTIALS_JSON not set" >&2
+      exit 0
+    fi
+    node "${GSC_REGISTER_SCRIPT}" 2>>"${GSC_REGISTER_LOG}" || true
+  ) &
+  disown 2>/dev/null || true
+fi
+
+# Wave 124 — Social cache busters. After IndexNow + GSC register, push a
+# re-scrape to Facebook's Graph API (so OG previews refresh on the next
+# share) and log clickable inspector URLs for Twitter + LinkedIn (no public
+# re-scrape API). Same soft-fork pattern: stderr to log file, script exits
+# 0, never blocks the deploy.
 SOCIAL_BUST_SCRIPT="${REPO_ROOT}/scripts/seo/social-cache-bust.mjs"
 SOCIAL_BUST_LOG="${REPO_ROOT}/social-cache-bust.log"
 if [ -f "${SOCIAL_BUST_SCRIPT}" ]; then
   (
-    sleep 30  # after the IndexNow ping completes
+    sleep 35  # after Bing (20) + IndexNow (25) + GSC (30)
     node "${SOCIAL_BUST_SCRIPT}" 2>>"${SOCIAL_BUST_LOG}" || true
   ) &
   disown 2>/dev/null || true
