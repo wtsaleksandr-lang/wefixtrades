@@ -389,13 +389,20 @@ export default function AdFlowDashboard() {
       return { label, value: Math.round(anchor * ratio) };
     });
   }, [k?.jobsBooked.thisMonth, k?.jobsBooked.lastMonth]);
-  const leadsMonthlyBars: MonthlyBar[] =
+  const leadsMonthlyUsingFallback = !(
     monthlyStats?.data && monthlyStats.data.length > 0
-      ? monthlyStats.data
-      : leadsMonthlyFallback;
-  const leadsMonthlyIllustrative = monthlyStats?.data_status === "illustrative";
+  );
+  const leadsMonthlyBars: MonthlyBar[] = leadsMonthlyUsingFallback
+    ? leadsMonthlyFallback
+    : monthlyStats!.data;
+  // Wave K2: badge whenever synthetic fallback is shown, not just when the
+  // server flags illustrative — empty/errored stats also render fallback.
+  const leadsMonthlyIllustrative =
+    monthlyStats?.data_status === "illustrative" || leadsMonthlyUsingFallback;
 
-  // Peak ROAS day — Wave 73a: backed by /stats/peak.
+  // Peak ROAS day — Wave 73a: backed by /stats/peak. Note the fallback here is
+  // the customer's *real* 12-week spend trend (spendTrend12w), not synthetic
+  // numbers, so no illustrative badge when falling back to it.
   const peakRoasSeries = peakStats?.data ?? trend.slice(-12);
   const peakRoasIllustrative = peakStats?.data_status === "illustrative";
 
@@ -418,12 +425,20 @@ export default function AdFlowDashboard() {
       value: Math.max(1, Math.round(value / 100)),
     }));
   }, [campaigns]);
-  const adSpendByPlatform: DonutSegment[] =
+  const segmentStatsHasData = !!(
     segmentStats?.data && segmentStats.data.length > 0
-      ? segmentStats.data
-      : adSpendByPlatformFallback;
+  );
+  const adSpendByPlatform: DonutSegment[] = segmentStatsHasData
+    ? segmentStats!.data
+    : adSpendByPlatformFallback;
+  // Wave K2: the donut shows truly synthetic numbers only when BOTH the stat
+  // endpoint is empty AND there are no campaigns to derive from (the hardcoded
+  // Google/Meta/Bing branch). With campaigns present the fallback is real.
+  const adSpendByPlatformUsingSynthetic =
+    !segmentStatsHasData && campaigns.length === 0;
   const adSpendByPlatformIllustrative =
-    segmentStats?.data_status === "illustrative";
+    segmentStats?.data_status === "illustrative" ||
+    adSpendByPlatformUsingSynthetic;
 
   // Weekly delta from sparkline (sum last 7d vs prior 7d). Sparkline is
   // 12-weekly buckets so we just compare the last two cells.

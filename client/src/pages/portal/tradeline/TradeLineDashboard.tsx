@@ -267,8 +267,14 @@ export default function TradeLineDashboard() {
     const bookingBonus = Math.min(20, bookings * 0.6);
     return Math.round(Math.min(100, Math.max(0, answeredShare * 0.85 + bookingBonus)));
   }, [kpis?.callsToday, kpis?.answeredToday, kpis?.bookingsThisMonth]);
+  const csatScoreUsingFallback = scoreStatsQuery.data?.value == null;
   const csatScore = scoreStatsQuery.data?.value ?? csatScoreFallback;
-  const csatIllustrative = scoreStatsQuery.data?.data_status === "illustrative";
+  // Wave K2: when the dedicated score endpoint is empty/errored we fall back to
+  // a client-computed score. Only flag illustrative when that fallback is
+  // showing a non-zero figure (an empty account computes 0 — genuinely real).
+  const csatIllustrative =
+    scoreStatsQuery.data?.data_status === "illustrative" ||
+    (csatScoreUsingFallback && csatScoreFallback > 0);
   const csatVerdict =
     scoreStatsQuery.data?.verdict ??
     (csatScore >= 80 ? "Excellent" : csatScore >= 50 ? "Good, room to improve" : "Needs attention");
@@ -289,12 +295,17 @@ export default function TradeLineDashboard() {
     ];
     return curve.map((c) => Math.round(c * anchor));
   }, [kpis?.callsToday]);
-  const peakCallHourSeries =
+  const peakCallHourUsingFallback = !(
     peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
-      ? peakStatsQuery.data.data
-      : peakCallHourFallback;
+  );
+  const peakCallHourSeries = peakCallHourUsingFallback
+    ? peakCallHourFallback
+    : peakStatsQuery.data!.data;
+  // Wave K2: the fallback is a hardcoded synthetic 24h curve, so badge whenever
+  // it renders.
   const peakCallHourIllustrative =
-    peakStatsQuery.data?.data_status === "illustrative";
+    peakStatsQuery.data?.data_status === "illustrative" ||
+    peakCallHourUsingFallback;
   const peakCallHourLabels = [
     "12a", "1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a",
     "12p", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p",
@@ -319,12 +330,16 @@ export default function TradeLineDashboard() {
       };
     });
   }, [kpis?.callsToday]);
-  const callsMonthlyBars: MonthlyBar[] =
+  const callsMonthlyUsingFallback = !(
     monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
-      ? monthlyStatsQuery.data.data
-      : callsMonthlyBarsFallback;
+  );
+  const callsMonthlyBars: MonthlyBar[] = callsMonthlyUsingFallback
+    ? callsMonthlyBarsFallback
+    : monthlyStatsQuery.data!.data;
+  // Wave K2: badge whenever the synthetic fallback bars render.
   const callsMonthlyIllustrative =
-    monthlyStatsQuery.data?.data_status === "illustrative";
+    monthlyStatsQuery.data?.data_status === "illustrative" ||
+    callsMonthlyUsingFallback;
 
   /* ─── Render ────────────────────────────────────────────────────────── */
 

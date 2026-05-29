@@ -269,9 +269,14 @@ export default function WebCareDashboard() {
     if (up + perf + sec === 0) return 0;
     return Math.round(up * 0.5 + perf * 0.3 + sec * 0.2);
   }, [k?.uptimePct, k?.performanceScore.avg, k?.securityGrade.score]);
+  const siteHealthUsingFallback = scoreStatsQuery.data?.value == null;
   const siteHealthScore = scoreStatsQuery.data?.value ?? siteHealthScoreFallback;
+  // Wave K2: when the dedicated score endpoint is empty/errored we fall back to
+  // a client-computed score. Only flag illustrative when that fallback shows a
+  // non-zero figure (an empty account computes 0 — genuinely real).
   const siteHealthIllustrative =
-    scoreStatsQuery.data?.data_status === "illustrative";
+    scoreStatsQuery.data?.data_status === "illustrative" ||
+    (siteHealthUsingFallback && siteHealthScoreFallback > 0);
 
   const siteHealthVerdict =
     scoreStatsQuery.data?.verdict ??
@@ -322,12 +327,30 @@ export default function WebCareDashboard() {
       return { label, value, highlighted: isCurrent };
     });
   }, [entries]);
-  const incidentsMonthlyBars: MonthlyBar[] =
+  // Whether the local fallback would render its synthetic low-activity mock
+  // (i.e. no real incident-typed entries exist to bucket).
+  const incidentsFallbackIsSynthetic = useMemo(() => {
+    return !(entries as Array<{ eventType?: string }>).some((e) => {
+      const t = e.eventType ?? "";
+      return (
+        t === "downtime" ||
+        t === "malware" ||
+        t === "security_alert" ||
+        t === "incident"
+      );
+    });
+  }, [entries]);
+  const incidentsMonthlyUsingFallback = !(
     monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
-      ? monthlyStatsQuery.data.data
-      : incidentsMonthlyBarsFallback;
+  );
+  const incidentsMonthlyBars: MonthlyBar[] = incidentsMonthlyUsingFallback
+    ? incidentsMonthlyBarsFallback
+    : monthlyStatsQuery.data!.data;
+  // Wave K2: badge when the stat endpoint is empty AND the local fallback is
+  // drawing its synthetic low-activity mock rather than real bucketed incidents.
   const incidentsMonthlyIllustrative =
-    monthlyStatsQuery.data?.data_status === "illustrative";
+    monthlyStatsQuery.data?.data_status === "illustrative" ||
+    (incidentsMonthlyUsingFallback && incidentsFallbackIsSynthetic);
 
   // Uptime SLA actual vs target.
   const uptimeTarget = 99.9;

@@ -288,14 +288,26 @@ export default function MapGuardDashboard() {
       { label: "Inconsistent", value: inconsistent, color: "amber" },
     ];
   }, [kpis?.citationHealth]);
-  const citationDirectorySegments: DonutSegment[] =
+  const segmentStatsHasData = !!(
     segmentStatsQuery.data?.data && segmentStatsQuery.data.data.length > 0
-      ? segmentStatsQuery.data.data
-      : citationDirectoryFallback;
+  );
+  const citationTotal =
+    (kpis?.citationHealth.found ?? 0) +
+    (kpis?.citationHealth.missing ?? 0) +
+    (kpis?.citationHealth.inconsistent ?? 0);
+  const citationDirectorySegments: DonutSegment[] = segmentStatsHasData
+    ? segmentStatsQuery.data!.data
+    : citationDirectoryFallback;
+  // Wave K2: the donut shows the hardcoded synthetic mix only when both the
+  // stat endpoint is empty AND there are no real citation counts to derive.
+  const citationDirectoryUsingSynthetic = !segmentStatsHasData && citationTotal === 0;
   const citationDirectoryIllustrative =
-    segmentStatsQuery.data?.data_status === "illustrative";
+    segmentStatsQuery.data?.data_status === "illustrative" ||
+    citationDirectoryUsingSynthetic;
 
-  // Best-ranking day across geo grid — Wave 73a: backed by /stats/peak.
+  // Best-ranking day across geo grid — Wave 73a: backed by /stats/peak. The
+  // fallback here is the customer's *real* 14-day GBP trend, not synthetic, so
+  // no illustrative badge when falling back to it.
   const geoBestDaySeries =
     peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
       ? peakStatsQuery.data.data

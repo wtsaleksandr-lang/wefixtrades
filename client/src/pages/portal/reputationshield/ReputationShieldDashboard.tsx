@@ -453,10 +453,15 @@ export default function ReputationShieldDashboard() {
     const volumePart = Math.min(20, volume * 2);
     return Math.round(ratingPart + recencyPart + volumePart);
   }, [kpis?.avgRating, kpis?.daysSinceLastReview, kpis?.reviewVelocity.thisMonth]);
+  const reputationScoreUsingFallback = scoreStatsQuery.data?.value == null;
   const reputationScore =
     scoreStatsQuery.data?.value ?? reputationScoreFallback;
+  // Wave K2: when the dedicated score endpoint is empty/errored we fall back to
+  // a client-computed score. Only flag it illustrative when that fallback is
+  // showing a non-zero figure (an empty account computes 0 — genuinely real).
   const reputationScoreIllustrative =
-    scoreStatsQuery.data?.data_status === "illustrative";
+    scoreStatsQuery.data?.data_status === "illustrative" ||
+    (reputationScoreUsingFallback && reputationScoreFallback > 0);
 
   const repVerdict =
     scoreStatsQuery.data?.verdict ??
@@ -496,12 +501,21 @@ export default function ReputationShieldDashboard() {
       { label: "Negative", value: neg, color: "crimson" },
     ];
   }, [kpisQuery.data?.heatmap]);
-  const sentimentSegments: DonutSegment[] =
+  const segmentStatsHasData = !!(
     segmentStatsQuery.data?.data && segmentStatsQuery.data.data.length > 0
-      ? segmentStatsQuery.data.data
-      : sentimentSegmentsFallback;
+  );
+  const heatmapSentimentTotal = (
+    (kpisQuery.data?.heatmap ?? []) as Array<{ value?: number }>
+  ).reduce((s, c) => s + (c.value ?? 0), 0);
+  const sentimentSegments: DonutSegment[] = segmentStatsHasData
+    ? segmentStatsQuery.data!.data
+    : sentimentSegmentsFallback;
+  // Wave K2: the donut shows the hardcoded synthetic mix only when both the
+  // stat endpoint is empty AND there is no real heatmap sentiment to derive.
+  const sentimentUsingSynthetic = !segmentStatsHasData && heatmapSentimentTotal === 0;
   const sentimentIllustrative =
-    segmentStatsQuery.data?.data_status === "illustrative";
+    segmentStatsQuery.data?.data_status === "illustrative" ||
+    sentimentUsingSynthetic;
 
   // Replied vs unreplied — derive from replyRate + inbox length.
   const totalInbox = inboxQuery.data?.items.length ?? 0;
@@ -532,12 +546,16 @@ export default function ReputationShieldDashboard() {
       return { label, value, highlighted: isCurrent };
     });
   }, [kpis?.reviewVelocity.thisMonth, kpisQuery.data?.velocityTrend12w]);
-  const reviewsMonthlyBars: MonthlyBar[] =
+  const reviewsMonthlyUsingFallback = !(
     monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
-      ? monthlyStatsQuery.data.data
-      : reviewsMonthlyBarsFallback;
+  );
+  const reviewsMonthlyBars: MonthlyBar[] = reviewsMonthlyUsingFallback
+    ? reviewsMonthlyBarsFallback
+    : monthlyStatsQuery.data!.data;
+  // Wave K2: badge whenever the synthetic fallback bars render.
   const reviewsMonthlyIllustrative =
-    monthlyStatsQuery.data?.data_status === "illustrative";
+    monthlyStatsQuery.data?.data_status === "illustrative" ||
+    reviewsMonthlyUsingFallback;
 
   return (
     <PortalLayout>

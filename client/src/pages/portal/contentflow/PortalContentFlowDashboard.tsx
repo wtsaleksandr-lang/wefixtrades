@@ -363,12 +363,16 @@ export default function PortalContentFlowDashboard() {
       };
     });
   }, [kpis?.articlesThisMonth, kpis?.articlesHistory]);
-  const monthlyBars: MonthlyBar[] =
+  const monthlyBarsUsingFallback = !(
     monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
-      ? monthlyStatsQuery.data.data
-      : monthlyBarsFallback;
+  );
+  const monthlyBars: MonthlyBar[] = monthlyBarsUsingFallback
+    ? monthlyBarsFallback
+    : monthlyStatsQuery.data!.data;
+  // Wave K2: badge whenever the synthetic fallback bars render.
   const monthlyBarsIllustrative =
-    monthlyStatsQuery.data?.data_status === "illustrative";
+    monthlyStatsQuery.data?.data_status === "illustrative" ||
+    monthlyBarsUsingFallback;
 
   // Content type donut — Wave 73a: backed by /stats/segments.
   const contentTypeSegmentsFallback: DonutSegment[] = useMemo(() => {
@@ -390,14 +394,22 @@ export default function PortalContentFlowDashboard() {
       value,
     }));
   }, [recent]);
-  const contentTypeSegments: DonutSegment[] =
+  const segmentStatsHasData = !!(
     segmentStatsQuery.data?.data && segmentStatsQuery.data.data.length > 0
-      ? segmentStatsQuery.data.data
-      : contentTypeSegmentsFallback;
+  );
+  const contentTypeSegments: DonutSegment[] = segmentStatsHasData
+    ? segmentStatsQuery.data!.data
+    : contentTypeSegmentsFallback;
+  // Wave K2: the donut shows the hardcoded synthetic mix only when both the
+  // stat endpoint is empty AND there are no recent creations to derive from.
+  const contentTypeUsingSynthetic = !segmentStatsHasData && recent.length === 0;
   const contentTypeIllustrative =
-    segmentStatsQuery.data?.data_status === "illustrative";
+    segmentStatsQuery.data?.data_status === "illustrative" ||
+    contentTypeUsingSynthetic;
 
-  // Top-performing sparkline — Wave 73a: backed by /stats/peak.
+  // Top-performing sparkline — Wave 73a: backed by /stats/peak. The fallback is
+  // the customer's *real* 14-day articles history, not synthetic, so no
+  // illustrative badge when falling back to it.
   const topPostHistory =
     peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
       ? peakStatsQuery.data.data
