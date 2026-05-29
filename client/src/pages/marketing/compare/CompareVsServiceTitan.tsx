@@ -42,7 +42,7 @@ export default function CompareVsServiceTitan() {
           <span style={{ color: mkt.accent }}>which is right for your business?</span>
         </>
       }
-      heroSub="ServiceTitan is the enterprise-grade FSM platform built for 20+ tech operations. WeFixTrades is an AI-first platform tuned for 1-15 tech shops. Different price brackets, different buyers — here's an honest take on both."
+      heroSub="ServiceTitan is the enterprise FSM for 20+ tech operations — and prices like it. WeFixTrades is the AI-first platform tuned for 1-15 tech shops who want the same outcomes (24/7 voice, Google Business, content, reviews, native mobile) at 10-50× lower cost. Different price brackets, different buyers — here's the honest take."
       tldrRows={[
         {
           label: "Starts at",
@@ -70,9 +70,9 @@ export default function CompareVsServiceTitan() {
           them: "Best-in-class enterprise dispatch board",
         },
         {
-          label: "Mobile field app",
-          us: "Web-responsive only",
-          them: "Mature native iOS + Android with offline mode",
+          label: "Mobile app",
+          us: "Native iOS + Android softphone — owner-side calls, voicemail, ETA",
+          them: "Mature native field-tech app with offline mode",
         },
         {
           label: "Google Business management",
@@ -102,10 +102,10 @@ export default function CompareVsServiceTitan() {
         { feature: "Reputation / review collection", us: true, them: true, note: "ServiceTitan via Marketing Pro" },
         { feature: "SMS automation", us: true, them: true },
         { feature: "Online booking + quotes", us: true, them: true },
-        { feature: "Job scheduling + dispatching", us: "partial", them: true, note: "ServiceTitan's strongest area" },
+        { feature: "Job scheduling + dispatching", us: "partial", them: true, note: "ServiceTitan's enterprise dispatch board is genuinely deep — and you pay for it." },
         { feature: "Route optimisation", us: false, them: true },
         { feature: "Customer portal", us: true, them: true },
-        { feature: "Mobile field app (native iOS/Android)", us: false, them: true },
+        { feature: "Native iOS + Android app", us: true, them: true, note: "WeFixTrades ships a softphone for the owner; ServiceTitan ships a mature field-tech app for the technician. Both native, different focus." },
         { feature: "Invoicing + payments", us: true, them: true },
         { feature: "Free tier", us: true, them: false },
         { feature: "Starts at", us: "$9/mo", them: "$250+/user/mo" },
