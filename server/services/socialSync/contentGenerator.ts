@@ -3,6 +3,7 @@ import { chat } from "../aiService";
 import { storage } from "../../storage";
 import { evaluateQuality, type QualityResult } from "./qualityGate";
 import { logAiContentCost } from "./costTracker";
+import { noisyCatch } from "../../lib/silentFailureGuard";
 import { readBrandProfile, type BrandProfile } from "../contentflow/brandProfile";
 import {
   buildPerformanceFeedback,
@@ -162,7 +163,12 @@ export async function generatePostFromTopic(
       surface: "socialsync",
     });
     // Log cost (estimate ~500 input + ~400 output tokens per post)
-    logAiContentCost(profile.client_id, 500, 400, `Post for ${platform}`).catch(() => {});
+    // Wave 106 — was a silent .catch(() => {}); cost drift here lets
+    // social-sync per-client AI spend escape the dashboard caps.
+    noisyCatch(logAiContentCost(profile.client_id, 500, 400, `Post for ${platform}`), {
+      op: "socialSync.logAiContentCost",
+      meta: { clientId: profile.client_id, platform, surface: "socialsync" },
+    });
   } catch (err: any) {
     return { post: null, error: `AI generation failed: ${err.message}` };
   }
