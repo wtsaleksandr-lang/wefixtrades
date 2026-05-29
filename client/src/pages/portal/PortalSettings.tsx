@@ -686,7 +686,7 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
                 onClick={() => setBrandForm({ ...brandForm, tone: opt.value })}
                 className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
                   brandForm.tone === opt.value
-                    ? "bg-brand-blue text-white border-brand-blue"
+                    ? "bg-brand-blue/10 text-brand-blue border-brand-blue"
                     : "bg-white text-gray-700 border-gray-200 hover:border-brand-blue/40"
                 }`}
               >

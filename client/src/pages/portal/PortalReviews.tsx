@@ -965,7 +965,7 @@ export default function PortalReviews() {
                 return (
                   <Card key={r.id} className={`overflow-hidden ${isLow && !r.response_text ? "border-red-200" : ""}`}>
                     <button
-                      className="w-full p-4 text-left flex items-start gap-3 hover:bg-muted/50/50 transition-colors"
+                      className="w-full p-4 text-left flex items-start gap-3 hover:bg-muted/50 transition-colors"
                       onClick={() => setExpandedReview(expanded ? null : r.id)}
                     >
                       <div className="shrink-0 mt-0.5">

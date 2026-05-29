@@ -579,7 +579,7 @@ export default function PortalContentFlow() {
                       }}
                       className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                         isActive
-                          ? "border-primary bg-primary text-primary-foreground"
+                          ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-background text-foreground hover:border-primary/60"
                       }`}
                     >
@@ -940,7 +940,7 @@ function FilterChipRow({ label, options, value, onChange, testIdPrefix }: Filter
             onClick={() => onChange(opt.id)}
             className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
               isActive
-                ? "border-primary bg-primary text-primary-foreground"
+                ? "border-primary bg-primary/10 text-primary"
                 : "border-border bg-background text-foreground hover:border-primary/60"
             }`}
           >
