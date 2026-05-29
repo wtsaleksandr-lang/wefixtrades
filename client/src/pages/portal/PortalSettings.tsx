@@ -1317,11 +1317,15 @@ function formatRelative(iso: string): string {
 }
 
 /* ─── Notification Preferences ──────────────────────────────────────
-   Two-section card: top half is channel toggles (email + SMS), bottom
-   half is per-category toggles. Saving sends the full preferences
-   blob to /api/portal/notification-preferences. The backend always
-   accepts the full shape so we don't have to reason about partial
-   updates client-side. */
+   TRUE per-cell matrix: one row per category, one Switch per channel
+   (Email / SMS / AI assistant). Each cell is fully independent and bound
+   to draft.categories[key][channel]. Column headers carry a "master"
+   toggle whose checked-state is DERIVED from the cells (every category on
+   for that channel); toggling it sets that channel across all categories
+   but is never stored. Saving sends the full preferences blob to
+   /api/portal/notification-preferences; the backend normalises any shape
+   through parseNotificationPreferences so we don't reason about merges
+   client-side. */
 
 interface PrefsResponse {
   preferences: NotificationPreferences;
@@ -1369,25 +1373,48 @@ function NotificationPreferencesSection() {
     );
   }
 
-  const setChannel = (channel: "email" | "sms" | "concierge", value: boolean) =>
-    setDraft((d) => (d ? { ...d, channels: { ...d.channels, [channel]: value } } : d));
+  /* Per-cell setter — each matrix cell is fully independent. */
+  const setCell = (key: NotificationCategoryKey, channel: "email" | "sms" | "concierge", value: boolean) =>
+    setDraft((d) =>
+      d
+        ? {
+            ...d,
+            categories: {
+              ...d.categories,
+              [key]: { ...d.categories[key], [channel]: value },
+            },
+          }
+        : d,
+    );
 
-  const setCategory = (key: NotificationCategoryKey, value: boolean) =>
-    setDraft((d) => (d ? { ...d, categories: { ...d.categories, [key]: value } } : d));
+  /* Column-header master: derive checked-state from the cells (every
+   * category ON for that channel), and on toggle set that channel across
+   * all categories. Nothing about the master is stored. */
+  const channelAllOn = (channel: "email" | "sms" | "concierge") =>
+    NOTIFICATION_CATEGORY_KEYS.every((k) => draft.categories[k][channel]);
 
-  const noChannelOn = !draft.channels.email && !draft.channels.sms && !draft.channels.concierge;
+  const setChannelAll = (channel: "email" | "sms" | "concierge", value: boolean) =>
+    setDraft((d) => {
+      if (!d) return d;
+      const categories = { ...d.categories };
+      for (const k of NOTIFICATION_CATEGORY_KEYS) {
+        categories[k] = { ...categories[k], [channel]: value };
+      }
+      return { ...d, categories };
+    });
 
-  /* Matrix columns. A category toggle only takes effect when its channel
-   * master is on, so a disabled master greys out the column. */
+  const noCellOn = NOTIFICATION_CATEGORY_KEYS.every(
+    (k) => !draft.categories[k].email && !draft.categories[k].sms && !draft.categories[k].concierge,
+  );
+
   const CHANNELS: {
     key: "email" | "sms" | "concierge";
     label: string;
-    description: string;
     icon: React.ReactNode;
   }[] = [
-    { key: "email", label: "Email", description: "Sent to your account email.", icon: <Mail className="w-3.5 h-3.5 text-gray-500" /> },
-    { key: "sms", label: "SMS", description: "Sent to your account phone.", icon: <MessageSquare className="w-3.5 h-3.5 text-gray-500" /> },
-    { key: "concierge", label: "AI assistant", description: "Your AI assistant pings you in the portal.", icon: <Bot className="w-3.5 h-3.5 text-gray-500" /> },
+    { key: "email", label: "Email", icon: <Mail className="w-3.5 h-3.5 text-gray-500" /> },
+    { key: "sms", label: "SMS", icon: <MessageSquare className="w-3.5 h-3.5 text-gray-500" /> },
+    { key: "concierge", label: "AI assistant", icon: <Bot className="w-3.5 h-3.5 text-gray-500" /> },
   ];
 
   return (
@@ -1397,41 +1424,25 @@ function NotificationPreferencesSection() {
         <h2 className="text-sm font-semibold text-gray-900">Notifications</h2>
       </div>
 
-      {/* Channel masters */}
+      {/* Per-category × per-channel matrix — every cell is its own toggle. */}
       <div>
         <p className="text-xs text-gray-500 mb-3">
-          Turn a channel off to mute every notification on that channel, or fine-tune per category below.
+          Pick exactly how you hear about each thing — toggle any category on a single channel, or use a column header to flip a whole channel at once.
         </p>
-        <div className="space-y-2">
-          {CHANNELS.map((ch) => (
-            <ChannelRow
-              key={ch.key}
-              icon={ch.icon}
-              label={ch.label}
-              description={ch.description}
-              checked={draft.channels[ch.key]}
-              onChange={(v) => setChannel(ch.key, v)}
-            />
-          ))}
-        </div>
-        {noChannelOn && (
-          <p className="mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-800">
-            All channels are off — you won't receive any notifications. Critical billing alerts will still be sent regardless.
-          </p>
-        )}
-      </div>
 
-      {/* Per-category × per-channel matrix */}
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Categories</p>
-
-        {/* Column header — hidden labels for screen readers, icons for sight */}
+        {/* Column header — icon + label + a derived "master" toggle per channel */}
         <div className="flex items-center gap-3 pb-2 mb-1 border-b border-gray-100">
           <div className="flex-1 min-w-0" />
           {CHANNELS.map((ch) => (
             <div key={ch.key} className="w-12 flex flex-col items-center gap-0.5 text-gray-500">
               {ch.icon}
               <span className="text-[10px] leading-tight text-center">{ch.label}</span>
+              <Switch
+                checked={channelAllOn(ch.key)}
+                onCheckedChange={(v) => setChannelAll(ch.key, v)}
+                aria-label={`Turn ${ch.label} on or off for all categories`}
+                className="scale-75"
+              />
             </div>
           ))}
         </div>
@@ -1445,26 +1456,24 @@ function NotificationPreferencesSection() {
                   <p className="text-sm font-medium text-gray-800">{meta.label}</p>
                   <p className="text-xs text-gray-500">{meta.description}</p>
                 </div>
-                {CHANNELS.map((ch) => {
-                  const masterOff = !draft.channels[ch.key];
-                  return (
-                    <div key={ch.key} className="w-12 flex justify-center">
-                      <Switch
-                        checked={draft.categories[key] && !masterOff}
-                        disabled={masterOff}
-                        onCheckedChange={(v) => setCategory(key, v)}
-                        aria-label={`${meta.label} via ${ch.label}`}
-                      />
-                    </div>
-                  );
-                })}
+                {CHANNELS.map((ch) => (
+                  <div key={ch.key} className="w-12 flex justify-center">
+                    <Switch
+                      checked={draft.categories[key][ch.key]}
+                      onCheckedChange={(v) => setCell(key, ch.key, v)}
+                      aria-label={`${meta.label} via ${ch.label}`}
+                    />
+                  </div>
+                ))}
               </div>
             );
           })}
         </div>
-        <p className="text-[10px] text-gray-400 mt-2">
-          A category column greys out when its channel above is off.
-        </p>
+        {noCellOn && (
+          <p className="mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-800">
+            Every notification is off — you won't hear from us. Critical billing alerts will still be sent regardless.
+          </p>
+        )}
       </div>
 
       {/* Save */}
@@ -1488,29 +1497,6 @@ function NotificationPreferencesSection() {
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-function ChannelRow({
-  icon, label, description, checked, onChange,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-1">
-      <div className="flex items-start gap-2 min-w-0">
-        <span className="mt-0.5 flex-shrink-0">{icon}</span>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-800">{label}</p>
-          <p className="text-xs text-gray-500">{description}</p>
-        </div>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} aria-label={`${label} channel`} />
     </div>
   );
 }

@@ -7,25 +7,27 @@
  * via `parseNotificationPreferences(client.metadata)`, which fills in
  * defaults so callers never have to handle missing fields.
  *
- * Wave P expands this into a per-category × per-channel matrix:
+ * Wave P (per-cell) makes this a TRUE per-category × per-channel matrix:
+ * every category carries its own { email, sms, concierge } booleans, so
+ * "new reviews via AI assistant but NOT email" is expressible. There is no
+ * separate top-level `channels` mask any more — the per-cell booleans ARE
+ * the channels.
  *   - channels: email · sms · concierge (AI assistant in-portal ping)
  *   - 11 categories spanning billing, leads, reviews, content, calls,
  *     messages, bookings, ranking reports, service updates, digest, and
  *     product updates.
  *
- * Defaults are tuned for early-stage SaaS:
- *   - email + SMS channels ON, concierge OFF (opt-in)
- *   - transactional-ish categories (billing, leads, new_review,
- *     content_ready, missed_call, new_message, booking, ranking_report,
- *     service_updates) ON
- *   - non-transactional categories (weekly_digest, marketing) OFF —
- *     CAN-SPAM and CASL friendly until the user opts in.
+ * Defaults are tuned for early-stage SaaS (applied per cell):
+ *   - email + sms ON for all categories EXCEPT weekly_digest + marketing
+ *     (those OFF — CAN-SPAM / CASL friendly until the user opts in).
+ *   - concierge OFF for every category (opt-in).
  *
- * MIGRATION SAFETY: `parseNotificationPreferences` deep-merges the stored
- * object over DEFAULTS key-by-key. Existing customers who saved prefs with
- * only the old 5 categories + {email,sms} keep every value they chose;
- * the 6 new categories + the concierge channel fill from DEFAULTS. No
- * existing customer is silently reset.
+ * MIGRATION SAFETY: `parseNotificationPreferences` handles BOTH the old
+ * shape ({ channels:{email,sms}, categories:{k:bool} }) and the new per-cell
+ * shape, always returning a fully-populated per-cell object. Old data is
+ * mapped forward (a category's email cell = oldChannels.email && oldCat[k]),
+ * new data keeps every saved cell, and any missing cell/category fills from
+ * DEFAULTS. No existing customer is silently reset.
  */
 
 import { z } from "zod";
@@ -92,77 +94,134 @@ export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategoryKey, { lab
   },
 };
 
+export const NOTIFICATION_CHANNEL_KEYS = ["email", "sms", "concierge"] as const;
+export type NotificationChannelKey = (typeof NOTIFICATION_CHANNEL_KEYS)[number];
+
+/** A single category's per-channel switches. */
+const categoryChannelsSchema = z.object({
+  email: z.boolean(),
+  sms: z.boolean(),
+  concierge: z.boolean(),
+});
+
+export type CategoryChannelPrefs = z.infer<typeof categoryChannelsSchema>;
+
 export const notificationPreferencesSchema = z.object({
-  channels: z.object({
-    email: z.boolean(),
-    sms: z.boolean(),
-    concierge: z.boolean(),
-  }),
   categories: z.object({
-    billing: z.boolean(),
-    leads: z.boolean(),
-    new_review: z.boolean(),
-    content_ready: z.boolean(),
-    missed_call: z.boolean(),
-    new_message: z.boolean(),
-    booking: z.boolean(),
-    ranking_report: z.boolean(),
-    service_updates: z.boolean(),
-    weekly_digest: z.boolean(),
-    marketing: z.boolean(),
+    billing: categoryChannelsSchema,
+    leads: categoryChannelsSchema,
+    new_review: categoryChannelsSchema,
+    content_ready: categoryChannelsSchema,
+    missed_call: categoryChannelsSchema,
+    new_message: categoryChannelsSchema,
+    booking: categoryChannelsSchema,
+    ranking_report: categoryChannelsSchema,
+    service_updates: categoryChannelsSchema,
+    weekly_digest: categoryChannelsSchema,
+    marketing: categoryChannelsSchema,
   }),
 });
 
 export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
 
+/**
+ * Per-cell defaults: email + sms ON for every category EXCEPT weekly_digest
+ * and marketing (those OFF). concierge OFF for all (opt-in).
+ */
+const cell = (email: boolean, sms: boolean, concierge: boolean): CategoryChannelPrefs => ({
+  email,
+  sms,
+  concierge,
+});
+
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
-  channels: { email: true, sms: true, concierge: false },
   categories: {
-    billing: true,
-    leads: true,
-    new_review: true,
-    content_ready: true,
-    missed_call: true,
-    new_message: true,
-    booking: true,
-    ranking_report: true,
-    service_updates: true,
-    weekly_digest: false,
-    marketing: false,
+    billing: cell(true, true, false),
+    leads: cell(true, true, false),
+    new_review: cell(true, true, false),
+    content_ready: cell(true, true, false),
+    missed_call: cell(true, true, false),
+    new_message: cell(true, true, false),
+    booking: cell(true, true, false),
+    ranking_report: cell(true, true, false),
+    service_updates: cell(true, true, false),
+    weekly_digest: cell(false, false, false),
+    marketing: cell(false, false, false),
   },
 };
 
 /**
- * Parse a `clients.metadata` blob into a fully-populated preferences
- * object. Always returns valid prefs.
+ * Parse a `clients.metadata` blob into a fully-populated per-cell
+ * preferences object. Always returns valid prefs — never rejects/resets.
  *
- * MIGRATION-SAFE deep merge: rather than `safeParse`-or-reset (which would
- * wipe every existing customer whose stored blob lacks the Wave-P keys),
- * we merge the stored object over DEFAULTS key-by-key. For each channel
- * and each category we keep the saved boolean when it is a valid boolean,
- * otherwise we fall back to the default. Unknown keys are dropped (we only
- * ever read the canonical key lists below).
+ * Handles BOTH stored shapes:
+ *
+ *   OLD: { channels: { email, sms, concierge? }, categories: { k: boolean } }
+ *     The old model stored one boolean per category plus a global channel
+ *     mask. We map it forward per category k:
+ *       email     = (oldChannels.email !== false) && (oldCategories[k] === true)
+ *       sms       = (oldChannels.sms   !== false) && (oldCategories[k] === true)
+ *       concierge = false
+ *     A category absent from the old blob falls back to per-cell DEFAULTS.
+ *     (The `!== false` keeps an undefined old channel mask treated as ON,
+ *     matching the old fail-toward-default behaviour; an explicit false
+ *     mutes that channel for every category, exactly as before.)
+ *
+ *   NEW (per-cell): { categories: { k: { email, sms, concierge } } }
+ *     Each saved cell boolean is kept; any missing cell or category fills
+ *     from DEFAULTS.
+ *
+ * Shape detection: a blob is treated as NEW when its first present category
+ * value is an object (per-cell), and OLD when it is a boolean. An empty /
+ * missing blob yields pure DEFAULTS.
  */
 export function parseNotificationPreferences(metadata: unknown): NotificationPreferences {
   const md = (metadata ?? {}) as Record<string, unknown>;
   const raw = (md.notification_preferences ?? {}) as Record<string, unknown>;
 
-  const rawChannels = (raw.channels ?? {}) as Record<string, unknown>;
   const rawCategories = (raw.categories ?? {}) as Record<string, unknown>;
+  const rawChannels = (raw.channels ?? {}) as Record<string, unknown>;
 
-  const pick = (source: Record<string, unknown>, key: string, fallback: boolean): boolean =>
-    typeof source[key] === "boolean" ? (source[key] as boolean) : fallback;
+  const asBool = (v: unknown, fallback: boolean): boolean =>
+    typeof v === "boolean" ? v : fallback;
 
-  const channels = {
-    email: pick(rawChannels, "email", DEFAULT_NOTIFICATION_PREFERENCES.channels.email),
-    sms: pick(rawChannels, "sms", DEFAULT_NOTIFICATION_PREFERENCES.channels.sms),
-    concierge: pick(rawChannels, "concierge", DEFAULT_NOTIFICATION_PREFERENCES.channels.concierge),
-  };
+  // Detect old shape: any category value that is a plain boolean.
+  const isOldShape = NOTIFICATION_CATEGORY_KEYS.some(
+    (k) => typeof rawCategories[k] === "boolean",
+  );
 
   const categories = {} as NotificationPreferences["categories"];
-  for (const key of NOTIFICATION_CATEGORY_KEYS) {
-    categories[key] = pick(rawCategories, key, DEFAULT_NOTIFICATION_PREFERENCES.categories[key]);
+
+  if (isOldShape) {
+    // Old global channel mask: undefined → treated as ON (!== false).
+    const oldEmailOn = rawChannels.email !== false;
+    const oldSmsOn = rawChannels.sms !== false;
+
+    for (const key of NOTIFICATION_CATEGORY_KEYS) {
+      const stored = rawCategories[key];
+      if (typeof stored === "boolean") {
+        categories[key] = {
+          email: oldEmailOn && stored === true,
+          sms: oldSmsOn && stored === true,
+          concierge: false,
+        };
+      } else {
+        // Category absent from old blob → per-cell defaults.
+        categories[key] = { ...DEFAULT_NOTIFICATION_PREFERENCES.categories[key] };
+      }
+    }
+  } else {
+    // New per-cell shape (or empty): keep each saved cell, default the rest.
+    for (const key of NOTIFICATION_CATEGORY_KEYS) {
+      const def = DEFAULT_NOTIFICATION_PREFERENCES.categories[key];
+      const storedCell = (rawCategories[key] ?? {}) as Record<string, unknown>;
+      categories[key] = {
+        email: asBool(storedCell.email, def.email),
+        sms: asBool(storedCell.sms, def.sms),
+        concierge: asBool(storedCell.concierge, def.concierge),
+      };
+    }
   }
 
-  return { channels, categories };
+  return { categories };
 }

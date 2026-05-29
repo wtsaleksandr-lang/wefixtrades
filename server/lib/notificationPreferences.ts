@@ -65,8 +65,9 @@ export function isTransactionalCategory(category: string): category is Transacti
  *     malformed).
  *   - `clientId == null` → `true` (anonymous recipient — typically a lead
  *     follow-up or admin alert, neither of which is gated).
- *   - Channel disabled → `false`, logged as `[notify-skip] channel`.
- *   - Category disabled → `false`, logged as `[notify-skip] category`.
+ *   - The category×channel cell is off → `false`, logged as
+ *     `[notify-skip] ... reason=cell-disabled`. The per-cell boolean is the
+ *     single source of truth — there is no separate global channel mask.
  *
  * Caller is expected to NOT invoke this for transactional sends. The
  * helper itself does not look at the bypass list — keeping the contract
@@ -95,16 +96,12 @@ export async function respectPreferences(
 
   const prefs = parseNotificationPreferences(client.metadata);
 
-  if (!prefs.channels[channel]) {
-    log.info(`[notify-skip] client=${clientId} channel=${channel} category=${category} reason=channel-disabled`);
-    return false;
-  }
-  if (!prefs.categories[category]) {
-    log.info(`[notify-skip] client=${clientId} channel=${channel} category=${category} reason=category-disabled`);
-    return false;
-  }
+  // Per-cell model: the category's own channel switch is the single source
+  // of truth. There is no separate global channel mask any more.
+  if (prefs.categories[category]?.[channel] === true) return true;
 
-  return true;
+  log.info(`[notify-skip] client=${clientId} channel=${channel} category=${category} reason=cell-disabled`);
+  return false;
 }
 
 /**
