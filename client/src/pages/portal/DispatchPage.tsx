@@ -346,6 +346,7 @@ const actionBtnStyle: React.CSSProperties = {
   background: "#f9fafb",
   border: "1px solid #e5e7eb",
   borderRadius: 8,
-  padding: "6px 10px",
+  padding: "10px 14px",
+  minHeight: 44, // tap target ≥44px (DESIGN-SYSTEM rule 1)
   cursor: "pointer",
 };

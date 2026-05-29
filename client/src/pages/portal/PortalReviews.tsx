@@ -491,7 +491,7 @@ export default function PortalReviews() {
                   <p className="text-xs text-muted-foreground/70">Automatically send gentle reminders if customers haven't responded</p>
                 </div>
                 <button
-                  className={`relative w-10 h-6 rounded-full transition-colors ${settings.reminders_enabled ? "bg-brand-blue" : "bg-gray-300"}`}
+                  className={`relative w-10 h-6 rounded-full transition-colors ${settings.reminders_enabled ? "bg-brand-blue" : "bg-input"}`}
                   onClick={() => settingsMutation.mutate({ reminders_enabled: !settings.reminders_enabled })}
                 >
                   <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.reminders_enabled ? "left-[18px]" : "left-0.5"}`} />
@@ -503,7 +503,7 @@ export default function PortalReviews() {
                   <p className="text-xs text-muted-foreground/70">Get notified when a 1 or 2 star review is detected</p>
                 </div>
                 <button
-                  className={`relative w-10 h-6 rounded-full transition-colors ${settings.low_rating_alerts ? "bg-brand-blue" : "bg-gray-300"}`}
+                  className={`relative w-10 h-6 rounded-full transition-colors ${settings.low_rating_alerts ? "bg-brand-blue" : "bg-input"}`}
                   onClick={() => settingsMutation.mutate({ low_rating_alerts: !settings.low_rating_alerts })}
                 >
                   <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${settings.low_rating_alerts ? "left-[18px]" : "left-0.5"}`} />
