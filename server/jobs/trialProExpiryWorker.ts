@@ -62,7 +62,7 @@ export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
       const meta = (row.metadata as Record<string, unknown>) ?? {};
       if (meta.trial_ending_sms_sent_at) continue;
       const prefs = parseNotificationPreferences(meta);
-      if (!prefs.channels.sms || !prefs.categories.billing) continue;
+      if (!prefs.categories.billing.sms) continue;
       try {
         await sendSMS(
           row.contact_phone,

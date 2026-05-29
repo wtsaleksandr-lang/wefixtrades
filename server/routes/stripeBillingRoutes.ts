@@ -793,7 +793,7 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice, eventId: string) {
     try {
       if (!client.contact_phone) return;
       const prefs = parseNotificationPreferences(client.metadata);
-      if (!prefs.channels.sms || !prefs.categories.billing) return;
+      if (!prefs.categories.billing.sms) return;
       await sendSMS(
         client.contact_phone,
         "Your WeFixTrades payment didn't go through. Update your card at https://wefixtrades.com/portal/billing",
