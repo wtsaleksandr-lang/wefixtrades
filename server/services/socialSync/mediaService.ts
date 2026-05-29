@@ -26,6 +26,7 @@ import express, { type Express } from "express";
 import { generateImageBuffer } from "../../replit_integrations/image/client";
 import { storage } from "../../storage";
 import { logAiImageCost } from "./costTracker";
+import { noisyCatch } from "../../lib/silentFailureGuard";
 import type { SocialSyncPost } from "@shared/schema";
 
 /* ─── Config ─── */
@@ -113,7 +114,12 @@ async function generateAndStore(post: SocialSyncPost): Promise<MediaResolution> 
   let buffer: Buffer;
   try {
     buffer = await generateImageBuffer(prompt, "1024x1024");
-    logAiImageCost(post.client_id).catch(() => {});
+    // Wave 106 — was silent .catch(() => {}); image-gen cost drift
+    // lets per-client AI image spend escape the dashboard caps.
+    noisyCatch(logAiImageCost(post.client_id), {
+      op: "socialSync.logAiImageCost",
+      meta: { clientId: post.client_id, postId: post.id, size: "1024x1024" },
+    });
   } catch (err: any) {
     return { resolved: false, public_url: null, source: "none", error: `Image generation failed: ${err.message}` };
   }

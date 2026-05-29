@@ -26,6 +26,7 @@ import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
 import { buildPerformanceFeedback } from "./performanceTracker";
 import { createLogger } from "../../lib/logger";
 import { writeAudit } from "../../lib/auditLog";
+import { noisyCatch } from "../../lib/silentFailureGuard";
 import {
   evaluateArticleQuality,
   loadPriorArticles,
@@ -302,7 +303,12 @@ async function generateOneArticleAttempt(
     });
     raw = gen.text;
     provider = gen.provider;
-    storage.addDraftGenerationCost(draftId, gen.costMicroUsd).catch(() => {});
+    // Wave 106 — cost drift here silently widens the gap between actual
+    // AI spend and what gates/caps see, so a broken cost write must log.
+    noisyCatch(storage.addDraftGenerationCost(draftId, gen.costMicroUsd), {
+      op: "contentflow.article.addDraftGenerationCost",
+      meta: { draftId, provider, costMicroUsd: gen.costMicroUsd },
+    });
   } catch (err: any) {
     return { ok: false, error: err?.message || String(err) };
   }
