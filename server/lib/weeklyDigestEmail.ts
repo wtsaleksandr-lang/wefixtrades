@@ -30,6 +30,21 @@ import { buildMonthlyBarCard } from "./reportShell";
 
 const log = createLogger("weekly-digest-email");
 
+/**
+ * Structured week-over-week growth delta for a digest section. Supply
+ * this ONLY when a real prior-week baseline exists — it renders the
+ * premium colored ↑/↓ badge. Never synthesise it to manufacture growth;
+ * omit it and the section falls back to the plain `detail` line.
+ */
+export interface WeeklyDigestDelta {
+  /** Percent magnitude with no sign, e.g. "32%". */
+  pctText: string;
+  /** true = current week higher than prior week. */
+  rose: boolean;
+  /** true = the direction is good for this metric (higher-is-better, etc.). */
+  good: boolean;
+}
+
 export interface WeeklyDigestSection {
   /** Headline number, e.g. "12" for "12 calls". */
   value: string | number;
@@ -37,6 +52,29 @@ export interface WeeklyDigestSection {
   label: string;
   /** Optional secondary line — "+3 vs last week", "avg 4.7 ★", etc. */
   detail?: string;
+  /**
+   * Optional real week-over-week growth delta. When present, renders the
+   * colored ↑/↓ growth badge (same visual language as the monthly report
+   * shell) in place of a plain-text delta. Real-data-only.
+   */
+  delta?: WeeklyDigestDelta;
+}
+
+/* Colors mirror reportShell's renderDeltaBadge (positive/negative). */
+const DELTA_POSITIVE = "#22C55E";
+const DELTA_NEGATIVE = "#EF4444";
+
+/**
+ * Render the premium colored growth badge for a weekly section. Mirrors
+ * reportShell.renderDeltaBadge (which is private to that module) so the
+ * weekly digest — built on the transactional shell, not the report shell —
+ * gets the same ↑/↓ green/red treatment.
+ */
+function renderWeeklyDeltaBadge(d: WeeklyDigestDelta): string {
+  const arrow = d.rose ? "↑" : "↓";
+  const word = d.rose ? "higher" : "lower";
+  const color = d.good ? DELTA_POSITIVE : DELTA_NEGATIVE;
+  return `<span style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;letter-spacing:0;">${arrow} ${escapeHtml(d.pctText)} ${word} vs last week</span>`;
 }
 
 export interface WeeklyDigestData {
@@ -84,16 +122,23 @@ export async function sendWeeklyDigestEmail(data: WeeklyDigestData): Promise<boo
    * vary), 2 columns conceptually but rendered as stacked rows for
    * universal compatibility. */
   const sectionRows = data.sections
-    .map(
-      (s) => `
+    .map((s) => {
+      // Prefer the colored growth badge when a real delta is present;
+      // otherwise fall back to the plain muted detail line.
+      const deltaLine = s.delta
+        ? `<div style="margin-top:3px;">${renderWeeklyDeltaBadge(s.delta)}</div>`
+        : s.detail
+          ? `<div style="font-size:11px;color:#8B919A;margin-top:2px;">${escapeHtml(s.detail)}</div>`
+          : "";
+      return `
     <tr>
       <td style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">
         <div style="font-size:24px;font-weight:700;color:#0d3cfc;line-height:1;">${escapeHtml(String(s.value))}</div>
         <div style="font-size:13px;color:#F0F0F0;font-weight:600;margin-top:4px;">${escapeHtml(s.label)}</div>
-        ${s.detail ? `<div style="font-size:11px;color:#8B919A;margin-top:2px;">${escapeHtml(s.detail)}</div>` : ""}
+        ${deltaLine}
       </td>
-    </tr>`,
-    )
+    </tr>`;
+    })
     .join("");
 
   const sectionsHtml = `

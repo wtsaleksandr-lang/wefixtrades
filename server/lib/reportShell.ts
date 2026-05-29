@@ -2,8 +2,8 @@
  * Premium dashboard report shell — shared components across all product
  * monthly/periodic reports (AdFlow, MapGuard, ReputationShield, …).
  *
- * Design language is the v6 AdFlow approved style: dark hero card, cyan
- * accent, mathematically consistent 2×2 KPI grid, alpha-faded integrated
+ * Design language is the v6 AdFlow approved style: dark hero card, brand
+ * blue accent (#0d3cfc), mathematically consistent 2×2 KPI grid, alpha-faded integrated
  * chart, recommendations panel, metric glossary, premium footer.
  *
  * Each component renders gracefully when data is absent (returns empty
@@ -17,7 +17,8 @@
 
 import { buildEmailHeader, buildLegalFooter, buildChatBubble } from "./emailFooter";
 
-/* ─── Brand palette (locked to all-cyan accent for now) ─── */
+/* ─── Brand palette (accent is brand blue #0d3cfc — NOT teal/cyan; the
+       token below is intentionally named `accent`, not `cyan`) ─── */
 
 export const REPORT_COLORS = {
   bg: "#0B0F14",
@@ -157,7 +158,7 @@ export interface KpiTile {
   label: string;
   value: string;
   delta?: DeltaShape;
-  accent?: boolean;          // primary KPI gets cyan value text
+  accent?: boolean;          // primary KPI gets brand-blue value text
 }
 
 export function buildKpiGrid(tiles: KpiTile[]): string {

@@ -62,7 +62,7 @@ const COLORS = {
   grey: "#6B7280",
   lightGrey: "#F3F4F6",
   border: "#E5E7EB",
-  cyan: "#0d3cfc",
+  brandBlue: "#0d3cfc", // brand accent blue (renamed from misleading "cyan" — teal-era leftover)
   green: "#22C55E",
   amber: "#F59E0B",
   red: "#EF4444",
@@ -70,7 +70,7 @@ const COLORS = {
 
 function gradeColor(g: string): string {
   if (g === "A") return COLORS.green;
-  if (g === "B") return COLORS.cyan;
+  if (g === "B") return COLORS.brandBlue;
   if (g === "C") return COLORS.amber;
   return COLORS.red;
 }
@@ -158,7 +158,7 @@ export function buildPdfHtml(data: PdfReportData): string {
   .header-left { display: flex; align-items: center; gap: 12px; }
   .header-logo { width: 36px; height: 36px; flex-shrink: 0; }
   .header-brand { font-size: 18px; font-weight: 800; color: ${COLORS.white}; letter-spacing: -0.5px; }
-  .header-brand span { color: ${COLORS.cyan}; }
+  .header-brand span { color: ${COLORS.brandBlue}; }
   .header-date { font-size: 10px; color: rgba(255,255,255,0.5); }
 
   /* Hero */
@@ -252,7 +252,7 @@ export function buildPdfHtml(data: PdfReportData): string {
     border-top: 1px solid ${COLORS.border};
     font-size: 9px; color: ${COLORS.grey};
   }
-  .footer a { color: ${COLORS.cyan}; text-decoration: none; }
+  .footer a { color: ${COLORS.brandBlue}; text-decoration: none; }
 </style>
 </head>
 <body>

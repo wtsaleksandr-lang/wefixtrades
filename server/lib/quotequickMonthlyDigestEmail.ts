@@ -147,6 +147,32 @@ export async function compileQuotequickMonthlyDigest(
 
 /* ─── Compose ─── */
 
+/**
+ * Real prior-period growth delta from the 6-month bar series. Returns
+ * shown:false when there's no usable comparison (no prior month, or
+ * <1% change). Never fabricates a baseline — mirrors the ContentFlow
+ * gold-standard pctChange helper.
+ */
+function pctChange(curr: number, prev: number): {
+  shown: boolean;
+  pctText: string;
+  rose: boolean;
+  good: boolean;
+} {
+  if (prev <= 0) return { shown: false, pctText: "", rose: false, good: true };
+  const change = ((curr - prev) / prev) * 100;
+  if (Math.abs(change) < 1) {
+    return { shown: false, pctText: "", rose: false, good: true };
+  }
+  const rose = change > 0;
+  return {
+    shown: true,
+    pctText: `${Math.round(Math.abs(change))}%`,
+    rose,
+    good: rose, // higher-is-better for quotes generated
+  };
+}
+
 function formatUsdFromCents(cents: number): string {
   const dollars = cents / 100;
   if (dollars >= 1_000_000) return `$${(dollars / 1_000_000).toFixed(1)}M`;
@@ -174,18 +200,34 @@ export function composeQuotequickMonthlyDigest(o: ComposeOpts): {
   const conversionValue = d.conversion.value;
   const conversionLow = isConvReal && conversionValue < 30;
 
+  // Real month-over-month delta on quotes generated, derived from the
+  // 6-month bar series (only when that series is real data). Last bar is
+  // the current month; second-to-last is the prior month. No fabrication:
+  // if the series is illustrative or has no prior month, delta stays hidden.
+  const monthlyReal = d.monthly.data_status === "real";
+  const monthlyBars = d.monthly.data;
+  const currentMonthQuotes = monthlyBars[monthlyBars.length - 1]?.value ?? 0;
+  const priorMonthQuotes = monthlyBars[monthlyBars.length - 2]?.value ?? 0;
+  const quotesDelta = monthlyReal
+    ? pctChange(currentMonthQuotes, priorMonthQuotes)
+    : { shown: false, pctText: "", rose: false, good: true };
+
   const badge: HeaderBadge = deriveHeaderBadge({
-    primaryDelta: { shown: false, pctText: "", rose: false, good: true },
+    primaryDelta: quotesDelta,
     critical: conversionLow,
   });
 
   const depositsStr = formatUsdFromCents(d.deposits_captured_cents);
 
-  // Subject + headline scale on the strongest signal.
+  // Subject + headline scale on the strongest signal. When we have a real
+  // MoM delta, surface the growth arrow in the subject (ContentFlow pattern).
+  const deltaSuffix = quotesDelta.shown
+    ? ` ${quotesDelta.pctText}${quotesDelta.rose ? "↑" : "↓"}`
+    : "";
   const subject = d.deposits_captured_cents > 0
-    ? `Your QuoteQuick ${d.period_label} report — ${depositsStr} captured`
+    ? `Your QuoteQuick ${d.period_label} report — ${depositsStr} captured${deltaSuffix}`
     : d.quotes_generated > 0
-      ? `Your QuoteQuick ${d.period_label} report — ${d.quotes_generated} quote${d.quotes_generated === 1 ? "" : "s"} generated`
+      ? `Your QuoteQuick ${d.period_label} report — ${d.quotes_generated} quote${d.quotes_generated === 1 ? "" : "s"} generated${deltaSuffix}`
       : `Your QuoteQuick ${d.period_label} report`;
 
   const headline = d.quotes_generated > 0
@@ -237,7 +279,9 @@ export function composeQuotequickMonthlyDigest(o: ComposeOpts): {
           value: b.value,
           highlight: b.highlighted === true,
         })),
-        caption: `${d.quotes_generated} quote${d.quotes_generated === 1 ? "" : "s"} this month.`,
+        caption: quotesDelta.shown
+          ? `${d.quotes_generated} quote${d.quotes_generated === 1 ? "" : "s"} this month — ${quotesDelta.pctText} ${quotesDelta.rose ? "higher" : "lower"} vs prior month.`
+          : `${d.quotes_generated} quote${d.quotes_generated === 1 ? "" : "s"} this month.`,
       })
     : "";
 
