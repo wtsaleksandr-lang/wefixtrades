@@ -39,6 +39,7 @@ import { runAgentLoop, type AgentLoopResult } from "./aiAgentLoop";
 import { adminAgentTools } from "./adminAgentTools";
 import { getCopilotAction, type PendingAction } from "./copilotActionRegistry";
 import { writeAudit } from "../lib/auditLog";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import crypto from "crypto";
 
@@ -137,7 +138,13 @@ async function alertFounderPlain(ticket: SupportTicket, senderEmail: string | nu
     adminUrl: adminUrl(ticket.id),
   });
   if (notified) {
-    await storage.updateSupportTicket(ticket.id, { admin_notified: true }).catch(() => {});
+    // Wave 114 — was silent .catch(() => {}); if the admin_notified
+    // stamp fails, the next ticket scan can re-fire the notification
+    // (admin gets a duplicate). noisyCatch surfaces the write failure.
+    await noisyCatch(
+      storage.updateSupportTicket(ticket.id, { admin_notified: true }),
+      { op: "inboundEmail.stampAdminNotified", meta: { ticketId: ticket.id } },
+    );
   }
 }
 
@@ -151,14 +158,21 @@ async function escalate(ticket: SupportTicket, reason: string): Promise<void> {
     entityType: "support_ticket",
     entityId: ticket.id,
   });
-  await storage.createTicketMessage({
-    ticket_id: ticket.id,
-    author_id: null,
-    author_type: "system",
-    visibility: "internal",
-    content: `AI triage: escalated to the founder — ${reason}`,
-    metadata: { ai_generated: true, channel: "email", triage: "uncertain" },
-  }).catch(() => {});
+  // Wave 114 — was silent .catch(() => {}); the internal escalation
+  // note is the audit trail for "AI escalated this to the founder".
+  // Losing it leaves the human with no in-thread record of why the
+  // ticket got escalated.
+  await noisyCatch(
+    storage.createTicketMessage({
+      ticket_id: ticket.id,
+      author_id: null,
+      author_type: "system",
+      visibility: "internal",
+      content: `AI triage: escalated to the founder — ${reason}`,
+      metadata: { ai_generated: true, channel: "email", triage: "uncertain" },
+    }),
+    { op: "inboundEmail.writeEscalationNote", meta: { ticketId: ticket.id, reason } },
+  );
 }
 
 /* ─── Triage + act ─── */
