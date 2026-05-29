@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, ShieldCheck, RotateCcw, Clock, Calculator, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
+import SystemHealthPanel from "@/components/admin/SystemHealthPanel";
 import { adminStatusColor, ALERT_SEVERITY } from "@/config/adminLabels";
 // IA-1 (2026-05-22) — wizard minimize-to-floating-badge.
 import MinimizedWizardBadge from "@/components/wizard/MinimizedWizardBadge";
@@ -544,6 +545,9 @@ export default function CrmOverview() {
       blockedCount: data?.recentTasks?.filter((t) => t.status === "blocked").length,
     }}>
       <div className="space-y-6">
+        {/* Wave 141 — system health surfaces, pinned to the very top. */}
+        <SystemHealthPanel />
+
         <div>
           <h2 className="text-lg font-semibold text-foreground">Operations Overview</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Your business at a glance</p>
