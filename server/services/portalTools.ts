@@ -85,7 +85,8 @@ const UPDATE_NOTIFICATION_PREFERENCE_TOOL: ActionTool = {
   description:
     "Turn one of the customer's own notification settings on or off. " +
     "Call this ONLY when the customer explicitly asks to change a notification setting in this turn. " +
-    "Delivery channels: 'email', 'sms'. Categories: 'billing', 'service_updates', 'leads', 'weekly_digest', 'marketing'. " +
+    "Delivery channels: 'email', 'sms', 'concierge' (the customer's AI assistant). " +
+    "Categories: 'billing', 'leads', 'new_review', 'content_ready', 'missed_call', 'new_message', 'booking', 'ranking_report', 'service_updates', 'weekly_digest', 'marketing'. " +
     "Before calling this tool, briefly state in plain language the change you are about to make. " +
     "Do not call this tool more than once per turn.",
   input_schema: {
