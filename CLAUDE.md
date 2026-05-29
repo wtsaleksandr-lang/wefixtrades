@@ -147,6 +147,53 @@ actor_type (all tables):      human | ai_agent | system
 - No raw `console.log` in production paths — use prefixed `[Worker]`, `[Engine]`, etc.
 - New routes are registered in `server/routes/index.ts`
 
+### Error handling for fire-and-forget promises (do NOT use `.catch(() => {})`)
+
+The `.catch(() => {})` pattern silently swallows failures. It shipped the
+prerender bug for weeks in May 2026 and produced the entire Wave 92
+silent-failure audit. Don't reach for it. The CI guard
+`scripts/check-no-silent-catch.mjs` fails any new occurrence.
+
+For a fire-and-forget Promise where you do NOT want to await but the
+failure still matters (analytics writes, alert delivery, audit-trail
+rows, cost-tracking, retry stamps, notification stamps, etc.), use
+`noisyCatch` from `server/lib/silentFailureGuard.ts`:
+
+```ts
+import { noisyCatch } from "../lib/silentFailureGuard";
+
+// Before — silent swallow:
+storage.trackEvent({ ... }).catch(() => {});
+
+// After — structured log + Sentry bridge on failure:
+noisyCatch(storage.trackEvent({ ... }), {
+  op: "calculator.trackEvent.view",
+  meta: { calculatorId, deviceType },
+});
+```
+
+`noisyCatch` returns `Promise<void>` so existing `await` semantics are
+preserved — same call-site shape, just no longer silent.
+
+If a return value matters (body-parse fallback, default-on-failure
+boolean, etc.), use the explicit-return shape instead — those are NOT
+silent and the guard does not flag them:
+
+```ts
+res.json().catch(() => ({}))        // body-parse fallback
+fetch(url).catch(() => false)       // boolean-return guard
+listFiles().catch(() => [])         // array-return guard
+```
+
+For exception blocks: `} catch {}` and `} catch (e) {}` with empty
+bodies are flagged identically. Either log + re-throw, or use a
+fall-through default, or use `noisyCatch` on the promise itself.
+
+The narrow allowed-silent set lives in `scripts/silent-catch-baseline.txt`
+— don't add to it without a strong reason (fs unlink of temp file,
+idempotency-after-success metadata write, body-parse fallback that's
+unguarded only because its return shape happens to match the pattern).
+
 ---
 
 ## Do Not Change Without Reading the Plan
