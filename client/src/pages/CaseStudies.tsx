@@ -724,13 +724,21 @@ export default function CaseStudiesPage() {
         canonical="/case-studies"
       />
       <V7PageShell>
-        {/* ── Compact hero: left-aligned tabs + headline ─── */}
+        {/* ── Compact hero: centered tabs + headline ─── */}
+        {/* Wave 105 — tab strip moved to sit ~1px below the navbar (per
+            Alex). MarketingLayout adds a 24px spacer between header and
+            main; we absorb 23px of that with marginTop: -23px so the
+            visible gap is just 1px. Section padding-top is 0 so the tab
+            strip sits flush at the top. */}
         <section style={{
           background: mkt.bg,
-          padding: "44px 24px 24px",
+          marginTop: -23,
+          padding: "0 24px 24px",
         }}>
           <div style={{ maxWidth: 1400, margin: "0 auto" }}>
-            <div style={{ marginBottom: 22 }}>
+            {/* Centered (was implicitly left-aligned via inline-flex on
+                the strip itself + no parent text-align). */}
+            <div style={{ marginBottom: 22, textAlign: "center", paddingTop: 1 }}>
               <ResourceTabStrip active="/case-studies" />
             </div>
             <h1 style={{
