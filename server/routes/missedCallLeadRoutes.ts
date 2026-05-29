@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import {
   enqueueMissedCallFollowups,
   buildImmediateResultsEmail,
@@ -91,7 +92,9 @@ export function registerMissedCallLeadRoutes(app: Express): void {
         log.error("[missed-call-lead] Followup enqueue error:", err?.message);
       });
 
-      captureIntakeEvent({
+      // Wave 109 — was silent .catch(() => {}); same noisyCatch wrap as
+      // the demo-lead intake path so attribution drift is logged.
+      noisyCatch(captureIntakeEvent({
         sourceType:    'public_form',
         eventType:     'missed_call_lead.submitted',
         correlationId: `missed-call-${lead.id}`,
@@ -100,7 +103,10 @@ export function registerMissedCallLeadRoutes(app: Express): void {
         entityId:      String(lead.id),
         rawPayload:    req.body,
         context:       { ipAddress: req.ip, userAgent: req.headers['user-agent'] as string | undefined },
-      }).catch(() => {});
+      }), {
+        op: "intake.missedCallLead.submitted",
+        meta: { leadId: lead.id },
+      });
 
       log.info("[missed-call-lead] Saved lead", { arg0: lead.id, arg1: email, arg2: trade, arg3: estimatedAnnualLoss });
       return res.json({ ok: true, leadId: lead.id });
