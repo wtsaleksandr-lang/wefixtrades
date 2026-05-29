@@ -138,6 +138,22 @@ if [ -f "${BING_REGISTER_SCRIPT}" ]; then
   disown 2>/dev/null || true
 fi
 
+# Wave 91 — IndexNow ping. Pushes the high-value URL set (home, compliance
+# pages, top product pages, comparison pages, pricing) to Bing / Yandex /
+# Naver / Seznam / Cloudflare in a single request. Faster than sitemap
+# discovery; crawlers usually re-fetch the changed pages within hours.
+# Same soft-fork pattern: stderr to log file, script always exits 0,
+# never blocks the deploy.
+INDEXNOW_SCRIPT="${REPO_ROOT}/scripts/seo/indexnow-ping.mjs"
+INDEXNOW_LOG="${REPO_ROOT}/indexnow.log"
+if [ -f "${INDEXNOW_SCRIPT}" ]; then
+  (
+    sleep 25  # let the server come up + the Bing register run first
+    node "${INDEXNOW_SCRIPT}" 2>>"${INDEXNOW_LOG}" || true
+  ) &
+  disown 2>/dev/null || true
+fi
+
 case "${MODE}" in
   "${MODE_DOPPLER_CLI}")
     echo "[start-prod] mode=${MODE} — wrapping with: doppler run -- node ./dist/index.cjs" >&2
