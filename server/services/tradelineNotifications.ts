@@ -61,8 +61,10 @@ export async function sendTradeLineCallNotifications(params: TradeLineNotificati
   // Outbound SMS to the caller (end-customer, not a WeFixTrades client) is
   // NOT gated — that's transactional service information, not a marketing
   // touchpoint.
-  const smsAllowed = await respectPreferences(clientId, "sms", "leads");
-  const emailAllowed = await respectPreferences(clientId, "email", "leads");
+  // Wave P: TradeLine call summaries are missed/answered-call alerts, which
+  // now have their own `missed_call` category (was lumped under `leads`).
+  const smsAllowed = await respectPreferences(clientId, "sms", "missed_call");
+  const emailAllowed = await respectPreferences(clientId, "email", "missed_call");
 
   // Build SMS message
   const callerName = leadData.caller_name || "Unknown caller";

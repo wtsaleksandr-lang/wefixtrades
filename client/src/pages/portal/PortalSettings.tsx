@@ -2,7 +2,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
-import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Bell, Mail, MessageSquare, Image as ImageIcon, ShieldCheck, Smartphone } from "lucide-react";
+import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Bell, Mail, MessageSquare, Bot, Image as ImageIcon, ShieldCheck, Smartphone } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { SmsTemplatesSection } from "@/components/portal/SmsTemplatesSection";
 import { useCopilotForm } from "@/context/CopilotFormContext";
@@ -1369,13 +1369,26 @@ function NotificationPreferencesSection() {
     );
   }
 
-  const setChannel = (channel: "email" | "sms", value: boolean) =>
+  const setChannel = (channel: "email" | "sms" | "concierge", value: boolean) =>
     setDraft((d) => (d ? { ...d, channels: { ...d.channels, [channel]: value } } : d));
 
   const setCategory = (key: NotificationCategoryKey, value: boolean) =>
     setDraft((d) => (d ? { ...d, categories: { ...d.categories, [key]: value } } : d));
 
-  const noChannelOn = !draft.channels.email && !draft.channels.sms;
+  const noChannelOn = !draft.channels.email && !draft.channels.sms && !draft.channels.concierge;
+
+  /* Matrix columns. A category toggle only takes effect when its channel
+   * master is on, so a disabled master greys out the column. */
+  const CHANNELS: {
+    key: "email" | "sms" | "concierge";
+    label: string;
+    description: string;
+    icon: React.ReactNode;
+  }[] = [
+    { key: "email", label: "Email", description: "Sent to your account email.", icon: <Mail className="w-3.5 h-3.5 text-gray-500" /> },
+    { key: "sms", label: "SMS", description: "Sent to your account phone.", icon: <MessageSquare className="w-3.5 h-3.5 text-gray-500" /> },
+    { key: "concierge", label: "AI assistant", description: "Your AI assistant pings you in the portal.", icon: <Bot className="w-3.5 h-3.5 text-gray-500" /> },
+  ];
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -1384,58 +1397,74 @@ function NotificationPreferencesSection() {
         <h2 className="text-sm font-semibold text-gray-900">Notifications</h2>
       </div>
 
-      {/* Channels */}
+      {/* Channel masters */}
       <div>
         <p className="text-xs text-gray-500 mb-3">
-          How should we reach you? Turning a channel off mutes every notification on that channel.
+          Turn a channel off to mute every notification on that channel, or fine-tune per category below.
         </p>
         <div className="space-y-2">
-          <ChannelRow
-            icon={<Mail className="w-3.5 h-3.5 text-gray-500" />}
-            label="Email"
-            description="Sent to your account email."
-            checked={draft.channels.email}
-            onChange={(v) => setChannel("email", v)}
-          />
-          <ChannelRow
-            icon={<MessageSquare className="w-3.5 h-3.5 text-gray-500" />}
-            label="SMS"
-            description="Sent to your account phone."
-            checked={draft.channels.sms}
-            onChange={(v) => setChannel("sms", v)}
-          />
+          {CHANNELS.map((ch) => (
+            <ChannelRow
+              key={ch.key}
+              icon={ch.icon}
+              label={ch.label}
+              description={ch.description}
+              checked={draft.channels[ch.key]}
+              onChange={(v) => setChannel(ch.key, v)}
+            />
+          ))}
         </div>
         {noChannelOn && (
           <p className="mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-800">
-            Both channels are off — you won't receive any notifications. Critical billing alerts will still be sent regardless.
+            All channels are off — you won't receive any notifications. Critical billing alerts will still be sent regardless.
           </p>
         )}
       </div>
 
-      {/* Categories */}
+      {/* Per-category × per-channel matrix */}
       <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Categories</p>
-        <div className="space-y-2">
+
+        {/* Column header — hidden labels for screen readers, icons for sight */}
+        <div className="flex items-center gap-3 pb-2 mb-1 border-b border-gray-100">
+          <div className="flex-1 min-w-0" />
+          {CHANNELS.map((ch) => (
+            <div key={ch.key} className="w-12 flex flex-col items-center gap-0.5 text-gray-500">
+              {ch.icon}
+              <span className="text-[10px] leading-tight text-center">{ch.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="divide-y divide-gray-100">
           {NOTIFICATION_CATEGORY_KEYS.map((key) => {
             const meta = NOTIFICATION_CATEGORY_LABELS[key];
             return (
-              <div
-                key={key}
-                className="flex items-start justify-between gap-3 py-1.5"
-              >
+              <div key={key} className="flex items-center gap-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800">{meta.label}</p>
                   <p className="text-xs text-gray-500">{meta.description}</p>
                 </div>
-                <Switch
-                  checked={draft.categories[key]}
-                  onCheckedChange={(v) => setCategory(key, v)}
-                  aria-label={`${meta.label} notifications`}
-                />
+                {CHANNELS.map((ch) => {
+                  const masterOff = !draft.channels[ch.key];
+                  return (
+                    <div key={ch.key} className="w-12 flex justify-center">
+                      <Switch
+                        checked={draft.categories[key] && !masterOff}
+                        disabled={masterOff}
+                        onCheckedChange={(v) => setCategory(key, v)}
+                        aria-label={`${meta.label} via ${ch.label}`}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
         </div>
+        <p className="text-[10px] text-gray-400 mt-2">
+          A category column greys out when its channel above is off.
+        </p>
       </div>
 
       {/* Save */}

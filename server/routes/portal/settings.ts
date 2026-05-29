@@ -27,7 +27,6 @@ import {
   users,
   passwordResetTokens,
   parseNotificationPreferences,
-  notificationPreferencesSchema,
   DEFAULT_NOTIFICATION_PREFERENCES,
 } from "@shared/schema";
 import {
@@ -222,14 +221,19 @@ export function registerPortalSettingsRoutes(app: Express) {
       const clientId = await withClientId(req, res, { adminFallback: 'forbid' });
       if (!clientId) return;
 
-      const parsed = notificationPreferencesSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: "Invalid preferences payload", details: parsed.error.flatten() });
+      // Wave P: validate the body is a plausible prefs blob, then normalise
+      // it through the migration-safe parser. Using the parser (rather than
+      // storing the raw parse result) means a client bundle that posts the
+      // pre-Wave-P shape — old categories + {email,sms} only — is merged
+      // over DEFAULTS key-by-key instead of being rejected with a 400.
+      if (req.body == null || typeof req.body !== "object" || Array.isArray(req.body)) {
+        return res.status(400).json({ error: "Invalid preferences payload" });
       }
+      const normalized = parseNotificationPreferences({ notification_preferences: req.body });
 
       const [existing] = await db.select({ metadata: clients.metadata }).from(clients).where(eq(clients.id, clientId)).limit(1);
       const prevMetadata = (existing?.metadata ?? {}) as Record<string, unknown>;
-      const newMetadata = { ...prevMetadata, notification_preferences: parsed.data };
+      const newMetadata = { ...prevMetadata, notification_preferences: normalized };
 
       const [updated] = await db
         .update(clients)

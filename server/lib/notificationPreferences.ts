@@ -28,7 +28,7 @@ import { createLogger } from "./logger";
 
 const log = createLogger("NotifyPrefs");
 
-export type NotificationChannel = "email" | "sms";
+export type NotificationChannel = "email" | "sms" | "concierge";
 
 /**
  * Category keys that bypass preference checks. These templates carry
@@ -104,5 +104,41 @@ export async function respectPreferences(
     return false;
   }
 
+  return true;
+}
+
+/**
+ * Wave P — AI-concierge delivery seam.
+ *
+ * When the client has the `concierge` channel enabled for `category`, this
+ * is where a portal-side notice (an AI-assistant ping in the customer's
+ * inbox) would be created. Senders that already gate email/SMS can add a
+ * single `deliverConcierge(...)` call to fan the same event out to the
+ * in-portal assistant once the proactive-messaging pipeline lands.
+ *
+ * It honours `respectPreferences(clientId, "concierge", category)` so the
+ * per-category × per-channel matrix governs concierge exactly like email
+ * and SMS — no separate opt-in logic.
+ *
+ * TODO(wave-p2): there is no client-facing notice/agenda table today
+ * (PortalChatWidget is interactive request/response, not a push-notice
+ * store). Until that store exists this STUB logs the would-be delivery and
+ * no-ops rather than inventing a table. Wire the real insert in p2.
+ */
+export async function deliverConcierge(
+  clientId: number | null | undefined,
+  category: NotificationCategoryKey,
+  message: string,
+): Promise<boolean> {
+  if (clientId == null) return false;
+
+  const allowed = await respectPreferences(clientId, "concierge", category);
+  if (!allowed) return false;
+
+  // TODO(wave-p2): replace this log with an insert into the client-notice /
+  // portal-assistant inbox store once it exists.
+  log.info(
+    `[concierge-stub] client=${clientId} category=${category} would-deliver="${message.slice(0, 80)}" (no-op until wave-p2 store lands)`,
+  );
   return true;
 }
