@@ -1741,7 +1741,15 @@ type FileVisualState = "hidden" | "hover" | "dragging";
 type Phase = "idle" | "parsing" | "ready";
 type CheckoutPhase = "closed" | "step1" | "step2";
 
-function SelfServiceCanvas() {
+/**
+ * @param hideHeader Wave 105 — suppress the internal h2 + subtitle
+ * paragraph when the canvas is rendered inside MobileFallback. The
+ * mobile variant hoists the title + subtitle to the TOP of the section
+ * (above the scaled canvas) so the text is readable at full size; the
+ * scaled canvas would render the same text at ~0.33× which is
+ * unreadable. Defaults to false so desktop is unchanged.
+ */
+function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}) {
   const reduced = usePrefersReducedMotion();
 
   const [cycleIdx, setCycleIdx] = useState(0);
@@ -1950,32 +1958,40 @@ function SelfServiceCanvas() {
           {/* Wave 101 — promoted from <div> to semantic <h2> with the
               section's aria-labelledby anchor. Replaces the duplicate
               outer H2 (since-removed) so a11y + SEO outlines still get
-              a real heading for this section. */}
-          <h2
-            id="ssdd-headline"
-            style={{
-              fontSize: 26,
-              fontWeight: 700,
-              lineHeight: 1.1,
-              letterSpacing: "-0.015em",
-              color: "#e8efee",
-              margin: 0,
-            }}
-          >
-            <div>From any pricing doc</div>
-            <div>to a live calculator</div>
-          </h2>
-          <div
-            style={{
-              marginTop: 16,
-              color: "rgba(232,239,238,0.55)",
-              fontSize: 13.5,
-              lineHeight: 1.55,
-              maxWidth: 290,
-            }}
-          >
-            Drop your existing pricing — any format. We turn it into a live calculator your customers use to book and pay. Five seconds, no setup.
-          </div>
+              a real heading for this section.
+              Wave 105 — suppressed when hideHeader is true (mobile
+              path). MobileFallback renders the h2 + subtitle at the
+              top of its container instead, so the same content isn't
+              shown twice (with the same id colliding to boot). */}
+          {!hideHeader && (
+            <>
+              <h2
+                id="ssdd-headline"
+                style={{
+                  fontSize: 26,
+                  fontWeight: 700,
+                  lineHeight: 1.1,
+                  letterSpacing: "-0.015em",
+                  color: "#e8efee",
+                  margin: 0,
+                }}
+              >
+                <div>From any pricing doc</div>
+                <div>to a live calculator</div>
+              </h2>
+              <div
+                style={{
+                  marginTop: 16,
+                  color: "rgba(232,239,238,0.55)",
+                  fontSize: 13.5,
+                  lineHeight: 1.55,
+                  maxWidth: 290,
+                }}
+              >
+                Drop your existing pricing — any format. We turn it into a live calculator your customers use to book and pay. Five seconds, no setup.
+              </div>
+            </>
+          )}
 
           {/* Touch / keyboard fallback — visible on mobile, hidden when the
               cursor-attach interaction is feasible. Still keyboard-focusable
@@ -2672,8 +2688,52 @@ function MobileFallback({ containerWidth }: { containerWidth: number }) {
   const fitScale = containerWidth > 0 ? Math.min(1, containerWidth / BASE_W) : 0.6;
   return (
     <div style={{ width: "100%" }}>
+      {/* Wave 105 — title + subtitle hoisted ABOVE the scaled canvas
+          per Alex's mobile redesign. At fitScale ≈ 0.33 on a 375-px
+          viewport the canvas's internal h2 was ~9px tall — unreadable.
+          Reading order on mobile is now:
+            1. (Section eyebrow "See it in action" — rendered by the
+               parent section above this component)
+            2. h2 title (full size, centered)
+            3. Subtitle paragraph (full size, centered)
+            4. Scaled canvas (file-drop visualization at fitScale)
+            5. Try-sample hint caption
+          Desktop is unchanged — SelfServiceCanvas is used directly
+          (not via MobileFallback) and keeps its internal title on the
+          left of the drop area. */}
+      <h2
+        id="ssdd-headline"
+        style={{
+          fontSize: "clamp(22px, 6vw, 28px)",
+          fontWeight: 700,
+          lineHeight: 1.15,
+          letterSpacing: "-0.015em",
+          color: mkt.text,
+          textAlign: "center",
+          margin: "0 0 12px",
+        }}
+      >
+        From any pricing doc to a live calculator
+      </h2>
+      <p
+        style={{
+          fontSize: 14,
+          lineHeight: 1.55,
+          color: mkt.textMuted,
+          textAlign: "center",
+          margin: "0 0 24px",
+          maxWidth: 480,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
+        Drop your existing pricing — any format. We turn it into a live calculator your customers use to book and pay. Five seconds, no setup.
+      </p>
+
       {/* Scaled canvas frame — width/height match the visual size so
-          the surrounding section has no overflow. */}
+          the surrounding section has no overflow. hideHeader=true so
+          the internal h2 + subtitle (now redundant) don't render and
+          we don't get an id="ssdd-headline" collision. */}
       <div
         style={{
           width: "100%",
@@ -2689,7 +2749,7 @@ function MobileFallback({ containerWidth }: { containerWidth: number }) {
             transformOrigin: "top left",
           }}
         >
-          <SelfServiceCanvas />
+          <SelfServiceCanvas hideHeader={true} />
         </div>
       </div>
       <div

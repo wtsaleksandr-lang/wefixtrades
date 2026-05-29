@@ -140,36 +140,14 @@ const COMPARISON_ROWS: { capability: string; them: string; us: string }[] = [
 export default function IntegrationsTrustStrip() {
   return (
     <div data-testid="integrations-trust-strip">
-      {/* ── Logo row — silent visual trust, no tagline ────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 36,
-          padding: "20px 24px 12px",
-          color: LABEL_COLOR,
-        }}
-      >
-        {INTEGRATIONS.map((logo) => (
-          <span
-            key={logo.name}
-            title={logo.name}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              transition: "color 0.2s, transform 0.2s",
-              cursor: "default",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = HOVER_COLOR; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ""; }}
-          >
-            {logo.svg}
-          </span>
-        ))}
-      </div>
+      {/* Wave 105 — trust-icon logo row REMOVED per Alex's feedback.
+          Iterated through wordmarks (Wave 102) and then official
+          simple-icons brand marks (Wave 103); neither read well in the
+          strip and Alex's read was "just remove it entirely". The
+          comparison block below is now the single content block — it
+          tells the WeFixTrades positioning without needing visual
+          rails. INTEGRATIONS array kept above for archival / potential
+          reuse but no longer rendered. */}
 
       {/* ── Comparison block — "compete with the chains" ─────────────── */}
       <div style={{ padding: "32px 24px 44px" }}>
