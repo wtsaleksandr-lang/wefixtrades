@@ -516,12 +516,17 @@ export default function SocialSyncDashboard() {
       };
     });
   }, [kpis?.postsThisWeek]);
-  const monthlyPostBars: MonthlyBar[] =
+  const monthlyPostBarsUsingFallback = !(
     monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
-      ? monthlyStatsQuery.data.data
-      : monthlyPostBarsFallback;
+  );
+  const monthlyPostBars: MonthlyBar[] = monthlyPostBarsUsingFallback
+    ? monthlyPostBarsFallback
+    : monthlyStatsQuery.data!.data;
+  // Wave K2: badge whenever the synthetic fallback renders, not just when the
+  // server flags illustrative.
   const monthlyPostBarsIllustrative =
-    monthlyStatsQuery.data?.data_status === "illustrative";
+    monthlyStatsQuery.data?.data_status === "illustrative" ||
+    monthlyPostBarsUsingFallback;
 
   // Platform mix donut — Wave 73a: backed by /stats/segments.
   const platformMixSegmentsFallback: DonutSegment[] = useMemo(() => {
@@ -539,12 +544,18 @@ export default function SocialSyncDashboard() {
       value: Math.max(1, Math.round((perPlatform[p.id]?.ratePct ?? 0) * 10)),
     })).filter((s) => s.value > 0);
   }, [perPlatform]);
-  const platformMixSegments: DonutSegment[] =
+  const platformMixSegmentsHasData = !!(
     segmentStatsQuery.data?.data && segmentStatsQuery.data.data.length > 0
-      ? segmentStatsQuery.data.data
-      : platformMixSegmentsFallback;
+  );
+  const platformMixSegments: DonutSegment[] = platformMixSegmentsHasData
+    ? segmentStatsQuery.data!.data
+    : platformMixSegmentsFallback;
+  // Wave K2: the donut shows truly synthetic numbers only when both the stat
+  // endpoint is empty AND there is no per-platform data to derive from.
+  const platformMixUsingSynthetic = !platformMixSegmentsHasData && !perPlatform;
   const platformMixIllustrative =
-    segmentStatsQuery.data?.data_status === "illustrative";
+    segmentStatsQuery.data?.data_status === "illustrative" ||
+    platformMixUsingSynthetic;
 
   // Top-performing post sparkline — Wave 73a: backed by /stats/peak.
   const topPostSeriesFallback = useMemo(() => {
@@ -564,11 +575,16 @@ export default function SocialSyncDashboard() {
       anchor * 0.86,
     ].map((v) => Math.round(v));
   }, [kpis?.avgEngagementRate]);
-  const topPostSeries =
+  const topPostUsingFallback = !(
     peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
-      ? peakStatsQuery.data.data
-      : topPostSeriesFallback;
-  const topPostIllustrative = peakStatsQuery.data?.data_status === "illustrative";
+  );
+  const topPostSeries = topPostUsingFallback
+    ? topPostSeriesFallback
+    : peakStatsQuery.data!.data;
+  // Wave K2: the fallback series is synthetic (seeded by avgEngagementRate), so
+  // badge whenever it renders.
+  const topPostIllustrative =
+    peakStatsQuery.data?.data_status === "illustrative" || topPostUsingFallback;
 
   /* ─── Render ────────────────────────────────────────────────────────── */
 

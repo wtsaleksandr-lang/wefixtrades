@@ -258,9 +258,14 @@ export default function QuoteQuickDashboard() {
 
   // Conversion rate — Wave 73a: backed by /stats/score.
   const conversionRateFallback = Math.round(k?.avgDepositPaidRate ?? 0);
+  const conversionRateUsingFallback = scoreStatsQuery.data?.value == null;
   const conversionRate = scoreStatsQuery.data?.value ?? conversionRateFallback;
+  // Wave K2: when the dedicated score endpoint is empty/errored we fall back to
+  // the deposit-paid rate. Only flag illustrative when that fallback shows a
+  // non-zero figure (an empty account is 0 — genuinely real).
   const conversionRateIllustrative =
-    scoreStatsQuery.data?.data_status === "illustrative";
+    scoreStatsQuery.data?.data_status === "illustrative" ||
+    (conversionRateUsingFallback && conversionRateFallback > 0);
   const convVerdict =
     scoreStatsQuery.data?.verdict ??
     (conversionRate >= 15 ? "Strong conversion"
@@ -274,7 +279,9 @@ export default function QuoteQuickDashboard() {
         ? "Try a shorter form or social-proof badge to push above 15%."
         : "Run an A/B test on the first question — drop-off is highest there.");
 
-  // Best revenue day — Wave 73a: backed by /stats/peak.
+  // Best revenue day — Wave 73a: backed by /stats/peak. The fallback is the
+  // customer's *real* 12-week velocity trend, not synthetic, so no illustrative
+  // badge when falling back to it.
   const bestRevenueSeries =
     peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
       ? peakStatsQuery.data.data
@@ -301,12 +308,16 @@ export default function QuoteQuickDashboard() {
       return { label, value: Math.round(anchor * ratio) };
     });
   }, [k?.quotesSent.thisMonth, k?.quotesSent.lastMonth]);
-  const quotesMonthlyBars: MonthlyBar[] =
+  const quotesMonthlyUsingFallback = !(
     monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
-      ? monthlyStatsQuery.data.data
-      : quotesMonthlyBarsFallback;
+  );
+  const quotesMonthlyBars: MonthlyBar[] = quotesMonthlyUsingFallback
+    ? quotesMonthlyBarsFallback
+    : monthlyStatsQuery.data!.data;
+  // Wave K2: badge whenever the synthetic fallback bars render.
   const quotesMonthlyIllustrative =
-    monthlyStatsQuery.data?.data_status === "illustrative";
+    monthlyStatsQuery.data?.data_status === "illustrative" ||
+    quotesMonthlyUsingFallback;
 
   // Quote views vs completions — Wave 73a: backed by /stats/comparison.
   const completionsCountFallback = k?.quotesSent.thisMonth ?? 0;
@@ -315,13 +326,18 @@ export default function QuoteQuickDashboard() {
     completionsCountFallback,
   );
   const comparisonData = comparisonStatsQuery.data?.data;
+  const comparisonUsingFallback = !(comparisonData && comparisonData.length > 0);
   const viewsCount =
     comparisonData?.find((d) => d.label === "Views")?.value ?? viewsCountFallback;
   const completionsCount =
     comparisonData?.find((d) => d.label === "Completions")?.value ??
     completionsCountFallback;
+  // Wave K2: the fallback fabricates a 5x views-to-completions ratio. Flag it
+  // illustrative whenever that fallback drives a non-zero bar (an empty account
+  // shows 0/0 — genuinely real/empty).
   const comparisonIllustrative =
-    comparisonStatsQuery.data?.data_status === "illustrative";
+    comparisonStatsQuery.data?.data_status === "illustrative" ||
+    (comparisonUsingFallback && completionsCountFallback > 0);
 
   return (
     <PortalLayout>

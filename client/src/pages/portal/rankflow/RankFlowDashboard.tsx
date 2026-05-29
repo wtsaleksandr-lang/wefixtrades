@@ -357,12 +357,16 @@ export default function RankFlowDashboard() {
       };
     });
   }, [kpis?.keywordsTop10]);
-  const top10MonthlyBars: MonthlyBar[] =
+  const top10MonthlyUsingFallback = !(
     monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
-      ? monthlyStatsQuery.data.data
-      : top10MonthlyBarsFallback;
+  );
+  const top10MonthlyBars: MonthlyBar[] = top10MonthlyUsingFallback
+    ? top10MonthlyBarsFallback
+    : monthlyStatsQuery.data!.data;
+  // Wave K2: badge whenever the synthetic fallback bars render.
   const top10MonthlyIllustrative =
-    monthlyStatsQuery.data?.data_status === "illustrative";
+    monthlyStatsQuery.data?.data_status === "illustrative" ||
+    top10MonthlyUsingFallback;
 
   // Best-ranking spike — Wave 73a: backed by /stats/peak.
   const bestSpikeFallback = useMemo(() => {
@@ -382,12 +386,17 @@ export default function RankFlowDashboard() {
       anchor * 0.92,
     ].map((v) => Math.round(v));
   }, [kpis?.keywordsImproved]);
-  const bestSpikeSeries =
+  const bestSpikeUsingFallback = !(
     peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
-      ? peakStatsQuery.data.data
-      : bestSpikeFallback;
+  );
+  const bestSpikeSeries = bestSpikeUsingFallback
+    ? bestSpikeFallback
+    : peakStatsQuery.data!.data;
+  // Wave K2: the fallback is a hardcoded synthetic curve, so badge whenever it
+  // renders.
   const bestSpikeIllustrative =
-    peakStatsQuery.data?.data_status === "illustrative";
+    peakStatsQuery.data?.data_status === "illustrative" ||
+    bestSpikeUsingFallback;
 
   // Page-1 vs Page-2 keywords for the comparison card.
   const page1Count = kpis?.keywordsTop10 ?? 0;
