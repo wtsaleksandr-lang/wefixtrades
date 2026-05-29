@@ -22,10 +22,14 @@ const legalLinkStyle: CSSProperties = {
   color: "rgba(255,255,255,0.55)",
   textDecoration: "none",
   // margin (not padding) so the center-out underline spans the text only.
-  margin: "0 12px",
+  // Wave 110 — tightened from 0 12px → 0 6px so all 5 legal links fit on
+  // one line on a 320px-wide phone without wrapping (per Alex). Each link
+  // also gets whiteSpace: nowrap so individual labels never break mid-word.
+  margin: "0 6px",
   padding: 0,
   fontFamily: "'DM Mono', monospace",
   letterSpacing: "0.06em",
+  whiteSpace: "nowrap",
 };
 
 const legalDividerStyle: CSSProperties = {
@@ -330,47 +334,26 @@ function MarketingFooter() {
             <FtLink href="/products/quickquotepro/build-with-ai">Build with AI</FtLink>
             <FtLink href="/tools/plumbing-ai-content-prompts">Prompt Library</FtLink>
           </FooterColumn>
-        </div>
-      </div>
 
-      {/* ── Compare row ─────────────────────────────────────────────
-          Wave 49 — competitor comparison pages pulled out of the Resources
-          column into their own inline row. "Compare" label uses the same
-          monospace caps treatment as the column headings but at the link
-          font-size so the whole row reads as one unit. */}
-      <div className="mkt-footer-compare-wrap" style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 24px 0" }}>
-        <div
-          className="mkt-footer-compare"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "baseline",
-            gap: "0 20px",
-            rowGap: 6,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.7)",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              fontFamily: "'DM Mono', monospace",
-            }}
-          >
-            Compare
-          </div>
-          <FtLink href="/wefixtrades-vs-jobber">vs Jobber</FtLink>
-          <FtLink href="/wefixtrades-vs-housecall-pro">vs Housecall Pro</FtLink>
-          <FtLink href="/wefixtrades-vs-servicetitan">vs ServiceTitan</FtLink>
+          {/* Wave 110 — Compare column. Was a standalone row below the
+              5-column grid; folded back in as a 6th column next to Free
+              Tools per Alex. Three competitor comparison pages. */}
+          <FooterColumn title="Compare">
+            <FtLink href="/wefixtrades-vs-jobber">vs Jobber</FtLink>
+            <FtLink href="/wefixtrades-vs-housecall-pro">vs Housecall Pro</FtLink>
+            <FtLink href="/wefixtrades-vs-servicetitan">vs ServiceTitan</FtLink>
+          </FooterColumn>
         </div>
       </div>
 
       {/* ── Utility row ─────────────────────────────────────────────
           Wave 49 — small Linear/Vercel-style row above the divider for
-          Login / Sitemap / API Docs. No heading, low-opacity, dot-
-          separated, centred. */}
+          Login / API Docs. No heading, low-opacity, dot-separated,
+          centred.
+          Wave 110 — Sitemap dropped from this row (it's already in the
+          legal links row at the very bottom; the duplicate was Alex's
+          flag). Gap below tightened ~50% (marginTop on divider went
+          from 36 → 18) so the utility row sits closer to the divider. */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
         <div
           className="mkt-footer-util-row"
@@ -388,21 +371,24 @@ function MarketingFooter() {
           {!isAuthenticated && <Link href="/login" className="mkt-ft-util">Login</Link>}
           {isAuthenticated && <Link href="/dashboard" className="mkt-ft-util">Dashboard</Link>}
           <span style={{ opacity: 0.3 }}>·</span>
-          <Link href="/sitemap" className="mkt-ft-util">Sitemap</Link>
-          <span style={{ opacity: 0.3 }}>·</span>
           <Link href="/docs/api" className="mkt-ft-util">API Docs</Link>
         </div>
       </div>
 
       {/* ── Divider ────────────────────────────────────────────────── */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 36 }} />
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 18 }} />
       </div>
 
-      {/* ── Corporate bottom bar ───────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 16px" }}>
+      {/* ── Corporate bottom bar ─────────────────────────────────────
+          Wave 110 — vertical rhythm tightened so contact + branding
+          read as one block instead of three drifting rows. Previous
+          trust badges marginBottom of 16 → 10; bottom flex gap 16 → 10;
+          contact-link strip marginBottom 8 → 4; trust + contact +
+          copyright now stack cleanly on mobile with no empty bands. */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "16px 24px 14px" }}>
         {/* Trust badges */}
-        <div className="mkt-footer-trust" style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 16, flexWrap: "wrap" }}>
+        <div className="mkt-footer-trust" style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 10, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
             <ShieldCheck size={14} strokeWidth={1.5} />
             <span>SOC 2 Compliant</span>
@@ -418,9 +404,9 @@ function MarketingFooter() {
         </div>
 
         {/* Company info + copyright */}
-        <div className="mkt-footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+        <div className="mkt-footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
           <div>
-            <div style={{ display: "flex", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 14, marginBottom: 4, flexWrap: "wrap" }}>
               <a
                 href="tel:+19156153280"
                 className="mkt-ft-soft"
@@ -445,7 +431,7 @@ function MarketingFooter() {
                 ✉️ support@wefixtrades.com
               </a>
             </div>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.45 }}>
               &copy; {year} WeFixTrades. All rights reserved. Headquartered in Toronto, Canada.
             </p>
           </div>
@@ -483,11 +469,14 @@ function MarketingFooter() {
         .mkt-footer-grid {
           position: relative;
           display: grid;
-          grid-template-columns: repeat(5, 1fr);
+          /* Wave 110 — 6 cols (was 5); Compare folded in from a
+             standalone row. Padding tightened from 8px to 4px so the
+             six cols still breathe at 1100px max-width. */
+          grid-template-columns: repeat(6, 1fr);
           gap: 0;
-          padding: 28px 8px;
+          padding: 28px 4px;
         }
-        /* At narrower desktop widths the 5-col layout starts to squeeze.
+        /* At narrower desktop widths the 6-col layout starts to squeeze.
            Drop to 3 cols below 1024px so labels keep breathing room. */
         @media (max-width: 1024px) {
           .mkt-footer-grid {
