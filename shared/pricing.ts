@@ -307,23 +307,16 @@ export const MAPGUARD: ProductDef = {
   tagline: "Fully managed Google Maps visibility \u2014 we monitor, fix, and improve your ranking for you",
   category: "visibility",
   setup: 397,
+  /* Stripe live prices minted + verified 2026-05-29 (amounts/interval
+   * checked against the live API). Durable lookup_keys:
+   * mapguard_setup_one_time / mapguard_basic_monthly / mapguard_pro_monthly. */
   tiers: [
-    /* TODO(stripe-launch-wiring): MapGuard live Stripe Price IDs not yet
-     * minted. Wave 3.5 audit (2026-05-25) flagged this as a critical gap \u2014
-     * ContentFlow has live `price_...` IDs but MapGuard does not, so
-     * checkout falls back to inline price_data (works, but lookup_keys are
-     * the durable wiring). Alex to mint:
-     *   - mapguard_setup_one_time      \u2192 mapguard-setup
-     *   - mapguard_basic_monthly       \u2192 mapguard-basic
-     *   - mapguard_pro_monthly         \u2192 mapguard-pro
-     * then paste each `price_...` id into stripePriceId below.
-     */
     {
       id: "mapguard-setup",
       name: "MapSetup\u2122",
       price: 397,
       billingPeriod: "one-time",
-      stripePriceId: null,
+      stripePriceId: "price_1Tb928FWY4wju6QitNS7xCzq",
       features: [
         "Full GBP audit & profile rebuild",
         "Category, services & area optimization",
@@ -337,7 +330,7 @@ export const MAPGUARD: ProductDef = {
       name: "Basic",
       price: 99,
       billingPeriod: "monthly",
-      stripePriceId: null,
+      stripePriceId: "price_1Tb929FWY4wju6Qir5jSqGp7",
       features: [
         "Weekly visibility monitoring & alerts",
         "2 Google Business posts/month",
@@ -352,7 +345,7 @@ export const MAPGUARD: ProductDef = {
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",
-      stripePriceId: null,
+      stripePriceId: "price_1Tb92AFWY4wju6QiY0RruuAb",
       features: [
         "Weekly visibility monitoring & alerts",
         "4 Google Business posts/month",
@@ -373,21 +366,16 @@ export const REPUTATIONSHIELD: ProductDef = {
   name: "ReputationShield\u2122",
   tagline: "Turn completed jobs into 5-star Google reviews — automatically",
   category: "reputation",
-  /* TODO(stripe-launch-wiring): ReputationShield live Stripe Price IDs
-   * not yet minted (Wave 3.5 audit 2026-05-25). ContentFlow has live
-   * `price_...` IDs but ReputationShield does not. Alex to mint:
-   *   - reputationshield_basic_monthly   → reputationshield-basic
-   *   - reputationshield_pro_monthly     → reputationshield-pro
-   *   - reputationshield_premium_monthly → reputationshield-premium
-   * then paste each into stripePriceId below.
-   */
+  /* Stripe live prices minted + verified 2026-05-29 (amounts/interval
+   * checked against the live API). Durable lookup_keys:
+   * reputationshield_basic_monthly / _pro_monthly / _premium_monthly. */
   tiers: [
     {
       id: "reputationshield-basic",
       name: "Basic",
       price: 79,
       billingPeriod: "monthly",
-      stripePriceId: null,
+      stripePriceId: "price_1Tb92AFWY4wju6QivuCe70xf",
       features: [
         "Automated review requests via SMS + email after every job",
         "Smart follow-up reminders if customers forget",
@@ -405,7 +393,7 @@ export const REPUTATIONSHIELD: ProductDef = {
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",
-      stripePriceId: null,
+      stripePriceId: "price_1Tb92BFWY4wju6QiP8ObBhwH",
       features: [
         "Everything in Basic",
         "AI-drafted review responses — edit and post in seconds",
@@ -420,7 +408,7 @@ export const REPUTATIONSHIELD: ProductDef = {
       name: "Premium",
       price: 179,
       billingPeriod: "monthly",
-      stripePriceId: null,
+      stripePriceId: "price_1Tb92CFWY4wju6QiTnoWDv3U",
       features: [
         "Everything in Pro",
         "Post AI responses directly to Google (no copy-paste)",
@@ -754,11 +742,9 @@ export const CONTENTFLOW: ProductDef = {
    no Stripe entry here. This block fixes that so the page CTAs can
    wire to a real checkout endpoint instead of mailto:sales@.
 
-   TODO(stripe): Alex to mint live prices then paste IDs:
-     - citation_builder_starter_one_time  → citationbuilder-starter
-     - citation_builder_pro_one_time      → citationbuilder-pro
-     - citation_builder_premium_one_time  → citationbuilder-premium
-   Until then, checkout falls back to inline price_data (works end-to-end).
+   Stripe live prices minted + verified 2026-05-29 (amounts/interval
+   checked against the live API). Durable lookup_keys:
+   citation_builder_starter_one_time / _pro_one_time / _premium_one_time.
 */
 export const CITATIONBUILDER: ProductDef = {
   id: "citationbuilder",
@@ -771,7 +757,7 @@ export const CITATIONBUILDER: ProductDef = {
       name: "Starter",
       price: 79,
       billingPeriod: "one-time",
-      stripePriceId: null,
+      stripePriceId: "price_1Tb925FWY4wju6QiOb0m1rJO",
       features: [
         "25 hand-picked general directories",
         "NAP verification + cleanup before submission",
@@ -787,7 +773,7 @@ export const CITATIONBUILDER: ProductDef = {
       billingPeriod: "one-time",
       highlighted: true,
       badge: "Most Popular",
-      stripePriceId: null,
+      stripePriceId: "price_1Tb926FWY4wju6Qi4oeSuwee",
       features: [
         "Everything in Starter (25 general)",
         "+25 trade-specific directories (Angi, Houzz, HomeAdvisor)",
@@ -801,7 +787,7 @@ export const CITATIONBUILDER: ProductDef = {
       name: "Premium",
       price: 299,
       billingPeriod: "one-time",
-      stripePriceId: null,
+      stripePriceId: "price_1Tb927FWY4wju6QiH8JXaU0h",
       features: [
         "Everything in Pro (50 trade + general)",
         "+50 niche / regional / industry directories",
@@ -834,8 +820,9 @@ export const FULL_AUDIT_MASTER: ProductDef = {
       name: "Master Audit",
       price: 9.80,
       billingPeriod: "one-time",
-      // TODO(stripe): mint live price (lookup_key full_audit_master_one_time) and paste id here
-      stripePriceId: null,
+      // Stripe live price minted + verified 2026-05-29 (lookup_key
+      // full_audit_master_one_time; $9.80 one-time confirmed against live API).
+      stripePriceId: "price_1Tb927FWY4wju6QiZKRyNdiy",
       features: [
         "Local SEO checklist (all 28 ranking factors)",
         "NAP consistency across 50 directories",
