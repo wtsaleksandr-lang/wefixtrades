@@ -21,6 +21,7 @@ const TrustInspectorTab = lazy(() => import("@/components/marketing/audit-tabs/T
 import { trackEvent } from "@/lib/trackEvent";
 import { useToast } from "@/hooks/use-toast";
 import { SemiGauge } from "@/components/ui/visual-primitives";
+import { mkt } from "@/theme/tokens";
 
 /**
  * Trade → noun phrasing for the friendly hero summary.
@@ -143,7 +144,7 @@ function toCatalogSku(auditServiceId: string): string {
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
-const CYAN = '#0d3cfc';
+const CYAN = mkt.accent;
 const GREEN = '#22C55E';
 const GREEN_BG = '#DCFCE7';
 const AMBER = '#F59E0B';
@@ -1120,12 +1121,12 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   };
 
   const scoreRows = [
-    { key: 'googleMaps', icon: <MapPin size={20} color="#0d3cfc" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { key: 'websiteQuality', icon: <Globe size={20} color="#0d3cfc" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
-    { key: 'searchVisibility', icon: <Search size={20} color="#0d3cfc" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
-    { key: 'competitorPosition', icon: <Trophy size={20} color="#0d3cfc" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
-    { key: 'adOpportunity', icon: <Megaphone size={20} color="#0d3cfc" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'Whether Google Ads would help you get more calls' },
-    { key: 'demandCoverage', icon: <Clock size={20} color="#0d3cfc" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies" },
+    { key: 'googleMaps', icon: <MapPin size={20} color={CYAN} />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
+    { key: 'websiteQuality', icon: <Globe size={20} color={CYAN} />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
+    { key: 'searchVisibility', icon: <Search size={20} color={CYAN} />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
+    { key: 'competitorPosition', icon: <Trophy size={20} color={CYAN} />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
+    { key: 'adOpportunity', icon: <Megaphone size={20} color={CYAN} />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'Whether Google Ads would help you get more calls' },
+    { key: 'demandCoverage', icon: <Clock size={20} color={CYAN} />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies" },
   ];
 
   const card = (extra?: any) => ({
@@ -2542,7 +2543,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
           {/* RANKFLOW CTA */}
           {rfRec && (
-            <div style={{ background: 'linear-gradient(135deg, #0b34d6 0%, #0d3cfc 100%)', borderRadius: r16, padding: '28px 22px', marginTop: 24 }}>
+            <div style={{ background: `linear-gradient(135deg, ${mkt.accentDark} 0%, ${CYAN} 100%)`, borderRadius: r16, padding: '28px 22px', marginTop: 24 }}>
               {/* Header */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>

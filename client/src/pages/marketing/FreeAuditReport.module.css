@@ -1,4 +1,7 @@
 /* ═══ DESIGN TOKENS ═══ */
+/* --cyan must stay in sync with mkt.accent in client/src/theme/tokens.ts.
+   CSS modules cannot import TS, so this is intentional duplication.
+   If you change mkt.accent, update --cyan here too. */
 :root {
   --dark: #1A1A2E;
   --cyan: #0d3cfc;

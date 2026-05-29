@@ -15,6 +15,7 @@ import {
   MapPin, Globe, Search, Trophy, Megaphone, Clock,
   Check, X as XIcon, Zap, ExternalLink,
 } from "lucide-react";
+import { mkt } from "@/theme/tokens";
 
 /* ─── Helpers ─── */
 function scoreColor(score: number, max: number): string {
@@ -26,7 +27,7 @@ function scoreColor(score: number, max: number): string {
 
 function gradeColor(grade: string): string {
   if (grade === "A") return "#22C55E";
-  if (grade === "B") return "#0d3cfc";
+  if (grade === "B") return mkt.accent;
   if (grade === "C") return "#F59E0B";
   return "#EF4444";
 }
@@ -136,7 +137,7 @@ export default function SharedAuditReport() {
     <div data-theme="light" style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui" }}>
       <h2 style={{ color: "#EF4444" }}>Report not found</h2>
       <p style={{ color: "#6B7280", marginTop: 8 }}>{error || "This report may have been removed."}</p>
-      <a href="/tools/free-audit" style={{ display: "inline-block", marginTop: 16, padding: "12px 24px", background: "#0d3cfc", color: "#FFFFFF", borderRadius: 10, fontWeight: 700, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+      <a href="/tools/free-audit" style={{ display: "inline-block", marginTop: 16, padding: "12px 24px", background: mkt.accent, color: "#FFFFFF", borderRadius: 10, fontWeight: 700, textDecoration: "none" }}>Get your own free audit &rarr;</a>
     </div>
   );
 
@@ -218,7 +219,7 @@ export default function SharedAuditReport() {
         <div className={s.stickyLogo}>We<span>Fix</span>Trades</div>
         <div style={{ flex: 1 }} />
         <span className={s.sharedBadge}>Shared Report</span>
-        <a href="/tools/free-audit" style={{ marginLeft: 8, padding: "6px 14px", borderRadius: 8, background: "#0d3cfc", color: "#FFFFFF", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+        <a href="/tools/free-audit" style={{ marginLeft: 8, padding: "6px 14px", borderRadius: 8, background: mkt.accent, color: "#FFFFFF", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Get your own free audit &rarr;</a>
       </div>
 
       <div className={s.reportPage}>
@@ -616,7 +617,7 @@ export default function SharedAuditReport() {
 
         {/* Back to audit CTA */}
         <div style={{ textAlign: "center", marginTop: 24, marginBottom: 40 }}>
-          <a href="/tools/free-audit" style={{ display: "inline-block", padding: "14px 28px", background: "#0d3cfc", color: "#FFFFFF", borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+          <a href="/tools/free-audit" style={{ display: "inline-block", padding: "14px 28px", background: mkt.accent, color: "#FFFFFF", borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: "none" }}>Get your own free audit &rarr;</a>
         </div>
       </div>
 

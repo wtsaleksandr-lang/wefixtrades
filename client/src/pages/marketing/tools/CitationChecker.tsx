@@ -22,6 +22,7 @@ import {
   BarComparisonCard,
   DonutChart,
 } from "@/components/ui/visual-primitives";
+import { mkt } from "@/theme/tokens";
 
 const TOOL_PATH = "/tools/citation-checker";
 
@@ -203,7 +204,7 @@ export default function CitationChecker() {
       boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0d3cfc" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: mkt.accent }}>
           Citation snapshot
         </div>
         <div style={{ fontSize: 13, color: "rgba(0,0,0,0.65)" }}>
@@ -258,7 +259,7 @@ export default function CitationChecker() {
               <td style={{ padding: "10px 4px" }}><StatusBadge status={row.status} /></td>
               <td style={{ padding: "10px 4px" }}>
                 {row.url ? (
-                  <a href={row.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#0d3cfc", textDecoration: "none", fontSize: 12 }}>
+                  <a href={row.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: mkt.accent, textDecoration: "none", fontSize: 12 }}>
                     View <ExternalLink size={11} />
                   </a>
                 ) : (
@@ -334,7 +335,7 @@ export default function CitationChecker() {
 
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>Want the full picture?</h2>
         <p>
-          This free check covers 10 directories. The <a href="/tools/free-audit" style={{ color: "#0d3cfc", textDecoration: "underline" }}>Full
+          This free check covers 10 directories. The <a href="/tools/free-audit" style={{ color: mkt.accent, textDecoration: "underline" }}>Full
           WeFixTrades Audit</a> ($9.80) checks 50+ citation sources,
           surfaces NAP inconsistencies, and prioritises which fixes will
           move your ranking fastest.

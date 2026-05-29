@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, X, Star, Shield, Zap, DollarSign, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
+import { mkt } from "@/theme/tokens";
 
 function Check() {
   return <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />;
@@ -48,7 +49,7 @@ export default function CompareNiceJob() {
       <div data-theme="light" style={{ maxWidth: 880, margin: "0 auto", padding: "60px 20px 80px" }}>
         {/* Hero */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: "#0d3cfc", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: mkt.accent, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>
             Comparison
           </p>
           <h1 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.1, marginBottom: 16 }}>
@@ -65,7 +66,7 @@ export default function CompareNiceJob() {
               { value: "93%", label: "complaints caught privately" },
             ].map((s) => (
               <div key={s.label} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#0d3cfc" }}>{s.value}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: mkt.accent }}>{s.value}</div>
                 <div style={{ fontSize: 11, color: "#9CA3AF" }}>{s.label}</div>
               </div>
             ))}
@@ -162,7 +163,7 @@ export default function CompareNiceJob() {
         </div>
 
         {/* Podium / Birdeye comparison */}
-        <Card className="p-6 mb-12" style={{ borderLeft: "4px solid #0d3cfc" }}>
+        <Card className="p-6 mb-12" style={{ borderLeft: `4px solid ${mkt.accent}` }}>
           <h3 style={{ fontSize: 17, fontWeight: 600, color: "#1a1a2e", marginBottom: 8 }}>What about Podium ($399/mo) or Birdeye ($299/mo)?</h3>
           <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.6, marginBottom: 12 }}>
             Both are built for multi-location chains and require annual contracts + sales calls to even see pricing.
@@ -202,7 +203,7 @@ export default function CompareNiceJob() {
           <p style={{ fontSize: 15, color: "#6B7280", marginBottom: 24 }}>No contracts. No sales calls. No setup fees. Start your free trial today.</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/wizard">
-              <Button style={{ background: "#0d3cfc", color: "#FFFFFF", fontWeight: 700, padding: "14px 28px", borderRadius: 10, fontSize: 15 }}>
+              <Button style={{ background: mkt.accent, color: "#FFFFFF", fontWeight: 700, padding: "14px 28px", borderRadius: 10, fontSize: 15 }}>
                 Start Getting Reviews — Free Trial
               </Button>
             </Link>
