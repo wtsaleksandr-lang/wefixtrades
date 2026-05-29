@@ -61,13 +61,14 @@ async function resolveClientId(userId: number): Promise<number | null> {
 /* The customer controls two delivery channels and five categories. The
  * tool exposes them as one flat enum; the executor routes each key to the
  * right slot of the preferences blob. */
-const CHANNEL_KEYS = ["email", "sms"] as const;
+const CHANNEL_KEYS = ["email", "sms", "concierge"] as const;
 type ChannelKey = (typeof CHANNEL_KEYS)[number];
 const SETTING_KEYS: string[] = [...CHANNEL_KEYS, ...NOTIFICATION_CATEGORY_KEYS];
 
 const CHANNEL_LABELS: Record<ChannelKey, string> = {
   email: "Email notifications",
   sms: "SMS notifications",
+  concierge: "AI assistant notifications",
 };
 
 function isChannelKey(setting: string): setting is ChannelKey {
@@ -84,7 +85,8 @@ const UPDATE_NOTIFICATION_PREFERENCE_TOOL: ActionTool = {
   description:
     "Turn one of the customer's own notification settings on or off. " +
     "Call this ONLY when the customer explicitly asks to change a notification setting in this turn. " +
-    "Delivery channels: 'email', 'sms'. Categories: 'billing', 'service_updates', 'leads', 'weekly_digest', 'marketing'. " +
+    "Delivery channels: 'email', 'sms', 'concierge' (the customer's AI assistant). " +
+    "Categories: 'billing', 'leads', 'new_review', 'content_ready', 'missed_call', 'new_message', 'booking', 'ranking_report', 'service_updates', 'weekly_digest', 'marketing'. " +
     "Before calling this tool, briefly state in plain language the change you are about to make. " +
     "Do not call this tool more than once per turn.",
   input_schema: {
@@ -136,9 +138,12 @@ async function executeUpdateNotificationPreference(
 
   const label = settingLabel(setting);
   const channelKey = isChannelKey(setting);
+  // Per-cell model (no global channels): a CHANNEL toggle spans every
+  // category for that channel; a CATEGORY toggle spans every channel for
+  // that category. "Currently on" = at least one of the affected cells is on.
   const currentValue = channelKey
-    ? current.channels[setting]
-    : current.categories[setting as NotificationCategoryKey];
+    ? NOTIFICATION_CATEGORY_KEYS.some((k) => current.categories[k][setting as ChannelKey])
+    : CHANNEL_KEYS.some((ch) => current.categories[setting as NotificationCategoryKey][ch]);
 
   // No-op guard: skip the write when the setting is already at the target.
   if (currentValue === enabled) {
@@ -147,15 +152,21 @@ async function executeUpdateNotificationPreference(
     };
   }
 
-  const next: NotificationPreferences = {
-    channels: { ...current.channels },
-    categories: { ...current.categories },
-  };
-  if (channelKey) {
-    next.channels[setting] = enabled;
-  } else {
-    next.categories[setting as NotificationCategoryKey] = enabled;
+  // Deep-copy the per-cell categories before mutating.
+  const nextCategories = {} as NotificationPreferences["categories"];
+  for (const k of NOTIFICATION_CATEGORY_KEYS) {
+    nextCategories[k] = { ...current.categories[k] };
   }
+  if (channelKey) {
+    for (const k of NOTIFICATION_CATEGORY_KEYS) {
+      nextCategories[k][setting as ChannelKey] = enabled;
+    }
+  } else {
+    for (const ch of CHANNEL_KEYS) {
+      nextCategories[setting as NotificationCategoryKey][ch] = enabled;
+    }
+  }
+  const next: NotificationPreferences = { categories: nextCategories };
 
   // Validate the full blob before persisting (defence in depth).
   const validated = notificationPreferencesSchema.safeParse(next);
@@ -612,16 +623,20 @@ async function executeSetNotificationPreference(
     .limit(1);
   const current = parseNotificationPreferences(client?.metadata);
 
-  if (current.channels[channel] === enabled) {
+  // Per-cell model: a channel is "on" if any category uses it; toggling sets
+  // that channel across every category.
+  const channelCurrentlyOn = NOTIFICATION_CATEGORY_KEYS.some((k) => current.categories[k][channel as ChannelKey]);
+  if (channelCurrentlyOn === enabled) {
     return {
       narrative: `No change — ${channel} notifications already ${enabled ? "on" : "off"}.`,
     };
   }
 
-  const next: NotificationPreferences = {
-    channels: { ...current.channels, [channel]: enabled },
-    categories: { ...current.categories },
-  };
+  const nextCategories2 = {} as NotificationPreferences["categories"];
+  for (const k of NOTIFICATION_CATEGORY_KEYS) {
+    nextCategories2[k] = { ...current.categories[k], [channel]: enabled };
+  }
+  const next: NotificationPreferences = { categories: nextCategories2 };
   const validated = notificationPreferencesSchema.safeParse(next);
   if (!validated.success) throw new Error("Updated preferences failed validation.");
 

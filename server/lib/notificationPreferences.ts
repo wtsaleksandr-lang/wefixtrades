@@ -28,7 +28,7 @@ import { createLogger } from "./logger";
 
 const log = createLogger("NotifyPrefs");
 
-export type NotificationChannel = "email" | "sms";
+export type NotificationChannel = "email" | "sms" | "concierge";
 
 /**
  * Category keys that bypass preference checks. These templates carry
@@ -65,8 +65,9 @@ export function isTransactionalCategory(category: string): category is Transacti
  *     malformed).
  *   - `clientId == null` → `true` (anonymous recipient — typically a lead
  *     follow-up or admin alert, neither of which is gated).
- *   - Channel disabled → `false`, logged as `[notify-skip] channel`.
- *   - Category disabled → `false`, logged as `[notify-skip] category`.
+ *   - The category×channel cell is off → `false`, logged as
+ *     `[notify-skip] ... reason=cell-disabled`. The per-cell boolean is the
+ *     single source of truth — there is no separate global channel mask.
  *
  * Caller is expected to NOT invoke this for transactional sends. The
  * helper itself does not look at the bypass list — keeping the contract
@@ -95,14 +96,46 @@ export async function respectPreferences(
 
   const prefs = parseNotificationPreferences(client.metadata);
 
-  if (!prefs.channels[channel]) {
-    log.info(`[notify-skip] client=${clientId} channel=${channel} category=${category} reason=channel-disabled`);
-    return false;
-  }
-  if (!prefs.categories[category]) {
-    log.info(`[notify-skip] client=${clientId} channel=${channel} category=${category} reason=category-disabled`);
-    return false;
-  }
+  // Per-cell model: the category's own channel switch is the single source
+  // of truth. There is no separate global channel mask any more.
+  if (prefs.categories[category]?.[channel] === true) return true;
 
+  log.info(`[notify-skip] client=${clientId} channel=${channel} category=${category} reason=cell-disabled`);
+  return false;
+}
+
+/**
+ * Wave P — AI-concierge delivery seam.
+ *
+ * When the client has the `concierge` channel enabled for `category`, this
+ * is where a portal-side notice (an AI-assistant ping in the customer's
+ * inbox) would be created. Senders that already gate email/SMS can add a
+ * single `deliverConcierge(...)` call to fan the same event out to the
+ * in-portal assistant once the proactive-messaging pipeline lands.
+ *
+ * It honours `respectPreferences(clientId, "concierge", category)` so the
+ * per-category × per-channel matrix governs concierge exactly like email
+ * and SMS — no separate opt-in logic.
+ *
+ * TODO(wave-p2): there is no client-facing notice/agenda table today
+ * (PortalChatWidget is interactive request/response, not a push-notice
+ * store). Until that store exists this STUB logs the would-be delivery and
+ * no-ops rather than inventing a table. Wire the real insert in p2.
+ */
+export async function deliverConcierge(
+  clientId: number | null | undefined,
+  category: NotificationCategoryKey,
+  message: string,
+): Promise<boolean> {
+  if (clientId == null) return false;
+
+  const allowed = await respectPreferences(clientId, "concierge", category);
+  if (!allowed) return false;
+
+  // TODO(wave-p2): replace this log with an insert into the client-notice /
+  // portal-assistant inbox store once it exists.
+  log.info(
+    `[concierge-stub] client=${clientId} category=${category} would-deliver="${message.slice(0, 80)}" (no-op until wave-p2 store lands)`,
+  );
   return true;
 }

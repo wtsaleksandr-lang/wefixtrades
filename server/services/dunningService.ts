@@ -480,7 +480,7 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
         try {
           if (!client?.contact_phone) return;
           const prefs = parseNotificationPreferences(client.metadata);
-          if (!prefs.channels.sms || !prefs.categories.billing) return;
+          if (!prefs.categories.billing.sms) return;
           await sendSMS(
             client.contact_phone,
             "Final notice: your WeFixTrades subscription is past due. Update your card now to avoid pause: https://wefixtrades.com/portal/billing",
