@@ -113,8 +113,19 @@ export async function sendAlert(alert: AlertPayload): Promise<{ sent: boolean; c
 /* ─── Alert Builders ─── */
 
 function buildAdminUrl(clientId: number): string {
-  const base = process.env.APP_PUBLIC_URL || "http://localhost:5000";
-  return `${base}/admin/crm/clients/${clientId}?tab=socialsync`;
+  // APP_PUBLIC_URL is the canonical externally-reachable origin. If it is
+  // unset in production, an alert email or Slack message would carry a
+  // `http://localhost:5000` link that admins can't click — silently
+  // useless. Prefer the dev-friendly fallback in dev/test and a
+  // public-domain fallback in prod that fails loudly when clicked rather
+  // than masquerading as localhost.
+  const explicit = process.env.APP_PUBLIC_URL;
+  if (explicit) return `${explicit}/admin/crm/clients/${clientId}?tab=socialsync`;
+  const fallback =
+    process.env.NODE_ENV === "production"
+      ? "https://APP_PUBLIC_URL-not-set.invalid"
+      : "http://localhost:5000";
+  return `${fallback}/admin/crm/clients/${clientId}?tab=socialsync`;
 }
 
 export function buildTokenExpiredAlert(clientId: number, businessName: string | null, platform: string): AlertPayload {
