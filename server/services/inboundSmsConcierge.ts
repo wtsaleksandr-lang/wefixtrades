@@ -39,6 +39,7 @@ import { runAgentLoop, type AgentLoopResult } from "./aiAgentLoop";
 import { adminAgentTools } from "./adminAgentTools";
 import { getCopilotAction, type PendingAction } from "./copilotActionRegistry";
 import { writeAudit } from "../lib/auditLog";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { createLogger } from "../lib/logger";
 import type { Lead, Calculator } from "@shared/schemas/db";
 
@@ -344,24 +345,33 @@ export async function processInboundSmsViaLoop(
         ticketId,
         error: String(err?.message ?? err),
       });
-      await writeAudit({
-        actorId: String(confirmedByUserId),
-        actorType: "system",
-        action: "ai_drafted_inbound_sms_reply",
-        entityType: "support_ticket",
-        entityId: String(ticketId),
-        metadata: {
-          ticket_id: ticketId,
-          client_id: clientId,
-          sender_phone: senderPhone,
-          channel: "sms",
-          calculator_id: calculator.id,
-          lead_id: lead.id,
-          loop_status: "error",
-          reason: `loop threw: ${String(err?.message ?? err)}`,
-          session_id: sessionId,
+      // Wave 114 — noisyCatch on the loop-crash audit. Losing this
+      // write means the post-mortem trail for "agent loop threw" has
+      // no entry — admins can't see what happened.
+      await noisyCatch(
+        writeAudit({
+          actorId: String(confirmedByUserId),
+          actorType: "system",
+          action: "ai_drafted_inbound_sms_reply",
+          entityType: "support_ticket",
+          entityId: String(ticketId),
+          metadata: {
+            ticket_id: ticketId,
+            client_id: clientId,
+            sender_phone: senderPhone,
+            channel: "sms",
+            calculator_id: calculator.id,
+            lead_id: lead.id,
+            loop_status: "error",
+            reason: `loop threw: ${String(err?.message ?? err)}`,
+            session_id: sessionId,
+          },
+        }),
+        {
+          op: "inboundSms.writeLoopCrashAudit",
+          meta: { ticketId, clientId, loopError: String(err?.message ?? err) },
         },
-      }).catch(() => {});
+      );
       // Loop crashed — DON'T claim ownership; the caller's legacy path can try.
       return { handled: false };
     }
@@ -390,28 +400,37 @@ export async function processInboundSmsViaLoop(
     // No reply tool was called. Write `ai_drafted_inbound_sms_reply` with the
     // loop's final state + reason, and claim ownership so the caller does not
     // also fire a single-call reply.
-    await writeAudit({
-      actorId: String(confirmedByUserId),
-      actorType: "system",
-      action: "ai_drafted_inbound_sms_reply",
-      entityType: "support_ticket",
-      entityId: String(ticketId),
-      metadata: {
-        ticket_id: ticketId,
-        client_id: clientId,
-        sender_phone: senderPhone,
-        channel: "sms",
-        calculator_id: calculator.id,
-        lead_id: lead.id,
-        loop_run_id: result.loopRunId,
-        loop_status: result.status,
-        total_cost_cents: result.totalCostCents,
-        step_count: result.steps.length,
-        reply_text: result.reply || null,
-        reason: result.errorMessage || `loop ended without calling ${REPLY_TOOL_NAME}`,
-        session_id: sessionId,
+    // Wave 114 — noisyCatch on the loop-ended-no-reply audit. Same
+     // rationale: this row is the ONLY trace the admin sees when the
+     // agent loop finished without firing a reply tool.
+    await noisyCatch(
+      writeAudit({
+        actorId: String(confirmedByUserId),
+        actorType: "system",
+        action: "ai_drafted_inbound_sms_reply",
+        entityType: "support_ticket",
+        entityId: String(ticketId),
+        metadata: {
+          ticket_id: ticketId,
+          client_id: clientId,
+          sender_phone: senderPhone,
+          channel: "sms",
+          calculator_id: calculator.id,
+          lead_id: lead.id,
+          loop_run_id: result.loopRunId,
+          loop_status: result.status,
+          total_cost_cents: result.totalCostCents,
+          step_count: result.steps.length,
+          reply_text: result.reply || null,
+          reason: result.errorMessage || `loop ended without calling ${REPLY_TOOL_NAME}`,
+          session_id: sessionId,
+        },
+      }),
+      {
+        op: "inboundSms.writeNoReplyAudit",
+        meta: { ticketId, clientId, loopStatus: result.status },
       },
-    }).catch(() => {});
+    );
 
     log.info("inbound SMS drafted via agent loop (no reply sent)", {
       ticketId,
