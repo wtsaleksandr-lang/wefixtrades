@@ -1375,7 +1375,7 @@ export default function FreeAudit() {
                   background: "rgba(13,60,252,0.08)",
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
-                  <Calculator size={16} color=mkt.accent strokeWidth={1.8} />
+                  <Calculator size={16} color={mkt.accent} strokeWidth={1.8} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 650, color: "#111827" }}>Instant Quote Demo</div>
