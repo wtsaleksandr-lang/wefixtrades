@@ -150,7 +150,7 @@ export default function PortalCompetitors() {
     return (
       <PortalLayout>
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       </PortalLayout>
     );
@@ -166,7 +166,7 @@ export default function PortalCompetitors() {
               <Lock className="w-6 h-6 text-blue-600" />
             </div>
             <h1 className="text-2xl font-semibold mb-2">Competitor tracking is a Premium feature</h1>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               See how your reviews stack up against up to 5 competitors —
               trend charts, rating comparisons, weekly velocity. Upgrade
               to ReputationShield Premium to unlock.
@@ -191,7 +191,7 @@ export default function PortalCompetitors() {
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-2xl font-semibold mb-1">Competitor tracking</h1>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Daily snapshots of up to 5 competitors&apos; public Google review stats.
             </p>
           </div>
@@ -222,7 +222,7 @@ export default function PortalCompetitors() {
                   value={newPlaceId}
                   onChange={(e) => setNewPlaceId(e.target.value)}
                 />
-                <p className="text-xs text-gray-500 mt-1.5 flex items-start gap-1">
+                <p className="text-xs text-muted-foreground mt-1.5 flex items-start gap-1">
                   <Info className="w-3 h-3 mt-0.5 shrink-0" />
                   <span>Find the Place ID at{" "}
                     <a
@@ -254,18 +254,18 @@ export default function PortalCompetitors() {
 
         {/* Your stats summary */}
         <Card className="p-5 mb-6">
-          <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Your business</div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Your business</div>
           <div className="flex items-baseline gap-6">
             <div>
               <div className="text-3xl font-semibold">{ownStats.average_rating?.toFixed(1) ?? "—"}</div>
-              <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+              <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                 <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                 Average rating
               </div>
             </div>
             <div>
               <div className="text-3xl font-semibold">{ownStats.total_reviews}</div>
-              <div className="text-xs text-gray-500 mt-1">Total reviews</div>
+              <div className="text-xs text-muted-foreground mt-1">Total reviews</div>
             </div>
           </div>
         </Card>
@@ -274,7 +274,7 @@ export default function PortalCompetitors() {
         {competitors.length === 0 && !showAddForm && (
           <Card className="p-10 text-center">
             <h2 className="text-lg font-medium mb-1">No competitors tracked yet</h2>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Add up to 5 competitors to start benchmarking your reputation.
             </p>
             <Button onClick={() => setShowAddForm(true)}>
@@ -296,7 +296,7 @@ export default function PortalCompetitors() {
                   <div className="flex justify-between items-start mb-4">
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{c.display_name}</div>
-                      <div className="text-xs text-gray-500 truncate">{c.place_id}</div>
+                      <div className="text-xs text-muted-foreground truncate">{c.place_id}</div>
                     </div>
                     <Button
                       variant="ghost"
@@ -305,12 +305,12 @@ export default function PortalCompetitors() {
                       disabled={removeMutation.isPending}
                       aria-label="Remove competitor"
                     >
-                      <Trash2 className="w-4 h-4 text-gray-400" />
+                      <Trash2 className="w-4 h-4 text-muted-foreground" />
                     </Button>
                   </div>
 
                   {!snap && (
-                    <div className="text-sm text-gray-500 py-2">
+                    <div className="text-sm text-muted-foreground py-2">
                       First snapshot lands tomorrow at 04:30 UTC.
                     </div>
                   )}
@@ -319,19 +319,19 @@ export default function PortalCompetitors() {
                     <div className="grid grid-cols-3 gap-3 mt-2">
                       <div>
                         <div className="text-2xl font-semibold">{theirRating?.toFixed(1) ?? "—"}</div>
-                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
                           <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                           Rating
                         </div>
                       </div>
                       <div>
                         <div className="text-2xl font-semibold">{snap.total_reviews ?? "—"}</div>
-                        <div className="text-xs text-gray-500">Reviews</div>
+                        <div className="text-xs text-muted-foreground">Reviews</div>
                       </div>
                       <div>
                         <div className="text-2xl font-semibold flex items-center gap-1">
                           {delta === "level" ? (
-                            <span className="text-gray-500 text-base">Even</span>
+                            <span className="text-muted-foreground text-base">Even</span>
                           ) : delta?.startsWith("+") ? (
                             <>
                               <TrendingUp className="w-4 h-4 text-green-500" />
@@ -344,7 +344,7 @@ export default function PortalCompetitors() {
                             </>
                           ) : "—"}
                         </div>
-                        <div className="text-xs text-gray-500">vs. you</div>
+                        <div className="text-xs text-muted-foreground">vs. you</div>
                       </div>
                     </div>
                   )}
@@ -358,7 +358,7 @@ export default function PortalCompetitors() {
         {competitors.length > 0 && trend && trend.series.length > 0 && (
           <Card className="p-5 mb-6">
             <h2 className="text-base font-semibold mb-1">Review count — last 90 days</h2>
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Daily snapshot. Sparser lines = competitor added recently.
             </p>
             <TrendChart series={trend.series} />
@@ -402,7 +402,7 @@ function TrendChart({ series }: { series: TrendSeries[] }) {
   }, [seriesPoints]);
 
   if (allDates.length === 0) {
-    return <div className="text-sm text-gray-500">No snapshots yet — chart fills in after the first nightly run.</div>;
+    return <div className="text-sm text-muted-foreground">No snapshots yet — chart fills in after the first nightly run.</div>;
   }
 
   const xScale = (date: string) => {
@@ -455,7 +455,7 @@ function TrendChart({ series }: { series: TrendSeries[] }) {
               className="inline-block w-3 h-0.5 rounded"
               style={{ background: CHART_COLORS[idx % CHART_COLORS.length] }}
             />
-            <span className="text-gray-700">{s.label}</span>
+            <span className="text-foreground">{s.label}</span>
           </div>
         ))}
       </div>
