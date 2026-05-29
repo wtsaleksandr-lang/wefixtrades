@@ -154,6 +154,21 @@ if [ -f "${INDEXNOW_SCRIPT}" ]; then
   disown 2>/dev/null || true
 fi
 
+# Wave 124 — Social cache busters. After IndexNow, push a re-scrape to
+# Facebook's Graph API (so OG previews refresh on the next share) and log
+# clickable inspector URLs for Twitter + LinkedIn (no public re-scrape API).
+# Same soft-fork pattern as IndexNow: stderr to log file, script exits 0,
+# never blocks the deploy.
+SOCIAL_BUST_SCRIPT="${REPO_ROOT}/scripts/seo/social-cache-bust.mjs"
+SOCIAL_BUST_LOG="${REPO_ROOT}/social-cache-bust.log"
+if [ -f "${SOCIAL_BUST_SCRIPT}" ]; then
+  (
+    sleep 30  # after the IndexNow ping completes
+    node "${SOCIAL_BUST_SCRIPT}" 2>>"${SOCIAL_BUST_LOG}" || true
+  ) &
+  disown 2>/dev/null || true
+fi
+
 case "${MODE}" in
   "${MODE_DOPPLER_CLI}")
     echo "[start-prod] mode=${MODE} — wrapping with: doppler run -- node ./dist/index.cjs" >&2
