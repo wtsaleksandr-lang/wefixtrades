@@ -205,7 +205,13 @@ export default function PortalCatalog() {
 
   return (
     <PortalLayout>
-      <div data-theme="light" className="space-y-6">
+      {/* Wave 104 — removed the hardcoded data-theme="light" that was
+          overriding the user's theme preference for this whole page.
+          PortalCatalog now honors the global theme toggle like every
+          other portal surface; the cards, body text, and borders below
+          use shadcn tokens (text-foreground / text-muted-foreground /
+          bg-card / border-border) so they flip with the .dark class. */}
+      <div className="space-y-6">
         <FirstVisitTooltip
           storageKey="portal-catalog-header"
           title="Pick what matches your goal"
@@ -227,7 +233,7 @@ export default function PortalCatalog() {
                 alt="WeFixTrades"
                 className="h-8 hidden dark:block"
               />
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Expand your subscription. Click any service to add it to your account or learn more.
               </p>
             </div>
@@ -237,26 +243,26 @@ export default function PortalCatalog() {
         </FirstVisitTooltip>
 
         {checkoutResult === "cancelled" && (
-          <div className="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl p-4 text-sm" data-testid="banner-checkout-cancelled">
+          <div className="bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700 rounded-xl p-4 text-sm" data-testid="banner-checkout-cancelled">
             Checkout was cancelled. Pick a service below to try again.
           </div>
         )}
 
         {isLoading && (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         )}
 
         {error && (
-          <div className="bg-white rounded-xl border border-red-200 p-4 text-sm text-red-600">
+          <div className="bg-card rounded-xl border border-red-200 dark:border-red-800 p-4 text-sm text-red-600 dark:text-red-400">
             Couldn't load the catalog. Please try again in a moment.
           </div>
         )}
 
         {!isLoading && !error && services.length === 0 && bundles.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
-            <p className="text-sm text-gray-600">
+          <div className="bg-card rounded-xl border border-border p-6 text-center">
+            <p className="text-sm text-muted-foreground">
               You're subscribed to every available service. Nothing to add right now.
             </p>
           </div>
@@ -269,25 +275,25 @@ export default function PortalCatalog() {
           <section className="space-y-3">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-gray-900">Bundles</h2>
-                <p className="text-xs text-gray-500">Save by combining services into one subscription.</p>
+                <h2 className="text-sm font-semibold text-foreground">Bundles</h2>
+                <p className="text-xs text-muted-foreground">Save by combining services into one subscription.</p>
               </div>
             </div>
             <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="bundles-grid">
               {bundles.map((b) => (
                 <div
                   key={b.id}
-                  className={`h-full bg-white rounded-xl border p-5 flex flex-col gap-3 ${
+                  className={`h-full bg-card rounded-xl border p-5 flex flex-col gap-3 ${
                     b.highlighted
                       ? "border-brand-blue/40 ring-1 ring-brand-blue/20"
-                      : "border-gray-200"
+                      : "border-border"
                   }`}
                   data-testid={`bundle-card-${b.id}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900">{b.name}</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">{b.tagline}</p>
+                      <h3 className="text-sm font-semibold text-foreground">{b.name}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">{b.tagline}</p>
                     </div>
                     {b.badge && (
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#EEF3FF] text-brand-blue">
@@ -298,7 +304,7 @@ export default function PortalCatalog() {
 
                   <ul className="space-y-1.5 flex-1">
                     {b.includes.map((inc) => (
-                      <li key={inc.tier_id} className="text-xs text-gray-600 flex items-start gap-1.5">
+                      <li key={inc.tier_id} className="text-xs text-muted-foreground flex items-start gap-1.5">
                         <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0 mt-0.5" />
                         <span>{inc.label}</span>
                       </li>
@@ -308,7 +314,7 @@ export default function PortalCatalog() {
                   <div className="text-sm font-semibold text-brand-blue">
                     ${b.price}{b.billingPeriod === "monthly" ? "/mo" : " one-time"}
                     {b.savings > 0 && (
-                      <span className="ml-2 text-[11px] font-normal text-emerald-600">
+                      <span className="ml-2 text-[11px] font-normal text-emerald-600 dark:text-emerald-400">
                         Save ${b.savings}{b.billingPeriod === "monthly" ? "/mo" : ""}
                       </span>
                     )}
@@ -335,8 +341,8 @@ export default function PortalCatalog() {
 
         {services.length > 0 && bundles.length > 0 && (
           <div className="pt-2">
-            <h2 className="text-sm font-semibold text-gray-900">Individual services</h2>
-            <p className="text-xs text-gray-500">Or pick one at a time.</p>
+            <h2 className="text-sm font-semibold text-foreground">Individual services</h2>
+            <p className="text-xs text-muted-foreground">Or pick one at a time.</p>
           </div>
         )}
 
@@ -347,28 +353,28 @@ export default function PortalCatalog() {
               return (
               <div
                 key={svc.id}
-                className="relative h-full bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-3"
+                className="relative h-full bg-card rounded-xl border border-border p-5 flex flex-col gap-3"
                 data-testid={`catalog-card-${svc.id}`}
               >
                 {/* Per-product Lucide icon top-right — sourced from the
                     centralized SERVICE_ICONS map so admin nav, portal, and
                     catalog all show the same icon per product. */}
                 <ServiceIcon
-                  className="absolute top-3 right-3 w-5 h-5 text-gray-400"
+                  className="absolute top-3 right-3 w-5 h-5 text-muted-foreground"
                   aria-hidden="true"
                   data-testid={`catalog-icon-${svc.id}`}
                 />
                 <div className="flex items-start justify-between gap-2 pr-8">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">{svc.name}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">{svc.tagline}</p>
+                    <h3 className="text-sm font-semibold text-foreground">{svc.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">{svc.tagline}</p>
                   </div>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${CATEGORY_STYLES[svc.category] ?? "bg-gray-50 text-gray-600"}`}>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${CATEGORY_STYLES[svc.category] ?? "bg-muted text-muted-foreground"}`}>
                     {svc.category}
                   </span>
                 </div>
 
-                <p className="text-xs text-gray-600 leading-relaxed flex-1">{svc.description}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed flex-1">{svc.description}</p>
 
                 {/* Q28g2: tier picker when admin has configured tiers; otherwise flat price */}
                 {svc.tiers && svc.tiers.length > 0 ? (
@@ -380,8 +386,8 @@ export default function PortalCatalog() {
                           key={t.id}
                           className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
                             checked
-                              ? "border-brand-blue bg-[#EEF3FF]"
-                              : "border-gray-200 bg-white hover:border-gray-300"
+                              ? "border-brand-blue bg-[#EEF3FF] dark:bg-brand-blue/15"
+                              : "border-border bg-card hover:border-foreground/20"
                           }`}
                           data-testid={`catalog-tier-${svc.id}-${t.id}`}
                         >
@@ -393,7 +399,7 @@ export default function PortalCatalog() {
                             onChange={() => setSelectedTier((s) => ({ ...s, [svc.id]: t.id }))}
                             className="h-3.5 w-3.5 accent-brand-blue"
                           />
-                          <span className="font-medium text-gray-800 flex-1">{t.name}</span>
+                          <span className="font-medium text-foreground flex-1">{t.name}</span>
                           {t.highlighted && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
                           <span className="font-semibold text-brand-blue">{tierPriceLabel(t)}</span>
                         </label>
@@ -422,7 +428,7 @@ export default function PortalCatalog() {
                     href={productPageUrl(svc.id)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-2 text-xs font-medium text-brand-blue border border-brand-blue/30 rounded-lg hover:bg-[#EEF3FF] transition-colors inline-flex items-center justify-center gap-1"
+                    className="px-3 py-2 text-xs font-medium text-brand-blue border border-brand-blue/30 rounded-lg hover:bg-[#EEF3FF] dark:hover:bg-brand-blue/15 transition-colors inline-flex items-center justify-center gap-1"
                     data-testid={`catalog-readmore-${svc.id}`}
                   >
                     Learn more <ExternalLink className="w-3 h-3" />
