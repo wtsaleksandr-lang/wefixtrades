@@ -9,10 +9,11 @@
  *
  * Auth: GOOGLE_APPLICATION_CREDENTIALS_JSON env var contains the full
  * service-account JSON blob (verified in Doppler 2026-05-29). The
- * service account MUST be granted Verified Owner OR Full User on the
- * `https://wefixtrades.com/` property in GSC for this to succeed.
- * If it isn't, the call fails with 403 — we log and exit 0 (NEVER
- * block the deploy).
+ * service account (wefixtrades@acx-audiobooks.iam.gserviceaccount.com) is
+ * a Verified Owner of the `sc-domain:wefixtrades.com` property — verified
+ * 2026-05-29 via the Site Verification API + a DNS TXT record on the
+ * Cloudflare zone. If ownership is ever revoked the call 403s — we log and
+ * exit 0 (NEVER block the deploy).
  *
  * Invocation: forked from scripts/start-prod.sh after the server is
  * up, same pattern as the Bing register.
@@ -33,7 +34,11 @@
 
 import { google } from "googleapis";
 
-const SITE_URL = "https://wefixtrades.com/";
+// Domain property (sc-domain:) — covers all subdomains + protocols and is
+// what the service account is verified against (DNS TXT, 2026-05-29). The
+// URL-prefix form "https://wefixtrades.com/" is a SEPARATE GSC property the
+// SA does NOT own, so targeting it 403s.
+const SITE_URL = "sc-domain:wefixtrades.com";
 const SITEMAP_URL = "https://wefixtrades.com/sitemap.xml";
 const TAG = "[gsc-sitemap-register]";
 
@@ -72,7 +77,10 @@ async function main() {
 
   const auth = new google.auth.JWT({
     email: key.client_email,
-    key: key.private_key,
+    // Doppler stores the PEM with literal "\n" escapes — normalise to real
+    // newlines or google-auth-library throws "No key or keyFile set" and
+    // every run silently auth-fails.
+    key: (key.private_key || "").replace(/\\n/g, "\n"),
     scopes: ["https://www.googleapis.com/auth/webmasters"],
   });
 
