@@ -186,7 +186,7 @@ async function checkDns(domain: string): Promise<TrustSubScore> {
 
 async function checkWayback(domain: string): Promise<TrustSubScore> {
   try {
-    const r = await fetchWithTimeout(`http://archive.org/wayback/available?url=${encodeURIComponent(domain)}&timestamp=19960101`, {
+    const r = await fetchWithTimeout(`https://archive.org/wayback/available?url=${encodeURIComponent(domain)}&timestamp=19960101`, {
       timeoutMs: 7000,
     });
     if (!r || !r.ok) {

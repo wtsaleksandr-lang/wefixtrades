@@ -26,6 +26,9 @@ import type { InsertMapguardTask, MapguardTask } from "@shared/schemas/mapguard"
 import { clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { getRecommendedSupplier, MAPGUARD_SUPPLIERS, ASSIGNMENT_TEMPLATES, type SupplierRecommendation } from "@shared/mapguardSuppliers";
 import { getLastClientActivityDate } from "./mapguardRetention";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("mapguard-kickoff");
 
 /* ═══════════════════════════════════════════
    EXECUTION LIMIT CONTROL
@@ -1068,7 +1071,7 @@ async function runFirstScanWithLogging(clientId: number, clientServiceId: number
 
     if (!target) {
       const reason = "service_not_active_or_no_place_id";
-      console.log(`[mapguard-kickoff] first scan skipped (${reason}) for client ${clientId}`);
+      log.info(`first scan skipped (${reason}) for client ${clientId}`, { client_id: clientId, reason });
       if (logId != null) {
         await db.update(jobLogs).set({
           status: "completed",
@@ -1080,7 +1083,7 @@ async function runFirstScanWithLogging(clientId: number, clientServiceId: number
     }
 
     const result = await runMapguardScan(target);
-    console.log(`[mapguard-kickoff] first scan completed for client ${clientId}: score=${result.snapshot.score_total}, tasks=${result.tasksCreated}`);
+    log.info(`first scan completed for client ${clientId}: score=${result.snapshot.score_total}, tasks=${result.tasksCreated}`, { client_id: clientId, score: result.snapshot.score_total, tasks_created: result.tasksCreated });
     if (logId != null) {
       await db.update(jobLogs).set({
         status: "completed",
