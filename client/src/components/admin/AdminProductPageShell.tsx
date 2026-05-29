@@ -443,7 +443,7 @@ export function AdminProductPageShell({
             <KpiCard
               label="Churn 30d"
               hint="Cancellations / (active + cancellations) over the last 30 days."
-              value={`${(stats.churn_rate_30d * 100).toFixed(1)}%`}
+              value={typeof stats.churn_rate_30d === "number" ? `${(stats.churn_rate_30d * 100).toFixed(1)}%` : "—"}
               testid="product-shell-kpi-churn"
             />
           </>

@@ -510,7 +510,7 @@ function DetailBody({ data }: { data: ConversationDetailData }) {
           {data.report_id && <Meta label="Report"><span className="text-xs text-muted-foreground font-mono">{data.report_id.slice(0, 12)}…</span></Meta>}
           {data.user_id !== undefined && <Meta label="User ID"><span className="text-xs text-foreground">{data.user_id}</span></Meta>}
           <Meta label="Messages"><span className="text-sm text-foreground">{data.message_count}</span></Meta>
-          <Meta label="Cost"><span className="text-sm text-foreground">{microCentsToDollars(data.estimated_cost_usd || 0)}</span></Meta>
+          <Meta label="Cost"><span className="text-sm text-foreground">{`$${(data.estimated_cost_usd || 0).toFixed(4)}`}</span></Meta>
           <Meta label="Created"><span className="text-xs text-muted-foreground">{new Date(data.created_at).toLocaleString()}</span></Meta>
         </div>
       </Card>
