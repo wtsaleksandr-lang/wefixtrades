@@ -373,10 +373,10 @@ export default function AiBudgetPage() {
                       {row.name && <div className="text-xs text-muted-foreground">{row.email}</div>}
                     </TableCell>
                     <TableCell className="font-semibold text-foreground">
-                      ${row.cumulative_usd.toFixed(4)}
+                      ${(row.cumulative_usd ?? 0).toFixed(4)}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">${row.month_usd.toFixed(4)}</TableCell>
-                    <TableCell className="hidden sm:table-cell">${row.today_usd.toFixed(4)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">${(row.month_usd ?? 0).toFixed(4)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">${(row.today_usd ?? 0).toFixed(4)}</TableCell>
                     <TableCell>{row.images_used}</TableCell>
                   </TableRow>
                 ))
