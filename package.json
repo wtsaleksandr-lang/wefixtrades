@@ -28,6 +28,7 @@
     "db:studio:dev": "node scripts/check-not-prod.mjs && drizzle-kit studio --config=scripts/db/drizzle.config.dev.ts",
     "check:no-prod-drizzle-config": "node scripts/check-no-prod-drizzle-config.mjs",
     "check:drizzle-kit-is-dev-dep": "node scripts/check-drizzle-kit-is-dev-dep.mjs",
+    "check:no-silent-catch": "node scripts/check-no-silent-catch.mjs",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",

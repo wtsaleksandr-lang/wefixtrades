@@ -1,0 +1,67 @@
+# Wave 117 silent-catch baseline.
+# Each entry is tolerated by check-no-silent-catch.mjs. To clear an entry:
+# replace `.catch(() => {})` with `noisyCatch(promise, { op: "..." })`
+# (server/lib/silentFailureGuard.ts), then delete the matching line here
+# and re-run `node scripts/check-no-silent-catch.mjs` to confirm.
+# Format: <file>:<line>:<col>\t<kind>\t<snippet>
+script/build.ts:236:31	silent-catch	.catch(() => undefined)
+script/build.ts:245:31	silent-catch	.catch(() => undefined)
+scripts/verify-ai-extraction.mjs:145:3	empty-catch-block	} catch {}
+scripts/verify-ai-extraction.mjs:150:5	empty-catch-block	} catch {}
+scripts/verify-ai-extraction.mjs:157:5	empty-catch-block	} catch {}
+server/auditRoutes.ts:120:3	empty-catch-block	} catch {}
+server/auditRoutes.ts:2813:26	silent-catch	.catch(() => {})
+server/jobs/bookflowDayOfReminderWorker.ts:126:11	silent-catch	.catch(() => {})
+server/jobs/bookflowNoShowRecoveryWorker.ts:128:11	silent-catch	.catch(() => {})
+server/jobs/bookflowPostAppointmentWorker.ts:135:11	silent-catch	.catch(() => {})
+server/jobs/competitorSnapshotWorker.ts:124:38	silent-catch	.catch(() => null)
+server/jobs/mapguardPostDrainer.ts:156:9	silent-catch	.catch(() => {})
+server/jobs/scheduler.ts:161:7	silent-catch	.catch(() => {})
+server/replit_integrations/audio/client.ts:83:28	silent-catch	.catch(() => {})
+server/replit_integrations/audio/client.ts:84:29	silent-catch	.catch(() => {})
+server/routes/authRoutes.ts:1371:52	silent-catch	.catch(() => null)
+server/routes/marketingRoutes.ts:123:20	silent-catch	.catch(() => {})
+server/routes/portalRoutes.ts:577:34	silent-catch	.catch(() => {})
+server/routes/quotequickAiChatRoutes.ts:442:48	empty-catch-block	} catch {}
+server/routes/stripeBillingRoutes.ts:293:203	silent-catch	.catch(() => {})
+server/routes/stripeBillingRoutes.ts:888:9	silent-catch	.catch(() => {})
+server/services/alertFixActions.ts:94:73	silent-catch	.catch(() => undefined)
+server/services/alertFixActions.ts:123:73	silent-catch	.catch(() => undefined)
+server/services/assistant.ts:142:52	silent-catch	.catch(() => null)
+server/services/assistant.ts:143:47	silent-catch	.catch(() => null)
+server/services/assistant.ts:162:48	silent-catch	.catch(() => null)
+server/services/assistant.ts:164:46	silent-catch	.catch(() => null)
+server/services/assistant.ts:232:7	silent-catch	.catch(() => {})
+server/services/booking/bookflowService.ts:425:9	silent-catch	.catch(() => {})
+server/services/contentflow/adapters/socialSyncAdapterCommon.ts:207:51	silent-catch	.catch(() => {})
+server/services/contentflow/adapters/socialSyncAdapterCommon.ts:225:53	silent-catch	.catch(() => {})
+server/services/contentflow/adapters/socialSyncAdapterCommon.ts:227:76	silent-catch	.catch(() => {})
+server/services/contentflow/adapters/socialSyncAdapterCommon.ts:230:70	silent-catch	.catch(() => {})
+server/services/contentflow/adapters/socialSyncAdapterCommon.ts:232:79	silent-catch	.catch(() => {})
+server/services/contentflow/adapters/socialSyncAdapterCommon.ts:235:51	silent-catch	.catch(() => {})
+server/services/contentflow/humanizationOrchestrator.ts:588:55	silent-catch	.catch(() => null)
+server/services/contentflow/imageGenerationService.ts:461:32	silent-catch	.catch(() => {})
+server/services/contentflow/imageGenerationService.ts:579:52	silent-catch	.catch(() => {})
+server/services/contentflow/imageGenerationService.ts:581:36	silent-catch	.catch(() => {})
+server/services/contentflow/imageOrchestrator.ts:305:34	silent-catch	.catch(() => null)
+server/services/contentflow/imageOrchestrator.ts:348:38	silent-catch	.catch(() => null)
+server/services/contentflow/imageOrchestrator.ts:404:34	silent-catch	.catch(() => null)
+server/services/contentflow/imageOrchestrator.ts:469:34	silent-catch	.catch(() => null)
+server/services/contentflow/infographicService.ts:190:42	silent-catch	.catch(() => {})
+server/services/contentflow/serpAwareGenerator/briefBuilder.ts:282:40	empty-catch-block	} catch {}
+server/services/contentflow/videoContentService.ts:188:71	silent-catch	.catch(() => {})
+server/services/contentflow/videoOrchestrator.ts:198:4	silent-catch	.catch(() => null)
+server/services/contentflow/videoOrchestrator.ts:200:30	silent-catch	.catch(() => null)
+server/services/contentflow/videoOrchestrator.ts:208:6	silent-catch	.catch(() => null)
+server/services/contentflow/videoOrchestrator.ts:287:38	silent-catch	.catch(() => null)
+server/services/contentflow/videoOrchestrator.ts:386:42	silent-catch	.catch(() => null)
+server/services/contentflow/videoOrchestrator.ts:399:8	silent-catch	.catch(() => null)
+server/services/contentflow/videoOrchestrator.ts:401:36	silent-catch	.catch(() => null)
+server/services/fileStorage.ts:24:28	silent-catch	.catch(() => {})
+server/services/inboundEmailConcierge.ts:140:75	silent-catch	.catch(() => {})
+server/services/inboundEmailConcierge.ts:161:5	silent-catch	.catch(() => {})
+server/services/inboundSmsConcierge.ts:364:9	silent-catch	.catch(() => {})
+server/services/inboundSmsConcierge.ts:414:7	silent-catch	.catch(() => {})
+server/services/socialSync/orchestrator.ts:265:9	silent-catch	.catch(() => {})
+server/services/socialSync/orchestrator.ts:291:7	silent-catch	.catch(() => {})
+server/services/tradelineTemplates.ts:1938:7	silent-catch	.catch(() => {})
