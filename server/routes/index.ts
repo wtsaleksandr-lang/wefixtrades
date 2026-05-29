@@ -134,6 +134,7 @@ import { registerAdminSeoIntegrationsRoutes } from "./adminSeoIntegrationsRoutes
 import { registerRumIngestRoutes } from "./rumIngestRoutes";
 import { registerHealthzRoute } from "./healthz";
 import { registerAiInsightsRoutes } from "./aiInsightsRoutes";
+import { registerAdminHealthRoutes } from "./adminHealthRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -183,6 +184,10 @@ export async function registerRoutes(
   registerPublicCheckoutRoutes(app);
   registerIntegrationHealthRoutes(app);
   registerDeploymentHealthRoutes(app);
+  // Wave 140 — per-product / per-tool health-signal aggregator.
+  // GET /api/admin/health (requireAdmin). Monitoring-only: no UI, no
+  // auto-resolution, no SMS, no systemAlerts writes, no cron yet.
+  registerAdminHealthRoutes(app);
   registerPortalRoutes(app);
   registerPortalEmailDomainRoutes(app);
   registerPortalSecurityRoutes(app);
