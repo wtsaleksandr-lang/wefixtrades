@@ -600,7 +600,7 @@ export default function CrmOverview() {
                 <p className="text-sm text-muted-foreground">No clients yet. <a href="/admin/crm/clients" className="text-brand-blue hover:underline">Add your first client</a> to get started.</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border">
                 {data.recentClients.map((c) => (
                   <Link key={c.id} href={`/admin/crm/clients/${c.id}`}>
                     <div className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 cursor-pointer min-h-[44px]">
@@ -630,7 +630,7 @@ export default function CrmOverview() {
                 <p className="text-sm text-muted-foreground">No open tasks.</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border">
                 {data.recentTasks.map((t) => (
                   <Link key={t.id} href={`/admin/crm/clients/${t.client_id}`}>
                     <div className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 cursor-pointer min-h-[44px] gap-2">

@@ -96,11 +96,11 @@ export default function SalesPipelinePage() {
 
         {/* Stage counts */}
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setFilter("all")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === "all" ? "bg-brand-blue text-white border-brand-blue" : "bg-white text-gray-600 border-gray-200"}`}>
+          <button onClick={() => setFilter("all")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === "all" ? "bg-brand-blue/10 text-brand-blue border-brand-blue" : "bg-white text-gray-600 border-gray-200"}`}>
             All ({data?.total || 0})
           </button>
           {STAGES.map(s => (
-            <button key={s.key} onClick={() => setFilter(s.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === s.key ? "bg-brand-blue text-white border-brand-blue" : "bg-white text-gray-600 border-gray-200"}`}>
+            <button key={s.key} onClick={() => setFilter(s.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === s.key ? "bg-brand-blue/10 text-brand-blue border-brand-blue" : "bg-white text-gray-600 border-gray-200"}`}>
               {s.label} ({counts[s.key] || 0})
             </button>
           ))}

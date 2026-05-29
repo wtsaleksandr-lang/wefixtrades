@@ -385,7 +385,7 @@ export default function MapguardDashboard() {
       ) : (
         <>
           {/* Desktop table */}
-          <Card className="hidden md:block overflow-hidden">
+          <Card className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
