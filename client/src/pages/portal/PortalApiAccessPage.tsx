@@ -657,7 +657,7 @@ function PricingView({
       )}
 
       {/* Tier cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" data-testid="tier-grid">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 auto-rows-fr" data-testid="tier-grid">
         {LOCKED_TIERS.map((t) => {
           const monthly = interval === "annual" ? annualEquivalentMonthly(t.monthlyUsd) : t.monthlyUsd;
           const isFree = t.monthlyUsd === 0;

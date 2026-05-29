@@ -159,7 +159,7 @@ function AICopilotPanel({ draftId, draftBody }: { draftId: number | null; draftB
         <Sparkles className="h-4 w-4 text-[hsl(var(--chart-1))]" />
         <div className="text-sm font-medium">AI suggestions</div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {COPILOT_ACTIONS.map((a) => {
           const Icon = a.icon;
           const isRunning = running === a.id;
