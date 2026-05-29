@@ -67,7 +67,7 @@ export default function PortalServices() {
 
   return (
     <PortalLayout>
-      <div data-theme="light" className="space-y-6">
+      <div className="space-y-6">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <FirstVisitTooltip
             storageKey="portal-services-header"
@@ -75,8 +75,8 @@ export default function PortalServices() {
             position="bottom"
             anchor={
               <div className="min-w-0">
-                <h1 className="text-xl font-semibold text-gray-900">Your Services</h1>
-                <p className="text-sm text-gray-500 mt-0.5">All active and past services for your account.</p>
+                <h1 className="text-xl font-semibold text-foreground">Your Services</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">All active and past services for your account.</p>
               </div>
             }
           >
@@ -86,7 +86,7 @@ export default function PortalServices() {
             {/* Direct line to support — replaces the dead-end of staring
                 at a read-only list with no obvious next step. */}
             <Link href="/portal/help">
-              <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-h-[36px]">
+              <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-card border border-border rounded-lg hover:bg-muted/50 transition-colors min-h-[36px]">
                 <MessageCircle className="w-3.5 h-3.5" />
                 Contact your team
               </button>
@@ -105,7 +105,7 @@ export default function PortalServices() {
         {isLoading && (
           <div className="grid gap-4 sm:grid-cols-2" data-testid="services-skeleton">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5">
+              <div key={i} className="bg-card rounded-xl border border-border p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="space-y-1.5">
                     <Skeleton className="h-4 w-32" />
@@ -130,23 +130,23 @@ export default function PortalServices() {
         )}
 
         {data && data.services.length === 0 && !qqData?.calculator && (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <PackageOpen className="w-8 h-8 text-gray-300 mx-auto mb-3" aria-hidden="true" />
-            <p className="text-sm font-medium text-gray-700 mb-1">No services yet</p>
-            <p className="text-xs text-gray-500 max-w-sm mx-auto">Once you pick a service from our catalog, you'll see it here with its setup form, tasks, and live status.</p>
+          <div className="bg-card rounded-xl border border-border p-8 text-center">
+            <PackageOpen className="w-8 h-8 text-muted-foreground mx-auto mb-3" aria-hidden="true" />
+            <p className="text-sm font-medium text-foreground mb-1">No services yet</p>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">Once you pick a service from our catalog, you'll see it here with its setup form, tasks, and live status.</p>
           </div>
         )}
 
         {/* QuoteQuick tool card */}
         {qqData?.calculator && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-card rounded-xl border border-border p-5">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-brand-blue-50 flex items-center justify-center">
                   <Calculator className="w-4 h-4 text-brand-blue-600" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">QuoteQuick</h3>
+                  <h3 className="text-sm font-semibold text-foreground">QuoteQuick</h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${
                       qqData.calculator.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
@@ -154,15 +154,15 @@ export default function PortalServices() {
                       {qqData.calculator.status === "live" ? "Live" : "Draft"}
                     </span>
                     {qqData.calculator.trade_type && (
-                      <span className="text-[10px] text-gray-400 capitalize">{qqData.calculator.trade_type}</span>
+                      <span className="text-[10px] text-muted-foreground capitalize">{qqData.calculator.trade_type}</span>
                     )}
-                    <span className="text-[10px] text-gray-400 capitalize">{qqData.calculator.plan_tier}</span>
+                    <span className="text-[10px] text-muted-foreground capitalize">{qqData.calculator.plan_tier}</span>
                   </div>
                 </div>
               </div>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-brand-blue-50 text-brand-blue-700">leads</span>
             </div>
-            <div className="flex items-center gap-4 mb-3 text-xs text-gray-500">
+            <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {qqData.calculator.total_views.toLocaleString()} views</span>
               <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {qqData.calculator.total_leads.toLocaleString()} leads</span>
             </div>
@@ -172,7 +172,7 @@ export default function PortalServices() {
                   href={qqData.calculator.calculator_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-gray-600 font-medium hover:text-gray-900 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-medium hover:text-foreground transition-colors"
                 >
                   View Live <ExternalLink className="w-3 h-3" />
                 </a>
@@ -200,11 +200,11 @@ export default function PortalServices() {
 
               return (
                 <Link key={svc.id} href={`/portal/services/${svc.id}`}>
-                  <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm hover:border-gray-300 active:scale-[0.99] transition-all cursor-pointer">
+                  <div className="bg-card rounded-xl border border-border p-5 hover:shadow-sm hover:border-border active:scale-[0.99] transition-all cursor-pointer">
                     {/* Header */}
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-900">
+                        <h3 className="text-sm font-semibold text-foreground">
                           {svc.service_name || svc.service_id}
                         </h3>
                         {svc.category && (
@@ -242,11 +242,11 @@ export default function PortalServices() {
                     {/* Progress bar */}
                     {svc.tasks_total > 0 && (
                       <div className="mb-3">
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                           <span>Progress</span>
                           <span>{svc.tasks_delivered}/{svc.tasks_total} steps</span>
                         </div>
-                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="w-full h-1.5 bg-muted/50 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-brand-blue rounded-full transition-all"
                             style={{ width: `${progress}%` }}
@@ -257,7 +257,7 @@ export default function PortalServices() {
 
                     {/* Footer — always visible on mobile */}
                     <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-muted-foreground">
                         {svc.billing_period === "one-time" ? "One-time" : svc.billing_period === "monthly" ? "Monthly" : ""}
                       </span>
                       <span className="text-xs text-brand-blue font-medium flex items-center gap-1">

@@ -100,12 +100,12 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
         <DialogHeader><DialogTitle>New Campaign</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600">Campaign Name *</label>
+            <label className="text-xs font-medium text-muted-foreground">Campaign Name *</label>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Q2 Plumbers — Miami" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Platform</label>
+              <label className="text-xs font-medium text-muted-foreground">Platform</label>
               <Select value={form.platform} onValueChange={(v) => setForm({ ...form, platform: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -117,8 +117,8 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
             <div>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <label className="text-xs font-medium text-gray-600 inline-flex items-center gap-0.5 cursor-default">
-                    External Campaign ID <HelpCircle className="w-3 h-3 text-gray-400" />
+                  <label className="text-xs font-medium text-muted-foreground inline-flex items-center gap-0.5 cursor-default">
+                    External Campaign ID <HelpCircle className="w-3 h-3 text-muted-foreground" />
                   </label>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[260px] text-xs">
@@ -130,20 +130,20 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Target Trade</label>
+              <label className="text-xs font-medium text-muted-foreground">Target Trade</label>
               <Input value={form.target_trade} onChange={(e) => setForm({ ...form, target_trade: e.target.value })} placeholder="plumber, electrician..." />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Target Region</label>
+              <label className="text-xs font-medium text-muted-foreground">Target Region</label>
               <Input value={form.target_region} onChange={(e) => setForm({ ...form, target_region: e.target.value })} placeholder="Miami, FL" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Sender Email</label>
+            <label className="text-xs font-medium text-muted-foreground">Sender Email</label>
             <Input value={form.sender_email} onChange={(e) => setForm({ ...form, sender_email: e.target.value })} placeholder="support@wefixtrades.com" />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600">Description</label>
+            <label className="text-xs font-medium text-muted-foreground">Description</label>
             <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Optional notes" />
           </div>
         </div>
@@ -194,18 +194,18 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
     unsubscribed: "bg-orange-100 text-orange-700",
   };
 
-  if (isLoading) return <div className="p-6 text-sm text-gray-500">Loading...</div>;
+  if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading...</div>;
   if (!data) return null;
 
   const { campaign, leads } = data;
   const pendingCount = leads.filter((l) => l.cp.sync_status === "pending").length;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 h-full flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+    <div className="bg-card rounded-lg border border-border h-full flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div>
-          <h3 className="font-semibold text-gray-900">{campaign.name}</h3>
-          <p className="text-xs text-gray-500 capitalize">{campaign.platform} · {campaign.external_campaign_id || "no external ID"}</p>
+          <h3 className="font-semibold text-foreground">{campaign.name}</h3>
+          <p className="text-xs text-muted-foreground capitalize">{campaign.platform} · {campaign.external_campaign_id || "no external ID"}</p>
         </div>
         <div className="flex gap-2">
           {campaign.external_campaign_id && (
@@ -244,20 +244,20 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
 
       <div className="flex-1 overflow-y-auto">
         {leads.length === 0 ? (
-          <div className="p-6 text-center text-sm text-gray-400">No leads assigned yet. Go to Prospects and assign approved leads to this campaign.</div>
+          <div className="p-6 text-center text-sm text-muted-foreground">No leads assigned yet. Go to Prospects and assign approved leads to this campaign.</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+            <thead className="bg-muted/50 border-b border-border sticky top-0">
               <tr>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Business</th>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Email</th>
-                <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500">Sent</th>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Status</th>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Business</th>
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Email</th>
+                <th className="px-3 py-2.5 text-center text-xs font-medium text-muted-foreground">Sent</th>
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-0.5 cursor-default">
-                        Sync <HelpCircle className="w-3 h-3 text-gray-400" />
+                        Sync <HelpCircle className="w-3 h-3 text-muted-foreground" />
                       </span>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-[220px] text-xs">
@@ -267,19 +267,19 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {leads.map(({ cp, prospect }) => (
-                <tr key={cp.id} className="hover:bg-gray-50">
+                <tr key={cp.id} className="hover:bg-muted/50">
                   <td className="px-3 py-2.5">
-                    <p className="font-medium text-gray-900 truncate max-w-[160px]">{prospect?.business_name || "—"}</p>
-                    <p className="text-xs text-gray-400 capitalize">{prospect?.trade_category} · {[prospect?.city, prospect?.state].filter(Boolean).join(", ")}</p>
+                    <p className="font-medium text-foreground truncate max-w-[160px]">{prospect?.business_name || "—"}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{prospect?.trade_category} · {[prospect?.city, prospect?.state].filter(Boolean).join(", ")}</p>
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-gray-600 max-w-[160px] truncate">
+                  <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[160px] truncate">
                     {prospect?.primary_email || "—"}
                   </td>
-                  <td className="px-3 py-2.5 text-center text-xs text-gray-600">{cp.emails_sent}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">{cp.emails_sent}</td>
                   <td className="px-3 py-2.5">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${OUTREACH_COLORS[cp.outreach_status] ?? "bg-gray-100 text-gray-600"}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${OUTREACH_COLORS[cp.outreach_status] ?? "bg-muted/50 text-muted-foreground"}`}>
                       {cp.outreach_status}
                     </span>
                   </td>
@@ -327,8 +327,8 @@ export default function CampaignsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Outreach Campaigns</h2>
-            <p className="text-sm text-gray-500">Link to existing Instantly or Smartlead campaigns</p>
+            <h2 className="text-lg font-semibold text-foreground">Outreach Campaigns</h2>
+            <p className="text-sm text-muted-foreground">Link to existing Instantly or Smartlead campaigns</p>
           </div>
           <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5" onClick={() => setNewCampaignOpen(true)}>
             <Plus className="w-3.5 h-3.5" />
@@ -340,10 +340,10 @@ export default function CampaignsPage() {
           {/* Campaign list */}
           <div className="space-y-2">
             {isLoading ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-sm text-gray-400">Loading...</div>
+              <div className="bg-card rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">Loading...</div>
             ) : campaigns.length === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                <p className="text-sm text-gray-500">No campaigns yet.</p>
+              <div className="bg-card rounded-lg border border-border p-8 text-center">
+                <p className="text-sm text-muted-foreground">No campaigns yet.</p>
                 <Button size="sm" className="mt-3 bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => setNewCampaignOpen(true)}>Create your first campaign</Button>
               </div>
             ) : (
@@ -351,12 +351,12 @@ export default function CampaignsPage() {
                 <div
                   key={c.id}
                   onClick={() => setSelectedCampaignId(c.id === selectedCampaignId ? null : c.id)}
-                  className={`bg-white rounded-lg border cursor-pointer hover:border-[#0d3cfc] transition-colors p-4 ${c.id === selectedCampaignId ? "border-[#0d3cfc] shadow-sm" : "border-gray-200"}`}
+                  className={`bg-card rounded-lg border cursor-pointer hover:border-[#0d3cfc] transition-colors p-4 ${c.id === selectedCampaignId ? "border-[#0d3cfc] shadow-sm" : "border-border"}`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-medium text-gray-900">{c.name}</h3>
-                      {c.description && <p className="text-xs text-gray-500 mt-0.5">{c.description}</p>}
+                      <h3 className="font-medium text-foreground">{c.name}</h3>
+                      {c.description && <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>}
                       <div className="flex items-center gap-2 mt-2">
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ${PLATFORM_COLORS[c.platform]}`}>
                           {c.platform}
@@ -365,10 +365,10 @@ export default function CampaignsPage() {
                           {c.status}
                         </span>
                         {c.target_trade && (
-                          <span className="text-xs text-gray-400">{c.target_trade}</span>
+                          <span className="text-xs text-muted-foreground">{c.target_trade}</span>
                         )}
                         {c.target_region && (
-                          <span className="text-xs text-gray-400">· {c.target_region}</span>
+                          <span className="text-xs text-muted-foreground">· {c.target_region}</span>
                         )}
                       </div>
                     </div>
@@ -384,7 +384,7 @@ export default function CampaignsPage() {
                           No ID
                         </span>
                       )}
-                      <p className="text-xs text-gray-400 mt-1">{new Date(c.created_at).toLocaleDateString()}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
                 </div>

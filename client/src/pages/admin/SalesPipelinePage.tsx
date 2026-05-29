@@ -86,8 +86,8 @@ export default function SalesPipelinePage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Sales Pipeline</h1>
-            <p className="text-xs text-gray-500">{data?.total || 0} leads total</p>
+            <h1 className="text-lg font-bold text-foreground">Sales Pipeline</h1>
+            <p className="text-xs text-muted-foreground">{data?.total || 0} leads total</p>
           </div>
           <Button size="sm" className="bg-brand-blue hover:bg-brand-blue-600" onClick={() => setShowAdd(true)}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Add Lead
@@ -96,11 +96,11 @@ export default function SalesPipelinePage() {
 
         {/* Stage counts */}
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setFilter("all")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === "all" ? "bg-brand-blue/10 text-brand-blue border-brand-blue" : "bg-white text-gray-600 border-gray-200"}`}>
+          <button onClick={() => setFilter("all")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === "all" ? "bg-brand-blue/10 text-brand-blue border-brand-blue" : "bg-card text-muted-foreground border-border"}`}>
             All ({data?.total || 0})
           </button>
           {STAGES.map(s => (
-            <button key={s.key} onClick={() => setFilter(s.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === s.key ? "bg-brand-blue/10 text-brand-blue border-brand-blue" : "bg-white text-gray-600 border-gray-200"}`}>
+            <button key={s.key} onClick={() => setFilter(s.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === s.key ? "bg-brand-blue/10 text-brand-blue border-brand-blue" : "bg-card text-muted-foreground border-border"}`}>
               {s.label} ({counts[s.key] || 0})
             </button>
           ))}
@@ -118,19 +118,19 @@ export default function SalesPipelinePage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-gray-900">{lead.business_name}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${stage?.color || "bg-gray-100 text-gray-600"}`}>{stage?.label || lead.status}</span>
-                      <span className="text-[10px] text-gray-400 capitalize">{lead.source}</span>
+                      <span className="text-sm font-semibold text-foreground">{lead.business_name}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${stage?.color || "bg-muted/50 text-muted-foreground"}`}>{stage?.label || lead.status}</span>
+                      <span className="text-[10px] text-muted-foreground capitalize">{lead.source}</span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       {lead.contact_name && <span>{lead.contact_name}</span>}
                       {lead.phone && <span className="inline-flex items-center gap-0.5"><Phone className="w-3 h-3" />{lead.phone}</span>}
                       {lead.email && <span className="inline-flex items-center gap-0.5"><Mail className="w-3 h-3" />{lead.email}</span>}
                       {lead.website && <a href={lead.website.startsWith("http") ? lead.website : `https://${lead.website}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 hover:underline"><Globe className="w-3 h-3" />Website</a>}
                       {lead.google_maps_url && <a href={lead.google_maps_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-blue-600 hover:underline"><MapPin className="w-3 h-3" />Maps</a>}
-                      {lead.last_contacted_at && <span className="text-gray-400">Contacted {fmtDate(lead.last_contacted_at)}</span>}
+                      {lead.last_contacted_at && <span className="text-muted-foreground">Contacted {fmtDate(lead.last_contacted_at)}</span>}
                     </div>
-                    {lead.notes && <p className="text-xs text-gray-400 mt-1 line-clamp-2 whitespace-pre-wrap">{lead.notes}</p>}
+                    {lead.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">{lead.notes}</p>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {lead.status === "new" && (
@@ -163,7 +163,7 @@ export default function SalesPipelinePage() {
           })}
           {filtered.length === 0 && !isLoading && (
             <Card className="p-8 text-center">
-              <p className="text-sm text-gray-500">No leads {filter !== "all" ? `with status "${filter}"` : "yet"}.</p>
+              <p className="text-sm text-muted-foreground">No leads {filter !== "all" ? `with status "${filter}"` : "yet"}.</p>
               <Button onClick={() => setShowAdd(true)} className="mt-3"><Plus className="w-3.5 h-3.5 mr-1" /> Add your first lead</Button>
             </Card>
           )}
@@ -177,16 +177,16 @@ export default function SalesPipelinePage() {
           <form onSubmit={(e) => { e.preventDefault(); if (addForm.business_name && !createLead.isPending) createLead.mutate(addForm); }}>
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-gray-600">Business Name *</label>
+                <label className="text-xs font-medium text-muted-foreground">Business Name *</label>
                 <Input value={addForm.business_name} onChange={e => setAddForm({ ...addForm, business_name: e.target.value })} placeholder="e.g. Denver Pro Plumbing" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Contact Name</label>
+                  <label className="text-xs font-medium text-muted-foreground">Contact Name</label>
                   <Input value={addForm.contact_name} onChange={e => setAddForm({ ...addForm, contact_name: e.target.value })} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Source</label>
+                  <label className="text-xs font-medium text-muted-foreground">Source</label>
                   <Select value={addForm.source} onValueChange={v => setAddForm({ ...addForm, source: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{SOURCES.map(s => <SelectItem key={s} value={s} className="capitalize text-xs">{s.replace("_", " ")}</SelectItem>)}</SelectContent>
@@ -195,20 +195,20 @@ export default function SalesPipelinePage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Phone</label>
+                  <label className="text-xs font-medium text-muted-foreground">Phone</label>
                   <Input value={addForm.phone} onChange={e => setAddForm({ ...addForm, phone: e.target.value })} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Email</label>
+                  <label className="text-xs font-medium text-muted-foreground">Email</label>
                   <Input value={addForm.email} onChange={e => setAddForm({ ...addForm, email: e.target.value })} />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Website</label>
+                <label className="text-xs font-medium text-muted-foreground">Website</label>
                 <Input value={addForm.website} onChange={e => setAddForm({ ...addForm, website: e.target.value })} placeholder="https://..." />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Google Maps Link</label>
+                <label className="text-xs font-medium text-muted-foreground">Google Maps Link</label>
                 <Input value={addForm.google_maps_url} onChange={e => setAddForm({ ...addForm, google_maps_url: e.target.value })} placeholder="https://maps.google.com/..." />
               </div>
             </div>

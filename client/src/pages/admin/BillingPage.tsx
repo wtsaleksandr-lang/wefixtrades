@@ -38,7 +38,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${STATUS_COLORS[status] || "bg-gray-100 text-gray-600"}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${STATUS_COLORS[status] || "bg-muted/50 text-muted-foreground"}`}>
       {status}
     </span>
   );
@@ -113,8 +113,8 @@ export default function BillingPage() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Billing</h2>
-            <p className="text-sm text-gray-500">All payments across clients</p>
+            <h2 className="text-lg font-semibold text-foreground">Billing</h2>
+            <p className="text-sm text-muted-foreground">All payments across clients</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -199,9 +199,9 @@ export default function BillingPage() {
                   ))
                 ) : payments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10 text-gray-500 text-sm">
-                      <p className="text-gray-700 font-medium mb-1">No payment records yet.</p>
-                      <p className="text-xs text-gray-500">
+                    <TableCell colSpan={6} className="text-center py-10 text-muted-foreground text-sm">
+                      <p className="text-foreground font-medium mb-1">No payment records yet.</p>
+                      <p className="text-xs text-muted-foreground">
                         Payments appear here as soon as a client checks out via Stripe or you log a manual payment from
                         {" "}<Link href="/admin/crm/clients" className="text-brand-blue hover:underline font-medium">a client's page</Link>.
                       </p>
@@ -212,7 +212,7 @@ export default function BillingPage() {
                     <TableRow key={p.id}>
                       <TableCell>
                         <Link href={`/admin/crm/clients/${p.client_id}`}>
-                          <span className="text-sm font-medium text-gray-900 hover:text-brand-blue">
+                          <span className="text-sm font-medium text-foreground hover:text-brand-blue">
                             {p.client_name || `Client #${p.client_id}`}
                           </span>
                         </Link>
@@ -232,8 +232,8 @@ export default function BillingPage() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="text-sm text-gray-500 truncate max-w-[200px]">{p.description || "-"}</TableCell>
-                      <TableCell className="text-sm text-gray-500">{fmtDate(p.paid_at || p.created_at)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground truncate max-w-[200px]">{p.description || "-"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{fmtDate(p.paid_at || p.created_at)}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -242,15 +242,15 @@ export default function BillingPage() {
           </div>
 
           {/* Mobile */}
-          <div className="md:hidden divide-y divide-gray-100">
+          <div className="md:hidden divide-y divide-border">
             {isLoading ? (
               <div className="p-4 space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
             ) : payments.length === 0 ? (
               <div className="text-center py-10 px-6">
-                <p className="text-gray-700 font-medium mb-1 text-sm">No payment records yet.</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-foreground font-medium mb-1 text-sm">No payment records yet.</p>
+                <p className="text-xs text-muted-foreground">
                   Payments appear here as soon as a client checks out, or you log a manual one on
                   {" "}<Link href="/admin/crm/clients" className="text-brand-blue hover:underline font-medium">a client's page</Link>.
                 </p>
@@ -261,11 +261,11 @@ export default function BillingPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <Link href={`/admin/crm/clients/${p.client_id}`}>
-                        <span className="text-sm font-medium text-gray-900 hover:text-brand-blue">
+                        <span className="text-sm font-medium text-foreground hover:text-brand-blue">
                           {p.client_name || `Client #${p.client_id}`}
                         </span>
                       </Link>
-                      <p className="text-xs text-gray-500 capitalize mt-0.5">{p.type} &middot; {fmt(p.amount_cents)}</p>
+                      <p className="text-xs text-muted-foreground capitalize mt-0.5">{p.type} &middot; {fmt(p.amount_cents)}</p>
                     </div>
                     <Select value={p.status} onValueChange={(v) => updatePaymentStatus.mutate({ id: p.id, status: v })}>
                       <SelectTrigger className="h-7 w-auto min-w-[80px] text-[11px] px-2">

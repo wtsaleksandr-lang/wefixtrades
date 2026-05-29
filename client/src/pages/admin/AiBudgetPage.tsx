@@ -120,10 +120,10 @@ function ScopeForm({
         return (
           <div key={key} className="flex flex-col gap-1">
             <label
-              className="text-xs font-medium text-gray-600"
+              className="text-xs font-medium text-muted-foreground"
               htmlFor={`aibudget-${scope}-${key}`}
             >
-              {cfg.label} <span className="text-gray-400">({cfg.suffix})</span>
+              {cfg.label} <span className="text-muted-foreground">({cfg.suffix})</span>
             </label>
             <Input
               id={`aibudget-${scope}-${key}`}
@@ -242,11 +242,11 @@ export default function AiBudgetPage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <BrainCircuit className="w-5 h-5 text-brand-blue" />
               AI Budget
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Per-user QuoteQuick editor AI spend caps. Tier rows (if set) override the global default
               for users on that plan tier.
             </p>
@@ -274,7 +274,7 @@ export default function AiBudgetPage() {
         <Card className="p-4" data-testid="aibudget-card-global">
           <div className="flex items-center gap-2 mb-3">
             <DollarSign className="w-4 h-4 text-brand-blue" />
-            <h2 className="text-sm font-semibold text-gray-900">Global default</h2>
+            <h2 className="text-sm font-semibold text-foreground">Global default</h2>
             <Badge variant="outline" className="text-[10px]">applies when no tier override is set</Badge>
           </div>
           {isLoading || !data ? (
@@ -295,7 +295,7 @@ export default function AiBudgetPage() {
         <Card className="p-4" data-testid="aibudget-card-tiers">
           <div className="flex items-center gap-2 mb-3">
             <ImageIcon className="w-4 h-4 text-brand-blue" />
-            <h2 className="text-sm font-semibold text-gray-900">Per-tier overrides</h2>
+            <h2 className="text-sm font-semibold text-foreground">Per-tier overrides</h2>
             <Badge variant="outline" className="text-[10px]">applied when a user's plan_tier matches</Badge>
           </div>
           {isLoading || !data ? (
@@ -309,13 +309,13 @@ export default function AiBudgetPage() {
                 return (
                   <div key={scope} className="border-t pt-4 first:border-t-0 first:pt-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-sm font-medium text-gray-800">{label}</h3>
+                      <h3 className="text-sm font-medium text-foreground">{label}</h3>
                       {isOverride ? (
                         <Badge className="bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/10 text-[10px]">
                           custom override
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] text-gray-500">
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
                           inherits global
                         </Badge>
                       )}
@@ -336,8 +336,8 @@ export default function AiBudgetPage() {
         {/* Top spenders */}
         <Card data-testid="aibudget-card-spenders">
           <div className="p-4 border-b">
-            <h2 className="text-sm font-semibold text-gray-900">Top spenders this month</h2>
-            <p className="text-xs text-gray-500">Highest cumulative AI spend right now — investigate any outliers.</p>
+            <h2 className="text-sm font-semibold text-foreground">Top spenders this month</h2>
+            <p className="text-xs text-muted-foreground">Highest cumulative AI spend right now — investigate any outliers.</p>
           </div>
           <div className="overflow-x-auto">
           <Table>
@@ -361,7 +361,7 @@ export default function AiBudgetPage() {
                 ))
               ) : (data?.top_spenders ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     No AI spend recorded yet.
                   </TableCell>
                 </TableRow>
@@ -369,10 +369,10 @@ export default function AiBudgetPage() {
                 (data?.top_spenders ?? []).map(row => (
                   <TableRow key={row.user_id} data-testid={`aibudget-spender-${row.user_id}`}>
                     <TableCell>
-                      <div className="font-medium text-gray-900">{row.name || row.email}</div>
-                      {row.name && <div className="text-xs text-gray-500">{row.email}</div>}
+                      <div className="font-medium text-foreground">{row.name || row.email}</div>
+                      {row.name && <div className="text-xs text-muted-foreground">{row.email}</div>}
                     </TableCell>
-                    <TableCell className="font-semibold text-gray-900">
+                    <TableCell className="font-semibold text-foreground">
                       ${row.cumulative_usd.toFixed(4)}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">${row.month_usd.toFixed(4)}</TableCell>

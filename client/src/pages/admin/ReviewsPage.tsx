@@ -92,7 +92,7 @@ function RatingBadge({ rating }: { rating: number }) {
     1: "bg-red-100 text-red-700",
   };
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${colors[rating] || "bg-gray-100 text-gray-600"}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${colors[rating] || "bg-muted/50 text-muted-foreground"}`}>
       <Star className="w-3 h-3 fill-current" /> {rating}
     </span>
   );
@@ -108,8 +108,8 @@ function StatCard({ label, value, icon: Icon, color }: {
     <Card className="h-full p-4">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+          <p className="text-2xl font-semibold text-foreground mt-1">{value}</p>
         </div>
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`}>
           <Icon className="w-4 h-4 text-white" />
@@ -504,7 +504,7 @@ export default function ReviewsPage() {
       {/* Rating distribution bar */}
       {stats && stats.total > 0 && (
         <Card className="p-4">
-          <p className="text-xs font-medium text-gray-500 mb-2">Rating Distribution</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Rating Distribution</p>
           <div className="flex gap-1 h-5">
             {[5, 4, 3, 2, 1].map((r) => {
               const count = stats.byRating[r] ?? 0;
@@ -567,7 +567,7 @@ export default function ReviewsPage() {
               {bulkPostMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
               Post ({postEligible.length})
             </Button>
-            <button onClick={clearSelection} className="text-xs text-gray-500 hover:text-gray-700 ml-1">Clear</button>
+            <button onClick={clearSelection} className="text-xs text-muted-foreground hover:text-muted-foreground ml-1">Clear</button>
           </div>
         );
       })()}
@@ -586,15 +586,15 @@ export default function ReviewsPage() {
             </span>
             <div className="flex gap-2 ml-auto">
               {bulkResult.details.length > 0 && (bulkResult.skipped > 0 || bulkResult.failed > 0) && (
-                <button onClick={() => setShowBulkDetails(!showBulkDetails)} className="text-xs text-gray-600 hover:underline">
+                <button onClick={() => setShowBulkDetails(!showBulkDetails)} className="text-xs text-muted-foreground hover:underline">
                   {showBulkDetails ? "Hide details" : "View details"}
                 </button>
               )}
-              <button onClick={() => { setBulkResult(null); setShowBulkDetails(false); }} className="text-xs text-gray-500 hover:underline">Dismiss</button>
+              <button onClick={() => { setBulkResult(null); setShowBulkDetails(false); }} className="text-xs text-muted-foreground hover:underline">Dismiss</button>
             </div>
           </div>
           {showBulkDetails && bulkResult.details.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-gray-200 space-y-1 max-h-40 overflow-y-auto">
+            <div className="mt-2 pt-2 border-t border-border space-y-1 max-h-40 overflow-y-auto">
               {bulkResult.details
                 .filter((d) => d.status !== "drafted" && d.status !== "posted")
                 .map((d, i) => (
@@ -602,8 +602,8 @@ export default function ReviewsPage() {
                     <span className={`px-1.5 py-0.5 rounded font-medium ${
                       d.status === "skipped" ? "bg-gray-100 text-gray-600" : "bg-red-100 text-red-700"
                     }`}>{d.status}</span>
-                    <span className="text-gray-500">Review #{d.id}</span>
-                    {d.reason && <span className="text-gray-400">— {d.reason}</span>}
+                    <span className="text-muted-foreground">Review #{d.id}</span>
+                    {d.reason && <span className="text-muted-foreground">— {d.reason}</span>}
                   </div>
                 ))}
             </div>
@@ -649,7 +649,7 @@ export default function ReviewsPage() {
               ))
             ) : reviews.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No reviews found. Reviews appear after the monitoring worker runs.
                 </TableCell>
               </TableRow>
@@ -657,7 +657,7 @@ export default function ReviewsPage() {
               reviews.map((r) => (
                 <TableRow
                   key={r.id}
-                  className={`cursor-pointer hover:bg-gray-50 ${needsAttention(r) ? "bg-red-50/40" : ""} ${selectedIds.has(r.id) ? "bg-blue-50/40" : ""}`}
+                  className={`cursor-pointer hover:bg-muted/50 ${needsAttention(r) ? "bg-red-50/40" : ""} ${selectedIds.has(r.id) ? "bg-blue-50/40" : ""}`}
                   onClick={() => openReview(r)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
@@ -676,16 +676,16 @@ export default function ReviewsPage() {
                     ) : null}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium text-sm text-gray-900">{r.reviewer_name}</div>
-                    <div className="text-xs text-gray-400">{r.platform}</div>
+                    <div className="font-medium text-sm text-foreground">{r.reviewer_name}</div>
+                    <div className="text-xs text-muted-foreground">{r.platform}</div>
                   </TableCell>
                   <TableCell>
                     <RatingBadge rating={r.rating} />
                   </TableCell>
                   <TableCell className="hidden md:table-cell max-w-[300px]">
-                    <span className="text-sm text-gray-600">{truncate(r.review_text, 80)}</span>
+                    <span className="text-sm text-muted-foreground">{truncate(r.review_text, 80)}</span>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell text-sm text-gray-500">
+                  <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                     {formatDate(r.published_at)}
                   </TableCell>
                   <TableCell>
@@ -695,7 +695,7 @@ export default function ReviewsPage() {
                       ) : r.draft_response ? (
                         <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-600">Draft</Badge>
                       ) : (
-                        <Badge variant="secondary" className="text-xs bg-gray-50 text-gray-400">None</Badge>
+                        <Badge variant="secondary" className="text-xs bg-muted/50 text-muted-foreground">None</Badge>
                       )}
                     </div>
                   </TableCell>
@@ -712,11 +712,11 @@ export default function ReviewsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {shareMode ? (
-                <span className="text-sm font-semibold text-gray-900">Create Share Image</span>
+                <span className="text-sm font-semibold text-foreground">Create Share Image</span>
               ) : (
                 <>
                   <RatingStars rating={selected?.rating ?? 0} />
-                  <span className="text-sm text-gray-500">by {selected?.reviewer_name}</span>
+                  <span className="text-sm text-muted-foreground">by {selected?.reviewer_name}</span>
                 </>
               )}
               {selected && !shareMode && needsAttention(selected) && (
@@ -748,8 +748,8 @@ export default function ReviewsPage() {
 
               {/* Review text */}
               <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Review</p>
-                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Review</p>
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                   {selected.review_text || "No text provided."}
                 </p>
               </div>
@@ -757,26 +757,26 @@ export default function ReviewsPage() {
               {/* Metadata */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-xs text-gray-400">Published</p>
-                  <p className="text-gray-700">{formatDate(selected.published_at)}</p>
+                  <p className="text-xs text-muted-foreground">Published</p>
+                  <p className="text-muted-foreground">{formatDate(selected.published_at)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">First Seen</p>
-                  <p className="text-gray-700">{formatDate(selected.first_seen_at)}</p>
+                  <p className="text-xs text-muted-foreground">First Seen</p>
+                  <p className="text-muted-foreground">{formatDate(selected.first_seen_at)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">Platform</p>
-                  <p className="text-gray-700 capitalize">{selected.platform}</p>
+                  <p className="text-xs text-muted-foreground">Platform</p>
+                  <p className="text-muted-foreground capitalize">{selected.platform}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">Last Synced</p>
-                  <p className="text-gray-700">{formatDate(selected.last_synced_at)}</p>
+                  <p className="text-xs text-muted-foreground">Last Synced</p>
+                  <p className="text-muted-foreground">{formatDate(selected.last_synced_at)}</p>
                 </div>
               </div>
 
               {/* Owner response (public) */}
               <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Public Response</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Public Response</p>
                 {selected.response_text ? (
                   <div className="bg-green-50 border border-green-100 rounded-lg p-3">
                     <p className="text-sm text-green-800 leading-relaxed whitespace-pre-wrap">
@@ -790,7 +790,7 @@ export default function ReviewsPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 italic">No public response yet.</p>
+                  <p className="text-sm text-muted-foreground italic">No public response yet.</p>
                 )}
               </div>
 
@@ -798,7 +798,7 @@ export default function ReviewsPage() {
               <div className={`rounded-lg ${isLowRating && !hasPublicResponse ? "ring-1 ring-red-200 p-3 bg-red-50/30" : ""}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-medium text-gray-500">AI Draft</p>
+                    <p className="text-xs font-medium text-muted-foreground">AI Draft</p>
                     {hasDraft && !draftEdited && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">
                         Draft only — not posted
@@ -849,7 +849,7 @@ export default function ReviewsPage() {
                       onChange={(e) => { setDraftText(e.target.value.slice(0, 2000)); setDraftEdited(true); setCopied(false); }}
                       rows={4}
                       maxLength={2000}
-                      className="w-full p-3 text-sm border rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+                      className="w-full p-3 text-sm border rounded-lg resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-200 bg-card"
                     />
                     <div className="flex gap-2 flex-wrap">
                       <Button
@@ -898,14 +898,14 @@ export default function ReviewsPage() {
                       )}
                     </div>
                     {selected.draft_generated_at && (
-                      <p className="text-[11px] text-gray-400">
+                      <p className="text-[11px] text-muted-foreground">
                         Generated {formatDate(selected.draft_generated_at)}
                         {selected.draft_model && ` · ${selected.draft_model}`}
                       </p>
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 italic">
+                  <p className="text-sm text-muted-foreground italic">
                     {isLowRating && !hasPublicResponse
                       ? "Draft a recovery response to address this review."
                       : "Click \"Draft Response\" to generate an AI response."}

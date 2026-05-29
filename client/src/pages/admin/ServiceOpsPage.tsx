@@ -55,9 +55,9 @@ export default function ServiceOpsPage() {
     return (
       <AdminLayout>
         <div data-theme="light">
-          <h1 className="text-xl font-semibold text-gray-900 mb-4">Service Ops</h1>
+          <h1 className="text-xl font-semibold text-foreground mb-4">Service Ops</h1>
           <Card className="p-8 max-w-xl">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Open a client service from the CRM and click "Service Ops" to
               configure it. Or append <code>?csid=NN</code> to this URL.
             </p>
@@ -85,14 +85,14 @@ function ServiceOpsInner({ csid }: { csid: number }) {
       <div>
         <div className="mb-4">
           <Link href={data ? `/admin/crm/${data.client_id}` : "/admin/crm"}>
-            <Button variant="ghost" size="sm" className="text-xs text-gray-500">
+            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
               <ArrowLeft className="w-3 h-3 mr-1" /> Back to client
             </Button>
           </Link>
         </div>
         <div className="mb-5">
-          <h1 className="text-xl font-semibold text-gray-900">Service Ops</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-xl font-semibold text-foreground">Service Ops</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
             {data ? `Service #${csid} · ${data.service_id}` : `Service #${csid}`}
           </p>
         </div>
@@ -107,8 +107,8 @@ function ServiceOpsInner({ csid }: { csid: number }) {
       {data && data.service_id.startsWith("adflow") && <AdFlowMetricsForm cs={data} />}
       {data && data.service_id !== "sitelaunch-template" && !data.service_id.startsWith("adflow") && (
         <Card className="p-6 max-w-xl">
-          <p className="text-sm text-gray-700 font-medium mb-1">No ops form for this service type</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm text-foreground font-medium mb-1">No ops form for this service type</p>
+          <p className="text-xs text-muted-foreground">
             Service Ops forms exist for <code>sitelaunch-template</code> and <code>adflow-*</code>. For anything else, use the general fulfillment task view on the client page.
           </p>
         </Card>
@@ -245,12 +245,12 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
     <div className="max-w-3xl space-y-5">
       <Card className="p-5 bg-[#EEF3FF] border-brand-blue/20">
         <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-white border border-brand-blue/20 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-card border border-brand-blue/20 flex items-center justify-center flex-shrink-0">
             <Layout className="w-4 h-4 text-brand-blue" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-gray-900 mb-1">SiteLaunch Template</h2>
-            <p className="text-xs text-gray-600 leading-relaxed">
+            <h2 className="text-sm font-semibold text-foreground mb-1">SiteLaunch Template</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
               Pick a template, paste the customer's content, save. The build task picks up from here and produces the live site.
             </p>
           </div>
@@ -260,7 +260,7 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
       <Card className="p-6 space-y-5">
         {/* Template */}
         <div>
-          <Label className="text-sm font-semibold text-gray-900 mb-2 block">Template</Label>
+          <Label className="text-sm font-semibold text-foreground mb-2 block">Template</Label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {SITELAUNCH_TEMPLATES.map(t => (
               <button
@@ -270,14 +270,14 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
                 className={`text-left px-4 py-3 rounded-lg border transition-colors ${
                   templateId === t.id
                     ? "border-brand-blue bg-[#EEF3FF]"
-                    : "border-gray-200 hover:border-gray-300 bg-white"
+                    : "border-border hover:border-border bg-card"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-semibold text-gray-900">{t.name}</span>
+                  <span className="text-sm font-semibold text-foreground">{t.name}</span>
                   {templateId === t.id && <CheckCircle2 className="w-4 h-4 text-brand-blue" />}
                 </div>
-                <p className="text-xs text-gray-500">Best for: {t.best_for}</p>
+                <p className="text-xs text-muted-foreground">Best for: {t.best_for}</p>
               </button>
             ))}
           </div>
@@ -286,19 +286,19 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
         <Field label="Brand colors (hex pair, e.g. #0d3cfc,#F5FCFF)" value={brandColors} onChange={setBrandColors} />
         <Field label="Logo URL (or paste CDN link)" value={logoUrl} onChange={setLogoUrl} />
 
-        <div className="border-t border-gray-100 pt-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Hero</h3>
+        <div className="border-t border-border pt-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Hero</h3>
           <Field label="Hero title" value={heroTitle} onChange={setHeroTitle} />
           <Field label="Hero subtitle" value={heroSub} onChange={setHeroSub} />
         </div>
 
-        <div className="border-t border-gray-100 pt-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">About</h3>
+        <div className="border-t border-border pt-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3">About</h3>
           <FieldTextarea label="Short about paragraph (150-300 chars)" value={about} onChange={setAbout} rows={3} />
         </div>
 
-        <div className="border-t border-gray-100 pt-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Services</h3>
+        <div className="border-t border-border pt-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Services</h3>
           <FieldTextarea
             label="One per line — format: Service Name | description"
             value={servicesText}
@@ -308,8 +308,8 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
           />
         </div>
 
-        <div className="border-t border-gray-100 pt-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Contact block</h3>
+        <div className="border-t border-border pt-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Contact block</h3>
           <Field label="Service area" value={serviceArea} onChange={setServiceArea} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone" value={phone} onChange={setPhone} />
@@ -319,8 +319,8 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
           <Field label="Hours (optional)" value={hours} onChange={setHours} />
         </div>
 
-        <div className="border-t border-gray-100 pt-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Deployment</h3>
+        <div className="border-t border-border pt-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Deployment</h3>
           <Field label="Domain (if already owned)" value={domain} onChange={setDomain} placeholder="plumberexample.com" />
           <FieldTextarea label="Internal notes" value={notes} onChange={setNotes} rows={3} />
         </div>
@@ -478,12 +478,12 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
     <div className="max-w-3xl space-y-5">
       <Card className="p-5 bg-blue-50 border-blue-200">
         <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-white border border-blue-200 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-card border border-blue-200 flex items-center justify-center flex-shrink-0">
             <BarChart3 className="w-4 h-4 text-blue-600" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-gray-900 mb-1">AdFlow Metrics</h2>
-            <p className="text-xs text-gray-600 leading-relaxed">
+            <h2 className="text-sm font-semibold text-foreground mb-1">AdFlow Metrics</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
               Enter the campaign performance metrics for this period. These are sent to the client
               in their monthly report on the 2nd. Save metrics first, then send the report manually or
               let the cron pick it up.
@@ -495,7 +495,7 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
       <Card className="p-6 space-y-5">
         {/* Period */}
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Report Period</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">Report Period</h3>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Period start (YYYY-MM-DD)" value={periodStart} onChange={setPeriodStart} placeholder="2026-04-01" />
             <Field label="Period end (YYYY-MM-DD)" value={periodEnd} onChange={setPeriodEnd} placeholder="2026-04-30" />
@@ -503,8 +503,8 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
         </div>
 
         {/* KPIs */}
-        <div className="border-t border-gray-100 pt-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Campaign KPIs</h3>
+        <div className="border-t border-border pt-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Campaign KPIs</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Field label="Impressions" value={impressions} onChange={setImpressions} numeric />
             <Field label="Clicks" value={clicks} onChange={setClicks} numeric />
@@ -516,8 +516,8 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
         </div>
 
         {/* Additional */}
-        <div className="border-t border-gray-100 pt-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Additional Info</h3>
+        <div className="border-t border-border pt-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Additional Info</h3>
           <Field label="Top performing creative" value={topCreative} onChange={setTopCreative} placeholder="e.g. Emergency Plumber - Call Now" />
           <FieldTextarea label="Daily breakdown (CSV: date,leads per line)" value={dailyBreakdownCsv} onChange={setDailyBreakdownCsv} rows={4} placeholder={"2026-04-01,3\n2026-04-02,5\n2026-04-03,2"} />
           <FieldTextarea label="Recommendations (one per line)" value={recommendations} onChange={setRecommendations} rows={3} placeholder={"Increase budget for Google Ads by 20%\nTest new landing page variant"} />
@@ -563,7 +563,7 @@ function Field({
 }) {
   return (
     <div className="mb-3">
-      <Label className="text-xs text-gray-600 mb-1 block">{label}</Label>
+      <Label className="text-xs text-muted-foreground mb-1 block">{label}</Label>
       <Input
         type={numeric ? "number" : "text"}
         value={value}
@@ -586,7 +586,7 @@ function FieldTextarea({
 }) {
   return (
     <div className="mb-3">
-      <Label className="text-xs text-gray-600 mb-1 block">{label}</Label>
+      <Label className="text-xs text-muted-foreground mb-1 block">{label}</Label>
       <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}

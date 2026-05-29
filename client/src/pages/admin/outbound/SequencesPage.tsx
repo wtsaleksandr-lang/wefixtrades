@@ -58,7 +58,7 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span
       data-theme="light"
-      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border bg-white ${STATUS_OUTLINE[status] ?? "border-gray-300 text-gray-600"}`}
+      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border bg-card ${STATUS_OUTLINE[status] ?? "border-gray-300 text-muted-foreground"}`}
     >
       {status}
     </span>
@@ -302,34 +302,34 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
 
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Steps ({steps.length})</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-2">Steps ({steps.length})</h3>
             {stepsQuery.isLoading ? (
-              <p className="text-xs text-gray-500">Loading...</p>
+              <p className="text-xs text-muted-foreground">Loading...</p>
             ) : steps.length === 0 ? (
-              <p className="text-xs text-gray-500">No steps yet — add the intro below.</p>
+              <p className="text-xs text-muted-foreground">No steps yet — add the intro below.</p>
             ) : (
               <ol className="space-y-2">
                 {steps.map((s) => (
-                  <li key={s.id} className="rounded border border-gray-200 p-3 bg-gray-50">
+                  <li key={s.id} className="rounded border border-border p-3 bg-muted/50">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-gray-700">
+                      <span className="text-xs font-semibold text-foreground">
                         Step {s.order_index}
-                        {s.order_index > 1 && <span className="text-gray-400 font-normal"> · +{s.delay_days}d</span>}
+                        {s.order_index > 1 && <span className="text-muted-foreground font-normal"> · +{s.delay_days}d</span>}
                       </span>
                       <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-600" onClick={() => setPendingDeleteStepId(s.id)} disabled={deleteStep.isPending} aria-label="Delete step">
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
-                    <p className="text-xs font-medium text-gray-900">{s.subject_template}</p>
-                    <pre className="text-[11px] text-gray-600 whitespace-pre-wrap mt-1 font-sans">{s.body_template}</pre>
+                    <p className="text-xs font-medium text-foreground">{s.subject_template}</p>
+                    <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap mt-1 font-sans">{s.body_template}</pre>
                   </li>
                 ))}
               </ol>
             )}
           </div>
 
-          <div className="border-t border-gray-200 pt-3">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Add step {nextOrder}</h3>
+          <div className="border-t border-border pt-3">
+            <h3 className="text-sm font-semibold text-foreground mb-2">Add step {nextOrder}</h3>
             <div className="space-y-2">
               <FieldRow label="Subject" tooltip="Supports {{token}} placeholders.">
                 <Input value={draft.subject_template} onChange={(e) => setDraft((d) => ({ ...d, subject_template: e.target.value }))} placeholder="Following up on {{business_name}}" />
@@ -397,11 +397,11 @@ function FieldRow({ label, tooltip, children }: { label: string; tooltip: string
       <div className="flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger asChild>
-            <HelpCircle className="w-3 h-3 text-gray-400 shrink-0" />
+            <HelpCircle className="w-3 h-3 text-muted-foreground shrink-0" />
           </TooltipTrigger>
           <TooltipContent className="max-w-[260px] text-xs">{tooltip}</TooltipContent>
         </Tooltip>
-        <label className="text-xs font-medium text-gray-700">{label}</label>
+        <label className="text-xs font-medium text-foreground">{label}</label>
       </div>
       {children}
     </div>
@@ -465,8 +465,8 @@ export default function SequencesPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Outreach Sequences</h2>
-            <p className="text-sm text-gray-500">Multi-step cold-email templates with optional AI personalization.</p>
+            <h2 className="text-lg font-semibold text-foreground">Outreach Sequences</h2>
+            <p className="text-sm text-muted-foreground">Multi-step cold-email templates with optional AI personalization.</p>
           </div>
           <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5" onClick={() => setCreateOpen(true)}>
             <Plus className="w-3.5 h-3.5" />
@@ -474,26 +474,26 @@ export default function SequencesPage() {
           </Button>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
           {isLoading ? (
-            <div className="p-8 text-center text-sm text-gray-500">Loading sequences...</div>
+            <div className="p-8 text-center text-sm text-muted-foreground">Loading sequences...</div>
           ) : rows.length === 0 ? (
-            <div className="p-8 text-center text-sm text-gray-500">
+            <div className="p-8 text-center text-sm text-muted-foreground">
               No sequences yet.{" "}
               <button onClick={() => setCreateOpen(true)} className="text-[#0d3cfc] underline">Create your first one</button>.
             </div>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-muted/50 border-b border-border">
                 <tr>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Name</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Trade</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Region</th>
-                  <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500">
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Name</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Trade</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Region</th>
+                  <th className="px-3 py-2.5 text-center text-xs font-medium text-muted-foreground">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="inline-flex items-center gap-0.5 cursor-default">
-                          Steps <HelpCircle className="w-3 h-3 text-gray-400" />
+                          Steps <HelpCircle className="w-3 h-3 text-muted-foreground" />
                         </span>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-[200px] text-xs">
@@ -501,18 +501,18 @@ export default function SequencesPage() {
                       </TooltipContent>
                     </Tooltip>
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Status</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">AI</th>
-                  <th className="px-3 py-2.5 text-right text-xs font-medium text-gray-500">Actions</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">AI</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {rows.map(({ sequence: s, step_count }) => (
-                  <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-3 py-2.5 font-medium text-gray-900">{s.name}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-600 capitalize">{s.trade_filter || "—"}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-600">{s.region_filter || "—"}</td>
-                    <td className="px-3 py-2.5 text-center text-sm font-semibold text-gray-700">{step_count}</td>
+                  <tr key={s.id} className="hover:bg-muted/50 transition-colors">
+                    <td className="px-3 py-2.5 font-medium text-foreground">{s.name}</td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground capitalize">{s.trade_filter || "—"}</td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">{s.region_filter || "—"}</td>
+                    <td className="px-3 py-2.5 text-center text-sm font-semibold text-foreground">{step_count}</td>
                     <td className="px-3 py-2.5"><StatusBadge status={s.status} /></td>
                     <td className="px-3 py-2.5">
                       {s.ai_personalize ? (
@@ -521,7 +521,7 @@ export default function SequencesPage() {
                           enabled
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400">off</span>
+                        <span className="text-xs text-muted-foreground">off</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-right">

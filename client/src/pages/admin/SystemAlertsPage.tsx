@@ -117,14 +117,14 @@ export default function SystemAlertsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <Shield className="w-5 h-5" />
               System Alerts
               {unackedCount > 0 && (
                 <Badge variant="destructive" className="ml-1">{unackedCount}</Badge>
               )}
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {alerts.length} alert{alerts.length !== 1 ? "s" : ""} shown
             </p>
           </div>
@@ -163,7 +163,7 @@ export default function SystemAlertsPage() {
             {(severityFilter !== "all" || categoryFilter !== "all" || showAcknowledged) && (
               <button
                 onClick={() => { setSeverityFilter("all"); setCategoryFilter("all"); setShowAcknowledged(false); }}
-                className="text-xs text-gray-500 hover:text-gray-700 underline"
+                className="text-xs text-muted-foreground hover:text-muted-foreground underline"
               >
                 Clear filters
               </button>
@@ -180,8 +180,8 @@ export default function SystemAlertsPage() {
         ) : alerts.length === 0 ? (
           <Card className="p-8 text-center">
             <CheckCircle className="w-10 h-10 text-green-400 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">No alerts to show</p>
-            <p className="text-sm text-gray-400">Everything is running smoothly</p>
+            <p className="text-muted-foreground font-medium">No alerts to show</p>
+            <p className="text-sm text-muted-foreground">Everything is running smoothly</p>
           </Card>
         ) : (
           <div className="space-y-2">
@@ -192,14 +192,14 @@ export default function SystemAlertsPage() {
                     <div className="flex items-center gap-2 mb-1">
                       <SeverityBadge severity={alert.severity} />
                       <Badge variant="outline" className="text-xs">{alert.category}</Badge>
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {timeAgo(alert.created_at)}
                       </span>
                     </div>
-                    <p className="font-medium text-gray-900 text-sm">{alert.title}</p>
+                    <p className="font-medium text-foreground text-sm">{alert.title}</p>
                     {alert.details && (
-                      <p className="text-xs text-gray-500 mt-1 line-clamp-2 whitespace-pre-wrap">{alert.details}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">{alert.details}</p>
                     )}
                     {alert.acknowledged && alert.acknowledged_at && (
                       <p className="text-xs text-green-600 mt-1">
