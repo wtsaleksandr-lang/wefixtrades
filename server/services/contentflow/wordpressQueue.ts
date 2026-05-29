@@ -50,6 +50,7 @@ import { publishToCms } from "./cmsRouter";
 import { renderArticleHtml } from "./articleHtml";
 import { sendAlert, isAlertingConfigured } from "../socialSync/alertService";
 import { createLogger } from "../../lib/logger";
+import { noisyCatch } from "../../lib/silentFailureGuard";
 import type { ContentDraft } from "@shared/schema";
 
 const log = createLogger("ContentFlow:Queue");
@@ -466,7 +467,11 @@ async function checkBackpressure(): Promise<void> {
 
     if (totalQueued > BACKPRESSURE_THRESHOLD) {
       log.warn(`Queue backpressure detected: ${totalQueued} drafts queued (threshold: ${BACKPRESSURE_THRESHOLD})`);
-      await sendAlert({
+      // Wave 107 — was silent .catch(() => {}); if the backpressure
+      // alert fails to deliver we'd want to know (operator may miss a
+      // build-up otherwise). noisyCatch keeps the await semantics and
+      // resolves to void on failure after logging structured context.
+      await noisyCatch(sendAlert({
         type: "publish_failures",
         client_id: 0,
         business_name: "System",
@@ -478,7 +483,10 @@ async function checkBackpressure(): Promise<void> {
           threshold: BACKPRESSURE_THRESHOLD,
         },
         admin_url: "/admin/contentflow",
-      }).catch(() => {});
+      }), {
+        op: "contentflow.backpressureAlert",
+        meta: { queuedCount: totalQueued, threshold: BACKPRESSURE_THRESHOLD },
+      });
     }
 
     /* Check for stale drafts: queued > 1 hour without publishing. */
@@ -507,7 +515,8 @@ async function checkBackpressure(): Promise<void> {
     const staleCount = staleResult[0]?.count ?? 0;
     if (staleCount > 0) {
       log.warn(`Stale drafts detected: ${staleCount} draft(s) queued > 1 hour`);
-      await sendAlert({
+      // Wave 107 — same backpressure-alert noisyCatch pattern.
+      await noisyCatch(sendAlert({
         type: "publish_failures",
         client_id: 0,
         business_name: "System",
@@ -520,7 +529,10 @@ async function checkBackpressure(): Promise<void> {
           threshold_minutes: STALE_DRAFT_THRESHOLD_MS / 60_000,
         },
         admin_url: "/admin/contentflow",
-      }).catch(() => {});
+      }), {
+        op: "contentflow.staleDraftAlert",
+        meta: { staleCount, oldestDraftId: staleResult[0]?.oldest_id },
+      });
     }
   } catch (err: any) {
     log.error(`Backpressure check query failed: ${err?.message || err}`);

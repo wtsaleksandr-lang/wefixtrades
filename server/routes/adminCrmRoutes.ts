@@ -27,6 +27,7 @@ import { compileAndSendAdFlowReport, previewAdFlowReportHtml } from "../services
 import { sendAdflowCreativeApprovalEmail } from "../lib/adflowCreativeApprovalEmail";
 import crypto from "crypto";
 import { createLogger } from "../lib/logger";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { saveFile, deleteFile } from "../services/fileStorage";
 import { getClientCostLedger } from "../services/clientCostLedger";
 import { getClientBudgetBand } from "../services/aiBudget";
@@ -1491,7 +1492,17 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ ok: true, result: { provider: outcome.provider, message: plan } });
     } catch (err: any) {
-      await storage.updateFulfillmentTask(id, { automation_status: "failed" } as any).catch(() => {});
+      // Wave 107 — was silent .catch(() => {}); if marking-as-failed
+      // itself fails the task is left stuck in whatever pre-failure
+      // automation_status it had. noisyCatch keeps the error path
+      // visible without changing control flow.
+      await noisyCatch(
+        storage.updateFulfillmentTask(id, { automation_status: "failed" } as any),
+        {
+          op: "adminCrm.updateFulfillmentTask.markFailed",
+          meta: { taskId: id, originalError: err?.message },
+        },
+      );
       log.error("[admin-crm] fulfillment process error:", err.message);
       res.status(500).json({ error: "Failed to process fulfillment task" });
     }
