@@ -11,6 +11,8 @@ import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { shouldInjectTools, ADMIN_TOOLS } from "../services/adminTools";
 import { adminAgentTools } from "../services/adminAgentTools";
+import { selectModelWithEscalation } from "../services/aiBudgetRouter";
+import { looksLikeResolutionTask } from "../services/escalationSignals";
 import { storePendingAction, getCopilotAction, getCopilotActionsForSurface } from "../services/copilotActionRegistry";
 import { executorFromCopilotAction } from "../services/aiAgentLoop";
 import { createLogger } from "../lib/logger";
@@ -458,6 +460,47 @@ export function registerChatRoutes(app: Express): void {
         if (shouldInjectTools(parsed.assistantReq.pageContext)) {
           parsed.assistantReq.tools = [...ADMIN_TOOLS, ...adminAgentTools];
           parsed.assistantReq.model = "claude-sonnet-4-6";
+
+          /* Wave AI-1 — autonomous "sharp-mind" escalation. When the admin
+           * copilot is acting on a tool-capable page AND the latest user turn
+           * reads like an error-resolution / troubleshooting task, OFFER an
+           * escalation to Opus. selectModelWithEscalation enforces the
+           * per-client budget band AND the global $50/mo Opus ceiling, so this
+           * can only upgrade the model when every money guard passes — it never
+           * forces Opus spend. On any failure it returns Sonnet, leaving the
+           * line above intact (fail-open). The admin copilot's spend is
+           * attributed to the operator user, not a paying client, so clientId
+           * is the page's clientId when present, else 0 (default band).
+           *
+           * TODO(AI-1): wire the same signal into the other model-invoking
+           * copilot surfaces (portal copilot, inbound email/SMS concierge,
+           * voice-followup concierge) where a troubleshooting intent is
+           * detectable. This wave wires the single most obvious spot — the
+           * admin copilot tool path — and leaves the rest deliberately on
+           * their existing Haiku/Sonnet routing to avoid broad rewiring.
+           */
+          if (looksLikeResolutionTask(parsed.assistantReq.messages)) {
+            try {
+              const escClientId =
+                typeof parsed.assistantReq.pageContext?.clientId === "number"
+                  ? parsed.assistantReq.pageContext.clientId
+                  : 0;
+              const sel = await selectModelWithEscalation({
+                clientId: escClientId,
+                taskComplexity: "expert",
+                surface: "admin",
+                escalationSignal: "resolution",
+              });
+              if (sel.escalated) {
+                parsed.assistantReq.model = sel.model;
+              }
+            } catch (err: any) {
+              // Fail-open: keep the Sonnet model set above.
+              log.warn("[chat] escalation selection failed — staying on Sonnet", {
+                error: err?.message,
+              });
+            }
+          }
         }
       }
 
