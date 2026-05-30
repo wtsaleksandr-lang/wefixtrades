@@ -106,6 +106,14 @@ export interface AgentLoopDeps {
     warn: (msg: string, meta?: any) => void;
     error: (msg: string, meta?: any) => void;
   };
+  /**
+   * Optional text-only degraded fallback (provider-resilience). When provided
+   * AND `input.allowTextOnlyFallback` is set, a FIRST-STEP model failure
+   * produces a plain-text reply via this fn (TOOLS DROPPED) instead of
+   * hard-erroring. Returns the reply text; may itself throw if every backup
+   * provider is also down.
+   */
+  textFallback?: (args: { system: string; messages: ChatMessage[]; surface: string }) => Promise<string>;
 }
 
 export interface AgentLoopInput {
@@ -123,6 +131,14 @@ export interface AgentLoopInput {
   modelOverride?: string;
   maxTokensPerStep?: number;
   onStep?: (step: AgentLoopStep) => void;
+  /**
+   * Opt in to a text-only degraded reply when the FIRST model call fails (a
+   * provider outage that would otherwise hard-error). Only safe for
+   * interactive, non-tool-critical surfaces (admin/portal copilot) — tools are
+   * dropped in degraded mode, so NEVER enable it where a tool MUST run (the
+   * customer widget, the concierge triage loop).
+   */
+  allowTextOnlyFallback?: boolean;
 }
 
 /* ─── Pure helpers ─── */
@@ -268,6 +284,38 @@ export async function runAgentLoopCore(
         loopRunId,
         stepIndex,
       });
+      // SAFE degraded fallback — provider resilience. Only at the FIRST step
+      // (stepIndex 0 ⇒ the conversation holds no Anthropic tool_use/tool_result
+      // blocks yet, so it ports cleanly) and only when the caller opted in.
+      // Produces a TEXT-ONLY reply via the multi-provider chain; tools are
+      // dropped, so a different provider can never mis-execute an action. If
+      // the whole chain is also down, fall through to the normal error return.
+      if (stepIndex === 0 && input.allowTextOnlyFallback && deps.textFallback) {
+        try {
+          const fbText = await deps.textFallback({
+            system: input.systemPrompt,
+            messages: input.conversationHistory,
+            surface: input.surface,
+          });
+          if (fbText && fbText.trim()) {
+            log?.warn("agent loop degraded to text-only fallback provider", { surface: input.surface });
+            const fbStep: AgentLoopStep = {
+              index: stepIndex,
+              type: "text",
+              payload: { text: fbText, stop_reason: "degraded_text_fallback" },
+            };
+            steps.push(fbStep);
+            input.onStep?.(fbStep);
+            return { status: "text", reply: fbText, steps, loopRunId, totalCostCents };
+          }
+        } catch (fbErr: any) {
+          log?.error("agent loop text-only fallback also failed", {
+            surface: input.surface,
+            error: fbErr?.message,
+          });
+        }
+      }
+
       steps.push({ index: stepIndex, type: "stop", payload: { reason: "anthropic_error", error: err?.message } });
       return {
         status: "error",

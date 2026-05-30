@@ -33,6 +33,7 @@ import { aiGateAllowed, recordAiSpend } from "./aiSystemGate";
 import { logUsage } from "./usageTracker";
 import { estimateCostMicroCents } from "./aiPricing";
 import { getCopilotAction, type ActionSurface, type PendingAction } from "./copilotActionRegistry";
+import { runTextFallbackChain } from "./llmFallbackChain";
 import { runAgentLoopCore, type AgentLoopDeps, type AgentLoopInput, type AgentLoopResult, type ToolExecutor, type AgentLoopStep } from "./aiAgentLoopCore";
 import type { ChatSurface } from "./promptBuilder";
 import { createLogger } from "../lib/logger";
@@ -97,6 +98,19 @@ function bindDeps(): AgentLoopDeps {
     recordCircuitSuccess: recordSuccess,
     recordCircuitFailure: recordFailure,
     log,
+    // Text-only degraded fallback (provider resilience). Only invoked when the
+    // input opts in (admin/portal copilot) AND the first model call fails. The
+    // chain logs its own usage with the real provider under the loop's surface.
+    textFallback: async ({ system, messages, surface }) => {
+      const result = await runTextFallbackChain({
+        system,
+        messages,
+        maxTokens: 800,
+        surface,
+        channel: "agent_loop_degraded",
+      });
+      return result.text;
+    },
   };
 }
 

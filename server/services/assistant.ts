@@ -358,6 +358,10 @@ export interface AssistantAgentLoopOptions {
   onStep?: (step: AgentLoopStep) => void;
   maxSteps?: number;
   costCapCents?: number;
+  /** Opt in to a text-only degraded reply if the first model call fails (a
+   *  provider outage). Safe only for interactive copilots — tools are dropped
+   *  in degraded mode. See AgentLoopInput.allowTextOnlyFallback. */
+  allowTextOnlyFallback?: boolean;
 }
 
 export async function assistantAgentLoop(
@@ -380,6 +384,7 @@ export async function assistantAgentLoop(
     onStep: opts.onStep,
     maxSteps: opts.maxSteps,
     costCapCents: opts.costCapCents,
+    allowTextOnlyFallback: opts.allowTextOnlyFallback,
   });
 
   // Persist memory + archive when the loop produced a final text. Pending /
