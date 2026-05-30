@@ -338,7 +338,7 @@ export default function PortalTradelineKnowledgePage() {
                     placeholder="Write what you want the AI to know — pricing, service area, hours, special offers, etc."
                   />
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <label className="block text-sm">
                     <span className="text-gray-700 font-medium">Kind</span>
                     <select

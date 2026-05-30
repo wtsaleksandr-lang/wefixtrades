@@ -749,7 +749,7 @@ export default function PortalServiceDetail() {
                 {tlData.usage && (
                   <div className="bg-card rounded-xl border border-border p-5">
                     <h2 className="text-sm font-semibold text-foreground mb-3">This Month</h2>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <p className="text-xs text-muted-foreground">Calls</p>
                         <p className="text-lg font-semibold text-foreground">{tlData.usage.calls_count}</p>
