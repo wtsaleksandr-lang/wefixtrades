@@ -388,6 +388,7 @@ export default function PortalLayout({
               storageKey="portal-topnav-ai-copilot"
               title="Meet your AI Copilot"
               position="bottom"
+              align="end"
               anchor={
                 <button
                   type="button"

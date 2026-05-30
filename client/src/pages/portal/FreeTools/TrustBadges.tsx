@@ -90,7 +90,7 @@ export default function TrustBadges() {
   useEffect(() => {
     if (!data) return;
     const map: Record<string, Badge> = {};
-    for (const b of data.badges) map[b.slug] = b;
+    for (const b of data.badges ?? []) map[b.slug] = b;
     setSelected(map);
   }, [data]);
 
