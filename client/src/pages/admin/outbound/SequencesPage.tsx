@@ -457,7 +457,7 @@ function GenerateWithAiDialog({ open, onClose }: { open: boolean; onClose: () =>
           <FieldRow label="Sender persona" tooltip="Who the email is from.">
             <Input value={form.senderPersona} onChange={(e) => setForm((f) => ({ ...f, senderPersona: e.target.value }))} placeholder="Aleksandr from WeFixTrades, AI tools for trades" />
           </FieldRow>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldRow label="Tone" tooltip="Voice of the emails.">
               <Select value={form.tone} onValueChange={(v) => setForm((f) => ({ ...f, tone: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

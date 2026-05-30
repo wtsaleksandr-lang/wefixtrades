@@ -110,7 +110,7 @@ export default function DeploymentHealthPage() {
 
         {/* Summary strip */}
         {!isLoading && !isError && data && (
-          <div className="grid auto-rows-fr grid-cols-3 gap-3">
+          <div className="grid auto-rows-fr grid-cols-1 sm:grid-cols-3 gap-3">
             <SummaryCard
               label="Routes"
               value={data.total}

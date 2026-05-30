@@ -1546,7 +1546,7 @@ export default function ClientDetailPage() {
                 <label className="text-xs font-medium text-muted-foreground">Business Name *</label>
                 <Input value={editForm.business_name} onChange={(e) => setEditForm({ ...editForm, business_name: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Contact Name</label>
                   <Input value={editForm.contact_name} onChange={(e) => setEditForm({ ...editForm, contact_name: e.target.value })} />
@@ -1560,7 +1560,7 @@ export default function ClientDetailPage() {
                 <label className="text-xs font-medium text-muted-foreground">Email</label>
                 <Input value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Trade</label>
                   <Input value={editForm.trade_type} onChange={(e) => setEditForm({ ...editForm, trade_type: e.target.value })} placeholder="e.g. plumber" />
@@ -2775,7 +2775,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               </div>
 
               {/* Setup Stage + Assistant Status */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Setup Stage</p>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
@@ -2961,7 +2961,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
           {/* Editing mode */}
           {cfg && editingConfig && (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Variant</label>
                   <Select value={configDraft.variant} onValueChange={(v) => setConfigDraft({ ...configDraft, variant: v })}>
@@ -3017,7 +3017,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Website Embed Mode</label>
                   <Select
@@ -3044,7 +3044,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               </div>
 
               {/* Voice & Personality */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Voice Preset</label>
                   <Select
@@ -3079,7 +3079,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Language</label>
                   <Select
