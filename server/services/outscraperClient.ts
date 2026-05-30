@@ -170,6 +170,18 @@ export async function searchGoogleMaps(opts: SearchOptions): Promise<SearchResul
   url.searchParams.set("language", language);
   url.searchParams.set("async", "true");
 
+  // Email acquisition (CASL implied-consent path): opt-in website-crawl email
+  // enrichment. Outscraper's "Emails & Contacts" (domains_service) visits each
+  // business's own website and extracts the published contact email — the
+  // emails we're allowed to cold-contact under CASL's B2B exemption. Base Maps
+  // results rarely include an email, so without this the funnel starves.
+  // Costs ~$3 per 1,000 extra, so it's OFF by default — flip
+  // OUTBOUND_EMAIL_ENRICHMENT=true once the spend is approved.
+  if (process.env.OUTBOUND_EMAIL_ENRICHMENT === "true") {
+    url.searchParams.append("enrichment", "domains_service");
+    log.info("[outscraper] email enrichment ON (domains_service)");
+  }
+
   log.info(`[outscraper] search: q="${opts.query}" region=${region} limit=${limit}`);
 
   const res = await fetch(url.toString(), {
