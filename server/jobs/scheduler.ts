@@ -42,6 +42,7 @@ import { cleanupOldMedia } from "../services/socialSync/mediaService";
 import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 import { processReviewRequests } from "../services/reputation/reviewRequestService";
 import { processAutoActivation } from "./autoActivationWorker";
+import { pollInboundImap, imapPollingEnabled } from "../services/inboundEmailImapPoller";
 import { processRecurringTasks } from "./recurringTaskWorker";
 import { processUpsellEmails } from "./upsellWorker";
 import { processWebcareMaintenance } from "./webcareMaintenanceWorker";
@@ -158,7 +159,12 @@ export async function runJob(jobName: string, fn: () => Promise<any>) {
       title: `Worker "${jobName}" failed after ${MAX_RETRIES} retries`,
       details: err.message,
       metadata: { job_name: jobName, job_log_id: logId },
-    }).catch(() => {});
+    }).catch((alertErr: any) => {
+      // A failed worker_failed alert must not itself vanish — log it loudly so
+      // a broken alerting path is visible rather than silently swallowing the
+      // very signal that a worker died.
+      log.error("fireAlert failed for worker_failed alert", { jobName, error: alertErr?.message });
+    });
 
     throw err;
   }
@@ -304,6 +310,26 @@ export function initScheduler() {
       log.error("chat_memory_cleanup cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
+
+  // IONOS IMAP inbound-email poller — pulls UNSEEN mail from support@/sales@
+  // into the support-ticket + AI-concierge pipeline. Every 2 minutes, but inert
+  // unless INBOUND_IMAP_ENABLED=true (so it costs nothing until provisioned).
+  // Overlap-guarded so a slow IMAP round-trip can't stack ticks.
+  let imapPollRunning = false;
+  cron.schedule("*/2 * * * *", async () => {
+    if (!imapPollingEnabled() || imapPollRunning) return;
+    imapPollRunning = true;
+    try {
+      await runJob("inbound_imap_poll", async () => {
+        const r = await pollInboundImap();
+        return { status: "ok", ...r };
+      });
+    } catch (err: any) {
+      log.error("inbound_imap_poll cron handler error", { error: err.message });
+    } finally {
+      imapPollRunning = false;
+    }
+  });
 
   // Citation Tracker (Wave 3) — daily NAP drift / new-listing / removal scan
   // across every active citation_tracker_subscriptions row. 03:00 UTC.

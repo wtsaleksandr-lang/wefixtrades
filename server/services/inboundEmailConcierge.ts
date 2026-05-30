@@ -92,6 +92,37 @@ function buildUserMessage(subject: string, thread: ThreadTurn[]): string {
   return lines.join("\n");
 }
 
+/**
+ * Deterministic pre-AI guard: does this look like automated / bulk / no-reply
+ * mail that the concierge must NEVER draft a reply to? High-precision on
+ * purpose — only patterns that are almost never a real human support request.
+ * Catches the obvious cases before any AI call (saves cost + removes the risk
+ * of the model "replying" to a mailer-daemon or a newsletter). Genuine spam
+ * that slips past this still gets caught by the model's "ignore" triage.
+ */
+const AUTOMATED_LOCALPARTS = [
+  "noreply", "no-reply", "no_reply", "donotreply", "do-not-reply", "do_not_reply",
+  "mailer-daemon", "mailerdaemon", "postmaster", "bounce", "bounces",
+  "notification", "notifications", "notify", "alert", "alerts", "automated",
+  "auto-confirm", "mailer", "newsletter", "news", "updates", "noreply-",
+];
+const AUTOMATED_SUBJECT_PATTERNS: RegExp[] = [
+  /^\s*(out of office|automatic reply|auto[- ]?reply)\b/i,
+  /\b(delivery status notification|undeliverable|mail delivery failed|returned mail)\b/i,
+  /\bunsubscribe\b/i,
+];
+
+export function looksAutomatedSender(senderEmail: string | null, subject: string): boolean {
+  if (senderEmail) {
+    const addr = senderEmail.toLowerCase();
+    const local = addr.split("@")[0] || "";
+    if (AUTOMATED_LOCALPARTS.some((p) => local === p || local.startsWith(p))) return true;
+    // Catch "...+noreply@" or "bounce+123@" style VERP/automated addresses.
+    if (/(^|[.+_-])(noreply|no-reply|bounce|mailer-daemon|postmaster)([.+_-]|$)/.test(local)) return true;
+  }
+  return AUTOMATED_SUBJECT_PATTERNS.some((re) => re.test(subject || ""));
+}
+
 /** Parse the model's triage JSON, tolerating code fences / stray prose. */
 function parseTriage(raw: string): TriageResult | null {
   let text = raw.trim();
@@ -548,6 +579,24 @@ export async function processInboundEmail(ticketId: number, isNewTicket: boolean
     if (!conciergeActive) {
       // AI off — make sure a new inbound ticket still reaches the founder.
       if (isNewTicket) await alertFounderPlain(ticket, senderEmail);
+      return;
+    }
+
+    // Deterministic guard: never draft/reply to automated, bulk, or no-reply
+    // mail (mailer-daemon, newsletters, delivery-status, auto-replies). File a
+    // note and stop BEFORE any AI call — no reply, no founder ping (it's noise).
+    if (looksAutomatedSender(senderEmail, ticket.subject)) {
+      log.info(`[concierge] ticket #${ticketId} — automated/bulk sender, no reply`, { senderEmail });
+      await noisyCatch(
+        storage.createTicketMessage({
+          ticket_id: ticketId,
+          author_type: "system",
+          visibility: "internal",
+          content: `AI triage: skipped — sender looks automated/bulk (${senderEmail ?? "unknown"}); no reply sent.`,
+          metadata: { ai_generated: true, channel: "email", triage: "automated_skip" },
+        }),
+        { op: "inboundEmail.automatedSkipNote", meta: { ticketId } },
+      );
       return;
     }
 

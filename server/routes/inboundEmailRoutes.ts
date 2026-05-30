@@ -20,13 +20,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import multer from "multer";
 import crypto from "crypto";
-import { db } from "../db";
-import { sql } from "drizzle-orm";
-import { clients, ticketMessages } from "@shared/schema";
-import { storage } from "../storage";
-import { getOrCreateInternalClientId } from "../services/inboundClassifier";
-import { processInboundEmail } from "../services/inboundEmailConcierge";
 import { createLogger } from "../lib/logger";
+import { ingestInboundEmail } from "../services/inboundEmailIngest";
 
 const log = createLogger("InboundEmail");
 
@@ -54,14 +49,6 @@ function extractEmail(raw: string): string | null {
 function extractMessageId(headers: string): string | null {
   const m = (headers || "").match(/^message-id:\s*(.+)$/im);
   return m ? m[1].trim() : null;
-}
-
-/** Parse a "#<id>" ticket reference from a subject line. */
-function extractTicketRef(subject: string): number | null {
-  const m = (subject || "").match(/#(\d{1,9})\b/);
-  if (!m) return null;
-  const id = parseInt(m[1], 10);
-  return Number.isInteger(id) && id > 0 ? id : null;
 }
 
 /** Reply markers — text at/after the earliest one is the quoted original. */
@@ -151,126 +138,13 @@ export function registerInboundEmailRoutes(app: Express): void {
           || "(no readable text in this email)";
         const messageId = extractMessageId(body.headers || "");
 
-        // Dedup — SendGrid can re-POST. If this Message-ID is already in,
-        // acknowledge and stop.
-        if (messageId) {
-          const [dupe] = await db
-            .select({ id: ticketMessages.id })
-            .from(ticketMessages)
-            .where(sql`${ticketMessages.metadata}->>'email_message_id' = ${messageId}`)
-            .limit(1);
-          if (dupe) {
-            log.info(`[inbound-email] duplicate Message-ID ${messageId} — skipped`);
-            return res.status(200).json({ ok: true, duplicate: true });
-          }
+        // Shared ingestion: dedup → identity match → threading → ticket →
+        // AI concierge handoff. Same path the IONOS IMAP poller uses.
+        const result = await ingestInboundEmail({ senderEmail, subject, content, messageId });
+        if (result.duplicate) {
+          return res.status(200).json({ ok: true, duplicate: true });
         }
-
-        // Identity — match the sender to a client (unverified; for ownership).
-        let matchedClientId: number | null = null;
-        let matchedUserId: number | null = null;
-        if (senderEmail) {
-          const [client] = await db
-            .select({ id: clients.id, user_id: clients.user_id })
-            .from(clients)
-            .where(sql`lower(${clients.contact_email}) = ${senderEmail}`)
-            .limit(1);
-          if (client) {
-            matchedClientId = client.id;
-            matchedUserId = client.user_id ?? null;
-          }
-        }
-
-        const msgMeta = {
-          inbound: true,
-          channel: "email",
-          from_email: senderEmail,
-          email_message_id: messageId,
-          unverified_sender: matchedClientId === null,
-        };
-
-        // Threading — a "#<id>" in the subject, but only honored when the
-        // sender is matched AND owns that ticket. An unverified sender can
-        // never append into an existing ticket (no cross-client linking).
-        const ref = extractTicketRef(subject);
-        let ticketId: number | null = null;
-        let isNewTicket = false;
-
-        if (ref && matchedClientId !== null) {
-          const existing = await storage.getSupportTicketById(ref);
-          if (existing && existing.client_id === matchedClientId) {
-            ticketId = existing.id;
-            await storage.createTicketMessage({
-              ticket_id: ticketId,
-              author_id: matchedUserId,
-              author_type: "customer",
-              visibility: "customer",
-              content,
-              metadata: msgMeta,
-            });
-            if (existing.status === "resolved" || existing.status === "closed") {
-              await storage.updateSupportTicket(ticketId, { status: "open" });
-              await storage.createTicketEvent({
-                ticket_id: ticketId,
-                actor_id: matchedUserId,
-                actor_type: "human",
-                action: "reopened",
-                old_value: existing.status,
-                new_value: "open",
-                summary: "Reopened by an inbound email reply",
-              });
-            } else {
-              await storage.createTicketEvent({
-                ticket_id: ticketId,
-                actor_id: matchedUserId,
-                actor_type: "human",
-                action: "reply_added",
-                summary: "Inbound email reply",
-              });
-            }
-            log.info(`[inbound-email] appended reply to ticket #${ticketId}`);
-          }
-        }
-
-        // No usable ref (or it wasn't the sender's ticket) → new ticket.
-        if (ticketId === null) {
-          const clientId = matchedClientId ?? (await getOrCreateInternalClientId());
-          const ticket = await storage.createSupportTicket({
-            client_id: clientId,
-            subject: matchedClientId === null ? `[Unverified sender] ${subject}` : subject,
-            description: content,
-            category: "general",
-            priority: "normal",
-            status: "open",
-            source: "inbound_email",
-          } as any);
-          ticketId = ticket.id;
-          isNewTicket = true;
-
-          await storage.createTicketMessage({
-            ticket_id: ticketId,
-            author_id: matchedUserId,
-            author_type: "customer",
-            visibility: "customer",
-            content,
-            metadata: msgMeta,
-          });
-          await storage.createTicketEvent({
-            ticket_id: ticketId,
-            actor_id: matchedUserId,
-            actor_type: "human",
-            action: "created",
-            new_value: "open",
-            summary: `Ticket opened from inbound email (${senderEmail ?? "unknown sender"})`,
-          });
-          log.info(`[inbound-email] opened ticket #${ticketId} from ${senderEmail ?? "unknown"}`);
-        }
-
-        // Phase 3e-ii-b — hand the ingested email to the AI concierge: it
-        // triages (reply / ignore / escalate) and, when the concierge is off,
-        // falls back to the plain new-ticket founder alert. Fire-and-forget.
-        if (ticketId) void processInboundEmail(ticketId, isNewTicket);
-
-        return res.status(200).json({ ok: true, ticket_id: ticketId });
+        return res.status(200).json({ ok: true, ticket_id: result.ticketId });
       } catch (err: any) {
         log.error("[inbound-email] processing error:", err?.message);
         // 500 → SendGrid retries; a transient DB hiccup gets another chance.
