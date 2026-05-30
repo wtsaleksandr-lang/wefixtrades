@@ -6,6 +6,7 @@ import { users, clients } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { sendTicketReplyEmail, sendTicketResolvedEmail } from "../lib/supportTicketEmails";
+import { sendAiDraft, discardAiDraft } from "../services/inboundEmailConcierge";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("AdminSupport");
@@ -276,6 +277,40 @@ export function registerAdminSupportRoutes(app: Express): void {
     } catch (err) {
       log.error("[admin-support] Add message error:", { error: String(err) });
       res.status(500).json({ error: "Failed to add message" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/support/tickets/:id/ai-draft/send
+   * Approve + send the pending AI-drafted reply to the original sender.
+   */
+  app.post("/api/admin/crm/support/tickets/:id/ai-draft/send", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const ticketId = parseInt(req.params.id as string);
+      if (isNaN(ticketId)) return res.status(400).json({ error: "Invalid ticket id" });
+      const result = await sendAiDraft(ticketId, req.user!.id);
+      if (!result.ok) return res.status(409).json({ error: result.reason || "Could not send draft" });
+      res.json({ ok: true });
+    } catch (err) {
+      log.error("[admin-support] send AI draft error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to send AI draft" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/support/tickets/:id/ai-draft/discard
+   * Discard the pending AI-drafted reply without sending.
+   */
+  app.post("/api/admin/crm/support/tickets/:id/ai-draft/discard", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const ticketId = parseInt(req.params.id as string);
+      if (isNaN(ticketId)) return res.status(400).json({ error: "Invalid ticket id" });
+      const result = await discardAiDraft(ticketId, req.user!.id);
+      if (!result.ok) return res.status(409).json({ error: result.reason || "Could not discard draft" });
+      res.json({ ok: true });
+    } catch (err) {
+      log.error("[admin-support] discard AI draft error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to discard AI draft" });
     }
   });
 
