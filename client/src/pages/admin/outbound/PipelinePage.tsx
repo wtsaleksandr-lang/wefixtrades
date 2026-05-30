@@ -255,7 +255,7 @@ export default function PipelinePage() {
           </div>
         ) : (
           /* Kanban board */
-          <div className="grid grid-cols-5 gap-3 min-h-[500px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 min-h-[500px]">
             {STAGES.map((stage) => {
               const rows = stages[stage.key] ?? [];
               return (

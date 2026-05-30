@@ -475,7 +475,7 @@ export default function ProspectsPage() {
         </div>
 
         {/* Stats strip */}
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
             { label: "New", value: overview?.new, color: "text-foreground" },
             { label: "Enriched", value: overview?.enriched, color: "text-blue-600" },

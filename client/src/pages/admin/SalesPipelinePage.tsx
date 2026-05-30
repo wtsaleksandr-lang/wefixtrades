@@ -180,7 +180,7 @@ export default function SalesPipelinePage() {
                 <label className="text-xs font-medium text-muted-foreground">Business Name *</label>
                 <Input value={addForm.business_name} onChange={e => setAddForm({ ...addForm, business_name: e.target.value })} placeholder="e.g. Denver Pro Plumbing" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Contact Name</label>
                   <Input value={addForm.contact_name} onChange={e => setAddForm({ ...addForm, contact_name: e.target.value })} />
@@ -193,7 +193,7 @@ export default function SalesPipelinePage() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Phone</label>
                   <Input value={addForm.phone} onChange={e => setAddForm({ ...addForm, phone: e.target.value })} />

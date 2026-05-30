@@ -374,7 +374,7 @@ export default function SocialSyncOpsPage() {
             {/* Integration cluster */}
             <Card className="p-4 h-full">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Active API Links</h2>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <ApiLinkStat icon={<Facebook className="h-4 w-4 text-blue-600" />} label="Facebook" value={metrics.fb_connected} filterKey="fb_connected" activeFilter={filter} onClick={applyFilter} />
                 <ApiLinkStat icon={<Instagram className="h-4 w-4 text-pink-600" />} label="Instagram" value={metrics.ig_connected} filterKey="ig_connected" activeFilter={filter} onClick={applyFilter} />
                 <ApiLinkStat icon={<Globe className="h-4 w-4 text-green-600" />} label="Google" value={metrics.gbp_connected || 0} filterKey="gbp_connected" activeFilter={filter} onClick={applyFilter} />
@@ -384,7 +384,7 @@ export default function SocialSyncOpsPage() {
             {/* Business cluster — far right */}
             <Card className="p-4 h-full">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Business</h2>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <BizStat label="Revenue/mo" value={profitData ? `$${profitData.totals.revenue}` : "—"} tone="emerald" />
                 <BizStat label="Cost/mo" value={profitData ? `$${profitData.totals.cost}` : "—"} />
                 <BizStat

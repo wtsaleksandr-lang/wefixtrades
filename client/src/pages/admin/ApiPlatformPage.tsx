@@ -473,7 +473,7 @@ export default function ApiPlatformPage() {
                 />
               </div>
               <Select value={userTierFilter} onValueChange={setUserTierFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Tier" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Tier" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All tiers</SelectItem>
                   {knownTierIds.map((id) => (
@@ -482,7 +482,7 @@ export default function ApiPlatformPage() {
                 </SelectContent>
               </Select>
               <Select value={userStatusFilter} onValueChange={setUserStatusFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
@@ -578,7 +578,7 @@ export default function ApiPlatformPage() {
           <TabsContent value="keys" className="mt-4 space-y-4">
             <div className="flex flex-col md:flex-row gap-3 md:items-center">
               <Select value={keyStatusFilter} onValueChange={setKeyStatusFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
@@ -587,7 +587,7 @@ export default function ApiPlatformPage() {
                 </SelectContent>
               </Select>
               <Select value={keyTierFilter} onValueChange={setKeyTierFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Tier" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Tier" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All tiers</SelectItem>
                   {knownTierIds.map((id) => (

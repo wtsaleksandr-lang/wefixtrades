@@ -714,7 +714,7 @@ export default function ProductDetailPage() {
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <Field label="Price (cents)">
                       <Input
                         type="number"
@@ -818,7 +818,7 @@ export default function ProductDetailPage() {
                   data-testid="input-stripe-product"
                 />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="stripe_price_id (default / monthly)">
                   <Input
                     value={form.stripe_price_id}
@@ -850,7 +850,7 @@ export default function ProductDetailPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Automation enabled by default">
                   <label className="inline-flex items-center gap-2 h-9 text-xs text-foreground">
                     <input
@@ -883,7 +883,7 @@ export default function ProductDetailPage() {
                 </Field>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Cron schedule (UTC, 5-field)">
                   <Input
                     value={form.automation_config.cron_schedule ?? ""}

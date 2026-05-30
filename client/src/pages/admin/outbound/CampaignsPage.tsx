@@ -103,7 +103,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
             <label className="text-xs font-medium text-muted-foreground">Campaign Name *</label>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Q2 Plumbers — Miami" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground">Platform</label>
               <Select value={form.platform} onValueChange={(v) => setForm({ ...form, platform: v })}>
@@ -128,7 +128,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
               <Input value={form.external_campaign_id} onChange={(e) => setForm({ ...form, external_campaign_id: e.target.value })} placeholder="From Instantly/Smartlead" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground">Target Trade</label>
               <Input value={form.target_trade} onChange={(e) => setForm({ ...form, target_trade: e.target.value })} placeholder="plumber, electrician..." />
