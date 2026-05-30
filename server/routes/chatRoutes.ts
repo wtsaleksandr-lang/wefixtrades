@@ -242,6 +242,10 @@ async function writeAgentLoopStream(res: Response, req: AssistantRequest): Promi
     const result = await assistantAgentLoop(req, {
       toolExecutors,
       actionSurface,
+      // Interactive copilot — if the first model call fails (provider outage),
+      // serve a text-only reply via the backup chain instead of erroring. Tools
+      // are dropped in that degraded mode, so no action can be mis-executed.
+      allowTextOnlyFallback: true,
       onStep: (step) => {
         // Stream each step to the client. The browser uses these to render
         // "AI is reading state... AI is preparing reply..." in real time.
