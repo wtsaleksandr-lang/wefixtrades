@@ -115,10 +115,10 @@ export default function SystemAlertsPage() {
   return (
     <AdminLayout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <Shield className="w-5 h-5" />
+              <Shield className="w-5 h-5 shrink-0" />
               System Alerts
               {unackedCount > 0 && (
                 <Badge variant="destructive" className="ml-1">{unackedCount}</Badge>
@@ -128,9 +128,9 @@ export default function SystemAlertsPage() {
               {alerts.length} alert{alerts.length !== 1 ? "s" : ""} shown
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={severityFilter} onValueChange={setSeverityFilter}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[120px]">
                 <SelectValue placeholder="Severity" />
               </SelectTrigger>
               <SelectContent>
@@ -141,7 +141,7 @@ export default function SystemAlertsPage() {
               </SelectContent>
             </Select>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[150px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -186,10 +186,10 @@ export default function SystemAlertsPage() {
         ) : (
           <div className="space-y-2">
             {alerts.map((alert) => (
-              <Card key={alert.id} className={`p-4 ${alert.acknowledged ? "opacity-60" : ""}`}>
-                <div className="flex items-start justify-between gap-3">
+              <Card key={alert.id} className={`p-3 sm:p-4 ${alert.acknowledged ? "opacity-60" : ""}`}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
                       <SeverityBadge severity={alert.severity} />
                       <Badge variant="outline" className="text-xs">{alert.category}</Badge>
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -207,21 +207,26 @@ export default function SystemAlertsPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                     {/* Wave 12D — opens the AI Copilot panel pre-loaded
                         with this alert's context. The Copilot diagnoses
                         and surfaces a whitelisted "Run fix" CTA when one
                         applies. Available even on acknowledged alerts so
-                        the operator can investigate after the fact. */}
+                        the operator can investigate after the fact.
+                        Mobile: actions sit on their own full-width row
+                        below the body and split it evenly (flex-1); the
+                        AI label shortens to "Investigate" so it fits one
+                        line. */}
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => investigateWithAI(alert)}
                       data-testid={`button-investigate-alert-${alert.id}`}
-                      className="gap-1"
+                      className="gap-1 flex-1 sm:flex-none whitespace-nowrap"
                     >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Investigate with AI
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                      <span className="sm:hidden">Investigate</span>
+                      <span className="hidden sm:inline">Investigate with AI</span>
                     </Button>
                     {!alert.acknowledged && (
                       <Button
@@ -229,6 +234,7 @@ export default function SystemAlertsPage() {
                         variant="outline"
                         onClick={() => acknowledge.mutate(alert.id)}
                         disabled={acknowledge.isPending}
+                        className="flex-1 sm:flex-none whitespace-nowrap"
                       >
                         Acknowledge
                       </Button>
