@@ -184,6 +184,14 @@ const PRODUCTS_ITEMS: NavItem[] = [
    * "parent path = most useful entry point" convention. */
   { label: "SiteLaunch", href: "/admin/products/sitelaunch", icon: Rocket, productId: "sitelaunch" },
   { label: "WebFix", href: "/admin/products/webfix", icon: Hammer, productId: "webfix" },
+  /* 2026-05-30: Citation Builder + Full Audit Master were defined in
+   * @shared/pricing ALL_PRODUCTS but never added to this nav list, so they
+   * were invisible in the admin dashboard (not even behind Advanced). Like
+   * SiteLaunch/WebFix they have no dedicated CRM ops surface yet — point at
+   * the catalog editor. They surface under "Products · inactive" until a tier
+   * is activated. */
+  { label: "Citation Builder", href: "/admin/products/citationbuilder", icon: ClipboardList, productId: "citationbuilder" },
+  { label: "Full Audit Master", href: "/admin/products/full_audit_master", icon: FileText, productId: "full_audit_master" },
 ];
 
 /* Cross-product admin tooling — not a customer product itself.
