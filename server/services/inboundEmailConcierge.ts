@@ -292,9 +292,49 @@ async function triageAndAct(
       await escalate(ticket, "The AI wanted to reply but no sender address was found.");
       return;
     }
+
+    const replySubject = buildReplySubject(ticket.subject, ticket.id);
+
+    // DRAFT-FOR-REVIEW: store the proposed reply for the founder's approval and
+    // notify them — do NOT email the customer yet. The founder sends it from
+    // the ticket page (POST .../ai-draft/send) or discards it.
+    if (draftModeEnabled()) {
+      await storage.createTicketMessage({
+        ticket_id: ticket.id,
+        author_id: null,
+        author_type: "system",
+        visibility: "internal",
+        content: body,
+        metadata: {
+          ai_generated: true,
+          channel: "email",
+          draft: true,
+          draft_status: "pending",
+          proposed_to: senderEmail,
+          proposed_subject: replySubject,
+        },
+      });
+      await storage.createTicketEvent({
+        ticket_id: ticket.id,
+        actor_id: null,
+        actor_type: "system",
+        action: "ai_draft_created",
+        summary: "AI concierge drafted a reply — awaiting your review",
+      });
+      await notifyFounder({
+        type: "inbound_email_draft",
+        title: `Draft reply ready: "${ticket.subject}"`,
+        summary: `The AI drafted a reply to ${senderEmail} on ticket #${ticket.id}. Review and send it from the ticket.\n\n--- proposed reply ---\n${body.slice(0, 800)}`,
+        entityType: "support_ticket",
+        entityId: ticket.id,
+      });
+      log.info(`[concierge] drafted reply for ticket #${ticket.id} (awaiting review)`);
+      return;
+    }
+
     await sendSupportEmail({
       to: senderEmail,
-      subject: buildReplySubject(ticket.subject, ticket.id),
+      subject: replySubject,
       body,
     });
     await storage.createTicketMessage({
@@ -353,6 +393,103 @@ function agentLoopEnabled(): boolean {
   if (raw === "true") return true;
   if (raw === "false") return false;
   return process.env.NODE_ENV !== "production";
+}
+
+/**
+ * Draft-for-review mode (default ON, safe). When on, the concierge WRITES the
+ * reply but stores it as a pending draft for the founder to approve + send,
+ * instead of auto-emailing the customer. Flip INBOUND_EMAIL_DRAFT_MODE=false to
+ * let it auto-send to clear-cut support questions. While on, the multi-step
+ * agent loop is bypassed so every reply flows through the single, interceptable
+ * draft path.
+ */
+export function draftModeEnabled(): boolean {
+  return process.env.INBOUND_EMAIL_DRAFT_MODE !== "false";
+}
+
+export interface DraftActionResult {
+  ok: boolean;
+  reason?: string;
+}
+
+/** Find the latest pending AI draft on a ticket (not yet sent or discarded). */
+async function findPendingDraft(ticketId: number) {
+  const messages = await storage.listTicketMessages(ticketId, "all");
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const meta = messages[i].metadata as any;
+    if (meta?.draft === true && meta?.draft_status === "pending") {
+      // Already actioned if a later message references this draft id.
+      const actioned = messages.some(
+        (m) => (m.metadata as any)?.from_draft_message_id === messages[i].id,
+      );
+      if (actioned) return { draft: null, actioned: true } as const;
+      return { draft: messages[i], actioned: false } as const;
+    }
+  }
+  return { draft: null, actioned: false } as const;
+}
+
+/**
+ * Approve + send a pending AI-drafted reply to the ORIGINAL sender (the draft's
+ * stored proposed_to, which for an unverified inbound sender is the real email
+ * address — not a client contact record). Double-send guarded. Called by the
+ * admin ticket UI / the admin copilot.
+ */
+export async function sendAiDraft(ticketId: number, byUserId?: number): Promise<DraftActionResult> {
+  const { draft, actioned } = await findPendingDraft(ticketId);
+  if (actioned) return { ok: false, reason: "draft already sent or discarded" };
+  if (!draft) return { ok: false, reason: "no pending draft on this ticket" };
+  const meta = draft.metadata as any;
+  const to = meta?.proposed_to as string | undefined;
+  const subject = (meta?.proposed_subject as string | undefined) || "your support request";
+  if (!to) return { ok: false, reason: "draft has no recipient address" };
+
+  await sendSupportEmail({ to, subject, body: draft.content });
+  await storage.createTicketMessage({
+    ticket_id: ticketId,
+    author_id: byUserId ?? null,
+    author_type: "admin",
+    visibility: "customer",
+    content: draft.content,
+    metadata: { ai_generated: true, channel: "email", from_draft_message_id: draft.id },
+  });
+  await storage.createTicketEvent({
+    ticket_id: ticketId,
+    actor_id: byUserId ?? null,
+    actor_type: "human",
+    action: "reply_added",
+    summary: "Approved + sent the AI-drafted reply",
+  });
+  const ticket = await storage.getSupportTicketById(ticketId);
+  if (ticket?.status === "open") {
+    await storage.updateSupportTicket(ticketId, { status: "waiting_on_customer" });
+  }
+  log.info(`[concierge] AI draft approved + sent for ticket #${ticketId}`);
+  return { ok: true };
+}
+
+/** Discard a pending AI draft (records an internal note; nothing is sent). */
+export async function discardAiDraft(ticketId: number, byUserId?: number): Promise<DraftActionResult> {
+  const { draft, actioned } = await findPendingDraft(ticketId);
+  if (actioned) return { ok: false, reason: "draft already sent or discarded" };
+  if (!draft) return { ok: false, reason: "no pending draft on this ticket" };
+  await storage.createTicketMessage({
+    ticket_id: ticketId,
+    author_id: byUserId ?? null,
+    author_type: "system",
+    visibility: "internal",
+    content: "AI draft discarded by reviewer — no reply sent.",
+    metadata: { ai_generated: false, channel: "email", from_draft_message_id: draft.id, draft_discarded: true },
+  });
+  await storage.createTicketEvent({
+    ticket_id: ticketId,
+    actor_id: byUserId ?? null,
+    actor_type: "human",
+    action: "note_added",
+    summary: "Discarded the AI-drafted reply",
+  });
+  log.info(`[concierge] AI draft discarded for ticket #${ticketId}`);
+  return { ok: true };
 }
 
 /** Build the system prompt for the multi-step loop. Mirrors the
@@ -620,7 +757,9 @@ export async function processInboundEmail(ticketId: number, isNewTicket: boolean
     // started, so a tripped gate or unsubscribed sender never reaches the
     // model. AX-1 is also re-checked inside the loop between steps; this
     // pre-check just fails fast.
-    const useAgentLoop = agentLoopEnabled();
+    // Draft-mode forces the single-call path so every reply funnels through the
+    // one interceptable draft point (the loop's reply tool would auto-send).
+    const useAgentLoop = agentLoopEnabled() && !draftModeEnabled();
     if (useAgentLoop) {
       const gate = await aiGateAllowed("portal").catch(() => ({ allowed: false, reason: "gate read failed" }));
       if (!gate.allowed) {

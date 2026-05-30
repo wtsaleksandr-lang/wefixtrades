@@ -34,6 +34,7 @@ interface TicketMessage {
   visibility: string;
   content: string;
   created_at: string | null;
+  metadata?: Record<string, any> | null;
 }
 
 interface AdminUser {
@@ -168,6 +169,29 @@ export default function SupportTicketDetailPage() {
     },
   });
 
+  // AI-draft approve / discard mutations (draft-for-review mode).
+  const draftAction = useMutation({
+    mutationFn: async (action: "send" | "discard") => {
+      const res = await fetch(`/api/admin/crm/support/tickets/${ticketId}/ai-draft/${action}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Action failed");
+      }
+      return res.json();
+    },
+    onSuccess: (_d, action) => {
+      toast({ title: action === "send" ? "AI draft sent" : "AI draft discarded" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/support/tickets", ticketId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/support/tickets"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Draft action failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [data?.messages]);
@@ -266,10 +290,21 @@ export default function SupportTicketDetailPage() {
                     const isCustomer = m.author_type === "customer";
                     const isAdmin = m.author_type === "admin";
                     const isSystem = m.author_type === "system";
+                    const isPendingDraft =
+                      m.metadata?.draft === true &&
+                      m.metadata?.draft_status === "pending" &&
+                      !messages.some((x) => x.metadata?.from_draft_message_id === m.id);
                     return (
-                      <div key={m.id} className={`${isInternal ? "border-l-2 border-amber-300 pl-3" : ""}`}>
+                      <div key={m.id} className={`${isInternal ? "border-l-2 border-amber-300 pl-3" : ""} ${isPendingDraft ? "border-l-2 border-primary pl-3" : ""}`}>
+                        {isPendingDraft && (
+                          <p className="text-[11px] font-semibold text-primary mb-1">
+                            AI-drafted reply to {String(m.metadata?.proposed_to ?? "the sender")} — review before sending
+                          </p>
+                        )}
                         <div className={`rounded-lg px-3.5 py-2.5 text-sm whitespace-pre-wrap ${
-                          isInternal
+                          isPendingDraft
+                            ? "bg-primary/5 text-foreground border border-primary/30"
+                            : isInternal
                             ? "bg-amber-50 text-amber-900"
                             : isCustomer
                             ? "bg-blue-50 text-blue-900"
@@ -283,12 +318,30 @@ export default function SupportTicketDetailPage() {
                           <p className="text-[10px] text-muted-foreground/70">
                             {isCustomer ? "Customer" : isAdmin ? (m.author_name || "Admin") : "System"} &middot; {formatTime(m.created_at)}
                           </p>
-                          {isInternal && (
+                          {isInternal && !isPendingDraft && (
                             <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 font-medium">
-                              <EyeOff className="w-2.5 h-2.5" /> Internal
+                              <EyeOff className="w-3 h-3" /> Internal
                             </span>
                           )}
                         </div>
+                        {isPendingDraft && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <button
+                              onClick={() => draftAction.mutate("send")}
+                              disabled={draftAction.isPending}
+                              className="px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+                            >
+                              Approve &amp; send
+                            </button>
+                            <button
+                              onClick={() => draftAction.mutate("discard")}
+                              disabled={draftAction.isPending}
+                              className="px-3 py-1.5 text-xs font-medium rounded-md border border-border text-muted-foreground disabled:opacity-50"
+                            >
+                              Discard
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
