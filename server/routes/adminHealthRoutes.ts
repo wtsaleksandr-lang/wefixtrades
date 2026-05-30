@@ -20,6 +20,7 @@ import {
   allProductIds,
   runProductProbe,
   runToolsProbe,
+  runAiProvidersProbe,
   reduceStatus,
   type ProductHealth,
   type ToolHealth,
@@ -84,6 +85,27 @@ async function safeToolsProbe(): Promise<ToolHealth> {
   }
 }
 
+/** Wrap the AI-providers probe the same way. */
+async function safeAiProvidersProbe(): Promise<ToolHealth> {
+  try {
+    return await runAiProvidersProbe();
+  } catch (err) {
+    return {
+      toolId: "ai_providers",
+      status: "down",
+      checks: [
+        {
+          name: "probe_error",
+          ok: false,
+          detail: err instanceof Error ? err.message : String(err),
+          critical: true,
+        },
+      ],
+      lastCheckedAt: new Date().toISOString(),
+    };
+  }
+}
+
 /** Worst status across every product + tool. */
 function overallStatus(products: ProductHealth[], tools: ToolHealth[]): ProductStatus {
   // Reuse reduceStatus by mapping each product/tool status into a synthetic
@@ -99,14 +121,16 @@ function overallStatus(products: ProductHealth[], tools: ToolHealth[]): ProductS
 
 async function buildAggregate(): Promise<HealthAggregate> {
   const ids = allProductIds();
-  const [products, tools] = await Promise.all([
+  const [products, freeTools, aiProviders] = await Promise.all([
     Promise.all(ids.map((id) => safeProductProbe(id))),
     safeToolsProbe(),
+    safeAiProvidersProbe(),
   ]);
+  const tools = [freeTools, aiProviders];
   return {
-    overall: overallStatus(products, [tools]),
+    overall: overallStatus(products, tools),
     products,
-    tools: [tools],
+    tools,
     generatedAt: new Date().toISOString(),
   };
 }

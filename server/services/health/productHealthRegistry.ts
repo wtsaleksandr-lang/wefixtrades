@@ -25,6 +25,8 @@
 import Stripe from "stripe";
 import { ALL_PRODUCTS } from "@shared/pricing";
 import { isTwilioConfigured, getTwilioClient } from "../../twilioClient";
+import { readyFallbackProviders } from "../llmFallbackChain";
+import { getPrimaryCircuitState } from "../aiService";
 
 /* ─── Types ─── */
 
@@ -281,6 +283,62 @@ export async function runProductProbe(productId: string): Promise<ProductHealth>
 /** All product IDs, in ALL_PRODUCTS order. */
 export function allProductIds(): string[] {
   return ALL_PRODUCTS.map((p) => p.id);
+}
+
+/**
+ * AI-providers probe — business-continuity visibility for the LLM stack.
+ *
+ * Zero-cost (presence + in-memory circuit state only; never calls a provider).
+ * Surfaces three things Alex needs to trust the "never rely on one LLM" design:
+ *   - anthropic_primary  : the primary LLM key is present (critical if missing).
+ *   - fallback_providers : how many backup providers are configured. ZERO
+ *                          backups = degraded (a single-provider SPOF), even
+ *                          though the primary still works.
+ *   - anthropic_circuit  : when OPEN, the primary is failing and live traffic
+ *                          is failing over to the backup chain right now.
+ */
+export async function runAiProvidersProbe(): Promise<ToolHealth> {
+  const checks: ProductCheck[] = [];
+
+  const anthropicPresent = !!process.env.ANTHROPIC_API_KEY?.trim();
+  checks.push(
+    presenceCheck("anthropic_primary", anthropicPresent, {
+      presentDetail: "Anthropic (primary LLM) key present",
+      missingDetail: "ANTHROPIC_API_KEY not set — primary LLM unavailable",
+      critical: true,
+    }),
+  );
+
+  const backups = readyFallbackProviders();
+  checks.push({
+    name: "fallback_providers",
+    ok: backups.length > 0,
+    detail:
+      backups.length > 0
+        ? `${backups.length} backup provider(s) configured: ${backups.join(", ")}`
+        : "NO backup LLM providers configured — single point of failure",
+    critical: false,
+  });
+
+  const circuit = getPrimaryCircuitState();
+  checks.push({
+    name: "anthropic_circuit",
+    ok: circuit === "closed",
+    detail:
+      circuit === "closed"
+        ? "primary circuit closed (healthy)"
+        : circuit === "half_open"
+          ? "primary circuit half-open (probing recovery)"
+          : "primary circuit OPEN — failing over to backup providers",
+    critical: false,
+  });
+
+  return {
+    toolId: "ai_providers",
+    status: reduceStatus(checks),
+    checks,
+    lastCheckedAt: new Date().toISOString(),
+  };
 }
 
 /**
