@@ -85,6 +85,20 @@ async function pollAccount(acct: ImapAccount): Promise<number> {
     secure: true,
     auth: { user: acct.user, pass: acct.pass },
     logger: false,
+    // Generous timeouts: the host environment (Replit autoscale) can be slow to
+    // open a raw TLS connection to an external IMAP host. Defaults are tighter,
+    // which surfaced as TLSSocket._socketTimeout errors.
+    connectionTimeout: 25_000,
+    greetingTimeout: 16_000,
+    socketTimeout: 60_000,
+  });
+
+  // imapflow emits async socket errors (e.g. a TLS timeout) AFTER connect()
+  // settles; without a listener those become unhandled rejections that flood
+  // error tracking. Swallow them at warn level — the per-tick try/catch already
+  // handles the functional failure and retries next tick.
+  client.on("error", (err: any) => {
+    log.warn("imap client socket error", { account: acct.label, error: err?.message?.slice(0, 160) });
   });
 
   let ingested = 0;
@@ -149,7 +163,9 @@ export async function pollInboundImap(): Promise<{ accounts: number; ingested: n
     try {
       ingested += await pollAccount(acct);
     } catch (err: any) {
-      log.error("imap account poll failed", { account: acct.label, error: err?.message?.slice(0, 300) });
+      // warn (not error) so a persistently-unreachable IMAP host doesn't flood
+      // error tracking every 2 minutes — the failure is transient/retried.
+      log.warn("imap account poll failed", { account: acct.label, error: err?.message?.slice(0, 300) });
     }
   }
   if (ingested > 0) log.info("imap poll complete", { accounts: accounts.length, ingested });
