@@ -142,7 +142,14 @@ async function checkDoppler(): Promise<ProbeOutcome> {
   }
   // Config name is non-sensitive — opaque label like "prd" / "stg".
   const config = process.env.DOPPLER_CONFIG ?? "dev";
-  return { ok: true, status: "ok", config };
+  // Diagnostics (non-sensitive): the config the RUNNING DOPPLER_TOKEN is scoped
+  // to (parsed from the `dp.st.<config>.<id>` service-token format — the token
+  // VALUE is never read out), and whether a prd-only secret actually landed in
+  // the process. Together these say definitively whether prod booted on prd.
+  const tokenMatch = (process.env.DOPPLER_TOKEN ?? "").match(/^dp\.st\.([^.]+)\./);
+  const token_config = tokenMatch ? tokenMatch[1] : "unknown";
+  const imap_enabled = process.env.INBOUND_IMAP_ENABLED === "true";
+  return { ok: true, status: "ok", config, token_config, imap_enabled };
 }
 
 async function checkStripe(): Promise<ProbeOutcome> {
