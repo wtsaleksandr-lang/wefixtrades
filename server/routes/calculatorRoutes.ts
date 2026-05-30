@@ -688,17 +688,24 @@ export function registerCalculatorRoutes(app: Express): void {
     try {
       const { event, data } = req.body || {};
       if (!event || typeof event !== 'string') return res.json({ ok: true });
-      // Store activation events using a calculator_id=0 sentinel for non-calculator events
       const calcId = typeof data?.calculator_id === 'number' ? data.calculator_id : 0;
-      // Wave 108 — noisyCatch so activation-event drift is logged.
-      noisyCatch(storage.trackEvent({
-        calculator_id: calcId,
-        event_type: event,
-        metadata: { ...data, ts: Date.now() },
-      }), {
-        op: "calculator.trackEvent.activation",
-        meta: { calculatorId: calcId, eventType: event },
-      });
+      // analytics_events.calculator_id is a NOT NULL FK to calculators(id), so a
+      // non-calculator "activation" event (calcId 0, no such calculator) fails
+      // the FK on every insert — which was spamming error tracking ~68×/day
+      // while never actually storing anything. Only persist real per-calculator
+      // events; ack the rest without the doomed insert. (If non-calculator
+      // activation analytics are wanted later, that needs a nullable column +
+      // a deliberate store, not a sentinel id.)
+      if (calcId > 0) {
+        noisyCatch(storage.trackEvent({
+          calculator_id: calcId,
+          event_type: event,
+          metadata: { ...data, ts: Date.now() },
+        }), {
+          op: "calculator.trackEvent",
+          meta: { calculatorId: calcId, eventType: event },
+        });
+      }
       res.json({ ok: true });
     } catch {
       res.json({ ok: true });
