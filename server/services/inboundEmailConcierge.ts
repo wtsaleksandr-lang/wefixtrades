@@ -23,6 +23,7 @@
  */
 
 import { streamChat, getModel } from "./aiService";
+import { runTextFallbackChain, readyFallbackProviders } from "./llmFallbackChain";
 import { getAiChannelSettings } from "./aiChannelSettings";
 import { aiChannelGateOn } from "./aiChannelGate";
 import { aiGateAllowed } from "./aiSystemGate";
@@ -183,15 +184,9 @@ async function triageAndAct(
   senderEmail: string | null,
 ): Promise<void> {
   const startMs = Date.now();
-  const stream = streamChat({
-    system: buildSystemPrompt(),
-    messages: [{ role: "user", content: buildUserMessage(ticket.subject, thread) }],
-    maxTokens: 1500,
-  });
-  const msg = await stream.finalMessage();
-  const rawText = msg.content.map((b: any) => (b.type === "text" ? b.text : "")).join("");
 
   // Cost attribution — the matched client's portal user, when there is one.
+  // Resolved BEFORE the model call so it can attribute the fallback path too.
   let userId: number | undefined;
   try {
     const [c] = await db
@@ -202,17 +197,53 @@ async function triageAndAct(
     userId = c?.user_id ?? undefined;
   } catch { /* attribution is best-effort */ }
 
-  logUsage({
-    model: getModel(),
-    surface: "portal",
-    channel: "email",
-    provider: "anthropic",
-    userId,
-    inputTokens: msg.usage?.input_tokens,
-    outputTokens: msg.usage?.output_tokens,
-    latencyMs: Date.now() - startMs,
-    success: true,
-  });
+  const aiInput = {
+    system: buildSystemPrompt(),
+    messages: [{ role: "user" as const, content: buildUserMessage(ticket.subject, thread) }],
+    maxTokens: 1500,
+  };
+
+  // Primary: Anthropic streaming. On ANY failure (5xx, circuit open, timeout)
+  // cascade through the multi-provider fallback chain so a provider outage
+  // never silently drops a customer auto-reply. If the WHOLE chain also fails,
+  // the throw propagates to processInboundEmail's catch → escalate to founder
+  // (the email is never lost). The chain logs its own usage with the real
+  // provider; the manual anthropic success log fires only on the primary path.
+  let rawText: string;
+  try {
+    const stream = streamChat(aiInput);
+    const msg = await stream.finalMessage();
+    rawText = msg.content.map((b: any) => (b.type === "text" ? b.text : "")).join("");
+    logUsage({
+      model: getModel(),
+      surface: "portal",
+      channel: "email",
+      provider: "anthropic",
+      userId,
+      inputTokens: msg.usage?.input_tokens,
+      outputTokens: msg.usage?.output_tokens,
+      latencyMs: Date.now() - startMs,
+      success: true,
+    });
+  } catch (primaryErr: any) {
+    log.warn("concierge primary (anthropic) failed — engaging fallback chain", {
+      ticketId: ticket.id,
+      providers: readyFallbackProviders(),
+      error: primaryErr?.message?.slice(0, 300),
+    });
+    const result = await runTextFallbackChain({
+      ...aiInput,
+      surface: "portal",
+      channel: "email",
+      userId,
+    });
+    rawText = result.text;
+    log.info("concierge served by fallback provider", {
+      ticketId: ticket.id,
+      provider: result.provider,
+      model: result.model,
+    });
+  }
 
   const triage = parseTriage(rawText);
   if (!triage) {
