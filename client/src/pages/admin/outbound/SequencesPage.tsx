@@ -409,10 +409,110 @@ function FieldRow({ label, tooltip, children }: { label: string; tooltip: string
 }
 
 /* ─── Main Page ─── */
+/* ─── Generate-with-AI Dialog (multi-agent copy engine preview) ─── */
+function GenerateWithAiDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    icp: "",
+    painPoint: "",
+    offer: "",
+    senderPersona: "",
+    tone: "direct",
+    stepCount: 4,
+  });
+  const [result, setResult] = useState<any | null>(null);
+
+  const gen = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/outbound/sequences/generate", {
+        icp: form.icp,
+        painPoint: form.painPoint,
+        offer: form.offer,
+        senderPersona: form.senderPersona,
+        tone: form.tone,
+        stepCount: form.stepCount,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => setResult(data),
+    onError: (err: any) => toast({ title: "Generation failed", description: err.message, variant: "destructive" }),
+  });
+
+  const canGen = !!(form.icp.trim() && form.painPoint.trim() && form.offer.trim() && form.senderPersona.trim());
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto" data-theme="light">
+        <DialogHeader><DialogTitle>Generate a sequence with AI</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <FieldRow label="Ideal customer (ICP)" tooltip="Who this targets.">
+            <Input value={form.icp} onChange={(e) => setForm((f) => ({ ...f, icp: e.target.value }))} placeholder="owner-operator plumbers, 1-15 employees, US/Canada" />
+          </FieldRow>
+          <FieldRow label="Primary pain point" tooltip="The problem the offer solves.">
+            <Input value={form.painPoint} onChange={(e) => setForm((f) => ({ ...f, painPoint: e.target.value }))} placeholder="missing calls = lost jobs; no time to chase reviews" />
+          </FieldRow>
+          <FieldRow label="Offer" tooltip="What you're selling — concrete.">
+            <Input value={form.offer} onChange={(e) => setForm((f) => ({ ...f, offer: e.target.value }))} placeholder="free local-SEO audit + 14-day MapGuard trial" />
+          </FieldRow>
+          <FieldRow label="Sender persona" tooltip="Who the email is from.">
+            <Input value={form.senderPersona} onChange={(e) => setForm((f) => ({ ...f, senderPersona: e.target.value }))} placeholder="Aleksandr from WeFixTrades, AI tools for trades" />
+          </FieldRow>
+          <div className="grid grid-cols-2 gap-3">
+            <FieldRow label="Tone" tooltip="Voice of the emails.">
+              <Select value={form.tone} onValueChange={(v) => setForm((f) => ({ ...f, tone: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="direct">Direct</SelectItem>
+                  <SelectItem value="warm">Warm</SelectItem>
+                  <SelectItem value="playful">Playful</SelectItem>
+                  <SelectItem value="technical">Technical</SelectItem>
+                </SelectContent>
+              </Select>
+            </FieldRow>
+            <FieldRow label="Steps" tooltip="Emails in the sequence (intro + follow-ups + breakup).">
+              <Select value={String(form.stepCount)} onValueChange={(v) => setForm((f) => ({ ...f, stepCount: parseInt(v) }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[3, 4, 5, 6].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </FieldRow>
+          </div>
+          <Button onClick={() => gen.mutate()} disabled={!canGen || gen.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
+            {gen.isPending ? "Generating…" : "Generate"}
+          </Button>
+
+          {result && (
+            <div className="mt-2 space-y-3 border-t border-border pt-3">
+              <p className="text-xs text-muted-foreground">
+                {result.qaReport?.warnings?.length ? `${result.qaReport.warnings.length} QA warning(s)` : "QA: clean"}
+                {result.models?.drafter ? ` · drafted by ${result.models.drafter}` : ""}
+              </p>
+              {(result.steps ?? []).map((s: any) => (
+                <div key={s.stepNumber} className="rounded-md border border-border p-3">
+                  <p className="text-[11px] font-semibold text-primary">Step {s.stepNumber} · day {s.delayDays}</p>
+                  <p className="text-sm font-medium mt-1">{s.subjectVariants?.[0] ?? "(no subject)"}</p>
+                  <p className="text-sm whitespace-pre-wrap text-muted-foreground mt-1">{s.body}</p>
+                </div>
+              ))}
+              <p className="text-[11px] text-muted-foreground">Review the drafts, then create a sequence and paste in the steps you want. (One-click save of generated steps is a follow-up.)</p>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function SequencesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [genOpen, setGenOpen] = useState(false);
   const [editing, setEditing] = useState<Sequence | null>(null);
   // Wave 39 — replaces window.confirm for sequence deletion.
   const [pendingDelete, setPendingDelete] = useState<Sequence | null>(null);
@@ -468,10 +568,16 @@ export default function SequencesPage() {
             <h2 className="text-lg font-semibold text-foreground">Outreach Sequences</h2>
             <p className="text-sm text-muted-foreground">Multi-step cold-email templates with optional AI personalization.</p>
           </div>
-          <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5" onClick={() => setCreateOpen(true)}>
-            <Plus className="w-3.5 h-3.5" />
-            New sequence
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setGenOpen(true)}>
+              <Sparkles className="w-3.5 h-3.5" />
+              Generate with AI
+            </Button>
+            <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-3.5 h-3.5" />
+              New sequence
+            </Button>
+          </div>
         </div>
 
         <div className="bg-card rounded-lg border border-border overflow-hidden">
@@ -553,6 +659,7 @@ export default function SequencesPage() {
       </div>
 
       <CreateSequenceDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+      <GenerateWithAiDialog open={genOpen} onClose={() => setGenOpen(false)} />
       <EditSequenceDialog sequence={editing} open={!!editing} onClose={() => setEditing(null)} />
 
       {/* Wave 39 — confirm sequence deletion (replaces window.confirm). */}
