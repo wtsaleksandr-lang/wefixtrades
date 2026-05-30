@@ -89,6 +89,12 @@ export function getModel(): string {
   return process.env.CLAUDE_MODEL || DEFAULT_MODEL;
 }
 
+/** Current state of the Anthropic primary-path circuit breaker. Read-only —
+ *  used by the AI-provider health probe to surface "failover active". */
+export function getPrimaryCircuitState(): CircuitState {
+  return cbState;
+}
+
 let _client: Anthropic | null = null;
 
 function getClient(): Anthropic {
