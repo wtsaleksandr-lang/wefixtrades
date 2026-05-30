@@ -190,8 +190,19 @@ fi
 
 case "${MODE}" in
   "${MODE_DOPPLER_CLI}")
-    echo "[start-prod] mode=${MODE} — wrapping with: doppler run -- node ./dist/index.cjs" >&2
-    exec doppler run -- node ./dist/index.cjs
+    # Pin the prd config explicitly. `doppler run` with no --config inherits the
+    # token's config, so a DOPPLER_TOKEN scoped to dev silently loads DEV secrets
+    # in production (the "config: dev" prod mismatch). Probe whether the token
+    # can read wefixtrades/prd; if it can, run pinned to prd. If it can't (token
+    # scoped elsewhere), fall back to the token's default config so the deploy
+    # NEVER breaks — and log a loud hint to swap the token.
+    if doppler secrets --project wefixtrades --config prd --only-names >/dev/null 2>&1; then
+      echo "[start-prod] mode=${MODE} — token can read wefixtrades/prd; wrapping with: doppler run --project wefixtrades --config prd -- node ./dist/index.cjs" >&2
+      exec doppler run --project wefixtrades --config prd -- node ./dist/index.cjs
+    else
+      echo "[start-prod] mode=${MODE} — DOPPLER_TOKEN cannot read wefixtrades/prd (likely a dev-scoped token); falling back to its default config. Swap DOPPLER_TOKEN in Replit to a prd-scoped service token to fix the prod secret mismatch." >&2
+      exec doppler run -- node ./dist/index.cjs
+    fi
     ;;
   "${MODE_DOPPLER_HTTP}")
     echo "[start-prod] mode=${MODE} — DOPPLER_TOKEN set but doppler CLI missing; relying on in-process bootstrap (server/bootstrapDoppler.ts)" >&2
