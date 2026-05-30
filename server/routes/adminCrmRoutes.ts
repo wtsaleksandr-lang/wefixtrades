@@ -1219,6 +1219,65 @@ export function registerAdminCrmRoutes(app: Express): void {
   });
 
   /**
+   * GET /api/admin/crm/sitelaunch/services
+   * List ALL SiteLaunch client services (any status) for the orders/ops page.
+   * SiteLaunch is an outsourced middleman product: we track buyer, sale price,
+   * our supplier cost, and margin (price_cents - cost_cents). It is one-time,
+   * so unlike AdFlow we do NOT filter status=active — every order shows.
+   */
+  app.get("/api/admin/crm/sitelaunch/services", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const { db } = await import("../db");
+      const { clientServices, clients: clientsTable, serviceCatalog } = await import("@shared/schema");
+      const { eq, sql, desc } = await import("drizzle-orm");
+
+      const rows = await db.select({
+        id: clientServices.id,
+        client_id: clientServices.client_id,
+        service_id: clientServices.service_id,
+        status: clientServices.status,
+        price_cents: clientServices.price_cents,
+        cost_cents: clientServices.cost_cents,
+        fulfillment_mode: clientServices.fulfillment_mode,
+        started_at: clientServices.started_at,
+        completed_at: clientServices.completed_at,
+        business_name: clientsTable.business_name,
+        service_name: serviceCatalog.name,
+      })
+        .from(clientServices)
+        .innerJoin(clientsTable, eq(clientServices.client_id, clientsTable.id))
+        .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+        .where(sql`${clientServices.service_id} LIKE 'sitelaunch%'`)
+        .orderBy(desc(clientServices.created_at));
+
+      const mapped = rows.map((row: any) => {
+        const price = row.price_cents ?? 0;
+        const cost = row.cost_cents ?? 0;
+        return {
+          id: row.id,
+          client_id: row.client_id,
+          service_id: row.service_id,
+          status: row.status,
+          business_name: row.business_name || "Unknown",
+          service_name: row.service_name || null,
+          tier: row.service_id.replace("sitelaunch-", "") || "base",
+          price_cents: row.price_cents,
+          cost_cents: row.cost_cents,
+          margin_cents: price - cost,
+          fulfillment_mode: row.fulfillment_mode,
+          started_at: row.started_at,
+          completed_at: row.completed_at,
+        };
+      });
+
+      res.json(mapped);
+    } catch (err: any) {
+      log.error("[sitelaunch/services] Failed to list services:", err.message);
+      res.status(500).json({ error: "Failed to list SiteLaunch orders" });
+    }
+  });
+
+  /**
    * GET /api/admin/crm/adflow/:csId/preview-report
    * Returns the HTML that would be sent as the report email.
    */
