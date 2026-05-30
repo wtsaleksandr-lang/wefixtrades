@@ -11,6 +11,8 @@
 
 # ── Admin: dashboards / lists / read-only / ops monitors ──
 client/src/pages/admin/AdFlowOpsPage.tsx
+# SiteLaunch orders/ops — read-only list (buyer/supplier-cost/margin/status) + Manage link; no fillable form.
+client/src/pages/admin/SiteLaunchOpsPage.tsx
 client/src/pages/admin/AdminAuditLogPage.tsx
 client/src/pages/admin/AdminNoticesPage.tsx
 client/src/pages/admin/AdminChatHistoryPage.tsx

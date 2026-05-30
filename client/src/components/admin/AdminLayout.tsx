@@ -182,7 +182,15 @@ const PRODUCTS_ITEMS: NavItem[] = [
    * Services catalogue editor pages. No dedicated CRM ops surface yet,
    * so the parent row points at the catalog editor per PR #569's
    * "parent path = most useful entry point" convention. */
-  { label: "SiteLaunch", href: "/admin/products/sitelaunch", icon: Rocket, productId: "sitelaunch" },
+  {
+    label: "SiteLaunch",
+    href: "/admin/sitelaunch/ops",
+    icon: Rocket,
+    productId: "sitelaunch",
+    children: [
+      { label: "Settings", href: "/admin/products/sitelaunch", icon: Settings },
+    ],
+  },
   { label: "WebFix", href: "/admin/products/webfix", icon: Hammer, productId: "webfix" },
   /* 2026-05-30: Citation Builder + Full Audit Master were defined in
    * @shared/pricing ALL_PRODUCTS but never added to this nav list, so they

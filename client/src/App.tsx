@@ -165,6 +165,7 @@ const UiPrimitivesDemo = lazy(() => import("@/pages/admin/UiPrimitivesDemo"));
 const ReviewsPage = lazy(() => import("@/pages/admin/ReviewsPage"));
 const RankFlowOpsPage = lazy(() => import("@/pages/admin/RankFlowOpsPage"));
 const AdFlowOpsPage = lazy(() => import("@/pages/admin/AdFlowOpsPage"));
+const SiteLaunchOpsPage = lazy(() => import("@/pages/admin/SiteLaunchOpsPage"));
 const ProfilePage = lazy(() => import("@/pages/admin/ProfilePage"));
 const SettingsPage = lazy(() => import("@/pages/admin/SettingsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/admin/ChangePasswordPage"));
@@ -394,6 +395,7 @@ function Router() {
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/adflow">{() => <RequirePortal><AdFlowOpsPage /></RequirePortal>}</Route>
+      <Route path="/admin/sitelaunch/ops">{() => <RequirePortal><SiteLaunchOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/tradeline-ops">{() => <RequirePortal><TradeLineOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/tradeline-setups">{() => <RequirePortal><TradelineSetupsPage /></RequirePortal>}</Route>
       <Route path="/admin/tradeline/templates">{() => <RequirePortal><TradelineTemplatesPage /></RequirePortal>}</Route>
