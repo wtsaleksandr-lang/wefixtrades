@@ -18,7 +18,7 @@
  */
 
 import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import {
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
+  ChevronLeft, ChevronDown, ChevronUp,
   Plus, Trash2, RotateCcw, Save, Archive, ArchiveRestore,
   Monitor, Smartphone,
 } from "lucide-react";
@@ -213,18 +213,8 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
   return (
     <AdminLayout>
       <div className="space-y-4">
-        {/* Breadcrumb */}
-        <div className="text-xs text-gray-500 flex items-center gap-1 flex-wrap">
-          <Link href="/admin/crm"><a className="hover:underline">Admin</a></Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href="/admin/crm/quotequick"><a className="hover:underline">QuoteQuick</a></Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href="/admin/quotequick/templates"><a className="hover:underline">Templates</a></Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-gray-700">{draft.name || templateId}</span>
-        </div>
-
-        {/* Header */}
+        {/* Header (AdminLayout already renders the breadcrumb bar above —
+            the in-page duplicate was removed). */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex-1 min-w-0">
             <Input
@@ -259,12 +249,15 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
           {/* Editor */}
           <div>
             <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-              <TabsList>
-                <TabsTrigger value="content">Content</TabsTrigger>
-                <TabsTrigger value="fields">Fields ({draft.fields?.length ?? 0})</TabsTrigger>
-                <TabsTrigger value="calculations">Calculations ({draft.calculations?.length ?? 0})</TabsTrigger>
-                <TabsTrigger value="theme">Theme & Layout</TabsTrigger>
-                <TabsTrigger value="meta">Meta</TabsTrigger>
+              {/* Mobile: 5 tabs don't fit 390px, which cropped the leftmost
+                  ("Content") to a single letter. Make the list scroll
+                  horizontally and left-align so every tab is reachable. */}
+              <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+                <TabsTrigger value="content" className="shrink-0">Content</TabsTrigger>
+                <TabsTrigger value="fields" className="shrink-0">Fields ({draft.fields?.length ?? 0})</TabsTrigger>
+                <TabsTrigger value="calculations" className="shrink-0">Calculations ({draft.calculations?.length ?? 0})</TabsTrigger>
+                <TabsTrigger value="theme" className="shrink-0">Theme & Layout</TabsTrigger>
+                <TabsTrigger value="meta" className="shrink-0">Meta</TabsTrigger>
               </TabsList>
 
               <TabsContent value="content" className="mt-4 space-y-4">
@@ -330,12 +323,13 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Save bar */}
-        <Card className="sticky bottom-3 p-3 flex items-center justify-between gap-2 shadow-md bg-white">
-          <div className="text-xs text-gray-500">
+        {/* Save bar — wraps on mobile so the 4 controls never crop the Save
+            button off the right edge; labels shorten under sm. */}
+        <Card className="sticky bottom-3 p-3 flex flex-wrap items-center justify-between gap-2 shadow-md bg-white">
+          <div className="text-xs text-gray-500 whitespace-nowrap">
             {dirty ? "Unsaved changes" : save.isSuccess ? "Saved" : "Up to date"}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -371,8 +365,10 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
                 title="Delete every admin override on this template — restores the code default."
                 data-testid="reset-all"
               >
-                <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                {reset.isPending ? "Resetting…" : "Reset all overrides"}
+                <RotateCcw className="w-3.5 h-3.5 mr-1 shrink-0" />
+                {reset.isPending ? "Resetting…" : (
+                  <span className="whitespace-nowrap">Reset<span className="hidden sm:inline"> all overrides</span></span>
+                )}
               </Button>
             )}
             <Button
@@ -381,8 +377,10 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
               disabled={save.isPending || !dirty}
               data-testid="save-template"
             >
-              <Save className="w-3.5 h-3.5 mr-1" />
-              {save.isPending ? "Saving…" : "Save changes"}
+              <Save className="w-3.5 h-3.5 mr-1 shrink-0" />
+              {save.isPending ? "Saving…" : (
+                <span className="whitespace-nowrap">Save<span className="hidden sm:inline"> changes</span></span>
+              )}
             </Button>
           </div>
         </Card>
@@ -515,10 +513,10 @@ function FieldsTab({
               <button onClick={() => move(i, 1)} className="text-gray-400 hover:text-gray-700 p-0.5" title="Move down">
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
-              <AccordionTrigger className="flex-1 text-sm hover:no-underline py-1">
-                <span className="font-semibold">{f.name}</span>
-                <span className="text-[11px] text-gray-500 ml-2 font-mono">{f.type}</span>
-                <span className="text-[11px] text-gray-400 ml-2 font-mono">[{f.id}]</span>
+              <AccordionTrigger className="flex-1 min-w-0 text-sm hover:no-underline py-1">
+                <span className="font-semibold truncate">{f.name}</span>
+                <span className="text-[11px] text-gray-500 ml-2 font-mono shrink-0">{f.type}</span>
+                <span className="text-[11px] text-gray-400 ml-2 font-mono shrink-0 hidden sm:inline">[{f.id}]</span>
               </AccordionTrigger>
               <button
                 onClick={() => remove(i)}
@@ -759,22 +757,24 @@ function CalculationsTab({
               <button onClick={() => move(i, 1)} className="text-gray-400 hover:text-gray-700 p-0.5">
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
-              <AccordionTrigger className="flex-1 text-sm hover:no-underline py-1">
-                <span className="font-semibold">{c.name}</span>
-                <span className="text-[11px] text-gray-500 ml-2 font-mono">{c.format}</span>
+              <AccordionTrigger className="flex-1 min-w-0 text-sm hover:no-underline py-1">
+                <span className="font-semibold truncate">{c.name}</span>
+                <span className="text-[11px] text-gray-500 ml-2 font-mono shrink-0 hidden sm:inline">{c.format}</span>
                 {c.name === result_calc && (
-                  <Badge variant="outline" className="ml-2 text-[10px] border-brand-blue-300 text-brand-blue-700 bg-brand-blue-50">
+                  <Badge variant="outline" className="ml-2 shrink-0 text-[10px] border-brand-blue-300 text-brand-blue-700 bg-brand-blue-50">
                     headline
                   </Badge>
                 )}
               </AccordionTrigger>
-              <button
-                onClick={() => onChangeResult(c.name)}
-                className="text-[10px] text-brand-blue-600 hover:underline px-1"
-                title="Mark as the headline result"
-              >
-                make headline
-              </button>
+              {c.name !== result_calc && (
+                <button
+                  onClick={() => onChangeResult(c.name)}
+                  className="text-[10px] text-brand-blue-600 hover:underline px-1 shrink-0 whitespace-nowrap"
+                  title="Mark as the headline result"
+                >
+                  make headline
+                </button>
+              )}
               <button
                 onClick={() => remove(i)}
                 className="text-red-500 hover:text-red-700 p-1"
