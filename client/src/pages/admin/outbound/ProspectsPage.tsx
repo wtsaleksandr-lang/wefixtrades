@@ -75,6 +75,9 @@ const STATUS_COLORS: Record<string, string> = {
   campaign_queued: "bg-brand-blue-100 text-brand-blue-700",
   in_outreach: "bg-brand-blue-100 text-brand-blue-700",
   replied: "bg-amber-100 text-amber-700",
+  bounced: "bg-orange-100 text-orange-700",
+  unsubscribed: "bg-red-100 text-red-600",
+  opted_out: "bg-red-100 text-red-600",
   lost: "bg-muted text-muted-foreground",
 };
 
@@ -323,7 +326,7 @@ function ReviewDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState("");
-  const [action, setAction] = useState<"approve" | "reject" | "blacklist" | "dnc">("approve");
+  const [action, setAction] = useState<"approve" | "reject" | "blacklist" | "dnc" | "requeue">("approve");
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -354,11 +357,17 @@ function ReviewDialog({
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="approve">Approve</SelectItem>
+                <SelectItem value="requeue">Re-queue (email again later)</SelectItem>
                 <SelectItem value="reject">Reject</SelectItem>
                 <SelectItem value="blacklist">Blacklist</SelectItem>
                 <SelectItem value="dnc">Do Not Contact</SelectItem>
               </SelectContent>
             </Select>
+            {action === "requeue" && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Clears do-not-contact and returns this prospect to the sendable pool. Avoid for hard bounces (the address is invalid and will bounce again).
+              </p>
+            )}
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
@@ -370,7 +379,7 @@ function ReviewDialog({
           <Button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
-            className={action === "approve" ? "bg-[#0d3cfc] hover:bg-[#0b34d6]" : "bg-red-600 hover:bg-red-700"}
+            className={action === "approve" || action === "requeue" ? "bg-[#0d3cfc] hover:bg-[#0b34d6]" : "bg-red-600 hover:bg-red-700"}
           >
             {mutation.isPending ? "Saving..." : action.charAt(0).toUpperCase() + action.slice(1)}
           </Button>
@@ -500,6 +509,10 @@ export default function ProspectsPage() {
               <SelectItem value="campaign_queued">Campaign Queued</SelectItem>
               <SelectItem value="in_outreach">In Outreach</SelectItem>
               <SelectItem value="replied">Replied</SelectItem>
+              <SelectItem value="bounced">Bounced</SelectItem>
+              <SelectItem value="unsubscribed">Unsubscribed</SelectItem>
+              <SelectItem value="opted_out">Opted Out</SelectItem>
+              <SelectItem value="blacklisted">Blacklisted</SelectItem>
             </SelectContent>
           </Select>
         </div>

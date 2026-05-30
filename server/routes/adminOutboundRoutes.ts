@@ -737,7 +737,10 @@ export function registerAdminOutboundRoutes(app: Express): void {
     const id = parseInt(String(req.params.id));
     const { action, notes } = req.body as { action: string; notes?: string };
 
-    if (!["approve", "reject", "blacklist", "dnc"].includes(action)) {
+    // "requeue" = email them again later: re-activates a bounced/unsubscribed/
+    // rejected prospect by clearing do_not_contact and returning it to the
+    // sendable "approved" pool. The other actions are terminal reviews.
+    if (!["approve", "reject", "blacklist", "dnc", "requeue"].includes(action)) {
       return res.status(400).json({ error: "Invalid action" });
     }
 
@@ -746,14 +749,19 @@ export function registerAdminOutboundRoutes(app: Express): void {
       reject: "rejected",
       blacklist: "blacklisted",
       dnc: "rejected",
+      requeue: "approved",
     };
+
+    const setsDnc = action === "blacklist" || action === "dnc";
 
     try {
       const [updated] = await db.update(prospects)
         .set({
           status: statusMap[action],
-          do_not_contact: action === "blacklist" || action === "dnc",
-          dnc_reason: (action === "blacklist" || action === "dnc") ? (notes || action) : undefined,
+          // requeue explicitly clears the do-not-contact flag; blacklist/dnc set
+          // it; approve/reject leave it untouched.
+          do_not_contact: setsDnc ? true : (action === "requeue" ? false : undefined),
+          dnc_reason: setsDnc ? (notes || action) : (action === "requeue" ? null : undefined),
           reviewed_by: actor.actor_id ?? null,
           reviewed_at: new Date(),
           review_notes: notes || null,
