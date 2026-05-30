@@ -44,6 +44,14 @@ export interface FirstVisitTooltipProps {
   title?: string;
   /** Position relative to wrapped element. Default 'bottom'. */
   position?: "top" | "bottom" | "left" | "right";
+  /**
+   * Horizontal edge to align a top/bottom tooltip to. "start" (default)
+   * extends rightward from the anchor's left edge; "end" extends leftward from
+   * the anchor's right edge. Use "end" for right-aligned anchors (e.g. a
+   * top-nav button) so the 272px bubble — and its close button — never overflow
+   * the viewport's right edge and get clipped off-screen.
+   */
+  align?: "start" | "end";
   /** Anchor element — the tooltip is positioned next to this. */
   anchor: React.ReactNode;
   /** Optional extra classes on the outer wrapper (e.g. block layout fix). */
@@ -55,6 +63,7 @@ export function FirstVisitTooltip({
   children,
   title,
   position = "bottom",
+  align = "start",
   anchor,
   className,
 }: FirstVisitTooltipProps) {
@@ -68,12 +77,18 @@ export function FirstVisitTooltip({
     markVisited(storageKey);
   };
 
+  // Horizontal edge for top/bottom tooltips. "end" pins the bubble to the
+  // anchor's right edge so it extends leftward (stays on-screen for right-side
+  // anchors); "start" pins to the left edge (default).
+  const hEdge = align === "end" ? "right-0" : "left-0";
+  const pointerHEdge = align === "end" ? "right-4" : "left-4";
+
   // Position classes for the tooltip body relative to the anchor.
   const positionClass =
     position === "bottom"
-      ? "top-full mt-2 left-0"
+      ? `top-full mt-2 ${hEdge}`
       : position === "top"
-        ? "bottom-full mb-2 left-0"
+        ? `bottom-full mb-2 ${hEdge}`
         : position === "left"
           ? "right-full mr-2 top-0"
           : "left-full ml-2 top-0";
@@ -82,9 +97,9 @@ export function FirstVisitTooltip({
   // edge facing the anchor.
   const pointerClass =
     position === "bottom"
-      ? "-top-1 left-4"
+      ? `-top-1 ${pointerHEdge}`
       : position === "top"
-        ? "-bottom-1 left-4"
+        ? `-bottom-1 ${pointerHEdge}`
         : position === "left"
           ? "-right-1 top-3"
           : "-left-1 top-3";
