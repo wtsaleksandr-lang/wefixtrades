@@ -73,8 +73,12 @@ export async function estimateCostCentsFromTable(
   return Math.max(0, Math.round(inputCents + outputCents));
 }
 
+/** Pricing tier as stored in ai_model_pricing.tier. "expert" (Wave AI-1) is
+ *  the Opus-4-8 tier reachable only via autonomous escalation. */
+export type PricingTier = "cheap" | "standard" | "premium" | "expert";
+
 /** Pick the cheapest active model in a given tier (deterministic by model name). */
-export async function cheapestModelInTier(tier: "cheap" | "standard" | "premium"): Promise<string | null> {
+export async function cheapestModelInTier(tier: PricingTier): Promise<string | null> {
   const c = await ensureCache();
   if (!c) return null;
   const rows = c.byTier.get(tier) || [];
@@ -90,4 +94,52 @@ export async function cheapestModelInTier(tier: "cheap" | "standard" | "premium"
 /** Force a re-fetch on the next read. Used by admin endpoints when pricing changes. */
 export function invalidatePricingCache(): void {
   cache = null;
+}
+
+/* ─── Wave AI-1: Opus-4-8 expert-tier row guarantee ───
+ *
+ * The canonical seed lives in migration 0074_ai_opus_expert_tier.sql, applied
+ * at boot by bootstrapMigrations(). This helper is a belt-and-suspenders upsert
+ * the pricing module can call so the expert-tier model is present even in a
+ * context where the migration ledger was skipped (e.g. a DB provisioned via
+ * `drizzle-kit push` without the hand-rolled .sql files). It is idempotent —
+ * ON CONFLICT keeps the row authoritative — and FAILS OPEN: any error is
+ * swallowed so a pricing write never blocks boot or a chat call. After a
+ * successful upsert it invalidates the cache so the new row is visible.
+ */
+export const OPUS_EXPERT_MODEL = "claude-opus-4-8";
+
+export async function ensureOpusExpertModel(): Promise<void> {
+  try {
+    await db
+      .insert(aiModelPricing)
+      .values({
+        model: OPUS_EXPERT_MODEL,
+        provider: "anthropic",
+        // USD cents per 1M tokens — input $5.00 / output $25.00. Matches the
+        // "opus" substring rate in aiPricing.ts (5 / 25 USD per 1M).
+        input_per_million_cents: 500,
+        output_per_million_cents: 2500,
+        tier: "expert",
+        active: true,
+      })
+      .onConflictDoUpdate({
+        target: aiModelPricing.model,
+        set: {
+          provider: "anthropic",
+          input_per_million_cents: 500,
+          output_per_million_cents: 2500,
+          tier: "expert",
+          active: true,
+          updated_at: new Date(),
+        },
+      });
+    invalidatePricingCache();
+  } catch (err) {
+    // Fail-open: never block on a pricing-seed failure. The migration is the
+    // primary path; this is only a fallback.
+    log.warn("ensureOpusExpertModel upsert failed — relying on migration seed", {
+      error: String(err),
+    });
+  }
 }
