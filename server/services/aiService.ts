@@ -7,7 +7,7 @@ import { noisyCatch } from "../lib/silentFailureGuard";
 import { db } from "../db";
 import { aiSystemGates } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { getOpenAI } from "../openaiClient";
+import { runTextFallbackChain, readyFallbackProviders } from "./llmFallbackChain";
 
 const log = createLogger("AIService");
 
@@ -17,10 +17,6 @@ const DEFAULT_MAX_TOKENS = 600;
 const TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
-/** Reliability fallback: when Anthropic exhausts retries on chat(), make ONE
- *  attempt against OpenAI gpt-4o-mini before propagating. No retry of the
- *  fallback itself — one shot, then throw. */
-const OPENAI_FALLBACK_MODEL = "gpt-4o-mini";
 
 /* ─── Circuit Breaker ─── */
 const CB_FAILURE_THRESHOLD = 5;
@@ -454,64 +450,33 @@ export async function chat(opts: ChatOptions): Promise<string> {
   }
 
   /* Reliability fallback: Anthropic exhausted (5xx after MAX_RETRIES, or
-   * other non-401/400 errors). Try ONE call to OpenAI gpt-4o-mini before
-   * propagating. No retry of the fallback — one shot, then throw. */
-  log.warn("anthropic-exhausted-fallback-openai", { route: "ai-chat" });
-  const tFallbackStart = Date.now();
+   * other non-401/400 errors). Cascade through the multi-provider fallback
+   * chain (OpenAI → Groq → Together → Mistral → DeepSeek → xAI, whichever
+   * have keys), one shot each, until one answers. Each attempt is logged to
+   * ai_usage_logs with its real provider attribution. Only when EVERY ready
+   * provider fails do we propagate the original Anthropic error. */
+  log.warn("anthropic-exhausted-fallback-chain", {
+    route: "ai-chat",
+    providers: readyFallbackProviders(),
+  });
   try {
-    const openai = getOpenAI();
-    // Map Anthropic ↔ OpenAI: system text → system role; user/assistant turns 1:1.
-    const openaiMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
-    if (opts.system) openaiMessages.push({ role: "system", content: opts.system });
-    for (const m of opts.messages) {
-      openaiMessages.push({ role: m.role, content: m.content });
-    }
-    const completion = await openai.chat.completions.create({
-      model: OPENAI_FALLBACK_MODEL,
-      max_tokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
-      messages: openaiMessages,
+    const result = await runTextFallbackChain({
+      system: opts.system,
+      messages: opts.messages,
+      maxTokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
+      surface: opts.surface,
+      userId: opts.userId,
+      sessionId: opts.sessionId,
+      channel: "chat",
     });
-    const text = completion.choices[0]?.message?.content ?? "";
-
-    if (opts.surface) {
-      const usage = completion.usage;
-      // Wave 92: noisy on usage-log failure for OpenAI fallback success.
-      noisyCatch(
-        logUsage({
-          model: OPENAI_FALLBACK_MODEL,
-          surface: opts.surface as any,
-          provider: "openai",
-          channel: "chat",
-          userId: opts.userId,
-          sessionId: opts.sessionId,
-          inputTokens: usage?.prompt_tokens ?? 0,
-          outputTokens: usage?.completion_tokens ?? 0,
-          latencyMs: Date.now() - tFallbackStart,
-          success: true,
-        }),
-        { op: "ai.logUsage.openai_fallback_success", meta: { surface: opts.surface } },
-      );
-    }
-    return text;
-  } catch (fallbackErr: any) {
-    if (opts.surface) {
-      // Wave 92: noisy on usage-log failure for OpenAI fallback failure.
-      noisyCatch(
-        logUsage({
-          model: OPENAI_FALLBACK_MODEL,
-          surface: opts.surface as any,
-          provider: "openai",
-          channel: "chat",
-          userId: opts.userId,
-          sessionId: opts.sessionId,
-          latencyMs: Date.now() - tFallbackStart,
-          success: false,
-          errorMessage: fallbackErr?.message?.slice(0, 500),
-        }),
-        { op: "ai.logUsage.openai_fallback_failed", meta: { surface: opts.surface } },
-      );
-    }
-    // Both providers exhausted — propagate the ORIGINAL Anthropic error.
-    throw lastError || fallbackErr || new Error("Chat request failed after retries");
+    return result.text;
+  } catch (chainErr: any) {
+    // Every provider exhausted — propagate the ORIGINAL Anthropic error so
+    // callers see the primary-path cause, not the last fallback's message.
+    log.error("all-providers-exhausted", {
+      route: "ai-chat",
+      chainError: chainErr?.message?.slice(0, 300),
+    });
+    throw lastError || chainErr || new Error("Chat request failed after retries across all providers");
   }
 }
