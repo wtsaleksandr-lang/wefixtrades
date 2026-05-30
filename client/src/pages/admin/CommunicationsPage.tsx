@@ -959,16 +959,29 @@ function PhonePanel({
 
         device.on(Device.EventName.Registered, () => {
           if (cancelled) return;
+          // Recovered — clear any stale error banner.
+          setInitError(null);
           setDialerState((s) => (s === "calling" || s === "incoming" ? s : "ready"));
         });
 
         device.on(Device.EventName.Error, (err: any) => {
-          // Surface as toast; don't tear down the device — SDK auto-retries.
-          toast({
-            title: "Voice error",
-            description: err?.message ?? "Unknown Voice SDK error",
-            variant: "destructive",
-          });
+          // The SDK auto-retries transient transport/signaling errors, so a
+          // global destructive toast on every one was alarming and noisy
+          // (it fired on page load before the device finished registering).
+          // Transient codes: 31005/31009 (connection) + 53xxx (signaling).
+          // Swallow those quietly; surface anything else as a calm INLINE
+          // banner in the dialer panel rather than a red toast.
+          const code: number | undefined = err?.code;
+          const transient =
+            code === 31005 ||
+            code === 31009 ||
+            (typeof code === "number" && code >= 53000 && code <= 53999);
+          if (transient) {
+            // eslint-disable-next-line no-console
+            console.warn("[voice] transient device error", code, err?.message);
+            return;
+          }
+          setInitError(err?.message ?? "Voice is unavailable right now.");
         });
 
         device.on(Device.EventName.Incoming, (call: Call) => {
@@ -1132,6 +1145,28 @@ function PhonePanel({
         <p className="text-xs text-muted-foreground mb-4">
           {fromNumber ? <>From {formatPhone(fromNumber)}</> : "From: Twilio number not set"}
         </p>
+
+        {/* Runtime voice error (device was configured but errored, e.g. mic
+            permission denied on mobile). Calm inline notice instead of a red
+            global toast; dismissible, and auto-clears when the device
+            re-registers. */}
+        {initError && !showEmptyState && (
+          <div
+            role="status"
+            className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+            data-testid="twilio-dialer-runtime-error"
+          >
+            <span className="flex-1 min-w-0">{initError} — calling may need microphone access; this works best on desktop.</span>
+            <button
+              type="button"
+              onClick={() => setInitError(null)}
+              className="shrink-0 font-medium underline"
+              aria-label="Dismiss voice error"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {showEmptyState ? (
           <>

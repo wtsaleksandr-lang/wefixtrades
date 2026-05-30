@@ -57,7 +57,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span data-theme="light" className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[status] || "bg-muted/50 text-muted-foreground"}`}>
+    <span data-theme="light" className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[status] || "bg-muted/50 text-muted-foreground"}`}>
       {status}
     </span>
   );
@@ -528,7 +528,7 @@ export default function ClientsPage() {
                 <TableHead className="hidden xl:table-cell">
                   <SortableHeader label="Added" sortKey="created_at" activeKey={sortKey} dir={sortDir} onToggle={toggleSort} />
                 </TableHead>
-                <TableHead className="w-[120px] text-right">Actions</TableHead>
+                <TableHead className="w-auto sm:w-[120px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -585,11 +585,11 @@ export default function ClientsPage() {
                         className="cursor-pointer"
                       />
                     </TableCell>
-                    <TableCell>
-                      <span className="font-medium text-foreground">
+                    <TableCell className="max-w-[150px] sm:max-w-[220px] md:max-w-none">
+                      <span className="block truncate font-medium text-foreground">
                         {client.business_name}
                       </span>
-                      <p className="text-xs text-muted-foreground md:hidden">{client.contact_email}</p>
+                      <p className="truncate text-xs text-muted-foreground md:hidden">{client.contact_email}</p>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <div className="text-sm text-muted-foreground">{client.contact_name || "-"}</div>
@@ -622,8 +622,9 @@ export default function ClientsPage() {
                           className="h-7 px-2 text-xs"
                           onClick={() => setImpersonateTarget(client)}
                           disabled={impersonate.isPending}
+                          title="View as customer"
                         >
-                          <UserCheck className="w-3 h-3 mr-1" /> View as
+                          <UserCheck className="w-3 h-3 sm:mr-1" /> <span className="hidden sm:inline">View as</span>
                         </Button>
                       ) : (
                         <span className="text-[11px] text-muted-foreground" title="No linked portal user">—</span>
