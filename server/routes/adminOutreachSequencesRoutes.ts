@@ -29,8 +29,19 @@ import {
 import { eq, desc, sql, and } from "drizzle-orm";
 import { z } from "zod";
 import { createLogger } from "../lib/logger";
+import { generateSequence } from "../services/copyEngine";
 
 const log = createLogger("AdminOutreachSequences");
+
+/* AI multi-agent sequence-generation inputs (copy engine). */
+const generateSequenceSchema = z.object({
+  icp: z.string().min(3).max(500),
+  painPoint: z.string().min(3).max(500),
+  offer: z.string().min(3).max(500),
+  senderPersona: z.string().min(3).max(300),
+  tone: z.enum(["direct", "warm", "playful", "technical"]).default("direct"),
+  stepCount: z.number().int().min(2).max(8).default(4),
+});
 
 /* ─── Input schemas ─── */
 const createSequenceSchema = z.object({
@@ -66,6 +77,34 @@ const updateStepSchema = stepSchema.partial();
 
 /* ─── Route registration ─── */
 export function registerAdminOutreachSequencesRoutes(app: Express): void {
+  /* ─── AI: generate a multi-step sequence (preview) ───
+   *
+   * Runs the multi-agent copy engine (research → draft → edit → QA) and returns
+   * the generated brief + steps + QA report for the admin to review. Does NOT
+   * persist — the admin creates a sequence from the preview via the normal
+   * create flow (the outreach_sequences columns mirror these inputs). The
+   * engine routes through aiService, so it inherits the multi-provider failover.
+   */
+  app.post("/api/admin/outbound/sequences/generate", requireAdmin, async (req: Request, res: Response) => {
+    const parsed = generateSequenceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+    }
+    try {
+      const result = await generateSequence(parsed.data);
+      res.json({
+        runId: result.runId,
+        brief: result.brief,
+        steps: result.steps,
+        qaReport: result.qaReport,
+        models: result.models,
+      });
+    } catch (err: any) {
+      log.error("[sequences] AI generate error:", err.message);
+      res.status(502).json({ error: "Sequence generation failed", detail: err?.message?.slice(0, 300) });
+    }
+  });
+
   /* ─── List sequences (with step counts) ─── */
   app.get("/api/admin/outbound/sequences", requireAdmin, async (_req: Request, res: Response) => {
     try {
