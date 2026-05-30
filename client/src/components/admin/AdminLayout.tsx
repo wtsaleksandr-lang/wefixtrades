@@ -1395,7 +1395,7 @@ export default function AdminLayout({
             role="note"
           >
             <span className="leading-snug pr-2">
-              <strong>Admin works best on desktop.</strong> Mobile is supported but feature-limited.
+              <strong>Admin is denser on phones.</strong> Most tasks work on mobile — desktop just gives you more room.
             </span>
             <button
               type="button"

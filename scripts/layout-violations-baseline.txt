@@ -66,9 +66,9 @@ client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h
 client/src/pages/admin/BookingCalendarPage.tsx:53:16	rule-c	square w-10 h-10
 client/src/pages/admin/BookingCalendarPage.tsx:138:24	rule-c	square w-10 h-10
 client/src/pages/admin/ClientDetailPage.tsx:767:7	rule-b	<div> contains 2 cues
-client/src/pages/admin/CommunicationsPage.tsx:1123:21	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/CommunicationsPage.tsx:1128:21	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/CommunicationsPage.tsx:1231:23	rule-c	square w-2 h-2
+client/src/pages/admin/CommunicationsPage.tsx:1136:21	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/CommunicationsPage.tsx:1141:21	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/CommunicationsPage.tsx:1266:23	rule-c	square w-2 h-2
 client/src/pages/admin/ContentFlowQueuePage.tsx:1052:33	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/ContentFlowQueuePage.tsx:1058:33	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/ContentFlowQueuePage.tsx:1064:33	rule-c	square w-1.5 h-1.5
