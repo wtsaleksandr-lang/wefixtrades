@@ -29,6 +29,9 @@ import {
   Image as ImageIcon,
   Layout as LayoutIcon,
   Hammer,
+  ShieldCheck,
+  Zap,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
@@ -132,6 +135,12 @@ function buildNavItems(active: Set<string>): NavItem[] {
        "subscribed to every service" — but the sidebar didn't show it. */
     { label: "SiteLaunch", href: "/portal/sitelaunch", icon: LayoutIcon, requires: "sitelaunch" },
     { label: "WebFix", href: "/portal/webfix", icon: Hammer, requires: "webfix" },
+    /* 2026-05-30: WebCare, AdFlow and Citation Builder are active products
+     * with portal dashboards, but had no sidebar entry — a subscribed client
+     * had no way to reach them. Gated by `requires` like every other product. */
+    { label: "WebCare", href: "/portal/webcare/dashboard", icon: ShieldCheck, requires: "webcare" },
+    { label: "AdFlow", href: "/portal/adflow/dashboard", icon: Zap, requires: "adflow" },
+    { label: "Citation Builder", href: "/portal/citation-builder", icon: ClipboardList, requires: "citationbuilder" },
     /* Wave 36 — AI Insights nav entry removed. The Action Stack is now inline
        on /portal and every product dashboard; the standalone page redirects
        there. Discovery is now via the AI Copilot. */
