@@ -34,6 +34,8 @@ interface ToolEntry {
   href: string;
   blurb: string;
   portalGated?: boolean;
+  /** Optional preview thumbnail (widget tools have real screenshots). */
+  thumb?: string;
 }
 
 const LOCAL_SEO_TOOLS: ToolEntry[] = [
@@ -55,13 +57,13 @@ const AI_CONTENT_TOOLS: ToolEntry[] = [
 ];
 
 const WIDGET_TOOLS: ToolEntry[] = [
-  { name: "Schema Generator", href: "/portal/free-tools/schema", blurb: "Auto-generate LocalBusiness JSON-LD for your site.", portalGated: true },
-  { name: "FAQ Widget", href: "/portal/free-tools/faq", blurb: "Drop a branded FAQ block on any page.", portalGated: true },
-  { name: "Hours Widget", href: "/portal/free-tools/hours", blurb: "Always-current hours from your GBP.", portalGated: true },
-  { name: "Trust Badges", href: "/portal/free-tools/trust-badges", blurb: "Embed your accreditations and social proof.", portalGated: true },
-  { name: "Review Link Widget", href: "/portal/free-tools/review-link", blurb: "One-tap Google review link on every page.", portalGated: true },
-  { name: "Callback Form", href: "/portal/free-tools/callback", blurb: "Lightweight callback request form.", portalGated: true },
-  { name: "Service Area Map", href: "/portal/free-tools/service-area-map", blurb: "Show your service radius on an interactive map.", portalGated: true },
+  { name: "Schema Generator", href: "/portal/free-tools/schema", blurb: "Auto-generate LocalBusiness JSON-LD for your site.", portalGated: true, thumb: "/free-tools/previews/schema.png" },
+  { name: "FAQ Widget", href: "/portal/free-tools/faq", blurb: "Drop a branded FAQ block on any page.", portalGated: true, thumb: "/free-tools/previews/faq.png" },
+  { name: "Hours Widget", href: "/portal/free-tools/hours", blurb: "Always-current hours from your GBP.", portalGated: true, thumb: "/free-tools/previews/hours.png" },
+  { name: "Trust Badges", href: "/portal/free-tools/trust-badges", blurb: "Embed your accreditations and social proof.", portalGated: true, thumb: "/free-tools/previews/badges.png" },
+  { name: "Review Link Widget", href: "/portal/free-tools/review-link", blurb: "One-tap Google review link on every page.", portalGated: true, thumb: "/free-tools/previews/review-link.png" },
+  { name: "Callback Form", href: "/portal/free-tools/callback", blurb: "Lightweight callback request form.", portalGated: true, thumb: "/free-tools/previews/callback.png" },
+  { name: "Service Area Map", href: "/portal/free-tools/service-area-map", blurb: "Show your service radius on an interactive map.", portalGated: true, thumb: "/free-tools/previews/service-area.png" },
 ];
 
 const cardStyle = {
@@ -78,6 +80,36 @@ function ToolCard({ tool }: { tool: ToolEntry }) {
   return (
     <Link href={tool.href} style={{ textDecoration: "none", display: "block", height: "100%" }}>
       <div style={cardStyle}>
+        {/* Thumbnail — real preview for widget tools, branded gradient otherwise.
+            Keeps every card visually consistent and less "text-only / unfinished". */}
+        <div
+          style={{
+            borderRadius: 10,
+            overflow: "hidden",
+            aspectRatio: "16 / 9",
+            marginBottom: 4,
+            background: tool.thumb
+              ? mkt.bg
+              : "linear-gradient(135deg, rgba(13,60,252,0.18), rgba(13,60,252,0.04))",
+            border: `1px solid ${mkt.onDarkBorder}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {tool.thumb ? (
+            <img
+              src={tool.thumb}
+              alt={`${tool.name} preview`}
+              loading="lazy"
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }}
+            />
+          ) : tool.portalGated ? (
+            <Lock size={24} color={mkt.accent} strokeWidth={1.6} />
+          ) : (
+            <Check size={24} color={mkt.accent} strokeWidth={1.6} />
+          )}
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {tool.portalGated ? (
             <Lock size={14} color={mkt.accent} strokeWidth={2} />
