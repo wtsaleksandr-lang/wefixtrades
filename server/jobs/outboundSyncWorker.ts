@@ -213,6 +213,36 @@ export async function processOutboundSync(): Promise<SyncResult> {
         continue;
       }
 
+      // ── CASL implied-consent gate (default ON) ──────────
+      // Only contact an email that is CONSPICUOUSLY PUBLISHED on the business's
+      // OWN website — i.e. the email's domain matches the business's website
+      // domain (info@acmeplumbing.com is fine; a scraped gmail/outlook address
+      // or an email on an unrelated domain is NOT implied consent under CASL's
+      // B2B exemption). This is the actual published-on-their-site test, not the
+      // coarser contact_confidence bucket (which lumps domain-matched generics
+      // together with unknown-domain emails). Flip OUTBOUND_CASL_STRICT=false
+      // only with a separate lawful basis to send.
+      if (process.env.OUTBOUND_CASL_STRICT !== "false") {
+        const emailDomain = prospect.primary_email.split("@")[1]?.toLowerCase().trim().replace(/^www\./, "") || "";
+        const siteDomain = (prospect.website_domain || "").toLowerCase().trim().replace(/^www\./, "");
+        const publishedOnOwnSite = !!emailDomain && !!siteDomain && emailDomain === siteDomain;
+        if (!publishedOnOwnSite) {
+          result.leads_skipped_safety++;
+          await db.update(campaignProspects)
+            .set({ sync_status: "removed", updated_at: new Date() })
+            .where(eq(campaignProspects.id, cp.id));
+          await db.insert(prospectEvents).values({
+            prospect_id: cp.prospect_id,
+            campaign_prospect_id: cp.id,
+            event_type: "retry_skipped",
+            actor_type: "system",
+            actor_name: "outbound_sync_worker",
+            summary: `Skipped (CASL): "${prospect.primary_email}" is not published on the business's own domain (${siteDomain || "no website"})`,
+          });
+          continue;
+        }
+      }
+
       // Live blacklist re-check at push time (protects against post-assignment blacklisting)
       const blCheck = await checkBlacklist(
         prospect.website_domain,
