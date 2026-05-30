@@ -22,7 +22,7 @@
  * Fire-and-forget + fully safe-fail: never throws.
  */
 
-import { streamChat, getModel } from "./aiService";
+import { streamChat, chat, getModel } from "./aiService";
 import { runTextFallbackChain, readyFallbackProviders } from "./llmFallbackChain";
 import { getAiChannelSettings } from "./aiChannelSettings";
 import { aiChannelGateOn } from "./aiChannelGate";
@@ -121,6 +121,85 @@ export function looksAutomatedSender(senderEmail: string | null, subject: string
     if (/(^|[.+_-])(noreply|no-reply|bounce|mailer-daemon|postmaster)([.+_-]|$)/.test(local)) return true;
   }
   return AUTOMATED_SUBJECT_PATTERNS.some((re) => re.test(subject || ""));
+}
+
+export interface TicketWorthVerdict {
+  /** true → create a ticket; false → drop silently (no ticket, no alert). */
+  worth: boolean;
+  category: string;
+  reason: string;
+}
+
+const WORTH_CLASSIFIER_PROMPT = `You are the inbound-email gatekeeper for WeFixTrades, a company selling marketing/automation services to trades businesses. Decide whether an inbound email is a GENUINE business inquiry that deserves a human support ticket, or NOISE that should be silently dropped.
+
+WORTH a ticket (worth=true): a real person asking a question, a customer needing help, a sales/pricing inquiry, a complaint, a partnership/vendor proposal aimed at us, anything needing a human reply.
+
+NOISE — drop it (worth=false): marketing/promotional blasts, cold sales pitches TO us, newsletters, product announcements, "you've been featured" / SEO / link-building spam, automated notifications, receipts/confirmations from tools, social notifications, surveys, event invites, anything mass-sent.
+
+Bias toward WORTH when genuinely uncertain — a missed real customer is far worse than one spam ticket. Only drop when you are clearly confident it is noise.
+
+Return ONLY this JSON, no prose, no fences:
+{"worth": true|false, "category": "<inquiry|sales_pitch|marketing|newsletter|notification|spam|other>", "reason": "<one short phrase>"}`;
+
+function parseWorth(raw: string): TicketWorthVerdict | null {
+  let text = (raw || "").trim();
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) text = fence[1].trim();
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end < start) return null;
+  try {
+    const obj = JSON.parse(text.slice(start, end + 1));
+    if (typeof obj?.worth === "boolean") {
+      return {
+        worth: obj.worth,
+        category: typeof obj.category === "string" ? obj.category : "other",
+        reason: typeof obj.reason === "string" ? obj.reason : "",
+      };
+    }
+  } catch { /* fall through */ }
+  return null;
+}
+
+/**
+ * Decide whether a NEW inbound email is worth a support ticket. Two layers:
+ *   1. deterministic automated/bulk filter (free) → drop,
+ *   2. a cheap, conservative AI classifier → drop only clear marketing/spam.
+ * Fail-open: any AI error / disabled flag / unparseable reply → worth=true, so a
+ * real inquiry is never lost to an outage. Set INBOUND_SMART_FILTER=false to
+ * disable layer 2 and ticket everything that isn't obviously automated.
+ */
+export async function classifyInboundForTicket(
+  senderEmail: string | null,
+  subject: string,
+  content: string,
+): Promise<TicketWorthVerdict> {
+  if (looksAutomatedSender(senderEmail, subject)) {
+    return { worth: false, category: "automated", reason: "automated/bulk sender" };
+  }
+  if (process.env.INBOUND_SMART_FILTER === "false") {
+    return { worth: true, category: "filter_off", reason: "smart filter disabled" };
+  }
+  try {
+    const raw = await chat({
+      system: WORTH_CLASSIFIER_PROMPT,
+      messages: [{ role: "user", content: `From: ${senderEmail ?? "unknown"}\nSubject: ${subject}\n\n${(content || "").slice(0, 2000)}` }],
+      maxTokens: 80,
+      surface: "inbound_classifier",
+    });
+    const verdict = parseWorth(raw);
+    if (!verdict) {
+      log.warn("[concierge] worth-classifier unparseable — defaulting to worth", { senderEmail });
+      return { worth: true, category: "parse_error", reason: "unparseable classifier reply" };
+    }
+    return verdict;
+  } catch (err: any) {
+    log.warn("[concierge] worth-classifier failed — defaulting to worth (create ticket)", {
+      senderEmail,
+      error: err?.message?.slice(0, 200),
+    });
+    return { worth: true, category: "classifier_error", reason: "classifier error — fail-open" };
+  }
 }
 
 /** Parse the model's triage JSON, tolerating code fences / stray prose. */

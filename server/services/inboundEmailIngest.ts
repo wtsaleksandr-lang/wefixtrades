@@ -21,7 +21,7 @@ import { sql } from "drizzle-orm";
 import { clients, ticketMessages } from "@shared/schema";
 import { storage } from "../storage";
 import { getOrCreateInternalClientId } from "./inboundClassifier";
-import { processInboundEmail } from "./inboundEmailConcierge";
+import { processInboundEmail, classifyInboundForTicket } from "./inboundEmailConcierge";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("InboundEmailIngest");
@@ -41,6 +41,8 @@ export interface InboundEmailResult {
   ticketId: number | null;
   isNewTicket: boolean;
   duplicate: boolean;
+  /** true when the smart filter dropped a non-inquiry (no ticket created). */
+  filtered?: boolean;
 }
 
 /** Parse a "#<id>" ticket reference from a subject line. */
@@ -134,6 +136,19 @@ export async function ingestInboundEmail(input: InboundEmailInput): Promise<Inbo
         });
       }
       log.info(`appended reply to ticket #${ticketId}`);
+    }
+  }
+
+  // SMART FILTER — a brand-new email only becomes a ticket if it's a genuine
+  // business inquiry. Marketing / promo / automated mail is dropped here: no
+  // ticket, no founder alert, just a log line, so the operator never sees spam
+  // tickets. (Replies threaded into an existing owned ticket above are an
+  // ongoing conversation and are always kept — they skip this filter.)
+  if (ticketId === null) {
+    const verdict = await classifyInboundForTicket(senderEmail, subject, content);
+    if (!verdict.worth) {
+      log.info(`filtered inbound — no ticket (${verdict.category}: ${verdict.reason})`, { senderEmail });
+      return { ticketId: null, isNewTicket: false, duplicate: false, filtered: true };
     }
   }
 
