@@ -74,6 +74,39 @@ async function resolveProductRow(svcId: string): Promise<{
   };
 }
 
+/* Apply a service_catalog patch by family-OR-exact id. Mirrors
+   resolveProductRow: tiered products (e.g. MapGuard) have no row with
+   id === "mapguard" — only `mapguard-setup` / `mapguard-monitor` etc. The
+   status/visibility PATCH handlers were passing the bare family id to
+   updateServiceCatalog, which matched zero rows and 404'd ("could not update
+   visibility / status"). This fans the same patch out across every tier row
+   so the family-level admin toggle actually writes. Returns a representative
+   row carrying the family id, or null when nothing matched (→ 404). */
+async function updateProductFamily(
+  svcId: string,
+  patch: Parameters<typeof storage.updateServiceCatalog>[1],
+): Promise<Record<string, any> | null> {
+  const exact = await storage.getServiceById(svcId);
+  if (exact) {
+    const updated = await storage.updateServiceCatalog(svcId, patch);
+    return updated ? (updated as any) : null;
+  }
+  const all = await storage.listServicesWithClientCounts();
+  const tiers = all.filter((r) => r.id.startsWith(`${svcId}-`));
+  if (tiers.length === 0) return null;
+  let last: Record<string, any> | null = null;
+  for (const t of tiers) {
+    const u = await storage.updateServiceCatalog(t.id, patch);
+    if (u) last = u as any;
+  }
+  if (!last) return null;
+  return {
+    ...last,
+    id: svcId,
+    name: String(last.name).replace(/\s+(Starter|Growth|Pro|Free|Business|Creator|Studio|Agency|Basic|Premium|Setup|Monitor|Complete|Plus).*$/i, "").trim(),
+  };
+}
+
 export function registerAdminCrmRoutes(app: Express): void {
 
   /* ═══════════════════════════════════════════
@@ -228,7 +261,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       if (typeof req.body?.is_active !== "boolean") {
         return res.status(400).json({ error: "is_active (boolean) required" });
       }
-      const updated = await storage.updateServiceCatalog(svcId, { is_active: req.body.is_active });
+      const updated = await updateProductFamily(svcId, { is_active: req.body.is_active });
       if (!updated) return res.status(404).json({ error: "Product not found" });
       const u = req.user as any;
       await storage.logAdminActivity({
@@ -257,7 +290,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       if (typeof req.body?.hidden !== "boolean") {
         return res.status(400).json({ error: "hidden (boolean) required" });
       }
-      const updated = await storage.updateServiceCatalog(svcId, { hidden: req.body.hidden } as any);
+      const updated = await updateProductFamily(svcId, { hidden: req.body.hidden } as any);
       if (!updated) return res.status(404).json({ error: "Product not found" });
       const u = req.user as any;
       await storage.logAdminActivity({

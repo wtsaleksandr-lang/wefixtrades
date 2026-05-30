@@ -88,6 +88,10 @@ const SYSTEM_PROMPT = `Generate a clean, professional photo for a trades-busines
 Photo-realistic, NOT digital art or illustration. Natural lighting.
 
 Hard rules:
+- ABSOLUTELY NO text, words, letters, captions, headlines, numbers, price tags,
+  signage, labels, watermarks, or logos rendered IN the image. Diffusion models
+  cannot spell, so any baked-in text comes out as garbled gibberish. The image
+  must be 100% text-free — captions are composited separately after generation.
 - No identifiable human faces (use partial profiles, hands only, or backs of subjects).
 - No minors.
 - No exposed live electrical elements or hazardous DIY misuse.

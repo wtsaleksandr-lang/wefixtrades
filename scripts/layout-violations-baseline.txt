@@ -102,8 +102,8 @@ client/src/pages/admin/QuoteQuickTradesPage.tsx:227:9	rule-c	square w-10 h-10
 client/src/pages/admin/QuoteQuickTradesPage.tsx:233:22	rule-c	size={18}
 client/src/pages/admin/QuoteQuickTradesPage.tsx:347:19	rule-c	square w-10 h-10
 client/src/pages/admin/QuoteQuickTradesPage.tsx:353:32	rule-c	size={18}
-client/src/pages/admin/ReviewsPage.tsx:488:5	rule-b	<div> contains 3 cues
-client/src/pages/admin/ReviewsPage.tsx:674:29	rule-c	square w-2 h-2
+client/src/pages/admin/ReviewsPage.tsx:491:5	rule-b	<div> contains 3 cues
+client/src/pages/admin/ReviewsPage.tsx:677:29	rule-c	square w-2 h-2
 client/src/pages/admin/SupportTicketDetailPage.tsx:288:39	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/SystemAlertsPage.tsx:182:26	rule-c	square w-10 h-10
 client/src/pages/admin/SystemWorkersPage.tsx:199:16	rule-c	square w-2.5 h-2.5

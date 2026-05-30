@@ -107,12 +107,15 @@ function StatCard({ label, value, icon: Icon, color }: {
 }) {
   return (
     <Card className="h-full p-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          {/* Reserve 2 lines for the label so cards whose label wraps
+              ("New / Unseen", "No Response") match the height of single-line
+              ones ("MRR") — otherwise the grid looks like random sizes. */}
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide leading-tight min-h-[2rem]">{label}</p>
           <p className="text-2xl font-semibold text-foreground mt-1">{value}</p>
         </div>
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`}>
+        <div className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center ${color}`}>
           <Icon className="w-4 h-4 text-white" />
         </div>
       </div>
