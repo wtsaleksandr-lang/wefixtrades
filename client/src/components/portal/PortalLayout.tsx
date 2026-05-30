@@ -351,7 +351,7 @@ export default function PortalLayout({
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar */}
         <header className="flex items-center justify-between h-14 px-4 bg-card text-card-foreground border-b border-border shrink-0">
-          <div className="flex items-center">
+          <div className="flex items-center min-w-0">
             <Button
               variant="ghost"
               size="icon"
@@ -374,11 +374,11 @@ export default function PortalLayout({
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
               Back to website
             </Link>
-            <h1 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+            <h1 className="text-sm font-medium text-foreground flex items-center gap-1.5 min-w-0 truncate">
               {breadcrumb ?? (NAV_ITEMS.find((item) => isActive(location, item.href))?.label ?? "Portal")}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {/* AI Copilot trigger — icon + label so users immediately
                 recognise it as the AI assistant, not a plain chat bubble.
                 Wrapped in FirstVisitTooltip so new portal users discover the
@@ -394,7 +394,7 @@ export default function PortalLayout({
                   type="button"
                   onClick={() => setCopilotOpen((v) => !v)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-colors",
+                    "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium whitespace-nowrap shrink-0 transition-colors",
                     copilotOpen
                       ? "bg-brand-blue/10 text-brand-blue"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
