@@ -21,6 +21,12 @@ const C = {
   heading: colors.text.primary,
   body: colors.text.secondary,
   muted: colors.text.secondary,
+  /* On-dark variants for text that sits directly on the dark page bg
+     (mkt.bg). The light-mode `heading`/`body` above are near-black and were
+     invisible on the dark background — they're kept ONLY for the white
+     cards / gray tables / light callouts embedded in the page. */
+  headingOnDark: mkt.onDark,
+  bodyOnDark: mkt.text,
   border: mkt.border,
   borderLight: mkt.borderLight,
   codeBase: colors.brand.dark,
@@ -171,6 +177,10 @@ export default function ApiDocsPage() {
           @media (max-width: 820px) {
             .apidocs-sidebar { display: none !important; }
             [data-testid="api-docs-content"] { padding: 24px 18px 60px !important; }
+            /* The floating marketing nav overlaps the top of the header band
+               on mobile, clipping the "Developer documentation" eyebrow. Push
+               the header content down so it clears the nav. */
+            [data-testid="api-docs-header"] > div { padding: 78px 18px 24px !important; }
           }
           /* Anchor scroll offset so headings clear sticky header */
           [data-testid="api-docs-content"] [id] {
@@ -469,7 +479,7 @@ function H2({ id, children }: { id: string; children: React.ReactNode }) {
       style={{
         fontSize: 26,
         fontWeight: 800,
-        color: C.heading,
+        color: C.headingOnDark,
         margin: "48px 0 14px",
         letterSpacing: "-0.02em",
         scrollMarginTop: 88,
@@ -487,7 +497,7 @@ function H3({ id, children }: { id: string; children: React.ReactNode }) {
       style={{
         fontSize: 18,
         fontWeight: 700,
-        color: C.heading,
+        color: C.headingOnDark,
         margin: "32px 0 10px",
         scrollMarginTop: 88,
       }}
@@ -499,7 +509,7 @@ function H3({ id, children }: { id: string; children: React.ReactNode }) {
 
 function P({ children }: { children: React.ReactNode }) {
   return (
-    <p style={{ fontSize: 15, color: C.body, lineHeight: 1.7, margin: "10px 0" }}>
+    <p style={{ fontSize: 15, color: C.bodyOnDark, lineHeight: 1.7, margin: "10px 0" }}>
       {children}
     </p>
   );
@@ -861,7 +871,7 @@ function ContentSections() {
       <section>
         <H2 id="quickstart">Quickstart</H2>
         <P>Five minutes from zero to your first authenticated call:</P>
-        <ol style={{ paddingLeft: 22, color: C.body, fontSize: 15, lineHeight: 1.85 }}>
+        <ol style={{ paddingLeft: 22, color: C.bodyOnDark, fontSize: 15, lineHeight: 1.85 }}>
           <li>
             Create a WeFixTrades account at{" "}
             <a href="/signup" style={{ color: C.accent }}>/signup</a>.
@@ -962,7 +972,7 @@ function ContentSections() {
         />
 
         <H3 id="auth-rules">Handling keys safely</H3>
-        <ul style={{ paddingLeft: 22, color: C.body, fontSize: 15, lineHeight: 1.8 }}>
+        <ul style={{ paddingLeft: 22, color: C.bodyOnDark, fontSize: 15, lineHeight: 1.8 }}>
           <li>Never embed live keys in browser code, mobile bundles, or public repos.</li>
           <li>Store keys in your server's secret manager (Doppler, AWS Secrets Manager, Vercel env, etc.).</li>
           <li>
