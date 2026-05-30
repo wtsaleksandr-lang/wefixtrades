@@ -585,7 +585,7 @@ export default function BookFlowSetupPage() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <label className={labelClass}>Duration (min)</label>
                       <input

@@ -316,7 +316,7 @@ export default function PortalCompetitors() {
                   )}
 
                   {snap && (
-                    <div className="grid grid-cols-3 gap-3 mt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
                       <div>
                         <div className="text-2xl font-semibold">{theirRating?.toFixed(1) ?? "—"}</div>
                         <div className="text-xs text-muted-foreground flex items-center gap-1">
