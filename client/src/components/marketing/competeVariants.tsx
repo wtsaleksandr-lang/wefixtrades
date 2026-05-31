@@ -1140,6 +1140,7 @@ function cmapWedge(i: number): string {
 }
 
 function BigBrandsModal({ onClose }: { onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -1147,6 +1148,13 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // a11y: move focus into the dialog on open, restore it to the trigger on close.
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    return () => prev?.focus?.();
+  }, []);
 
   const ROWS: [string, string, string][] = [
     ["HVAC", "National HVAC franchises", "Full-time marketing team"],
@@ -1208,6 +1216,7 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
           </div>
           <div style={{ flex: 1 }} />
           <button
+            ref={closeRef}
             type="button"
             onClick={onClose}
             aria-label="Close"
@@ -1287,8 +1296,6 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
 
 export function CompeteCoverageMap() {
   const reduced = useReducedMotion();
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, VIEWPORT);
   const [claimed, setClaimed] = useState<Set<number>>(new Set());
   const [modal, setModal] = useState(false);
 
@@ -1309,7 +1316,7 @@ export function CompeteCoverageMap() {
       {modal && <BigBrandsModal onClose={() => setModal(false)} />}
       <style>{`@keyframes ccmPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(13,60,252,0.45); } 70% { box-shadow: 0 0 0 9px rgba(13,60,252,0); } }`}</style>
 
-      <div style={{ maxWidth: 880, margin: "0 auto" }} ref={ref}>
+      <div style={{ maxWidth: 880, margin: "0 auto" }}>
         <Eyebrow>Close the gap</Eyebrow>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <h2
@@ -1504,7 +1511,6 @@ export function CompeteCoverageMap() {
             </button>
           )}
         </div>
-        <span aria-hidden style={{ display: "none" }}>{inView ? "" : ""}</span>
       </div>
     </section>
   );
