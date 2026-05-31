@@ -16,3 +16,8 @@ client/src/pages/portal/PortalDashboard.tsx:620:103	tailwind	text-white
 # surfaced when the pointless data-theme="light" wrapper was removed (#audit).
 client/src/pages/portal/mapguard/MapGuardDashboard.tsx:324:42	tailwind	text-white
 client/src/pages/portal/reputationshield/ReputationShieldDashboard.tsx:567:40	tailwind	text-white
+# White icon/text on colored chips/buttons (amber/brand-blue) in PortalReviews,
+# surfaced when the RatingStars data-theme="light" wrapper was removed (#audit).
+client/src/pages/portal/PortalReviews.tsx:116:36	tailwind	text-white
+client/src/pages/portal/PortalReviews.tsx:610:74	tailwind	text-white
+client/src/pages/portal/PortalReviews.tsx:634:78	tailwind	text-white

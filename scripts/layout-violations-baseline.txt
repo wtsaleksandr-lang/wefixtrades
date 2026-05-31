@@ -153,9 +153,9 @@ client/src/pages/portal/PortalOnboarding.tsx:427:5	rule-b	<div> contains 3 cues
 client/src/pages/portal/PortalOnboarding.tsx:428:12	rule-c	square w-12 h-12
 client/src/pages/portal/PortalRankFlow.tsx:601:14	rule-c	square w-14 h-14
 client/src/pages/portal/PortalRankFlow.tsx:602:21	rule-c	square w-7 h-7
-client/src/pages/portal/PortalReviews.tsx:107:14	rule-c	square w-9 h-9
-client/src/pages/portal/PortalReviews.tsx:378:24	rule-c	square w-12 h-12
-client/src/pages/portal/PortalReviews.tsx:978:46	rule-c	square w-1.5 h-1.5
+client/src/pages/portal/PortalReviews.tsx:115:14	rule-c	square w-9 h-9
+client/src/pages/portal/PortalReviews.tsx:386:24	rule-c	square w-12 h-12
+client/src/pages/portal/PortalReviews.tsx:986:46	rule-c	square w-1.5 h-1.5
 client/src/pages/portal/PortalReviewsSetup.tsx:154:17	rule-c	square w-12 h-12
 client/src/pages/portal/PortalServiceDetail.tsx:682:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalServices.tsx:144:22	rule-c	square w-9 h-9
