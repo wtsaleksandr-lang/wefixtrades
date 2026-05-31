@@ -98,12 +98,14 @@ function usePrefersReducedMotion(): boolean {
 }
 
 // ─── File-type cycle ─────────────────────────────────────────────────────
-type FileType = "jpg" | "pdf" | "png";
-const CYCLE: readonly FileType[] = ["jpg", "pdf", "png"] as const;
+type FileType = "jpg" | "jpeg" | "pdf" | "png" | "xlsx";
+const CYCLE: readonly FileType[] = ["jpg", "jpeg", "pdf", "png", "xlsx"] as const;
 const FILE_LABELS: Record<FileType, string> = {
   jpg: "quote-photo.jpg",
+  jpeg: "site-photo.jpeg",
   pdf: "invoice.pdf",
   png: "receipt.png",
+  xlsx: "price-list.xlsx",
 };
 type FileDef = {
   label: string;
@@ -155,6 +157,36 @@ const FILE_TYPES: Record<FileType, FileDef> = {
         <rect x="13" y="24" width="30" height="22" rx="2" />
         <circle cx="35" cy="31" r="2.4" />
         <path d="M14 45 L22 37 L28 43 L34 38 L42 45" />
+      </g>
+    ),
+  },
+  jpeg: {
+    label: "JPEG",
+    tag: "#0ea5e9",
+    Glyph: () => (
+      <g
+        stroke={INK}
+        strokeWidth="1.5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="13" y="24" width="30" height="22" rx="2" />
+        <circle cx="22" cy="31" r="2.2" />
+        <path d="M14 44 L23 36 L29 41 L34 37 L42 43" />
+      </g>
+    ),
+  },
+  xlsx: {
+    label: "XLSX",
+    tag: "#16a34a",
+    Glyph: () => (
+      <g stroke={INK} strokeWidth="1.4" fill="none" strokeLinejoin="round">
+        <rect x="14" y="25" width="28" height="20" rx="1.5" />
+        <line x1="14" y1="32" x2="42" y2="32" />
+        <line x1="14" y1="38.5" x2="42" y2="38.5" />
+        <line x1="23.3" y1="25" x2="23.3" y2="45" />
+        <line x1="32.6" y1="25" x2="32.6" y2="45" />
       </g>
     ),
   },
@@ -437,6 +469,72 @@ const CALC_CONFIGS: Record<FileType, CalcConfig> = {
       const freq = (opts[freqIdx]?.label ?? "Weekly").toLowerCase();
       const parts = [`${s1.toLocaleString()} sqft`, freq];
       if (t) parts.push("edging + cleanup");
+      return parts.join(" · ");
+    },
+  },
+  jpeg: {
+    badge: "PRESSURE WASHING",
+    title: "Driveway & House Wash",
+    slot: "Saturday · 9:00 AM – 11:00 AM",
+    deposit: 40,
+    includes: "Includes pre-treat, wash, and final rinse",
+    slider1: {
+      type: "range",
+      label: "Area to wash",
+      min: 500,
+      max: 5000,
+      step: 250,
+      default: 1500,
+      format: (v) => `${v.toLocaleString()} sqft`,
+    },
+    slider2: {
+      type: "range",
+      label: "Stories",
+      min: 1,
+      max: 3,
+      step: 1,
+      default: 1,
+      format: (v) => `${v} ${v === 1 ? "story" : "stories"}`,
+    },
+    toggle: { label: "Add gutter cleaning", sub: "+$60", delta: 60, default: false },
+    formula: (s1, s2, t) =>
+      clamp(Math.round(89 + (s1 - 500) / 4500 * 180 + (s2 - 1) * 55 + (t ? 60 : 0)), 89, 520),
+    summary: (s1, s2, t) => {
+      const parts = [`${s1.toLocaleString()} sqft`, `${s2}-story`];
+      if (t) parts.push("w/ gutters");
+      return parts.join(" · ");
+    },
+  },
+  xlsx: {
+    badge: "ELECTRICAL",
+    title: "Panel & Outlet Service",
+    slot: "Wednesday · 1:00 PM – 3:00 PM",
+    deposit: 75,
+    includes: "Includes diagnostic + code check",
+    slider1: {
+      type: "range",
+      label: "Outlets / fixtures",
+      min: 1,
+      max: 12,
+      step: 1,
+      default: 3,
+      format: (v) => `${v} ${v === 1 ? "point" : "points"}`,
+    },
+    slider2: {
+      type: "range",
+      label: "Panel age",
+      min: 0,
+      max: 30,
+      step: 1,
+      default: 10,
+      format: (v) => `${v} ${v === 1 ? "year" : "years"}`,
+    },
+    toggle: { label: "Add panel-upgrade quote", sub: "+$120", delta: 120, default: false },
+    formula: (s1, s2, t) =>
+      clamp(Math.round(149 + s1 * 42 + s2 * 4 + (t ? 120 : 0)), 149, 980),
+    summary: (s1, s2, t) => {
+      const parts = [`${s1} point${s1 === 1 ? "" : "s"}`, `${s2}-yr panel`];
+      if (t) parts.push("+ upgrade quote");
       return parts.join(" · ");
     },
   },
@@ -1782,6 +1880,15 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
   const [flashing, setFlashing] = useState(false);
   const [overDrop, setOverDrop] = useState(false);
 
+  // Fly-in drop animation (button tap on desktop, auto on mobile): a file icon
+  // sails down into the dropzone, then we run the existing fill → parse flow.
+  const [flying, setFlying] = useState(false);
+  const [flyKey, setFlyKey] = useState(0);
+  // Whether the canvas is on-screen (gates the mobile auto-demo loop).
+  const [visible, setVisible] = useState(false);
+  // A real user touch stops the mobile auto-loop so we never yank them away.
+  const [autoEngaged, setAutoEngaged] = useState(false);
+
   const stageRef = useRef<HTMLDivElement>(null);
   const dropzoneRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
@@ -1880,17 +1987,64 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
     };
   }, [phase, reduced]);
 
-  // Keyboard / a11y fallback — simulate a drop without the pointer dance.
-  const triggerSampleDrop = () => {
-    if (filled) return;
-    setFileState("hidden");
+  // Land the dropped file: flash the zone, fill it, kick off parsing.
+  const landFile = useCallback(() => {
+    setFlying(false);
     setFlashing(true);
-    window.setTimeout(() => {
-      setFilled(true);
-      setPhase("parsing");
-    }, 80);
-    window.setTimeout(() => setFlashing(false), 480);
-  };
+    setFilled(true);
+    setPhase("parsing");
+    window.setTimeout(() => setFlashing(false), 420);
+  }, []);
+
+  // Tap "Try sample" (desktop) / auto (mobile) → play the fly-in, then land.
+  // Reduced-motion skips the choreography and fills instantly.
+  const triggerSampleDrop = useCallback(() => {
+    if (filled || flying) return;
+    setFileState("hidden");
+    if (reduced) {
+      landFile();
+      return;
+    }
+    setFlying(true);
+    setFlyKey((k) => k + 1);
+  }, [filled, flying, reduced, landFile]);
+
+  // ── Mobile auto-demo loop ──────────────────────────────────────────────
+  // On mobile (hideHeader) the cursor-carry affordance is gone, so the whole
+  // drop animation plays itself: when on-screen and the user hasn't tapped in,
+  // drop a file → show the calculator → reset to the next file → repeat.
+  const autoLoop = hideHeader && visible && !reduced && !autoEngaged;
+
+  // Kick off a drop whenever we're idle.
+  useEffect(() => {
+    if (!autoLoop) return;
+    if (filled || flying || phase !== "idle") return;
+    const t = window.setTimeout(() => triggerSampleDrop(), 900);
+    return () => window.clearTimeout(t);
+  }, [autoLoop, filled, flying, phase, cycleIdx, triggerSampleDrop]);
+
+  // After the calculator has been shown for a beat, reset to the next file.
+  useEffect(() => {
+    if (!autoLoop) return;
+    if (!(filled && phase === "ready" && checkoutPhase === "closed")) return;
+    const t = window.setTimeout(() => resetEverything(), 3200);
+    return () => window.clearTimeout(t);
+  }, [autoLoop, filled, phase, checkoutPhase, resetEverything]);
+
+  // Observe on-screen state for the mobile loop.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => setVisible(entries.some((e) => e.isIntersecting)),
+      { threshold: 0.25 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   const APP_PAD = 28;
   const fileVisible = !filled && fileState !== "hidden";
@@ -2082,6 +2236,7 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
         onMouseMove={onStageMove}
         onMouseLeave={onStageLeave}
         onMouseDown={onStageDown}
+        onTouchStart={() => setAutoEngaged(true)}
         style={{
           position: "relative",
           padding: APP_PAD,
@@ -2324,7 +2479,35 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
                   filter: flashing ? "brightness(1.08)" : "none",
                 }}
               >
-                <style>{`@keyframes ssddMarch { to { stroke-dashoffset: -28; } }`}</style>
+                <style>{`
+                  @keyframes ssddMarch { to { stroke-dashoffset: -28; } }
+                  @keyframes ssddFlyIn {
+                    0%   { transform: translate(-50%, -215%) scale(1.05) rotate(-7deg); opacity: 0; }
+                    22%  { opacity: 1; }
+                    100% { transform: translate(-50%, -50%) scale(0.62) rotate(0deg); opacity: 1; }
+                  }
+                `}</style>
+
+                {/* Fly-in file — sails down into the zone, then onAnimationEnd
+                    triggers the fill + parse. Reduced-motion skips this. */}
+                {flying && (
+                  <div
+                    key={flyKey}
+                    aria-hidden
+                    onAnimationEnd={landFile}
+                    style={{
+                      position: "absolute",
+                      left: "50%",
+                      top: "50%",
+                      zIndex: 4,
+                      pointerEvents: "none",
+                      animation: "ssddFlyIn 640ms cubic-bezier(.2,.7,.2,1) forwards",
+                      filter: "drop-shadow(0 16px 24px rgba(0,0,0,0.42))",
+                    }}
+                  >
+                    <FlatFileIcon type={fileType} size={CARRY_FILE_SIZE} />
+                  </div>
+                )}
                 <svg
                   preserveAspectRatio="none"
                   style={{
