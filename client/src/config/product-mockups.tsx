@@ -41,7 +41,7 @@ export interface ProductMockupSection {
 type StatProps = { value: string; label: string; color?: any; icon?: ReactNode };
 function StatTrio({ a, b, c }: { a: StatProps; b: StatProps; c: StatProps }) {
   return (
-    <div data-theme="light" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, maxWidth: 720, width: "100%" }}>
+    <div data-theme="light" className="effortel-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, maxWidth: 720, width: "100%" }}>
       <StatTile size="lg" {...a} />
       <StatTile size="lg" {...b} />
       <StatTile size="lg" {...c} />
