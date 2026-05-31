@@ -468,10 +468,10 @@ export default function CitationBuilderPage() {
             "radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px), linear-gradient(180deg, rgba(236,242,244,1) 0%, rgba(248,250,252,1) 100%)",
           backgroundSize: "22px 22px, 100% 100%",
           padding: "80px 16px 56px",
-          textAlign: "center",
+          textAlign: "left",
         }}
       >
-        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+        <div style={{ maxWidth: 1180, margin: "0 auto" }}>
           {/* Wave 11D D5 — Citation Builder is part of the MapGuard Suite. */}
           <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
             <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
@@ -513,7 +513,7 @@ export default function CitationBuilderPage() {
               fontSize: 17,
               color: "rgba(0,0,0,0.62)",
               maxWidth: "60ch",
-              margin: "0 auto 24px",
+              margin: "0 0 24px",
               lineHeight: 1.6,
             }}
           >
@@ -522,7 +522,7 @@ export default function CitationBuilderPage() {
             move the needle for trades — NAP-clean, no spam, completion report
             when every listing is live.
           </p>
-          <div style={{ display: "inline-flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-start" }}>
             <a
               href="#tiers"
               data-testid="cta-hero-start"
