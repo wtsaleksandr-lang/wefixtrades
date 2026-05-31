@@ -161,6 +161,7 @@ export default function ReviewsPage() {
   const [showBulkDetails, setShowBulkDetails] = useState(false);
   /** Reviews pending bulk-post to Google — drives the shared <ConfirmDialog>. */
   const [pendingPost, setPendingPost] = useState<{ ids: number[]; skipped: number } | null>(null);
+  const [pendingSinglePost, setPendingSinglePost] = useState<{ id: number; text: string } | null>(null);
 
   function toggleSelect(id: number) {
     setSelectedIds((prev) => {
@@ -891,7 +892,7 @@ export default function ReviewsPage() {
                           size="sm"
                           className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
                           disabled={postToGoogleMutation.isPending || !draftText.trim()}
-                          onClick={() => postToGoogleMutation.mutate({ id: selected.id, text: draftText })}
+                          onClick={() => setPendingSinglePost({ id: selected.id, text: draftText })}
                         >
                           {postToGoogleMutation.isPending ? (
                             <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Posting...</>
@@ -1013,6 +1014,20 @@ export default function ReviewsPage() {
         if (pendingPost) {
           bulkPostMutation.mutate(pendingPost.ids);
           setPendingPost(null);
+        }
+      }}
+    />
+    <ConfirmDialog
+      open={pendingSinglePost !== null}
+      onOpenChange={(o) => { if (!o) setPendingSinglePost(null); }}
+      title="Post response to Google?"
+      description="This response will be publicly visible on Google and cannot be unpublished from here."
+      confirmLabel="Post to Google"
+      pending={postToGoogleMutation.isPending}
+      onConfirm={() => {
+        if (pendingSinglePost) {
+          postToGoogleMutation.mutate(pendingSinglePost);
+          setPendingSinglePost(null);
         }
       }}
     />
