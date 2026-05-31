@@ -456,7 +456,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
             <V7SectionHeading
               eyebrow="Pricing"
               title={<>What you actually pay</>}
-              sub={`Published pricing as of ${publishedDate}. Enterprise tiers (especially ${competitorName === "ServiceTitan" ? "yours" : "their top plan"}) are quote-on-request — numbers below come from public listings + sales-call screenshots shared in trade forums.`}
+              sub={`Our pricing as of ${publishedDate}. ${competitorName}'s enterprise tiers are quote-on-request and not publicly listed — any figures shown for them are third-party estimates, not official pricing.`}
             />
             <div
               style={{

@@ -4,9 +4,9 @@
  * intent searches. Uses the shared CompareLandingPage template with
  * ServiceTitan-specific data.
  *
- * ServiceTitan's pricing is famously sales-call-only; bracket ranges
- * below come from public trade-forum disclosures and capterra reviews.
- * Mark anything we can't verify with a hedge in the copy.
+ * ServiceTitan does NOT publish pricing (quote/demo-only). Any figures
+ * below are framed as third-party ESTIMATES, never as fact — stating an
+ * unpublished competitor's price as fact is a false-advertising risk.
  */
 import CompareLandingPage from "@/components/marketing/CompareLandingPage";
 import { mkt } from "@/theme/tokens";
@@ -47,7 +47,7 @@ export default function CompareVsServiceTitan() {
         {
           label: "Starts at",
           us: "$9/mo · free tier available",
-          them: "~$250-700/user/mo (custom, sales-call only)",
+          them: "Not publicly listed · est. ~$200-500/user/mo (quote-based)",
         },
         {
           label: "Best for",
@@ -57,7 +57,7 @@ export default function CompareVsServiceTitan() {
         {
           label: "AI voice agent",
           us: "Built-in 24/7 TradeLine",
-          them: "Sirvana AI receptionist available as paid add-on",
+          them: "AI Voice Agent available as a paid add-on",
         },
         {
           label: "AI content / images",
@@ -96,7 +96,7 @@ export default function CompareVsServiceTitan() {
         },
       ]}
       matrixRows={[
-        { feature: "AI voice agent (24/7 call answering)", us: true, them: "partial", note: "ServiceTitan: paid Sirvana add-on" },
+        { feature: "AI voice agent (24/7 call answering)", us: true, them: "partial", note: "ServiceTitan: paid AI Voice Agent add-on" },
         { feature: "AI content + image generation", us: true, them: false },
         { feature: "Google Business Profile management (MapGuard)", us: true, them: false },
         { feature: "Reputation / review collection", us: true, them: true, note: "ServiceTitan via Marketing Pro" },
@@ -108,7 +108,7 @@ export default function CompareVsServiceTitan() {
         { feature: "Native iOS + Android app", us: true, them: true, note: "WeFixTrades ships a softphone for the owner; ServiceTitan ships a mature field-tech app for the technician. Both native, different focus." },
         { feature: "Invoicing + payments", us: true, them: true },
         { feature: "Free tier", us: true, them: false },
-        { feature: "Starts at", us: "$9/mo", them: "$250+/user/mo" },
+        { feature: "Starts at", us: "$9/mo", them: "Quote-based (est. $200+/user/mo)" },
         { feature: "Setup time", us: "Same-day", them: "4-12 wks" },
         { feature: "AI image/article generation (ContentFlow)", us: true, them: false },
         { feature: "Social-media scheduling (SocialSync)", us: true, them: false },
@@ -131,14 +131,14 @@ export default function CompareVsServiceTitan() {
       ]}
       theirPricing={[
         "Custom — quote-on-request, no public pricing",
-        "Reported $250-700/user/mo (trade-forum + Capterra disclosures)",
+        "Not publicly listed; third-party estimates ~$200-500/user/mo",
         "Typical annual contract with multi-year discounts",
-        "Marketing Pro, Sirvana AI, and Pricebook Pro are paid add-ons",
-        "Implementation fees commonly $5K-25K up front",
+        "Marketing Pro, AI Voice Agent, and Pricebook Pro are paid add-ons",
+        "Implementation fees commonly several thousand dollars up front",
       ]}
       whenThemBetter={[
         "You run 20+ techs across multiple locations and need an enterprise dispatch board, parts inventory, and integrated payroll.",
-        "You have the budget for $250-700/user/mo and want a dedicated implementation team + customer success manager.",
+        "You have the budget for enterprise FSM pricing (third-party estimates put ServiceTitan around $200-500/user/mo) and want a dedicated implementation team + customer success manager.",
         "Your operation depends on deep integrations with enterprise accounting, ERP, or call-tracking platforms.",
         "You need ServiceTitan-specific industry features (Pricebook Pro, Capacity Planning) that are battle-tested across thousands of large shops.",
       ]}
@@ -154,7 +154,7 @@ export default function CompareVsServiceTitan() {
         {
           question: "How much cheaper is WeFixTrades than ServiceTitan?",
           answer:
-            "Order-of-magnitude cheaper for small shops. A 4-tech business that would be quoted ~$1,000-2,800/month on ServiceTitan (4 users × $250-700) plus implementation fees pays $49-149/month total on WeFixTrades. ServiceTitan's enterprise pricing is intentional — they're aimed at 20+ tech operations where deep FSM features earn back the cost. Below that bar we're typically 10-50× cheaper.",
+            "Order-of-magnitude cheaper for small shops. ServiceTitan doesn't publish pricing, but third-party estimates put a 4-tech business in the ballpark of ~$800-2,000/month (4 users × ~$200-500) plus implementation fees — versus $49-149/month total on WeFixTrades. ServiceTitan's enterprise pricing is intentional — they're aimed at 20+ tech operations where deep FSM features earn back the cost. Below that bar we're typically far cheaper.",
         },
         {
           question: "Can WeFixTrades replace ServiceTitan for a large operation?",
@@ -162,9 +162,9 @@ export default function CompareVsServiceTitan() {
             "For most 20+ tech operations: no, not today. ServiceTitan's depth in dispatch, inventory, payroll, and capacity planning is genuinely best-in-class and earns its price tag at scale. WeFixTrades targets the 1-15 tech segment where ServiceTitan is overkill. If you're between 15 and 25 techs, do both demos — the right answer depends on your dispatching complexity.",
         },
         {
-          question: "Does WeFixTrades have AI voice like ServiceTitan's Sirvana?",
+          question: "Does WeFixTrades have AI voice like ServiceTitan's AI Voice Agent?",
           answer:
-            "Yes — 24/7 TradeLine answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It's bundled into our $49/mo Growth plan rather than billed as a separate add-on. Sirvana is a strong product on the ServiceTitan side; the difference is pricing model and target shop size.",
+            "Yes — 24/7 TradeLine answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It's bundled into our $49/mo Growth plan rather than billed as a separate add-on. ServiceTitan's AI Voice Agent is a strong product; the difference is pricing model and target shop size.",
         },
         {
           question: "How long does ServiceTitan implementation take?",

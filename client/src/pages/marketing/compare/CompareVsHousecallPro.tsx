@@ -141,7 +141,7 @@ export default function CompareVsHousecallPro() {
         "Direct-mail postcards are still part of your marketing mix.",
       ]}
       whenUsBetter={[
-        "You're losing leads to voicemail and you need AI ACTUALLY ANSWERING the phone 24/7 — not just routing it. HCP offers a limited AI assistant but no comparable 24/7 voice agent today. We built the platform around it.",
+        "You're losing leads to voicemail and you need AI ACTUALLY ANSWERING the phone 24/7 — not just routing it. We built the platform around 24/7 AI call answering, and it's included rather than billed separately.",
         "You want content, reviews, Google Business management, AND AI voice bundled into ONE bill — instead of paying HCP for the base plan plus 3+ marketing add-ons.",
         "Budget is real. Our Growth plan at $49/mo replaces what HCP charges $179+/mo + add-ons for. Same outcomes, ⅓ the spend.",
         "You want to sign up today and be live tonight — no onboarding call, no salesperson, no waiting list.",
