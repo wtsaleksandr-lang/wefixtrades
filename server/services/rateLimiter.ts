@@ -206,3 +206,28 @@ export const leadsIpRateLimiter = new RateLimiter(
  * with the constants above without re-deriving them.
  */
 export const LEADS_RATE_LIMIT_WINDOW_MS = 60 * 60_000;
+
+/**
+ * Public free-audit endpoints (POST /api/audit/generate and the other
+ * public write routes). This is a no-login endpoint that spends real
+ * Outscraper + DataForSEO + Anthropic credits on every call, so an
+ * unthrottled bot could burn through credits fast. 5 /generate per IP
+ * per 10 minutes is plenty for a human running a few audits while
+ * bounding abuse / runaway cost.
+ */
+export const AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS = 10 * 60_000;
+
+export const auditGenerateRateLimiter = new RateLimiter(
+  defaultStore,
+  5,
+  AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
+);
+
+/** Broader per-IP cap for the other public audit write routes (chat,
+ *  save-lead, send-email). 30 / 10 min — generous for a real session,
+ *  tight enough to stop a spam loop. */
+export const auditWriteRateLimiter = new RateLimiter(
+  defaultStore,
+  30,
+  AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
+);

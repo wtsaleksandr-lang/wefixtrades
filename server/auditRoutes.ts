@@ -7,8 +7,22 @@ import { db } from "./db";
 import { auditReports } from "@shared/schema";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
 import { chat, getSharedClient, assertCircuitAllowsRequest, recordSuccess, recordFailure } from "./services/aiService";
+import {
+  auditGenerateRateLimiter,
+  auditWriteRateLimiter,
+  AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
+} from "./services/rateLimiter";
 
 const router = express.Router();
+
+/** Public audit endpoints are unauthenticated — key the limiter on the
+ *  forwarded client IP (Cloudflare/Replit set X-Forwarded-For). */
+function getAuditClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    || req.ip
+    || req.socket?.remoteAddress
+    || "unknown";
+}
 
 /* ─── Diagnostic: verify audit router is reachable ─── */
 router.get("/ping", (_req: Request, res: Response) => {
@@ -1026,6 +1040,9 @@ async function pollOutscraper(
   maxWaitMs = 30000,
   intervalMs = 1500
 ): Promise<any[]> {
+  // Note: callers in the public /generate path pass a tightened budget
+  // (≈15s) so a single hung Outscraper job can't blow the Cloudflare
+  // ~100s edge limit. The outbound scraper keeps the 30s default.
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
     await new Promise(r => setTimeout(r, intervalMs));
@@ -1090,7 +1107,7 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
   let rawResults = data?.data;
   if (data?.status === 'Pending' && data?.results_location) {
     log.info('[E1 Outscraper competitors] Got 202 Pending, polling:', data.results_location);
-    rawResults = await pollOutscraper(data.results_location);
+    rawResults = await pollOutscraper(data.results_location, 15000);
   }
   const results = Array.isArray(rawResults) ? rawResults.flat() : (Array.isArray(data) ? data.flat() : []);
   log.info("[E1 Outscraper competitors] Parsed results count:", { detail: results.length });
@@ -1169,7 +1186,7 @@ async function fetchOutscraperReviews(placeId: string) {
   let rawReviews = data?.data;
   if (data?.status === 'Pending' && data?.results_location) {
     log.info('[E2 Outscraper reviews] Got 202 Pending, polling:', data.results_location);
-    rawReviews = await pollOutscraper(data.results_location);
+    rawReviews = await pollOutscraper(data.results_location, 15000);
   }
   const reviews = Array.isArray(rawReviews) ? rawReviews.flat() : (Array.isArray(data) ? data.flat() : []);
   log.info("[E2 Outscraper reviews] Parsed reviews count:", { detail: reviews.length });
@@ -2093,6 +2110,15 @@ router.post("/generate", async (req: Request, res: Response) => {
     if (!business || !business.name)
       return safeJsonError(res, 400, "business required");
 
+    // ─── Rate limit (public, no-login, spends Outscraper/DataForSEO/AI
+    //     credits per call) — 5 /generate per IP per 10 min ───
+    const auditIp = getAuditClientIp(req);
+    const generateOk = await auditGenerateRateLimiter.check(`audit:generate:${auditIp}`);
+    if (!generateOk) {
+      res.setHeader("Retry-After", String(Math.ceil(AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS / 1000)));
+      return res.status(429).json({ ok: false, error: "Too many audit requests from this source. Please try again in a few minutes." });
+    }
+
     // ─── Check for recent cached report (24h TTL) ───
     const forceRefresh = req.body?.forceRefresh === true;
     if (business.placeId && !forceRefresh) {
@@ -2191,18 +2217,6 @@ router.post("/generate", async (req: Request, res: Response) => {
     const seedKeywords = buildNicheKeywords(trade, city, businessNiche, business.name || '');
     log.info('[keywords] niche-aware seeds:', { detail: seedKeywords });
 
-    // ─── Run Serper first so we can use its returned keywords as DataForSEO seeds ───
-    let serperData: any = null;
-    try {
-      serperData = await fetchSerperRankings(seedKeywords, website, business.name, city, stateCode || undefined, business.formattedAddress || business.address || undefined);
-    } catch (e: any) {
-      log.error("E3 Serper rankings failed:", e?.message);
-    }
-    const serperKeywords = (serperData?.keywords || []).map((k: any) => k.keyword).filter(Boolean);
-    const dataForSEOSeeds = serperKeywords.length > 0 ? serperKeywords : seedKeywords;
-    log.info('[dataforseo] seeds from serper:', dataForSEOSeeds);
-    log.info('[dataforseo] PRE-CALL seeds:', { arg0: dataForSEOSeeds?.length, arg1: dataForSEOSeeds?.[0] });
-
     // Strip query params from website URL before passing to PageSpeed
     const cleanUrl = (url: string) => {
       try { const u = new URL(url); return u.origin + u.pathname; } catch { return url; }
@@ -2210,27 +2224,84 @@ router.post("/generate", async (req: Request, res: Response) => {
     const pageSpeedUrl = website ? cleanUrl(website) : "";
     if (pageSpeedUrl !== website) log.info('[pagespeed] cleaned URL:', { detail: pageSpeedUrl });
 
-    // ─── Run remaining external data fetches in parallel ───
-    const [compResult, reviewResult, dataForSEOResult, websiteQaResult] = await Promise.allSettled([
-      fetchOutscraperCompetitors(trade, city, business.name, stateCode || undefined),
-      (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null),
-      fetchDataForSEOVolumes(dataForSEOSeeds),
-      website ? analyzeWebsiteQuality(website) : Promise.resolve(null),
+    // ─── Gather ALL external data concurrently under a hard deadline ───
+    // Cloudflare aborts at ~100s, so we cap the data-gathering wall-clock
+    // at GATHER_DEADLINE_MS and still leave room for scoring + the Sonnet
+    // narrative + DB save below. Phases are independent EXCEPT that
+    // DataForSEO (E4) seeds off Serper's (E3) returned keywords — so E4 is
+    // chained onto the serper promise, but that whole chain runs alongside
+    // competitors (E1), reviews (E2) and website QA. Net wall-clock for the
+    // gather ≈ max(E1, E2, E3+E4, QA) instead of E3 + max(E1,E2,E4,QA).
+    const GATHER_DEADLINE_MS = 70000;
+
+    // E3 → E4 chain. fetchSerperRankings swallows its own per-keyword
+    // errors and returns null on total failure, so this never rejects in
+    // practice; we still wrap E4 so a serper failure falls back to the
+    // niche seed keywords for volume lookups.
+    const serperPromise: Promise<any> = (async () => {
+      try {
+        return await fetchSerperRankings(seedKeywords, website, business.name, city, stateCode || undefined, business.formattedAddress || business.address || undefined);
+      } catch (e: any) {
+        log.error("E3 Serper rankings failed:", e?.message);
+        return null;
+      }
+    })();
+
+    const dataForSEOPromise: Promise<any> = (async () => {
+      const sData = await serperPromise;
+      const serperKeywords = (sData?.keywords || []).map((k: any) => k.keyword).filter(Boolean);
+      const dataForSEOSeeds = serperKeywords.length > 0 ? serperKeywords : seedKeywords;
+      log.info('[dataforseo] seeds from serper:', dataForSEOSeeds);
+      log.info('[dataforseo] PRE-CALL seeds:', { arg0: dataForSEOSeeds?.length, arg1: dataForSEOSeeds?.[0] });
+      return fetchDataForSEOVolumes(dataForSEOSeeds);
+    })();
+
+    // Race the full concurrent gather against the deadline. allSettled never
+    // rejects, so the deadline is the only way this resolves early — and when
+    // it does we fall back to per-phase nulls (partial report). The scoring
+    // engine + report tolerate missing competitors/reviews/keywords/speed.
+    const gatherAll = Promise.allSettled([
+      serperPromise,                                                                  // 0: E3 Serper
+      fetchOutscraperCompetitors(trade, city, business.name, stateCode || undefined), // 1: E1 competitors
+      (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null), // 2: E2 reviews
+      dataForSEOPromise,                                                              // 3: E4 volumes
+      website ? analyzeWebsiteQuality(website) : Promise.resolve(null),               // 4: website QA
     ]);
-    log.info('[dataforseo] POST-ALLSETTLED status:', { arg0: dataForSEOResult?.status, arg1: 'value type:', arg2: typeof (dataForSEOResult as any)?.value });
 
-    // ─── Extract results (null on failure) ───
-    const compData = compResult.status === "fulfilled" ? compResult.value : null;
-    if (compResult.status === "rejected") log.error("E1 Outscraper competitors failed:", (compResult as any).reason?.message);
+    let gatherTimedOut = false;
+    let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
+    const deadline = new Promise<null>((resolve) => {
+      deadlineTimer = setTimeout(() => { gatherTimedOut = true; resolve(null); }, GATHER_DEADLINE_MS);
+    });
+    const settled = await Promise.race([gatherAll, deadline]);
+    if (deadlineTimer) clearTimeout(deadlineTimer);
+    if (gatherTimedOut || settled === null) {
+      log.error("[audit/generate] data-gathering hit deadline — proceeding with partial data", {
+        deadlineMs: GATHER_DEADLINE_MS,
+        elapsedMs: Date.now() - startTime,
+      });
+    }
+    const results = settled ?? [];
+    const pick = <T,>(i: number): T | null => {
+      const r = results[i];
+      return r && r.status === "fulfilled" ? (r.value as T) : null;
+    };
 
-    const reviewData = reviewResult.status === "fulfilled" ? reviewResult.value : null;
-    if (reviewResult.status === "rejected") log.error("E2 Outscraper reviews failed:", (reviewResult as any).reason?.message);
+    // ─── Extract results (null on failure / timeout) ───
+    const serperData: any = pick(0);
 
-    const volumeMap = dataForSEOResult.status === "fulfilled" ? dataForSEOResult.value : null;
-    if (dataForSEOResult.status === "rejected") log.error("E4 DataForSEO volumes failed:", (dataForSEOResult as any).reason?.message);
+    const compData = pick<any>(1);
+    if (results[1]?.status === "rejected") log.error("E1 Outscraper competitors failed:", (results[1] as any).reason?.message);
 
-    const websiteQaData = websiteQaResult.status === "fulfilled" ? websiteQaResult.value : null;
-    if (websiteQaResult.status === "rejected") log.error("Website QA failed:", (websiteQaResult as any).reason?.message);
+    const reviewData = pick<any>(2);
+    if (results[2]?.status === "rejected") log.error("E2 Outscraper reviews failed:", (results[2] as any).reason?.message);
+
+    const volumeMap = pick<any>(3);
+    if (results[3]?.status === "rejected") log.error("E4 DataForSEO volumes failed:", (results[3] as any).reason?.message);
+    log.info('[dataforseo] POST-GATHER status:', { arg0: results[3]?.status, arg1: 'value type:', arg2: typeof (results[3] as any)?.value });
+
+    const websiteQaData = pick<any>(4);
+    if (results[4]?.status === "rejected") log.error("Website QA failed:", (results[4] as any).reason?.message);
 
     // PageSpeed runs separately in /api/audit/speed after report is returned to client
     const resolvedSpeedData: { mobile: any; desktop: any } = { mobile: null, desktop: null };
@@ -2799,6 +2870,12 @@ router.get("/report/:id", async (req: Request, res: Response) => {
 /* ─── POST /chat — AI Chat for report (delegates to shared assistant) ─── */
 router.post("/chat", async (req: Request, res: Response) => {
   try {
+    const chatOk = await auditWriteRateLimiter.check(`audit:chat:${getAuditClientIp(req)}`);
+    if (!chatOk) {
+      res.setHeader("Retry-After", String(Math.ceil(AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS / 1000)));
+      return res.status(429).json({ ok: false, error: "Too many requests from this source. Please try again in a few minutes." });
+    }
+
     const { assistantStream, isReady } = await import("./services/assistant");
 
     const readiness = isReady();

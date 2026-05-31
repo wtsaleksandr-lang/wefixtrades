@@ -9,8 +9,8 @@ script/build.ts:245:31	silent-catch	.catch(() => undefined)
 scripts/verify-ai-extraction.mjs:145:3	empty-catch-block	} catch {}
 scripts/verify-ai-extraction.mjs:150:5	empty-catch-block	} catch {}
 scripts/verify-ai-extraction.mjs:157:5	empty-catch-block	} catch {}
-server/auditRoutes.ts:120:3	empty-catch-block	} catch {}
-server/auditRoutes.ts:2847:26	silent-catch	.catch(() => {})
+server/auditRoutes.ts:134:3	empty-catch-block	} catch {}
+server/auditRoutes.ts:2924:26	silent-catch	.catch(() => {})
 server/jobs/bookflowDayOfReminderWorker.ts:126:11	silent-catch	.catch(() => {})
 server/jobs/bookflowNoShowRecoveryWorker.ts:128:11	silent-catch	.catch(() => {})
 server/jobs/bookflowPostAppointmentWorker.ts:135:11	silent-catch	.catch(() => {})

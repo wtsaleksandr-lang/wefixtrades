@@ -59,10 +59,32 @@ async function postJSON<T>(url: string, body: any, timeoutMs = 30000): Promise<T
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    const data = await r.json().catch(() => ({}));
+    // A Cloudflare gateway error (520/522/524) returns an HTML body, not
+    // JSON. Parsing it as JSON throws; rather than swallow that into a raw
+    // "Request failed: 524" we surface a friendly busy message. We only
+    // attempt JSON.parse when the server actually claims JSON, so a 524
+    // HTML page never reaches the user as a raw status string.
+    const ct = r.headers.get("content-type") || "";
+    let data: any = {};
+    if (ct.includes("application/json")) {
+      try {
+        data = await r.json();
+      } catch (parseErr) {
+        console.error(`[Audit] ${url} returned malformed JSON:`, parseErr);
+        throw new Error("Our audit service is busy — please try again in a moment.");
+      }
+    } else if (!r.ok) {
+      // Non-OK, non-JSON response (gateway timeout / proxy error page).
+      console.error(`[Audit] ${url} gateway error:`, r.status, ct);
+      throw new Error("Our audit service is busy — please try again in a moment.");
+    }
     if (!r.ok || data?.ok === false) {
       console.error(`[Audit] ${url} failed:`, r.status, data);
-      throw new Error(data?.error || `Request failed: ${r.status}`);
+      // 429 = rate limited; give the throttle copy a friendly nudge.
+      if (r.status === 429) {
+        throw new Error(data?.error || "Too many requests — please wait a moment and try again.");
+      }
+      throw new Error(data?.error || "Our audit service is busy — please try again in a moment.");
     }
     return data as T;
   } catch (err: any) {
@@ -96,8 +118,12 @@ const STEPS = [
 
 function busyStep(busy: string | null): number {
   if (!busy) return 0;
-  if (busy.includes("speed")) return 2;
+  // Step 3 of 3 — final AI report generation.
   if (busy.includes("Generating")) return 3;
+  // Step 2 of 3 — the longest phase (competitor/review/keyword analysis).
+  // Previously this never showed: the flow jumped "Fetching" (1) straight
+  // to "Generating" (3), skipping the middle progress label entirely.
+  if (busy.includes("Analyzing") || busy.includes("speed")) return 2;
   return 1;
 }
 
@@ -505,38 +531,42 @@ export default function FreeAudit() {
         "/api/audit/place-details",
         body
       );
-      setBusy("Generating report\u2026");
-      // Bug 4 (customer report 2026-05-25): Alex hit "Taking longer than
-      // expected. Please try again." on a real audit run \u2014 the 60s
-      // client-side timeout was firing before the server returned. The
-      // /audit/generate route fans out to Outscraper (competitors +
-      // reviews), Serper rankings, DataForSEO volumes, Google Places
-      // enrichment, and the website QA fetch in parallel via
-      // Promise.allSettled. Each of those has its own retries; under load
-      // (cold Outscraper task, slow DataForSEO) the wall-clock can exceed
-      // 60s even though everything is healthy. Raised the client-side
-      // timeout to 180s (matches the server-side worst-case envelope).
-      // PageSpeed is intentionally NOT in this fan-out \u2014 it's polled
-      // separately in /api/audit/speed after the report renders, so the
-      // user sees the cards quickly and the speed scores backfill.
-      // Previous bumps for context:
-      //   2026-05-20 \u2014 30s \u2192 60s (B4 fix, one-off slow run).
-      const rep = await postJSON<{
-        ok: true;
-        report_json: any;
-        reportId?: string;
-        fromCache?: boolean;
-      }>(
-        "/api/audit/generate",
-        {
-          business: details.business,
-          speedData: null,
-          trade: (details as any).trade || "",
-          city: (details as any).city || "",
-          tradeOverride: tradeOverride || null,
-        },
-        180000
-      );
+      // Show the middle "Analyzing\u2026" step (step 2 of 3) while the server
+      // gathers competitors / reviews / keywords \u2014 the longest phase \u2014
+      // then advance to "Generating report\u2026" (step 3) for the AI narrative.
+      setBusy("Analyzing competitors, reviews, and search rankings\u2026");
+      const toGenerating = setTimeout(() => setBusy("Generating report\u2026"), 25000);
+      // Outage fix (2026-05-31): the server-side /generate handler now
+      // parallelizes its data-gathering under a ~70s server deadline and
+      // returns a (possibly partial) report well under Cloudflare's ~100s
+      // edge limit. The previous 180s client timeout sat ABOVE that edge
+      // limit, so a Cloudflare 524 always beat the client's friendly
+      // "taking longer" path and the user saw a raw "Request failed: 524".
+      // Lowered to 90s \u2014 just under the edge limit \u2014 so if the server
+      // ever does stall, the client surfaces the friendly retry copy first.
+      // PageSpeed is NOT in this fan-out \u2014 it's polled separately in
+      // /api/audit/speed after the report renders.
+      let rep: { ok: true; report_json: any; reportId?: string; fromCache?: boolean };
+      try {
+        rep = await postJSON<{
+          ok: true;
+          report_json: any;
+          reportId?: string;
+          fromCache?: boolean;
+        }>(
+          "/api/audit/generate",
+          {
+            business: details.business,
+            speedData: null,
+            trade: (details as any).trade || "",
+            city: (details as any).city || "",
+            tradeOverride: tradeOverride || null,
+          },
+          90000
+        );
+      } finally {
+        clearTimeout(toGenerating);
+      }
       setReport(rep.report_json);
       if (rep.reportId) setReportId(rep.reportId);
       setFromCache(rep.fromCache === true);
@@ -1188,6 +1218,8 @@ export default function FreeAudit() {
 
           {busy && (
             <div
+              role="status"
+              aria-live="polite"
               style={{
                 background: "#fff",
                 border: "1px solid rgba(0,0,0,0.07)",
