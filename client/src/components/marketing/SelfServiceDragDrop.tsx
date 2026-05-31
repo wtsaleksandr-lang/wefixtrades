@@ -865,7 +865,7 @@ function QuoteCalculator({
             fontWeight: 600,
           }}
         >
-          PARSED FROM FILE
+          FROM YOUR FILE
         </span>
       </div>
       <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 10 }}>

@@ -748,13 +748,19 @@ export function Ticker({
   const reduced = useReducedMotion();
   const parsed = parseValue(value);
   const hasDecimal = String(parsed.num).includes(".") || value.includes(".");
+  // Start the count-up partway (not at 0) so a fast scroll never catches a
+  // jarring "$0M / 0★ / <0s" frame — the tile always reads as a real number
+  // that ticks up to target.
+  const START_FRACTION = 0.4;
   const [current, setCurrent] = useState(
-    reduced || isNaN(parsed.num) ? value : parsed.prefix + "0" + parsed.suffix
+    reduced || isNaN(parsed.num)
+      ? value
+      : parsed.prefix + formatNum(parsed.num * START_FRACTION, parsed.sep, hasDecimal) + parsed.suffix
   );
 
   useEffect(() => {
     if (!inView || reduced || isNaN(parsed.num)) return;
-    const controls = animate(0, parsed.num, {
+    const controls = animate(parsed.num * START_FRACTION, parsed.num, {
       duration, delay, ease: [0.22, 1, 0.36, 1],
       onUpdate: (n) => setCurrent(parsed.prefix + formatNum(n, parsed.sep, hasDecimal) + parsed.suffix),
     });

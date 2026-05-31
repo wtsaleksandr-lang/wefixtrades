@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
@@ -621,10 +621,15 @@ const RESPONSIVE_CSS = `
 `;
 
 export default function HomePage() {
-  const [hasWebGL] = useState<boolean>(() => {
+  // WebGL probe moved off the synchronous render path (was a useState
+  // initializer that created a throwaway canvas + GL context on the hero/LCP
+  // path). Run it in an effect after first paint; GlobeSection it gates is
+  // lazy + deferred-until-near anyway, so the one-render delay is invisible.
+  const [hasWebGL, setHasWebGL] = useState(false);
+  useEffect(() => {
     const canvas = document.createElement("canvas");
-    return !!(canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl"));
-  });
+    setHasWebGL(!!(canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl")));
+  }, []);
 
   // Title + meta tags handled by <PageMeta> below.
   //
@@ -811,7 +816,9 @@ export default function HomePage() {
                 className="hero-enter"
                 style={{ marginBottom: 16 }}
               >
-                <h1
+                {/* Eyebrow line — demoted from <h1> to <p> so the page has
+                    exactly one h1 (the headline below) for SEO + a11y. */}
+                <p
                   className="hero-warm-headline"
                   style={{
                     fontSize: "clamp(28px, 4.5vw, 44px)",
@@ -824,7 +831,7 @@ export default function HomePage() {
                   }}
                 >
                   You're on the job.
-                </h1>
+                </p>
 
                 <h1
                   className="hero-warm-headline"
