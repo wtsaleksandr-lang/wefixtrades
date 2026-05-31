@@ -296,8 +296,8 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "minmax(160px, 1.2fr) 1fr 1fr",
-                      minWidth: 380,
+                      gridTemplateColumns: "minmax(104px, 1.2fr) 1fr 1fr",
+                      minWidth: 0,
                       background: "rgba(255,255,255,0.04)",
                       borderBottom: `1px solid ${mkt.onDarkBorder}`,
                       fontFamily: MONO,
@@ -316,8 +316,8 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       key={r.label}
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "minmax(160px, 1.2fr) 1fr 1fr",
-                        minWidth: 380,
+                        gridTemplateColumns: "minmax(104px, 1.2fr) 1fr 1fr",
+                        minWidth: 0,
                         borderBottom: i < tldrRows.length - 1 ? `1px solid ${mkt.onDarkBorder}` : undefined,
                         // Wave 112 — fontSize bumped 14 → 15 and body cells
                         // promoted from onDarkMuted → onDark for max readability.
@@ -374,8 +374,8 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "minmax(220px, 1.6fr) 110px 110px",
-                      minWidth: 440,
+                      gridTemplateColumns: "minmax(120px, 1.6fr) minmax(0, 1fr) minmax(0, 1fr)",
+                      minWidth: 0,
                       background: "rgba(255,255,255,0.04)",
                       borderBottom: `1px solid ${mkt.onDarkBorder}`,
                       fontFamily: MONO,
@@ -398,8 +398,8 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       key={row.feature}
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "minmax(220px, 1.6fr) 110px 110px",
-                        minWidth: 440,
+                        gridTemplateColumns: "minmax(120px, 1.6fr) minmax(0, 1fr) minmax(0, 1fr)",
+                        minWidth: 0,
                         borderBottom: i < matrixRows.length - 1 ? `1px solid ${mkt.onDarkBorder}` : undefined,
                         alignItems: "center",
                       }}
