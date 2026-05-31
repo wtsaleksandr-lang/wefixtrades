@@ -12,6 +12,7 @@ import { processReputationReports } from "./reputationReportWorker";
 import { cleanupExpiredMemory } from "../services/chatMemory";
 import { runDailyOpsIntelligence } from "./opsIntelligenceJob";
 import { processOutboundSync } from "./outboundSyncWorker";
+import { processArtifactOutreach } from "./artifactOutreachWorker";
 import { processRankFlowPlans } from "./rankflowWorker";
 import { processRankFlowTracking } from "./trackingWorker";
 import { processMapguardScans } from "./mapguardScanWorker";
@@ -486,6 +487,18 @@ export function initScheduler() {
       log.error("tradeline_provision_retry cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
+
+  // Artifact-first outbound — generate a per-prospect audit artifact for
+  // approved prospects BEFORE the sync below pushes them, so every cold email
+  // carries the personalized report link. Inert unless ARTIFACT_OUTREACH_ENABLED;
+  // rate-capped per tick. Runs every 10 min (offset from the 15-min sync).
+  cron.schedule("*/10 * * * *", async () => {
+    try {
+      await runJob("artifact_outreach", processArtifactOutreach);
+    } catch (err: any) {
+      log.error("artifact_outreach cron handler error", { error: err.message });
+    }
+  });
 
   // Outbound sync — push pending prospects to Instantly/Smartlead every 15 minutes
   cron.schedule("*/15 * * * *", async () => {

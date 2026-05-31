@@ -238,6 +238,50 @@ export function registerAdminOutboundRoutes(app: Express): void {
     }
   });
 
+  /* Artifact-first outreach stats — how many prospects have a generated audit
+     artifact, how many opened it (the buy-signal), and the latest few. Lets
+     the admin see the machine working at a glance. */
+  app.get("/api/admin/outbound/artifact-stats", requireAdmin, async (_req, res: Response) => {
+    try {
+      const [statusRows, viewedRow, recentRows] = await Promise.all([
+        db.select({ status: prospectEnrichment.artifact_status, c: sql<number>`count(*)` })
+          .from(prospectEnrichment)
+          .where(eq(prospectEnrichment.artifact_type, "audit"))
+          .groupBy(prospectEnrichment.artifact_status),
+        db.select({ c: sql<number>`count(*)` }).from(prospectEnrichment)
+          .where(sql`${prospectEnrichment.artifact_viewed_at} IS NOT NULL`),
+        db.select({
+          prospect_id: prospectEnrichment.prospect_id,
+          business: prospects.business_name,
+          score: prospectEnrichment.artifact_score,
+          grade: prospectEnrichment.artifact_grade,
+          headline: prospectEnrichment.artifact_headline,
+          url: prospectEnrichment.artifact_url,
+          viewed_at: prospectEnrichment.artifact_viewed_at,
+          view_count: prospectEnrichment.artifact_view_count,
+          generated_at: prospectEnrichment.artifact_generated_at,
+        }).from(prospectEnrichment)
+          .leftJoin(prospects, eq(prospects.id, prospectEnrichment.prospect_id))
+          .where(eq(prospectEnrichment.artifact_status, "generated"))
+          .orderBy(desc(prospectEnrichment.artifact_generated_at)).limit(10),
+      ]);
+      const byStatus: Record<string, number> = {};
+      for (const r of statusRows) if (r.status) byStatus[r.status] = Number(r.c);
+      res.json({
+        enabled: process.env.ARTIFACT_OUTREACH_ENABLED === "true",
+        generated: byStatus.generated ?? 0,
+        pending: byStatus.pending ?? 0,
+        failed: byStatus.failed ?? 0,
+        skipped: byStatus.skipped ?? 0,
+        viewed: Number(viewedRow[0]?.c ?? 0),
+        recent: recentRows,
+      });
+    } catch (err: any) {
+      log.error("[outbound] artifact-stats error:", err.message);
+      res.status(500).json({ error: "Failed to load artifact stats" });
+    }
+  });
+
   /* ═══════════════════════════════════════════
      Import — CSV upload
      ═══════════════════════════════════════════ */
