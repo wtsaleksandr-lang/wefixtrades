@@ -225,9 +225,11 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
 
   const canonical = `${SITE_URL}${path}`;
 
+  // No bare /compare index route exists (only /compare/:slug), so an
+  // intermediate "Compare" breadcrumb pointed at a 404 in the BreadcrumbList
+  // JSON-LD. Drop the level → Home › vs X (both resolve).
   useBreadcrumbSchema([
     { name: "Home", url: SITE_URL },
-    { name: "Compare", url: `${SITE_URL}/compare` },
     { name: `vs ${competitorName}`, url: canonical },
   ]);
 
