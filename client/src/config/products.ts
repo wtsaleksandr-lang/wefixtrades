@@ -362,8 +362,6 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Automated review requests, private feedback shield, AI responses, and Google posting. Built for plumbers, electricians, and trades businesses. From $79/mo.",
     category: "reputation",
     heroVisualType: "reviews",
-    // W-AN-2 \u2014 blocked on Meta App Review (for Facebook review pull/response).
-    comingSoon: true,
     primaryCTA: { label: "Start Getting Reviews \u2014 Free Trial", href: "/wizard" },
     secondaryCTA: { label: "Try Free Demo", href: "/demos/reputationshield" },
     highlights: [
