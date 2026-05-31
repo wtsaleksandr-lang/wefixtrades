@@ -876,12 +876,15 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
           rowStyle={{ gap: 16, paddingBottom: 8 }}
         >
           {items.slice(0, 7).map((t, i) => (
-            <Reveal key={t.quote} delay={i * 0.04}>
+            <Reveal
+              key={t.quote}
+              delay={i * 0.04}
+              style={{ flex: "0 0 clamp(280px, 80vw, 340px)", scrollSnapAlign: "start" }}
+            >
               <div
                 className="review-card"
                 style={{
-                  flex: "0 0 clamp(280px, 70vw, 340px)",
-                  scrollSnapAlign: "start",
+                  width: "100%",
                   padding: "22px 22px",
                   borderRadius: 14,
                   background: mkt.sectionLight,
@@ -889,6 +892,7 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
                   height: "100%",
                   minHeight: 240,
                   display: "flex", flexDirection: "column", gap: 14,
+                  boxSizing: "border-box",
                   transition: "transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease",
                 }}
               >
