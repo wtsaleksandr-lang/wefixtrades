@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import { mkt } from "@/theme/tokens";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { AuthCard } from "@/components/auth/AuthCard";
 
 export default function ResetPasswordPage() {
   const [, navigate] = useLocation();
+  usePageTitle("Reset Password");
 
   // Check for token in URL
   const params = new URLSearchParams(window.location.search);
@@ -92,8 +94,9 @@ function RequestReset() {
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <label style={labelStyle}>Email</label>
+          <label htmlFor="reset-request-email" style={labelStyle}>Email</label>
           <input
+            id="reset-request-email"
             type="email"
             required
             value={email}
@@ -226,8 +229,9 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <label style={labelStyle}>New password</label>
+          <label htmlFor="reset-new-password" style={labelStyle}>New password</label>
           <input
+            id="reset-new-password"
             type="password"
             required
             minLength={8}
@@ -238,8 +242,9 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
             style={{ ...inputStyle, marginBottom: 20 }}
           />
 
-          <label style={labelStyle}>Confirm password</label>
+          <label htmlFor="reset-confirm-password" style={labelStyle}>Confirm password</label>
           <input
+            id="reset-confirm-password"
             type="password"
             required
             value={confirm}
