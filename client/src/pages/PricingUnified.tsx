@@ -519,7 +519,10 @@ function ExpandableDetails({ label, children }: { label?: string; children: Reac
 function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { bundle: BundleDef; yearly: boolean; ctaLabel: string; onCheckout: () => void; onServiceInfo?: (productId: string) => void }) {
   const hl = !!bundle.highlighted;
   const price = yearly ? yearlyMonthlyEquiv(bundle.price) : bundle.price;
-  const totalValue = bundleValue(bundle);
+  // Anchor must be in the SAME period as the displayed price (per the comment
+  // below) — otherwise yearly view strikes a monthly "value" against a
+  // yearly-equiv price and overstates the discount.
+  const totalValue = yearly ? yearlyMonthlyEquiv(bundleValue(bundle)) : bundleValue(bundle);
   const [hover, setHover] = useState(false);
 
   return (
