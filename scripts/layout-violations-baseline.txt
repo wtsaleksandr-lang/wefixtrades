@@ -136,11 +136,11 @@ client/src/pages/leads.tsx:167:20	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:168:28	rule-c	square w-7 h-7
 client/src/pages/marketing/CitationBuilderPage.tsx:644:30	rule-c	size={13}
 client/src/pages/marketing/CitationBuilderPage.tsx:705:27	rule-c	size={18}
-client/src/pages/marketing/DesignShowcase.tsx:125:50	rule-c	size={720}
-client/src/pages/marketing/DesignShowcase.tsx:129:52	rule-c	size={720}
-client/src/pages/marketing/DesignShowcase.tsx:133:52	rule-c	size={720}
-client/src/pages/marketing/DesignShowcase.tsx:137:57	rule-c	size={720}
-client/src/pages/marketing/DesignShowcase.tsx:141:53	rule-c	size={1080}
+client/src/pages/marketing/DesignShowcase.tsx:128:50	rule-c	size={720}
+client/src/pages/marketing/DesignShowcase.tsx:132:52	rule-c	size={720}
+client/src/pages/marketing/DesignShowcase.tsx:136:52	rule-c	size={720}
+client/src/pages/marketing/DesignShowcase.tsx:140:57	rule-c	size={720}
+client/src/pages/marketing/DesignShowcase.tsx:144:53	rule-c	size={1080}
 client/src/pages/marketing/tools/CitationChecker.tsx:263:40	rule-c	size={11}
 client/src/pages/portal/FreeTools/ServiceAreaMap.tsx:242:7	rule-b	<div> contains 3 cues
 client/src/pages/portal/PortalBilling.tsx:167:24	rule-c	square w-9 h-9

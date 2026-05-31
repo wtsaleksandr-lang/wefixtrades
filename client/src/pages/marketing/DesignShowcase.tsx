@@ -7,8 +7,8 @@
  * Route: /design-showcase
  */
 
-import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { MONO } from "@/components/effortel-blocks";
 
@@ -60,10 +60,13 @@ function IllustrationFrame({ children }: { children: React.ReactNode }) {
 }
 
 export default function DesignShowcase() {
-  useEffect(() => { document.title = "Design Showcase — WeFixTrades"; }, []);
-
   return (
     <MarketingLayout hideSiteChat>
+      <PageMeta
+        title="Design Showcase"
+        description="Internal design-system preview for WeFixTrades marketing components."
+        noIndex
+      />
       <div style={{ background: mkt.bg, color: mkt.onDark, minHeight: "100vh" }}>
         {/* Hero header */}
         <section style={{ padding: "72px 24px 40px", textAlign: "center" }}>

@@ -5,7 +5,7 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { IconBadge } from "@/components/IconBadge";
 import { PRODUCTS } from "@/site/siteMap";
 import NotFound from "@/pages/not-found";
-import { mkt, shadows } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
 
 const DEMO_CONFIGS: Record<
   string,
@@ -15,7 +15,7 @@ const DEMO_CONFIGS: Record<
     title: "AI ChatLine Demo",
     desc: "Experience how AI ChatLine captures website visitors and SMS leads around the clock. Watch the chat widget qualify prospects, collect contact info, and send you instant notifications.",
     icon: "message",
-    productSlug: "ai-chatline",
+    productSlug: "tradeline",
     features: [
       "Live chat widget simulation",
       "SMS lead capture flow",
@@ -27,7 +27,7 @@ const DEMO_CONFIGS: Record<
     title: "AI CallLine Demo",
     desc: "Hear how AI CallLine answers calls, captures caller details, and delivers instant summaries so you never miss a lead — even at 2 AM.",
     icon: "phone",
-    productSlug: "ai-callline",
+    productSlug: "tradeline",
     features: [
       "AI voice greeting simulation",
       "Caller info capture flow",
@@ -39,7 +39,7 @@ const DEMO_CONFIGS: Record<
     title: "QuoteQuick Demo",
     desc: "Try an interactive quote calculator. See how homeowners get instant estimates on your website, boosting engagement and capturing qualified leads.",
     icon: "calculator",
-    productSlug: "quotequick",
+    productSlug: "quickquotepro",
     features: [
       "Interactive calculator widget",
       "Dynamic pricing logic",
@@ -51,7 +51,7 @@ const DEMO_CONFIGS: Record<
     title: "TradeLine Complete Demo",
     desc: "See Chat + Voice + DMs working together as a single unified lead engine. Every channel covered, every lead captured.",
     icon: "workflow",
-    productSlug: "tradeline-complete",
+    productSlug: "tradeline",
     features: [
       "Multi-channel lead flow",
       "Unified inbox preview",
@@ -254,7 +254,7 @@ export default function DemoPage() {
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center", width: "100%", maxWidth: 320, marginTop: 4 }}>
                   <a
-                    href="/book"
+                    href="/contact"
                     data-testid="button-demo-book-call"
                     style={{
                       display: "inline-flex",
