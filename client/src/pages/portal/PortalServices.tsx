@@ -28,7 +28,6 @@ const CATEGORY_STYLES: Record<string, string> = {
   visibility: "bg-sky-50 text-sky-700",
   reputation: "bg-orange-50 text-orange-700",
   website: "bg-teal-50 text-teal-700",
-  automation: "bg-pink-50 text-pink-700",
 };
 
 export default function PortalServices() {
