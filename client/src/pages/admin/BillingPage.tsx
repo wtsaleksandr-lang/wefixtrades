@@ -220,7 +220,7 @@ export default function BillingPage() {
                       <TableCell className="text-sm capitalize">{p.type}</TableCell>
                       <TableCell className="text-sm font-medium">{fmt(p.amount_cents)}</TableCell>
                       <TableCell>
-                        <Select value={p.status} onValueChange={(v) => updatePaymentStatus.mutate({ id: p.id, status: v })}>
+                        <Select value={p.status} onValueChange={(v) => { if (["paid", "refunded", "failed"].includes(v) && !window.confirm(`Set this payment to "${v}"? This changes the financial record for this client.`)) return; updatePaymentStatus.mutate({ id: p.id, status: v }); }}>
                           <SelectTrigger className="h-7 w-auto min-w-[90px] text-[11px] px-2">
                             <SelectValue />
                           </SelectTrigger>
@@ -267,7 +267,7 @@ export default function BillingPage() {
                       </Link>
                       <p className="text-xs text-muted-foreground capitalize mt-0.5">{p.type} &middot; {fmt(p.amount_cents)}</p>
                     </div>
-                    <Select value={p.status} onValueChange={(v) => updatePaymentStatus.mutate({ id: p.id, status: v })}>
+                    <Select value={p.status} onValueChange={(v) => { if (["paid", "refunded", "failed"].includes(v) && !window.confirm(`Set this payment to "${v}"? This changes the financial record for this client.`)) return; updatePaymentStatus.mutate({ id: p.id, status: v }); }}>
                       <SelectTrigger className="h-7 w-auto min-w-[80px] text-[11px] px-2">
                         <SelectValue />
                       </SelectTrigger>

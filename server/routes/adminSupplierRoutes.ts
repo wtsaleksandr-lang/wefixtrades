@@ -5,6 +5,15 @@ import { createLogger } from "../lib/logger";
 
 const log = createLogger("AdminSuppliers");
 
+/**
+ * Strip the integration `api_key` before any supplier object is sent to the
+ * client. The admin UI only needs to know whether a key is set, not its value.
+ */
+function maskSupplier<T extends Record<string, any>>(s: T): Omit<T, "api_key"> & { api_key_set: boolean } {
+  const { api_key, ...rest } = s;
+  return { ...rest, api_key_set: !!api_key };
+}
+
 export function registerAdminSupplierRoutes(app: Express): void {
 
   /* ═══════════════════════════════════════════
@@ -31,7 +40,7 @@ export function registerAdminSupplierRoutes(app: Express): void {
         });
       }
 
-      res.json(rows);
+      res.json(rows.map(maskSupplier));
     } catch (err: any) {
       log.error("Failed to list suppliers", { error: err.message });
       res.status(500).json({ error: "Failed to list suppliers" });
@@ -53,7 +62,7 @@ export function registerAdminSupplierRoutes(app: Express): void {
           (svc) => serviceId === svc || serviceId.startsWith(svc + "-"),
         );
       });
-      res.json(matching);
+      res.json(matching.map(maskSupplier));
     } catch (err: any) {
       log.error("Failed to list suppliers by service", { error: err.message });
       res.status(500).json({ error: "Failed to list suppliers by service" });
@@ -99,7 +108,7 @@ export function registerAdminSupplierRoutes(app: Express): void {
       }
 
       res.json({
-        ...supplier,
+        ...maskSupplier(supplier),
         stats: {
           total_tasks: totalTasks,
           completed_tasks: completedTasks,
@@ -134,7 +143,7 @@ export function registerAdminSupplierRoutes(app: Express): void {
         entity_id: supplier.id,
         summary: `Created supplier "${supplier.name}" (${supplier.type})`,
       });
-      res.status(201).json(supplier);
+      res.status(201).json(maskSupplier(supplier));
     } catch (err: any) {
       log.error("Failed to create supplier", { error: err.message });
       res.status(500).json({ error: "Failed to create supplier" });
@@ -158,7 +167,16 @@ export function registerAdminSupplierRoutes(app: Express): void {
         return;
       }
 
-      const updated = await storage.updateSupplier(supplierId, req.body);
+      // The client never receives the real api_key (masked), so a blank/absent
+      // api_key on update means "unchanged" — don't overwrite the stored secret.
+      const patch = { ...req.body };
+      if (!patch.api_key) delete patch.api_key;
+
+      const updated = await storage.updateSupplier(supplierId, patch);
+      if (!updated) {
+        res.status(404).json({ error: "Supplier not found" });
+        return;
+      }
       await storage.logAdminActivity({
         actor_type: "human",
         actor_id: (req.user as any)?.id,
@@ -167,9 +185,9 @@ export function registerAdminSupplierRoutes(app: Express): void {
         entity_type: "supplier",
         entity_id: supplierId,
         summary: `Updated supplier "${existing.name}"`,
-        metadata: { changes: Object.keys(req.body) },
+        metadata: { changes: Object.keys(patch) },
       });
-      res.json(updated);
+      res.json(maskSupplier(updated));
     } catch (err: any) {
       log.error("Failed to update supplier", { error: err.message });
       res.status(500).json({ error: "Failed to update supplier" });
@@ -197,6 +215,10 @@ export function registerAdminSupplierRoutes(app: Express): void {
         is_active: false,
         status: "inactive" as any,
       });
+      if (!updated) {
+        res.status(404).json({ error: "Supplier not found" });
+        return;
+      }
 
       await storage.logAdminActivity({
         actor_type: "human",
@@ -207,7 +229,7 @@ export function registerAdminSupplierRoutes(app: Express): void {
         entity_id: supplierId,
         summary: `Deactivated supplier "${existing.name}"`,
       });
-      res.json(updated);
+      res.json(maskSupplier(updated));
     } catch (err: any) {
       log.error("Failed to deactivate supplier", { error: err.message });
       res.status(500).json({ error: "Failed to deactivate supplier" });

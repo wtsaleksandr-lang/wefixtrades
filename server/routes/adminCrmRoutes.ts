@@ -1689,6 +1689,12 @@ export function registerAdminCrmRoutes(app: Express): void {
     try {
       const id = parseInt(String(req.params.id) as string);
       const updates = { ...req.body };
+      // Reject unknown statuses — an unrecognized value silently drops the row
+      // from the unpaid/revenue aggregates.
+      const ALLOWED_STATUSES = ["pending", "paid", "failed", "refunded", "partial"];
+      if (updates.status !== undefined && !ALLOWED_STATUSES.includes(updates.status)) {
+        return res.status(400).json({ error: "Invalid payment status" });
+      }
       // Auto-set paid_at when marking as paid
       if (updates.status === "paid" && !updates.paid_at) {
         updates.paid_at = new Date();
