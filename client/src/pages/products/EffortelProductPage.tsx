@@ -407,7 +407,9 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
           maxWidth: 1100, margin: "0 auto", position: "relative",
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) 380px",
-          gap: 32, alignItems: "center",
+          /* Top-align so the title sits close under the navbar instead of being
+             pushed ~320px down by vertical-centering against the tall phone. */
+          gap: 32, alignItems: "start",
         }}>
           {/* LEFT — copy + CTAs */}
           <div className="tlhp-split-text" style={{ minWidth: 0 }}>
