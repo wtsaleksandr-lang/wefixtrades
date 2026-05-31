@@ -203,7 +203,10 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
   return (
     <MarketingLayout hideSiteChat={isTradeLine}>
       <PageMeta
-        title={cfg.seoTitle}
+        // Strip a redundant trailing "| WeFixTrades" — PageMeta already
+        // appends " · WeFixTrades", so the raw seoTitles produced a doubled
+        // brand ("… | WeFixTrades · WeFixTrades") on all 12 product pages.
+        title={cfg.seoTitle.replace(/\s*\|\s*WeFixTrades\s*$/i, "")}
         description={cfg.seoDescription}
         canonical={`/products/${slug}`}
         ogType="product"
