@@ -27,28 +27,32 @@ interface ProductItem {
   tagline: string;
   icon: typeof Phone;
   /** Short stat shown bottom-left on hover. */
-  stat: string;
+  // Split into value + label (was a single `stat` string parsed by first
+  // space, which mis-rendered multi-word values like "Page 1 in 90 days" as
+  // accent "Page" + "[1 IN 90 DAYS]").
+  statValue: string;
+  statLabel: string;
 }
 
 const MONEY_MAKERS: ProductItem[] = [
-  { slug: "tradeline",       name: "24/7 TradeLine™",   tagline: "Never miss a lead — even at 2 AM.",        icon: Phone,      stat: "62% fewer missed calls" },
-  { slug: "quickquotepro",   name: "QuoteQuick™",       tagline: "Instant quotes on your website.",          icon: Calculator, stat: "3× more booked jobs" },
-  { slug: "mapguard",        name: "MapGuard™",         tagline: "Show up first on Google Maps.",            icon: MapPin,     stat: "Top-3 local pack" },
-  { slug: "webfix",          name: "WebFix™",           tagline: "Lighthouse 42 → 98 in a week.",            icon: TrendingUp, stat: "98 Lighthouse score" },
+  { slug: "tradeline",       name: "24/7 TradeLine™",   tagline: "Never miss a lead — even at 2 AM.",        icon: Phone,      statValue: "62%",    statLabel: "fewer missed calls" },
+  { slug: "quickquotepro",   name: "QuoteQuick™",       tagline: "Instant quotes on your website.",          icon: Calculator, statValue: "3×",     statLabel: "more booked jobs" },
+  { slug: "mapguard",        name: "MapGuard™",         tagline: "Show up first on Google Maps.",            icon: MapPin,     statValue: "Top-3",  statLabel: "local pack" },
+  { slug: "webfix",          name: "WebFix™",           tagline: "Lighthouse 42 → 98 in a week.",            icon: TrendingUp, statValue: "98",     statLabel: "Lighthouse score" },
 ];
 
 const GROWTH_TOOLS: ProductItem[] = [
-  { slug: "socialsync",      name: "SocialSync™",       tagline: "Stay visible without hiring a marketer.",   icon: Share2,     stat: "20 posts/month" },
-  { slug: "reputationshield",name: "ReputationShield™", tagline: "Every review answered within minutes.",     icon: Star,       stat: "4.9★ avg rating" },
-  { slug: "rankflow",        name: "RankFlow™",         tagline: "Outrank competitors without an agency.",    icon: TrendingUp, stat: "Page 1 in 90 days" },
-  { slug: "contentflow",     name: "ContentFlow™",      tagline: "Build authority — without writing a word.", icon: PenTool,    stat: "4 articles/month" },
+  { slug: "socialsync",      name: "SocialSync™",       tagline: "Stay visible without hiring a marketer.",   icon: Share2,     statValue: "20",       statLabel: "posts / month" },
+  { slug: "reputationshield",name: "ReputationShield™", tagline: "Every review answered within minutes.",     icon: Star,       statValue: "4.9★",     statLabel: "avg rating" },
+  { slug: "rankflow",        name: "RankFlow™",         tagline: "Outrank competitors without an agency.",    icon: TrendingUp, statValue: "Page 1",   statLabel: "in 90 days" },
+  { slug: "contentflow",     name: "ContentFlow™",      tagline: "Build authority — without writing a word.", icon: PenTool,    statValue: "4",        statLabel: "articles / month" },
 ];
 
 const DONE_FOR_YOU: ProductItem[] = [
-  { slug: "sitelaunch",      name: "SiteLaunch™",       tagline: "A site that converts. Done in a week.",     icon: Globe,      stat: "Live in 7 days" },
-  { slug: "webcare",         name: "WebCare™",          tagline: "We watch your site so you don't have to.",  icon: Shield,     stat: "24/7 monitoring" },
-  { slug: "adflow",          name: "AdFlow™",           tagline: "Real ads. Real ROI in your inbox.",         icon: Megaphone,  stat: "4× return on ad spend" },
-  { slug: "bookflow",        name: "BookFlow™",         tagline: "Customers book themselves. You show up.",   icon: Calendar,   stat: "Self-serve booking" },
+  { slug: "sitelaunch",      name: "SiteLaunch™",       tagline: "A site that converts. Done in a week.",     icon: Globe,      statValue: "7 days",      statLabel: "to launch" },
+  { slug: "webcare",         name: "WebCare™",          tagline: "We watch your site so you don't have to.",  icon: Shield,     statValue: "24/7",        statLabel: "monitoring" },
+  { slug: "adflow",          name: "AdFlow™",           tagline: "Real ads. Real ROI in your inbox.",         icon: Megaphone,  statValue: "4×",          statLabel: "return on ad spend" },
+  { slug: "bookflow",        name: "BookFlow™",         tagline: "Customers book themselves. You show up.",   icon: Calendar,   statValue: "Self-serve",  statLabel: "booking" },
 ];
 
 const PALETTE = ["cyanSoft", "lavender", "mint", "pink"] as const;
@@ -157,9 +161,9 @@ function ProductCard({ p, i }: { p: ProductItem; i: number }) {
             transition: "opacity 280ms ease 60ms, transform 280ms cubic-bezier(0.22,1,0.36,1) 60ms",
             pointerEvents: "none",
           }}>
-            <span style={{ color: mkt.accent }}>{p.stat.split(" ")[0]}</span>
+            <span style={{ color: mkt.accent }}>{p.statValue}</span>
             <span style={{ color: mkt.onDarkMuted, fontSize: 10 }}>
-              [{p.stat.split(" ").slice(1).join(" ").toUpperCase()}]
+              [{p.statLabel.toUpperCase()}]
             </span>
           </div>
         </div>
