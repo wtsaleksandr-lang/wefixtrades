@@ -2745,6 +2745,40 @@ router.get("/report/:id", async (req: Request, res: Response) => {
     // Increment view count
     await db.update(auditReports).set({ view_count: sql`${auditReports.view_count} + 1` }).where(eq(auditReports.id, id));
 
+    // ── Artifact-first buy-signal ───────────────────────────
+    // If this report was generated FOR an outbound prospect (artifact-first
+    // outreach), a view is the strongest engagement signal in the funnel.
+    // Mark it viewed, bump the prospect's priority, and log an event so it
+    // surfaces as a hot lead. Best-effort — never blocks the report render.
+    try {
+      const { prospectEnrichment, prospects: prospectsTbl, prospectEvents } = await import("@shared/schema");
+      const [enr] = await db.select().from(prospectEnrichment)
+        .where(eq(prospectEnrichment.artifact_ref_id, id)).limit(1);
+      if (enr) {
+        const firstView = !enr.artifact_viewed_at;
+        await db.update(prospectEnrichment).set({
+          artifact_view_count: sql`COALESCE(${prospectEnrichment.artifact_view_count}, 0) + 1`,
+          artifact_viewed_at: enr.artifact_viewed_at ?? new Date(),
+          updated_at: new Date(),
+        }).where(eq(prospectEnrichment.id, enr.id));
+        if (firstView) {
+          await db.update(prospectsTbl).set({
+            priority_score: sql`COALESCE(${prospectsTbl.priority_score}, 0) + 25`,
+            updated_at: new Date(),
+          }).where(eq(prospectsTbl.id, enr.prospect_id));
+          await db.insert(prospectEvents).values({
+            prospect_id: enr.prospect_id,
+            event_type: "artifact_viewed",
+            actor_type: "system",
+            actor_name: "audit_report_view",
+            summary: `Prospect opened their personalized audit report (${id}) — hot lead`,
+          });
+        }
+      }
+    } catch (sigErr: any) {
+      log.warn("[audit] artifact view-signal hook failed", { error: String(sigErr?.message || sigErr) });
+    }
+
     const report = rows[0];
     return res.json({
       ok: true,

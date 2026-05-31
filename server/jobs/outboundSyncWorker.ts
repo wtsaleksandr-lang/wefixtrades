@@ -28,6 +28,7 @@ import {
 import { eq, and, sql, lt, isNull, or, gte } from "drizzle-orm";
 import { getOutreachAdapter } from "../services/outreachPlatform";
 import { checkBlacklist } from "../services/outboundSafety";
+import { artifactOutreachEnabled } from "../services/outboundArtifactGenerator";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("OutboundSync");
@@ -213,6 +214,16 @@ export async function processOutboundSync(): Promise<SyncResult> {
         continue;
       }
 
+      // ── Artifact-first gate ─────────────────────────────
+      // The whole premise is "I already audited your business — here's the
+      // link". So when artifact-first outreach is enabled, never push a lead
+      // until its audit artifact is ready. Leave it pending; the artifact
+      // worker generates it within a few minutes, then this picks it up.
+      if (artifactOutreachEnabled() && enrichment?.artifact_status !== "generated") {
+        result.leads_skipped_cooldown++;
+        continue;
+      }
+
       // ── CASL implied-consent gate (default ON) ──────────
       // Only contact an email that is CONSPICUOUSLY PUBLISHED on the business's
       // OWN website — i.e. the email's domain matches the business's website
@@ -277,6 +288,17 @@ export async function processOutboundSync(): Promise<SyncResult> {
 
       // ── Push to platform ─────────────────────────────────
       try {
+        // Artifact merge fields → become {{audit_link}} / {{audit_score}} /
+        // {{audit_grade}} / {{audit_finding}} variables in the platform email
+        // template, so the cold email can show the report link + the specific
+        // finding. Empty when no artifact (artifact-first gate above keeps that
+        // from happening once the feature is enabled).
+        const customFields: Record<string, string> = {};
+        if (enrichment?.artifact_url) customFields.audit_link = enrichment.artifact_url;
+        if (enrichment?.artifact_score != null) customFields.audit_score = String(enrichment.artifact_score);
+        if (enrichment?.artifact_grade) customFields.audit_grade = enrichment.artifact_grade;
+        if (enrichment?.artifact_headline) customFields.audit_finding = enrichment.artifact_headline;
+
         const pushResult = await adapter!.addLeadToCampaign(
           campaign.external_campaign_id!,
           {
@@ -286,6 +308,7 @@ export async function processOutboundSync(): Promise<SyncResult> {
             website: prospect.website_url || undefined,
             phone: prospect.primary_phone || undefined,
             personalizationLine: enrichment?.ai_personalization_line || undefined,
+            customFields: Object.keys(customFields).length ? customFields : undefined,
           }
         );
 

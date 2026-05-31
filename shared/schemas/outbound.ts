@@ -140,6 +140,22 @@ export const prospectEnrichment = pgTable("prospect_enrichment", {
   enrichment_source: varchar("enrichment_source", { length: 30 }).default("heuristic"),
   // heuristic | ai | manual
   enriched_at: timestamp("enriched_at"),
+
+  // ── Artifact-first outbound (0076) ────────────────────
+  // A real local-visibility audit generated for THIS prospect's business,
+  // hosted at a public /audit/report/<id> link, merged into the cold email.
+  artifact_type: text("artifact_type"),                      // 'audit' (future: 'calculator')
+  artifact_status: text("artifact_status").default("pending"),// pending | generated | failed | skipped
+  artifact_ref_id: text("artifact_ref_id"),                  // audit_reports.id (uuid)
+  artifact_url: text("artifact_url"),                        // public report link
+  artifact_score: integer("artifact_score"),                // audit total 0-100 (merge field)
+  artifact_grade: text("artifact_grade"),                   // letter grade A-F (merge field)
+  artifact_headline: text("artifact_headline"),             // one-line finding for the email
+  artifact_generated_at: timestamp("artifact_generated_at"),
+  artifact_error: text("artifact_error"),
+  artifact_viewed_at: timestamp("artifact_viewed_at"),      // first report open = buy signal
+  artifact_view_count: integer("artifact_view_count").default(0),
+
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
