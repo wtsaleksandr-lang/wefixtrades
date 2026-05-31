@@ -7,8 +7,8 @@ import { mkt, colors } from "@/theme/tokens";
 
 /* ═══════════════════════════════════════════════════
    WeFixTrades Developer API Docs — single-pager
-   Reference page; OpenAPI spec at /docs/openapi.yaml
-   regenerated from server once AJ-6 ships.
+   Reference page; OpenAPI spec at /docs/openapi.yaml.
+   Content reflects the shipped v1 server contract.
 ═══════════════════════════════════════════════════ */
 
 const C = {
@@ -857,7 +857,7 @@ function ContentSections() {
           if you've used Stripe, Twilio, or Cal.com Platform, you'll feel at home.
         </P>
         <P>
-          Base URL: <InlineCode>https://api.wefixtrades.com</InlineCode>. All endpoints are
+          Base URL: <InlineCode>https://wefixtrades.com/api/v1</InlineCode>. All endpoints are
           versioned under <InlineCode>/api/v1/...</InlineCode>. Breaking changes ship on a new
           major version; additive changes are non-breaking in <InlineCode>v1</InlineCode>.
         </P>
@@ -877,12 +877,13 @@ function ContentSections() {
             <a href="/signup" style={{ color: C.accent }}>/signup</a>.
           </li>
           <li>
-            Subscribe to the <strong>Dev</strong> tier — free, sandbox-only — from{" "}
+            Subscribe to the <strong>Developer</strong> tier — free — from{" "}
             <a href="/pricing" style={{ color: C.accent }}>Pricing</a>.
           </li>
           <li>
-            Generate an API key under <strong>Portal → API Access</strong>. Test-mode keys are
-            prefixed <InlineCode>wfx_test_</InlineCode>.
+            Generate an API key under <strong>Portal → API Access</strong>. Production keys are
+            prefixed <InlineCode>wfx_live_</InlineCode>; test-mode keys issued in non-production
+            are prefixed <InlineCode>wfx_test_</InlineCode>.
           </li>
           <li>
             Call <InlineCode>GET /api/v1/me</InlineCode> to verify the key.
@@ -899,22 +900,23 @@ function ContentSections() {
               lang: "bash",
               code:
                 `# Verify your key\n` +
-                `curl https://api.wefixtrades.com/api/v1/me \\\n` +
-                `  -H "Authorization: Bearer wfx_test_..."\n\n` +
+                `curl https://wefixtrades.com/api/v1/me \\\n` +
+                `  -H "Authorization: Bearer wfx_live_..."\n\n` +
                 `# List your calculators\n` +
-                `curl https://api.wefixtrades.com/api/v1/calculators \\\n` +
-                `  -H "Authorization: Bearer wfx_test_..."`,
+                `curl https://wefixtrades.com/api/v1/calculators \\\n` +
+                `  -H "Authorization: Bearer wfx_live_..."`,
             },
             {
               label: "Node",
               lang: "javascript",
               code:
                 `// npm install undici  (or use built-in fetch on Node 18+)\n` +
-                `const API = "https://api.wefixtrades.com";\n` +
+                `const API = "https://wefixtrades.com/api/v1";\n` +
                 `const headers = { Authorization: \`Bearer \${process.env.WFX_KEY}\` };\n\n` +
-                `const me  = await fetch(\`\${API}/api/v1/me\`,  { headers }).then(r => r.json());\n` +
-                `const all = await fetch(\`\${API}/api/v1/calculators\`, { headers }).then(r => r.json());\n` +
-                `console.log({ me, count: all.data.length });`,
+                `const me  = await fetch(\`\${API}/me\`,  { headers }).then(r => r.json());\n` +
+                `const all = await fetch(\`\${API}/calculators\`, { headers }).then(r => r.json());\n` +
+                `// success envelope: { data, request_id }; the list payload nests under data.data\n` +
+                `console.log({ user: me.data, count: all.data.data.length });`,
             },
             {
               label: "Python",
@@ -922,22 +924,22 @@ function ContentSections() {
               code:
                 `# pip install httpx\n` +
                 `import os, httpx\n\n` +
-                `API = "https://api.wefixtrades.com"\n` +
+                `API = "https://wefixtrades.com/api/v1"\n` +
                 `headers = {"Authorization": f"Bearer {os.environ['WFX_KEY']}"}\n\n` +
-                `me  = httpx.get(f"{API}/api/v1/me", headers=headers).json()\n` +
-                `cal = httpx.get(f"{API}/api/v1/calculators", headers=headers).json()\n` +
-                `print(me, len(cal["data"]))`,
+                `me  = httpx.get(f"{API}/me", headers=headers).json()\n` +
+                `cal = httpx.get(f"{API}/calculators", headers=headers).json()\n` +
+                `print(me["data"], len(cal["data"]["data"]))`,
             },
             {
               label: "PHP",
               lang: "php",
               code:
                 `<?php\n` +
-                `$api = "https://api.wefixtrades.com";\n` +
+                `$api = "https://wefixtrades.com/api/v1";\n` +
                 `$opts = ["http" => ["header" => "Authorization: Bearer " . getenv("WFX_KEY")]];\n` +
                 `$ctx  = stream_context_create($opts);\n\n` +
-                `$me  = json_decode(file_get_contents("$api/api/v1/me", false, $ctx), true);\n` +
-                `$cal = json_decode(file_get_contents("$api/api/v1/calculators", false, $ctx), true);\n`,
+                `$me  = json_decode(file_get_contents("$api/me", false, $ctx), true);\n` +
+                `$cal = json_decode(file_get_contents("$api/calculators", false, $ctx), true);\n`,
             },
           ]}
         />
@@ -948,27 +950,34 @@ function ContentSections() {
         <H2 id="authentication">Authentication</H2>
         <P>
           All requests authenticate via a bearer token in the <InlineCode>Authorization</InlineCode>{" "}
-          header. Two environments are available:
+          header. The key prefix is environment-driven — there is no separate sandbox environment
+          with isolated data:
         </P>
         <Table
-          head={["Environment", "Key prefix", "Behaviour"]}
+          head={["Key prefix", "Issued in", "Notes"]}
           rows={[
             [
-              "Production",
               <InlineCode key="p">wfx_live_...</InlineCode>,
-              "Real submissions, real webhooks, billed against your tier.",
+              "Production",
+              "Real submissions, real usage, billed against your tier.",
             ],
             [
-              "Sandbox",
               <InlineCode key="t">wfx_test_...</InlineCode>,
-              "Fully isolated. Submissions do not appear in the live dashboard; webhooks fire against test endpoints.",
+              "Non-production",
+              "Test-mode keys are issued in non-production environments. They hit the same API surface — there is no per-account sandbox data isolation.",
             ],
           ]}
         />
+        <P>
+          A key is <InlineCode>wfx_live_</InlineCode> (or <InlineCode>wfx_test_</InlineCode>)
+          followed by 40 url-safe characters. The first 12 characters are the stored prefix
+          (e.g. <InlineCode>wfx_live_ab</InlineCode>) shown in the dashboard and in{" "}
+          <InlineCode>GET /me</InlineCode>; the full secret is shown only once at creation.
+        </P>
 
         <CodeBlock
           lang="http"
-          code={`GET /api/v1/me HTTP/1.1\nHost: api.wefixtrades.com\nAuthorization: Bearer wfx_live_4f1c2a...`}
+          code={`GET /api/v1/me HTTP/1.1\nHost: wefixtrades.com\nAuthorization: Bearer wfx_live_4f1c2a...`}
         />
 
         <H3 id="auth-rules">Handling keys safely</H3>
@@ -976,12 +985,12 @@ function ContentSections() {
           <li>Never embed live keys in browser code, mobile bundles, or public repos.</li>
           <li>Store keys in your server's secret manager (Doppler, AWS Secrets Manager, Vercel env, etc.).</li>
           <li>
-            Rotate keys from <strong>Portal → API Access → Rotate</strong>. The old key remains
-            valid for 24 hours after rotation to allow zero-downtime cutover.
+            Rotate and revoke keys from <strong>Portal → API Access</strong>. Key management is
+            dashboard-only — there is no API endpoint for creating, rotating, or revoking keys.
           </li>
           <li>
-            Compromised key? <InlineCode>POST /api/v1/keys/:id/revoke</InlineCode> revokes
-            immediately; rotation does not.
+            Compromised key? Revoke it immediately from <strong>Portal → API Access</strong>.
+            Revoked keys return <InlineCode>403 key_revoked</InlineCode> on the next request.
           </li>
         </ul>
       </section>
@@ -998,11 +1007,11 @@ function ContentSections() {
         <Table
           head={["Tier", "Per-minute rate limit", "Monthly call quota", "Overage"]}
           rows={[
-            ["Dev (free)", "30/min", "5,000", "Hard stop at quota"],
-            ["Starter", "60/min", "50,000", "$2 per 1,000 calls, cap 3×"],
-            ["Pro", "120/min", "250,000", "$2 per 1,000 calls, cap 3×"],
-            ["Business", "300/min", "1,000,000", "$2 per 1,000 calls, cap 3×"],
-            ["Agency", "600/min", "5,000,000", "$2 per 1,000 calls, cap 3×"],
+            ["Developer (free)", "5/min", "1,000", "Hard stop at quota"],
+            ["Starter", "30/min", "25,000", "$2 per 1,000 calls, cap 3×"],
+            ["Pro", "120/min", "150,000", "$2 per 1,000 calls, cap 3×"],
+            ["Business", "600/min", "750,000", "$2 per 1,000 calls, cap 3×"],
+            ["Agency", "1,800/min", "3,000,000", "$2 per 1,000 calls, cap 3×"],
           ]}
         />
 
@@ -1011,75 +1020,108 @@ function ContentSections() {
           lang="http"
           code={
             `HTTP/1.1 200 OK\n` +
+            `X-Request-Id:          req_01HEX...\n` +
             `X-RateLimit-Limit:     120\n` +
             `X-RateLimit-Remaining: 117\n` +
             `X-RateLimit-Reset:     1747892400   # Unix epoch (seconds)\n` +
-            `X-Quota-Limit:         250000\n` +
-            `X-Quota-Remaining:     201432\n` +
+            `X-Quota-Limit:         150000\n` +
+            `X-Quota-Remaining:     121432\n` +
             `X-Quota-Reset:         1748736000`
           }
         />
 
         <H3 id="rate-429">When you hit a limit</H3>
         <P>
-          Exceeding either ceiling returns <InlineCode>429 Too Many Requests</InlineCode> with a{" "}
-          <InlineCode>Retry-After</InlineCode> header. Back off and retry; clients should
-          implement exponential backoff with jitter for production workloads.
+          Exceeding either ceiling returns <InlineCode>429 Too Many Requests</InlineCode>. These
+          come from the auth/quota middleware, so they use the bare string error shape with a{" "}
+          <InlineCode>retry_after_seconds</InlineCode> field (see{" "}
+          <a href="#errors" style={{ color: C.accent }}>Errors</a>). Back off and retry; clients
+          should implement exponential backoff with jitter for production workloads.
         </P>
         <CodeBlock
           lang="json"
           code={
+            `# Per-minute rate limit\n` +
             `HTTP/1.1 429 Too Many Requests\n` +
-            `Retry-After: 17\n` +
             `\n` +
-            `{\n` +
-            `  "error": {\n` +
-            `    "code": "rate_limited",\n` +
-            `    "message": "Per-minute rate limit exceeded. Retry in 17s."\n` +
-            `  },\n` +
-            `  "request_id": "req_01HEX..."\n` +
-            `}`
+            `{ "error": "rate_limit_exceeded", "retry_after_seconds": 17 }\n\n` +
+            `# Monthly quota exhausted\n` +
+            `HTTP/1.1 429 Too Many Requests\n` +
+            `\n` +
+            `{ "error": "monthly_quota_exhausted", "retry_after_seconds": 86400 }`
           }
         />
-        <Callout type="tip">
-          At 80% of monthly quota, we send an <InlineCode>X-Quota-Warning: 80</InlineCode> header
-          and email the workspace owner with a one-click tier upgrade.
-        </Callout>
       </section>
 
       {/* ERRORS */}
       <section>
         <H2 id="errors">Errors</H2>
         <P>
-          Every non-2xx response uses the same envelope. Always log the{" "}
-          <InlineCode>request_id</InlineCode> — support can trace any call by it.
+          The API uses <strong>two</strong> error shapes. Resource route handlers (validation,
+          not-found, etc.) return a structured envelope; the auth, rate-limit, and quota
+          middleware returns a bare string. Always log the{" "}
+          <InlineCode>request_id</InlineCode> (also on the <InlineCode>X-Request-Id</InlineCode>{" "}
+          header) when present — support can trace any call by it.
+        </P>
+        <P>
+          <strong>Structured shape</strong> — resource handlers (400/403/404/500):
         </P>
         <CodeBlock
           lang="json"
           code={
             `{\n` +
             `  "error": {\n` +
-            `    "code": "validation_error",\n` +
-            `    "message": "Field 'name' is required.",\n` +
-            `    "field": "name"\n` +
+            `    "code": "invalid_body",\n` +
+            `    "message": "Field 'name' is required."\n` +
             `  },\n` +
             `  "request_id": "req_01HEXABC..."\n` +
             `}`
           }
         />
+        <P>
+          <strong>Bare string shape</strong> — auth / rate-limit / quota middleware. No{" "}
+          <InlineCode>code</InlineCode>, <InlineCode>message</InlineCode>, or{" "}
+          <InlineCode>request_id</InlineCode>:
+        </P>
+        <CodeBlock
+          lang="json"
+          code={
+            `401  { "error": "missing_or_malformed_api_key" }\n` +
+            `401  { "error": "invalid_api_key" }\n` +
+            `403  { "error": "key_revoked" }\n` +
+            `403  { "error": "no_subscription" }\n` +
+            `429  { "error": "rate_limit_exceeded", "retry_after_seconds": 17 }\n` +
+            `429  { "error": "monthly_quota_exhausted", "retry_after_seconds": 86400 }`
+          }
+        />
 
-        <H3 id="errors-codes">Error codes</H3>
+        <H3 id="errors-codes">Structured error codes (route handlers)</H3>
         <Table
           head={["HTTP", "Code", "When"]}
           rows={[
-            ["401", <InlineCode key="1">unauthorized</InlineCode>, "Missing, malformed, or revoked key."],
-            ["402", <InlineCode key="2">tier_limit_exceeded</InlineCode>, "Feature requires a higher tier (e.g. webhooks on Dev)."],
-            ["404", <InlineCode key="3">not_found</InlineCode>, "Resource does not exist or is not visible to this workspace."],
-            ["409", <InlineCode key="4">conflict</InlineCode>, "Slug or unique field already exists."],
-            ["422", <InlineCode key="5">validation_error</InlineCode>, "Body failed schema validation. Includes a 'field' hint."],
-            ["429", <InlineCode key="6">rate_limited</InlineCode>, "Per-minute or quota ceiling hit."],
-            ["400", <InlineCode key="7">webhook_signature_mismatch</InlineCode>, "On incoming webhook replay — your signing secret did not verify."],
+            ["401", <InlineCode key="1">unauthenticated</InlineCode>, "Request reached a handler without a valid authenticated key."],
+            ["400", <InlineCode key="2">invalid_query</InlineCode>, "A query parameter failed validation."],
+            ["400", <InlineCode key="3">invalid_body</InlineCode>, "Request body failed schema validation."],
+            ["400", <InlineCode key="4">invalid_id</InlineCode>, "Path id is malformed (calculators/submissions use integer ids)."],
+            ["403", <InlineCode key="5">tier_limit_exceeded</InlineCode>, "Action exceeds your tier's limit (e.g. too many calculators or webhooks)."],
+            ["403", <InlineCode key="6">unknown_tier</InlineCode>, "The subscription tier could not be resolved."],
+            ["404", <InlineCode key="7">not_found</InlineCode>, "Resource does not exist or is not visible to this account."],
             ["500", <InlineCode key="8">internal_error</InlineCode>, "We broke something. Reported automatically; please retry."],
+          ]}
+        />
+
+        <H3 id="errors-strings">Middleware string errors (auth / quota)</H3>
+        <Table
+          head={["HTTP", "error string", "When"]}
+          rows={[
+            ["401", <InlineCode key="1">missing_or_malformed_api_key</InlineCode>, "No bearer token, or it isn't a well-formed key."],
+            ["401", <InlineCode key="2">invalid_api_key</InlineCode>, "Token does not match an active key."],
+            ["403", <InlineCode key="3">key_revoked</InlineCode>, "Key was revoked from the dashboard."],
+            ["403", <InlineCode key="4">key_expired</InlineCode>, "Key has passed its expiry."],
+            ["403", <InlineCode key="5">no_subscription</InlineCode>, "Account has no active subscription."],
+            ["403", <InlineCode key="6">subscription_&lt;status&gt;</InlineCode>, "Subscription is in a non-active state (e.g. past_due, canceled)."],
+            ["429", <InlineCode key="7">rate_limit_exceeded</InlineCode>, "Per-minute rate limit hit. Includes retry_after_seconds."],
+            ["429", <InlineCode key="8">monthly_quota_exhausted</InlineCode>, "Monthly call quota used up. Includes retry_after_seconds."],
           ]}
         />
 
@@ -1088,8 +1130,8 @@ function ContentSections() {
           <InlineCode>200</InlineCode> OK · <InlineCode>201</InlineCode> Created ·{" "}
           <InlineCode>204</InlineCode> No Content (e.g. <em>delete</em>) ·{" "}
           <InlineCode>400</InlineCode>/<InlineCode>401</InlineCode>/<InlineCode>403</InlineCode>/
-          <InlineCode>404</InlineCode>/<InlineCode>409</InlineCode>/<InlineCode>422</InlineCode>/
-          <InlineCode>429</InlineCode> client-side; <InlineCode>500</InlineCode> server-side.
+          <InlineCode>404</InlineCode>/<InlineCode>429</InlineCode> client-side;{" "}
+          <InlineCode>500</InlineCode> server-side.
         </P>
       </section>
 
@@ -1097,19 +1139,21 @@ function ContentSections() {
       <section>
         <H2 id="endpoints">Endpoints reference</H2>
         <P>
-          All resources are scoped to your workspace by the bearer key. List endpoints support
-          cursor pagination via <InlineCode>?limit=</InlineCode> and <InlineCode>?cursor=</InlineCode>{" "}
-          parameters; responses include <InlineCode>data</InlineCode>, <InlineCode>has_more</InlineCode>,
-          and <InlineCode>next_cursor</InlineCode>.
+          All resources are scoped to your account by the bearer key. Every success response is
+          wrapped in an envelope — <InlineCode>{`{ "data": ..., "request_id": "req_..." }`}</InlineCode>.
+          List endpoints page via <InlineCode>?limit=</InlineCode> and <InlineCode>?offset=</InlineCode>{" "}
+          parameters; the list payload (itself nested under the envelope's <InlineCode>data</InlineCode>)
+          includes <InlineCode>data</InlineCode>, <InlineCode>total</InlineCode>,{" "}
+          <InlineCode>has_more</InlineCode>, <InlineCode>limit</InlineCode>, and <InlineCode>offset</InlineCode>.
         </P>
 
         {/* Calculators */}
         <H3 id="ep-calculators">Calculators</H3>
-        <EndpointRow method="GET" path="/api/v1/calculators" description="List calculators." />
+        <EndpointRow method="GET" path="/api/v1/calculators" description="List calculators. Query: limit (1–100, default 20), offset (default 0), status (active|paused|archived)." />
         <EndpointRow method="POST" path="/api/v1/calculators" description="Create a calculator." />
         <EndpointRow method="GET" path="/api/v1/calculators/:id" description="Fetch one calculator with its full config." />
-        <EndpointRow method="PATCH" path="/api/v1/calculators/:id" description="Partial update — name, fields, pricing." />
-        <EndpointRow method="DELETE" path="/api/v1/calculators/:id" description="Archive a calculator (soft delete, recoverable for 30 days)." />
+        <EndpointRow method="PATCH" path="/api/v1/calculators/:id" description="Partial update — name, business_name, calculator_settings." />
+        <EndpointRow method="DELETE" path="/api/v1/calculators/:id" description="Archive a calculator." />
         <EndpointRow method="POST" path="/api/v1/calculators/:id/pause" description="Disable submissions without deleting." />
         <EndpointRow method="POST" path="/api/v1/calculators/:id/resume" description="Re-enable submissions." />
         <P>Example — create:</P>
@@ -1120,28 +1164,41 @@ function ContentSections() {
             `Content-Type: application/json\n` +
             `\n` +
             `{\n` +
-            `  "name":     "Plumbing — Emergency Quote",\n` +
-            `  "slug":     "plumb-emergency",\n` +
-            `  "template": "tmpl_plumbing_v2",\n` +
-            `  "fields": [\n` +
-            `    { "key": "service_type", "type": "select", "options": ["leak","clog","install"] },\n` +
-            `    { "key": "urgency",      "type": "select", "options": ["today","this_week","flexible"] }\n` +
-            `  ],\n` +
-            `  "pricing": { "base": 89, "currency": "USD" }\n` +
+            `  "name":              "Plumbing — Emergency Quote",\n` +
+            `  "business_name":     "Acme Plumbing",\n` +
+            `  "trade_type":        "plumbing",\n` +
+            `  "template_id":       "tmpl_plumbing_v2",\n` +
+            `  "pricing_config":    { "base": 89, "currency": "USD" },\n` +
+            `  "calculator_settings": { "theme": "dark" }\n` +
             `}`
           }
         />
-        <P>Example response (201):</P>
+        <P>
+          Only <InlineCode>name</InlineCode> is required. The <InlineCode>slug</InlineCode> is
+          server-generated. Example response (201) — wrapped in the success envelope:
+        </P>
         <CodeBlock
           lang="json"
           code={
             `{\n` +
-            `  "id":         "calc_01HEX...",\n` +
-            `  "name":       "Plumbing — Emergency Quote",\n` +
-            `  "slug":       "plumb-emergency",\n` +
-            `  "status":     "active",\n` +
-            `  "embed_url":  "https://embed.wefixtrades.com/plumb-emergency",\n` +
-            `  "created_at": "2026-05-21T14:02:11Z"\n` +
+            `  "data": {\n` +
+            `    "id":                42,\n` +
+            `    "name":              "Plumbing — Emergency Quote",\n` +
+            `    "business_name":     "Acme Plumbing",\n` +
+            `    "slug":              "plumbing-emergency-quote",\n` +
+            `    "trade_type":        "plumbing",\n` +
+            `    "status":            "active",\n` +
+            `    "plan_tier":         "pro",\n` +
+            `    "total_views":       0,\n` +
+            `    "hosted_url":        null,\n` +
+            `    "subdomain":         null,\n` +
+            `    "primary_color":     "#2563EB",\n` +
+            `    "template_id":       "tmpl_plumbing_v2",\n` +
+            `    "calculator_settings": { "theme": "dark" },\n` +
+            `    "created_at":        "2026-05-21T14:02:11Z",\n` +
+            `    "updated_at":        "2026-05-21T14:02:11Z"\n` +
+            `  },\n` +
+            `  "request_id": "req_01HEX..."\n` +
             `}`
           }
         />
@@ -1149,40 +1206,40 @@ function ContentSections() {
         <CodeBlock
           lang="json"
           code={
-            `409 Conflict\n` +
-            `{ "error": { "code": "conflict", "message": "slug already exists", "field": "slug" } }\n\n` +
-            `422 Unprocessable Entity\n` +
-            `{ "error": { "code": "validation_error", "message": "fields[0].options must be non-empty", "field": "fields.0.options" } }`
+            `400 Bad Request\n` +
+            `{ "error": { "code": "invalid_body", "message": "name is required" }, "request_id": "req_01HEX..." }\n\n` +
+            `404 Not Found\n` +
+            `{ "error": { "code": "not_found", "message": "calculator not found" }, "request_id": "req_01HEX..." }`
           }
         />
 
         {/* Submissions */}
         <H3 id="ep-submissions">Submissions</H3>
-        <EndpointRow method="GET" path="/api/v1/submissions" description="List submissions across all calculators (filter with ?calculator_id=)." />
-        <EndpointRow method="GET" path="/api/v1/submissions/:id" description="Fetch one submission with field answers + calculated price." />
-        <EndpointRow method="POST" path="/api/v1/calculators/:id/submissions" description="Programmatically submit on behalf of a customer (e.g. ingest from another form)." />
-        <P>Example — programmatic submit:</P>
+        <EndpointRow method="GET" path="/api/v1/calculators/:id/submissions" description="List a calculator's submissions. Query: limit (1–200, default 50), offset, since (ISO), until (ISO)." />
+        <EndpointRow method="GET" path="/api/v1/submissions/:id" description="Fetch one submission with field answers + quote amount." />
+        <P>
+          To create a submission programmatically, use{" "}
+          <InlineCode>POST /api/v1/calculators/:id/quotes</InlineCode> (see{" "}
+          <a href="#ep-quotes" style={{ color: C.accent }}>Quotes</a>).
+        </P>
+        <P>Example — fetch one submission (inside the success envelope):</P>
         <CodeBlock
           lang="json"
           code={
-            `POST /api/v1/calculators/calc_01HEX.../submissions\n` +
-            `\n` +
             `{\n` +
-            `  "customer": { "name": "Jane Doe", "email": "jane@example.com", "phone": "+1-555-0101" },\n` +
-            `  "answers":  { "service_type": "leak", "urgency": "today" },\n` +
-            `  "source":   "homepage-form"\n` +
-            `}`
-          }
-        />
-        <CodeBlock
-          lang="json"
-          code={
-            `201 Created\n` +
-            `{\n` +
-            `  "id":         "sub_01HEX...",\n` +
-            `  "quote":      { "low": 180, "high": 320, "currency": "USD" },\n` +
-            `  "status":     "new",\n` +
-            `  "created_at": "2026-05-21T14:11:02Z"\n` +
+            `  "data": {\n` +
+            `    "id":            7,\n` +
+            `    "calculator_id": 42,\n` +
+            `    "name":          "Jane Doe",\n` +
+            `    "email":         "jane@example.com",\n` +
+            `    "phone":         "+1-555-0101",\n` +
+            `    "company":       "Doe & Co",\n` +
+            `    "quote_amount":  280,\n` +
+            `    "answers":       { "service_type": "leak", "urgency": "today" },\n` +
+            `    "status":        "new",\n` +
+            `    "created_at":    "2026-05-21T14:11:02Z"\n` +
+            `  },\n` +
+            `  "request_id": "req_01HEX..."\n` +
             `}`
           }
         />
@@ -1194,34 +1251,89 @@ function ContentSections() {
 
         {/* Quotes */}
         <H3 id="ep-quotes">Quotes</H3>
-        <EndpointRow method="GET" path="/api/v1/calculators/:id/quotes" description="Compute a quote without persisting a submission (sandbox / preview)." />
+        <EndpointRow method="POST" path="/api/v1/calculators/:id/quotes" description="Compute a quote and create a submission. This is how you programmatically capture a lead." />
+        <P>
+          Body: <InlineCode>field_values</InlineCode> (required object),{" "}
+          <InlineCode>quote_amount</InlineCode> (optional number|null),{" "}
+          <InlineCode>compute</InlineCode> (boolean, default true), and an optional{" "}
+          <InlineCode>contact</InlineCode> object (<InlineCode>name</InlineCode>,{" "}
+          <InlineCode>email</InlineCode>, <InlineCode>phone</InlineCode>,{" "}
+          <InlineCode>company</InlineCode>).
+        </P>
         <CodeBlock
           lang="bash"
-          code={`curl "https://api.wefixtrades.com/api/v1/calculators/calc_01HEX.../quotes?service_type=leak&urgency=today" \\\n  -H "Authorization: Bearer wfx_test_..."`}
+          code={
+            `curl -X POST "https://wefixtrades.com/api/v1/calculators/42/quotes" \\\n` +
+            `  -H "Authorization: Bearer wfx_live_..." \\\n` +
+            `  -H "Content-Type: application/json" \\\n` +
+            `  -d '{\n` +
+            `        "field_values": { "service_type": "leak", "urgency": "today" },\n` +
+            `        "compute": true,\n` +
+            `        "contact": { "name": "Jane Doe", "email": "jane@example.com" }\n` +
+            `      }'`
+          }
         />
-
-        {/* Webhooks */}
-        <H3 id="ep-webhooks">Webhooks</H3>
-        <EndpointRow method="GET" path="/api/v1/webhooks" description="List webhook endpoints." />
-        <EndpointRow method="POST" path="/api/v1/webhooks" description="Register a new webhook endpoint + event subscriptions." />
-        <EndpointRow method="DELETE" path="/api/v1/webhooks/:id" description="Remove a webhook endpoint." />
-
-        {/* Templates */}
-        <H3 id="ep-templates">Templates</H3>
-        <EndpointRow method="GET" path="/api/v1/templates" description="List public + workspace calculator templates (input for POST /calculators)." />
-
-        {/* Me */}
-        <H3 id="ep-me">Self (Me)</H3>
-        <EndpointRow method="GET" path="/api/v1/me" description="Returns the authenticated workspace, tier, and current usage." />
+        <P>Example response (201):</P>
         <CodeBlock
           lang="json"
           code={
             `{\n` +
-            `  "workspace_id": "ws_01HEX...",\n` +
-            `  "name":         "Acme Plumbing",\n` +
-            `  "tier":         "pro",\n` +
-            `  "environment":  "live",\n` +
-            `  "usage": { "calls_this_month": 48218, "quota": 250000 }\n` +
+            `  "data": {\n` +
+            `    "submission_id":  7,\n` +
+            `    "calculator_id":  42,\n` +
+            `    "computed_quote": 280,\n` +
+            `    "breakdown":      [ { "label": "Base", "amount": 89 } ],\n` +
+            `    "formula_errors": [],\n` +
+            `    "submission": {\n` +
+            `      "id": 7, "calculator_id": 42, "name": "Jane Doe",\n` +
+            `      "email": "jane@example.com", "quote_amount": 280,\n` +
+            `      "answers": { "service_type": "leak", "urgency": "today" },\n` +
+            `      "status": "new", "created_at": "2026-05-21T14:11:02Z"\n` +
+            `    }\n` +
+            `  },\n` +
+            `  "request_id": "req_01HEX..."\n` +
+            `}`
+          }
+        />
+
+        {/* Webhooks */}
+        <H3 id="ep-webhooks">Webhooks</H3>
+        <EndpointRow method="GET" path="/api/v1/webhooks" description="List webhook subscriptions." />
+        <EndpointRow method="POST" path="/api/v1/webhooks" description='Create a webhook subscription. Body: { url, events: [...] }.' />
+        <EndpointRow method="DELETE" path="/api/v1/webhooks/:id" description="Remove a webhook subscription (id is an opaque string)." />
+
+        {/* Templates */}
+        <H3 id="ep-templates">Templates</H3>
+        <EndpointRow method="GET" path="/api/v1/templates" description="List public + account calculator templates (input for POST /calculators)." />
+        <EndpointRow method="GET" path="/api/v1/templates/:id" description="Fetch one template." />
+
+        {/* Me */}
+        <H3 id="ep-me">Self (Me)</H3>
+        <EndpointRow method="GET" path="/api/v1/me" description="Returns the authenticated user, API key, tier, subscription, and current usage." />
+        <CodeBlock
+          lang="json"
+          code={
+            `{\n` +
+            `  "data": {\n` +
+            `    "user_id": 1024,\n` +
+            `    "api_key": { "id": 9, "prefix": "wfx_live_ab", "name": "prod", "status": "active" },\n` +
+            `    "tier": {\n` +
+            `      "id": "pro", "name": "Pro",\n` +
+            `      "monthly_call_quota": 150000, "rate_limit_per_minute": 120,\n` +
+            `      "max_calculators": 10, "webhook_quota": 20\n` +
+            `    },\n` +
+            `    "subscription": {\n` +
+            `      "status": "active",\n` +
+            `      "current_period_start": "2026-05-01T00:00:00Z",\n` +
+            `      "current_period_end":   "2026-06-01T00:00:00Z",\n` +
+            `      "reset_at":             "2026-06-01T00:00:00Z"\n` +
+            `    },\n` +
+            `    "usage_this_period": {\n` +
+            `      "calls_used": 48218, "calls_quota": 150000,\n` +
+            `      "calls_remaining": 101782, "reset_at": "2026-06-01T00:00:00Z"\n` +
+            `    }\n` +
+            `  },\n` +
+            `  "request_id": "req_01HEX..."\n` +
             `}`
           }
         />
@@ -1230,9 +1342,22 @@ function ContentSections() {
       {/* WEBHOOKS */}
       <section>
         <H2 id="webhooks">Webhooks</H2>
+        <Callout type="warn">
+          <strong>Beta — delivery coming soon.</strong> You can create webhook subscriptions and
+          a signing secret is issued today, but the delivery/dispatch worker is not live yet, so
+          events are <strong>not</strong> delivered to your endpoint. The event list, payload, and
+          signature scheme below describe the <em>planned</em> behaviour for when delivery ships.
+        </Callout>
         <P>
           Webhooks deliver events to a URL you control. Use them to forward submissions into
-          your CRM, fire SMS notifications, or trigger downstream automations.
+          your CRM, fire SMS notifications, or trigger downstream automations. Manage
+          subscriptions via <InlineCode>GET/POST/DELETE /api/v1/webhooks</InlineCode>.
+        </P>
+        <P>
+          On creation, a signing secret (<InlineCode>whsec_...</InlineCode>) is returned in full
+          <strong> once</strong>. Afterwards it is redacted to{" "}
+          <InlineCode>whsec_********_&lt;last4&gt;</InlineCode> — store it securely at creation
+          time.
         </P>
 
         <H3 id="wh-events">Event types</H3>
@@ -1240,40 +1365,41 @@ function ContentSections() {
           head={["Event", "Fires when"]}
           rows={[
             [<InlineCode key="1">submission.created</InlineCode>, "A customer submits a calculator (UI or API)."],
-            [<InlineCode key="2">submission.updated</InlineCode>, "Submission status changes (e.g. new → contacted → won/lost)."],
-            [<InlineCode key="3">calculator.created</InlineCode>, "A new calculator is provisioned."],
-            [<InlineCode key="4">calculator.updated</InlineCode>, "Calculator config or pricing changes."],
-            [<InlineCode key="5">calculator.deleted</InlineCode>, "Calculator archived."],
-            [<InlineCode key="6">quota.warning</InlineCode>, "Monthly quota crosses 80%."],
+            [<InlineCode key="2">calculator.created</InlineCode>, "A new calculator is provisioned."],
+            [<InlineCode key="3">calculator.updated</InlineCode>, "Calculator config or pricing changes."],
+            [<InlineCode key="4">calculator.deleted</InlineCode>, "Calculator archived."],
+            [<InlineCode key="5">calculator.paused</InlineCode>, "Calculator submissions paused."],
+            [<InlineCode key="6">calculator.resumed</InlineCode>, "Calculator submissions resumed."],
           ]}
         />
 
-        <H3 id="wh-payload">Payload shape</H3>
+        <H3 id="wh-payload">Payload shape (planned)</H3>
         <CodeBlock
           lang="json"
           code={
             `{\n` +
-            `  "id":      "evt_01HEX...",\n` +
+            `  "id":      "evt_2a9f...",\n` +
             `  "type":    "submission.created",\n` +
             `  "created": "2026-05-21T14:11:02Z",\n` +
             `  "data": {\n` +
             `    "object": {\n` +
-            `      "id":            "sub_01HEX...",\n` +
-            `      "calculator_id": "calc_01HEX...",\n` +
-            `      "customer":      { "name": "Jane Doe", "email": "jane@example.com" },\n` +
+            `      "id":            7,\n` +
+            `      "calculator_id": 42,\n` +
+            `      "name":          "Jane Doe",\n` +
+            `      "email":         "jane@example.com",\n` +
             `      "answers":       { "service_type": "leak", "urgency": "today" },\n` +
-            `      "quote":         { "low": 180, "high": 320, "currency": "USD" }\n` +
+            `      "quote_amount":  280\n` +
             `    }\n` +
             `  }\n` +
             `}`
           }
         />
 
-        <H3 id="wh-signature">Signature verification</H3>
+        <H3 id="wh-signature">Signature verification (planned)</H3>
         <P>
-          Every webhook is signed with HMAC-SHA256 over the raw request body using the secret
-          you saw once on creation. The signature is sent as{" "}
-          <InlineCode>X-WFT-Signature</InlineCode> in the form{" "}
+          When delivery ships, every webhook will be signed with HMAC-SHA256 over the raw request
+          body using the <InlineCode>whsec_...</InlineCode> secret you saw once on creation. The
+          signature is sent as <InlineCode>X-WFT-Signature</InlineCode> in the form{" "}
           <InlineCode>t=&lt;timestamp&gt;,v1=&lt;hex&gt;</InlineCode>.
         </P>
 
@@ -1319,12 +1445,12 @@ function ContentSections() {
           frameworks (Express, FastAPI, Laravel) expose a raw-body hook — use it.
         </Callout>
 
-        <H3 id="wh-retry">Retry policy</H3>
+        <H3 id="wh-retry">Retry policy (planned)</H3>
         <P>
-          Non-2xx responses are retried <strong>5 times</strong> with exponential backoff over
-          24 hours (roughly: 1m, 5m, 30m, 2h, 12h). After the 5th failure we mark the endpoint
-          unhealthy and email the workspace owner. Idempotency: re-deliveries reuse the same
-          event <InlineCode>id</InlineCode>; dedupe on it.
+          Once delivery ships, non-2xx responses will be retried <strong>5 times</strong> with
+          exponential backoff over 24 hours (roughly: 1m, 5m, 30m, 2h, 12h). After the 5th
+          failure we mark the endpoint unhealthy and email the account owner. Idempotency:
+          re-deliveries reuse the same event <InlineCode>id</InlineCode>; dedupe on it.
         </P>
       </section>
 
@@ -1337,13 +1463,13 @@ function ContentSections() {
           price so a runaway loop cannot blow up your bill.
         </P>
         <Table
-          head={["Tier", "Monthly", "Calls / month", "Webhooks", "Sandbox", "Annual (-17%)"]}
+          head={["Tier", "Monthly", "Annual", "Calls / month", "Calculators", "Webhook subs"]}
           rows={[
-            ["Dev", "$0", "5,000", "—", "yes", "$0"],
-            ["Starter", "$49", "50,000", "3 endpoints", "yes", "$40.67"],
-            ["Pro", "$149", "250,000", "10 endpoints", "yes", "$123.67"],
-            ["Business", "$399", "1,000,000", "Unlimited", "yes", "$331.17"],
-            ["Agency", "$999", "5,000,000", "Unlimited", "yes", "$829.17"],
+            ["Developer", "$0", "$0", "1,000", "1", "0"],
+            ["Starter", "$49", "$480 ($40/mo)", "25,000", "3", "5"],
+            ["Pro", "$149", "$1,488 ($124/mo)", "150,000", "10", "20"],
+            ["Business", "$399", "$3,972 ($331/mo)", "750,000", "50", "100"],
+            ["Agency", "$999", "$9,948 ($829/mo)", "3,000,000", "Unlimited", "Unlimited"],
           ]}
         />
         <Callout type="tip">
@@ -1390,7 +1516,7 @@ function ContentSections() {
         <Table
           head={["Date", "Version", "Notes"]}
           rows={[
-            ["2026-MM-DD", "v1.0", "Initial public launch — calculators, submissions, webhooks, templates, me."],
+            ["2026-05-31", "v1.0", "Initial public launch — calculators, submissions, quotes, webhook subscriptions, templates, me."],
           ]}
         />
       </section>
@@ -1405,7 +1531,7 @@ function ContentSections() {
             [
               "Community Discord",
               "Quick questions, sample code, bug commiseration",
-              <a key="d" href="https://discord.gg/wefixtrades-coming-soon" style={{ color: C.accent }}>discord.gg/wefixtrades</a>,
+              <span key="d" style={{ color: C.muted }}>Discord (coming soon)</span>,
             ],
             [
               "Email",

@@ -1,7 +1,6 @@
 # Synced from /docs/openapi.yaml — keep in sync
 # WeFixTrades REST API — v1
-# Reference spec — regenerate from server code once AJ-6 lands.
-# Hand-maintained stub for /docs/api page until the canonical generator exists.
+# Hand-maintained spec reflecting the shipped v1 server contract.
 
 openapi: 3.1.0
 info:
@@ -10,7 +9,15 @@ info:
   description: |
     REST API for embedding quote calculators, capturing leads, and integrating
     WeFixTrades products into your stack. Authenticate with a bearer token
-    (`wfx_live_...` for production, `wfx_test_...` for sandbox).
+    (`wfx_live_<40 url-safe chars>` in production, `wfx_test_<40 url-safe chars>`
+    in non-production). Test-mode keys are environment-driven — there is no
+    per-account sandbox with isolated data.
+
+    Every success response is wrapped in `{ "data": <T>, "request_id": "req_..." }`.
+    Resource route handlers return a structured error envelope
+    (`{ "error": { "code", "message" }, "request_id" }`); the auth, rate-limit,
+    and quota middleware return a bare string error (`{ "error": "<string>" }`,
+    with `retry_after_seconds` on 429).
   contact:
     name: WeFixTrades Developers
     email: developers@wefixtrades.com
@@ -18,33 +25,31 @@ info:
   license:
     name: Proprietary
 servers:
-  - url: https://api.wefixtrades.com
+  - url: https://wefixtrades.com/api/v1
     description: Production
-  - url: https://api.sandbox.wefixtrades.com
-    description: Sandbox
 
 security:
   - bearerAuth: []
 
 tags:
   - name: Self
-    description: Authenticated workspace metadata.
+    description: Authenticated user, key, tier, subscription, and usage.
   - name: Calculators
     description: Create, configure, and manage quote calculators.
   - name: Submissions
     description: Lead submissions captured by calculators.
   - name: Quotes
-    description: Compute a quote without persisting a submission.
+    description: Compute a quote and create a submission.
   - name: Webhooks
-    description: Endpoint registration + event subscriptions.
+    description: Subscription CRUD (delivery not yet live — beta).
   - name: Templates
-    description: Public + workspace calculator templates.
+    description: Public + account calculator templates.
 
 paths:
-  /api/v1/me:
+  /me:
     get:
       tags: [Self]
-      summary: Get authenticated workspace
+      summary: Get authenticated user, tier, subscription, and usage
       operationId: getMe
       responses:
         "200":
@@ -52,25 +57,30 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Workspace"
+                $ref: "#/components/schemas/MeEnvelope"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /api/v1/calculators:
+  /calculators:
     get:
       tags: [Calculators]
       summary: List calculators
       operationId: listCalculators
       parameters:
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit100"
+        - $ref: "#/components/parameters/Offset"
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, paused, archived]
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CalculatorList"
+                $ref: "#/components/schemas/CalculatorListEnvelope"
     post:
       tags: [Calculators]
       summary: Create a calculator
@@ -87,13 +97,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Calculator"
-        "409":
-          description: Slug already exists
-        "422":
-          description: Validation error
+                $ref: "#/components/schemas/CalculatorEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
-  /api/v1/calculators/{id}:
+  /calculators/{id}:
     parameters:
       - $ref: "#/components/parameters/CalculatorId"
     get:
@@ -106,7 +114,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Calculator"
+                $ref: "#/components/schemas/CalculatorEnvelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
     patch:
       tags: [Calculators]
       summary: Update a calculator
@@ -123,16 +133,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Calculator"
+                $ref: "#/components/schemas/CalculatorEnvelope"
     delete:
       tags: [Calculators]
       summary: Archive a calculator
       operationId: deleteCalculator
       responses:
-        "204":
-          description: No Content
+        "200":
+          description: OK
 
-  /api/v1/calculators/{id}/pause:
+  /calculators/{id}/pause:
     parameters:
       - $ref: "#/components/parameters/CalculatorId"
     post:
@@ -143,7 +153,7 @@ paths:
         "200":
           description: OK
 
-  /api/v1/calculators/{id}/resume:
+  /calculators/{id}/resume:
     parameters:
       - $ref: "#/components/parameters/CalculatorId"
     post:
@@ -154,40 +164,85 @@ paths:
         "200":
           description: OK
 
-  /api/v1/calculators/{id}/quotes:
+  /calculators/{id}/quotes:
+    parameters:
+      - $ref: "#/components/parameters/CalculatorId"
+    post:
+      tags: [Quotes]
+      summary: Compute a quote and create a submission
+      operationId: createQuote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteEnvelope"
+
+  /calculators/{id}/submissions:
     parameters:
       - $ref: "#/components/parameters/CalculatorId"
     get:
-      tags: [Quotes]
-      summary: Compute a quote (no persistence)
-      operationId: computeQuote
-      responses:
-        "200":
-          description: OK
-
-  /api/v1/submissions:
-    get:
       tags: [Submissions]
-      summary: List submissions
+      summary: List a calculator's submissions
       operationId: listSubmissions
       parameters:
+        - $ref: "#/components/parameters/Limit200"
+        - $ref: "#/components/parameters/Offset"
         - in: query
-          name: calculator_id
+          name: since
           schema:
             type: string
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
+            format: date-time
+        - in: query
+          name: until
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionListEnvelope"
+
+  /calculators/{id}/embed-code:
+    parameters:
+      - $ref: "#/components/parameters/CalculatorId"
+    get:
+      tags: [Calculators]
+      summary: Get the embed <script> snippet
+      operationId: getEmbedCode
       responses:
         "200":
           description: OK
 
-  /api/v1/submissions/{id}:
+  /calculators/{id}/hosted-url:
+    parameters:
+      - $ref: "#/components/parameters/CalculatorId"
+    get:
+      tags: [Calculators]
+      summary: Get the standalone hosted URL
+      operationId: getHostedUrl
+      responses:
+        "200":
+          description: OK
+
+  /submissions/{id}:
     parameters:
       - in: path
         name: id
         required: true
         schema:
-          type: string
+          type: integer
+        example: 7
     get:
       tags: [Submissions]
       summary: Get a submission
@@ -195,24 +250,52 @@ paths:
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionEnvelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
-  /api/v1/webhooks:
+  /webhooks:
     get:
       tags: [Webhooks]
-      summary: List webhook endpoints
+      summary: List webhook subscriptions
       operationId: listWebhooks
       responses:
         "200":
           description: OK
     post:
       tags: [Webhooks]
-      summary: Register a new webhook
+      summary: Create a webhook subscription (delivery not yet live — beta)
       operationId: createWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookCreate"
       responses:
         "201":
           description: Created
 
-  /api/v1/templates:
+  /webhooks/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        example: whk_2a9f3c
+    delete:
+      tags: [Webhooks]
+      summary: Delete a webhook subscription
+      operationId: deleteWebhook
+      responses:
+        "200":
+          description: OK
+
+  /templates:
     get:
       tags: [Templates]
       summary: List calculator templates
@@ -221,12 +304,29 @@ paths:
         "200":
           description: OK
 
+  /templates/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Templates]
+      summary: Get one template
+      operationId: getTemplate
+      responses:
+        "200":
+          description: OK
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: "wfx_{live|test}_<key>"
+      bearerFormat: "wfx_{live|test}_<40 url-safe chars>"
 
   parameters:
     CalculatorId:
@@ -234,25 +334,50 @@ components:
       name: id
       required: true
       schema:
-        type: string
-      example: calc_01HEX...
-    Limit:
+        type: integer
+      example: 42
+    Limit100:
       in: query
       name: limit
       schema:
         type: integer
         minimum: 1
         maximum: 100
-        default: 25
-    Cursor:
+        default: 20
+    Limit200:
       in: query
-      name: cursor
+      name: limit
       schema:
-        type: string
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Offset:
+      in: query
+      name: offset
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
 
   responses:
     Unauthorized:
-      description: Missing or invalid API key
+      description: |
+        Missing or invalid API key. Returned by the auth middleware as a bare
+        string error, e.g. { "error": "missing_or_malformed_api_key" } or
+        { "error": "invalid_api_key" }.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StringError"
+    BadRequest:
+      description: Request body or query failed validation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
       content:
         application/json:
           schema:
@@ -260,6 +385,7 @@ components:
 
   schemas:
     Error:
+      description: Structured error envelope returned by resource route handlers.
       type: object
       properties:
         error:
@@ -267,74 +393,220 @@ components:
           properties:
             code:
               type: string
-              example: validation_error
+              enum:
+                - unauthenticated
+                - invalid_query
+                - invalid_body
+                - invalid_id
+                - not_found
+                - tier_limit_exceeded
+                - unknown_tier
+                - internal_error
+              example: invalid_body
             message:
-              type: string
-            field:
               type: string
         request_id:
           type: string
           example: req_01HEX...
 
-    Workspace:
+    StringError:
+      description: |
+        Bare string error returned by the auth / rate-limit / quota middleware.
+        No code/message/request_id. 429 responses include retry_after_seconds.
       type: object
       properties:
-        workspace_id: { type: string, example: ws_01HEX... }
-        name:         { type: string, example: Acme Plumbing }
-        tier:
+        error:
           type: string
-          enum: [dev, starter, pro, business, agency]
-        environment:
-          type: string
-          enum: [live, test]
-        usage:
+          example: missing_or_malformed_api_key
+        retry_after_seconds:
+          type: integer
+          description: Present only on 429 (rate_limit_exceeded / monthly_quota_exhausted).
+
+    MeEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Me"
+        request_id: { type: string, example: req_01HEX... }
+
+    Me:
+      type: object
+      properties:
+        user_id: { type: integer, example: 1024 }
+        api_key:
           type: object
           properties:
-            calls_this_month: { type: integer }
-            quota:            { type: integer }
+            id:     { type: integer }
+            prefix: { type: string, example: wfx_live_ab }
+            name:   { type: string }
+            status: { type: string }
+        tier:
+          type: object
+          properties:
+            id:                    { type: string, enum: [free, starter, pro, business, agency] }
+            name:                  { type: string }
+            monthly_call_quota:    { type: integer }
+            rate_limit_per_minute: { type: integer }
+            max_calculators:       { type: integer, description: "null/unlimited on agency" }
+            webhook_quota:         { type: integer, description: "null/unlimited on agency" }
+        subscription:
+          type: object
+          properties:
+            status:               { type: string }
+            current_period_start: { type: string, format: date-time }
+            current_period_end:   { type: string, format: date-time }
+            reset_at:             { type: string, format: date-time }
+        usage_this_period:
+          type: object
+          properties:
+            calls_used:      { type: integer }
+            calls_quota:     { type: integer }
+            calls_remaining: { type: integer }
+            reset_at:        { type: string, format: date-time }
 
     Calculator:
       type: object
       properties:
-        id:         { type: string, example: calc_01HEX... }
-        name:       { type: string }
-        slug:       { type: string }
+        id:            { type: integer, example: 42 }
+        name:          { type: string }
+        business_name: { type: string }
+        slug:          { type: string, description: "server-generated" }
+        trade_type:    { type: string }
         status:
           type: string
           enum: [active, paused, archived]
-        embed_url:  { type: string, format: uri }
-        created_at: { type: string, format: date-time }
+        plan_tier:     { type: string }
+        total_views:   { type: integer }
+        hosted_url:    { type: string, nullable: true }
+        subdomain:     { type: string, nullable: true }
+        primary_color: { type: string }
+        template_id:   { type: string, nullable: true }
+        calculator_settings:
+          type: object
+        created_at:    { type: string, format: date-time }
+        updated_at:    { type: string, format: date-time }
+
+    CalculatorEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Calculator"
+        request_id: { type: string, example: req_01HEX... }
 
     CalculatorCreate:
       type: object
-      required: [name, slug, template]
+      required: [name]
       properties:
-        name:     { type: string }
-        slug:     { type: string }
-        template: { type: string, example: tmpl_plumbing_v2 }
-        fields:
-          type: array
-          items:
-            type: object
-        pricing:
-          type: object
+        name:               { type: string }
+        business_name:      { type: string }
+        template_id:        { type: string }
+        trade_type:         { type: string }
+        pricing_config:     { type: object }
+        calculator_settings: { type: object }
 
     CalculatorUpdate:
       type: object
       properties:
-        name:    { type: string }
-        fields:
-          type: array
-          items: { type: object }
-        pricing:
-          type: object
+        name:                { type: string }
+        business_name:       { type: string }
+        calculator_settings: { type: object }
 
-    CalculatorList:
+    CalculatorListEnvelope:
       type: object
       properties:
         data:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Calculator"
+            total:    { type: integer }
+            has_more: { type: boolean }
+            limit:    { type: integer }
+            offset:   { type: integer }
+        request_id: { type: string, example: req_01HEX... }
+
+    Submission:
+      type: object
+      properties:
+        id:            { type: integer, example: 7 }
+        calculator_id: { type: integer, example: 42 }
+        name:          { type: string }
+        email:         { type: string }
+        phone:         { type: string }
+        company:       { type: string }
+        quote_amount:  { type: number, nullable: true }
+        answers:       { type: object }
+        status:        { type: string }
+        created_at:    { type: string, format: date-time }
+
+    SubmissionEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Submission"
+        request_id: { type: string, example: req_01HEX... }
+
+    SubmissionListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Submission"
+            total:    { type: integer }
+            has_more: { type: boolean }
+            limit:    { type: integer }
+            offset:   { type: integer }
+        request_id: { type: string, example: req_01HEX... }
+
+    QuoteCreate:
+      type: object
+      required: [field_values]
+      properties:
+        field_values: { type: object }
+        quote_amount: { type: number, nullable: true }
+        compute:      { type: boolean, default: true }
+        contact:
+          type: object
+          properties:
+            name:    { type: string }
+            email:   { type: string }
+            phone:   { type: string }
+            company: { type: string }
+
+    QuoteEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            submission_id:  { type: integer }
+            calculator_id:  { type: integer }
+            computed_quote: { type: number, nullable: true }
+            breakdown:      { type: array, items: { type: object } }
+            formula_errors: { type: array, items: { type: string } }
+            submission:
+              $ref: "#/components/schemas/Submission"
+        request_id: { type: string, example: req_01HEX... }
+
+    WebhookCreate:
+      type: object
+      required: [url, events]
+      properties:
+        url: { type: string, format: uri }
+        events:
           type: array
           items:
-            $ref: "#/components/schemas/Calculator"
-        has_more:    { type: boolean }
-        next_cursor: { type: string, nullable: true }
+            type: string
+            enum:
+              - submission.created
+              - calculator.created
+              - calculator.updated
+              - calculator.deleted
+              - calculator.paused
+              - calculator.resumed
