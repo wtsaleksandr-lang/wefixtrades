@@ -9,6 +9,7 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import { V7Hero, V7Section, V7Container, V7PageShell, V7SectionHeading, V7FinalCta } from "@/components/marketing/v7";
 import { Reveal, MONO, TILE } from "@/components/effortel-blocks";
+import { getProductBySlug } from "@/config/products";
 
 /**
  * /products — the canonical product index. Shows ALL 12 products grouped
@@ -64,6 +65,7 @@ function ProductCard({ p, i }: { p: ProductItem; i: number }) {
   const tile = TILE[PALETTE[i % PALETTE.length]];
   const Icon = p.icon;
   const cleanName = p.name.replace(/™/g, "");
+  const comingSoon = getProductBySlug(p.slug)?.comingSoon === true;
 
   const onMove = (e: React.MouseEvent) => {
     const rect = ref.current?.getBoundingClientRect();
@@ -146,6 +148,16 @@ function ProductCard({ p, i }: { p: ProductItem; i: number }) {
 
         {/* Body */}
         <div style={{ padding: "18px 22px 56px", position: "relative" }}>
+          {comingSoon && (
+            <span style={{
+              display: "inline-block", marginBottom: 10,
+              background: tile.bg, color: tile.ink,
+              fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
+              textTransform: "uppercase", padding: "3px 9px", borderRadius: 999,
+            }}>
+              Coming soon
+            </span>
+          )}
           <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: 0, lineHeight: 1.55 }}>
             {p.tagline}
           </p>
