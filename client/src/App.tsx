@@ -126,6 +126,7 @@ const CheckoutSuccess = lazy(() => import("@/pages/CheckoutSuccess"));
 const CheckoutCancelled = lazy(() => import("@/pages/CheckoutCancelled"));
 const Resources = lazy(() => import("@/pages/Resources"));
 const DesignShowcase = lazy(() => import("@/pages/marketing/DesignShowcase"));
+const CompeteMockups = lazy(() => import("@/pages/marketing/CompeteMockups"));
 const About = lazy(() => import("@/pages/About"));
 const Blog = lazy(() => import("@/pages/Blog"));
 const CaseStudies = lazy(() => import("@/pages/CaseStudies"));
@@ -611,6 +612,9 @@ function Router() {
       <Route path="/templates" component={MarketingTemplates} />
       <Route path="/resources" component={Resources} />
       <Route path="/design-showcase" component={DesignShowcase} />
+      {/* Internal share-link preview — four "Compete with the big chains"
+          section mockups stacked so the founder can pick one. No nav entry. */}
+      <Route path="/mockups/compete">{() => <CompeteMockups />}</Route>
       <Route path="/about" component={About} />
       <Route path="/blog" component={Blog} />
       <Route path="/case-studies" component={CaseStudies} />
