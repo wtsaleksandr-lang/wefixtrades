@@ -77,8 +77,17 @@ export async function updateClient(id: number, updates: Partial<InsertClient>): 
   return row;
 }
 
-export async function getClientCount(status?: string): Promise<number> {
-  const where = status ? eq(clients.status, status) : undefined;
+export async function getClientCount(status?: string, search?: string): Promise<number> {
+  const conditions = [];
+  if (status) conditions.push(eq(clients.status, status));
+  if (search) {
+    conditions.push(or(
+      ilike(clients.business_name, `%${search}%`),
+      ilike(clients.contact_name, `%${search}%`),
+      ilike(clients.contact_email, `%${search}%`),
+    ));
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
   const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(clients).where(where);
   return row?.total ?? 0;
 }

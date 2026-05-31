@@ -301,7 +301,7 @@ export interface IStorage {
   getClientById(id: number): Promise<Client | undefined>;
   createClient(data: InsertClient): Promise<Client>;
   updateClient(id: number, updates: Partial<InsertClient>): Promise<Client | undefined>;
-  getClientCount(status?: string): Promise<number>;
+  getClientCount(status?: string, search?: string): Promise<number>;
 
   // Service catalog
   listServiceCatalog(): Promise<ServiceCatalogRow[]>;
@@ -939,7 +939,7 @@ export class DatabaseStorage implements IStorage {
   getClientById(id: number): Promise<Client | undefined> { return clientsImpl.getClientById(id); }
   createClient(data: InsertClient): Promise<Client> { return clientsImpl.createClient(data); }
   updateClient(id: number, updates: Partial<InsertClient>): Promise<Client | undefined> { return clientsImpl.updateClient(id, updates); }
-  getClientCount(status?: string): Promise<number> { return clientsImpl.getClientCount(status); }
+  getClientCount(status?: string, search?: string): Promise<number> { return clientsImpl.getClientCount(status, search); }
 
   // ─── Service Catalog (impl in ./storage/products.ts) ───
   listServiceCatalog(): Promise<ServiceCatalogRow[]> { return productsImpl.listServiceCatalog(); }

@@ -764,7 +764,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
       const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
       const rows = await storage.listClients({ search, status, limit, offset });
-      const total = await storage.getClientCount(status);
+      const total = await storage.getClientCount(status, search);
       res.json({ data: rows, total });
     } catch (err: any) {
       log.error("[admin-crm] List clients error:", err.message);
