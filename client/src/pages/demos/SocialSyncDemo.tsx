@@ -810,7 +810,7 @@ export default function SocialSyncDemo() {
               style={{
                 fontSize: "clamp(22px, 3vw, 34px)",
                 fontWeight: 700,
-                color: mkt.dark,
+                color: mkt.onDark,
                 letterSpacing: "-0.025em",
                 marginBottom: 12,
                 lineHeight: 1.12,
@@ -821,7 +821,7 @@ export default function SocialSyncDemo() {
             <p
               style={{
                 fontSize: 15,
-                color: "rgba(23,24,24,0.7)",
+                color: "rgba(255,255,255,0.88)",
                 lineHeight: 1.55,
                 marginBottom: 28,
               }}
@@ -836,7 +836,7 @@ export default function SocialSyncDemo() {
                   display: "inline-block",
                   padding: "14px 32px",
                   borderRadius: 9999,
-                  background: mkt.dark,
+                  background: mkt.onDark,
                   color: mkt.accent,
                   fontSize: 15,
                   fontWeight: 700,
@@ -854,11 +854,11 @@ export default function SocialSyncDemo() {
                   padding: "14px 24px",
                   borderRadius: 9999,
                   background: "transparent",
-                  color: mkt.dark,
+                  color: mkt.onDark,
                   fontSize: 15,
                   fontWeight: 600,
                   textDecoration: "none",
-                  border: "1.5px solid rgba(23,24,24,0.2)",
+                  border: "1.5px solid rgba(255,255,255,0.5)",
                 }}
               >
                 View Pricing
