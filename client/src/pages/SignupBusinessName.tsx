@@ -68,7 +68,11 @@ export default function SignupBusinessNamePage() {
       return res.json();
     },
     onSuccess: (data: { user: { role?: string } }) => {
-      queryClient.setQueryData(["auth", "me"], data.user);
+      // Match the /api/auth/me shape `{ user, adminProPreview }` useAuth()
+      // reads — storing the raw user leaves the cache's `.user` undefined,
+      // so RequireClient bounces the brand-new Google account to /login
+      // before the refetch lands (same bug fixed on login + email signup).
+      queryClient.setQueryData(["auth", "me"], { user: data.user, adminProPreview: false });
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       try {
         const chatSessionId = getSessionId();
@@ -140,8 +144,9 @@ export default function SignupBusinessNamePage() {
               <p style={{ fontSize: 14, color: mkt.onDarkMuted }}>Loading…</p>
             ) : (
               <form onSubmit={handleSubmit}>
-                <label style={labelStyle}>Business name</label>
+                <label htmlFor="finish-business-name" style={labelStyle}>Business name</label>
                 <input
+                  id="finish-business-name"
                   type="text"
                   required
                   autoFocus
@@ -152,10 +157,11 @@ export default function SignupBusinessNamePage() {
                   data-testid="input-business-name"
                 />
 
-                <label style={labelStyle}>
+                <label htmlFor="finish-phone" style={labelStyle}>
                   Phone <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span>
                 </label>
                 <input
+                  id="finish-phone"
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -180,11 +186,12 @@ export default function SignupBusinessNamePage() {
                     width: "100%",
                     padding: "14px 0",
                     fontSize: 14,
-                    fontWeight: 500,
-                    color: mkt.buttonText,
-                    background: mkt.buttonBg,
+                    fontWeight: 600,
+                    color: "#D5E1E7",
+                    background: "#0D3CFC",
                     border: "none",
                     borderRadius: 8,
+                    letterSpacing: "0.04em",
                     cursor: complete.isPending ? "wait" : "pointer",
                     opacity: !businessName.trim() || complete.isPending ? 0.7 : 1,
                     transition: "background 0.15s ease, opacity 0.15s ease",
