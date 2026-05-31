@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle, XCircle, AlertTriangle, Globe, Phone, Mail,
   Star, Upload, Brain, RefreshCw, ChevronDown, FileText, Zap, HelpCircle, Search,
+  Sparkles, ExternalLink,
 } from "lucide-react";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
@@ -63,6 +64,29 @@ interface Prospect {
 interface ProspectRow {
   prospect: Prospect;
   enrichment: ProspectEnrichment | null;
+}
+
+/* ─── Artifact-first outreach stats ─── */
+interface ArtifactRecent {
+  prospect_id: number;
+  business: string;
+  score: number | null;
+  grade: string | null;
+  headline: string | null;
+  url: string | null;
+  viewed_at: string | null;
+  view_count: number | null;
+  generated_at: string | null;
+}
+
+interface ArtifactStats {
+  enabled: boolean;
+  generated: number;
+  pending: number;
+  failed: number;
+  skipped: number;
+  viewed: number;
+  recent: ArtifactRecent[];
 }
 
 /* ─── Status badge ─── */
@@ -389,6 +413,136 @@ function ReviewDialog({
   );
 }
 
+/* ─── Artifact-first outreach card ─── */
+function ArtifactStatsCard() {
+  const { data, isLoading, isError } = useQuery<ArtifactStats>({
+    queryKey: ["/api/admin/outbound/artifact-stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/outbound/artifact-stats", { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to load artifact stats (${res.status})`);
+      return res.json();
+    },
+    refetchInterval: 30_000,
+  });
+
+  return (
+    <div className="bg-card rounded-lg border border-border p-4">
+      {/* Title row + status pill */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-brand-blue-600" />
+          <h3 className="text-sm font-semibold text-foreground">Artifact-first outreach</h3>
+        </div>
+        {!isLoading && !isError && (
+          data?.enabled ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-700">
+              <CheckCircle className="w-3 h-3" />
+              Active
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground">
+              <XCircle className="w-3 h-3" />
+              Off
+            </span>
+          )
+        )}
+      </div>
+
+      {!isLoading && !isError && !data?.enabled && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Set <code className="font-mono text-[11px]">ARTIFACT_OUTREACH_ENABLED</code> to start.
+        </p>
+      )}
+
+      {isLoading ? (
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-14 rounded-lg bg-muted/60 animate-pulse" />
+            ))}
+          </div>
+          <div className="h-24 rounded-lg bg-muted/60 animate-pulse" />
+        </div>
+      ) : isError ? (
+        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+          Couldn't load artifact stats. Retrying…
+        </div>
+      ) : (
+        <>
+          {/* KPI row */}
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-muted/40 rounded-lg border border-border p-3">
+              <p className="text-xl font-bold text-foreground whitespace-nowrap">{data?.generated ?? 0}</p>
+              <p className="text-xs text-muted-foreground">Generated</p>
+            </div>
+            <div className="bg-green-50 rounded-lg border border-green-200 p-3">
+              <p className="text-xl font-bold text-green-600 whitespace-nowrap">{data?.viewed ?? 0}</p>
+              <p className="text-xs text-green-700">Opened — hot leads</p>
+            </div>
+            <div className="bg-muted/40 rounded-lg border border-border p-3">
+              <p className="text-xl font-bold text-amber-600 whitespace-nowrap">{data?.pending ?? 0}</p>
+              <p className="text-xs text-muted-foreground">Pending</p>
+            </div>
+            <div className="bg-muted/40 rounded-lg border border-border p-3">
+              <p className="text-xl font-bold text-red-500 whitespace-nowrap">{data?.failed ?? 0}</p>
+              <p className="text-xs text-muted-foreground">Failed</p>
+            </div>
+          </div>
+
+          {/* Recent reports */}
+          <div className="mt-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Recent reports</p>
+            {(data?.recent?.length ?? 0) === 0 ? (
+              <div className="rounded-lg border border-dashed border-border p-4 text-center">
+                <p className="text-xs text-muted-foreground">
+                  No audit artifacts generated yet — approve prospects with a Google place_id and enable the flag.
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+                {(data?.recent ?? []).slice(0, 8).map((r) => (
+                  <li key={r.prospect_id} className="flex items-center gap-2 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-medium text-foreground truncate">{r.business || "—"}</span>
+                        {r.viewed_at && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 shrink-0">
+                            Opened <CheckCircle className="w-3 h-3" />
+                          </span>
+                        )}
+                      </div>
+                      {r.headline && (
+                        <p className="text-xs text-muted-foreground truncate">{r.headline}</p>
+                      )}
+                    </div>
+                    {r.score != null && (
+                      <span className="text-xs font-semibold text-foreground whitespace-nowrap shrink-0">
+                        {r.score}/100{r.grade ? ` ${r.grade}` : ""}
+                      </span>
+                    )}
+                    {r.url && (
+                      <a
+                        href={r.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-brand-blue-600 shrink-0"
+                        title="Open audit report"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 export default function ProspectsPage() {
   const { toast } = useToast();
@@ -444,6 +598,9 @@ export default function ProspectsPage() {
   return (
     <AdminLayout pageContext={{ page: "outbound-prospects", section: "Outbound" }}>
       <div className="space-y-4">
+        {/* Artifact-first outreach */}
+        <ArtifactStatsCard />
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
