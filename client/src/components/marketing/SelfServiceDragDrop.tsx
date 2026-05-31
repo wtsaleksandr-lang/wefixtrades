@@ -2009,11 +2009,12 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
     setFlyKey((k) => k + 1);
   }, [filled, flying, reduced, landFile]);
 
-  // ── Mobile auto-demo loop ──────────────────────────────────────────────
-  // On mobile (hideHeader) the cursor-carry affordance is gone, so the whole
-  // drop animation plays itself: when on-screen and the user hasn't tapped in,
-  // drop a file → show the calculator → reset to the next file → repeat.
-  const autoLoop = hideHeader && visible && !reduced && !autoEngaged;
+  // ── Auto-demo loop — DISABLED per Alex 2026-05-31 ──────────────────────
+  // The drop animation must NOT play by itself on any viewport; the visitor
+  // taps the "Try sample" button (or the drop zone) to trigger it. Gated off
+  // here rather than ripped out so it can be re-enabled if that changes again.
+  // (The on-screen / touch-engagement tracking below is now inert.)
+  const autoLoop = false && hideHeader && visible && !reduced && !autoEngaged;
 
   // Kick off a drop whenever we're idle.
   useEffect(() => {
@@ -2048,6 +2049,8 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
 
   const APP_PAD = 28;
   const fileVisible = !filled && fileState !== "hidden";
+  // Tap-to-trigger on mobile only; desktop keeps its untouched drag flow.
+  const tapToDrop = hideHeader && !filled && !flying;
 
   // The "Try sample" CTA lives in the copy column on desktop, but on mobile
   // (hideHeader) the copy column is dropped — so we re-host the same button
@@ -2461,9 +2464,22 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
                 </button>
               </div>
 
-              {/* Dropzone */}
+              {/* Dropzone — on MOBILE (hideHeader) it's tappable to trigger the
+                  demo (Alex 2026-05-31: visitor drives it, button OR drop area).
+                  Desktop is left exactly as before: pointerEvents:none, no
+                  click/role/tabIndex — the drag choreography is untouched. */}
               <div
                 ref={dropzoneRef}
+                role={tapToDrop ? "button" : undefined}
+                tabIndex={tapToDrop ? 0 : undefined}
+                aria-label={tapToDrop ? "Drop a sample pricing file to see it become a live calculator" : undefined}
+                onClick={tapToDrop ? () => triggerSampleDrop() : undefined}
+                onKeyDown={tapToDrop ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    triggerSampleDrop();
+                  }
+                } : undefined}
                 style={{
                   position: "relative",
                   height: 360,
@@ -2475,7 +2491,8 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
                   transform: filled ? "scale(0.96)" : "scale(1)",
                   transition:
                     "opacity 360ms ease, transform 360ms ease, background 220ms ease",
-                  pointerEvents: "none",
+                  pointerEvents: tapToDrop ? "auto" : "none",
+                  cursor: tapToDrop ? "pointer" : "default",
                   filter: flashing ? "brightness(1.08)" : "none",
                 }}
               >
