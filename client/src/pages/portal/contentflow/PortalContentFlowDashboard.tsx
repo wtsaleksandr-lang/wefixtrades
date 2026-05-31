@@ -535,19 +535,30 @@ export default function PortalContentFlowDashboard() {
                     data-testid="cf-tile-detection"
                     title={META.detectionScore.helpText ?? undefined}
                   >
-                    <LetterGradeBadge
-                      score={kpis?.detectionScore ?? 0}
-                      size="lg"
-                      showScore={false}
-                    />
-                    <div className="text-xs tabular-nums text-muted-foreground">
-                      <AnimatedCounter
-                        value={kpis?.detectionScore ?? 0}
-                        suffix=" / 100"
-                      />
-                    </div>
+                    {(kpis?.detectionScore ?? 0) === 0 ? (
+                      <span
+                        className="text-3xl font-semibold text-muted-foreground"
+                        aria-label="Awaiting data"
+                      >
+                        —
+                      </span>
+                    ) : (
+                      <>
+                        <LetterGradeBadge
+                          score={kpis?.detectionScore ?? 0}
+                          size="lg"
+                          showScore={false}
+                        />
+                        <div className="text-xs tabular-nums text-muted-foreground">
+                          <AnimatedCounter
+                            value={kpis?.detectionScore ?? 0}
+                            suffix=" / 100"
+                          />
+                        </div>
+                      </>
+                    )}
                     <div className="text-xs text-muted-foreground px-1">
-                      {META.detectionScore.label}
+                      {(kpis?.detectionScore ?? 0) === 0 ? "Awaiting data" : META.detectionScore.label}
                     </div>
                   </div>
                 </AdvancedOnly>

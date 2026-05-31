@@ -12,3 +12,7 @@ client/src/pages/portal/PortalDashboard.tsx:418:85	tailwind	text-white
 client/src/pages/portal/PortalDashboard.tsx:433:62	tailwind	text-white
 client/src/pages/portal/PortalDashboard.tsx:441:64	tailwind	text-white
 client/src/pages/portal/PortalDashboard.tsx:620:103	tailwind	text-white
+# White icon on fixed bg-brand-blue header chips (mapguard/reputationshield),
+# surfaced when the pointless data-theme="light" wrapper was removed (#audit).
+client/src/pages/portal/mapguard/MapGuardDashboard.tsx:324:42	tailwind	text-white
+client/src/pages/portal/reputationshield/ReputationShieldDashboard.tsx:567:40	tailwind	text-white
