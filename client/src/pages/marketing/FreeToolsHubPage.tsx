@@ -49,7 +49,7 @@ const LOCAL_SEO_TOOLS: ToolEntry[] = [
 ];
 
 const AI_CONTENT_TOOLS: ToolEntry[] = [
-  { name: "Plumbing AI Content Prompts", href: "/tools/plumbing-ai-content-prompts", blurb: "30+ vetted prompts tuned for plumbing trades." },
+  { name: "Plumbing AI Content Prompts", href: "/tools/plumbing-ai-content-prompts", blurb: "12 vetted prompt patterns tuned for plumbing trades." },
   { name: "HVAC AI Content Prompts", href: "/tools/hvac-ai-content-prompts", blurb: "Service-call and seasonal content packs for HVAC." },
   { name: "Electrical AI Content Prompts", href: "/tools/electrical-ai-content-prompts", blurb: "Code-safe content prompts for electricians." },
   { name: "Roofing AI Content Prompts", href: "/tools/roofing-ai-content-prompts", blurb: "Inspection, repair, and storm-response prompts." },
@@ -59,11 +59,11 @@ const AI_CONTENT_TOOLS: ToolEntry[] = [
 const WIDGET_TOOLS: ToolEntry[] = [
   { name: "Schema Generator", href: "/portal/free-tools/schema", blurb: "Auto-generate LocalBusiness JSON-LD for your site.", portalGated: true, thumb: "/free-tools/previews/schema.png" },
   { name: "FAQ Widget", href: "/portal/free-tools/faq", blurb: "Drop a branded FAQ block on any page.", portalGated: true, thumb: "/free-tools/previews/faq.png" },
-  { name: "Hours Widget", href: "/portal/free-tools/hours", blurb: "Always-current hours from your GBP.", portalGated: true, thumb: "/free-tools/previews/hours.png" },
+  { name: "Hours Widget", href: "/portal/free-tools/hours", blurb: "Live open/closed hours block for your site.", portalGated: true, thumb: "/free-tools/previews/hours.png" },
   { name: "Trust Badges", href: "/portal/free-tools/trust-badges", blurb: "Embed your accreditations and social proof.", portalGated: true, thumb: "/free-tools/previews/badges.png" },
   { name: "Review Link Widget", href: "/portal/free-tools/review-link", blurb: "One-tap Google review link on every page.", portalGated: true, thumb: "/free-tools/previews/review-link.png" },
   { name: "Callback Form", href: "/portal/free-tools/callback", blurb: "Lightweight callback request form.", portalGated: true, thumb: "/free-tools/previews/callback.png" },
-  { name: "Service Area Map", href: "/portal/free-tools/service-area-map", blurb: "Show your service radius on an interactive map.", portalGated: true, thumb: "/free-tools/previews/service-area.png" },
+  { name: "Service Area Map", href: "/portal/free-tools/service-area", blurb: "Show your service radius on an interactive map.", portalGated: true, thumb: "/free-tools/previews/service-area.png" },
 ];
 
 const cardStyle = {
@@ -230,9 +230,9 @@ export default function FreeToolsHubPage() {
         <V7Section padding="72px" id="ai-content" variant="subtle">
           <V7Container>
             <V7SectionHeading
-              eyebrow="AI Content Tools (30+ trade prompts)"
+              eyebrow="AI Content Tools (60+ trade prompts)"
               title={<><Sparkles size={32} strokeWidth={1.6} style={{ display: "inline-block", marginRight: 12, verticalAlign: "middle", color: mkt.accent }} />Content prompts, tuned per trade.</>}
-              sub="30+ vetted prompt packs for plumbers, HVAC, electricians, roofers, landscapers, and more. Free to copy. Free to remix."
+              sub="60+ vetted prompts across 5 trade packs — plumbers, HVAC, electricians, roofers, and landscapers. Free to copy. Free to remix."
             />
             <div
               style={{
@@ -260,7 +260,7 @@ export default function FreeToolsHubPage() {
                   fontFamily: SANS,
                 }}
               >
-                Browse all 30+ trade prompt packs <ArrowRight size={14} />
+                Browse all 5 trade prompt packs <ArrowRight size={14} />
               </Link>
             </div>
             <UpsellRibbon

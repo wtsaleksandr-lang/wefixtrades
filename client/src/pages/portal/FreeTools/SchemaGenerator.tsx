@@ -147,7 +147,7 @@ export default function SchemaGenerator() {
   const [addressLocality, setAddressLocality] = useState("");
   const [addressRegion, setAddressRegion] = useState("");
   const [postalCode, setPostalCode] = useState("");
-  const [addressCountry, setAddressCountry] = useState("CA");
+  const [addressCountry, setAddressCountry] = useState("US");
   const [priceRange, setPriceRange] = useState<PriceRange>("$$");
   const [hours, setHours] = useState<HoursMap>(DEFAULT_HOURS);
   const [sameAs, setSameAs] = useState<string[]>([]);
