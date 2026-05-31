@@ -236,7 +236,9 @@ function WorkerCard({ worker }: { worker: Worker }) {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            runMutation.mutate();
+            if (window.confirm(`Run "${worker.name}" now? This executes the live job immediately — it may send emails, charge cards, or use API credits.`)) {
+              runMutation.mutate();
+            }
           }}
           disabled={running}
           className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-muted/50 text-foreground hover:bg-gray-200 disabled:opacity-50 transition-colors"

@@ -106,7 +106,7 @@ client/src/pages/admin/ReviewsPage.tsx:492:5	rule-b	<div> contains 3 cues
 client/src/pages/admin/ReviewsPage.tsx:678:29	rule-c	square w-2 h-2
 client/src/pages/admin/SystemAlertsPage.tsx:182:26	rule-c	square w-10 h-10
 client/src/pages/admin/SystemWorkersPage.tsx:199:16	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/SystemWorkersPage.tsx:405:31	rule-c	square w-2.5 h-2.5
+client/src/pages/admin/SystemWorkersPage.tsx:407:31	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/TradeLineOpsPage.tsx:63:71	rule-c	square w-10 h-10
 client/src/pages/admin/TradeLineOpsPage.tsx:147:90	rule-c	square w-10 h-10
 client/src/pages/admin/TradelineLearningPage.tsx:282:32	rule-c	square w-2.5 h-2.5
