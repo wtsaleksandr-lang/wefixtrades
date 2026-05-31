@@ -348,6 +348,8 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div
+        role="radiogroup"
+        aria-label="Billing period"
         style={{
           display: "inline-flex",
           borderRadius: 10,
@@ -362,6 +364,9 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
             <button
               key={opt}
               onClick={() => onChange(opt === "yearly")}
+              role="radio"
+              aria-checked={active}
+              aria-label={opt === "monthly" ? "Monthly billing" : "Yearly billing"}
               className="billing-btn"
               style={{
                 position: "relative",
@@ -370,7 +375,9 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
                 borderRadius: 8,
                 border: "none",
                 background: active ? mkt.accent : "transparent",
-                color: active ? mkt.dark : mkt.textMuted,
+                // Was mkt.dark (near-black) on the blue active pill — low
+                // contrast; light text reads clearly.
+                color: active ? mkt.onDark : mkt.textMuted,
                 fontSize: 12,
                 fontWeight: active ? 700 : 500,
                 fontFamily: FONT,
@@ -561,10 +568,18 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
       {/* Tagline */}
       <div style={TAGLINE_STYLE}>{bundle.tagline}</div>
 
-      {/* Value anchor */}
-      <div style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 4 }}>
-        <span style={{ textDecoration: "line-through" }}>{formatPrice(totalValue)}/mo value</span>
-      </div>
+      {/* Value anchor — only when the bundle genuinely costs LESS than buying
+          the parts at the CURRENTLY DISPLAYED price (monthly or yearly). A
+          line-through "$X value" above a higher price reads as a fake discount
+          (e.g. Pro, where the parts sum to less than the bundle price), so we
+          suppress it there and keep a spacer to hold card heights aligned. */}
+      {totalValue > price ? (
+        <div style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 4 }}>
+          <span style={{ textDecoration: "line-through" }}>{formatPrice(totalValue)}/mo value</span>
+        </div>
+      ) : (
+        <div style={{ height: 21 }} />
+      )}
 
       {/* Price */}
       <div style={{ marginBottom: PRICE_MB }}>
