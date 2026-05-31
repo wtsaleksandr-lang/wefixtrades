@@ -1375,7 +1375,10 @@ export function CompeteCoverageMap() {
           </span>
         </div>
 
-        <div style={{ position: "relative", width: "min(360px, 86vw)", aspectRatio: "1 / 1", margin: "0 auto" }}>
+        {/* overflowX:clip (not hidden — keeps the bottom icons' vertical labels
+            visible) stops the ring's left/right edge labels from pushing a
+            horizontal scrollbar on ≤320px phones. */}
+        <div style={{ position: "relative", width: "min(360px, 86vw)", aspectRatio: "1 / 1", margin: "0 auto", overflowX: "clip" }}>
           <svg
             viewBox={`0 0 ${CMAP.vb} ${CMAP.vb}`}
             width="100%"
@@ -1455,12 +1458,12 @@ export function CompeteCoverageMap() {
                 <span
                   style={{
                     fontFamily: MONO,
-                    fontSize: 9.5,
+                    fontSize: 9,
                     fontWeight: 700,
-                    letterSpacing: "0.04em",
+                    letterSpacing: "0.02em",
                     textTransform: "uppercase",
                     whiteSpace: "nowrap",
-                    padding: "2px 7px",
+                    padding: "2px 5px",
                     borderRadius: 999,
                     background: isClaimed ? "rgba(13,60,252,0.12)" : mkt.cardBg,
                     border: `1px solid ${mkt.cardBorder}`,
