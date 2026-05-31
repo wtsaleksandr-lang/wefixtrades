@@ -86,7 +86,7 @@ export default function AdFlowSetup() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           product: "adflow",
-          answers: {
+          responses: {
             trade: state.tradeSlug,
             monthly_budget_dollars: state.monthlyBudget ?? 500,
             platform_mix: mix,
@@ -96,9 +96,9 @@ export default function AdFlowSetup() {
           },
         }),
       });
-      if (!res.ok && res.status !== 404) {
+      if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        if (j?.error) throw new Error(j.error);
+        throw new Error(j?.error || "Couldn't save your AdFlow setup. Please try again.");
       }
       toast({
         title: "AdFlow setup saved",

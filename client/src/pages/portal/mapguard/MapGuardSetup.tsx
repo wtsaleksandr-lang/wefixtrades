@@ -217,12 +217,16 @@ export default function MapGuardSetup() {
   ];
 
   async function persist(state: WizardState) {
-    await fetch("/api/portal/onboarding/submit", {
+    const res = await fetch("/api/portal/onboarding/submit", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source: "mapguard-wave33-wizard", ...state }),
+      body: JSON.stringify({ product: "mapguard", responses: state }),
     });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.error || "Couldn't save your MapGuard setup. Please try again.");
+    }
     toast({
       title: "MapGuard ready",
       description: "Watching your profile + keywords now. Heading to the dashboard.",

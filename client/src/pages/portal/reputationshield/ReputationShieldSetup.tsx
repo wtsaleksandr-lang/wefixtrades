@@ -110,23 +110,36 @@ export default function ReputationShieldSetup() {
     [],
   );
 
-  async function finish(_state: WizardState) {
+  async function finish(state: WizardState) {
     try {
-      await persist.mutateAsync();
-      // Fire-and-forget — never block onboarding on the self-test SMS.
+      // Persist the customer's collected answers (trade + platforms) to the
+      // real onboarding record. This is the source of truth — it must succeed.
+      const res = await fetch("/api/portal/onboarding/submit", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product: "reputationshield", responses: state }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || "Couldn't save your ReputationShield setup. Please try again.");
+      }
+      // Initialise default notification settings + fire the self-test SMS —
+      // both non-blocking; onboarding is already saved above.
+      void persist.mutateAsync().catch(() => {});
       void sendTest.mutateAsync().catch(() => {});
       toast({
         title: "Setup complete",
         description: "ReputationShield is ready. Heading to your dashboard.",
       });
       navigate("/portal/reputationshield/dashboard");
-    } catch {
+    } catch (err: unknown) {
       toast({
         title: "Could not finish setup",
-        description: "Please try again.",
+        description: err instanceof Error ? err.message : "Please try again.",
         variant: "destructive",
       });
-      throw new Error("Could not finish setup");
+      throw err instanceof Error ? err : new Error("Could not finish setup");
     }
   }
 

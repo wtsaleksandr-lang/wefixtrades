@@ -124,12 +124,23 @@ export default function SocialSyncSetupV2() {
   ];
 
   async function persist(state: WizardState) {
-    await apiRequest("POST", "/api/portal/socialsync-profile", {
-      platform_preferences: state.connectedPlatforms ?? [],
-      tone: state.brandVoiceTone ?? "professional",
-      auto_approve: !!state.autoApprove,
-      source: "wave33-wizard",
+    const res = await fetch("/api/portal/onboarding/submit", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product: "socialsync",
+        responses: {
+          platform_preferences: state.connectedPlatforms ?? [],
+          tone: state.brandVoiceTone ?? "professional",
+          auto_approve: !!state.autoApprove,
+        },
+      }),
     });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.error || "Couldn't save your SocialSync setup. Please try again.");
+    }
     toast({
       title: "SocialSync ready",
       description: "First drafts will queue within an hour.",

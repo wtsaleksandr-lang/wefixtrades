@@ -163,7 +163,7 @@ export default function WebCareSetup() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           product: "webcare",
-          answers: {
+          responses: {
             website_url: ((state.websiteUrl as string) ?? "").trim(),
             detected_platform: state.cmsType ?? null,
             access_provided: !!state.accessProvided,
@@ -172,9 +172,9 @@ export default function WebCareSetup() {
           },
         }),
       });
-      if (!res.ok && res.status !== 404) {
+      if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        if (j?.error) throw new Error(j.error);
+        throw new Error(j?.error || "Couldn't save your WebCare setup. Please try again.");
       }
       toast({
         title: "WebCare setup saved",

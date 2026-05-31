@@ -108,12 +108,16 @@ export default function ContentFlowSetup() {
   ];
 
   async function persist(state: WizardState) {
-    await fetch("/api/portal/onboarding/submit", {
+    const res = await fetch("/api/portal/onboarding/submit", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source: "contentflow-wave33-wizard", ...state }),
+      body: JSON.stringify({ product: "contentflow", responses: state }),
     });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.error || "Couldn't save your ContentFlow setup. Please try again.");
+    }
     toast({
       title: "ContentFlow ready",
       description: "Your first draft is queuing now. Heading to the calendar.",
