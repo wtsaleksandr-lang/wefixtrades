@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -269,6 +270,7 @@ export default function ContentFlowQueuePage() {
   const [drawerDraftId, setDrawerDraftId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [confirmPublish, setConfirmPublish] = useState(false);
   const [previewDraft, setPreviewDraft] = useState<PreviewDraft | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -551,7 +553,7 @@ export default function ContentFlowQueuePage() {
             </span>
             <Button
               size="sm"
-              onClick={() => bulkQueueMutation.mutate()}
+              onClick={() => setConfirmPublish(true)}
               disabled={bulkQueueMutation.isPending}
               className="h-7 text-xs bg-brand-blue-600 hover:bg-brand-blue-700"
               data-testid="bulk-queue-publish-btn"
@@ -865,6 +867,16 @@ export default function ContentFlowQueuePage() {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         draft={previewDraft}
+      />
+
+      <ConfirmDialog
+        open={confirmPublish}
+        onOpenChange={setConfirmPublish}
+        title={`Publish ${selectedIds.size} article${selectedIds.size !== 1 ? "s" : ""} to live sites?`}
+        description="Queued articles publish to the clients' live websites and can't be unpublished from here."
+        confirmLabel="Queue for Publish"
+        pending={bulkQueueMutation.isPending}
+        onConfirm={() => { bulkQueueMutation.mutate(); setConfirmPublish(false); }}
       />
     </AdminLayout>
   );
