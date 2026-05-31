@@ -320,10 +320,7 @@ export default function MapGuardDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div
-              data-theme="light"
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-blue"
-            >
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-blue">
               <Shield className="h-5 w-5 text-white" />
             </div>
             <div>
