@@ -158,7 +158,12 @@ export const prospectEnrichment = pgTable("prospect_enrichment", {
 
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Declared here to match migration 0076 (schema-drift guard) — the worker
+  // scans by artifact_status; the report-view buy-signal looks up by ref id.
+  artifactStatusIdx: index("prospect_enrichment_artifact_status_idx").on(table.artifact_status),
+  artifactRefIdx: index("prospect_enrichment_artifact_ref_idx").on(table.artifact_ref_id),
+}));
 export const insertProspectEnrichmentSchema = createInsertSchema(prospectEnrichment).omit({ id: true, created_at: true, updated_at: true });
 export type InsertProspectEnrichment = z.infer<typeof insertProspectEnrichmentSchema>;
 export type ProspectEnrichment = typeof prospectEnrichment.$inferSelect;
