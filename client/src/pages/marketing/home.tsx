@@ -12,7 +12,6 @@ import { organizationSchema, websiteSchema } from "@/lib/seo/jsonLd";
 // WorkflowDemo removed in round 8 — covered by AutomationDiagram.
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
-import IntegrationsTrustStrip from "@/components/marketing/IntegrationsTrustStrip";
 import HeroProductPreview from "@/components/marketing/HeroProductPreview";
 import DeferUntilNear from "@/components/marketing/DeferUntilNear";
 /* Removed: TrustMarquee (used fabricated customer logos — dishonest trust
@@ -929,16 +928,9 @@ export default function HomePage() {
       <div aria-hidden="true" className="hero-warm-fade" />
       </div>{/* end warm-canvas hero zone */}
 
-      {/* Integrations trust strip — pulled OUT of the cream zone and sat
-       * on the existing dark backdrop so its white-on-dark logos work as
-       * designed. The cream fade above flows smoothly into this strip. */}
-      <div style={{ paddingTop: 28, paddingBottom: 4 }}>
-        <IntegrationsTrustStrip />
-      </div>
-
-      {/* "Compete with the big brands" — interactive coverage map, directly
-       * above the Self-Service card per Alex. Deferred + lazy like the other
-       * below-fold sections. */}
+      {/* "Compete with the big brands" — interactive coverage map. Replaces the
+       * old static "big chains" comparison table (IntegrationsTrustStrip) per
+       * Alex. Deferred + lazy like the other below-fold sections. */}
       <DeferUntilNear minHeight={620}>
         <Suspense fallback={lazyFallback(620)}>
           <CompeteCoverageMap />
