@@ -363,8 +363,8 @@ export default function RankFlowDemo() {
         {/* Hero */}
         <section
           style={{
-            background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 55%, #1a3550 100%)`,
-            padding: "100px 28px 72px",
+            background: mkt.bg,
+            padding: "64px 28px 64px",
             position: "relative",
             overflow: "hidden",
           }}
@@ -383,7 +383,7 @@ export default function RankFlowDemo() {
             }}
           />
 
-          <div style={{ maxWidth: 720, margin: "0 auto", position: "relative" }}>
+          <div style={{ maxWidth: 720, margin: "0 auto", position: "relative", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
             <Link
               href="/demos"
               style={{
