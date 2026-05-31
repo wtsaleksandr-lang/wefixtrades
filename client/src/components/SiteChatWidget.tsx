@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Send, X, MessageCircle } from "lucide-react";
+import { Send, X, MessageCircle, Phone, Star, Share2, Calculator, MapPin, ArrowRight } from "lucide-react";
 import {
   getMarketingChatSessionId,
   loadMessages, saveMessages, loadOpenState, saveOpenState,
@@ -21,19 +21,20 @@ type MarketingChatMessage = ChatMessage & { cards?: CopilotCard[]; prompt?: Copi
 
 const GREETING: MarketingChatMessage = {
   role: "assistant",
-  content: "Hey! I'm here to help you grow your trade business online. What brings you here today?",
-  prompt: {
-    prompt: "Pick the one that sounds most like you:",
-    options: [
-      { label: "More bookings", value: "I want more bookings" },
-      { label: "Higher Google ranking", value: "I want to rank higher on Google" },
-      { label: "Better reviews", value: "I want more 5-star reviews" },
-      { label: "Save time on content", value: "I want to save time on social/content" },
-      { label: "Just exploring", value: "Just exploring for now" },
-    ],
-    allow_custom: true,
-  },
+  content: "Hey! I'm here to help you grow your trade business. Tap what you need — or just ask me anything.",
 };
+
+/* Welcome-screen quick actions — premium, high-intent shortcuts phrased the
+ * way a tradesperson would say it. Tapping one sends it as the first message,
+ * which routes the conversation straight to the matching product. Kept to 5
+ * (best-practice 3–5) and only shown on the opening turn. */
+const QUICK_ACTIONS: { icon: typeof Phone; label: string; value: string }[] = [
+  { icon: Phone, label: "Answer my calls & texts when I'm busy", value: "I want something to answer my calls and messages when I'm on the job." },
+  { icon: Star, label: "Get me more 5-star reviews", value: "I want to get more 5-star Google reviews from my customers, automatically." },
+  { icon: Calculator, label: "Set up an instant quote tool", value: "I want an instant quote tool on my website so customers can price a job themselves." },
+  { icon: Share2, label: "Handle my social media posts", value: "I want you to handle my social media posts for me." },
+  { icon: MapPin, label: "Get me found on Google locally", value: "I want to rank higher on Google and get found by local customers." },
+];
 
 /**
  * Capture a live text snapshot of the page the visitor is on, so the
@@ -443,6 +444,45 @@ export default function SiteChatWidget() {
                 ))}
               </div>
             )}
+            {/* Welcome quick actions — premium shortcuts, opening turn only. */}
+            {messages.length === 1 && !streaming && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 2 }}>
+                {QUICK_ACTIONS.map((qa) => {
+                  const Icon = qa.icon;
+                  return (
+                    <button
+                      key={qa.label}
+                      type="button"
+                      onClick={() => sendMessage(qa.value)}
+                      className="wft-chat-quick-action"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "11px 13px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(13,60,252,0.14)",
+                        background: "rgba(13,60,252,0.05)",
+                        color: "#1A1A2E",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        transition: "background 0.15s, border-color 0.15s",
+                      }}
+                    >
+                      <span style={{ display: "flex", width: 28, height: 28, borderRadius: 8, background: "rgba(13,60,252,0.10)", color: "#0d3cfc", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Icon size={16} strokeWidth={2} />
+                      </span>
+                      <span style={{ flex: 1 }}>{qa.label}</span>
+                      <ArrowRight size={14} color="#0d3cfc" style={{ flexShrink: 0, opacity: 0.55 }} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -507,6 +547,10 @@ export default function SiteChatWidget() {
           0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
           40% { transform: scale(1); opacity: 1; }
         }
+        .wft-chat-quick-action:hover {
+          background: rgba(13,60,252,0.10) !important;
+          border-color: rgba(13,60,252,0.30) !important;
+        }
         /* Wave 50 — baseline bottom for the chat bubble; on mobile the
          * bubble lifts above the MarketingStickyBar by reading the
          * --mkt-sticky-bar-h variable published by that component. */
@@ -525,14 +569,17 @@ export default function SiteChatWidget() {
            * visible on small phones (360 / 390px). 8px symmetric margin
            * leaves room for the safe-area inset on iOS notch devices. */
           .wft-site-chat-panel {
-            bottom: 8px !important;
+            bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
             right: 8px !important;
             left: 8px !important;
-            top: auto !important;
+            /* Leave a gap below the site navbar (~64px) so the open panel
+               doesn't hijack the whole screen — Alex. top+bottom define the
+               height instead of a fixed 90vh. */
+            top: 72px !important;
             width: auto !important;
             max-width: calc(100vw - 16px) !important;
-            height: 90vh !important;
-            max-height: 90vh !important;
+            height: auto !important;
+            max-height: none !important;
             border-radius: 16px !important;
           }
           .wft-site-chat-backdrop {
