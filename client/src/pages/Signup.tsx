@@ -72,8 +72,15 @@ export default function SignupPage() {
       return res.json();
     },
     onSuccess: (data: { user: { role?: string }; redirect?: string | null }) => {
-      queryClient.setQueryData(["auth", "me"], data.user);
+      // Must match the /api/auth/me shape `{ user, adminProPreview }` that
+      // useAuth() reads — storing the raw user makes the cache's `.user`
+      // undefined, so RequireClient on the destination route reads the
+      // brand-new session as unauthenticated and bounces to /login before
+      // the refetch lands (same bug login.tsx fixed 2026-05-23).
+      queryClient.setQueryData(["auth", "me"], { user: data.user, adminProPreview: false });
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+
+      ga4Event("signup_completed", { source: demoSessionId ? "ai-demo" : null });
 
       try {
         const chatSessionId = getSessionId();
@@ -170,8 +177,9 @@ export default function SignupPage() {
           </div>
 
           <form onSubmit={handleSubmit}>
-            <label style={labelStyle}>Business name</label>
+            <label htmlFor="signup-business-name" style={labelStyle}>Business name</label>
             <input
+              id="signup-business-name"
               type="text"
               required
               value={businessName}
@@ -180,8 +188,9 @@ export default function SignupPage() {
               style={{ ...inputStyle, marginBottom: 20 }}
             />
 
-            <label style={labelStyle}>Your name</label>
+            <label htmlFor="signup-name" style={labelStyle}>Your name</label>
             <input
+              id="signup-name"
               type="text"
               required
               value={name}
@@ -191,8 +200,9 @@ export default function SignupPage() {
               style={{ ...inputStyle, marginBottom: 20 }}
             />
 
-            <label style={labelStyle}>Email</label>
+            <label htmlFor="signup-email" style={labelStyle}>Email</label>
             <input
+              id="signup-email"
               type="email"
               required
               value={email}
@@ -201,8 +211,9 @@ export default function SignupPage() {
               style={{ ...inputStyle, marginBottom: 20 }}
             />
 
-            <label style={labelStyle}>Password</label>
+            <label htmlFor="signup-password" style={labelStyle}>Password</label>
             <input
+              id="signup-password"
               type="password"
               required
               minLength={8}
@@ -213,8 +224,9 @@ export default function SignupPage() {
               style={{ ...inputStyle, marginBottom: 20 }}
             />
 
-            <label style={labelStyle}>Phone <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
+            <label htmlFor="signup-phone" style={labelStyle}>Phone <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
             <input
+              id="signup-phone"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}

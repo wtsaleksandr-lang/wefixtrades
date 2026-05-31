@@ -370,10 +370,11 @@ export default function LoginPage() {
               <>
                 {!linkSent ? (
                   <form onSubmit={handleEmailLinkSubmit}>
-                    <label style={labelStyle}>
+                    <label htmlFor="login-emaillink-email" style={labelStyle}>
                       Email <span style={{ color: "#FCA5A5" }}>*</span>
                     </label>
                     <input
+                      id="login-emaillink-email"
                       type="email"
                       required
                       autoFocus
@@ -444,8 +445,9 @@ export default function LoginPage() {
               <form onSubmit={handlePasswordSubmit}>
                 {!requires2fa ? (
                   <>
-                    <label style={labelStyle}>Email</label>
+                    <label htmlFor="login-password-email" style={labelStyle}>Email</label>
                     <input
+                      id="login-password-email"
                       type="email"
                       required
                       autoComplete="email"
@@ -455,9 +457,10 @@ export default function LoginPage() {
                       data-testid="input-password-email"
                     />
 
-                    <label style={labelStyle}>Password</label>
+                    <label htmlFor="login-password" style={labelStyle}>Password</label>
                     <div style={{ position: "relative" }}>
                       <input
+                        id="login-password"
                         type={showPassword ? "text" : "password"}
                         required
                         autoComplete="current-password"
@@ -491,8 +494,9 @@ export default function LoginPage() {
                     <p style={{ fontSize: 13, color: mkt.onDarkMuted, marginBottom: 14 }}>
                       Enter the 6-digit code from your authenticator app.
                     </p>
-                    <label style={labelStyle}>Authentication code</label>
+                    <label htmlFor="login-2fa-code" style={labelStyle}>Authentication code</label>
                     <input
+                      id="login-2fa-code"
                       type="text"
                       required
                       inputMode="numeric"
