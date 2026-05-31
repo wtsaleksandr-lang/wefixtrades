@@ -252,7 +252,7 @@ function TriggerOpsRunButton({ small }: { small?: boolean }) {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${adminStatusColor(status)}`}>
+    <span className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${adminStatusColor(status)}`}>
       {status.replace(/_/g, " ")}
     </span>
   );
@@ -564,7 +564,7 @@ export default function CrmOverview() {
             ))
           ) : (
             <>
-              <StatCard label="Clients" value={data?.totalClients ?? 0} icon={Users} href="/admin/crm/clients" color="bg-brand-blue" />
+              <StatCard label="Total Clients" value={data?.totalClients ?? 0} icon={Users} href="/admin/crm/clients" color="bg-brand-blue" />
               <StatCard label="Active Services" value={data?.activeServices ?? 0} icon={Wrench} href="/admin/crm/services" color="bg-blue-500" />
               <StatCard label="Onboarding" value={data?.pendingOnboarding ?? 0} icon={ClipboardList} href="/admin/crm/inbox" color="bg-amber-500" />
               <StatCard label="Open Tasks" value={data?.openFulfillment ?? 0} icon={Truck} href="/admin/crm/inbox" color="bg-brand-blue-500" />
