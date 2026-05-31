@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Star, TrendingUp, MessageSquare, Send, ShieldCheck, AlertTriangle,
+  Star, StarHalf, TrendingUp, MessageSquare, Send, ShieldCheck, AlertTriangle,
   ChevronDown, ChevronUp, Loader2, RefreshCw, ThumbsDown, Settings, Lock, Code,
   QrCode, UserPlus, CheckCircle2, Unplug, ExternalLink, PauseCircle, PlayCircle,
   CheckCircle, XCircle, MessageSquareWarning, Sparkles,
@@ -85,15 +85,23 @@ interface ConfigData {
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function RatingStars({ rating }: { rating: number }) {
+  const full = Math.floor(rating);
+  const hasHalf = rating - full >= 0.5;
   return (
-    <div data-theme="light" className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <Star key={s} className={`w-3.5 h-3.5 ${s <= rating ? "fill-amber-400 text-amber-400" : "text-gray-200"}`} />
-      ))}
+    <div role="img" aria-label={`${rating} out of 5 stars`} className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => {
+        if (s <= full) {
+          return <Star key={s} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />;
+        }
+        if (s === full + 1 && hasHalf) {
+          return <StarHalf key={s} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />;
+        }
+        return <Star key={s} className="w-3.5 h-3.5 text-gray-200" />;
+      })}
     </div>
   );
 }

@@ -94,16 +94,16 @@ export async function handleReputationshieldAction(
     }
     case "request-reviews-batch":
       redirectUrl = "/portal/reviews?action=request-batch";
-      message = "Queued review requests for your last 10 jobs.";
+      message = "Opening the review-request tool.";
       break;
     case "escalate-to-owner":
-      message =
-        "Escalation sent — the owner email has been notified about this review.";
+      redirectUrl = "/portal/reputationshield/dashboard";
+      message = "Opening this review so you can escalate it to the owner.";
       break;
     case "flag-as-fake":
       redirectUrl = "https://support.google.com/business/answer/4596773";
       message =
-        "Review flagged. Submit via Google's flagging tool to complete the report.";
+        "Opening Google's review-flagging tool — submit there to report it.";
       break;
     case "acknowledge":
       message = "Recommendation acknowledged.";
