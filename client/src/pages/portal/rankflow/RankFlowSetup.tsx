@@ -87,12 +87,16 @@ export default function RankFlowSetup() {
   ];
 
   async function persist(state: WizardState) {
-    await fetch("/api/portal/onboarding/submit", {
+    const res = await fetch("/api/portal/onboarding/submit", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source: "rankflow-wave33-wizard", ...state }),
+      body: JSON.stringify({ product: "rankflow", responses: state }),
     });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.error || "Couldn't save your RankFlow setup. Please try again.");
+    }
     toast({
       title: "RankFlow ready",
       description: "First scan queued. Heading to your rank dashboard.",

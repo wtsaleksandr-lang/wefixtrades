@@ -145,20 +145,26 @@ export default function QuoteQuickSetup() {
 
   async function finish(state: WizardState) {
     try {
-      await fetch("/api/portal/onboarding/submit", {
+      const res = await fetch("/api/portal/onboarding/submit", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source: "quotequick-wave29-wizard",
-          trade: state.tradeSlug,
-          businessName: state.businessName,
-          phone: state.phone,
-          city: state.zip,
-          websiteUrl: state.websiteUrl,
-          radiusMiles: state.serviceAreaRadius ?? state.tradeDefaultRadiusMi ?? 25,
+          product: "quotequick",
+          responses: {
+            trade: state.tradeSlug,
+            businessName: state.businessName,
+            phone: state.phone,
+            city: state.zip,
+            websiteUrl: state.websiteUrl,
+            radiusMiles: state.serviceAreaRadius ?? state.tradeDefaultRadiusMi ?? 25,
+          },
         }),
       });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || "Couldn't save your QuoteQuick setup. Please try again.");
+      }
       toast({
         title: "Setup complete",
         description: "Your widget is live. Conversion data starts populating now.",

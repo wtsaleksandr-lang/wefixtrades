@@ -67,6 +67,94 @@ async function withClientId(
   return withClientIdOrPreview(req, res, { previewShape });
 }
 
+/**
+ * Shared finalization for a submitted onboarding form. Flips the submission to
+ * `submitted` and runs the product-specific post-hooks (TradeLine config map +
+ * assistant build; ContentFlow brand-profile seed + routing). Used by both the
+ * template-driven PUT /:id flow and the self-serve POST /submit flow.
+ */
+async function applyOnboardingSubmit(
+  clientId: number,
+  submission: typeof onboardingSubmissions.$inferSelect,
+  responses: Record<string, unknown>,
+): Promise<{ next_url: string | null }> {
+  await db
+    .update(onboardingSubmissions)
+    .set({ responses, status: "submitted", submitted_at: new Date(), updated_at: new Date() })
+    .where(eq(onboardingSubmissions.id, submission.id));
+
+  let nextUrl: string | null = null;
+  if (submission.client_service_id) {
+    try {
+      const cs = await storage.getClientServiceById(submission.client_service_id);
+      if (cs && cs.service_id.startsWith("tradeline")) {
+        const config = await storage.getTradeLineConfig(cs.id);
+        if (config) {
+          const updates = mapOnboardingToTradeLineConfig(responses, config.variant);
+          if (updates.setupStage) {
+            updates.setupStage = advanceSetupStage(config.setupStage, updates.setupStage);
+          }
+          if (Object.keys(updates).length > 0) {
+            await storage.updateTradeLineConfig(cs.id, updates);
+          }
+        }
+        import("../../services/vapiService").then(({ provisionTradeLineAssistant }) => {
+          provisionTradeLineAssistant(cs.id).catch(err =>
+            log.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
+          );
+        });
+      }
+
+      if (cs && cs.service_id.startsWith("contentflow")) {
+        try {
+          const patch = mapContentFlowOnboardingToBrandProfile(responses);
+          if (Object.keys(patch).length > 0) {
+            const existingClient = await storage.getClientById(clientId);
+            const existing = readBrandProfile(existingClient);
+            const merged = mergeContentFlowOnboarding(existing, patch);
+            const diff: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(merged)) {
+              if (JSON.stringify((existing as Record<string, unknown>)[k]) !== JSON.stringify(v)) {
+                diff[k] = v;
+              }
+            }
+            if (Object.keys(diff).length > 0) {
+              await mergeBrandProfile(clientId, diff);
+            }
+          }
+
+          const websiteUrl = extractPrimaryWebsiteUrl(responses);
+          if (websiteUrl) {
+            const c = await storage.getClientById(clientId);
+            if (c && !c.website_url) {
+              await storage.updateClient(clientId, { website_url: websiteUrl } as any);
+            }
+          }
+
+          if (shouldRouteToDeeperWizard(responses)) {
+            nextUrl = "/portal/content-preferences?from=onboarding";
+          } else {
+            const meta = (cs.metadata as Record<string, any>) || {};
+            await storage.updateClientService(cs.id, {
+              metadata: {
+                ...meta,
+                contentflow_reminder_due_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                contentflow_quick_setup_at: new Date().toISOString(),
+              },
+            } as any);
+            nextUrl = "/portal/services";
+          }
+        } catch (err) {
+          log.warn("Portal onboarding: failed ContentFlow mapper hook:", { error: String(err) });
+        }
+      }
+    } catch (err) {
+      log.warn("Portal onboarding: failed to map product config:", { error: String(err) });
+    }
+  }
+  return { next_url: nextUrl };
+}
+
 export function registerPortalOnboardingRoutes(app: Express) {
   /**
    * GET /api/portal/onboarding
@@ -216,109 +304,90 @@ export function registerPortalOnboardingRoutes(app: Express) {
           .where(eq(onboardingSubmissions.id, submissionId));
         res.json({ ok: true, status: newStatus, mode: "draft" });
       } else {
-        // Final submit
-        await db
-          .update(onboardingSubmissions)
-          .set({ responses, status: "submitted", submitted_at: new Date(), updated_at: new Date() })
-          .where(eq(onboardingSubmissions.id, submissionId));
-
-        // Map onboarding answers into TradeLine config if applicable
-        let nextUrl: string | null = null;
-        if (submission.client_service_id) {
-          try {
-            const cs = await storage.getClientServiceById(submission.client_service_id);
-            if (cs && cs.service_id.startsWith("tradeline")) {
-              const config = await storage.getTradeLineConfig(cs.id);
-              if (config) {
-                const updates = mapOnboardingToTradeLineConfig(responses, config.variant);
-                // Use safe stage advancement — never regress
-                if (updates.setupStage) {
-                  updates.setupStage = advanceSetupStage(config.setupStage, updates.setupStage);
-                }
-                if (Object.keys(updates).length > 0) {
-                  await storage.updateTradeLineConfig(cs.id, updates);
-                }
-              }
-
-              // Trigger assistant build (non-blocking)
-              import("../../services/vapiService").then(({ provisionTradeLineAssistant }) => {
-                provisionTradeLineAssistant(cs.id).catch(err =>
-                  log.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
-                );
-              });
-            }
-
-            /* Wave W-AZ-1 — ContentFlow post-checkout onboarding hook.
-             *
-             * The four-question template gives us just enough to seed the
-             * brand profile so the customer doesn't repeat themselves on
-             * the deeper /portal/content-preferences wizard. We also
-             * persist the website URL to clients.contact_url if missing
-             * (canonical site link consumed by article generators) and
-             * route the customer either straight into the wizard or
-             * schedule a reminder for the 24h email worker. */
-            if (cs && cs.service_id.startsWith("contentflow")) {
-              try {
-                const patch = mapContentFlowOnboardingToBrandProfile(responses);
-                if (Object.keys(patch).length > 0) {
-                  const existingClient = await storage.getClientById(clientId);
-                  const existing = readBrandProfile(existingClient);
-                  /* Idempotent merge — don't clobber values the deeper
-                   * wizard already filled in if the customer happens to
-                   * have completed that first. */
-                  const merged = mergeContentFlowOnboarding(existing, patch);
-                  /* Diff against existing so we only push fields that
-                   * actually changed (mergeBrandProfile is safe either
-                   * way, but this keeps the audit trail tight). */
-                  const diff: Record<string, unknown> = {};
-                  for (const [k, v] of Object.entries(merged)) {
-                    if (JSON.stringify((existing as Record<string, unknown>)[k]) !== JSON.stringify(v)) {
-                      diff[k] = v;
-                    }
-                  }
-                  if (Object.keys(diff).length > 0) {
-                    await mergeBrandProfile(clientId, diff);
-                  }
-                }
-
-                const websiteUrl = extractPrimaryWebsiteUrl(responses);
-                if (websiteUrl) {
-                  const c = await storage.getClientById(clientId);
-                  if (c && !c.website_url) {
-                    await storage.updateClient(clientId, { website_url: websiteUrl } as any);
-                  }
-                }
-
-                /* Routing decision — yes routes to deeper wizard; no
-                 * stamps the client_service so the 24h reminder worker
-                 * can pick it up. */
-                if (shouldRouteToDeeperWizard(responses)) {
-                  nextUrl = "/portal/content-preferences?from=onboarding";
-                } else {
-                  const meta = (cs.metadata as Record<string, any>) || {};
-                  await storage.updateClientService(cs.id, {
-                    metadata: {
-                      ...meta,
-                      contentflow_reminder_due_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                      contentflow_quick_setup_at: new Date().toISOString(),
-                    },
-                  } as any);
-                  nextUrl = "/portal/services";
-                }
-              } catch (err) {
-                log.warn("Portal onboarding: failed ContentFlow mapper hook:", { error: String(err) });
-              }
-            }
-          } catch (err) {
-            log.warn("Portal onboarding: failed to map TradeLine config:", { error: String(err) });
-          }
-        }
-
-        res.json({ ok: true, status: "submitted", mode: "submit", next_url: nextUrl });
+        // Final submit — shared finalization (status flip + product hooks).
+        const { next_url } = await applyOnboardingSubmit(clientId, submission, responses);
+        res.json({ ok: true, status: "submitted", mode: "submit", next_url });
       }
     } catch (err) {
       log.error("Portal onboarding PUT error:", { error: String(err) });
       res.status(500).json({ error: "Failed to save onboarding" });
+    }
+  });
+
+  /**
+   * POST /api/portal/onboarding/submit
+   * Self-serve setup-wizard finish. Resolves the authenticated client's
+   * service for `product`, resolves-or-creates its onboarding submission, then
+   * persists `responses` and marks it submitted (running the same product
+   * hooks as PUT /:id). Unlike PUT /:id this does not require the caller to
+   * know the submission id — the Wave-33 wizards only know their product slug.
+   *
+   * Auth: requireClient + clientId resolved server-side; the service lookup is
+   * scoped to the caller's client_id, so there is no cross-tenant write path.
+   */
+  app.post("/api/portal/onboarding/submit", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { product, responses } = req.body ?? {};
+      if (typeof product !== "string" || !product.trim()) {
+        return res.status(400).json({ error: "product is required" });
+      }
+      if (!responses || typeof responses !== "object" || Array.isArray(responses)) {
+        return res.status(400).json({ error: "responses object is required" });
+      }
+
+      // Resolve the caller's service for this product (most recent). service_id
+      // is the catalog id, prefixed by the product slug (e.g. "mapguard",
+      // "tradeline-complete"). Scoped to client_id → no IDOR.
+      const slug = product.trim().toLowerCase();
+      const [cs] = await db
+        .select()
+        .from(clientServices)
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          sql`lower(${clientServices.service_id}) LIKE ${slug + "%"}`,
+        ))
+        .orderBy(desc(clientServices.created_at))
+        .limit(1);
+      if (!cs) {
+        return res.status(404).json({ error: `No active ${slug} service found for your account.` });
+      }
+
+      // Resolve or create the onboarding submission for that service. Products
+      // without a seeded onboarding template never get a row at checkout, so we
+      // create one on demand (template_id null — responses are still stored).
+      let [submission] = await db
+        .select()
+        .from(onboardingSubmissions)
+        .where(and(
+          eq(onboardingSubmissions.client_id, clientId),
+          eq(onboardingSubmissions.client_service_id, cs.id),
+        ))
+        .orderBy(desc(onboardingSubmissions.created_at))
+        .limit(1);
+
+      if (submission && (submission.status === "submitted" || submission.status === "approved")) {
+        return res.status(409).json({ error: "This setup has already been submitted." });
+      }
+
+      if (!submission) {
+        const tmpl = await storage.getOnboardingTemplate(cs.service_id);
+        submission = await storage.createOnboardingSubmission({
+          client_service_id: cs.id,
+          client_id: clientId,
+          template_id: tmpl?.id ?? null,
+          status: "not_sent",
+          actor_type: "system",
+        });
+      }
+
+      const { next_url } = await applyOnboardingSubmit(clientId, submission, responses as Record<string, unknown>);
+      res.json({ ok: true, status: "submitted", next_url });
+    } catch (err) {
+      log.error("Portal onboarding submit error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to submit onboarding" });
     }
   });
 }
