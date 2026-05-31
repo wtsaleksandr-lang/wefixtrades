@@ -51,6 +51,12 @@ const AutomationDiagram = lazy(() => import("@/components/marketing/AutomationDi
  * is ~30KB minified and the IntersectionObserver wrap keeps it off the
  * critical path until the visitor scrolls toward it. */
 const SelfServiceDragDrop = lazy(() => import("@/components/marketing/SelfServiceDragDrop"));
+/* "Compete with the big brands" — interactive claim-the-map coverage section
+ * (Option E from /mockups/compete), wired in directly above the Self-Service
+ * card per Alex. Named export → wrap to a default for React.lazy. */
+const CompeteCoverageMap = lazy(() =>
+  import("@/components/marketing/competeVariants").then((m) => ({ default: m.CompeteCoverageMap })),
+);
 
 /* Fallback boxes — reserve typical rendered heights so the page doesn't
  * jump when the lazy chunk arrives. Tuned for desktop; mobile heights are
@@ -929,6 +935,15 @@ export default function HomePage() {
       <div style={{ paddingTop: 28, paddingBottom: 4 }}>
         <IntegrationsTrustStrip />
       </div>
+
+      {/* "Compete with the big brands" — interactive coverage map, directly
+       * above the Self-Service card per Alex. Deferred + lazy like the other
+       * below-fold sections. */}
+      <DeferUntilNear minHeight={620}>
+        <Suspense fallback={lazyFallback(620)}>
+          <CompeteCoverageMap />
+        </Suspense>
+      </DeferUntilNear>
 
       {/* Wave 69 — Self-Service Drag-Drop. First interactive proof-of-
        * product moment after the hero. The visitor watches an existing
