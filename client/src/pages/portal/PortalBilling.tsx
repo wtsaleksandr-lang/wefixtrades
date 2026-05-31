@@ -39,7 +39,7 @@ function formatCents(cents: number): string {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "-";
-  return new Date(dateStr).toLocaleDateString("en-AU", {
+  return new Date(dateStr).toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -283,7 +283,7 @@ export default function PortalBilling() {
                           <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCents(p.amount_cents)}</p>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
+                          <span className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
                             {statusLabel(PAYMENT_STATUS_LABELS, p.status)}
                           </span>
                           <span className="text-xs text-gray-400">{formatDate(p.created_at)}</span>
@@ -324,7 +324,7 @@ export default function PortalBilling() {
                             <td className="px-5 py-3 text-gray-500">{p.description || "Invoice"}</td>
                             <td className="px-5 py-3 text-gray-900 font-medium text-right whitespace-nowrap">{formatCents(p.amount_cents)}</td>
                             <td className="px-5 py-3">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
+                              <span className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
                                 {statusLabel(PAYMENT_STATUS_LABELS, p.status)}
                               </span>
                             </td>
