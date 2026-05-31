@@ -729,8 +729,11 @@ export default function ClientDetailPage() {
     );
   }
 
-  const totalRevenue = (services ?? []).reduce((acc, s) => acc + (s.price_cents ?? 0), 0);
-  const totalCost = (services ?? []).reduce((acc, s) => acc + (s.cost_cents ?? 0), 0);
+  // Monthly Revenue/Cost cards reflect currently-active services only — a
+  // cancelled/completed/pending service is not current recurring revenue.
+  const activeServices = (services ?? []).filter((s) => s.status === "active");
+  const totalRevenue = activeServices.reduce((acc, s) => acc + (s.price_cents ?? 0), 0);
+  const totalCost = activeServices.reduce((acc, s) => acc + (s.cost_cents ?? 0), 0);
   const totalProfit = totalRevenue - totalCost;
   const marginPct = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0;
 
