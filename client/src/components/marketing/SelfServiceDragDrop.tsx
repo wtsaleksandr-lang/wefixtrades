@@ -66,6 +66,11 @@ const PAPER = "#ffffff";
 // Base canvas dims — the visual is designed for this size; we scale to fit.
 const BASE_W = 1140;
 const BASE_H = 620;
+// Left copy-column width. On mobile (hideHeader) the copy column is dropped and
+// the canvas collapses to the mockup-only width so the drop visualization fills
+// the container instead of leaving the old copy column as dead space.
+const LEFT_W = 360;
+const MOCKUP_W = BASE_W - LEFT_W; // 780 — mockup stage width when copy is hidden
 
 /* Mockup-internal icon sizes — pixel-locked to the original Claude Design
  * v1 prototype's visual proportions inside the rendered dashboard chrome.
@@ -1887,9 +1892,47 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
     window.setTimeout(() => setFlashing(false), 480);
   };
 
-  const LEFT_W = 360;
   const APP_PAD = 28;
   const fileVisible = !filled && fileState !== "hidden";
+
+  // The "Try sample" CTA lives in the copy column on desktop, but on mobile
+  // (hideHeader) the copy column is dropped — so we re-host the same button
+  // above the mockup stage. Extracted to a const so both render paths share
+  // one definition (and one set of handlers / disabled state).
+  const sampleCta = (
+    <button
+      type="button"
+      onClick={triggerSampleDrop}
+      disabled={filled}
+      className="ssdd-sample-cta"
+      aria-label={`Try the sample ${FILE_TYPES[fileType].label} file`}
+      style={{
+        background: "transparent",
+        border: `1.5px solid ${ACCENT}`,
+        color: ACCENT,
+        fontFamily: MONO_FONT,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: "0.12em",
+        padding: "8px 14px",
+        borderRadius: 999,
+        cursor: filled ? "default" : "pointer",
+        opacity: filled ? 0.4 : 1,
+        transition: "background 140ms ease, color 140ms ease, opacity 200ms ease",
+      }}
+      onMouseEnter={(e) => {
+        if (filled) return;
+        e.currentTarget.style.background = ACCENT;
+        e.currentTarget.style.color = "#ffffff";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+        e.currentTarget.style.color = ACCENT;
+      }}
+    >
+      Try sample {FILE_TYPES[fileType].label}
+    </button>
+  );
 
   return (
     <div
@@ -1897,7 +1940,7 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
       data-testid="self-service-canvas"
       style={{
         position: "relative",
-        width: BASE_W,
+        width: hideHeader ? MOCKUP_W : BASE_W,
         height: BASE_H,
         borderRadius: 22,
         overflow: "hidden",
@@ -1908,10 +1951,12 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
         boxShadow:
           "0 1px 0 rgba(255,255,255,0.05) inset, 0 0 0 1px rgba(255,255,255,0.04) inset, 0 30px 80px -30px rgba(0,0,0,0.6)",
         display: "grid",
-        gridTemplateColumns: `${LEFT_W}px 1fr`,
+        gridTemplateColumns: hideHeader ? "1fr" : `${LEFT_W}px 1fr`,
       }}
     >
-      {/* LEFT — copy column */}
+      {/* LEFT — copy column (desktop only; dropped on mobile so the mockup
+          stage fills the full container width) */}
+      {!hideHeader && (
       <div
         style={{
           padding: "40px 40px 36px 40px",
@@ -1996,39 +2041,7 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
           {/* Touch / keyboard fallback — visible on mobile, hidden when the
               cursor-attach interaction is feasible. Still keyboard-focusable
               on desktop for a11y. */}
-          <button
-            type="button"
-            onClick={triggerSampleDrop}
-            disabled={filled}
-            className="ssdd-sample-cta"
-            aria-label={`Try the sample ${FILE_TYPES[fileType].label} file`}
-            style={{
-              marginTop: 22,
-              background: "transparent",
-              border: `1.5px solid ${ACCENT}`,
-              color: ACCENT,
-              fontFamily: MONO_FONT,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.12em",
-              padding: "8px 14px",
-              borderRadius: 999,
-              cursor: filled ? "default" : "pointer",
-              opacity: filled ? 0.4 : 1,
-              transition: "background 140ms ease, color 140ms ease, opacity 200ms ease",
-            }}
-            onMouseEnter={(e) => {
-              if (filled) return;
-              e.currentTarget.style.background = ACCENT;
-              e.currentTarget.style.color = "#ffffff";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = ACCENT;
-            }}
-          >
-            Try sample {FILE_TYPES[fileType].label}
-          </button>
+          <div style={{ marginTop: 22 }}>{sampleCta}</div>
         </div>
         <div
           style={{
@@ -2046,18 +2059,21 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
           Built from the file you dropped. Edit anything, embed anywhere.
         </div>
       </div>
+      )}
 
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          top: 22,
-          bottom: 22,
-          left: LEFT_W,
-          width: 1,
-          background: "rgba(255,255,255,0.05)",
-        }}
-      />
+      {!hideHeader && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 22,
+            bottom: 22,
+            left: LEFT_W,
+            width: 1,
+            background: "rgba(255,255,255,0.05)",
+          }}
+        />
+      )}
 
       {/* RIGHT — stage with dot-grid */}
       <div
@@ -2077,6 +2093,26 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
           userSelect: "none",
         }}
       >
+        {/* Mobile CTA — the copy column (which normally hosts the Try-sample
+            button) is dropped on mobile, so re-host the button here, pinned to
+            the top of the stage and centered. Desktop keeps the button in the
+            copy column. */}
+        {hideHeader && (
+          <div
+            style={{
+              position: "absolute",
+              top: 14,
+              left: 0,
+              right: 0,
+              display: "flex",
+              justifyContent: "center",
+              zIndex: 11,
+            }}
+          >
+            {sampleCta}
+          </div>
+        )}
+
         {/* Cursor-following file */}
         {fileVisible && (
           <div
@@ -2685,7 +2721,11 @@ function MobileFallback({ containerWidth }: { containerWidth: number }) {
   // Cap at 1 so we never upscale on tablets that exceed BASE_W. The 0.6
   // fallback only fires before the ResizeObserver has reported width
   // (containerWidth=0) — first paint only, replaced within a frame.
-  const fitScale = containerWidth > 0 ? Math.min(1, containerWidth / BASE_W) : 0.6;
+  // Scale against the mockup-only width (MOCKUP_W), not BASE_W. The canvas now
+  // collapses to MOCKUP_W when hideHeader, so scaling against the old 1140-px
+  // BASE_W left the mockup ~1/3 too small with dead space. MOCKUP_W makes the
+  // drop visualization fill the mobile container.
+  const fitScale = containerWidth > 0 ? Math.min(1, containerWidth / MOCKUP_W) : 0.6;
   return (
     <div style={{ width: "100%" }}>
       {/* Wave 105 — title + subtitle hoisted ABOVE the scaled canvas
@@ -2743,7 +2783,7 @@ function MobileFallback({ containerWidth }: { containerWidth: number }) {
       >
         <div
           style={{
-            width: BASE_W,
+            width: MOCKUP_W,
             height: BASE_H,
             transform: `scale(${fitScale})`,
             transformOrigin: "top left",
