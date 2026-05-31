@@ -296,7 +296,9 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
                 borderRadius: 12,
                 border: "none",
                 background: loading ? mkt.accentDark : mkt.accent,
-                color: mkt.dark,
+                // Was mkt.dark (near-black) — unreadable on the blue accent
+                // button. Light text for contrast (matches PricingUnified CTA).
+                color: mkt.onDark,
                 fontSize: 15,
                 fontWeight: 700,
                 fontFamily: FONT,
