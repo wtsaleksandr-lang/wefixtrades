@@ -332,7 +332,10 @@ export default function IntegrationsTrustStrip() {
           }
           .integrations-compare-row > td:nth-of-type(2)::before {
             content: "WeFixTrades: ";
-            color: rgba(13,60,252,0.85);
+            /* Lightened from rgba(13,60,252,0.85): pure brand-blue failed AA
+               contrast on the dark card. This lighter blue keeps the brand
+               cue but reads clearly (~6:1). */
+            color: rgba(138,166,255,0.95);
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 0.06em;

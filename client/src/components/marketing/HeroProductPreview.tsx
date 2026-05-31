@@ -66,7 +66,7 @@ const EVENTS: ActivityEvent[] = [
     iconColor: "#06B6D4",
     iconBg: "rgba(6,182,212,0.15)",
     title: "Missed call recovered",
-    subtitle: "SMS sent to +61 4** *** 219",
+    subtitle: "SMS sent to +1 (469) ***-2190",
     agoSec: 198,
   },
 ];
