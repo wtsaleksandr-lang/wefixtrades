@@ -162,7 +162,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need coding skills?", a: "No. Everything is configured through a visual wizard. Embedding is one line of code you paste into your site." },
       { q: "Will it work on my website?", a: "Yes. WordPress, Wix, Squarespace, Webflow, Shopify, or plain HTML. If your site supports a script tag, it works." },
       { q: "I already use Jobber / Housecall Pro. Do I need to switch?", a: "No. QuoteQuick works alongside whatever you already use. Leads come to your email and dashboard \u2014 no platform switch needed." },
-      { q: "Is booking included?", a: "Yes, on the Pro plan. Customers can book an appointment and pay a deposit directly after receiving their estimate." },
+      { q: "Is booking included?", a: "Yes, on the Business plan. Customers can book an appointment and pay a deposit directly after receiving their estimate." },
       { q: "Can I try it before paying?", a: "Yes. 14-day free trial, no credit card required. Build your calculator and see it work before you commit." },
     ],
     pricingSection: buildPricingSection(QUOTEQUICK, "14-day free trial. No credit card required."),
@@ -459,7 +459,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "core",
     heroVisualType: "website",
     primaryCTA: { label: "Fix My Website", href: "/wizard" },
-    secondaryCTA: { label: "See What’s Included", href: "#webfix-included" },
+    secondaryCTA: { label: "See What’s Included", href: "#pricing" },
     highlights: [
       "Page-speed audit + Core Web Vitals fixes by our specialists — faster load times mean fewer bounced visitors and better Google rankings.",
       "Mobile-responsiveness audit + fixes for every phone, tablet, and desktop — handled by our team on your CMS.",
@@ -507,7 +507,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "growth",
     heroVisualType: "social",
     primaryCTA: { label: "Get Started", href: "/wizard" },
-    secondaryCTA: { label: "See How It Works", href: "#contentflow-how" },
+    secondaryCTA: { label: "See How It Works", href: "#pricing" },
     highlights: [
       "AI article generation — Blog posts, service pages, and local content written in your brand voice.",
       "Social media posts — Facebook, Instagram, and Google Business posts created and scheduled automatically.",
