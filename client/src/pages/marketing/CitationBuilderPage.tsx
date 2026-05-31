@@ -245,12 +245,12 @@ function TierCard({
       data-testid={`tier-card-${tier.id}`}
       style={{
         background: "rgb(255,255,255)",
-        border: isHighlighted ? `2px solid ${mkt.accent}` : "1px solid rgba(0,0,0,0.10)",
-        borderRadius: 18,
-        padding: 24,
+        border: isHighlighted ? `1px solid ${mkt.accent}` : "1px solid rgba(0,0,0,0.08)",
+        borderRadius: 12,
+        padding: 20,
         boxShadow: isHighlighted
-          ? "0 18px 50px rgba(13,60,252,0.18)"
-          : "0 6px 18px rgba(0,0,0,0.05)",
+          ? "0 8px 24px rgba(13,60,252,0.12)"
+          : "0 1px 2px rgba(0,0,0,0.04)",
         position: "relative",
         display: "flex",
         flexDirection: "column",
@@ -261,15 +261,15 @@ function TierCard({
         <div
           style={{
             position: "absolute",
-            top: -12,
-            right: 16,
+            top: -10,
+            left: 14,
             background: mkt.accent,
             color: "rgb(255,255,255)",
             fontSize: 11,
             fontWeight: 700,
-            letterSpacing: "0.08em",
+            letterSpacing: "0.04em",
             textTransform: "uppercase",
-            padding: "4px 10px",
+            padding: "3px 10px",
             borderRadius: 999,
           }}
         >
@@ -308,15 +308,16 @@ function TierCard({
         onClick={() => onSelect(tier)}
         data-testid={`button-tier-${tier.id}-cta`}
         style={{
+          width: "100%",
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
           gap: 6,
-          background: isHighlighted ? mkt.accent : "rgb(255,255,255)",
-          color: isHighlighted ? "rgb(255,255,255)" : mkt.accent,
-          border: isHighlighted ? "none" : `1.5px solid ${mkt.accent}`,
-          padding: "11px 16px",
-          borderRadius: 12,
+          background: isHighlighted ? mkt.accent : "#0b1220",
+          color: "rgb(255,255,255)",
+          border: "none",
+          padding: "10px 14px",
+          borderRadius: 8,
           fontSize: 14,
           fontWeight: 700,
           textDecoration: "none",
@@ -500,7 +501,7 @@ export default function CitationBuilderPage() {
               fontSize: "clamp(32px, 5vw, 48px)",
               fontWeight: 900,
               letterSpacing: "-0.02em",
-              color: "#1E1E1E",
+              color: "#0b1220",
               margin: "0 0 14px",
               lineHeight: 1.05,
             }}
@@ -574,7 +575,7 @@ export default function CitationBuilderPage() {
               textAlign: "center",
               fontSize: "clamp(24px, 3vw, 32px)",
               fontWeight: 800,
-              color: "#1E1E1E",
+              color: "#0b1220",
               marginTop: 0,
               marginBottom: 8,
             }}
@@ -607,7 +608,7 @@ export default function CitationBuilderPage() {
               textAlign: "center",
               fontSize: "clamp(24px, 3vw, 32px)",
               fontWeight: 800,
-              color: "#1E1E1E",
+              color: "#0b1220",
               marginTop: 0,
               marginBottom: 8,
             }}
@@ -625,7 +626,7 @@ export default function CitationBuilderPage() {
             }}
           >
             {TIERS.map((t) => (
-              <div
+              <details
                 key={t.id}
                 style={{
                   background: "rgb(255,255,255)",
@@ -634,19 +635,24 @@ export default function CitationBuilderPage() {
                   padding: 20,
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 700, color: mkt.accent, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
-                  {t.name} · ${t.price}
-                </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#111827", marginBottom: 12 }}>{t.count}</div>
-                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                <summary style={{ cursor: "pointer", listStyle: "none" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: mkt.accent, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
+                    {t.name} · ${t.price}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#111827", display: "flex", alignItems: "center", gap: 6 }}>
+                    {t.count}
+                    <span style={{ fontSize: 12, fontWeight: 600, color: mkt.accent }}>· tap to view list</span>
+                  </div>
+                </summary>
+                <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "flex", flexDirection: "column", gap: 4 }}>
                   {t.directories.map((d) => (
                     <li key={d} style={{ fontSize: 13, color: "rgba(0,0,0,0.72)", lineHeight: 1.6, display: "flex", gap: 6 }}>
-                      <Check size={13} color="#16A34A" style={{ flexShrink: 0, marginTop: 4 }} />
+                      <Check size={14} color="#16A34A" style={{ flexShrink: 0, marginTop: 4 }} />
                       <span>{d}</span>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </details>
             ))}
           </div>
         </div>
@@ -660,7 +666,7 @@ export default function CitationBuilderPage() {
               textAlign: "center",
               fontSize: "clamp(24px, 3vw, 32px)",
               fontWeight: 800,
-              color: "#1E1E1E",
+              color: "#0b1220",
               marginTop: 0,
               marginBottom: 8,
             }}
@@ -702,7 +708,7 @@ export default function CitationBuilderPage() {
                       marginBottom: 12,
                     }}
                   >
-                    <Icon size={18} strokeWidth={2} />
+                    <Icon size={20} strokeWidth={2} />
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.06em", marginBottom: 4 }}>
                     STEP {i + 1}
@@ -724,31 +730,31 @@ export default function CitationBuilderPage() {
               textAlign: "center",
               fontSize: "clamp(24px, 3vw, 32px)",
               fontWeight: 800,
-              color: "#1E1E1E",
+              color: "#0b1220",
               marginTop: 0,
               marginBottom: 36,
             }}
           >
             Frequently asked questions
           </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "grid", gap: 2 }}>
             {FAQ_ITEMS.map((item, i) => (
-              <div
+              <details
                 key={i}
                 style={{
                   background: "rgb(255,255,255)",
                   border: "1px solid rgba(0,0,0,0.08)",
-                  borderRadius: 14,
-                  padding: 18,
+                  borderRadius: 8,
+                  padding: "12px 14px",
                 }}
               >
-                <div style={{ fontWeight: 700, color: "#111827", marginBottom: 6, fontSize: 15 }}>
+                <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 14, color: "#0b1220" }}>
                   {item.question}
-                </div>
-                <div style={{ color: "rgba(0,0,0,0.65)", fontSize: 14, lineHeight: 1.6 }}>
+                </summary>
+                <p style={{ margin: "8px 0 0", color: "#374151", fontSize: 14, lineHeight: 1.55 }}>
                   {item.answer}
-                </div>
-              </div>
+                </p>
+              </details>
             ))}
           </div>
         </div>
