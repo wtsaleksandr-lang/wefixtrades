@@ -39,7 +39,7 @@ interface Supplier {
   platform_url: string | null;
   fiverr_profile_url: string | null;
   api_endpoint: string | null;
-  api_key: string | null;
+  api_key_set?: boolean;
   supported_services: string[] | null;
   cost_rate: number | null;
   cost_type: string | null;
@@ -292,7 +292,9 @@ export default function SuppliersPage() {
       platform_url: supplier.platform_url || "",
       fiverr_profile_url: supplier.fiverr_profile_url || "",
       api_endpoint: supplier.api_endpoint || "",
-      api_key: supplier.api_key || "",
+      // api_key is never sent to the client (masked) — leave blank; a blank
+      // value on save keeps the existing key.
+      api_key: "",
       supported_services: (supplier.supported_services as string[]) || [],
       cost_rate_dollars: supplier.cost_rate ? (supplier.cost_rate / 100).toFixed(2) : "",
       cost_type: supplier.cost_type || "per_task",
@@ -1154,7 +1156,7 @@ function SupplierFormDialog({
                     type="password"
                     value={form.api_key}
                     onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))}
-                    placeholder="sk-..."
+                    placeholder="Leave blank to keep current key"
                   />
                 </div>
               </>
