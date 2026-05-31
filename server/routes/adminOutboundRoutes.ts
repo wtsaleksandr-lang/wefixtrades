@@ -703,6 +703,10 @@ export function registerAdminOutboundRoutes(app: Express): void {
         );
       }
 
+      // min_score must filter in SQL (before limit/offset) so the page + total
+      // stay consistent — filtering after pagination dropped rows + overstated total.
+      const minScore = parseInt(min_score) || 0;
+      if (minScore > 0) filters.push(gte(prospectEnrichment.quality_score, minScore) as any);
       const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
       // Join enrichment for score
@@ -722,18 +726,13 @@ export function registerAdminOutboundRoutes(app: Express): void {
         .limit(limit)
         .offset(offset);
 
-      // Filter by min_score after join
-      const minScore = parseInt(min_score) || 0;
-      const filtered = minScore > 0
-        ? rows.filter((r) => (r.enrichment?.quality_score ?? 0) >= minScore)
-        : rows;
-
       const totalRows = await db
         .select({ c: sql<number>`count(*)` })
         .from(prospects)
+        .leftJoin(prospectEnrichment, eq(prospectEnrichment.prospect_id, prospects.id))
         .where(whereClause);
 
-      res.json({ data: filtered, total: Number(totalRows[0]?.c ?? 0) });
+      res.json({ data: rows, total: Number(totalRows[0]?.c ?? 0) });
     } catch (err: any) {
       log.error("[outbound] list prospects:", err.message);
       res.status(500).json({ error: "Failed to list prospects" });
