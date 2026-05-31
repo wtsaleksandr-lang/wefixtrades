@@ -13,6 +13,7 @@ import {
   CompeteMatrix,
   CompeteRadar,
   CompeteCoverage,
+  CompeteCoverageMap,
 } from "@/components/marketing/competeVariants";
 
 function LabelBand({ children }: { children: React.ReactNode }) {
@@ -58,6 +59,7 @@ export default function CompeteMockups() {
     { label: "Option B — Comparison matrix", node: <CompeteMatrix /> },
     { label: "Option C — Radar chart", node: <CompeteRadar /> },
     { label: "Option D — Coverage bars", node: <CompeteCoverage /> },
+    { label: "Option E — Interactive coverage map (tap to claim)", node: <CompeteCoverageMap /> },
   ];
 
   return (
