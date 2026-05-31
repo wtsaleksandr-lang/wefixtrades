@@ -78,7 +78,7 @@ const SOLUTIONS: SolutionConfig[] = [
       "Quoting installs takes too long",
     ],
     recommendedStack: [
-      { name: "AI CallLine\u2122", icon: "phone", desc: "Never miss an emergency HVAC call again.", href: "/products/ai-callline" },
+      { name: "TradeLine\u2122 Voice", icon: "phone", desc: "Never miss an emergency HVAC call again.", href: "/products/tradeline" },
       { name: "QuoteQuick\u2122", icon: "calculator", desc: "Instant AC / furnace install estimates.", href: "/products/quotequick" },
       { name: "MapGuard\u2122", icon: "map", desc: "Outrank franchise competitors locally.", href: "/products/mapguard" },
       { name: "RankFlow\u2122", icon: "rocket", desc: "Rank higher = more organic leads.", href: "/products/rankflow" },
@@ -133,7 +133,7 @@ const SOLUTIONS: SolutionConfig[] = [
     ],
     recommendedStack: [
       { name: "MapGuard\u2122", icon: "map", desc: "Own the local map pack for roofing.", href: "/products/mapguard" },
-      { name: "AI ChatLine\u2122", icon: "message", desc: "Capture storm-damage leads 24/7.", href: "/products/ai-chatline" },
+      { name: "TradeLine\u2122 Chat", icon: "message", desc: "Capture storm-damage leads 24/7.", href: "/products/tradeline" },
       { name: "ReputationShield\u2122", icon: "shield", desc: "Stack 5-star reviews to beat competitors.", href: "/products/reputationshield" },
       { name: "SocialSync\u2122", icon: "share", desc: "Post project photos on autopilot.", href: "/products/socialsync" },
     ],
@@ -160,7 +160,7 @@ const SOLUTIONS: SolutionConfig[] = [
     ],
     recommendedStack: [
       { name: "QuoteQuick\u2122", icon: "calculator", desc: "Instant cleaning estimates by sq ft.", href: "/products/quotequick" },
-      { name: "AI ChatLine\u2122", icon: "message", desc: "Chat widget that books jobs automatically.", href: "/products/ai-chatline" },
+      { name: "TradeLine\u2122 Chat", icon: "message", desc: "Chat widget that books jobs automatically.", href: "/products/tradeline" },
       { name: "ReputationShield\u2122", icon: "shield", desc: "Build trust with automated 5-star reviews.", href: "/products/reputationshield" },
       { name: "SocialSync\u2122", icon: "share", desc: "Before/after posts on autopilot.", href: "/products/socialsync" },
     ],

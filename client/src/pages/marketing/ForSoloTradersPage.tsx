@@ -13,7 +13,7 @@ export default function ForSoloTradersPage() {
       path="/for-solo-traders"
       breadcrumbLabel="For Solo Traders"
       pageTitle="For Solo Traders"
-      pageDescription="Everything a one-person trade business needs without the agency price tag. $9/mo Starter tier, 24/7 TradeLine voice agent so you never miss a call, and one-click onboarding."
+      pageDescription="Everything a one-person trade business needs without the agency price tag. A free quote-tool tier to start, 24/7 TradeLine voice agent so you never miss a call, and one-click onboarding."
       productName="For Solo Traders"
       heroEyebrow="Every missed call is a job that went to the next plumber on the list."
       heroHeadline={
@@ -23,14 +23,14 @@ export default function ForSoloTradersPage() {
           <span style={{ color: mkt.accent }}>without the agency price tag.</span>
         </>
       }
-      heroSub="A $9/mo Starter tier, a 24/7 voice agent that answers when you're on a job, and an onboarding flow that takes under ten minutes. No retainer. No setup fee. Cancel anytime."
+      heroSub="Start free, upgrade to the $29/mo quote tool when you're ready, and add a 24/7 voice agent that answers when you're on a job. Onboarding takes under ten minutes. No retainer. No setup fee. Cancel anytime."
       valueEyebrow="For the one-person operation"
       valueTitle="Priced like a phone bill, not a marketing agency."
       valueProps={[
         {
           icon: DollarSign,
-          title: "$9/mo Starter tier",
-          body: "The lowest entry point in trades software. Calculator widget, review link, and a single GBP listing — no contract, no setup fee.",
+          title: "Free to start, $29/mo to grow",
+          body: "Begin on the free quote-tool tier, then upgrade to the $29/mo plan for the full calculator widget and review link — no contract, no setup fee.",
         },
         {
           icon: Phone,
@@ -48,8 +48,8 @@ export default function ForSoloTradersPage() {
           body: "Everything works on a phone in a van. No 'log into the CRM' steps. Approve quotes, view leads, and reply to reviews from a text-message-style UI.",
         },
       ]}
-      pricingTeaserTitle="Starter at $9/mo. No card to try it."
-      pricingTeaserBody="Add the 24/7 TradeLine voice agent for $39/mo when you're ready. Upgrade or cancel from inside the dashboard — no calls, no cancellation fees."
+      pricingTeaserTitle="Start free. No card to try it."
+      pricingTeaserBody="Upgrade to the $29/mo quote tool, or add the 24/7 TradeLine voice agent from $99/mo when you're ready. Upgrade or cancel from inside the dashboard — no calls, no cancellation fees."
       testimonialQuote="I'm a one-truck plumber. Before WeFixTrades I was missing maybe six calls a week. The voice agent picks up everything now, and I bid on three extra jobs a week that I would've never known existed."
       testimonialAttribution="— Solo plumber case study placeholder · Q3 launch"
       finalCtaTitle={
