@@ -94,7 +94,7 @@ export default function CompareVsJobber() {
         },
       ]}
       matrixRows={[
-        { feature: "AI voice agent (24/7 call answering)", us: true, them: false },
+        { feature: "AI voice agent (24/7 call answering)", us: true, them: "partial", note: "Jobber has no comparable 24/7 AI voice agent today" },
         { feature: "AI content + image generation", us: true, them: false },
         { feature: "Google Business Profile management (MapGuard)", us: true, them: false },
         { feature: "Reputation / review collection", us: true, them: true, note: "Both ship review-request flows" },
@@ -140,7 +140,7 @@ export default function CompareVsJobber() {
         "You're paying an agency for SEO + content + reviews and you'd rather keep paying them than bring it in-house.",
       ]}
       whenUsBetter={[
-        "You want AI answering the phone 24/7 — booking jobs at 9pm instead of going to voicemail. Jobber doesn't do this; we built the whole platform around it.",
+        "You want AI answering the phone 24/7 — booking jobs at 9pm instead of going to voicemail. Jobber has no comparable 24/7 AI voice agent today; we built the whole platform around it.",
         "You want Google Business Profile, content generation, reviews, and AI voice in ONE bill instead of stitching together five tools.",
         "Budget matters. Our $9-49/mo replaces what Jobber's $69-349/mo + a $300/mo marketing agency costs you today. Same outcomes, fraction of the spend.",
         "You'd rather sign up today and be live tonight than spend 1-2 weeks in onboarding calls before your first lead.",

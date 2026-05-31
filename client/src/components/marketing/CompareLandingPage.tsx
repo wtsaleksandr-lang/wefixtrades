@@ -286,54 +286,62 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                   overflow: "hidden",
                 }}
               >
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(160px, 1.2fr) 1fr 1fr",
-                    background: "rgba(255,255,255,0.04)",
-                    borderBottom: `1px solid ${mkt.onDarkBorder}`,
-                    fontFamily: MONO,
-                    fontSize: 11,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: mkt.onDarkFaint,
-                  }}
-                >
-                  <div style={{ padding: "14px 18px" }}>Category</div>
-                  <div style={{ padding: "14px 18px", color: mkt.accent }}>WeFixTrades</div>
-                  <div style={{ padding: "14px 18px" }}>{competitorName}</div>
-                </div>
-                {tldrRows.map((r, i) => (
+                {/* Wave 113 — inner horizontal-scroll viewport so narrow
+                    phones scroll the "them" column into view instead of the
+                    card's overflow:hidden clipping it. Desktop fits, so no
+                    scrollbar appears and the layout is unchanged. */}
+                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
                   <div
-                    key={r.label}
                     style={{
                       display: "grid",
                       gridTemplateColumns: "minmax(160px, 1.2fr) 1fr 1fr",
-                      borderBottom: i < tldrRows.length - 1 ? `1px solid ${mkt.onDarkBorder}` : undefined,
-                      // Wave 112 — fontSize bumped 14 → 15 and body cells
-                      // promoted from onDarkMuted → onDark for max readability.
-                      // Alex flagged "text must be visible very well".
-                      fontSize: 15,
-                      fontFamily: SANS,
+                      minWidth: 380,
+                      background: "rgba(255,255,255,0.04)",
+                      borderBottom: `1px solid ${mkt.onDarkBorder}`,
+                      fontFamily: MONO,
+                      fontSize: 11,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: mkt.onDarkFaint,
                     }}
                   >
+                    <div style={{ padding: "14px 18px" }}>Category</div>
+                    <div style={{ padding: "14px 18px", color: mkt.accent }}>WeFixTrades</div>
+                    <div style={{ padding: "14px 18px" }}>{competitorName}</div>
+                  </div>
+                  {tldrRows.map((r, i) => (
                     <div
+                      key={r.label}
                       style={{
-                        padding: "16px 18px",
-                        color: mkt.onDark,
-                        fontWeight: 600,
+                        display: "grid",
+                        gridTemplateColumns: "minmax(160px, 1.2fr) 1fr 1fr",
+                        minWidth: 380,
+                        borderBottom: i < tldrRows.length - 1 ? `1px solid ${mkt.onDarkBorder}` : undefined,
+                        // Wave 112 — fontSize bumped 14 → 15 and body cells
+                        // promoted from onDarkMuted → onDark for max readability.
+                        // Alex flagged "text must be visible very well".
+                        fontSize: 15,
+                        fontFamily: SANS,
                       }}
                     >
-                      {r.label}
+                      <div
+                        style={{
+                          padding: "16px 18px",
+                          color: mkt.onDark,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {r.label}
+                      </div>
+                      <div style={{ padding: "16px 18px", color: mkt.onDark, lineHeight: 1.5 }}>
+                        {r.us}
+                      </div>
+                      <div style={{ padding: "16px 18px", color: "rgba(232,239,238,0.78)", lineHeight: 1.5 }}>
+                        {r.them}
+                      </div>
                     </div>
-                    <div style={{ padding: "16px 18px", color: mkt.onDark, lineHeight: 1.5 }}>
-                      {r.us}
-                    </div>
-                    <div style={{ padding: "16px 18px", color: "rgba(232,239,238,0.78)", lineHeight: 1.5 }}>
-                      {r.them}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </Reveal>
           </V7Container>
@@ -356,62 +364,70 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                   overflow: "hidden",
                 }}
               >
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(220px, 1.6fr) 110px 110px",
-                    background: "rgba(255,255,255,0.04)",
-                    borderBottom: `1px solid ${mkt.onDarkBorder}`,
-                    fontFamily: MONO,
-                    fontSize: 11,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: mkt.onDarkFaint,
-                  }}
-                >
-                  <div style={{ padding: "14px 18px" }}>Feature</div>
-                  <div style={{ padding: "14px 12px", color: mkt.accent, textAlign: "center" }}>
-                    WeFixTrades
-                  </div>
-                  <div style={{ padding: "14px 12px", textAlign: "center" }}>
-                    {competitorName}
-                  </div>
-                </div>
-                {matrixRows.map((row, i) => (
+                {/* Wave 113 — inner horizontal-scroll viewport so narrow
+                    phones scroll the competitor column into view instead of
+                    the card's overflow:hidden clipping it. The grid is ~440px
+                    min (220+110+110); desktop fits with no scrollbar. */}
+                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
                   <div
-                    key={row.feature}
                     style={{
                       display: "grid",
                       gridTemplateColumns: "minmax(220px, 1.6fr) 110px 110px",
-                      borderBottom: i < matrixRows.length - 1 ? `1px solid ${mkt.onDarkBorder}` : undefined,
-                      alignItems: "center",
+                      minWidth: 440,
+                      background: "rgba(255,255,255,0.04)",
+                      borderBottom: `1px solid ${mkt.onDarkBorder}`,
+                      fontFamily: MONO,
+                      fontSize: 11,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: mkt.onDarkFaint,
                     }}
                   >
-                    <div style={{ padding: "14px 18px", fontSize: 15, color: mkt.onDark, fontFamily: SANS }}>
-                      {/* Wave 112 — bumped fontSize 14 → 15, note 12 → 13,
-                          note color faint → muted (still secondary but legible). */}
-                      <div style={{ fontWeight: 500 }}>{row.feature}</div>
-                      {row.note && (
-                        <div
-                          style={{
-                            fontSize: 13,
-                            color: mkt.onDarkMuted,
-                            marginTop: 3,
-                            lineHeight: 1.45,
-                          }}
-                        >
-                          {row.note}
-                        </div>
-                      )}
+                    <div style={{ padding: "14px 18px" }}>Feature</div>
+                    <div style={{ padding: "14px 12px", color: mkt.accent, textAlign: "center" }}>
+                      WeFixTrades
                     </div>
-                    <div style={{ padding: "12px 12px", display: "flex", justifyContent: "center" }}>
-                      <MatrixCell value={row.us} />
-                    </div>
-                    <div style={{ padding: "12px 12px", display: "flex", justifyContent: "center" }}>
-                      <MatrixCell value={row.them} />
+                    <div style={{ padding: "14px 12px", textAlign: "center" }}>
+                      {competitorName}
                     </div>
                   </div>
-                ))}
+                  {matrixRows.map((row, i) => (
+                    <div
+                      key={row.feature}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(220px, 1.6fr) 110px 110px",
+                        minWidth: 440,
+                        borderBottom: i < matrixRows.length - 1 ? `1px solid ${mkt.onDarkBorder}` : undefined,
+                        alignItems: "center",
+                      }}
+                    >
+                      <div style={{ padding: "14px 18px", fontSize: 15, color: mkt.onDark, fontFamily: SANS }}>
+                        {/* Wave 112 — bumped fontSize 14 → 15, note 12 → 13,
+                            note color faint → muted (still secondary but legible). */}
+                        <div style={{ fontWeight: 500 }}>{row.feature}</div>
+                        {row.note && (
+                          <div
+                            style={{
+                              fontSize: 13,
+                              color: mkt.onDarkMuted,
+                              marginTop: 3,
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            {row.note}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ padding: "12px 12px", display: "flex", justifyContent: "center" }}>
+                        <MatrixCell value={row.us} />
+                      </div>
+                      <div style={{ padding: "12px 12px", display: "flex", justifyContent: "center" }}>
+                        <MatrixCell value={row.them} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
               <p
                 style={{
