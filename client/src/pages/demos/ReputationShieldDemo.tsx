@@ -14,7 +14,8 @@ function PhoneMockup({ children, label }: { children: React.ReactNode; label: st
     <div data-theme="dark" style={{ textAlign: "center" }}>
       <div
         style={{
-          width: 280,
+          width: "100%",
+          maxWidth: 340,
           margin: "0 auto",
           borderRadius: 28,
           border: `2px solid rgba(255,255,255,0.12)`,
@@ -83,7 +84,7 @@ function StepNav({ current, total, onSelect }: { current: number; total: number;
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        marginBottom: 32,
+        marginBottom: 20,
       }}
     >
       {Array.from({ length: total }).map((_, i) => (
