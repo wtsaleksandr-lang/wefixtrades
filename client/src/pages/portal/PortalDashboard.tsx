@@ -30,10 +30,10 @@ class PortalErrorBoundary extends Component<{ children: ReactNode }, { error: Er
   render() {
     if (this.state.error) {
       return (
-        <div data-theme="light" className="max-w-md mx-auto mt-12 bg-white border border-gray-200 rounded-xl p-6 text-center">
+        <div className="max-w-md mx-auto mt-12 bg-card border border-border rounded-xl p-6 text-center">
           <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-3" aria-hidden="true" />
-          <p className="text-sm font-semibold text-gray-900 mb-1">Something went wrong</p>
-          <p className="text-xs text-gray-500 mb-4">Refresh the page — if it keeps happening, contact support and we'll look into it.</p>
+          <p className="text-sm font-semibold text-foreground mb-1">Something went wrong</p>
+          <p className="text-xs text-muted-foreground mb-4">Refresh the page — if it keeps happening, contact support and we'll look into it.</p>
           <div className="flex items-center justify-center gap-2">
             <button
               type="button"
@@ -369,10 +369,10 @@ function PortalDashboardInner() {
         /* New-customer welcome flow — zero active services. Replaces
            StatCards + Recent Activity with a focused first-action prompt. */
         <div className="max-w-3xl" data-testid="dashboard-new-customer-welcome">
-          <Card data-theme="light" className="p-8 text-center">
-            <Sparkles className="mx-auto text-gray-300 mb-4" size={32} aria-hidden="true" />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Welcome to WeFixTrades</h2>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+          <Card className="p-8 text-center">
+            <Sparkles className="mx-auto text-muted-foreground mb-4" size={32} aria-hidden="true" />
+            <h2 className="text-xl font-bold text-foreground mb-2">Welcome to WeFixTrades</h2>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               Pick your first service to get started. We'll guide you through setup and connect everything for you.
             </p>
             <Link
@@ -384,7 +384,7 @@ function PortalDashboardInner() {
             </Link>
             <Link
               href="/tools/free-audit"
-              className="block mt-3 text-sm text-gray-500 hover:underline"
+              className="block mt-3 text-sm text-muted-foreground hover:underline"
               data-testid="dashboard-welcome-free-audit"
             >
               Or run a free audit first →
@@ -396,9 +396,9 @@ function PortalDashboardInner() {
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <h1 className="text-xl font-semibold text-foreground">
+            <h2 className="text-xl font-semibold text-foreground">
               Welcome{data.contact_name ? `, ${data.contact_name}` : ""}
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground mt-0.5">{data.business_name}</p>
           </div>
 
@@ -607,7 +607,7 @@ function PortalDashboardInner() {
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">TradeLine</h3>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-blue-50 text-teal-700">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-muted text-foreground">
                           {(tlData.config.variant ?? "").replace(/_/g, " ")}
                         </span>
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${statusBadge.cls}`}>

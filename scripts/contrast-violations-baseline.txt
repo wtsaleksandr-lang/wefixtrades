@@ -4,3 +4,11 @@
 # data-theme=... scope), then delete the matching line here and re-run
 # `npm run check:hardcoded-colors` to confirm.
 # Format: <file>:<line>:<col>\t<kind>\t<snippet>
+# White-on-brand-color (buttons + brand-gradient KPI hero) surfaced when
+# PortalDashboard welcome/error cards were de-forced from data-theme="light"
+# to be theme-aware (#audit). White text on fixed brand colors is correct.
+client/src/pages/portal/PortalDashboard.tsx:41:91	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:418:85	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:433:62	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:441:64	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:620:103	tailwind	text-white
