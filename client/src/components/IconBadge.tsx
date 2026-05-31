@@ -19,6 +19,9 @@ import {
   Clock,
   Settings,
   Rocket,
+  Layers,
+  Layout,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +29,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   calculator: Calculator,
   calendar: Calendar,
   chat: MessageSquare,
+  message: MessageSquare,
   phone: Phone,
   map: Map,
   search: Search,
@@ -43,6 +47,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   clock: Clock,
   settings: Settings,
   rocket: Rocket,
+  layers: Layers,
+  layout: Layout,
+  sparkles: Sparkles,
 };
 
 interface IconBadgeProps {
