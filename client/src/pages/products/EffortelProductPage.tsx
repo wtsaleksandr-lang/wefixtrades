@@ -859,7 +859,7 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
           ariaLabel="Customer reviews"
           data-testid="product-reviews-carousel"
           heading={
-            <Reveal>
+            <Reveal style={{ width: "100%" }}>
               <h2
                 style={{
                   fontSize: "clamp(28px, 4vw, 48px)",
@@ -869,6 +869,7 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
                   color: mkt.onDark,
                   margin: 0,
                   whiteSpace: "nowrap",
+                  textAlign: "center",
                 }}
               >
                 Reviews
