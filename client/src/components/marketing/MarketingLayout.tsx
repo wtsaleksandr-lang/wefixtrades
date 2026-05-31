@@ -416,20 +416,24 @@ function MarketingFooter() {
                 <Phone size={12} color={mkt.accent} strokeWidth={2} />
                 +1 (915) 615-3280 · answered 24/7
               </a>
-              <a
-                href="mailto:sales@wefixtrades.com"
-                className="mkt-ft-soft"
-                style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
-              >
-                ✉️ sales@wefixtrades.com
-              </a>
-              <a
-                href="mailto:support@wefixtrades.com"
-                className="mkt-ft-soft"
-                style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
-              >
-                ✉️ support@wefixtrades.com
-              </a>
+              {/* Both emails kept together on one line (nowrap) so they never
+                  split across two rows on mobile. */}
+              <div style={{ display: "flex", gap: 12, flexWrap: "nowrap", whiteSpace: "nowrap" }}>
+                <a
+                  href="mailto:sales@wefixtrades.com"
+                  className="mkt-ft-soft"
+                  style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
+                >
+                  ✉️ sales@wefixtrades.com
+                </a>
+                <a
+                  href="mailto:support@wefixtrades.com"
+                  className="mkt-ft-soft"
+                  style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
+                >
+                  ✉️ support@wefixtrades.com
+                </a>
+              </div>
             </div>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.45 }}>
               &copy; {year} WeFixTrades. All rights reserved. Headquartered in Toronto, Canada.
@@ -597,6 +601,11 @@ function MarketingFooter() {
           .mkt-footer-grid {
             grid-template-columns: 1fr 1fr;
             row-gap: 24px;
+            /* Gap between the two columns so the right column sits further
+               right and reads as balanced against the left column (its outer
+               edge is already symmetric to the left column's via the 8px grid
+               padding). */
+            column-gap: 28px;
             padding: 24px 8px;
           }
           /* Drop the column divider when items wrap onto multiple rows —
