@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { ArrowLeft, ArrowRight, Sparkles, Send, Lock, Facebook, Instagram, MapPin, ThumbsUp, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Globe } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
-import { mkt, shadows } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
 
 /* ─── Types ─── */
 interface GeneratedPost {
@@ -644,7 +644,7 @@ export default function SocialSyncDemo() {
                       : mkt.accent,
                     backgroundSize: loading ? "200% 100%" : undefined,
                     animation: loading ? "gradientShift 1.5s ease infinite" : undefined,
-                    color: mkt.dark,
+                    color: mkt.onDark,
                     fontSize: 15,
                     fontWeight: 700,
                     cursor: loading ? "wait" : "pointer",

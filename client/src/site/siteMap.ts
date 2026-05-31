@@ -3,12 +3,6 @@
 export type { NavItem } from "./navigation";
 export { NAV_LINKS } from "./navigation";
 
-export const DEMOS = [
-  { label: "Demo Center", href: "/demos" },
-  { label: "TradeLine Demo", href: "/demos/tradeline" },
-  { label: "QuoteQuick Demo", href: "/demos/quotequick" },
-];
-
 export const FOOTER_LINKS = {
   Product: [
     { label: "24/7 TradeLine\u2122", href: "/products/tradeline" },
