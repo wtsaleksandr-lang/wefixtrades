@@ -218,6 +218,7 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
     queryKey: ["/api/admin/outbound/sequences", sequence?.id, "steps"],
     queryFn: async () => {
       const res = await fetch(`/api/admin/outbound/sequences/${sequence!.id}/steps`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load sequence steps");
       return res.json();
     },
     enabled: open && !!sequence,
@@ -521,6 +522,7 @@ export default function SequencesPage() {
     queryKey: ["/api/admin/outbound/sequences"],
     queryFn: async () => {
       const res = await fetch("/api/admin/outbound/sequences", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load sequences");
       return res.json();
     },
   });

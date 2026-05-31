@@ -564,6 +564,7 @@ export default function ProspectsPage() {
     queryKey: ["/api/admin/outbound/prospects", search, statusFilter],
     queryFn: async () => {
       const res = await fetch(`/api/admin/outbound/prospects?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load prospects");
       return res.json();
     },
   });

@@ -11,6 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, RefreshCw, Users, Send, CheckCircle, AlertCircle, HelpCircle } from "lucide-react";
@@ -162,11 +163,13 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
 function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [confirmSync, setConfirmSync] = useState(false);
 
   const { data, isLoading } = useQuery<CampaignDetail>({
     queryKey: ["/api/admin/outbound/campaigns", campaignId],
     queryFn: async () => {
       const res = await fetch(`/api/admin/outbound/campaigns/${campaignId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load campaign");
       return res.json();
     },
   });
@@ -216,7 +219,7 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
                     size="sm"
                     variant="outline"
                     className="gap-1.5 h-7 text-xs"
-                    onClick={() => syncMutation.mutate()}
+                    onClick={() => setConfirmSync(true)}
                     disabled={syncMutation.isPending || pendingCount === 0}
                   >
                     <Send className="w-3 h-3" />
@@ -294,6 +297,15 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
           </table>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmSync}
+        onOpenChange={setConfirmSync}
+        title={`Push ${pendingCount} lead${pendingCount !== 1 ? "s" : ""} into the live campaign?`}
+        description="This sends them into the connected outreach platform and starts contacting them. It can't be undone from here."
+        confirmLabel="Push to campaign"
+        pending={syncMutation.isPending}
+        onConfirm={() => { syncMutation.mutate(); setConfirmSync(false); }}
+      />
     </div>
   );
 }
@@ -307,6 +319,7 @@ export default function CampaignsPage() {
     queryKey: ["/api/admin/outbound/campaigns"],
     queryFn: async () => {
       const res = await fetch("/api/admin/outbound/campaigns", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load campaigns");
       return res.json();
     },
   });

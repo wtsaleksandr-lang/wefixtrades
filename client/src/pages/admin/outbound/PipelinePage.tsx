@@ -222,6 +222,7 @@ export default function PipelinePage() {
     queryKey: ["/api/admin/outbound/pipeline"],
     queryFn: async () => {
       const res = await fetch("/api/admin/outbound/pipeline", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load pipeline");
       return res.json();
     },
   });
