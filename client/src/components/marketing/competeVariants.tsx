@@ -14,7 +14,7 @@
  * CompeteRadar (C), CompeteCoverage (D).
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   motion,
   useInView,
@@ -1103,6 +1103,405 @@ export function CompeteCoverage() {
           running for you from{" "}
           <strong style={{ color: mkt.accent }}>~{PRICE}/mo</strong>.
         </p>
+      </div>
+    </section>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  VARIANT E — Interactive "claim the map" coverage
+//  A central service-area field ringed by the 7 capability icons. Tap an
+//  icon and a coverage wedge sweeps out toward it; claim all 7 and your map
+//  matches what a big brand covers. Pulse = "tap me". Mobile: taps work the
+//  same and the SVG scales with its square container.
+// ════════════════════════════════════════════════════════════════════════
+
+/** Short labels for the ringed badges — full CAP labels overlap at this size. */
+const CAP_SHORT = [
+  "Quotes",
+  "24/7 calls",
+  "Reviews",
+  "Local SEO",
+  "Paid ads",
+  "Booking",
+  "Website",
+];
+
+const CMAP = { cx: 160, cy: 160, R: 134, iconR: 158, vb: 320 };
+const CSEG = 360 / CAPS.length;
+function cmapPolar(angleDeg: number, r: number): [number, number] {
+  const a = ((angleDeg - 90) * Math.PI) / 180;
+  return [CMAP.cx + r * Math.cos(a), CMAP.cy + r * Math.sin(a)];
+}
+function cmapWedge(i: number): string {
+  const [x1, y1] = cmapPolar(i * CSEG - CSEG / 2, CMAP.R);
+  const [x2, y2] = cmapPolar(i * CSEG + CSEG / 2, CMAP.R);
+  return `M ${CMAP.cx} ${CMAP.cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${CMAP.R} ${CMAP.R} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+}
+
+function BigBrandsModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const ROWS: [string, string, string][] = [
+    ["HVAC", "National HVAC franchises", "Full-time marketing team"],
+    ["Plumbing", "PE-backed regional groups", "Big monthly ad budget"],
+    ["Cleaning", "Venture-funded booking apps", "Custom-built software"],
+    ["Roofing", "Multi-branch operators", "24/7 call centre"],
+    ["Any trade", "The well-funded local giant", "An SEO agency on retainer"],
+  ];
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Who are the big brands?"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(8,10,12,0.66)",
+        backdropFilter: "blur(2px)",
+        WebkitBackdropFilter: "blur(2px)",
+        display: "grid",
+        placeItems: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(560px, 100%)",
+          maxHeight: "86vh",
+          overflow: "auto",
+          background: mkt.cardBg,
+          border: `1px solid ${mkt.cardBorder}`,
+          borderRadius: 18,
+          padding: "22px 22px 18px",
+          boxShadow: "0 30px 80px -30px rgba(0,0,0,0.7)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+          <div>
+            <div
+              style={{
+                fontFamily: MONO,
+                fontSize: 10.5,
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: mkt.accent,
+                marginBottom: 6,
+              }}
+            >
+              Who you&apos;re up against
+            </div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: mkt.onDark, letterSpacing: "-0.02em" }}>
+              Who are &ldquo;the big brands&rdquo;?
+            </div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              flexShrink: 0,
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              border: `1px solid ${mkt.cardBorder}`,
+              background: "transparent",
+              color: mkt.textMuted,
+              cursor: "pointer",
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1.3fr 1.3fr",
+            gap: 1,
+            background: mkt.cardBorder,
+            borderRadius: 12,
+            overflow: "hidden",
+          }}
+        >
+          {["If you do…", "You're up against…", "Why they're hard to beat"].map((h) => (
+            <div
+              key={h}
+              style={{
+                background: mkt.surfaceAlt,
+                padding: "9px 11px",
+                fontFamily: MONO,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: mkt.textMuted,
+              }}
+            >
+              {h}
+            </div>
+          ))}
+          {ROWS.flatMap((r, ri) =>
+            r.map((cell, ci) => (
+              <div
+                key={`${ri}-${ci}`}
+                style={{
+                  background: mkt.cardBg,
+                  padding: "9px 11px",
+                  fontSize: 13,
+                  lineHeight: 1.35,
+                  color: ci === 0 ? mkt.onDark : mkt.textMuted,
+                  fontWeight: ci === 0 ? 700 : 500,
+                }}
+              >
+                {cell}
+              </div>
+            )),
+          )}
+        </div>
+
+        <p style={{ marginTop: 14, marginBottom: 0, fontSize: 13.5, lineHeight: 1.5, color: mkt.textMuted }}>
+          It&apos;s not just famous names — anyone with a real ad budget, a
+          marketing team, and custom software.{" "}
+          <strong style={{ color: mkt.onDark }}>WeFixTrades gives you the same toolkit</strong>{" "}
+          from ~{PRICE}/mo.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function CompeteCoverageMap() {
+  const reduced = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, VIEWPORT);
+  const [claimed, setClaimed] = useState<Set<number>>(new Set());
+  const [modal, setModal] = useState(false);
+
+  const claim = (i: number) =>
+    setClaimed((s) => {
+      const n = new Set(s);
+      n.add(i);
+      return n;
+    });
+  const claimAll = () => setClaimed(new Set(CAPS.map((_, i) => i)));
+  const done = claimed.size === CAPS.length;
+
+  return (
+    <section
+      style={{ background: mkt.bg, padding: SECTION_PAD }}
+      aria-label="Compete with the big brands — claim the map"
+    >
+      {modal && <BigBrandsModal onClose={() => setModal(false)} />}
+      <style>{`@keyframes ccmPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(13,60,252,0.45); } 70% { box-shadow: 0 0 0 9px rgba(13,60,252,0); } }`}</style>
+
+      <div style={{ maxWidth: 880, margin: "0 auto" }} ref={ref}>
+        <Eyebrow>Close the gap</Eyebrow>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <h2
+            style={{
+              fontSize: "clamp(26px, 4vw, 42px)",
+              fontWeight: 800,
+              color: mkt.onDark,
+              letterSpacing: "-0.03em",
+              lineHeight: 1.1,
+              margin: 0,
+            }}
+          >
+            Claim everything the big brands cover
+          </h2>
+          <button
+            type="button"
+            onClick={() => setModal(true)}
+            aria-label="Who are the big brands?"
+            style={{
+              flexShrink: 0,
+              width: 24,
+              height: 24,
+              borderRadius: 999,
+              border: `1px solid ${mkt.cardBorder}`,
+              background: "transparent",
+              color: mkt.textMuted,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              lineHeight: 1,
+            }}
+          >
+            ?
+          </button>
+        </div>
+        <p
+          style={{
+            fontSize: "clamp(15px, 1.6vw, 17px)",
+            lineHeight: 1.55,
+            color: mkt.textMuted,
+            maxWidth: 560,
+            margin: "12px 0 28px",
+          }}
+        >
+          Tap each capability to switch it on. Your coverage grows until your
+          business matches what a big brand spends a whole team on — from ~{PRICE}/mo.
+        </p>
+
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 18 }}>
+          <span
+            style={{
+              fontFamily: MONO,
+              fontSize: 24,
+              fontWeight: 800,
+              color: done ? mkt.success : mkt.accent,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {claimed.size}/{CAPS.length}
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: mkt.textMuted }}>
+            {done ? "You now cover everything a big brand does." : "capabilities covered"}
+          </span>
+        </div>
+
+        <div style={{ position: "relative", width: "min(360px, 86vw)", aspectRatio: "1 / 1", margin: "0 auto" }}>
+          <svg
+            viewBox={`0 0 ${CMAP.vb} ${CMAP.vb}`}
+            width="100%"
+            height="100%"
+            style={{ display: "block", overflow: "visible" }}
+            aria-hidden="true"
+          >
+            <circle cx={CMAP.cx} cy={CMAP.cy} r={CMAP.R} fill={mkt.surfaceAlt} stroke={mkt.cardBorder} strokeWidth={1} />
+            {CAPS.map((_, i) =>
+              claimed.has(i) ? (
+                <motion.path
+                  key={i}
+                  d={cmapWedge(i)}
+                  fill={mkt.accent}
+                  fillOpacity={0.82}
+                  stroke={mkt.bg}
+                  strokeWidth={1}
+                  initial={reduced ? false : { scale: 0.15, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 220, damping: 22 }}
+                  style={{ transformOrigin: `${CMAP.cx}px ${CMAP.cy}px` }}
+                />
+              ) : null,
+            )}
+            <circle cx={CMAP.cx} cy={CMAP.cy} r={34} fill={mkt.cardBg} stroke={mkt.cardBorder} strokeWidth={1} />
+            <text x={CMAP.cx} y={CMAP.cy - 2} textAnchor="middle" fontFamily={MONO} fontSize={10} fontWeight={700} fill={mkt.textMuted} style={{ letterSpacing: "0.04em" }}>
+              YOUR
+            </text>
+            <text x={CMAP.cx} y={CMAP.cy + 11} textAnchor="middle" fontFamily={MONO} fontSize={10} fontWeight={700} fill={mkt.textMuted} style={{ letterSpacing: "0.04em" }}>
+              BUSINESS
+            </text>
+          </svg>
+
+          {CAPS.map((cap, i) => {
+            const [ix, iy] = cmapPolar(i * CSEG, CMAP.iconR);
+            const isClaimed = claimed.has(i);
+            const Icon = cap.Icon;
+            return (
+              <button
+                key={cap.label}
+                type="button"
+                onClick={() => claim(i)}
+                aria-pressed={isClaimed}
+                aria-label={`${cap.label}${isClaimed ? " — covered" : " — tap to cover"}`}
+                style={{
+                  position: "absolute",
+                  left: `${(ix / CMAP.vb) * 100}%`,
+                  top: `${(iy / CMAP.vb) * 100}%`,
+                  transform: "translate(-50%, -50%)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 5,
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  cursor: isClaimed ? "default" : "pointer",
+                }}
+              >
+                <span
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 999,
+                    display: "grid",
+                    placeItems: "center",
+                    background: isClaimed ? mkt.accent : mkt.cardBg,
+                    border: `1.5px solid ${isClaimed ? mkt.accent : mkt.cardBorder}`,
+                    color: isClaimed ? "#ffffff" : mkt.accent,
+                    transition: "background 240ms ease, transform 240ms cubic-bezier(.2,.7,.2,1), color 240ms ease",
+                    transform: isClaimed ? "scale(1.06)" : "scale(1)",
+                    animation: isClaimed || reduced ? "none" : "ccmPulse 2.1s ease-out infinite",
+                  }}
+                >
+                  {isClaimed ? <Check size={16} strokeWidth={2.6} /> : <Icon size={16} strokeWidth={2} />}
+                </span>
+                <span
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    whiteSpace: "nowrap",
+                    padding: "2px 7px",
+                    borderRadius: 999,
+                    background: isClaimed ? "rgba(13,60,252,0.12)" : mkt.cardBg,
+                    border: `1px solid ${mkt.cardBorder}`,
+                    color: isClaimed ? mkt.accent : mkt.textMuted,
+                  }}
+                >
+                  {CAP_SHORT[i]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 26 }}>
+          {done ? (
+            <div style={{ fontSize: 14, fontWeight: 700, color: mkt.success, textAlign: "center" }}>
+              ✓ Full coverage — running for you from ~{PRICE}/mo.
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={claimAll}
+              style={{
+                fontFamily: MONO,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: mkt.accent,
+                background: "transparent",
+                border: `1.5px solid ${mkt.accent}`,
+                borderRadius: 999,
+                padding: "10px 18px",
+                cursor: "pointer",
+              }}
+            >
+              Claim it all →
+            </button>
+          )}
+        </div>
+        <span aria-hidden style={{ display: "none" }}>{inView ? "" : ""}</span>
       </div>
     </section>
   );
