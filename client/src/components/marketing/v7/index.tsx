@@ -76,12 +76,14 @@ export function V7Hero({ productName, eyebrow, headline, sub, ctas = [], visual,
           background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.08) 0%, transparent 60%)",
         }} />
       )}
-      <div style={{ maxWidth: 1180, margin: "0 auto", position: "relative", textAlign: "center" }}>
+      {/* Title block — LEFT-aligned to match the standard page-title design
+          (mono chip → headline → sub, top-left under the navbar). */}
+      <div style={{ maxWidth: 1180, margin: "0 auto", position: "relative", textAlign: "left" }}>
         {productName && (
           <Reveal>
             <span style={{
               display: "inline-block", fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase",
-              color: mkt.accent, marginBottom: 16,
+              color: mkt.onDark, opacity: 0.92, marginBottom: 18,
             }}>
               {productName}
             </span>
@@ -89,7 +91,7 @@ export function V7Hero({ productName, eyebrow, headline, sub, ctas = [], visual,
         )}
         {eyebrow && (
           <Reveal delay={0.04}>
-            <p style={{ fontSize: 14, color: mkt.onDarkFaint, fontStyle: "italic", marginBottom: 18, maxWidth: 640, margin: "0 auto 18px" }}>
+            <p style={{ fontSize: 14, color: mkt.onDarkFaint, fontStyle: "italic", maxWidth: 640, margin: "0 0 18px" }}>
               {eyebrow}
             </p>
           </Reveal>
@@ -97,21 +99,21 @@ export function V7Hero({ productName, eyebrow, headline, sub, ctas = [], visual,
         <Reveal delay={0.08}>
           <h1 style={{
             fontSize: "clamp(40px, 6.5vw, 80px)", fontWeight: 700, lineHeight: 1.0, letterSpacing: "-0.03em",
-            color: mkt.onDark, marginBottom: 24, maxWidth: 920, margin: "0 auto 24px", fontFamily: SANS,
+            color: mkt.onDark, maxWidth: 920, margin: "0 0 24px", fontFamily: SANS,
           }}>
             {headline}
           </h1>
         </Reveal>
         {sub && (
           <Reveal delay={0.12}>
-            <p style={{ fontSize: 18, lineHeight: 1.5, color: mkt.onDarkMuted, maxWidth: 620, margin: "0 auto 36px", fontFamily: SANS }}>
+            <p style={{ fontSize: 18, lineHeight: 1.5, color: mkt.onDarkMuted, maxWidth: 620, margin: "0 0 36px", fontFamily: SANS }}>
               {sub}
             </p>
           </Reveal>
         )}
         {ctas.length > 0 && (
           <Reveal delay={0.16}>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-start", flexWrap: "wrap" }}>
               {ctas.map((c, i) => (
                 <Link
                   key={c.label}
