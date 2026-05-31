@@ -2225,14 +2225,17 @@ router.post("/generate", async (req: Request, res: Response) => {
     if (pageSpeedUrl !== website) log.info('[pagespeed] cleaned URL:', { detail: pageSpeedUrl });
 
     // ─── Gather ALL external data concurrently under a hard deadline ───
-    // Cloudflare aborts at ~100s, so we cap the data-gathering wall-clock
-    // at GATHER_DEADLINE_MS and still leave room for scoring + the Sonnet
-    // narrative + DB save below. Phases are independent EXCEPT that
-    // DataForSEO (E4) seeds off Serper's (E3) returned keywords — so E4 is
-    // chained onto the serper promise, but that whole chain runs alongside
-    // competitors (E1), reviews (E2) and website QA. Net wall-clock for the
-    // gather ≈ max(E1, E2, E3+E4, QA) instead of E3 + max(E1,E2,E4,QA).
-    const GATHER_DEADLINE_MS = 70000;
+    // The whole request must finish under the CLIENT's 90s abort (FreeAudit.tsx)
+    // and Cloudflare's ~100s edge, AND there is still ~30s of Sonnet narrative
+    // + DB save AFTER the gather. So the gather deadline must leave that room:
+    // 50s gather + ~30s AI + ~5s save ≈ 85s, comfortably under the 90s client
+    // abort (70s here previously pushed worst-case to ~100s+ → orphaned reports
+    // saved after the client already showed its timeout error).
+    // Phases are independent EXCEPT that DataForSEO (E4) seeds off Serper's (E3)
+    // keywords — E4 is chained onto the serper promise but runs alongside
+    // competitors (E1), reviews (E2) and website QA. Net gather wall-clock
+    // ≈ max(E1, E2, E3+E4, QA) instead of E3 + max(E1,E2,E4,QA).
+    const GATHER_DEADLINE_MS = 50000;
 
     // E3 → E4 chain. fetchSerperRankings swallows its own per-keyword
     // errors and returns null on total failure, so this never rejects in
@@ -2800,7 +2803,9 @@ ${JSON.stringify(auditData, null, 2)}`;
       // without flooding the log with framework noise.
       stackHead: (e?.stack ?? "").split("\n").slice(0, 4).join(" | "),
     });
-    return safeJsonError(res, 500, e?.message || "generate failed");
+    // Don't echo the raw error to the client — an upstream SDK message can
+    // embed a credentialed URL. The detailed message is logged above.
+    return safeJsonError(res, 500, "We couldn't generate the audit. Please try again.");
   }
 });
 
