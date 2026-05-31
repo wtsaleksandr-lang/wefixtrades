@@ -92,7 +92,7 @@ export default function CompeteMockups() {
             margin: 0,
           }}
         >
-          "Compete with the big chains" — four mockups
+          "Compete with the big chains" — five mockups
         </h1>
       </header>
 
