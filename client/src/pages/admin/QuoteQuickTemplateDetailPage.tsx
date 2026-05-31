@@ -135,6 +135,9 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/quotequick/templates"] });
       queryClient.invalidateQueries({ queryKey: [`/api/admin/quotequick/templates/${templateId}`] });
     },
+    onError: (err: Error) => {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    },
   });
 
   const reset = useMutation({

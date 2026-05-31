@@ -92,7 +92,7 @@ client/src/pages/admin/ProductDetailPage.tsx:662:33	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/ProfilePage.tsx:106:18	rule-c	square w-14 h-14
 client/src/pages/admin/QuoteQuickPage.tsx:80:32	rule-c	square w-28 h-28
 client/src/pages/admin/QuoteQuickPage.tsx:113:19	rule-c	square w-2 h-2
-client/src/pages/admin/QuoteQuickTemplateDetailPage.tsx:958:25	rule-c	size={18}
+client/src/pages/admin/QuoteQuickTemplateDetailPage.tsx:961:25	rule-c	size={18}
 client/src/pages/admin/QuoteQuickTemplatesPage.tsx:244:22	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:316:17	rule-c	square w-16 h-16
 client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:322:30	rule-c	square w-7 h-7
