@@ -142,7 +142,7 @@ export const NAV_LINKS: NavItem[] = [
           { label: "Trust Badges", href: "/portal/free-tools/trust-badges", icon: "shieldCheck" },
           { label: "Review Link", href: "/portal/free-tools/review-link", icon: "sparkles" },
           { label: "Callback Form", href: "/portal/free-tools/callback", icon: "phoneCall" },
-          { label: "Service Area Map", href: "/portal/free-tools/service-area-map", icon: "mapPinned" },
+          { label: "Service Area Map", href: "/portal/free-tools/service-area", icon: "mapPinned" },
         ],
       },
     ],

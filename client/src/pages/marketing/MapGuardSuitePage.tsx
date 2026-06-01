@@ -237,7 +237,7 @@ export default function MapGuardSuitePage() {
                   textDecoration: "none",
                 }}
               >
-                See all 21 free tools <ArrowRight size={14} />
+                See all 19 free tools <ArrowRight size={14} />
               </Link>
             </div>
           </V7Container>

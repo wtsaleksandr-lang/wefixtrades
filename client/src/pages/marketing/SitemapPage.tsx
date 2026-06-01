@@ -135,7 +135,7 @@ const SECTIONS: SitemapSection[] = [
   },
   {
     title: "Free Tools",
-    description: "21 free tools across local SEO, AI content, and widgets.",
+    description: "19 free tools across local SEO, AI content, and widgets.",
     entries: [
       { href: "/free-tools", label: "Free Tools (Hub)" },
       { href: "/tools/free-audit", label: "Free Local SEO Audit" },
