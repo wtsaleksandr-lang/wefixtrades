@@ -2809,7 +2809,9 @@ export default function SelfServiceDragDrop() {
       if (isMobile) {
         setScale(1);
       } else {
-        setScale(Math.min(1, w / BASE_W));
+        // Fill the full container width (matches the /products "four tools"
+        // 1180 column) instead of capping at BASE_W and leaving dead space.
+        setScale(w / BASE_W);
       }
     };
     apply();
@@ -2841,33 +2843,6 @@ export default function SelfServiceDragDrop() {
       }}
     >
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        {/* Section eyebrow — desktop only. On mobile (Alex) the section shows
-            just the bare mockup, no eyebrow/title/subtitle. */}
-        {!mobile && (
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 12px",
-                borderRadius: 999,
-                background: "rgba(13,60,252,0.08)",
-                border: "1px solid rgba(13,60,252,0.18)",
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: mkt.accent,
-                fontFamily: "'DM Mono', monospace",
-                marginBottom: 14,
-              }}
-            >
-              See it in action
-            </div>
-          </div>
-        )}
-
         <div
           ref={wrapperRef}
           style={{
