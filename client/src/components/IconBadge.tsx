@@ -22,6 +22,7 @@ import {
   Layers,
   Layout,
   Sparkles,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,6 +51,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   layers: Layers,
   layout: Layout,
   sparkles: Sparkles,
+  workflow: Workflow,
 };
 
 interface IconBadgeProps {
