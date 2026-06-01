@@ -1127,24 +1127,28 @@ const CAP_SHORT = [
   "Website",
 ];
 
-const CMAP = { cx: 160, cy: 160, R: 108, iconR: 132, vb: 320 };
-const CSEG = 360 / CAPS.length;
-function cmapPolar(angleDeg: number, r: number): [number, number] {
-  const a = ((angleDeg - 90) * Math.PI) / 180;
-  return [CMAP.cx + r * Math.cos(a), CMAP.cy + r * Math.sin(a)];
+/* ── Radar / spider-chart coverage geometry (Cycode-reference data-viz) ──
+ * N axes (one per capability) on a 280×280 viewBox. Each axis carries a 0–1
+ * value: the "your coverage" polygon grows toward the outer ring (= what the
+ * big brands cover) as capabilities are claimed. */
+const RADAR = { vb: 280, cx: 140, cy: 140, R: 96 };
+/* Uneven per-axis baseline (un-claimed) so the default polygon reads like real
+ * scientific data, not an empty regular heptagon. Claiming an axis takes it to 1. */
+const RADAR_BASE = [0.46, 0.3, 0.58, 0.38, 0.62, 0.34, 0.5];
+const RSEG = 360 / CAPS.length;
+function radarPt(i: number, v: number): [number, number] {
+  const a = ((i * RSEG - 90) * Math.PI) / 180;
+  return [RADAR.cx + RADAR.R * v * Math.cos(a), RADAR.cy + RADAR.R * v * Math.sin(a)];
 }
-/* Organic coverage blob for capability i — a soft radial gradient circle
- * pushed out toward that capability's icon, clipped to the map circle. As
- * capabilities are claimed the overlapping blurred blobs merge into an
- * irregular, weather-map-style covered area (vs. hard pizza-slice wedges).
- * Per-index jitter keeps the areas uneven. */
-const CMAP_JITTER = [0.0, 0.16, -0.12, 0.09, -0.06, 0.13, -0.1];
-function cmapBlob(i: number): { cx: number; cy: number; r: number } {
-  const j = CMAP_JITTER[i % CMAP_JITTER.length];
-  const dist = CMAP.R * (0.46 + j * 0.5);
-  const [bx, by] = cmapPolar(i * CSEG, dist);
-  const r = CMAP.R * (0.62 + j);
-  return { cx: bx, cy: by, r };
+function radarPoly(values: number[]): string {
+  return (
+    values
+      .map((v, i) => {
+        const [x, y] = radarPt(i, v);
+        return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ") + " Z"
+  );
 }
 
 function BigBrandsModal({ onClose }: { onClose: () => void }) {
@@ -1322,7 +1326,7 @@ export function CompeteCoverageMap() {
       aria-label="Compete with the big brands — claim the map"
     >
       {modal && <BigBrandsModal onClose={() => setModal(false)} />}
-      <style>{`@keyframes ccmPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(13,60,252,0.45); } 70% { box-shadow: 0 0 0 9px rgba(13,60,252,0); } }`}</style>
+      <style>{`@media (max-width: 640px) { .ccm-radar-card { grid-template-columns: 1fr !important; } }`}</style>
 
       <div style={{ maxWidth: 880, margin: "0 auto" }}>
         <Eyebrow>Close the gap</Eyebrow>
@@ -1360,124 +1364,123 @@ export function CompeteCoverageMap() {
             ?
           </button>
         </div>
-        <div style={{ height: 22 }} />
+        <div style={{ height: 18 }} />
 
-        {/* Uses near-full mobile width; the icon ring is pulled inside the map
-            circle's radius so the left/right icons + labels aren't cropped.
-            overflowX:clip is a safety net against any sub-px overflow. */}
-        <div style={{ position: "relative", width: "min(400px, 94vw)", aspectRatio: "1 / 1", margin: "0 auto", overflowX: "clip" }}>
-          <svg
-            viewBox={`0 0 ${CMAP.vb} ${CMAP.vb}`}
-            width="100%"
-            height="100%"
-            style={{ display: "block", overflow: "visible" }}
-            aria-hidden="true"
-          >
-            <defs>
-              <clipPath id="ccmClip">
-                <circle cx={CMAP.cx} cy={CMAP.cy} r={CMAP.R} />
-              </clipPath>
-              <radialGradient id="ccmBlobGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor={mkt.accent} stopOpacity={0.92} />
-                <stop offset="55%" stopColor={mkt.accent} stopOpacity={0.5} />
-                <stop offset="100%" stopColor={mkt.accent} stopOpacity={0} />
-              </radialGradient>
-              <filter id="ccmSoft" x="-25%" y="-25%" width="150%" height="150%">
-                <feGaussianBlur stdDeviation="5" />
-              </filter>
-            </defs>
-            <circle cx={CMAP.cx} cy={CMAP.cy} r={CMAP.R} fill={mkt.surfaceAlt} stroke={mkt.cardBorder} strokeWidth={1} />
-            <g clipPath="url(#ccmClip)" filter="url(#ccmSoft)">
+        {/* Radar / spider-chart coverage widget — light card with the spider
+            chart on one side and a stats panel on the other (brand blue). Tap
+            a capability (stats row) to add it; the polygon grows toward the
+            dashed outer "big brands" ring. Stacks to one column on mobile. */}
+        <div
+          className="ccm-radar-card"
+          data-theme="light"
+          style={{
+            background: "#ffffff",
+            border: `1px solid ${mkt.cardBorder}`,
+            borderRadius: 18,
+            padding: "clamp(16px, 3vw, 26px)",
+            boxShadow: "0 18px 50px rgba(8,12,30,0.18)",
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 0.95fr)",
+            gap: "clamp(14px, 2.5vw, 28px)",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ position: "relative", width: "100%", maxWidth: 360, margin: "0 auto" }}>
+            <svg
+              viewBox={`0 0 ${RADAR.vb} ${RADAR.vb}`}
+              width="100%"
+              height="100%"
+              style={{ display: "block", overflow: "visible" }}
+              aria-hidden="true"
+            >
+              {[0.25, 0.5, 0.75, 1].map((f) => (
+                <path key={f} d={radarPoly(CAPS.map(() => f))} fill="none" stroke="rgba(8,12,30,0.10)" strokeWidth={1} />
+              ))}
               {CAPS.map((_, i) => {
-                if (!claimed.has(i)) return null;
-                const b = cmapBlob(i);
+                const [x, y] = radarPt(i, 1);
+                return <line key={i} x1={RADAR.cx} y1={RADAR.cy} x2={x} y2={y} stroke="rgba(8,12,30,0.08)" strokeWidth={1} />;
+              })}
+              <path d={radarPoly(CAPS.map(() => 1))} fill="none" stroke="rgba(8,12,30,0.20)" strokeWidth={1} strokeDasharray="3 3" />
+              <motion.path
+                initial={false}
+                animate={{ d: radarPoly(CAPS.map((_, i) => (claimed.has(i) ? 1 : RADAR_BASE[i]))) }}
+                transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 18 }}
+                fill={mkt.accent}
+                fillOpacity={0.18}
+                stroke={mkt.accent}
+                strokeWidth={2}
+                strokeLinejoin="round"
+              />
+              {CAPS.map((_, i) => {
+                const v = claimed.has(i) ? 1 : RADAR_BASE[i];
+                const [x, y] = radarPt(i, v);
                 return (
                   <motion.circle
                     key={i}
-                    cx={b.cx}
-                    cy={b.cy}
-                    r={b.r}
-                    fill="url(#ccmBlobGrad)"
-                    initial={reduced ? false : { scale: 0.2, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 110, damping: 20 }}
-                    style={{ transformOrigin: `${b.cx}px ${b.cy}px` }}
+                    initial={false}
+                    animate={{ cx: x, cy: y }}
+                    transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 18 }}
+                    r={3.5}
+                    fill={mkt.accent}
+                    stroke="#ffffff"
+                    strokeWidth={1.5}
                   />
                 );
               })}
-            </g>
-            <circle cx={CMAP.cx} cy={CMAP.cy} r={34} fill={mkt.cardBg} stroke={mkt.cardBorder} strokeWidth={1} />
-            <text x={CMAP.cx} y={CMAP.cy - 2} textAnchor="middle" fontFamily={MONO} fontSize={10} fontWeight={700} fill={mkt.textMuted} style={{ letterSpacing: "0.04em" }}>
-              YOUR
-            </text>
-            <text x={CMAP.cx} y={CMAP.cy + 11} textAnchor="middle" fontFamily={MONO} fontSize={10} fontWeight={700} fill={mkt.textMuted} style={{ letterSpacing: "0.04em" }}>
-              BUSINESS
-            </text>
-          </svg>
+              {CAPS.map((_, i) => {
+                const [x, y] = radarPt(i, 1.22);
+                const anchor = x < RADAR.cx - 4 ? "end" : x > RADAR.cx + 4 ? "start" : "middle";
+                return (
+                  <text
+                    key={i}
+                    x={x}
+                    y={y}
+                    textAnchor={anchor}
+                    dominantBaseline="middle"
+                    fontFamily={MONO}
+                    fontSize={8}
+                    fontWeight={700}
+                    fill="rgba(8,12,30,0.55)"
+                    style={{ letterSpacing: "0.04em", textTransform: "uppercase" }}
+                  >
+                    {CAP_SHORT[i]}
+                  </text>
+                );
+              })}
+            </svg>
+          </div>
 
-          {CAPS.map((cap, i) => {
-            const [ix, iy] = cmapPolar(i * CSEG, CMAP.iconR);
-            const isClaimed = claimed.has(i);
-            const Icon = cap.Icon;
-            return (
-              <button
-                key={cap.label}
-                type="button"
-                onClick={() => claim(i)}
-                aria-pressed={isClaimed}
-                aria-label={`${cap.label}${isClaimed ? " — covered" : " — tap to cover"}`}
-                style={{
-                  position: "absolute",
-                  left: `${(ix / CMAP.vb) * 100}%`,
-                  top: `${(iy / CMAP.vb) * 100}%`,
-                  transform: "translate(-50%, -50%)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 5,
-                  background: "transparent",
-                  border: "none",
-                  padding: 0,
-                  cursor: isClaimed ? "default" : "pointer",
-                }}
-              >
-                <span
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 999,
-                    display: "grid",
-                    placeItems: "center",
-                    background: isClaimed ? mkt.accent : mkt.cardBg,
-                    border: `1.5px solid ${isClaimed ? mkt.accent : mkt.cardBorder}`,
-                    color: isClaimed ? "#ffffff" : mkt.accent,
-                    transition: "background 240ms ease, transform 240ms cubic-bezier(.2,.7,.2,1), color 240ms ease",
-                    transform: isClaimed ? "scale(1.06)" : "scale(1)",
-                    animation: isClaimed || reduced ? "none" : "ccmPulse 2.1s ease-out infinite",
-                  }}
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: mkt.accent, marginBottom: 2 }}>
+              Big-brand coverage
+            </div>
+            {CAPS.map((cap, i) => {
+              const isClaimed = claimed.has(i);
+              return (
+                <button
+                  key={cap.label}
+                  type="button"
+                  onClick={() => claim(i)}
+                  aria-pressed={isClaimed}
+                  aria-label={`${cap.label}${isClaimed ? " — covered" : " — tap to cover"}`}
+                  style={{ display: "flex", alignItems: "center", gap: 9, background: "transparent", border: "none", padding: 0, cursor: isClaimed ? "default" : "pointer", textAlign: "left", width: "100%" }}
                 >
-                  {isClaimed ? <Check size={16} strokeWidth={2.6} /> : <Icon size={16} strokeWidth={2} />}
-                </span>
-                <span
-                  style={{
-                    fontFamily: MONO,
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: "0.02em",
-                    textTransform: "uppercase",
-                    whiteSpace: "nowrap",
-                    padding: "2px 5px",
-                    borderRadius: 999,
-                    background: isClaimed ? "rgba(13,60,252,0.12)" : mkt.cardBg,
-                    border: `1px solid ${mkt.cardBorder}`,
-                    color: isClaimed ? mkt.accent : mkt.textMuted,
-                  }}
-                >
-                  {CAP_SHORT[i]}
-                </span>
-              </button>
-            );
-          })}
+                  <span style={{ flexShrink: 0, width: 16, height: 16, borderRadius: 5, display: "grid", placeItems: "center", background: isClaimed ? mkt.accent : "rgba(8,12,30,0.06)", color: "#ffffff" }}>
+                    {isClaimed && <Check size={12} strokeWidth={3} />}
+                  </span>
+                  <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 600, color: "#0b1220", minWidth: 58, whiteSpace: "nowrap" }}>{CAP_SHORT[i]}</span>
+                  <span style={{ flex: 1, height: 6, borderRadius: 999, background: "rgba(8,12,30,0.08)", overflow: "hidden" }}>
+                    <motion.span
+                      style={{ display: "block", height: "100%", borderRadius: 999, background: mkt.accent }}
+                      initial={false}
+                      animate={{ width: isClaimed ? "100%" : `${Math.round(RADAR_BASE[i] * 100)}%` }}
+                      transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 20 }}
+                    />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", marginTop: 26 }}>
