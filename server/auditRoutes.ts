@@ -29,6 +29,80 @@ router.get("/ping", (_req: Request, res: Response) => {
   res.json({ ok: true, router: "audit", ts: Date.now() });
 });
 
+/* ─── Static-map proxy (rank-grid background) ───
+ * Proxies Google Static Maps server-side so the API key never reaches the
+ * browser. Powers the real-map background behind the numbered rank pins on the
+ * audit report, the /tools rank grid, and MapGuard. An in-memory LRU + a
+ * Cache-Control header keep per-render cost down (a repeated business address
+ * reuses the cached tile); novel coordinates are rate-limited per IP to blunt
+ * cost-abuse. Degrades gracefully — the client falls back to the plain grid if
+ * this 4xx/5xx (e.g. before the Static Maps API is enabled on the key). */
+type CachedStaticMap = { buf: Buffer; type: string; ts: number };
+const STATIC_MAP_CACHE = new Map<string, CachedStaticMap>();
+const STATIC_MAP_TTL_MS = 24 * 60 * 60 * 1000;
+const STATIC_MAP_MAX = 300;
+
+router.get("/static-map", async (req: Request, res: Response) => {
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key) return res.status(503).json({ error: "map_unavailable" });
+
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return res.status(400).json({ error: "invalid_coordinates" });
+  }
+  const zoom = Math.min(20, Math.max(1, Math.round(Number(req.query.zoom) || 12)));
+  const w = Math.min(640, Math.max(120, Math.round(Number(req.query.w) || 480)));
+  const h = Math.min(640, Math.max(120, Math.round(Number(req.query.h) || 480)));
+
+  const cacheKey = `${lat.toFixed(5)}|${lng.toFixed(5)}|${zoom}|${w}x${h}`;
+  const now = Date.now();
+  const hit = STATIC_MAP_CACHE.get(cacheKey);
+  if (hit && now - hit.ts < STATIC_MAP_TTL_MS) {
+    res.set("Content-Type", hit.type);
+    res.set("Cache-Control", "public, max-age=86400");
+    return res.send(hit.buf);
+  }
+
+  // Only novel (uncached) coordinates reach Google — rate-limit those per IP.
+  const ok = await auditWriteRateLimiter.check(`audit:staticmap:${getAuditClientIp(req)}`);
+  if (!ok) return res.status(429).json({ error: "rate_limited" });
+
+  // Low-clutter roadmap so the colored rank pins stay legible on top.
+  const style = [
+    "feature:poi|visibility:off",
+    "feature:transit|visibility:off",
+    "feature:road|element:labels|visibility:simplified",
+  ]
+    .map((s) => `style=${encodeURIComponent(s)}`)
+    .join("&");
+  const url =
+    `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}` +
+    `&zoom=${zoom}&size=${w}x${h}&scale=2&maptype=roadmap&${style}` +
+    `&key=${encodeURIComponent(key)}`;
+
+  try {
+    const r = await fetch(url);
+    if (!r.ok) {
+      log.info("[static-map] upstream non-OK", { status: r.status });
+      return res.status(502).json({ error: "map_fetch_failed", status: r.status });
+    }
+    const type = r.headers.get("content-type") || "image/png";
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (STATIC_MAP_CACHE.size >= STATIC_MAP_MAX) {
+      const oldest = STATIC_MAP_CACHE.keys().next().value;
+      if (oldest) STATIC_MAP_CACHE.delete(oldest);
+    }
+    STATIC_MAP_CACHE.set(cacheKey, { buf, type, ts: now });
+    res.set("Content-Type", type);
+    res.set("Cache-Control", "public, max-age=86400");
+    return res.send(buf);
+  } catch (err) {
+    log.error("[static-map] fetch failed", { error: String(err) });
+    return res.status(502).json({ error: "map_fetch_failed" });
+  }
+});
+
 /* ─── File-based keyword result cache (24h TTL, persists across restarts) ─── */
 const CACHE_FILE = path.join(process.cwd(), ".keyword-cache.json");
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in ms
@@ -131,7 +205,9 @@ async function fetchJson(url: string) {
   let data: any = null;
   try {
     data = JSON.parse(text);
-  } catch {}
+  } catch {
+    data = null;
+  }
   if (!r.ok) {
     const msg =
       data?.error_message || data?.error?.message || `HTTP ${r.status}`;
@@ -2926,7 +3002,9 @@ router.post("/chat", async (req: Request, res: Response) => {
     }
     res.write("data: [DONE]\n\n");
     res.end();
-    onComplete(fullReply).catch(() => {});
+    onComplete(fullReply).catch((err) =>
+      log.error("[audit/chat] onComplete failed", { error: String(err) }),
+    );
   } catch (e: any) {
     log.error("[audit/chat] Error:", e?.message);
     if (!res.headersSent) {
