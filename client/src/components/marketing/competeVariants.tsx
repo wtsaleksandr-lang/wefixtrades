@@ -58,6 +58,9 @@ const CAPS: Cap[] = [
 
 const PRICE = "$99"; // "from ~$X/mo"
 
+/** Short titles shown under each ringed capability badge. Order = CAPS. */
+const CAP_SHORT = ["Quotes", "24/7 Calls", "Reviews", "Local SEO", "Paid Ads", "Booking", "Website"];
+
 // ─── Shared style atoms ────────────────────────────────────────────────────
 
 const SECTION_PAD = "clamp(48px, 6vw, 88px) clamp(16px, 5vw, 64px)";
@@ -1175,9 +1178,9 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
         position: "fixed",
         inset: 0,
         zIndex: 1000,
-        background: "rgba(8,10,12,0.88)",
-        backdropFilter: "blur(3px)",
-        WebkitBackdropFilter: "blur(3px)",
+        background: "rgba(8,10,12,0.95)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
         display: "grid",
         placeItems: "center",
         padding: 16,
@@ -1299,14 +1302,14 @@ export function CompeteCoverageMap() {
   const [claimed, setClaimed] = useState<Set<number>>(new Set());
   const [modal, setModal] = useState(false);
 
+  // Toggle: tap a badge to claim its axis; tap again to shrink it back.
   const claim = (i: number) =>
     setClaimed((s) => {
       const n = new Set(s);
-      n.add(i);
+      if (n.has(i)) n.delete(i);
+      else n.add(i);
       return n;
     });
-  const claimAll = () => setClaimed(new Set(CAPS.map((_, i) => i)));
-  const done = claimed.size === CAPS.length;
 
   return (
     <section
@@ -1323,12 +1326,12 @@ export function CompeteCoverageMap() {
         }
         @media (max-width: 640px) {
           .ccm-section { padding-left: 8px !important; padding-right: 8px !important; }
-          .ccm-radar-card { padding: 22px 10px 18px !important; }
+          .ccm-radar-card { padding: 30px 10px 36px !important; }
           .ccm-badge { width: 32px !important; height: 32px !important; }
         }
       `}</style>
 
-      <div style={{ maxWidth: 880, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
         <Eyebrow>Close the gap</Eyebrow>
         <h2
           style={{
@@ -1353,30 +1356,34 @@ export function CompeteCoverageMap() {
           data-theme="light"
           style={{
             position: "relative",
-            background: "#ffffff",
-            border: `1px solid ${mkt.cardBorder}`,
+            backgroundColor: mkt.sectionLight,
+            backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)",
+            backgroundSize: "16px 16px",
+            border: `1px solid ${mkt.onDarkBorder}`,
             borderRadius: 18,
-            padding: "clamp(32px, 4vw, 44px) clamp(16px, 3vw, 26px) clamp(24px, 3vw, 32px)",
-            boxShadow: "0 18px 50px rgba(8,12,30,0.18)",
+            padding: "clamp(40px, 5vw, 60px) clamp(20px, 4vw, 44px) clamp(44px, 5vw, 64px)",
+            boxShadow: "0 18px 50px rgba(8,12,30,0.28)",
           }}
         >
-          {/* Help cue — top-right corner. Opens the "big brands" modal. */}
+          {/* Help cue — top-right corner. Opens the "big brands" modal on click
+              (mobile) or hover (desktop). */}
           <button
             type="button"
             onClick={() => setModal(true)}
+            onMouseEnter={() => setModal(true)}
             aria-label="Who are the big brands?"
             style={{
               position: "absolute",
               top: 12,
               right: 12,
               zIndex: 5,
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
               borderRadius: 999,
               border: `1.5px solid ${mkt.accent}`,
-              background: "#ffffff",
+              background: "rgba(255,255,255,0.95)",
               color: mkt.accent,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: 800,
               cursor: "pointer",
               lineHeight: 1,
@@ -1388,12 +1395,12 @@ export function CompeteCoverageMap() {
           </button>
 
           {/* Radar stage — spider chart ringed by 7 clickable capability
-              badges (blue + white). Tapping a badge claims that axis (the
-              action the old stats list carried); the coverage polygon springs
-              out toward it. Replaces the side stats list entirely. */}
+              badges (blue + white) with titles. Tap a badge to claim its axis;
+              tap again to shrink it back. The polygon springs toward the dashed
+              outer "big brands" ring. */}
           <div
             className="ccm-radar-stage"
-            style={{ position: "relative", width: "100%", maxWidth: 400, margin: "0 auto", aspectRatio: "1 / 1" }}
+            style={{ position: "relative", width: "100%", maxWidth: 560, margin: "0 auto", aspectRatio: "1 / 1" }}
           >
             <svg
               viewBox={`0 0 ${RADAR.vb} ${RADAR.vb}`}
@@ -1403,19 +1410,19 @@ export function CompeteCoverageMap() {
               aria-hidden="true"
             >
               {[0.25, 0.5, 0.75, 1].map((f) => (
-                <path key={f} d={radarPoly(CAPS.map(() => f))} fill="none" stroke="rgba(8,12,30,0.10)" strokeWidth={1} />
+                <path key={f} d={radarPoly(CAPS.map(() => f))} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
               ))}
               {CAPS.map((_, i) => {
                 const [x, y] = radarPt(i, 1);
-                return <line key={i} x1={RADAR.cx} y1={RADAR.cy} x2={x} y2={y} stroke="rgba(8,12,30,0.08)" strokeWidth={1} />;
+                return <line key={i} x1={RADAR.cx} y1={RADAR.cy} x2={x} y2={y} stroke="rgba(255,255,255,0.10)" strokeWidth={1} />;
               })}
-              <path d={radarPoly(CAPS.map(() => 1))} fill="none" stroke="rgba(8,12,30,0.20)" strokeWidth={1} strokeDasharray="3 3" />
+              <path d={radarPoly(CAPS.map(() => 1))} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth={1} strokeDasharray="3 3" />
               <motion.path
                 initial={false}
                 animate={{ d: radarPoly(CAPS.map((_, i) => (claimed.has(i) ? 1 : RADAR_BASE[i]))) }}
                 transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 18 }}
                 fill={mkt.accent}
-                fillOpacity={0.18}
+                fillOpacity={0.22}
                 stroke={mkt.accent}
                 strokeWidth={2}
                 strokeLinejoin="round"
@@ -1431,92 +1438,86 @@ export function CompeteCoverageMap() {
                     transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 18 }}
                     r={3.5}
                     fill={mkt.accent}
-                    stroke="#ffffff"
+                    stroke="rgba(255,255,255,1)"
                     strokeWidth={1.5}
                   />
                 );
               })}
             </svg>
 
-            {/* Capability badges — one per axis, positioned just outside the
-                outer ring. Click = claim(i) (same as the removed list rows). */}
+            {/* Capability badges + titles — one per axis, just outside the ring. */}
             {CAPS.map((cap, i) => {
               const isClaimed = claimed.has(i);
-              const [bx, by] = radarPt(i, 1.18);
+              const [bx, by] = radarPt(i, 1.16);
               const { Icon } = cap;
+              const leftPct = (bx / RADAR.vb) * 100;
+              const topPct = (by / RADAR.vb) * 100;
               return (
-                <button
-                  key={cap.label}
-                  type="button"
-                  onClick={() => claim(i)}
-                  aria-pressed={isClaimed}
-                  aria-label={`${cap.label}${isClaimed ? " — covered" : " — tap to cover"}`}
-                  title={cap.label}
-                  className="ccm-badge"
-                  style={{
-                    position: "absolute",
-                    left: `${(bx / RADAR.vb) * 100}%`,
-                    top: `${(by / RADAR.vb) * 100}%`,
-                    transform: "translate(-50%, -50%)",
-                    width: 36,
-                    height: 36,
-                    borderRadius: 999,
-                    display: "grid",
-                    placeItems: "center",
-                    padding: 0,
-                    cursor: isClaimed ? "default" : "pointer",
-                    background: isClaimed ? mkt.accent : "#ffffff",
-                    border: `2px solid ${mkt.accent}`,
-                    boxShadow: isClaimed
-                      ? "0 4px 12px rgba(13,60,252,0.35)"
-                      : "0 2px 6px rgba(8,12,30,0.12)",
-                    transition: "transform 160ms ease, box-shadow 160ms ease, background 200ms ease",
-                  }}
-                >
-                  <motion.span
-                    initial={false}
-                    animate={
-                      isClaimed
-                        ? { scale: [1, 1.35, 1], rotate: [0, -10, 10, 0] }
-                        : { scale: 1, rotate: 0 }
-                    }
-                    transition={reduced ? { duration: 0 } : { duration: 0.45, ease: "easeOut" }}
-                    style={{ display: "grid", placeItems: "center" }}
+                <div key={cap.label}>
+                  <button
+                    type="button"
+                    onClick={() => claim(i)}
+                    aria-pressed={isClaimed}
+                    aria-label={`${cap.label}${isClaimed ? " — covered (tap to remove)" : " — tap to cover"}`}
+                    title={cap.label}
+                    className="ccm-badge"
+                    style={{
+                      position: "absolute",
+                      left: `${leftPct}%`,
+                      top: `${topPct}%`,
+                      transform: "translate(-50%, -50%)",
+                      width: 38,
+                      height: 38,
+                      borderRadius: 999,
+                      display: "grid",
+                      placeItems: "center",
+                      padding: 0,
+                      cursor: "pointer",
+                      background: isClaimed ? mkt.accent : "rgba(255,255,255,1)",
+                      border: `2px solid ${mkt.accent}`,
+                      boxShadow: isClaimed
+                        ? "0 4px 12px rgba(13,60,252,0.35)"
+                        : "0 2px 6px rgba(8,12,30,0.30)",
+                      transition: "transform 160ms ease, box-shadow 160ms ease, background 200ms ease",
+                    }}
                   >
-                    <Icon size={16} strokeWidth={2.2} color={isClaimed ? "#ffffff" : mkt.accent} />
-                  </motion.span>
-                </button>
+                    <motion.span
+                      initial={false}
+                      animate={
+                        isClaimed
+                          ? { scale: [1, 1.35, 1], rotate: [0, -10, 10, 0] }
+                          : { scale: 1, rotate: 0 }
+                      }
+                      transition={reduced ? { duration: 0 } : { duration: 0.45, ease: "easeOut" }}
+                      style={{ display: "grid", placeItems: "center" }}
+                    >
+                      <Icon size={20} strokeWidth={2.2} color={isClaimed ? "rgba(255,255,255,1)" : mkt.accent} />
+                    </motion.span>
+                  </button>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      left: `${leftPct}%`,
+                      top: `${topPct}%`,
+                      transform: "translate(-50%, calc(-50% + 30px))",
+                      fontFamily: MONO,
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                      color: isClaimed ? mkt.accent : "rgba(255,255,255,0.78)",
+                      whiteSpace: "nowrap",
+                      pointerEvents: "none",
+                      transition: "color 200ms ease",
+                    }}
+                  >
+                    {CAP_SHORT[i]}
+                  </span>
+                </div>
               );
             })}
           </div>
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 26 }}>
-          {done ? (
-            <div style={{ fontSize: 14, fontWeight: 700, color: mkt.success, textAlign: "center" }}>
-              ✓ Full coverage — everything a big brand does, in one platform.
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={claimAll}
-              style={{
-                fontFamily: MONO,
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: mkt.accent,
-                background: "transparent",
-                border: `1.5px solid ${mkt.accent}`,
-                borderRadius: 999,
-                padding: "10px 18px",
-                cursor: "pointer",
-              }}
-            >
-              Claim it all →
-            </button>
-          )}
         </div>
       </div>
     </section>
