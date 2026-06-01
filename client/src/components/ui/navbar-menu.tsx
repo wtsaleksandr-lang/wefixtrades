@@ -228,16 +228,11 @@ export const MenuItem = ({
                       >
                         <div
                           className="mkt-menu-card-icon"
-                          // Force all dropdown grid icons to render in a
-                          // single light color. The lucide icons inherit
-                          // stroke from currentColor, so setting `color`
-                          // here governs every icon (workflow, sparkles,
-                          // target, layers, etc.) uniformly. Previously
-                          // they used mkt.accent (#0d3cfc) which on the
-                          // dark dropdown surface made low-ink icons
-                          // (ContentFlow/AdFlow/BookFlow) look darker
-                          // than higher-ink icons.
-                          style={{ color: "rgba(255,255,255,0.92)" }}
+                          // White square tile (see .mkt-menu-card-icon) with a
+                          // brand-blue central icon. Lucide icons inherit stroke
+                          // from currentColor, so this `color` drives every icon
+                          // uniformly against the white badge.
+                          style={{ color: mkt.accent }}
                           aria-hidden
                         >
                           <NavIcon icon={icon} />

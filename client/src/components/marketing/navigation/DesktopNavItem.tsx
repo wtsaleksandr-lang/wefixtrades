@@ -191,10 +191,9 @@ export function DesktopNavItem({
                 >
                   <div
                     className="mkt-menu-card-icon"
-                    /* Wave AE — match menu text colour (was mkt.accent blue,
-                       which clashed with the off-white menu copy and read
-                       inconsistently against the dark dropdown surface). */
-                    style={{ color: mkt.text }}
+                    /* White square tile (.mkt-menu-card-icon) with a brand-blue
+                       central icon — consistent with the live navbar menu. */
+                    style={{ color: mkt.accent }}
                     aria-hidden
                   >
                     <NavIcon icon={icon} size={24} strokeWidth={1.7} />

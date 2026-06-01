@@ -2587,11 +2587,11 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    rgba(20, 24, 23, 0.6);
-  border: 1px solid var(--hairline);
-  filter: grayscale(0.7) brightness(0.92);
+  /* White square tile with a brand-blue central icon (icon color is set
+     inline on the consumer). Was a dark grayscale tile at rest. */
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(13, 60, 252, 0.18);
+  filter: none;
   position: relative;
   overflow: hidden;
   transition:
@@ -2647,13 +2647,13 @@
 .mkt-menu-card:hover .mkt-menu-card-icon,
 .mkt-menu-card:active .mkt-menu-card-icon,
 .mkt-menu-card:focus-visible .mkt-menu-card-icon {
-  background:
-    linear-gradient(160deg, rgba(13, 60, 252, 0.22), rgba(13, 60, 252, 0.08)),
-    rgba(13, 60, 252, 0.12);
-  border-color: var(--hover-border-bright);
-  filter: grayscale(0) brightness(1);
+  /* Stays a white tile on hover (blue icon needs the white field) — just
+     lifts and brightens the blue border. */
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(13, 60, 252, 0.45);
+  filter: none;
   transform: translateY(-2px) scale(1.02);
-  box-shadow: none;
+  box-shadow: 0 8px 20px rgba(13, 60, 252, 0.18);
 }
 
 
