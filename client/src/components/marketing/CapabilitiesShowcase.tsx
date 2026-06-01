@@ -1,54 +1,66 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Receipt, Zap, Layers, Bell, PhoneCall } from "lucide-react";
+import { Calculator, PhoneCall, MapPin, Gauge, Check, Clock } from "lucide-react";
 
 const TABS = [
   {
     key: "billing",
     label: "QuoteQuick",
-    icon: Receipt,
+    icon: Calculator,
     accentColor: "#f87171",
     iconColor: "#f87171",
     badgeBg: "#fee0e0",
-    sectorBg: "rgba(224, 92, 106, 0.30)",
-    timelineBg: "rgba(224, 92, 106, 0.22)",
     title: "QuoteQuick — Instant Quotes",
     desc: "Customers get accurate prices on your website, 24/7. Every quote captures a lead with name, email, and phone. Live in 5 minutes — works alongside Jobber, Housecall Pro, or anything else.",
+    features: [
+      "Live on your website 24/7",
+      "Captures name, email & phone",
+      "Set up in 5 minutes",
+    ],
   },
   {
     key: "charging",
     label: "TradeLine",
-    icon: Zap,
+    icon: PhoneCall,
     accentColor: "#f7b430",
     iconColor: "#f7b430",
     badgeBg: "#fee09f",
-    sectorBg: "rgba(212, 160, 23, 0.32)",
-    timelineBg: "rgba(212, 160, 23, 0.22)",
     title: "TradeLine — 24/7 Receptionist",
     desc: "AI answers every call and chat — even at 2 AM. Quotes the job, books the appointment, texts the caller back. Replaces a $240/month answering service for a fraction of the cost.",
+    features: [
+      "Answers every call & chat",
+      "Books the appointment",
+      "Texts the caller back",
+    ],
   },
   {
     key: "catalog",
     label: "MapGuard",
-    icon: Layers,
-    accentColor: "#4ade80",
-    iconColor: "#4ade80",
+    icon: MapPin,
+    accentColor: "#22b07c",
+    iconColor: "#22b07c",
     badgeBg: "#d4f5d0",
-    sectorBg: "rgba(45, 184, 124, 0.30)",
-    timelineBg: "rgba(45, 184, 124, 0.22)",
     title: "MapGuard — Google Maps Visibility",
     desc: "We monitor your Google Business Profile every week and fix issues before customers see them. Wrong hours, broken images, suspensions — handled. You show up where customers are searching.",
+    features: [
+      "Weekly Google Profile checks",
+      "Fixes issues before customers see",
+      "Lands you in the Top-3 pack",
+    ],
   },
   {
     key: "events",
     label: "WebFix",
-    icon: Bell,
+    icon: Gauge,
     accentColor: "#0d3cfc",
     iconColor: "#0d3cfc",
     badgeBg: "#E6EAFF",
-    sectorBg: "rgba(59, 181, 200, 0.30)",
-    timelineBg: "rgba(59, 181, 200, 0.22)",
     title: "WebFix — Site Speed & SEO",
     desc: "We turn your site from slow and invisible to fast and ranked. Audit, fix, monitor. Lighthouse scores climb from 40s to 90s — and your Google rank follows.",
+    features: [
+      "Audit, fix, then monitor",
+      "Lighthouse 40s → 90s",
+      "Rankings follow speed",
+    ],
   },
 ] as const;
 
@@ -56,102 +68,110 @@ type TabKey = (typeof TABS)[number]["key"];
 
 const CYCLE_MS = 8000;
 const BUTTON_H = 44; // height of each button strip (px)
-const SLIDER_H = 490; // total slider height (px)
+const SLIDER_H = 560; // total slider height (px) — taller to fit feature cards
 const GAP = 4;
 const BADGE_SIZE = 40; // icon badge width/height (px)
 
-/* ── per-tab mockup panels ───────────────────────────────────────────── */
+/* ── per-tab mockup panels — accurate to each real product ───────────── */
 
-function BillingMockup() {
+const CARD_SHADOW = "0 8px 24px rgba(34,40,42,0.12)";
+
+/** QuoteQuick — an instant on-site quote calculator that captures the lead. */
+function QuoteQuickMockup() {
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div data-theme="light" style={{ position: "relative", width: "100%", height: "100%" }}>
       <div style={{
         position: "absolute", left: "50%", top: "50%",
         transform: "translate(-50%, -50%)",
-        width: 220,
-        background: "rgba(255,255,255,0.92)",
-        borderRadius: 16,
-        padding: "18px 16px",
-        boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
+        width: 240, background: "rgba(255,255,255,0.94)", borderRadius: 16,
+        padding: "18px 16px", boxShadow: CARD_SHADOW,
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Invoice</span>
-          <span style={{ fontSize: 10, background: "rgba(224,92,106,0.12)", color: "#E05C6A", borderRadius: 6, padding: "3px 8px", fontWeight: 600 }}>Due</span>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Instant Quote</span>
+          <span style={{ fontSize: 10, background: "rgba(16,185,129,0.12)", color: "#10B981", borderRadius: 6, padding: "3px 8px", fontWeight: 700 }}>Live</span>
         </div>
-        <div style={{ fontSize: 24, fontWeight: 700, color: "#111827", letterSpacing: "-0.02em", marginBottom: 4 }}>$2,480.00</div>
-        <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 14 }}>Due 15 Mar 2026</div>
-        {[["Service Fee", "$1,800.00"], ["Tax (GST)", "$480.00"], ["Discount", "–$200.00"]].map(([label, amt]) => (
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 10 }}>Bathroom renovation</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          {["80 sq ft", "Mid-range", "Tiled"].map((c) => (
+            <span key={c} style={{ fontSize: 10, fontWeight: 600, color: "#E05C6A", background: "rgba(224,92,106,0.10)", borderRadius: 999, padding: "4px 9px" }}>{c}</span>
+          ))}
+        </div>
+        {[["Labour", "$2,800"], ["Materials", "$1,450"]].map(([label, amt]) => (
           <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F3F4F6" }}>
             <span style={{ fontSize: 11, color: "#6B7280" }}>{label}</span>
             <span style={{ fontSize: 11, fontWeight: 600, color: "#111827" }}>{amt}</span>
           </div>
         ))}
-        <div style={{ marginTop: 12, background: "rgba(224,92,106,0.08)", borderRadius: 10, padding: "9px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#E05C6A" }}>Pay Now</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#E05C6A" }}>→</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "10px 0 12px" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Your estimate</span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: "#111827", letterSpacing: "-0.02em" }}>$4,250</span>
+        </div>
+        <div style={{ background: "#E05C6A", borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "center", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "white" }}>Book this job</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "white" }}>→</span>
         </div>
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
         background: "#22282a", borderRadius: 16, padding: "12px 14px",
-        boxShadow: "0 8px 24px rgba(34,40,42,0.12)", minWidth: 140,
+        boxShadow: CARD_SHADOW, minWidth: 150,
       }}>
-        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Last payment</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#34D399", marginBottom: 3 }}>$1,200.00</div>
-        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>2 days ago · Stripe</div>
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>New lead captured</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "white", marginBottom: 2 }}>Jordan M.</div>
+        <div style={{ fontSize: 10, color: "#34D399" }}>just now · phone + email</div>
       </div>
     </div>
   );
 }
 
-function ChargingMockup() {
+/** TradeLine — AI receptionist answering a call, booking, texting back. */
+function TradeLineMockup() {
+  const lines = [
+    { who: "AI", text: "Thanks for calling! How can I help?", me: true },
+    { who: "Caller", text: "Need a quote for a water heater.", me: false },
+    { who: "AI", text: "Got it — booking you for Tue 9 AM.", me: true },
+  ];
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div data-theme="light" style={{ position: "relative", width: "100%", height: "100%" }}>
       <div style={{
         position: "absolute", left: "50%", top: "50%",
         transform: "translate(-50%, -50%)",
-        width: 210,
-        background: "rgba(255,255,255,0.92)",
-        borderRadius: 16,
-        padding: "16px 14px",
-        boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
+        width: 244, background: "rgba(255,255,255,0.94)", borderRadius: 16,
+        padding: "16px 14px", boxShadow: CARD_SHADOW,
       }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ display: "flex", gap: 4 }}>
-            {["#FF5F57", "#FEBC2E", "#28C840"].map((c) => (
-              <div key={c} style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
-            ))}
-          </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>+1 (415) 678-2345</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700, color: "#10B981", background: "rgba(16,185,129,0.12)", borderRadius: 999, padding: "3px 8px" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} /> AI answering
+          </span>
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <span style={{ fontSize: 28, fontWeight: 700, color: "#111827", letterSpacing: "-0.02em" }}>€0.00</span>
-          <span style={{ fontSize: 12, color: "#9CA3AF", marginLeft: 4 }}>/min</span>
-        </div>
-        {["COUNTRY", "CALL TYPE", "ZONE"].map((label) => (
-          <div key={label} style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "7px 10px", borderRadius: 8,
-            background: "#F9FAFB", border: "1px solid #E5E7EB", marginBottom: 6,
-          }}>
-            <span style={{ fontSize: 10, fontWeight: 500, color: "#9CA3AF", letterSpacing: "0.06em" }}>{label}</span>
-            <span style={{ fontSize: 16, color: "#D1D5DB", fontWeight: 300, lineHeight: 1 }}>+</span>
+        {lines.map((l, idx) => (
+          <div key={idx} style={{ display: "flex", justifyContent: l.me ? "flex-start" : "flex-end", marginBottom: 7 }}>
+            <span style={{
+              maxWidth: "82%", fontSize: 11, lineHeight: 1.4, padding: "7px 10px", borderRadius: 12,
+              background: l.me ? "#EEF2FF" : "#F3F4F6",
+              color: l.me ? "#1e3a8a" : "#374151",
+              borderBottomLeftRadius: l.me ? 3 : 12,
+              borderBottomRightRadius: l.me ? 12 : 3,
+            }}>{l.text}</span>
           </div>
         ))}
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, background: "#ECFDF5", borderRadius: 10, padding: "9px 11px" }}>
+          <Clock size={14} color="#10B981" strokeWidth={2.4} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#047857" }}>Booked · Tue 9:00 AM</span>
+        </div>
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
         width: 150, background: "#22282a", borderRadius: 16, padding: "12px 12px 16px",
-        boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
+        boxShadow: CARD_SHADOW,
       }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
           <div style={{ position: "relative", width: 46, height: 46, flexShrink: 0 }}>
-            {/* pulse rings */}
             <div className="cs-pulse-ring" />
             <div className="cs-pulse-ring" />
-            {/* phone button */}
             <div style={{
-              position: "relative", zIndex: 1,
-              width: 46, height: 46, borderRadius: "50%",
+              position: "relative", zIndex: 1, width: 46, height: 46, borderRadius: "50%",
               background: "linear-gradient(135deg, #34D399 0%, #10B981 100%)",
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: "0 4px 16px rgba(16,185,129,0.4)",
@@ -160,8 +180,8 @@ function ChargingMockup() {
             </div>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#F9FAFB" }}>+1 (415) 678-2345</div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>Calling</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#F9FAFB" }}>Answered in 1 ring</div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>0 missed today</div>
           </div>
         </div>
       </div>
@@ -169,113 +189,141 @@ function ChargingMockup() {
   );
 }
 
-function CatalogMockup() {
-  const items = [
-    { name: "Voice Bundle Pro", price: "$49/mo", badge: "Active", badgeColor: "#10B981" },
-    { name: "Data Pack 10GB", price: "$29/mo", badge: "Active", badgeColor: "#10B981" },
-    { name: "SMS Gateway", price: "$19/mo", badge: "Draft", badgeColor: "#9CA3AF" },
+/** MapGuard — a local-rank geo-grid + Google Business Profile health. */
+function MapGuardMockup() {
+  // 5×5 rank grid — greens (top-3), ambers (mid), one red gap.
+  const grid = [
+    1, 1, 2, 3, 1,
+    1, 2, 1, 4, 2,
+    2, 1, 1, 2, 3,
+    1, 3, 2, 5, 11,
+    2, 1, 4, 8, 14,
   ];
+  const dotColor = (r: number) => (r <= 3 ? "#16a34a" : r <= 10 ? "#eab308" : "#dc2626");
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div data-theme="light" style={{ position: "relative", width: "100%", height: "100%" }}>
       <div style={{
         position: "absolute", left: "50%", top: "50%",
         transform: "translate(-50%, -50%)",
-        width: 230, background: "rgba(255,255,255,0.92)", borderRadius: 16,
-        padding: "16px 14px", boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
+        width: 238, background: "rgba(255,255,255,0.94)", borderRadius: 16,
+        padding: "16px 16px", boxShadow: CARD_SHADOW,
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Product Catalog</span>
-          <span style={{ fontSize: 10, background: "rgba(45,184,124,0.12)", color: "#2DB87C", borderRadius: 6, padding: "3px 8px", fontWeight: 600 }}>3 active</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#9CA3AF", textTransform: "uppercase" }}>Local rank grid</span>
+          <span style={{ fontSize: 10, background: "rgba(22,163,74,0.12)", color: "#16a34a", borderRadius: 6, padding: "3px 8px", fontWeight: 700 }}>Top 3</span>
         </div>
-        {items.map(({ name, price, badge, badgeColor }) => (
-          <div key={name} style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "9px 10px", borderRadius: 10,
-            background: "#F9FAFB", border: "1px solid #E5E7EB", marginBottom: 7,
-          }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#111827" }}>{name}</div>
-              <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>{price}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 7, marginBottom: 14 }}>
+          {grid.map((r, i) => (
+            <div key={i} style={{
+              aspectRatio: "1 / 1", borderRadius: 999, background: dotColor(r),
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 9, fontWeight: 800, color: "white",
+            }}>{r >= 21 ? "20+" : r}</div>
+          ))}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Avg map rank</span>
+          <span style={{ fontSize: 20, fontWeight: 800, color: "#16a34a", letterSpacing: "-0.02em" }}>1.3</span>
+        </div>
+      </div>
+      <div style={{
+        position: "absolute", right: 0, bottom: 0,
+        background: "#22282a", borderRadius: 16, padding: "12px 14px",
+        boxShadow: CARD_SHADOW, minWidth: 150,
+      }}>
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 7 }}>Profile health</div>
+        {[["Hours", true], ["Photos", true], ["Posts", true]].map(([label]) => (
+          <div key={label as string} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+            <Check size={12} color="#34D399" strokeWidth={3} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#F9FAFB" }}>{label}</span>
+          </div>
+        ))}
+        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>Monitored weekly</div>
+      </div>
+    </div>
+  );
+}
+
+/** WebFix — a Lighthouse performance score climbing 42 → 98. */
+function WebFixMockup() {
+  const R = 30;
+  const C = 2 * Math.PI * R;
+  const score = 98;
+  return (
+    <div data-theme="light" style={{ position: "relative", width: "100%", height: "100%" }}>
+      <div style={{
+        position: "absolute", left: "50%", top: "50%",
+        transform: "translate(-50%, -50%)",
+        width: 232, background: "rgba(255,255,255,0.94)", borderRadius: 16,
+        padding: "16px 16px", boxShadow: CARD_SHADOW,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#9CA3AF", textTransform: "uppercase" }}>Lighthouse</span>
+          <span style={{ fontSize: 10, background: "rgba(13,60,252,0.10)", color: "#0d3cfc", borderRadius: 6, padding: "3px 8px", fontWeight: 700 }}>Audited</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+          <div style={{ position: "relative", width: 76, height: 76, flexShrink: 0 }}>
+            <svg width="76" height="76" viewBox="0 0 76 76">
+              <circle cx="38" cy="38" r={R} fill="none" stroke="#E5E7EB" strokeWidth="7" />
+              <circle cx="38" cy="38" r={R} fill="none" stroke="#10B981" strokeWidth="7" strokeLinecap="round"
+                strokeDasharray={C} strokeDashoffset={C * (1 - score / 100)} transform="rotate(-90 38 38)" />
+            </svg>
+            <span style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 20, fontWeight: 800, color: "#111827" }}>{score}</span>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 2 }}>Performance</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 }}>
+              <span style={{ color: "#dc2626" }}>42</span>
+              <span style={{ color: "#9CA3AF" }}>→</span>
+              <span style={{ color: "#16a34a" }}>98</span>
             </div>
-            <span style={{ fontSize: 10, fontWeight: 600, color: badgeColor, background: `${badgeColor}18`, borderRadius: 6, padding: "3px 8px" }}>{badge}</span>
+          </div>
+        </div>
+        {[["Largest paint", "0.9s"], ["SEO", "100"], ["Accessibility", "96"]].map(([label, val]) => (
+          <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #F3F4F6" }}>
+            <span style={{ fontSize: 11, color: "#6B7280" }}>{label}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#16a34a" }}>{val}</span>
           </div>
         ))}
-        <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px", borderRadius: 10, border: "1.5px dashed #D1D5DB" }}>
-          <span style={{ fontSize: 16, color: "#9CA3AF", fontWeight: 300 }}>+</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF" }}>Add product</span>
-        </div>
       </div>
       <div style={{
         position: "absolute", right: 0, bottom: 0,
         background: "#22282a", borderRadius: 16, padding: "12px 14px",
-        boxShadow: "0 8px 24px rgba(34,40,42,0.12)", minWidth: 130,
+        boxShadow: CARD_SHADOW, minWidth: 138,
       }}>
-        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Catalog sync</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#34D399" }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#F9FAFB" }}>Live · 3 systems</span>
-        </div>
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Load time</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#34D399" }}>0.9s</div>
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>p75 · mobile</div>
       </div>
     </div>
   );
 }
 
-function EventsMockup() {
-  const events = [
-    { label: "Call initiated", time: "0ms", color: "#3BB5C8" },
-    { label: "Auth passed", time: "12ms", color: "#10B981" },
-    { label: "Rate applied", time: "18ms", color: "#D4A017" },
-    { label: "CDR written", time: "34ms", color: "#2DB87C" },
-  ];
+/** Feature/benefit cards shown beside each tab's mockup. */
+function FeatureList({ items, color }: { items: readonly string[]; color: string }) {
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <div style={{
-        position: "absolute", left: "50%", top: "50%",
-        transform: "translate(-50%, -50%)",
-        width: 230, background: "rgba(255,255,255,0.92)", borderRadius: 16,
-        padding: "16px 14px", boxShadow: "0 8px 24px rgba(34,40,42,0.12)",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase" }}>Event Stream</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#34D399" }} />
-            <span style={{ fontSize: 10, fontWeight: 600, color: "#34D399" }}>Live</span>
-          </div>
+    <div data-theme="light" style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 18 }}>
+      {items.map((f) => (
+        <div key={f} style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "8px 11px", borderRadius: 10,
+          background: "rgba(255,255,255,0.6)", border: "1px solid rgba(34,40,42,0.08)",
+        }}>
+          <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, background: color, display: "grid", placeItems: "center" }}>
+            <Check size={12} color="white" strokeWidth={3} />
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#22282a", lineHeight: 1.3 }}>{f}</span>
         </div>
-        {events.map(({ label, time, color }) => (
-          <div key={label} style={{
-            display: "flex", alignItems: "center", gap: 10,
-            padding: "8px 10px", borderRadius: 8,
-            background: "#F9FAFB", border: "1px solid #E5E7EB", marginBottom: 5,
-          }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, fontWeight: 500, color: "#374151", flex: 1 }}>{label}</span>
-            <span style={{ fontSize: 10, color: "#9CA3AF", fontFamily: "monospace" }}>{time}</span>
-          </div>
-        ))}
-        <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#F3F4F6", display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 10, color: "#6B7280" }}>Events today</span>
-          <span style={{ fontSize: 10, fontWeight: 700, color: "#111827" }}>24,891</span>
-        </div>
-      </div>
-      <div style={{
-        position: "absolute", right: 0, bottom: 0,
-        background: "#22282a", borderRadius: 16, padding: "12px 14px",
-        boxShadow: "0 8px 24px rgba(34,40,42,0.12)", minWidth: 136,
-      }}>
-        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Avg latency</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#3BB5C8" }}>22ms</div>
-        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>p99 · last 5 min</div>
-      </div>
+      ))}
     </div>
   );
 }
 
 const MOCKUPS: Record<TabKey, React.ReactNode> = {
-  billing: <BillingMockup />,
-  charging: <ChargingMockup />,
-  catalog: <CatalogMockup />,
-  events: <EventsMockup />,
+  billing: <QuoteQuickMockup />,
+  charging: <TradeLineMockup />,
+  catalog: <MapGuardMockup />,
+  events: <WebFixMockup />,
 };
 
 /* ── main component ──────────────────────────────────────────────────── */
@@ -521,6 +569,7 @@ export default function CapabilitiesShowcase() {
                         }}>
                           {t.desc}
                         </p>
+                        <FeatureList items={t.features} color={t.accentColor} />
                       </div>
                       {/* mockup — fixed height so absolute-positioned cards work */}
                       <div className="cs-mob-visual" style={{
@@ -670,6 +719,7 @@ export default function CapabilitiesShowcase() {
                     }}>
                       {t.desc}
                     </p>
+                    <FeatureList items={t.features} color={t.accentColor} />
                   </div>
                   <div
                     className={`cs-content-item ${isActive ? "cs-visible" : "cs-hidden"}`}
