@@ -2828,45 +2828,45 @@ export default function SelfServiceDragDrop() {
   return (
     <section
       data-testid="self-service-drag-drop-section"
-      aria-labelledby="ssdd-headline"
+      aria-label="See it in action — from any pricing doc to a live calculator"
       style={{
-        background: mkt.darkBg,
+        /* Mobile (Alex): no separate dark container — the bare mockup sits on
+           the page background, no eyebrow/title/subtitle chrome. Desktop keeps
+           its framed dark band + headline. */
+        background: mobile ? mkt.bg : mkt.darkBg,
         position: "relative",
         zIndex: 1,
-        padding: "48px 24px 56px",
-        borderTop: "1px solid rgba(255,255,255,0.06)",
+        padding: mobile ? "8px 16px 28px" : "48px 24px 56px",
+        borderTop: mobile ? "none" : "1px solid rgba(255,255,255,0.06)",
       }}
     >
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        {/* Section eyebrow + headline (outside the canvas, matches the
-            existing home-page rhythm) */}
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 12px",
-              borderRadius: 999,
-              background: "rgba(13,60,252,0.08)",
-              border: "1px solid rgba(13,60,252,0.18)",
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: mkt.accent,
-              fontFamily: "'DM Mono', monospace",
-              marginBottom: 14,
-            }}
-          >
-            See it in action
+        {/* Section eyebrow — desktop only. On mobile (Alex) the section shows
+            just the bare mockup, no eyebrow/title/subtitle. */}
+        {!mobile && (
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 999,
+                background: "rgba(13,60,252,0.08)",
+                border: "1px solid rgba(13,60,252,0.18)",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: mkt.accent,
+                fontFamily: "'DM Mono', monospace",
+                marginBottom: 14,
+              }}
+            >
+              See it in action
+            </div>
           </div>
-          {/* Wave 101 — outer H2 + paragraph removed. They were verbatim
-              duplicates of the title and subtitle inside SelfServiceCanvas
-              (lines ~1950 + ~1965). The semantic h2 anchor moved into the
-              canvas so aria-labelledby still resolves. The "See it in
-              action" eyebrow above stays as the section marker. */}
-        </div>
+        )}
 
         <div
           ref={wrapperRef}
@@ -2928,48 +2928,9 @@ function MobileFallback({ containerWidth }: { containerWidth: number }) {
   const fitScale = containerWidth > 0 ? Math.min(1, containerWidth / MOCKUP_W) : 0.6;
   return (
     <div style={{ width: "100%" }}>
-      {/* Wave 105 — title + subtitle hoisted ABOVE the scaled canvas
-          per Alex's mobile redesign. At fitScale ≈ 0.33 on a 375-px
-          viewport the canvas's internal h2 was ~9px tall — unreadable.
-          Reading order on mobile is now:
-            1. (Section eyebrow "See it in action" — rendered by the
-               parent section above this component)
-            2. h2 title (full size, centered)
-            3. Subtitle paragraph (full size, centered)
-            4. Scaled canvas (file-drop visualization at fitScale)
-            5. Try-sample hint caption
-          Desktop is unchanged — SelfServiceCanvas is used directly
-          (not via MobileFallback) and keeps its internal title on the
-          left of the drop area. */}
-      <h2
-        id="ssdd-headline"
-        style={{
-          fontSize: "clamp(22px, 6vw, 28px)",
-          fontWeight: 700,
-          lineHeight: 1.15,
-          letterSpacing: "-0.015em",
-          color: mkt.text,
-          textAlign: "center",
-          margin: "0 0 12px",
-        }}
-      >
-        From any pricing doc to a live calculator
-      </h2>
-      <p
-        style={{
-          fontSize: 14,
-          lineHeight: 1.55,
-          color: mkt.textMuted,
-          textAlign: "center",
-          margin: "0 0 24px",
-          maxWidth: 480,
-          marginLeft: "auto",
-          marginRight: "auto",
-        }}
-      >
-        Drop your existing pricing — any format. We turn it into a live calculator your customers use to book and pay. Five seconds, no setup.
-      </p>
-
+      {/* Mobile (Alex): just the bare mockup — no eyebrow/title/subtitle/caption
+          and no separate dark container. Desktop is unchanged (SelfServiceCanvas
+          is used directly with its internal headline). */}
       {/* Scaled canvas frame — width/height match the visual size so
           the surrounding section has no overflow. hideHeader=true so
           the internal h2 + subtitle (now redundant) don't render and
@@ -2991,17 +2952,6 @@ function MobileFallback({ containerWidth }: { containerWidth: number }) {
         >
           <SelfServiceCanvas hideHeader={true} />
         </div>
-      </div>
-      <div
-        style={{
-          marginTop: 12,
-          textAlign: "center",
-          fontSize: 12,
-          color: mkt.textMuted,
-          fontStyle: "italic",
-        }}
-      >
-        Tap the &ldquo;Try sample&rdquo; button above to watch a pricing doc become a live calculator.
       </div>
     </div>
   );
