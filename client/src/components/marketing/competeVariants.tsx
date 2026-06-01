@@ -1127,16 +1127,24 @@ const CAP_SHORT = [
   "Website",
 ];
 
-const CMAP = { cx: 160, cy: 160, R: 134, iconR: 158, vb: 320 };
+const CMAP = { cx: 160, cy: 160, R: 108, iconR: 132, vb: 320 };
 const CSEG = 360 / CAPS.length;
 function cmapPolar(angleDeg: number, r: number): [number, number] {
   const a = ((angleDeg - 90) * Math.PI) / 180;
   return [CMAP.cx + r * Math.cos(a), CMAP.cy + r * Math.sin(a)];
 }
-function cmapWedge(i: number): string {
-  const [x1, y1] = cmapPolar(i * CSEG - CSEG / 2, CMAP.R);
-  const [x2, y2] = cmapPolar(i * CSEG + CSEG / 2, CMAP.R);
-  return `M ${CMAP.cx} ${CMAP.cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${CMAP.R} ${CMAP.R} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+/* Organic coverage blob for capability i — a soft radial gradient circle
+ * pushed out toward that capability's icon, clipped to the map circle. As
+ * capabilities are claimed the overlapping blurred blobs merge into an
+ * irregular, weather-map-style covered area (vs. hard pizza-slice wedges).
+ * Per-index jitter keeps the areas uneven. */
+const CMAP_JITTER = [0.0, 0.16, -0.12, 0.09, -0.06, 0.13, -0.1];
+function cmapBlob(i: number): { cx: number; cy: number; r: number } {
+  const j = CMAP_JITTER[i % CMAP_JITTER.length];
+  const dist = CMAP.R * (0.46 + j * 0.5);
+  const [bx, by] = cmapPolar(i * CSEG, dist);
+  const r = CMAP.R * (0.62 + j);
+  return { cx: bx, cy: by, r };
 }
 
 function BigBrandsModal({ onClose }: { onClose: () => void }) {
@@ -1352,40 +1360,12 @@ export function CompeteCoverageMap() {
             ?
           </button>
         </div>
-        <p
-          style={{
-            fontSize: "clamp(15px, 1.6vw, 17px)",
-            lineHeight: 1.55,
-            color: mkt.textMuted,
-            maxWidth: 560,
-            margin: "12px 0 28px",
-          }}
-        >
-          Tap each capability to switch it on. Your coverage grows until your
-          business matches what a big brand spends a whole team on — from ~{PRICE}/mo.
-        </p>
+        <div style={{ height: 22 }} />
 
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 18 }}>
-          <span
-            style={{
-              fontFamily: MONO,
-              fontSize: 24,
-              fontWeight: 800,
-              color: done ? mkt.success : mkt.accent,
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {claimed.size}/{CAPS.length}
-          </span>
-          <span style={{ fontSize: 14, fontWeight: 600, color: mkt.textMuted }}>
-            {done ? "You now cover everything a big brand does." : "capabilities covered"}
-          </span>
-        </div>
-
-        {/* overflowX:clip (not hidden — keeps the bottom icons' vertical labels
-            visible) stops the ring's left/right edge labels from pushing a
-            horizontal scrollbar on ≤320px phones. */}
-        <div style={{ position: "relative", width: "min(360px, 86vw)", aspectRatio: "1 / 1", margin: "0 auto", overflowX: "clip" }}>
+        {/* Uses near-full mobile width; the icon ring is pulled inside the map
+            circle's radius so the left/right icons + labels aren't cropped.
+            overflowX:clip is a safety net against any sub-px overflow. */}
+        <div style={{ position: "relative", width: "min(400px, 94vw)", aspectRatio: "1 / 1", margin: "0 auto", overflowX: "clip" }}>
           <svg
             viewBox={`0 0 ${CMAP.vb} ${CMAP.vb}`}
             width="100%"
@@ -1393,23 +1373,39 @@ export function CompeteCoverageMap() {
             style={{ display: "block", overflow: "visible" }}
             aria-hidden="true"
           >
+            <defs>
+              <clipPath id="ccmClip">
+                <circle cx={CMAP.cx} cy={CMAP.cy} r={CMAP.R} />
+              </clipPath>
+              <radialGradient id="ccmBlobGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor={mkt.accent} stopOpacity={0.92} />
+                <stop offset="55%" stopColor={mkt.accent} stopOpacity={0.5} />
+                <stop offset="100%" stopColor={mkt.accent} stopOpacity={0} />
+              </radialGradient>
+              <filter id="ccmSoft" x="-25%" y="-25%" width="150%" height="150%">
+                <feGaussianBlur stdDeviation="5" />
+              </filter>
+            </defs>
             <circle cx={CMAP.cx} cy={CMAP.cy} r={CMAP.R} fill={mkt.surfaceAlt} stroke={mkt.cardBorder} strokeWidth={1} />
-            {CAPS.map((_, i) =>
-              claimed.has(i) ? (
-                <motion.path
-                  key={i}
-                  d={cmapWedge(i)}
-                  fill={mkt.accent}
-                  fillOpacity={0.82}
-                  stroke={mkt.bg}
-                  strokeWidth={1}
-                  initial={reduced ? false : { scale: 0.15, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 220, damping: 22 }}
-                  style={{ transformOrigin: `${CMAP.cx}px ${CMAP.cy}px` }}
-                />
-              ) : null,
-            )}
+            <g clipPath="url(#ccmClip)" filter="url(#ccmSoft)">
+              {CAPS.map((_, i) => {
+                if (!claimed.has(i)) return null;
+                const b = cmapBlob(i);
+                return (
+                  <motion.circle
+                    key={i}
+                    cx={b.cx}
+                    cy={b.cy}
+                    r={b.r}
+                    fill="url(#ccmBlobGrad)"
+                    initial={reduced ? false : { scale: 0.2, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 110, damping: 20 }}
+                    style={{ transformOrigin: `${b.cx}px ${b.cy}px` }}
+                  />
+                );
+              })}
+            </g>
             <circle cx={CMAP.cx} cy={CMAP.cy} r={34} fill={mkt.cardBg} stroke={mkt.cardBorder} strokeWidth={1} />
             <text x={CMAP.cx} y={CMAP.cy - 2} textAnchor="middle" fontFamily={MONO} fontSize={10} fontWeight={700} fill={mkt.textMuted} style={{ letterSpacing: "0.04em" }}>
               YOUR
@@ -1487,7 +1483,7 @@ export function CompeteCoverageMap() {
         <div style={{ display: "flex", justifyContent: "center", marginTop: 26 }}>
           {done ? (
             <div style={{ fontSize: 14, fontWeight: 700, color: mkt.success, textAlign: "center" }}>
-              ✓ Full coverage — running for you from ~{PRICE}/mo.
+              ✓ Full coverage — everything a big brand does, in one platform.
             </div>
           ) : (
             <button
