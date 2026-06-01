@@ -19,70 +19,11 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, MapPin, Compass } from "lucide-react";
+import { ExternalLink, MapPin } from "lucide-react";
 import RankGridHelpModal from "@/components/marketing/RankGridHelpModal";
 
 const BRAND_PRIMARY = "#0d3cfc";
 const BRAND_INK = "#1E1E1E";
-
-/* ─── Rank-tier color system (calm, muted — not neon) ───
- * Each tier maps a rank range to a soft background, dark-enough text for
- * AA contrast on that background, and a ring color for hover. Kept here as
- * a single source of truth so the legend, cells, and insight callouts agree.
- */
-type RankTier = {
-  key: "top3" | "top10" | "top20" | "beyond";
-  label: string;
-  blurb: string;
-  bg: string;
-  text: string;
-  ring: string;
-  dot: string;
-};
-const RANK_TIERS: RankTier[] = [
-  {
-    key: "top3",
-    label: "Top 3",
-    blurb: "Nearly every searcher sees you",
-    bg: "#ecfdf5",
-    text: "#047857",
-    ring: "#10b981",
-    dot: "#10b981",
-  },
-  {
-    key: "top10",
-    label: "Top 10",
-    blurb: "Most searchers see you",
-    bg: "#eff6ff",
-    text: "#1d4ed8",
-    ring: "#3b82f6",
-    dot: "#3b82f6",
-  },
-  {
-    key: "top20",
-    label: "Top 20",
-    blurb: "Some searchers see you",
-    bg: "#fffbeb",
-    text: "#b45309",
-    ring: "#f59e0b",
-    dot: "#f59e0b",
-  },
-  {
-    key: "beyond",
-    label: "Beyond 20",
-    blurb: "Those searchers go to competitors",
-    bg: "#fef2f2",
-    text: "#b91c1c",
-    ring: "#ef4444",
-    dot: "#ef4444",
-  },
-];
-const tierForRank = (r: number): RankTier => {
-  if (r <= 3) return RANK_TIERS[0];
-  if (r <= 10) return RANK_TIERS[1];
-  if (r <= 20) return RANK_TIERS[2];
-  return RANK_TIERS[3];
-};
 
 export type HeatmapCell = {
   row: number;
@@ -378,11 +319,38 @@ function LoadingPulse({ keyword }: { keyword?: string }) {
   );
 }
 
+/* ─── Static-map rank-grid helpers (Web Mercator projection) ───
+ * Projects each grid cell's lat/lng onto the pixel space of the server-proxied
+ * Google Static Map (/api/audit/static-map) so the numbered rank pins line up
+ * with the real streets behind them — the API key stays server-side. */
+const SM_TILE = 256;
+const SM_W = 600;
+const SM_H = 440;
+const lngToWorldX = (lng: number) => ((lng + 180) / 360) * SM_TILE;
+const latToWorldY = (lat: number) => {
+  const r = (lat * Math.PI) / 180;
+  const n = (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2;
+  return n * SM_TILE;
+};
+const worldYToLat = (wy: number) =>
+  (Math.atan(Math.sinh(Math.PI * (1 - (2 * wy) / SM_TILE))) * 180) / Math.PI;
+/* green → yellow → red gradient across rank 1..20 (matches the reference). */
+const rankPinColor = (rank: number): string => {
+  const t = Math.max(0, Math.min(1, (rank - 1) / 19));
+  const g = [22, 163, 74];
+  const y = [234, 179, 8];
+  const r = [220, 38, 38];
+  const mix = (a: number[], b: number[], u: number) =>
+    a.map((v, i) => Math.round(v + (b[i] - v) * u));
+  const c = t < 0.5 ? mix(g, y, t / 0.5) : mix(y, r, (t - 0.5) / 0.5);
+  return `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+};
+
 /* ─── Premium rank-grid view ───
- * Effortel-style polish: generous whitespace, soft rounded corners on the
- * card AND on every cell, calm tier colors, cascade reveal animation
- * (motion-safe), hover ring, center MapPin marker, compass axis hints,
- * legend with tier blurbs, and best/worst/average insight callouts.
+ * Real Google-map background (server-proxied) with geo-projected, color-coded
+ * numbered rank pins, a "Results for: <query>" header, the green Average Map
+ * Rank badge, and a High/Med/Low distribution legend — matches the canonical
+ * geo-grid reference. Best/worst/quick-win callouts follow beneath the map.
  *
  * Light-theme locked — the whole subtree sits under data-theme="light"
  * (carried by the outermost wrapper in MapSnapshotShell). All raw color
@@ -432,6 +400,58 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
     };
   }, [cells]);
 
+  // Real-map projection — fit all cells in the static-map viewport, then map
+  // each lat/lng to a pixel coordinate so the pins sit over the right streets.
+  const map = useMemo(() => {
+    const lats = cells.map((c) => c.lat);
+    const lngs = cells.map((c) => c.lng);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const centerLng = (minLng + maxLng) / 2;
+    const centerLat = worldYToLat(
+      (latToWorldY(minLat) + latToWorldY(maxLat)) / 2,
+    );
+    const spanX = Math.abs(lngToWorldX(maxLng) - lngToWorldX(minLng));
+    const spanY = Math.abs(latToWorldY(maxLat) - latToWorldY(minLat));
+    const PAD = 0.82;
+    const zx = spanX > 0 ? Math.log2((SM_W * PAD) / spanX) : 20;
+    const zy = spanY > 0 ? Math.log2((SM_H * PAD) / spanY) : 20;
+    let zoom = Math.floor(Math.min(zx, zy));
+    if (!Number.isFinite(zoom)) zoom = 13;
+    zoom = Math.max(8, Math.min(16, zoom));
+    const scale = Math.pow(2, zoom);
+    const cwx = lngToWorldX(centerLng) * scale;
+    const cwy = latToWorldY(centerLat) * scale;
+    const project = (lat: number, lng: number) => ({
+      x: lngToWorldX(lng) * scale - cwx + SM_W / 2,
+      y: latToWorldY(lat) * scale - cwy + SM_H / 2,
+    });
+    return { centerLat, centerLng, zoom, project };
+  }, [cells]);
+
+  const mapSrc = `/api/audit/static-map?lat=${map.centerLat.toFixed(6)}&lng=${map.centerLng.toFixed(6)}&zoom=${map.zoom}&w=${SM_W}&h=${SM_H}`;
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
+
+  // High / Med / Low buckets for the header legend bars (matches reference).
+  const hml = useMemo(() => {
+    let high = 0;
+    let med = 0;
+    let low = 0;
+    for (const c of cells) {
+      if (c.rank <= 3) high++;
+      else if (c.rank <= 10) med++;
+      else low++;
+    }
+    return { high, med, low, max: Math.max(high, med, low, 1) };
+  }, [cells]);
+
+  const query =
+    result.keywords?.[0] || (trade ? `${trade} near me` : "near me");
+  const avgColor = rankPinColor(stats.avg || 1);
+
   const directionFromCenter = (row: number, col: number): string => {
     // 5×5 grid → center is (2, 2). Map row/col delta to a compass direction.
     const dr = row - 2;
@@ -451,257 +471,207 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      {/* Plain-English summary */}
-      <div
-        role="region"
-        aria-label="Rank grid summary"
-        style={{
-          background: "#f8fafc",
-          border: "1px solid #e2e8f0",
-          borderRadius: 14,
-          padding: "14px 16px",
-          display: "grid",
-          gap: 4,
-        }}
-      >
-        <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-          Average rank in your area
-        </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 32, fontWeight: 700, color: BRAND_INK, lineHeight: 1 }}>
-            {stats.avg ? stats.avg.toFixed(1) : "—"}
-          </div>
-          <div style={{ fontSize: 12, color: "#64748b" }}>
-            across <strong style={{ color: BRAND_INK }}>{stats.total}</strong> sampled spots
-          </div>
-        </div>
-        <p style={{ fontSize: 13, color: "#475569", margin: "6px 0 0", lineHeight: 1.55 }}>
-          Out of {stats.total} spots around your service area, you're top-3 in{" "}
-          <strong style={{ color: RANK_TIERS[0].text }}>{stats.tiers.top3.count}</strong> ({stats.tiers.top3.pct}%),
-          top-10 in <strong style={{ color: RANK_TIERS[1].text }}>{stats.tiers.top10.count + stats.tiers.top3.count}</strong>{" "}
-          ({stats.tiers.top10.pct + stats.tiers.top3.pct}%), and not ranking
-          in <strong style={{ color: RANK_TIERS[3].text }}>{stats.tiers.beyond.count}</strong>{" "}
-          ({stats.tiers.beyond.pct}%). That last group represents customers your competitors are reaching but you're not.
-        </p>
-      </div>
-
-      {/* Grid card with compass axes */}
+      {/* Header: query on the left, High/Med/Low distribution bars on the right */}
       <div
         style={{
-          position: "relative",
-          background: "#fff",
-          border: "1px solid #eef2f7",
-          borderRadius: 20,
-          padding: "28px 24px 24px",
-          boxShadow:
-            "0 1px 2px rgba(13,60,252,0.04), 0 8px 24px rgba(15,23,42,0.06)",
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 14,
         }}
-        aria-label={`Rank grid for ${result.businessName}${trade ? ` (${trade})` : ""}`}
       >
-        {/* North label */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: 8,
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.12em",
-            color: "#94a3b8",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          <Compass size={12} aria-hidden="true" /> N
+        <div style={{ fontSize: 17, fontWeight: 700, color: BRAND_INK, lineHeight: 1.3 }}>
+          Results for:{" "}
+          <span style={{ color: BRAND_PRIMARY }}>&ldquo;{query}&rdquo;</span>
         </div>
-        {/* South */}
         <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            bottom: 8,
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.12em",
-            color: "#94a3b8",
-          }}
+          role="region"
+          aria-label="Rank distribution"
+          style={{ display: "grid", gap: 6, minWidth: 210 }}
         >
-          S
-        </div>
-        {/* West */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: 8,
-            transform: "translateY(-50%)",
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.12em",
-            color: "#94a3b8",
-          }}
-        >
-          W
-        </div>
-        {/* East */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: "50%",
-            right: 8,
-            transform: "translateY(-50%)",
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.12em",
-            color: "#94a3b8",
-          }}
-        >
-          E
-        </div>
-
-        <div
-          role="grid"
-          aria-label="Rank cells"
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${grid}, minmax(0, 1fr))`,
-            gap: 8,
-            maxWidth: 380,
-            margin: "0 auto",
-          }}
-        >
-          {cells.map((c) => {
-            const tier = tierForRank(c.rank);
-            const label = c.rank >= 21 ? "20+" : String(c.rank);
-            const isCenter = c.row === 2 && c.col === 2;
-            // Cascade index: top-left → bottom-right. Cap delay so a full
-            // 25-cell sweep finishes inside 750ms even at 30ms/cell.
-            const cascadeIdx = c.row * grid + c.col;
-            const delayMs = Math.min(cascadeIdx * 30, 720);
-            return (
-              <div
-                key={`${c.row}-${c.col}`}
-                role="gridcell"
-                aria-label={describeCell(c)}
-                title={describeCell(c)}
-                data-testid={`rank-cell-${c.row}-${c.col}`}
-                className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 duration-300"
+          {[
+            { label: "High-ranking Points", count: hml.high, color: "#16a34a" },
+            { label: "Med-ranking Points", count: hml.med, color: "#eab308" },
+            { label: "Low-ranking Points", count: hml.low, color: "#dc2626" },
+          ].map((row) => (
+            <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 11, color: "#475569", width: 118, flexShrink: 0 }}>
+                {row.label}
+              </span>
+              <span
                 style={{
-                  position: "relative",
-                  aspectRatio: "1 / 1",
-                  borderRadius: 12,
-                  background: tier.bg,
-                  border: `1px solid ${tier.ring}33`,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 2,
-                  cursor: "default",
-                  transition:
-                    "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
-                  animationDelay: `${delayMs}ms`,
-                  animationFillMode: "both",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: BRAND_INK,
+                  width: 20,
+                  textAlign: "right",
+                  flexShrink: 0,
+                  fontVariantNumeric: "tabular-nums",
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "scale(1.03)";
-                  e.currentTarget.style.boxShadow = `0 0 0 2px ${tier.ring}55, 0 6px 14px rgba(15,23,42,0.08)`;
-                  e.currentTarget.style.borderColor = `${tier.ring}99`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.boxShadow = "none";
-                  e.currentTarget.style.borderColor = `${tier.ring}33`;
+              >
+                {row.count}
+              </span>
+              <span
+                aria-hidden="true"
+                style={{
+                  flex: 1,
+                  height: 8,
+                  borderRadius: 999,
+                  background: "#eef2f7",
+                  overflow: "hidden",
                 }}
               >
                 <span
                   style={{
-                    fontSize: 18,
-                    fontWeight: 600,
-                    color: tier.text,
-                    lineHeight: 1,
+                    display: "block",
+                    height: "100%",
+                    width: `${Math.round((row.count / hml.max) * 100)}%`,
+                    background: row.color,
+                    borderRadius: 999,
                   }}
-                >
-                  {label}
-                </span>
-                {isCenter ? (
-                  <span
-                    aria-label="Your address"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 2,
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: BRAND_PRIMARY,
-                    }}
-                  >
-                    <MapPin size={12} aria-hidden="true" /> you
-                  </span>
-                ) : (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      color: "#94a3b8",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {kmToMi(c.distanceKm).toFixed(1)} mi
-                  </span>
-                )}
-              </div>
-            );
-          })}
+                />
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Legend */}
+      {/* Real Google map (server-proxied) with geo-projected rank pins */}
       <div
-        role="region"
-        aria-label="Rank tier legend"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-          gap: 8,
+          position: "relative",
+          width: "100%",
+          aspectRatio: `${SM_W} / ${SM_H}`,
+          borderRadius: 18,
+          overflow: "hidden",
+          border: "1px solid #e2e8f0",
+          background: "#eef2f7",
+          boxShadow:
+            "0 1px 2px rgba(13,60,252,0.04), 0 8px 24px rgba(15,23,42,0.06)",
         }}
+        aria-label={`Rank grid map for ${result.businessName}${trade ? ` (${trade})` : ""}`}
       >
-        {RANK_TIERS.map((t) => (
-          <div
-            key={t.key}
+        {!mapFailed && (
+          <img
+            src={mapSrc}
+            alt=""
+            aria-hidden="true"
+            onLoad={() => setMapLoaded(true)}
+            onError={() => setMapFailed(true)}
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 8,
-              padding: "10px 12px",
-              background: t.bg,
-              borderRadius: 12,
-              border: `1px solid ${t.ring}33`,
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: mapLoaded ? 1 : 0,
+              transition: "opacity 400ms ease",
+            }}
+          />
+        )}
+
+        {/* Average Map Rank badge — top-left, color-coded by the average */}
+        <div
+          style={{
+            position: "absolute",
+            top: 10,
+            left: 10,
+            zIndex: 3,
+            background: avgColor,
+            borderRadius: 12,
+            padding: "8px 12px",
+            color: "#fff",
+            boxShadow: "0 4px 12px rgba(15,23,42,0.18)",
+            textAlign: "center",
+            minWidth: 64,
+          }}
+        >
+          <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>
+            {stats.avg ? stats.avg.toFixed(1) : "—"}
+          </div>
+          <div
+            style={{
+              fontSize: 9,
+              fontWeight: 600,
+              letterSpacing: "0.04em",
+              marginTop: 3,
+              opacity: 0.95,
             }}
           >
-            <span
-              aria-hidden="true"
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 999,
-                background: t.dot,
-                marginTop: 4,
-                flexShrink: 0,
-              }}
-            />
-            <div style={{ display: "grid", gap: 2 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{t.label}</span>
-              <span style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{t.blurb}</span>
-            </div>
+            Average Map Rank
           </div>
-        ))}
+        </div>
+
+        {/* Numbered, color-coded rank pins */}
+        {cells.map((c) => {
+          const p = map.project(c.lat, c.lng);
+          const label = c.rank >= 21 ? "20+" : String(c.rank);
+          const cascadeIdx = c.row * grid + c.col;
+          const delayMs = Math.min(cascadeIdx * 24, 600);
+          return (
+            <div
+              key={`${c.row}-${c.col}`}
+              data-testid={`rank-pin-${c.row}-${c.col}`}
+              aria-label={describeCell(c)}
+              title={describeCell(c)}
+              className="motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-75 duration-300"
+              style={{
+                position: "absolute",
+                left: `${(p.x / SM_W) * 100}%`,
+                top: `${(p.y / SM_H) * 100}%`,
+                transform: "translate(-50%, -50%)",
+                zIndex: 2,
+                width: "clamp(20px, 4.6vw, 28px)",
+                height: "clamp(20px, 4.6vw, 28px)",
+                borderRadius: 999,
+                background: rankPinColor(c.rank),
+                border: "1.5px solid rgba(255,255,255,0.92)",
+                boxShadow: "0 1px 3px rgba(15,23,42,0.35)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+                fontSize: "clamp(9px, 2vw, 12px)",
+                fontWeight: 700,
+                fontVariantNumeric: "tabular-nums",
+                animationDelay: `${delayMs}ms`,
+                animationFillMode: "both",
+              }}
+            >
+              {label}
+            </div>
+          );
+        })}
+
+        {/* Your business marker */}
+        {(() => {
+          const p = map.project(result.lat, result.lng);
+          return (
+            <div
+              aria-label="Your business location"
+              title={result.businessName}
+              style={{
+                position: "absolute",
+                left: `${(p.x / SM_W) * 100}%`,
+                top: `${(p.y / SM_H) * 100}%`,
+                transform: "translate(-50%, -50%)",
+                zIndex: 4,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 26,
+                height: 26,
+                borderRadius: 999,
+                background: "#fff",
+                border: `2px solid ${BRAND_PRIMARY}`,
+                boxShadow: "0 2px 6px rgba(15,23,42,0.3)",
+              }}
+            >
+              <MapPin size={14} color={BRAND_PRIMARY} aria-hidden="true" />
+            </div>
+          );
+        })()}
       </div>
 
       {/* Insight callouts: best, worst, opportunity */}
