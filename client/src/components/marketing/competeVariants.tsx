@@ -1116,17 +1116,6 @@ export function CompeteCoverage() {
 //  same and the SVG scales with its square container.
 // ════════════════════════════════════════════════════════════════════════
 
-/** Short labels for the ringed badges — full CAP labels overlap at this size. */
-const CAP_SHORT = [
-  "Quotes",
-  "24/7 calls",
-  "Reviews",
-  "Local SEO",
-  "Paid ads",
-  "Booking",
-  "Website",
-];
-
 /* ── Radar / spider-chart coverage geometry (Cycode-reference data-viz) ──
  * N axes (one per capability) on a 280×280 viewBox. Each axis carries a 0–1
  * value: the "your coverage" polygon grows toward the outer ring (= what the
@@ -1186,9 +1175,9 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
         position: "fixed",
         inset: 0,
         zIndex: 1000,
-        background: "rgba(8,10,12,0.66)",
-        backdropFilter: "blur(2px)",
-        WebkitBackdropFilter: "blur(2px)",
+        background: "rgba(8,10,12,0.88)",
+        backdropFilter: "blur(3px)",
+        WebkitBackdropFilter: "blur(3px)",
         display: "grid",
         placeItems: "center",
         padding: 16,
@@ -1298,8 +1287,7 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
         <p style={{ marginTop: 14, marginBottom: 0, fontSize: 13.5, lineHeight: 1.5, color: mkt.textMuted }}>
           It&apos;s not just famous names — anyone with a real ad budget, a
           marketing team, and custom software.{" "}
-          <strong style={{ color: mkt.onDark }}>WeFixTrades gives you the same toolkit</strong>{" "}
-          from ~{PRICE}/mo.
+          <strong style={{ color: mkt.onDark }}>WeFixTrades gives you the same toolkit.</strong>
         </p>
       </div>
     </div>
@@ -1322,48 +1310,38 @@ export function CompeteCoverageMap() {
 
   return (
     <section
+      className="ccm-section"
       style={{ background: mkt.bg, padding: SECTION_PAD }}
       aria-label="Compete with the big brands — claim the map"
     >
       {modal && <BigBrandsModal onClose={() => setModal(false)} />}
-      <style>{`@media (max-width: 640px) { .ccm-radar-card { grid-template-columns: 1fr !important; } }`}</style>
+      <style>{`
+        .ccm-badge:hover {
+          transform: translate(-50%, -50%) scale(1.12) !important;
+          box-shadow: 0 6px 16px rgba(13,60,252,0.40) !important;
+          z-index: 4;
+        }
+        @media (max-width: 640px) {
+          .ccm-section { padding-left: 8px !important; padding-right: 8px !important; }
+          .ccm-radar-card { padding: 22px 10px 18px !important; }
+          .ccm-badge { width: 32px !important; height: 32px !important; }
+        }
+      `}</style>
 
       <div style={{ maxWidth: 880, margin: "0 auto" }}>
         <Eyebrow>Close the gap</Eyebrow>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <h2
-            style={{
-              fontSize: "clamp(26px, 4vw, 42px)",
-              fontWeight: 800,
-              color: mkt.onDark,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.1,
-              margin: 0,
-            }}
-          >
-            Claim everything the big brands cover
-          </h2>
-          <button
-            type="button"
-            onClick={() => setModal(true)}
-            aria-label="Who are the big brands?"
-            style={{
-              flexShrink: 0,
-              width: 24,
-              height: 24,
-              borderRadius: 999,
-              border: `1px solid ${mkt.cardBorder}`,
-              background: "transparent",
-              color: mkt.textMuted,
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-              lineHeight: 1,
-            }}
-          >
-            ?
-          </button>
-        </div>
+        <h2
+          style={{
+            fontSize: "clamp(26px, 4vw, 42px)",
+            fontWeight: 800,
+            color: mkt.onDark,
+            letterSpacing: "-0.03em",
+            lineHeight: 1.1,
+            margin: 0,
+          }}
+        >
+          Claim everything the big brands cover
+        </h2>
         <div style={{ height: 18 }} />
 
         {/* Radar / spider-chart coverage widget — light card with the spider
@@ -1374,18 +1352,49 @@ export function CompeteCoverageMap() {
           className="ccm-radar-card"
           data-theme="light"
           style={{
+            position: "relative",
             background: "#ffffff",
             border: `1px solid ${mkt.cardBorder}`,
             borderRadius: 18,
-            padding: "clamp(16px, 3vw, 26px)",
+            padding: "clamp(32px, 4vw, 44px) clamp(16px, 3vw, 26px) clamp(24px, 3vw, 32px)",
             boxShadow: "0 18px 50px rgba(8,12,30,0.18)",
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 0.95fr)",
-            gap: "clamp(14px, 2.5vw, 28px)",
-            alignItems: "center",
           }}
         >
-          <div style={{ position: "relative", width: "100%", maxWidth: 360, margin: "0 auto" }}>
+          {/* Help cue — top-right corner. Opens the "big brands" modal. */}
+          <button
+            type="button"
+            onClick={() => setModal(true)}
+            aria-label="Who are the big brands?"
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              zIndex: 5,
+              width: 26,
+              height: 26,
+              borderRadius: 999,
+              border: `1.5px solid ${mkt.accent}`,
+              background: "#ffffff",
+              color: mkt.accent,
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: "pointer",
+              lineHeight: 1,
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            ?
+          </button>
+
+          {/* Radar stage — spider chart ringed by 7 clickable capability
+              badges (blue + white). Tapping a badge claims that axis (the
+              action the old stats list carried); the coverage polygon springs
+              out toward it. Replaces the side stats list entirely. */}
+          <div
+            className="ccm-radar-stage"
+            style={{ position: "relative", width: "100%", maxWidth: 400, margin: "0 auto", aspectRatio: "1 / 1" }}
+          >
             <svg
               viewBox={`0 0 ${RADAR.vb} ${RADAR.vb}`}
               width="100%"
@@ -1427,35 +1436,14 @@ export function CompeteCoverageMap() {
                   />
                 );
               })}
-              {CAPS.map((_, i) => {
-                const [x, y] = radarPt(i, 1.22);
-                const anchor = x < RADAR.cx - 4 ? "end" : x > RADAR.cx + 4 ? "start" : "middle";
-                return (
-                  <text
-                    key={i}
-                    x={x}
-                    y={y}
-                    textAnchor={anchor}
-                    dominantBaseline="middle"
-                    fontFamily={MONO}
-                    fontSize={8}
-                    fontWeight={700}
-                    fill="rgba(8,12,30,0.55)"
-                    style={{ letterSpacing: "0.04em", textTransform: "uppercase" }}
-                  >
-                    {CAP_SHORT[i]}
-                  </text>
-                );
-              })}
             </svg>
-          </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: mkt.accent, marginBottom: 2 }}>
-              Big-brand coverage
-            </div>
+            {/* Capability badges — one per axis, positioned just outside the
+                outer ring. Click = claim(i) (same as the removed list rows). */}
             {CAPS.map((cap, i) => {
               const isClaimed = claimed.has(i);
+              const [bx, by] = radarPt(i, 1.18);
+              const { Icon } = cap;
               return (
                 <button
                   key={cap.label}
@@ -1463,20 +1451,40 @@ export function CompeteCoverageMap() {
                   onClick={() => claim(i)}
                   aria-pressed={isClaimed}
                   aria-label={`${cap.label}${isClaimed ? " — covered" : " — tap to cover"}`}
-                  style={{ display: "flex", alignItems: "center", gap: 9, background: "transparent", border: "none", padding: 0, cursor: isClaimed ? "default" : "pointer", textAlign: "left", width: "100%" }}
+                  title={cap.label}
+                  className="ccm-badge"
+                  style={{
+                    position: "absolute",
+                    left: `${(bx / RADAR.vb) * 100}%`,
+                    top: `${(by / RADAR.vb) * 100}%`,
+                    transform: "translate(-50%, -50%)",
+                    width: 36,
+                    height: 36,
+                    borderRadius: 999,
+                    display: "grid",
+                    placeItems: "center",
+                    padding: 0,
+                    cursor: isClaimed ? "default" : "pointer",
+                    background: isClaimed ? mkt.accent : "#ffffff",
+                    border: `2px solid ${mkt.accent}`,
+                    boxShadow: isClaimed
+                      ? "0 4px 12px rgba(13,60,252,0.35)"
+                      : "0 2px 6px rgba(8,12,30,0.12)",
+                    transition: "transform 160ms ease, box-shadow 160ms ease, background 200ms ease",
+                  }}
                 >
-                  <span style={{ flexShrink: 0, width: 16, height: 16, borderRadius: 5, display: "grid", placeItems: "center", background: isClaimed ? mkt.accent : "rgba(8,12,30,0.06)", color: "#ffffff" }}>
-                    {isClaimed && <Check size={12} strokeWidth={3} />}
-                  </span>
-                  <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 600, color: "#0b1220", minWidth: 58, whiteSpace: "nowrap" }}>{CAP_SHORT[i]}</span>
-                  <span style={{ flex: 1, height: 6, borderRadius: 999, background: "rgba(8,12,30,0.08)", overflow: "hidden" }}>
-                    <motion.span
-                      style={{ display: "block", height: "100%", borderRadius: 999, background: mkt.accent }}
-                      initial={false}
-                      animate={{ width: isClaimed ? "100%" : `${Math.round(RADAR_BASE[i] * 100)}%` }}
-                      transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 20 }}
-                    />
-                  </span>
+                  <motion.span
+                    initial={false}
+                    animate={
+                      isClaimed
+                        ? { scale: [1, 1.35, 1], rotate: [0, -10, 10, 0] }
+                        : { scale: 1, rotate: 0 }
+                    }
+                    transition={reduced ? { duration: 0 } : { duration: 0.45, ease: "easeOut" }}
+                    style={{ display: "grid", placeItems: "center" }}
+                  >
+                    <Icon size={16} strokeWidth={2.2} color={isClaimed ? "#ffffff" : mkt.accent} />
+                  </motion.span>
                 </button>
               );
             })}
