@@ -202,9 +202,10 @@ const CSS = `
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 .ft-mega__item:hover .ft-mega__item-icon {
-  color: ${mkt.accent};
-  border-color: rgba(13, 60, 252, 0.45);
-  box-shadow: 0 4px 12px rgba(13, 60, 252, 0.15);
+  background: ${mkt.accent};
+  border-color: ${mkt.accent};
+  color: rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 12px rgba(13, 60, 252, 0.30);
 }
 
 .ft-mega__item-label {
@@ -259,14 +260,14 @@ const CSS = `
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: ${mkt.accent};
+  color: rgba(255, 255, 255, 1);
   text-decoration: none;
-  border: 1px solid ${mkt.onDarkBorder};
-  background: rgba(13, 60, 252, 0.06);
+  border: 1px solid ${mkt.accent};
+  background: ${mkt.accent};
   transition: background 180ms ease, border-color 180ms ease;
 }
 .ft-mega__seeall:hover {
-  background: rgba(13, 60, 252, 0.12);
+  background: rgba(13, 60, 252, 0.85);
   border-color: ${mkt.accent};
 }
 .ft-mega__seeall-arrow {

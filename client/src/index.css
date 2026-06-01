@@ -2647,13 +2647,14 @@
 .mkt-menu-card:hover .mkt-menu-card-icon,
 .mkt-menu-card:active .mkt-menu-card-icon,
 .mkt-menu-card:focus-visible .mkt-menu-card-icon {
-  /* Stays a white tile on hover (blue icon needs the white field) — just
-     lifts and brightens the blue border. */
-  background: rgba(255, 255, 255, 1);
-  border-color: rgba(13, 60, 252, 0.45);
+  /* Hover fills the tile brand-blue and flips the icon white (the icon color
+     is set inline on the consumer, so !important is needed to override it). */
+  background: rgba(13, 60, 252, 1);
+  border-color: rgba(13, 60, 252, 1);
+  color: rgba(255, 255, 255, 1) !important;
   filter: none;
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 20px rgba(13, 60, 252, 0.18);
+  box-shadow: 0 8px 20px rgba(13, 60, 252, 0.30);
 }
 
 
