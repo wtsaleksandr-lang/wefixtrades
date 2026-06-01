@@ -237,18 +237,21 @@ export default function ReviewsSection() {
           <Link
             href="/tools/free-audit"
             data-testid="reviews-cta-start"
-            className="mkt-btn-primary reviews-cta-btn"
+            className="reviews-cta-btn wft-hover-border-white"
             style={{
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
               height: 48,
               padding: "0 18px",
+              borderRadius: 10,
+              /* Brand-blue primary (was the deprecated cream mkt-btn-primary,
+                 which clashed with the site's blue CTAs) — Alex. */
+              background: mkt.accent,
+              color: mkt.onDark,
               fontSize: 15,
-              fontWeight: 500,
+              fontWeight: 600,
               textDecoration: "none",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
               flex: "1 1 0",
               minWidth: 0,
               whiteSpace: "nowrap",
