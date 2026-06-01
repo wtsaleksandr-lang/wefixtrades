@@ -105,7 +105,7 @@ function FreeToolsItem({
       data-testid={`nav-free-tools-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
     >
       <span className="ft-mega__item-icon" aria-hidden>
-        <NavIcon icon={item.icon} />
+        <NavIcon icon={item.icon} size={16} strokeWidth={1.9} />
       </span>
       <span className="ft-mega__item-label">{item.label}</span>
     </Link>
@@ -190,13 +190,21 @@ const CSS = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  color: ${mkt.onDarkMuted};
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  /* White square badge + brand-blue icon — matches the product/resource
+     dropdown card badges so Free Tools reads consistently. */
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(13, 60, 252, 0.18);
+  color: ${mkt.accent};
   flex-shrink: 0;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 .ft-mega__item:hover .ft-mega__item-icon {
   color: ${mkt.accent};
+  border-color: rgba(13, 60, 252, 0.45);
+  box-shadow: 0 4px 12px rgba(13, 60, 252, 0.15);
 }
 
 .ft-mega__item-label {
