@@ -36,6 +36,10 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { AlertCircle, ArrowRight, Star, Trophy } from "lucide-react";
 import { BarComparisonCard } from "@/components/ui/visual-primitives";
+import {
+  fitRankGridMap,
+  rankPinColor,
+} from "@/components/marketing/map-snapshot/rankGridProjection";
 
 const TOOL_PATH = "/tools/local-rank-grid";
 
@@ -104,24 +108,6 @@ interface RankGridResult {
   competitors: Competitor[];
 }
 
-/**
- * Map a rank to the heatmap color band. Mirrors the rank legend in the
- * FAQ + below the grid. Greens are Local-Pack territory (1-3), yellows
- * are page-1-but-below-the-pack (4-10), orange is deep results (11-20),
- * red is "we couldn't find you at all from this point".
- *
- * Note (color guard): these are data-vis tokens — rank-band colors are
- * a fixed semantic palette akin to traffic-light coding. Acceptable per
- * the project rule: hardcoded colors only where they encode meaning
- * that has no token (rank bands, gauge bands).
- */
-function rankColor(rank: number | null): { bg: string; fg: string; label: string } {
-  if (rank == null) return { bg: "#DC2626", fg: "rgb(255,255,255)", label: "—" };
-  if (rank <= 3) return { bg: "#16A34A", fg: "rgb(255,255,255)", label: String(rank) };
-  if (rank <= 10) return { bg: "#EAB308", fg: "#111827", label: String(rank) };
-  return { bg: "#F97316", fg: "rgb(255,255,255)", label: String(rank) };
-}
-
 export default function LocalRankGrid() {
   const [businessName, setBusinessName] = useState("");
   const [city, setCity] = useState("");
@@ -131,6 +117,8 @@ export default function LocalRankGrid() {
   const [result, setResult] = useState<RankGridResult | null>(null);
   /** Which grid cell index (0-24) currently shows its hover popover. */
   const [hoveredCell, setHoveredCell] = useState<number | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
 
   const faqSchemaItems = useMemo(() => FAQ_ITEMS.map((f) => ({ question: f.question, answer: f.answer })), []);
   useFaqSchema(faqSchemaItems);
@@ -246,8 +234,8 @@ export default function LocalRankGrid() {
       boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(13,60,252)" }}>
-          Rank grid snapshot
+        <div style={{ fontSize: 15, fontWeight: 800, color: "rgb(30,30,30)" }}>
+          Results for: <span style={{ color: "rgb(13,60,252)" }}>&ldquo;{keyword}&rdquo;</span>
         </div>
         <div style={{ fontSize: 13, color: "rgba(0,0,0,0.65)" }}>
           <strong style={{ color: "rgb(22,163,74)" }}>{result.summary.top3Count}</strong> in Local Pack ·{" "}
@@ -269,117 +257,178 @@ export default function LocalRankGrid() {
         className="rankgrid-result-grid"
       >
         <div>
-          {/* Average rank widget (top-left of the grid area). */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "12px 14px",
-              borderRadius: 14,
-              background: "rgba(13,60,252,0.04)",
-              border: "1px solid rgba(13,60,252,0.14)",
-              marginBottom: 12,
-            }}
-          >
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.55)" }}>
-                Average rank
-              </div>
-              <div style={{ fontSize: 32, fontWeight: 900, color: "rgb(17,24,39)", lineHeight: 1.1 }} data-testid="text-rankgrid-avg">
-                {result.summary.avgRank != null ? result.summary.avgRank.toFixed(1) : "—"}
-              </div>
-              <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)", marginTop: 2 }}>
-                across 25 scan points
-              </div>
-            </div>
-            {inTop3Anywhere && (
+          {/* Real Google map (server-proxied) with geo-projected rank pins —
+              matches the canonical audit geo-grid design. Each pin is hoverable;
+              on hover a floating card lists the top-3 Local Pack businesses at
+              that exact lat/lng. Degrades to a neutral background if the proxy
+              fails. */}
+          {(() => {
+            const SM_W = 600;
+            const SM_H = 440;
+            const fit = fitRankGridMap(result.gridPoints, SM_W, SM_H);
+            return (
               <div
-                data-testid="badge-rankgrid-top3"
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  background: "rgba(22,163,74,0.12)",
-                  color: "rgb(22,163,74)",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  border: "1px solid rgba(22,163,74,0.32)",
+                  position: "relative",
+                  width: "100%",
+                  aspectRatio: `${SM_W} / ${SM_H}`,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  background: "rgb(238,242,247)",
+                  marginBottom: 12,
                 }}
+                aria-label="Rank grid map"
+                role="img"
               >
-                <Trophy size={12} /> Top 3
-              </div>
-            )}
-          </div>
+                {!mapFailed && (
+                  <img
+                    src={fit.src(SM_W, SM_H)}
+                    alt=""
+                    aria-hidden="true"
+                    onLoad={() => setMapLoaded(true)}
+                    onError={() => setMapFailed(true)}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      opacity: mapLoaded ? 1 : 0,
+                      transition: "opacity 400ms ease",
+                    }}
+                  />
+                )}
 
-          {/* Heatmap. Each cell is hoverable — on hover we show a small
-              floating card with the top-3 Local Pack businesses for that
-              exact lat/lng. The popover anchors to the cell via
-              position:relative on the cell + position:absolute on the
-              card. Click anywhere else (or mouse-leave) to dismiss. */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(5, 1fr)",
-              gap: 6,
-              aspectRatio: "1 / 1",
-              maxWidth: 420,
-              margin: "0 auto",
-              position: "relative",
-            }}
-            aria-label="5 by 5 rank grid heatmap"
-            role="img"
-          >
-            {result.gridPoints.map((p, i) => {
-              // mapRank is preferred (Local Pack rank) — fall back to organic
-              // rank for the color cell when the business isn't in the Maps
-              // results but does appear in organic.
-              const display = p.mapRank ?? p.rank;
-              const c = rankColor(display);
-              const isHovered = hoveredCell === i;
-              return (
+                {/* Average Map Rank badge */}
                 <div
-                  key={i}
-                  data-testid={`rankgrid-cell-${i}`}
-                  onMouseEnter={() => setHoveredCell(i)}
-                  onMouseLeave={() => setHoveredCell((prev) => (prev === i ? null : prev))}
-                  onClick={() => setHoveredCell((prev) => (prev === i ? null : i))}
                   style={{
-                    background: c.bg,
-                    color: c.fg,
-                    borderRadius: 10,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 800,
-                    fontSize: 18,
-                    aspectRatio: "1 / 1",
-                    // DESIGN-SYSTEM: selected = OUTLINE not bright fill.
-                    boxShadow: isHovered
-                      ? "0 0 0 2px rgb(13,60,252), 0 6px 18px rgba(0,0,0,0.18)"
-                      : "inset 0 0 0 1px rgba(0,0,0,0.08)",
-                    position: "relative",
-                    cursor: "pointer",
-                    transition: "box-shadow 0.12s ease",
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    zIndex: 3,
+                    background: rankPinColor(result.summary.avgRank ?? 1),
+                    borderRadius: 12,
+                    padding: "8px 12px",
+                    color: "rgb(255,255,255)",
+                    boxShadow: "0 4px 12px rgba(15,23,42,0.18)",
+                    textAlign: "center",
+                    minWidth: 64,
                   }}
-                  title={`Lat ${p.lat.toFixed(4)}, Lng ${p.lng.toFixed(4)}`}
                 >
-                  {c.label}
-                  {isHovered && (
-                    <GridPinPopover
-                      point={p}
-                      displayRank={display}
-                      cellIndex={i}
-                    />
-                  )}
+                  <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1 }} data-testid="text-rankgrid-avg">
+                    {result.summary.avgRank != null ? result.summary.avgRank.toFixed(1) : "—"}
+                  </div>
+                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", marginTop: 3, opacity: 0.95 }}>
+                    Average Map Rank
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+
+                {inTop3Anywhere && (
+                  <div
+                    data-testid="badge-rankgrid-top3"
+                    style={{
+                      position: "absolute",
+                      top: 10,
+                      right: 10,
+                      zIndex: 3,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      background: "rgba(22,163,74,0.92)",
+                      color: "rgb(255,255,255)",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      boxShadow: "0 2px 8px rgba(15,23,42,0.18)",
+                    }}
+                  >
+                    <Trophy size={12} /> Top 3
+                  </div>
+                )}
+
+                {/* Numbered, color-coded rank pins */}
+                {result.gridPoints.map((p, i) => {
+                  // mapRank preferred (Local Pack) — fall back to organic rank.
+                  const display = p.mapRank ?? p.rank;
+                  const px = fit.project(p.lat, p.lng);
+                  const isHovered = hoveredCell === i;
+                  return (
+                    <div
+                      key={i}
+                      data-testid={`rankgrid-cell-${i}`}
+                      onMouseEnter={() => setHoveredCell(i)}
+                      onMouseLeave={() => setHoveredCell((prev) => (prev === i ? null : prev))}
+                      onClick={() => setHoveredCell((prev) => (prev === i ? null : i))}
+                      style={{
+                        position: "absolute",
+                        left: `${(px.x / SM_W) * 100}%`,
+                        top: `${(px.y / SM_H) * 100}%`,
+                        transform: "translate(-50%, -50%)",
+                        zIndex: isHovered ? 6 : 2,
+                        width: "clamp(22px, 4.6vw, 30px)",
+                        height: "clamp(22px, 4.6vw, 30px)",
+                        borderRadius: 999,
+                        background: rankPinColor(display),
+                        color: "rgb(255,255,255)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 800,
+                        fontSize: "clamp(10px, 2vw, 13px)",
+                        // DESIGN-SYSTEM: selected = OUTLINE not bright fill.
+                        border: isHovered
+                          ? "2px solid rgb(13,60,252)"
+                          : "1.5px solid rgba(255,255,255,0.92)",
+                        boxShadow: isHovered
+                          ? "0 0 0 2px rgb(13,60,252), 0 6px 18px rgba(0,0,0,0.22)"
+                          : "0 1px 3px rgba(15,23,42,0.35)",
+                        cursor: "pointer",
+                        transition: "box-shadow 0.12s ease, border-color 0.12s ease",
+                      }}
+                      title={`Lat ${p.lat.toFixed(4)}, Lng ${p.lng.toFixed(4)}`}
+                    >
+                      {display == null ? "—" : display}
+                      {isHovered && (
+                        <GridPinPopover
+                          point={p}
+                          displayRank={display}
+                          cellIndex={i}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* City-center marker */}
+                {(() => {
+                  const px = fit.project(result.center.lat, result.center.lng);
+                  return (
+                    <div
+                      aria-label="City center"
+                      title={result.center.address || "City center"}
+                      style={{
+                        position: "absolute",
+                        left: `${(px.x / SM_W) * 100}%`,
+                        top: `${(px.y / SM_H) * 100}%`,
+                        transform: "translate(-50%, -50%)",
+                        zIndex: 4,
+                        width: 14,
+                        height: 14,
+                        borderRadius: 999,
+                        background: "rgb(13,60,252)",
+                        border: "2px solid rgb(255,255,255)",
+                        boxShadow: "0 2px 6px rgba(15,23,42,0.35)",
+                      }}
+                    />
+                  );
+                })()}
+              </div>
+            );
+          })()}
 
           <div style={{ marginTop: 16, display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", fontSize: 11, color: "rgba(0,0,0,0.6)" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
