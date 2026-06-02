@@ -692,20 +692,19 @@ const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
 });
 
 /**
- * BD-2a-sticky — bottom-stuck action footer with a fold/unfold toggle.
+ * BD-2a-sticky — bottom-stuck action footer.
  *
- * Renders the primary action buttons for the current step (Back / Next /
- * Submit, or the contact step's hard CTAs). A chevron toggle in the top-
- * right collapses the bar to a ~32px micro-summary strip showing the
- * running quote estimate (`Est. $2,400 – $2,800`); tapping anywhere on the
- * collapsed strip (or the chevron) restores the full bar.
+ * The primary action buttons (Back / Next / Submit, or the contact step's
+ * hard CTAs) are ALWAYS visible — the bar never hides the CTA. On desktop
+ * (>=480px) the full bar always shows with no chevron. On narrow mobile
+ * (<480px) a chevron collapses ONLY the reassurance rows (trust block +
+ * "Powered by") into a compact running-estimate strip
+ * (`Est. $2,400 – $2,800`) so the bar doesn't gobble the screen; tapping the
+ * strip or the chevron restores them. The buttons stay put either way.
  *
  * Persisted: fold state writes to `localStorage` under
- * `qq-foot-fold-${calculatorId}` so a returning customer sees their
- * preference. Default = unfolded.
- *
- * Motion: 200ms ease-out height transition; respects
- * `prefers-reduced-motion` (instant snap, no animation).
+ * `qq-foot-fold-${calculatorId}` so a returning mobile customer sees their
+ * preference. Default = folded on first mobile visit (BH-1), unfolded otherwise.
  *
  * iOS safe area: bottom padding uses
  * `max(12px, env(safe-area-inset-bottom))` so the bar clears the home
@@ -767,86 +766,54 @@ function StickyActionBar({
     catch { /* quota / private mode — ignore */ }
   }, [folded, storageKey]);
 
-  // Reduced-motion handling — read at render-time so the OS preference is
-  // respected live (no stale mount-time snapshot).
-  const prefersReducedMotion =
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // BH-2 — desktop never folds. The fold affordance only exists on narrow
+  // (<480px) viewports where the reassurance rows would otherwise gobble the
+  // screen. On desktop the full bar always shows (no chevron). Live-tracked so
+  // a resize across the breakpoint flips behaviour without a reload.
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(max-width: 479px)').matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(max-width: 479px)');
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
-  const transition = prefersReducedMotion
-    ? 'none'
-    : 'height 200ms ease-out, padding 200ms ease-out';
+  // The primary actions (Back / Continue) are ALWAYS rendered — the fold only
+  // ever collapses the reassurance rows (trust block + "Powered by"), never the
+  // CTA. On mobile, folded swaps those rows for the compact estimate strip.
+  const showFoldToggle = isMobile;
+  const showDetail = !isMobile || !folded;
 
-  // The bar's height is driven by content (auto) when unfolded and a fixed
-  // 32px strip when folded. We animate via max-height — a fixed auto target
-  // wouldn't transition cleanly. Folded uses `height: 32px`; unfolded uses
-  // a generous max-height the content will never exceed.
   return (
     <div
       data-testid="advanced-sticky-bottom"
       data-component-name="Sticky bottom"
-      data-folded={folded ? 'true' : 'false'}
+      data-folded={isMobile && folded ? 'true' : 'false'}
       style={{
         position: 'sticky', bottom: 0, zIndex: 40,
         background: theme.surface,
         borderTop: '1px solid rgba(0,0,0,0.06)',
         // iOS safe area — clears the home indicator on Safari + PWA.
         paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
-        paddingTop: folded ? 0 : 12,
+        paddingTop: 12,
         paddingLeft: 14, paddingRight: 14,
-        transition,
         fontFamily,
       }}
     >
-      {folded ? (
-        /* Folded strip — clickable anywhere to unfold. */
-        <button
-          type="button"
-          data-testid="advanced-sticky-bottom-unfold"
-          onClick={() => setFolded(false)}
-          aria-expanded="false"
-          // Wave 47 — bake the visible microSummary into the accessible
-          // name. The previous label "Show actions" hid the price summary
-          // that's visible on the bar, tripping axe-core's
-          // `label-content-name-mismatch` rule.
-          aria-label={`${microSummary} — show actions`}
-          style={{
-            width: '100%', height: 32,
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: 'transparent', border: 'none', cursor: 'pointer',
-            padding: 0, color: theme.text, fontFamily,
-          }}
-        >
-          <span style={{
-            fontSize: 12, fontWeight: 700, color: theme.textBody,
-            letterSpacing: '0.01em',
-          }}>
-            {microSummary}
-          </span>
-          <span aria-hidden="true" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 24, height: 24, borderRadius: 6,
-            color: theme.textMuted,
-          }}>
-            {/* chevron-up */}
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth={2.4}
-              strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 15l6-6 6 6" />
-            </svg>
-          </span>
-        </button>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+          {showFoldToggle && (
             <button
               type="button"
               data-testid="advanced-sticky-bottom-fold"
-              onClick={() => setFolded(true)}
-              aria-expanded="true"
-              aria-label="Hide actions"
+              onClick={() => setFolded((f) => !f)}
+              aria-expanded={!folded}
+              aria-label={folded ? 'Show details' : 'Hide details'}
               style={{
                 flexShrink: 0,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -855,25 +822,42 @@ function StickyActionBar({
                 color: theme.textMuted,
               }}
             >
-              {/* chevron-down */}
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+              {/* chevron-down when expanded (click to hide), up when folded (click to show) */}
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth={2.4}
-                strokeLinecap="round" strokeLinejoin="round">
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{ transition: 'transform 180ms ease', transform: folded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
-          </div>
-          {/* BD-2b — optional trust block (license #, insured-up-to, icon row)
-              renders only in the expanded state and only when the business
-              profile carries the relevant fields. Folded micro-summary stays
-              clean. */}
-          {trustBlock}
-          {/* BD-3k — optional footer slot ("Powered by WeFixTrades" badge).
-              Centred under the action buttons + trust block so it doesn't
-              compete with the primary CTA. */}
-          {footerSlot}
+          )}
         </div>
-      )}
+        {showDetail ? (
+          <>
+            {/* BD-2b — trust block (license #, insured-up-to, icon row) + BD-3k
+                footer slot ("Powered by WeFixTrades"). On desktop these always
+                show; on mobile they collapse behind the chevron. */}
+            {trustBlock}
+            {footerSlot}
+          </>
+        ) : (
+          /* Folded (mobile only) — compact running-estimate strip; tap to expand. */
+          <button
+            type="button"
+            data-testid="advanced-sticky-bottom-summary"
+            onClick={() => setFolded(false)}
+            aria-label={`${microSummary} — show details`}
+            style={{
+              alignSelf: 'flex-start',
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              padding: 0, color: theme.textBody, fontFamily,
+              fontSize: 12, fontWeight: 700, letterSpacing: '0.01em',
+            }}
+          >
+            {microSummary}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
