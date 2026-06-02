@@ -3727,10 +3727,12 @@ select:focus {
   margin: 0; font-size: 10.5px; line-height: 1.35; color: #3F4549;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.calx-cta { margin-top: auto; padding-top: 9px; display: flex; gap: 6px; align-items: center; }
+.calx-cta { margin-top: auto; padding-top: 11px; display: flex; gap: 8px; align-items: center; }
+/* CTA buttons match the AI-receptionist card (.airx-btn) sizing — a bit larger
+   than the rest of the compact card so they read as the primary action. */
 .calx-btn {
-  display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; font-weight: 700;
-  padding: 6px 10px; border-radius: 7px; font-family: inherit; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; font-weight: 700;
+  padding: 8px 13px; border-radius: 9px; font-family: inherit; text-decoration: none;
   transition: background 200ms ease, color 200ms ease;
 }
 .calx-try { background: var(--calx-accent, #0D3CFC); color: var(--calx-ink, rgba(255, 255, 255, 1)); border: 1.5px solid var(--calx-accent, #0D3CFC); }

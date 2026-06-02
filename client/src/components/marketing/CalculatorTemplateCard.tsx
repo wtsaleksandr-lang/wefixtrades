@@ -69,7 +69,7 @@ export default function CalculatorTemplateCard({ template, tryHref, useHref, new
             Try
           </Link>
           <Link className="calx-btn calx-use" href={useHref ?? `/wizard?template=${template.id}`} {...tabProps} aria-label={`Use ${template.name} template`} data-testid={`use-cta-${template.id}`}>
-            Use <ArrowRight size={12} />
+            Use <ArrowRight size={14} />
           </Link>
         </div>
       </div>
