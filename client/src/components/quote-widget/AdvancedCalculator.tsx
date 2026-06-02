@@ -2113,6 +2113,11 @@ export default function AdvancedCalculator({
           gap: 2px;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           align-content: start;
+          /* Center each field in its row so a short control (e.g. a toggle)
+             sits balanced next to a taller one (e.g. a multi-select with a
+             group label), instead of floating at the top — Alex's page-2
+             "selector fields misaligned". */
+          align-items: center;
           min-width: 0;
         }
         .${gridId}-fields > * { grid-column: span 2; min-width: 0; }
