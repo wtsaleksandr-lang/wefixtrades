@@ -798,14 +798,15 @@ function StickyActionBar({
       style={{
         position: 'sticky', bottom: 0, zIndex: 40,
         background: theme.surface,
-        borderTop: '1px solid rgba(0,0,0,0.06)',
         // iOS safe area — clears the home indicator on Safari + PWA.
         paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
         paddingTop: 12,
         paddingLeft: 14, paddingRight: 14,
-        // Round the bottom of the widget explicitly so the footer reads as a
-        // rounded panel even when it sticks during scroll (Alex).
-        borderBottomLeftRadius: radiusPx, borderBottomRightRadius: radiusPx,
+        // Footer is a fully-rounded panel (all four corners) with a 2px seam
+        // above it, so its top corners aren't sharp where it meets the body
+        // — matches the 2px-gap rounded-panel look (Alex).
+        borderRadius: radiusPx,
+        marginTop: 2,
         fontFamily,
       }}
     >
@@ -1952,10 +1953,11 @@ export default function AdvancedCalculator({
         style={{
           position: 'sticky', top: 0, zIndex: 40,
           background: c.surface,
-          borderBottom: '1px solid rgba(0,0,0,0.06)',
-          // Round the top of the widget explicitly so the header reads as a
-          // rounded panel even when it sticks during scroll (Alex).
-          borderTopLeftRadius: radiusOuterPx, borderTopRightRadius: radiusOuterPx,
+          // Header is a fully-rounded panel (all four corners) with a 2px seam
+          // below it, so its bottom corners aren't sharp where it meets the
+          // body — matches the 2px-gap rounded-panel look (Alex).
+          borderRadius: radiusOuterPx,
+          marginBottom: 2,
         }}
       >
       {/* ── Title bar (its own separated bar) ── */}
