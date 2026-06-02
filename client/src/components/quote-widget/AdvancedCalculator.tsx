@@ -2092,13 +2092,13 @@ export default function AdvancedCalculator({
         ${widgetWidthDesktopPx ? '@media (min-width: 560px) { [data-qq-width-scope="' + gridId + '"] { max-width: ' + widgetWidthDesktopPx + 'px !important; } }' : ''}
         .${gridId} {
           display: grid;
-          gap: 12px;
+          gap: 2px;
           padding: 2px;
           grid-template-columns: 1fr;
         }
         .${gridId}-fields {
           display: grid;
-          gap: 12px;
+          gap: 2px;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           align-content: start;
           min-width: 0;
@@ -2112,17 +2112,17 @@ export default function AdvancedCalculator({
         }
         .${gridId}-result { align-self: start; min-width: 0; }
         @media (min-width: 560px) {
-          /* All-round 2px padding so the inner containers (fields + result
-             panel) nearly fill the widget body — only a thin 2px frame of the
-             body surface shows on every side (Alex). The 14px grid gap keeps
-             the input row separated from the result panel. */
-          .${gridId} { gap: 14px; padding: 2px; }
+          /* All-round 2px padding AND 2px grid gap so the inner containers
+             (fields + result panel) nearly fill the widget body — only a thin
+             2px seam of the body surface shows between and around every block
+             (Alex: "only a 2px gap of grey must remain", on every side). */
+          .${gridId} { gap: 2px; padding: 2px; }
           .${gridId}[data-layout="two-column"] {
             grid-template-columns: 1fr minmax(190px, 0.8fr);
           }
           .${gridId}[data-layout="multi-column"] .${gridId}-fields {
             grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 12px;
+            gap: 2px;
           }
           .${gridId}[data-layout="multi-column"] .${gridId}-fields > * { grid-column: auto; }
         }

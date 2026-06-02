@@ -108,8 +108,8 @@ export default function WidgetSelect({
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedLabel}</span>
         <ChevronDown
-          size={20}
-          strokeWidth={2.75}
+          size={24}
+          strokeWidth={3}
           style={{ color: theme.text, flexShrink: 0, transition: 'transform 200ms ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
           aria-hidden
         />
