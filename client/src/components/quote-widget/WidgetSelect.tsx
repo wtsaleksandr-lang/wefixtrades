@@ -13,7 +13,6 @@
  */
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
 import type { WidgetTheme } from './widgetThemes';
 
 export interface SelectOption { id: string; label: string }
@@ -107,12 +106,17 @@ export default function WidgetSelect({
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedLabel}</span>
-        <ChevronDown
-          size={24}
-          strokeWidth={3}
-          style={{ color: theme.text, flexShrink: 0, transition: 'transform 200ms ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        {/* Solid FILLED triangle (not a stroked chevron) so it can't disappear
+            on browsers/extensions/zoom that drop thin SVG strokes. */}
+        <svg
+          width={20}
+          height={20}
+          viewBox="0 0 24 24"
           aria-hidden
-        />
+          style={{ color: theme.text, flexShrink: 0, transition: 'transform 200ms ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        >
+          <path d="M7 10l5 5 5-5z" fill="currentColor" />
+        </svg>
       </button>
 
       {/* Floated title-in-field label (always floated for a select). */}
