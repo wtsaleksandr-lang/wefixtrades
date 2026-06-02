@@ -616,15 +616,14 @@
 .qq-w-float > input.qq-w-input,
 .qq-w-float > select.qq-w-input,
 .qq-w-float > textarea.qq-w-input {
-  /* Wave 59 — bumped padding-top 20→24px so the floated label
-   * (spanning ~y=4-15) has ~9px breathing room before the value text.
-   * Previously the gap was ~4px and the label felt visually glued to
-   * the value text (Alex's "label sits too close to the value"
-   * report — e.g. "Which sides should we clean?" / "Exterior only").
-   * Total input height stays 44px; padding-bottom drops 6→4px to keep
-   * the value vertically centered in the remaining content box. */
-  padding-top: 24px;
-  padding-bottom: 4px;
+  /* The value text sits below the floated label and is vertically centred in
+   * the space beneath it. `!important` is required because the inline
+   * `inputBase` style sets `padding: 0 14px`, which would otherwise zero out
+   * the vertical padding (the value then rode up against the label — Alex's
+   * "too high / too close to the title"). pt-pb ≈ 15 centres the 14px value
+   * in the region below the ~y4-15 floated label of the 44px field. */
+  padding-top: 20px !important;
+  padding-bottom: 5px !important;
 }
 .qq-w-float > label {
   position: absolute;
@@ -649,8 +648,12 @@
 .qq-w-float > textarea.qq-w-input:focus + label,
 .qq-w-float > textarea.qq-w-input:not(:placeholder-shown) + label {
   top: 4px;
-  font-size: 11px;
-  font-weight: 600;
+  /* Heavier + slightly larger + a soft shadow lifts the floated label off the
+   * field so it reads clearly WITHOUT changing its (accent) colour. */
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.015em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
   color: var(--qq-w-label-focus, #0d3cfc);
 }
 /* <select> doesn't honour :placeholder-shown — selects always have a
@@ -661,8 +664,10 @@
 }
 .qq-w-float > select.qq-w-input + label {
   top: 4px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.015em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
   color: var(--qq-w-label-focus, #0d3cfc);
 }
 
