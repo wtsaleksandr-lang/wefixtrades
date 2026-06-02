@@ -3410,8 +3410,11 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
                 cursor: locked ? 'not-allowed' : 'pointer',
                 opacity: locked ? 0.55 : 1,
                 border: 'none',
-                background: sel ? c.accentTint : (isOutline ? 'transparent' : c.surface),
-                boxShadow: sel ? `0 0 0 1.5px ${accent}`
+                // Selected = accent OUTLINE ring, NOT a bright fill (Alex's hard
+                // rule). Keep the same dark surface so the white label never
+                // drops onto a near-white accentTint and vanishes.
+                background: isOutline ? 'transparent' : c.surface,
+                boxShadow: sel ? `0 0 0 2px ${accent}`
                   : (isOutline ? `0 0 0 2px ${c.border}` : `0 0 0 1px ${c.border}`),
               }}>
               <span style={{

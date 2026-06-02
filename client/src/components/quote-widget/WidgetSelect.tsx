@@ -106,17 +106,22 @@ export default function WidgetSelect({
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedLabel}</span>
-        {/* Solid FILLED triangle (not a stroked chevron) so it can't disappear
-            on browsers/extensions/zoom that drop thin SVG strokes. */}
-        <svg
-          width={20}
-          height={20}
-          viewBox="0 0 24 24"
+        {/* Bold, high-contrast dropdown affordance: a visible chip with a large
+            solid triangle so it unmistakably reads as a dropdown on any theme.
+            A small grey chevron was too faint to notice (Alex). */}
+        <span
           aria-hidden
-          style={{ color: theme.text, flexShrink: 0, transition: 'transform 200ms ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          style={{
+            flexShrink: 0, width: 28, height: 28, borderRadius: 8,
+            display: 'grid', placeItems: 'center',
+            background: 'rgba(255,255,255,0.12)',
+            transition: 'transform 200ms ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          }}
         >
-          <path d="M7 10l5 5 5-5z" fill="currentColor" />
-        </svg>
+          <svg width={20} height={20} viewBox="0 0 24 24">
+            <path d="M5 9l7 8 7-8z" fill={theme.text} />
+          </svg>
+        </span>
       </button>
 
       {/* Floated title-in-field label (always floated for a select). */}
