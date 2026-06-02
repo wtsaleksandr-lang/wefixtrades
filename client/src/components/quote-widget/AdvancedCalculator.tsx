@@ -2109,7 +2109,7 @@ export default function AdvancedCalculator({
         .${gridId} {
           display: grid;
           gap: 12px;
-          padding: 16px 2px;
+          padding: 2px;
           grid-template-columns: 1fr;
         }
         .${gridId}-fields {
@@ -2128,11 +2128,11 @@ export default function AdvancedCalculator({
         }
         .${gridId}-result { align-self: start; min-width: 0; }
         @media (min-width: 560px) {
-          /* Horizontal padding trimmed to 2px so the inner containers (fields
-             + result panel) nearly fill the widget body — only a thin 2px frame
-             of the body surface shows on the sides (Alex). Vertical padding
-             kept for breathing room. */
-          .${gridId} { gap: 14px; padding: 20px 2px; }
+          /* All-round 2px padding so the inner containers (fields + result
+             panel) nearly fill the widget body — only a thin 2px frame of the
+             body surface shows on every side (Alex). The 14px grid gap keeps
+             the input row separated from the result panel. */
+          .${gridId} { gap: 14px; padding: 2px; }
           .${gridId}[data-layout="two-column"] {
             grid-template-columns: 1fr minmax(190px, 0.8fr);
           }
