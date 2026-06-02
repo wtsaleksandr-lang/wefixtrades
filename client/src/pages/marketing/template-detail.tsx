@@ -38,7 +38,7 @@ const SAMPLE_BUSINESS_PROFILE: BusinessProfile = {
   googleRating: 4.8,
   googleReviewCount: 187,
   yearsInBusiness: 9,
-  licenseNumber: "Sample - Demo Only",
+  licenseNumber: "1043829",
   insuredAmount: "Insured up to $2M",
   serviceArea: "Sample Service Area",
 };
