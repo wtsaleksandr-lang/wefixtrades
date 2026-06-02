@@ -116,6 +116,7 @@ function buildNavItems(active: Set<string>): NavItem[] {
        SaaS brand consistency) — customers see these brand names in billing,
        catalog, and marketing surfaces. */
     { label: "24/7 TradeLine", href: "/portal/tradeline/setup", icon: Phone, requires: "tradeline" },
+    { label: "AI Receptionists", href: "/portal/tradeline/receptionists", icon: Sparkles, indent: true, requires: "tradeline" },
     { label: "QuoteQuick", href: "/dashboard", icon: Calculator, requires: "quotequick" },
     { label: "ReputationShield", href: "/portal/reviews", icon: Star, requires: "reputationshield" },
     { label: "Review Widget", href: "/portal/reviews/widget", icon: Code, indent: true, requires: "reputationshield" },

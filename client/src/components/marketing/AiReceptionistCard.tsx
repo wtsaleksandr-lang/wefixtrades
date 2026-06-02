@@ -37,9 +37,14 @@ export interface AiReceptionistCardProps {
   readMoreNewTab?: boolean;
   /** Open the Call/Chat preview modal on the given tab. */
   onPreview?: (mode: "voice" | "chat", data: AiReceptionist) => void;
+  /** Portal "use this template" action. When set, the primary CTA becomes
+   *  "Use this" (configure the customer's TradeLine) instead of "Call". */
+  onUse?: (data: AiReceptionist) => void;
+  /** Label for the onUse primary CTA. Defaults to "Use this". */
+  useLabel?: string;
 }
 
-export default function AiReceptionistCard({ data, readMoreHref, readMoreNewTab, onPreview }: AiReceptionistCardProps) {
+export default function AiReceptionistCard({ data, readMoreHref, readMoreNewTab, onPreview, onUse, useLabel }: AiReceptionistCardProps) {
   const Icon = ICON_MAP[data.icon] ?? Phone;
 
   return (
@@ -77,11 +82,17 @@ export default function AiReceptionistCard({ data, readMoreHref, readMoreNewTab,
         <div className="airx-foot">{data.trainedLine}</div>
 
         <div className="airx-cta">
-          <button type="button" className="airx-btn airx-call" onClick={() => onPreview?.("voice", data)} aria-label={`Call the ${data.label} AI receptionist`}>
-            <Phone size={14} strokeWidth={2.2} /> Call
-          </button>
-          <button type="button" className="airx-btn airx-chat" onClick={() => onPreview?.("chat", data)} aria-label={`Chat with the ${data.label} AI receptionist`}>
-            <MessageCircle size={14} strokeWidth={2.2} /> Chat
+          {onUse ? (
+            <button type="button" className="airx-btn airx-call" onClick={() => onUse(data)} aria-label={`Use the ${data.label} AI receptionist`}>
+              <Check size={14} strokeWidth={2.6} /> {useLabel ?? "Use this"}
+            </button>
+          ) : (
+            <button type="button" className="airx-btn airx-call" onClick={() => onPreview?.("voice", data)} aria-label={`Call the ${data.label} AI receptionist`}>
+              <Phone size={14} strokeWidth={2.2} /> Call
+            </button>
+          )}
+          <button type="button" className="airx-btn airx-chat" onClick={() => onPreview?.("chat", data)} aria-label={`${onUse ? "Preview" : "Chat with"} the ${data.label} AI receptionist`}>
+            <MessageCircle size={14} strokeWidth={2.2} /> {onUse ? "Preview" : "Chat"}
           </button>
           <Link
             href={readMoreHref}
