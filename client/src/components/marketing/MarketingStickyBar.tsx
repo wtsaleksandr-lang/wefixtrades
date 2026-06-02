@@ -23,9 +23,10 @@ import { NAV_LINKS } from "@/site/navigation";
 import { useStickyBarVisible } from "@/hooks/useStickyBarVisible";
 
 // Pull the canonical entries for the items we want to surface — Products,
-// Solutions, Tools, Pricing — so the bottom bar inherits exactly what the
-// top nav shows.
-const PICK = ["Products", "Solutions", "Tools", "Pricing"] as const;
+// Free Tools, Solutions, Pricing — so the bottom bar inherits exactly what
+// the top nav shows. (Was "Tools", which matches no NAV_LINKS label — the
+// canonical label is "Free Tools" — so the entry silently dropped.)
+const PICK = ["Products", "Free Tools", "Solutions", "Pricing"] as const;
 const STICKY_LINKS = PICK
   .map((label) => NAV_LINKS.find((l) => l.label === label))
   .filter((x): x is (typeof NAV_LINKS)[number] => Boolean(x));
@@ -124,7 +125,7 @@ export default function MarketingStickyBar() {
             reachable via the top nav. */}
         <div className="mkt-sticky-menu-wrap">
           <Menu active={active} setActive={setActive} containerRef={innerRef}>
-            {STICKY_LINKS.map(({ label, href, children }) => (
+            {STICKY_LINKS.map(({ label, href, children, subgroups }) => (
               <MenuItem
                 key={href}
                 setActive={setActive}
@@ -132,6 +133,7 @@ export default function MarketingStickyBar() {
                 item={label}
                 href={href}
                 children={children}
+                subgroups={subgroups}
                 placement="above"
               />
             ))}

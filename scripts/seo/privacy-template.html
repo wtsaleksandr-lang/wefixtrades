@@ -1,17 +1,20 @@
 <!--
-  Wave 95 — static fallback template for /privacy.
+  Wave 101 — static (no-JS) content template for /privacy.
 
-  Used by scripts/seo/prerender-routes.mjs when the Playwright-driven
-  prerender path fails (e.g. headless Chromium can't launch because the
-  build env is missing system libs). This is a static template fallback
-  used when Playwright prerender is unavailable, NOT the canonical
-  source of the Privacy Policy — that is client/src/pages/marketing/privacy.tsx.
+  How this is used: scripts/seo/prerender-routes.mjs splices this file's
+  <head> SEO tags into the freshly-built SPA shell and inlines this file's
+  <body> inside <div id="root"> wrapped in <noscript>. Result: no-JS crawlers
+  (Bing, the LLM crawlers, and the A2P 10DLC / TCR vetting bot) see the full
+  policy text inline, while JS browsers boot the SPA and render the canonical
+  React page (client/src/pages/marketing/privacy.tsx) with the styled
+  LegalShell + table-of-contents.
 
-  Privacy + Terms are TCR-relevant: the A2P 10DLC vetting bot may inspect
-  these pages to verify business legitimacy. Keep this in sync with the
-  React component (privacy.tsx) when the policy content changes.
+  This is NOT the canonical source — privacy.tsx is. Keep this in sync with
+  privacy.tsx whenever the policy content changes (Privacy + Terms are
+  TCR-relevant: the A2P 10DLC vetting bot may inspect them to verify business
+  legitimacy).
 
-  Effective date: April 23, 2026. Last full review: 2026-04-23.
+  Effective date: June 1, 2026. Last full review: 2026-06-01.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -20,11 +23,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0B0F14" />
   <title>Privacy policy &middot; WeFixTrades</title>
-  <meta name="description" content="How WeFixTrades collects, uses, stores, and protects your data and the data of your customers." />
+  <meta name="description" content="How WeFixTrades collects, uses, stores, and protects your data and the data of your customers — including sign-in providers and our mobile app." />
   <meta name="robots" content="index,follow" />
   <link rel="canonical" href="https://wefixtrades.com/privacy" />
   <meta property="og:title" content="Privacy policy · WeFixTrades" />
-  <meta property="og:description" content="How WeFixTrades collects, uses, stores, and protects your data and the data of your customers." />
+  <meta property="og:description" content="How WeFixTrades collects, uses, stores, and protects your data and the data of your customers — including sign-in providers and our mobile app." />
   <meta property="og:url" content="https://wefixtrades.com/privacy" />
   <meta property="og:type" content="website" />
 </head>
@@ -32,7 +35,7 @@
   <div style="padding: 24px; max-width: 760px; margin: 0 auto; font-family: system-ui, sans-serif; line-height: 1.6; color: #0B0F14;">
     <h1>Privacy Policy &mdash; WeFixTrades</h1>
     <p>
-      <strong>Effective April 23, 2026.</strong> This Privacy Policy explains
+      <strong>Effective June 1, 2026.</strong> This Privacy Policy explains
       how MR Holdings &amp; Trade LLC (operating as "WeFixTrades")
       ("<strong>WeFixTrades</strong>", "<strong>we</strong>",
       "<strong>us</strong>", "<strong>our</strong>") collects, uses, shares,
@@ -61,7 +64,7 @@
       <li>Name, email, phone number, business name, trade type, service area</li>
       <li>Billing address and payment information (processed by Stripe &mdash; we don't store full card numbers)</li>
       <li>Onboarding form responses (services you offer, pricing, working hours, tone preferences)</li>
-      <li>Content you upload (logos, photos, brand assets, review templates)</li>
+      <li>Content you upload (logos, photos, brand assets, review templates, and files you attach in chat)</li>
       <li>Messages you send us (email, contact form, support tickets, phone call transcripts)</li>
     </ul>
     <p><strong>Information we collect automatically:</strong></p>
@@ -74,6 +77,7 @@
     </ul>
     <p><strong>Information we receive from third parties:</strong></p>
     <ul>
+      <li>Sign-in providers &mdash; Google, Microsoft, and Facebook/Meta &mdash; when you sign in with them (see section 6)</li>
       <li>Google (Business Profile data, Search Console metrics) when you connect these</li>
       <li>Meta (Facebook/Instagram Page info) when you connect these</li>
       <li>Stripe (payment confirmations, subscription status)</li>
@@ -110,17 +114,16 @@
     </p>
     <ul>
       <li><strong>Stripe</strong> &mdash; payment processing</li>
-      <li><strong>Anthropic</strong> &mdash; the AI that powers our assistants and content generation</li>
+      <li><strong>Anthropic / OpenAI</strong> &mdash; the AI that powers our assistants, content, and images</li>
       <li><strong>Vapi</strong> &mdash; voice AI for phone calls</li>
       <li><strong>Twilio</strong> &mdash; SMS (where applicable to a product you use)</li>
-      <li><strong>ElevenLabs</strong> &mdash; voice synthesis for TradeLine</li>
-      <li><strong>Deepgram</strong> &mdash; speech-to-text transcription</li>
+      <li><strong>ElevenLabs / Deepgram</strong> &mdash; voice synthesis and speech-to-text for TradeLine</li>
       <li><strong>SendGrid / SMTP providers</strong> &mdash; transactional email</li>
-      <li><strong>Google</strong> &mdash; Business Profile, Maps, analytics</li>
-      <li><strong>Meta</strong> &mdash; Facebook / Instagram posting APIs</li>
-      <li><strong>OpenAI</strong> &mdash; image generation for SocialSync</li>
+      <li><strong>Google</strong> &mdash; sign-in, Business Profile, Maps, analytics</li>
+      <li><strong>Microsoft</strong> &mdash; sign-in (identity)</li>
+      <li><strong>Meta</strong> &mdash; sign-in, Facebook / Instagram posting APIs</li>
       <li><strong>White-label service partners</strong> &mdash; third-party agencies and freelancers who fulfill specific services. We share only the minimum business info they need.</li>
-      <li><strong>Hosting and infrastructure providers</strong> &mdash; cloud hosting, database, monitoring</li>
+      <li><strong>Hosting and infrastructure providers</strong> &mdash; AWS (hosting), Cloudflare (CDN &amp; security), monitoring</li>
     </ul>
     <p>
       We may also share information: (a) with your consent; (b) to comply with
@@ -129,7 +132,34 @@
       &mdash; in which case we'll notify active customers before the transfer.
     </p>
 
-    <h2>5a. Google API Services &mdash; Limited Use disclosure</h2>
+    <h2>6. Signing in with Google, Microsoft &amp; Facebook</h2>
+    <p>
+      You can create or access your WeFixTrades account using <strong>"Sign in with
+      Google"</strong>, <strong>"Sign in with Microsoft"</strong>, or <strong>"Sign in
+      with Facebook"</strong>. When you do, we receive a limited set of profile
+      information from that provider &mdash; typically your <strong>name, email address, and a
+      profile identifier</strong> (and, where the provider supplies it, your profile
+      picture).
+    </p>
+    <p>
+      We use this only to create and secure your account and to sign you in. We do not
+      post to those accounts and do not access anything beyond basic profile information
+      through sign-in. (Connecting your Google Business Profile or Meta Pages to a
+      product is a separate step, covered in section 7 and section 5.)
+    </p>
+    <p>Your use of each provider's sign-in is also governed by that provider's own privacy policy:</p>
+    <ul>
+      <li>Google &mdash; <a href="https://policies.google.com/privacy">Google Privacy Policy</a></li>
+      <li>Microsoft &mdash; <a href="https://privacy.microsoft.com/privacystatement">Microsoft Privacy Statement</a></li>
+      <li>Facebook/Meta &mdash; <a href="https://www.facebook.com/privacy/policy">Meta Privacy Policy</a></li>
+    </ul>
+    <p>
+      You can disconnect WeFixTrades from your provider account at any time in that
+      provider's security settings, and you can request deletion of the data we hold &mdash;
+      see "Deleting your data" below.
+    </p>
+
+    <h2>7. Google API Services &mdash; Limited Use disclosure</h2>
     <p>
       When you connect your Google Business Profile to MapGuard, we receive
       data through Google API Services (specifically the <em>business.manage</em>
@@ -145,19 +175,19 @@
     <p>Concretely, this means we:</p>
     <ul>
       <li>Only use Google user data to provide and improve the user-facing features of MapGuard &mdash; visibility monitoring, automated Google Business posts, owner replies to reviews, and profile health alerts. We do not use this data for advertising, profiling, or any unrelated purpose.</li>
-      <li>Do not transfer Google user data to third parties except as necessary to provide and improve those features (for example, calling Anthropic's API to draft a review reply or post body &mdash; the AI provider never retains the data).</li>
-      <li>Do not allow humans to read your Google user data unless we have your explicit consent for a specific support case, it is necessary to investigate a security incident or comply with applicable law, or the data is aggregated and anonymized for usage analytics that don't identify any individual user.</li>
+      <li>Do not transfer Google user data to third parties except as necessary to provide and improve those features (for example, calling an AI provider's API to draft a review reply or post body &mdash; the AI provider never retains the data).</li>
+      <li>Do not allow humans to read your Google user data unless we have your explicit consent for a specific support case, it is necessary to investigate a security incident or comply with applicable law, or the data is aggregated and anonymized.</li>
       <li>Do not sell Google user data to anyone, ever.</li>
     </ul>
     <p>
       Google OAuth tokens are stored encrypted at rest and used only by the
       MapGuard service to publish posts, fetch reviews, and post owner replies
       on the schedule and conditions you've configured. You can revoke our
-      access any time from your Google account at
+      access any time at
       <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.
     </p>
 
-    <h2>6. How long we keep information</h2>
+    <h2>8. How long we keep information</h2>
     <p>We retain personal information for as long as your account is active or as needed to provide the Service, then:</p>
     <ul>
       <li><strong>Active accounts</strong> &mdash; data retained while the subscription is active</li>
@@ -166,9 +196,9 @@
       <li><strong>Call recordings and transcripts</strong> &mdash; retained by Vapi per their policy (typically 7 days; longer on paid retention)</li>
       <li><strong>Support emails</strong> &mdash; retained while you're a customer, then archived for 2 years</li>
     </ul>
-    <p>You can request earlier deletion &mdash; see "Your rights" below.</p>
+    <p>You can request earlier deletion &mdash; see "Deleting your data" below.</p>
 
-    <h2>7. Your rights</h2>
+    <h2>9. Your rights</h2>
     <p>Depending on where you live, you may have the right to:</p>
     <ul>
       <li>Access the personal information we hold about you</li>
@@ -194,30 +224,56 @@
       provincial privacy laws.
     </p>
 
-    <h2>8. Cookies and similar technologies</h2>
+    <h2>10. Deleting your data</h2>
+    <p>You can delete your WeFixTrades account and the personal data we hold at any time:</p>
+    <ul>
+      <li><strong>In the app:</strong> go to <em>Settings &rarr; Account</em> and choose "Delete account".</li>
+      <li><strong>By email:</strong> contact <a href="mailto:support@wefixtrades.com">support@wefixtrades.com</a> from (or naming) the email address on your account and ask us to delete your data.</li>
+    </ul>
+    <p>
+      We permanently delete or anonymize your personal data within <strong>30 days</strong>
+      of a verified request, except where we must retain certain records for legal,
+      tax, or accounting reasons (see section 8). If you signed in or connected via
+      Google, Microsoft, or Facebook/Meta, deleting your WeFixTrades account also removes
+      the profile data we received from them &mdash; and you can additionally revoke our access
+      in each provider's own settings.
+    </p>
+
+    <h2>11. Our mobile app</h2>
+    <p>
+      WeFixTrades is also available as a mobile app on the <strong>Apple App Store</strong>
+      (iOS) and <strong>Google Play</strong> (Android). The app follows the same privacy
+      practices described in this policy. In addition:
+    </p>
+    <ul>
+      <li>The app may collect device information and, with your permission, push-notification tokens and &mdash; only where a feature requires it (e.g. answering calls) &mdash; microphone access. It does not access your contacts, photos, or location unless you explicitly grant permission for a specific feature.</li>
+      <li>On iOS you can also use <strong>Sign in with Apple</strong>, which lets you hide your email from us via Apple's private email relay.</li>
+      <li>Our <strong>Apple App Privacy</strong> details and <strong>Google Play Data Safety</strong> disclosures are published on the respective store listings and reflect the practices in this policy.</li>
+      <li>Your use of the app is also subject to the Apple App Store and Google Play terms.</li>
+    </ul>
+
+    <h2>12. Cookies and similar technologies</h2>
     <p>
       We use strictly necessary cookies for login sessions and security. With
       your consent, we may also use analytics cookies to measure site
       performance. We don't use third-party advertising trackers (no Meta
-      Pixel, no Google Ads retargeting) on the public marketing site.
-    </p>
-    <p>
-      Within the customer portal, we use essential cookies required to keep
-      you signed in and to deliver the services you're paying for. These
-      can't be disabled without breaking the portal.
+      Pixel, no Google Ads retargeting) on the public marketing site. See our
+      full <a href="/cookies">Cookie Policy</a>.
     </p>
 
-    <h2>9. Security</h2>
+    <h2>13. Security</h2>
     <p>
       We protect personal information with industry-standard technical and
       organizational measures: TLS for data in transit, encryption at rest
       for sensitive fields (OAuth tokens, session data), access controls and
-      audit logging, and regular dependency patching. No system is perfect
+      audit logging, and regular dependency patching. Our infrastructure runs
+      on SOC 2 / ISO 27001-certified providers (AWS, Cloudflare) &mdash; see our
+      <a href="/security">Security page</a>. No system is perfect
       &mdash; if we experience a breach involving your personal information,
       we'll notify affected customers without undue delay as required by law.
     </p>
 
-    <h2>10. International transfers</h2>
+    <h2>14. International transfers</h2>
     <p>
       We operate out of the United States. If you access the Service from
       outside the US, you understand your information may be transferred to,
@@ -226,7 +282,7 @@
       Contractual Clauses with our processors where applicable.
     </p>
 
-    <h2>11. Children</h2>
+    <h2>15. Children</h2>
     <p>
       The Service is not directed to children under 16. We don't knowingly
       collect information from children. If you believe we've inadvertently
@@ -235,7 +291,7 @@
       and we'll delete it.
     </p>
 
-    <h2>12. Changes to this Policy</h2>
+    <h2>16. Changes to this Policy</h2>
     <p>
       We may update this Privacy Policy from time to time. If we make
       material changes, we'll notify active customers by email and post a
@@ -244,7 +300,7 @@
       policy.
     </p>
 
-    <h2>13. Contact</h2>
+    <h2>17. Contact</h2>
     <p>
       Questions about this Privacy Policy or our data practices? Email
       <a href="mailto:support@wefixtrades.com">support@wefixtrades.com</a>.
@@ -257,7 +313,7 @@
     </p>
 
     <p style="font-size: 12px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #ddd; color: #555;">
-      Last updated April 23, 2026. A Data Processing Addendum for
+      Last updated June 1, 2026. A Data Processing Addendum for
       GDPR-regulated customers is available on request.
     </p>
   </div>

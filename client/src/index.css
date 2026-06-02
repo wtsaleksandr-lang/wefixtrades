@@ -3593,3 +3593,84 @@ select:focus {
   color: var(--wft-mp-primary-ink);
 }
 
+/* ── AI Receptionist card (one reusable template, all trades) ──────────────
+   Pixel-faithful to the /case-studies StudyCard, with: a branded-blue
+   thumbnail whose bg is its own layer (so only the panel recedes + dims on
+   hover) and the worker zoomed just proud of the top edge (overflow visible,
+   stays inside the card); a per-trade badge that merges to just its white icon
+   on card hover; and Call/Chat CTAs that cross-swap colours on hover. */
+.airx-card {
+  position: relative; background: transparent;
+  border: 1px solid rgba(15, 20, 24, 0.10); border-radius: 18px; padding: 4px;
+  display: flex; flex-direction: column; min-height: 440px;
+  transition: background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(0);
+}
+.airx-card:hover { background: #D6DFE3; border-color: rgba(15, 20, 24, 0.18); transform: translateY(-3px); }
+
+.airx-thumb {
+  position: relative; width: 100%; height: 170px; flex-shrink: 0;
+  display: flex; align-items: flex-end; justify-content: center; overflow: visible;
+}
+.airx-bg {
+  position: absolute; inset: 0; background: #0D3CFC; border-radius: 14px; z-index: 0;
+  transform-origin: center bottom; transform: scale(1); opacity: 1;
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms ease;
+}
+.airx-card:hover .airx-bg { transform: scale(0.965); opacity: 0.55; }
+.airx-ph {
+  position: relative; z-index: 1; height: 164px; width: auto; display: block;
+  transform-origin: center bottom; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+  transform: scale(1); transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1), filter 320ms ease;
+}
+.airx-card:hover .airx-ph { transform: scale(1.05); filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.26)); }
+.airx-badge {
+  position: absolute; z-index: 2; top: 10px; left: 10px; width: 32px; height: 32px;
+  border-radius: 9px; background: rgba(255, 255, 255, 0.95); color: #0D3CFC;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  transition: background 260ms ease, color 260ms ease, box-shadow 260ms ease;
+}
+.airx-card:hover .airx-badge { background: transparent; color: rgba(255, 255, 255, 1); box-shadow: none; }
+
+.airx-content { padding: 14px 15px 14px; display: flex; flex-direction: column; gap: 9px; flex: 1; }
+.airx-tags { display: inline-flex; gap: 6px; align-items: center; }
+.airx-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: 10px; font-weight: 600;
+  letter-spacing: -0.02em; text-transform: uppercase; color: #0F1418;
+  background: rgba(15, 20, 24, 0.04); border: 1px solid rgba(15, 20, 24, 0.28);
+  padding: 4px 8px; border-radius: 6px;
+}
+.airx-gender {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase; color: #0D3CFC;
+  background: rgba(13, 60, 252, 0.08); border: 1px solid rgba(13, 60, 252, 0.30);
+  padding: 3px 7px; border-radius: 6px;
+}
+.airx-heading { margin: 0; font-size: 16.5px; font-weight: 800; color: #0F1418; line-height: 1.18; letter-spacing: -0.02em; }
+.airx-feats { display: flex; flex-direction: column; gap: 6px; margin-top: 1px; }
+.airx-feat { display: flex; gap: 7px; align-items: flex-start; font-size: 11.5px; line-height: 1.3; color: #3F4549; }
+.airx-feat svg { flex: 0 0 14px; color: #0D3CFC; margin-top: 1px; }
+.airx-foot {
+  margin-top: 2px; padding-top: 10px; font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9.5px; font-weight: 600; color: #4A5258; letter-spacing: 0.05em; text-transform: uppercase;
+  border-top: 1px solid rgba(15, 20, 24, 0.10);
+}
+.airx-cta { margin-top: auto; padding-top: 12px; display: flex; gap: 8px; align-items: center; }
+.airx-btn {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font-size: 12.5px; font-weight: 700; padding: 8px 13px; border-radius: 9px; font-family: inherit;
+  transition: background 200ms ease, color 200ms ease;
+}
+.airx-call { background: #0D3CFC; color: rgba(255, 255, 255, 1); border: 1.5px solid #0D3CFC; }
+.airx-call:hover { background: rgba(255, 255, 255, 1); color: #0D3CFC; }
+.airx-chat { background: rgba(255, 255, 255, 1); color: #0D3CFC; border: 1.5px solid #0D3CFC; }
+.airx-chat:hover { background: #0D3CFC; color: rgba(255, 255, 255, 1); }
+.airx-readmore {
+  margin-left: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; color: #3F4549; text-decoration: none;
+  border-bottom: 1px solid rgba(15, 20, 24, 0.28); transition: font-weight 120ms ease, color 200ms ease;
+}
+.airx-readmore:hover { font-weight: 800; color: #0F1418; }
+

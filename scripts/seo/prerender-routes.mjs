@@ -173,10 +173,28 @@ const STATIC_ROUTES = [
   "/sitemap",
   "/resources",
   "/contact",
+  // AI Receptionist templates — public SEO gallery (per-trade detail routes are
+  // appended dynamically from client/src/data/aiReceptionists.ts in main()).
+  "/ai-receptionists",
   "/privacy",
   "/terms",
   "/sms-consent-disclosure",
 ];
+
+async function loadReceptionistSlugs() {
+  // Extract the per-trade slugs from the AI receptionist catalogue so each
+  // trade gets a prerendered detail page for Bing + the LLM crawlers.
+  const p = path.join(REPO_ROOT, "client", "src", "data", "aiReceptionists.ts");
+  if (!existsSync(p)) return [];
+  const src = await readFile(p, "utf-8");
+  const slugs = [];
+  const re = /r\(\s*"[a-z0-9_]+"\s*,\s*"([a-z0-9-]+)"/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    if (!slugs.includes(m[1])) slugs.push(m[1]);
+  }
+  return slugs;
+}
 
 async function loadProductSlugs() {
   // Dynamically import the typed product config from the client.
@@ -408,16 +426,59 @@ const CRITICAL_TEMPLATE_FALLBACKS = {
   "/terms": "terms-template.html",
 };
 
-async function tryWriteTemplateFallback(route) {
+// Pull the SEO head tags (title, meta except charset/viewport/theme-color,
+// canonical link) out of a static template's <head> so they can be spliced
+// into the live SPA shell.
+function extractTemplateHeadTags(tpl) {
+  const headMatch = tpl.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+  const head = headMatch ? headMatch[1] : "";
+  const tags = [];
+  const titleM = head.match(/<title>[\s\S]*?<\/title>/i);
+  if (titleM) tags.push(titleM[0].trim());
+  for (const m of head.matchAll(/<meta\b[^>]*?>/gi)) {
+    const tag = m[0];
+    if (/\bcharset=/i.test(tag)) continue;
+    if (/name=["']viewport["']/i.test(tag)) continue;
+    if (/name=["']theme-color["']/i.test(tag)) continue;
+    tags.push(tag.trim());
+  }
+  for (const m of head.matchAll(/<link\b[^>]*?rel=["']canonical["'][^>]*?>/gi)) {
+    tags.push(m[0].trim());
+  }
+  return tags;
+}
+
+// Inner HTML of a static template's <body>.
+function extractTemplateBodyInner(tpl) {
+  const m = tpl.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  return m ? m[1].trim() : "";
+}
+
+// Wave 101 — merge the static template into the live SPA shell instead of
+// writing it standalone. The template's SEO <head> tags are spliced into the
+// freshly-built shell (which carries the content-hashed asset graph), and the
+// template's <body> is inlined inside `<div id="root">` wrapped in <noscript>.
+//
+// Result: no-JS crawlers (Bing, the LLM crawlers, the A2P 10DLC / TCR vetting
+// bot) still see the full policy/consent text inline, AND JS browsers now boot
+// the SPA and render the canonical React page (privacy.tsx / terms.tsx) over
+// #root. main.tsx uses createRoot().render() — not hydrateRoot — so React
+// blows away the <noscript> mount content with no hydration-mismatch concern.
+// Falls back to writing the raw template if the shell merge can't be built.
+async function tryWriteTemplateFallback(route, shell) {
   const filename = CRITICAL_TEMPLATE_FALLBACKS[route];
   if (!filename) return false;
   const templatePath = path.join(__dirname, filename);
   if (!existsSync(templatePath)) return false;
   try {
-    const html = await readFile(templatePath, "utf-8");
+    const tpl = await readFile(templatePath, "utf-8");
+    const headTags = extractTemplateHeadTags(tpl);
+    const bodyInner = extractTemplateBodyInner(tpl);
+    const canMerge = shell && (headTags.length > 0 || bodyInner.length > 0);
+    const html = canMerge ? spliceHead(shell, headTags, bodyInner) : tpl;
     await writeRouteHtml(route, html);
     console.log(
-      `[prerender] ${route}: wrote static-template fallback (${html.length} bytes)`,
+      `[prerender] ${route}: ${canMerge ? "merged template into SPA shell" : "wrote standalone template"} (${html.length} bytes, noscript=${bodyInner.length})`,
     );
     return true;
   } catch (err) {
@@ -470,7 +531,9 @@ async function main() {
 
   const productSlugs = await loadProductSlugs();
   const productRoutes = productSlugs.map((s) => `/products/${s}`);
-  const routes = [...STATIC_ROUTES, ...productRoutes];
+  const receptionistSlugs = await loadReceptionistSlugs();
+  const receptionistRoutes = receptionistSlugs.map((s) => `/ai-receptionists/${s}`);
+  const routes = [...STATIC_ROUTES, ...productRoutes, ...receptionistRoutes];
 
   console.log(`[prerender] rendering ${routes.length} routes...`);
   const shell = await readFile(SHELL_PATH, "utf-8");
@@ -491,7 +554,7 @@ async function main() {
       // heads include title/description/canonical/OG/robots so SEO is
       // preserved.
       if (CRITICAL_TEMPLATE_FALLBACKS[route]) {
-        const wrote = await tryWriteTemplateFallback(route);
+        const wrote = await tryWriteTemplateFallback(route, shell);
         if (wrote) {
           succeeded.add(route);
           ok += 1;
@@ -540,7 +603,7 @@ async function main() {
       `[prerender] attempting template fallback for ${failedCritical.length} failed critical route(s)...`,
     );
     for (const route of failedCritical) {
-      const wrote = await tryWriteTemplateFallback(route);
+      const wrote = await tryWriteTemplateFallback(route, shell);
       if (wrote) succeeded.add(route);
     }
   }

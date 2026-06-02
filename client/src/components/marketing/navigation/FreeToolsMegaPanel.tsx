@@ -61,7 +61,9 @@ function Column({
   group: NavSubgroup;
   onNavigate: () => void;
 }) {
-  const cap = group.maxShown ?? 7;
+  // Cards are full-size now (88px) — cap tighter so the panel stays compact;
+  // the rest fall under "+ N more" and the "See all free tools" footer.
+  const cap = group.maxShown ?? 4;
   const shown = group.items.slice(0, cap);
   const hiddenCount = Math.max(0, group.items.length - cap);
 
@@ -97,17 +99,23 @@ function FreeToolsItem({
   item: NavItemChild;
   onNavigate: () => void;
 }) {
+  // Same .mkt-menu-card the Products/Resources dropdowns use, so the button
+  // size + white-square/blue-icon badge + blue-fill hover are identical.
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
-      className="ft-mega__item"
+      className="mkt-menu-card"
       data-testid={`nav-free-tools-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
     >
-      <span className="ft-mega__item-icon" aria-hidden>
-        <NavIcon icon={item.icon} size={16} strokeWidth={1.9} />
-      </span>
-      <span className="ft-mega__item-label">{item.label}</span>
+      <div className="mkt-menu-card-icon" style={{ color: mkt.accent }} aria-hidden>
+        <NavIcon icon={item.icon} />
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 650, color: mkt.text, lineHeight: 1.2 }}>
+          {item.label}
+        </div>
+      </div>
     </Link>
   );
 }
@@ -161,61 +169,10 @@ const CSS = `
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 }
-
-.ft-mega__item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 9px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  text-decoration: none;
-  color: ${mkt.onDark};
-  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
-}
-.ft-mega__item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: ${mkt.onDarkBorder};
-  color: ${mkt.onDark};
-}
-.ft-mega__item:focus-visible {
-  outline: none;
-  border-color: ${mkt.accent};
-  background: rgba(13, 60, 252, 0.08);
-}
-
-.ft-mega__item-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  /* White square badge + brand-blue icon — matches the product/resource
-     dropdown card badges so Free Tools reads consistently. */
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(13, 60, 252, 0.18);
-  color: ${mkt.accent};
-  flex-shrink: 0;
-  transition: border-color 180ms ease, box-shadow 180ms ease;
-}
-.ft-mega__item:hover .ft-mega__item-icon {
-  background: ${mkt.accent};
-  border-color: ${mkt.accent};
-  color: rgba(255, 255, 255, 1);
-  box-shadow: 0 4px 12px rgba(13, 60, 252, 0.30);
-}
-
-.ft-mega__item-label {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* Items render as the shared .mkt-menu-card (see FreeToolsItem) so their
+   size + badge + hover match the Products/Resources dropdown exactly. */
 
 .ft-mega__more {
   display: inline-flex;

@@ -2065,8 +2065,8 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
       aria-label={`Try the sample ${FILE_TYPES[fileType].label} file`}
       style={{
         background: "transparent",
-        border: `1.5px solid ${ACCENT}`,
-        color: ACCENT,
+        border: "1.5px solid rgba(255,255,255,0.45)",
+        color: "#FAFAFA",
         fontFamily: MONO_FONT,
         fontSize: 11,
         fontWeight: 700,
@@ -2075,16 +2075,16 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
         borderRadius: 999,
         cursor: filled ? "default" : "pointer",
         opacity: filled ? 0.4 : 1,
-        transition: "background 140ms ease, color 140ms ease, opacity 200ms ease",
+        transition: "background 140ms ease, border-color 140ms ease, opacity 200ms ease",
       }}
       onMouseEnter={(e) => {
         if (filled) return;
-        e.currentTarget.style.background = ACCENT;
-        e.currentTarget.style.color = "#ffffff";
+        e.currentTarget.style.background = "rgba(255,255,255,0.10)";
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.75)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";
-        e.currentTarget.style.color = ACCENT;
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.45)";
       }}
     >
       Try sample {FILE_TYPES[fileType].label}
@@ -2146,11 +2146,11 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
                 fontSize: 9.5,
                 letterSpacing: "0.18em",
                 fontWeight: 700,
-                color: ACCENT,
+                color: "#FAFAFA",
                 padding: "3px 7px",
                 borderRadius: 4,
-                background: "rgba(13,60,252,0.08)",
-                boxShadow: "inset 0 0 0 1px rgba(13,60,252,0.20)",
+                background: "rgba(255,255,255,0.06)",
+                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.20)",
               }}
             >
               ZERO SETUP

@@ -375,6 +375,12 @@ app.use(
       if (!origin) return cb(null, true);
       if (corsAllowlist.includes(origin)) return cb(null, true);
       if (corsAllowDevRegex.test(origin)) return cb(null, true);
+      // Preview-only escape hatch: allow Cloudflare quick-tunnel origins when
+      // PREVIEW_TUNNEL_HOSTS=1 is set, so the local full-stack preview works
+      // through a *.trycloudflare.com tunnel. NEVER set in production.
+      if (process.env.PREVIEW_TUNNEL_HOSTS === "1" && /\.trycloudflare\.com$/.test(origin)) {
+        return cb(null, true);
+      }
       logger.info("[cors] rejected cross-origin request", { origin });
       return cb(new Error("CORS: origin not allowed"));
     },

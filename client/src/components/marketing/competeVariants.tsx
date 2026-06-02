@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { Link } from "wouter";
 import {
   motion,
   useInView,
@@ -60,6 +61,57 @@ const PRICE = "$99"; // "from ~$X/mo"
 
 /** Short titles shown under each ringed capability badge. Order = CAPS. */
 const CAP_SHORT = ["Quotes", "24/7 Calls", "Reviews", "Local SEO", "Paid Ads", "Booking", "Website"];
+
+/** Per-badge product info shown in the tap-to-open popover. Order = CAPS. */
+const CAP_INFO: {
+  product: string;
+  desc: string;
+  benefits: [string, string, string];
+  href: string;
+}[] = [
+  {
+    product: "QuoteQuick",
+    desc: "Instant, accurate quotes on your website 24/7 — every quote captures a lead.",
+    benefits: ["Quote jobs in seconds, not days", "Captures name, email & phone", "Live in about 5 minutes"],
+    href: "/products/quickquotepro",
+  },
+  {
+    product: "24/7 TradeLine",
+    desc: "AI answers every call and chat around the clock, books the job, and texts the caller back.",
+    benefits: ["Never miss a lead — even at 2 AM", "Books appointments automatically", "Replaces a $240/mo answering service"],
+    href: "/products/tradeline",
+  },
+  {
+    product: "ReputationShield",
+    desc: "Automatically requests and manages your Google reviews after every job.",
+    benefits: ["More 5-star reviews on autopilot", "Reply to reviews in minutes", "Win the local trust battle"],
+    href: "/products/reputationshield",
+  },
+  {
+    product: "MapGuard",
+    desc: "Managed Google Maps visibility — we watch and fix your profile every week.",
+    benefits: ["Show up in the local 3-pack", "Issues fixed before customers see them", "Weekly profile monitoring"],
+    href: "/products/mapguard",
+  },
+  {
+    product: "AdFlow",
+    desc: "Managed ad campaigns that put real return on ad spend in your inbox.",
+    benefits: ["Ads built and managed for you", "Track real return on ad spend", "Clear monthly reporting"],
+    href: "/products/adflow",
+  },
+  {
+    product: "BookFlow",
+    desc: "Customers book themselves online and pay a deposit — you just show up.",
+    benefits: ["24/7 self-serve booking", "Collect deposits upfront", "Fewer no-shows"],
+    href: "/products/bookflow",
+  },
+  {
+    product: "SiteLaunch",
+    desc: "A fast, professional, high-converting website — done in about a week.",
+    benefits: ["Built to convert visitors", "Mobile-fast (Lighthouse 90s)", "Launched in about 7 days"],
+    href: "/products/sitelaunch",
+  },
+];
 
 // ─── Shared style atoms ────────────────────────────────────────────────────
 
@@ -1123,7 +1175,7 @@ export function CompeteCoverage() {
  * N axes (one per capability) on a 280×280 viewBox. Each axis carries a 0–1
  * value: the "your coverage" polygon grows toward the outer ring (= what the
  * big brands cover) as capabilities are claimed. */
-const RADAR = { vb: 280, cx: 140, cy: 140, R: 96 };
+const RADAR = { vb: 280, cx: 140, cy: 140, R: 105.6 }; // +10% chart, same container
 /* Uneven per-axis baseline (un-claimed) so the default polygon reads like real
  * scientific data, not an empty regular heptagon. Claiming an axis takes it to 1. */
 const RADAR_BASE = [0.46, 0.3, 0.58, 0.38, 0.62, 0.34, 0.5];
@@ -1297,10 +1349,119 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* Tap-to-open product popover anchored over the radar. Glass/blur on the card
+ * itself (the chart shows through, blurred) — NO full-screen dim/blur. Closes
+ * on Escape, the × button, or tapping the badge again. */
+function BadgePopover({ i, onClose }: { i: number; onClose: () => void }) {
+  const info = CAP_INFO[i];
+  const { Icon } = CAPS[i];
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <motion.div
+      role="dialog"
+      aria-label={`${info.product} — what it does`}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: "spring", stiffness: 260, damping: 22 }}
+      style={{
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        transform: "translate(-50%, -50%)",
+        zIndex: 8,
+        width: "min(300px, 84%)",
+        background: "rgba(18,24,28,0.6)",
+        backdropFilter: "blur(10px) saturate(1.25)",
+        WebkitBackdropFilter: "blur(10px) saturate(1.25)",
+        border: "1px solid rgba(255,255,255,0.14)",
+        borderRadius: 16,
+        padding: "15px 16px 14px",
+        boxShadow: "0 20px 50px rgba(0,0,0,0.45)",
+        textAlign: "left",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 9 }}>
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 9,
+            display: "grid",
+            placeItems: "center",
+            background: "rgba(255,255,255,0.96)",
+            border: `1px solid ${mkt.accent}`,
+            flexShrink: 0,
+          }}
+        >
+          <Icon size={20} color={mkt.accent} strokeWidth={2.2} />
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,1)" }}>{info.product}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          style={{
+            marginLeft: "auto",
+            width: 24,
+            height: 24,
+            borderRadius: 7,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "transparent",
+            color: "rgba(255,255,255,0.7)",
+            cursor: "pointer",
+            display: "grid",
+            placeItems: "center",
+            flexShrink: 0,
+          }}
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <p style={{ fontSize: 12.5, lineHeight: 1.5, color: "rgba(255,255,255,0.8)", margin: "0 0 11px" }}>
+        {info.desc}
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 13 }}>
+        {info.benefits.map((bnf) => (
+          <div key={bnf} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <Check size={14} color={mkt.accent} strokeWidth={3} style={{ marginTop: 1, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", lineHeight: 1.4 }}>{bnf}</span>
+          </div>
+        ))}
+      </div>
+      <Link
+        href={info.href}
+        onClick={onClose}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          fontFamily: MONO,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: mkt.accent,
+          textDecoration: "none",
+        }}
+      >
+        Read more →
+      </Link>
+    </motion.div>
+  );
+}
+
 export function CompeteCoverageMap() {
   const reduced = useReducedMotion();
   const [claimed, setClaimed] = useState<Set<number>>(new Set());
   const [modal, setModal] = useState(false);
+  // Which badge's product popover is open (tap a badge to open/close).
+  const [openBadge, setOpenBadge] = useState<number | null>(null);
 
   // Toggle: tap a badge to claim its axis; tap again to shrink it back.
   const claim = (i: number) =>
@@ -1314,7 +1475,9 @@ export function CompeteCoverageMap() {
   return (
     <section
       className="ccm-section"
-      style={{ background: mkt.bg, padding: SECTION_PAD }}
+      // Horizontal padding 24px (16px on mobile, via the media query below) so
+      // this card matches the QuoteQuick container's width directly beneath it.
+      style={{ background: mkt.bg, padding: "clamp(48px, 6vw, 88px) 24px" }}
       aria-label="Compete with the big brands — claim the map"
     >
       {modal && <BigBrandsModal onClose={() => setModal(false)} />}
@@ -1325,13 +1488,13 @@ export function CompeteCoverageMap() {
           z-index: 4;
         }
         @media (max-width: 640px) {
-          .ccm-section { padding-left: 8px !important; padding-right: 8px !important; }
+          .ccm-section { padding-left: 16px !important; padding-right: 16px !important; }
           .ccm-radar-card { padding: 30px 10px 36px !important; }
           .ccm-badge { width: 32px !important; height: 32px !important; }
         }
       `}</style>
 
-      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <Eyebrow>Close the gap</Eyebrow>
         <h2
           style={{
@@ -1370,7 +1533,6 @@ export function CompeteCoverageMap() {
           <button
             type="button"
             onClick={() => setModal(true)}
-            onMouseEnter={() => setModal(true)}
             aria-label="Who are the big brands?"
             style={{
               position: "absolute",
@@ -1410,13 +1572,13 @@ export function CompeteCoverageMap() {
               aria-hidden="true"
             >
               {[0.25, 0.5, 0.75, 1].map((f) => (
-                <path key={f} d={radarPoly(CAPS.map(() => f))} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+                <path key={f} d={radarPoly(CAPS.map(() => f))} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={0.5} />
               ))}
               {CAPS.map((_, i) => {
                 const [x, y] = radarPt(i, 1);
-                return <line key={i} x1={RADAR.cx} y1={RADAR.cy} x2={x} y2={y} stroke="rgba(255,255,255,0.10)" strokeWidth={1} />;
+                return <line key={i} x1={RADAR.cx} y1={RADAR.cy} x2={x} y2={y} stroke="rgba(255,255,255,0.10)" strokeWidth={0.5} />;
               })}
-              <path d={radarPoly(CAPS.map(() => 1))} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth={1} strokeDasharray="3 3" />
+              <path d={radarPoly(CAPS.map(() => 1))} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth={0.7} strokeDasharray="3 3" />
               <motion.path
                 initial={false}
                 animate={{ d: radarPoly(CAPS.map((_, i) => (claimed.has(i) ? 1 : RADAR_BASE[i]))) }}
@@ -1431,16 +1593,28 @@ export function CompeteCoverageMap() {
                 const v = claimed.has(i) ? 1 : RADAR_BASE[i];
                 const [x, y] = radarPt(i, v);
                 return (
-                  <motion.circle
-                    key={i}
-                    initial={false}
-                    animate={{ cx: x, cy: y }}
-                    transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 18 }}
-                    r={3.5}
-                    fill={mkt.accent}
-                    stroke="rgba(255,255,255,1)"
-                    strokeWidth={1.5}
-                  />
+                  <g key={i} onClick={() => claim(i)} style={{ cursor: "pointer" }}>
+                    {/* Enlarged transparent hit target so the vertex is easy to
+                        click — clicking it claims/shrinks the axis like the badge. */}
+                    <motion.circle
+                      initial={false}
+                      animate={{ cx: x, cy: y }}
+                      transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 18 }}
+                      r={11}
+                      fill="rgba(0,0,0,0)"
+                      style={{ pointerEvents: "all" }}
+                    />
+                    <motion.circle
+                      initial={false}
+                      animate={{ cx: x, cy: y }}
+                      transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 18 }}
+                      r={3.5}
+                      fill={mkt.accent}
+                      stroke="rgba(255,255,255,1)"
+                      strokeWidth={0.9}
+                      style={{ pointerEvents: "none" }}
+                    />
+                  </g>
                 );
               })}
             </svg>
@@ -1452,14 +1626,18 @@ export function CompeteCoverageMap() {
               const { Icon } = cap;
               const leftPct = (bx / RADAR.vb) * 100;
               const topPct = (by / RADAR.vb) * 100;
+              // Upper-half badges (Quotes / 24-7 Calls / Website) put their
+              // title ABOVE the badge so it doesn't overlap the chart below.
+              const labelAbove = by < RADAR.cy;
               return (
                 <div key={cap.label}>
                   <button
                     type="button"
-                    onClick={() => claim(i)}
-                    aria-pressed={isClaimed}
-                    aria-label={`${cap.label}${isClaimed ? " — covered (tap to remove)" : " — tap to cover"}`}
-                    title={cap.label}
+                    onClick={() => setOpenBadge((p) => (p === i ? null : i))}
+                    aria-haspopup="dialog"
+                    aria-expanded={openBadge === i}
+                    aria-label={`${cap.label} — view details`}
+                    title={`${cap.label} — view details`}
                     className="ccm-badge"
                     style={{
                       position: "absolute",
@@ -1500,7 +1678,9 @@ export function CompeteCoverageMap() {
                       position: "absolute",
                       left: `${leftPct}%`,
                       top: `${topPct}%`,
-                      transform: "translate(-50%, calc(-50% + 30px))",
+                      transform: labelAbove
+                        ? "translate(-50%, calc(-50% - 30px))"
+                        : "translate(-50%, calc(-50% + 30px))",
                       fontFamily: MONO,
                       fontSize: 9.5,
                       fontWeight: 700,
@@ -1517,6 +1697,10 @@ export function CompeteCoverageMap() {
                 </div>
               );
             })}
+
+            {openBadge !== null && (
+              <BadgePopover i={openBadge} onClose={() => setOpenBadge(null)} />
+            )}
           </div>
         </div>
       </div>

@@ -174,9 +174,12 @@ export const MenuItem = ({
               // 3 sub-category columns each have ~220px of headroom
               // without sprawling across the whole viewport. Other menus
               // continue to inherit the trigger-row width.
+              // Floor the panel width at 720 so the 3-col card grid has room
+              // even when the trigger row is narrow (e.g. the bottom sticky
+              // bar) — otherwise long product titles clip ("MapGuar…").
               width: hasSubgroups
                 ? Math.min(720, Math.max(rect.width, 720))
-                : Math.min(1080, rect.width),
+                : Math.min(1080, Math.max(rect.width, 720)),
               maxWidth: "calc(100vw - 24px)",
               zIndex: 9999,
             }}

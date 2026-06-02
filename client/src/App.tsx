@@ -66,6 +66,10 @@ const MarketingDocs = lazy(() => import("@/pages/marketing/docs"));
 const MarketingContact = lazy(() => import("@/pages/marketing/contact"));
 const MarketingPrivacy = lazy(() => import("@/pages/marketing/privacy"));
 const MarketingTerms = lazy(() => import("@/pages/marketing/terms"));
+const MarketingSecurity = lazy(() => import("@/pages/marketing/security"));
+const MarketingCookies = lazy(() => import("@/pages/marketing/cookies"));
+const MarketingAiReceptionists = lazy(() => import("@/pages/marketing/aiReceptionists"));
+const MarketingAiReceptionistDetail = lazy(() => import("@/pages/marketing/aiReceptionistDetail"));
 const MarketingSmsConsentDisclosure = lazy(() => import("@/pages/marketing/SmsConsentDisclosure"));
 const FeatureInstantQuotes = lazy(() => import("@/pages/marketing/features/instant-quotes"));
 const FeatureBooking = lazy(() => import("@/pages/marketing/features/booking"));
@@ -610,6 +614,8 @@ function Router() {
       <Route path="/bundles">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/templates/:slug" component={MarketingTemplateDetail} />
       <Route path="/templates" component={MarketingTemplates} />
+      <Route path="/ai-receptionists/:slug" component={MarketingAiReceptionistDetail} />
+      <Route path="/ai-receptionists" component={MarketingAiReceptionists} />
       <Route path="/resources" component={Resources} />
       <Route path="/design-showcase" component={DesignShowcase} />
       {/* Internal share-link preview — four "Compete with the big chains"
@@ -639,6 +645,8 @@ function Router() {
       <Route path="/contact" component={MarketingContact} />
       <Route path="/privacy" component={MarketingPrivacy} />
       <Route path="/terms" component={MarketingTerms} />
+      <Route path="/security" component={MarketingSecurity} />
+      <Route path="/cookies" component={MarketingCookies} />
       <Route path="/sms-consent-disclosure" component={MarketingSmsConsentDisclosure} />
       <Route path="/features/instant-quotes" component={FeatureInstantQuotes} />
       <Route path="/features/booking" component={FeatureBooking} />

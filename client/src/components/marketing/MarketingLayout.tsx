@@ -11,6 +11,7 @@ import { MarketingNav } from "./navigation/MarketingNav";
 import Logo from "@/components/primitives/Logo";
 import AnnouncementBanner from "./AnnouncementBanner";
 import MarketingStickyBar from "./MarketingStickyBar";
+import AppStoreBadges from "./AppStoreBadges";
 
 const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
 
@@ -360,18 +361,23 @@ function MarketingFooter() {
           style={{
             display: "flex",
             flexWrap: "wrap",
-            justifyContent: "center",
+            justifyContent: "space-between",
             alignItems: "center",
-            gap: "0 16px",
+            gap: 16,
             marginTop: 28,
             fontSize: 11,
             color: "rgba(255,255,255,0.45)",
           }}
         >
-          {!isAuthenticated && <Link href="/login" className="mkt-ft-util">Login</Link>}
-          {isAuthenticated && <Link href="/dashboard" className="mkt-ft-util">Dashboard</Link>}
-          <span style={{ opacity: 0.3 }}>·</span>
-          <Link href="/docs/api" className="mkt-ft-util">API Docs</Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "0 16px", flexWrap: "wrap" }}>
+            {!isAuthenticated && <Link href="/login" className="mkt-ft-util">Login</Link>}
+            {isAuthenticated && <Link href="/dashboard" className="mkt-ft-util">Dashboard</Link>}
+            <span style={{ opacity: 0.3 }}>·</span>
+            <Link href="/docs/api" className="mkt-ft-util">API Docs</Link>
+          </div>
+          {/* App badges fill the empty band on the right (desktop); wrap below
+              the links on mobile. */}
+          <AppStoreBadges inline />
         </div>
       </div>
 
@@ -391,7 +397,11 @@ function MarketingFooter() {
         <div className="mkt-footer-trust" style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 10, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
             <ShieldCheck size={14} strokeWidth={1.5} />
-            <span>SOC 2 Compliant</span>
+            {/* We don't hold our own SOC 2 audit — the claim is that our
+                infrastructure (AWS, Cloudflare) is SOC 2 / ISO 27001 certified.
+                Stating it this way is accurate; "SOC 2 Compliant" implied we
+                were audited, which would be a false claim. */}
+            <span>SOC 2-certified infrastructure</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
             <Lock size={14} strokeWidth={1.5} />
@@ -444,7 +454,9 @@ function MarketingFooter() {
             <span style={legalDividerStyle} />
             <Link href="/terms" className="mkt-ft-soft" style={legalLinkStyle}>Terms</Link>
             <span style={legalDividerStyle} />
-            <Link href="/terms" className="mkt-ft-soft" style={legalLinkStyle}>Cookies</Link>
+            <Link href="/security" className="mkt-ft-soft" style={legalLinkStyle}>Security</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/cookies" className="mkt-ft-soft" style={legalLinkStyle}>Cookies</Link>
             <span style={legalDividerStyle} />
             <Link href="/sms-consent-disclosure" className="mkt-ft-soft" style={legalLinkStyle}>SMS Consent</Link>
             <span style={legalDividerStyle} />
