@@ -3674,3 +3674,67 @@ select:focus {
 }
 .airx-readmore:hover { font-weight: 800; color: #0F1418; }
 
+/* ── Calculator template card (~30% smaller sibling of .airx-*) ────────────
+   Same design language as the AI-receptionist card: a coloured thumbnail
+   whose background recedes + dims on hover while the "character" (the trade
+   calculator icon) zooms forward, a badge that merges to just its icon on
+   hover, and Try/Use CTAs that cross-swap colours. Per-category colour is
+   passed via the --calx-accent (panel) and --calx-ink (icon/foreground) CSS
+   variables set inline on each card. */
+.calx-card {
+  position: relative; background: transparent;
+  border: 1px solid rgba(15, 20, 24, 0.10); border-radius: 14px; padding: 3px;
+  display: flex; flex-direction: column; min-height: 300px;
+  transition: background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(0);
+}
+.calx-card:hover { background: #D6DFE3; border-color: rgba(15, 20, 24, 0.18); transform: translateY(-2px); }
+.calx-thumb {
+  position: relative; width: 100%; height: 116px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 11px;
+}
+.calx-bg {
+  position: absolute; inset: 0; background: var(--calx-accent, #0D3CFC); z-index: 0; transform-origin: center;
+  transform: scale(1); opacity: 1; transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms ease;
+}
+.calx-card:hover .calx-bg { transform: scale(0.965); opacity: 0.6; }
+.calx-ico {
+  position: relative; z-index: 1; color: var(--calx-ink, rgba(255, 255, 255, 1)); transform: scale(1);
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1); filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.22));
+}
+.calx-card:hover .calx-ico { transform: scale(1.14); }
+.calx-shot {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1;
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.calx-card:hover .calx-shot { transform: scale(1.06); }
+.calx-badge {
+  position: absolute; z-index: 2; top: 8px; left: 8px; width: 24px; height: 24px; border-radius: 7px;
+  background: rgba(255, 255, 255, 0.95); color: var(--calx-accent, #0D3CFC);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+  transition: background 260ms ease, color 260ms ease, box-shadow 260ms ease;
+}
+.calx-card:hover .calx-badge { background: transparent; color: var(--calx-ink, rgba(255, 255, 255, 1)); box-shadow: none; }
+.calx-content { padding: 10px 11px 11px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.calx-tags { display: inline-flex; gap: 5px; align-items: center; }
+.calx-tag {
+  display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px; font-weight: 600; letter-spacing: -0.02em; text-transform: uppercase; color: #0F1418;
+  background: rgba(15, 20, 24, 0.04); border: 1px solid rgba(15, 20, 24, 0.28); padding: 3px 6px; border-radius: 5px;
+}
+.calx-heading { margin: 0; font-size: 13.5px; font-weight: 800; color: #0F1418; line-height: 1.15; letter-spacing: -0.02em; }
+.calx-desc {
+  margin: 0; font-size: 10.5px; line-height: 1.35; color: #3F4549;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.calx-cta { margin-top: auto; padding-top: 9px; display: flex; gap: 6px; align-items: center; }
+.calx-btn {
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; font-weight: 700;
+  padding: 6px 10px; border-radius: 7px; font-family: inherit; text-decoration: none;
+  transition: background 200ms ease, color 200ms ease;
+}
+.calx-try { background: var(--calx-accent, #0D3CFC); color: var(--calx-ink, rgba(255, 255, 255, 1)); border: 1.5px solid var(--calx-accent, #0D3CFC); }
+.calx-try:hover { background: rgba(255, 255, 255, 1); color: var(--calx-accent, #0D3CFC); }
+.calx-use { background: rgba(255, 255, 255, 1); color: var(--calx-accent, #0D3CFC); border: 1.5px solid var(--calx-accent, #0D3CFC); }
+.calx-use:hover { background: var(--calx-accent, #0D3CFC); color: var(--calx-ink, rgba(255, 255, 255, 1)); }
+

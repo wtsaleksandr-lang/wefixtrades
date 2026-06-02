@@ -449,7 +449,7 @@ function MarketingFooter() {
               &copy; {year} WeFixTrades. All rights reserved. Headquartered in Toronto, Canada.
             </p>
           </div>
-          <div className="mkt-footer-legal-links" style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+          <div className="mkt-footer-legal-links" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", rowGap: 6 }}>
             <Link href="/privacy" className="mkt-ft-soft" style={legalLinkStyle}>Privacy</Link>
             <span style={legalDividerStyle} />
             <Link href="/terms" className="mkt-ft-soft" style={legalLinkStyle}>Terms</Link>

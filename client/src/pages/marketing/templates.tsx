@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
-import { Search, ArrowRight, Sparkles } from "lucide-react";
+import { Search } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
@@ -25,10 +25,9 @@ import {
 } from "@shared/templatePresets";
 import {
   getCategoryStyle,
-  FEATURED_TEMPLATE_IDS,
   type CategoryStyleId,
 } from "@/lib/categoryStyles";
-import { getQuoteQuickIcon } from "@/data/quoteQuickIcons";
+import CalculatorTemplateCard from "@/components/marketing/CalculatorTemplateCard";
 
 /* ─── Canonical 7-family filter chips (BB-2 palette families) ─── */
 
@@ -51,138 +50,6 @@ const FILTER_FAMILIES: FilterFamily[] = [
 /** Resolve a preset's family id via the same logic the wizard gallery uses. */
 function familyOf(t: TemplateConfig): CategoryStyleId {
   return getCategoryStyle(t.category).id;
-}
-
-/* ─── Template card preview — uses category palette + Lucide icon ─── */
-
-/**
- * Wave 42 — REAL calculator screenshots for the first row of templates on
- * /templates. Pre-rendered PNGs live in `client/public/ai-thumbnails/
- * templates/<id>.png` and are captured via Playwright against the dev-only
- * `/internal/template-render/:templateId` route (see
- * `scripts/capture-template-screenshots.mjs`). Re-run that script when this
- * set changes so the thumbnails stay in sync with the live widgets.
- *
- * Replaces the Wave 15 AI-generated illustrations which Alex rejected for
- * misrepresenting the product on a customer-facing marketing surface — the
- * thumbnails now show the actual calculator each template renders.
- */
-const AI_THUMBNAIL_TEMPLATE_IDS = new Set<string>([
-  "car_towing",
-  "driveway_paving",
-  "property_cleaning",
-  "energy_upgrade",
-]);
-
-function aiThumbnailUrl(id: string): string {
-  return `/ai-thumbnails/templates/${encodeURIComponent(id)}.png`;
-}
-
-function TemplateHero({ template }: { template: TemplateConfig }) {
-  const cat = getCategoryStyle(template.category);
-  const Icon = getQuoteQuickIcon(template.defaultIcon);
-  const [thumbFailed, setThumbFailed] = useState(false);
-  const hasAiThumb = AI_THUMBNAIL_TEMPLATE_IDS.has(template.id) && !thumbFailed;
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        height: 132,
-        background: cat.heroBg,
-        overflow: "hidden",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {/* Subtle accent stripe across hero */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 3,
-          background: cat.heroAccent,
-          zIndex: 2,
-        }}
-      />
-
-      {hasAiThumb ? (
-        /* Real calculator screenshot (Wave 42 — replaces Wave 15 illustrations).
-           `onError` falls back to the icon-chip if the PNG is missing. */
-        <img
-          src={aiThumbnailUrl(template.id)}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          onError={() => setThumbFailed(true)}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-          }}
-        />
-      ) : Icon ? (
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 16,
-            background: cat.isDark
-              ? `${cat.heroAccent}33`
-              : `${cat.heroAccent}22`,
-            border: `1.5px solid ${cat.heroAccent}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: cat.heroAccent,
-          }}
-        >
-          <Icon size={24} strokeWidth={2.25} />
-        </div>
-      ) : (
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 16,
-            background: cat.isDark
-              ? `${cat.heroAccent}33`
-              : `${cat.heroAccent}22`,
-            border: `1.5px solid ${cat.heroAccent}`,
-          }}
-        />
-      )}
-      {/* Featured badge */}
-      {FEATURED_TEMPLATE_IDS.has(template.id) ? (
-        <span
-          style={{
-            position: "absolute",
-            top: 10,
-            right: 10,
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            padding: "3px 9px",
-            borderRadius: 20,
-            background: cat.ctaFrom,
-            color: cat.ctaText,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            zIndex: 3,
-          }}
-        >
-          <Sparkles size={12} /> Featured
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 /* ─── Page ─── */
@@ -363,13 +230,13 @@ export default function TemplatesPage() {
         <div
           id="template-grid"
           className="templates-grid-section"
-          style={{ background: mkt.bg, padding: "56px 16px 96px" }}
+          style={{ background: "#C2D0D6", padding: "40px 16px 80px", borderRadius: "28px 28px 0 0" }}
         >
           <div style={{ maxWidth: 1160, margin: "0 auto" }}>
             <p
               style={{
                 fontSize: 14,
-                color: mkt.onDarkMuted,
+                color: "#3F4549",
                 marginBottom: 28,
               }}
             >
@@ -386,9 +253,9 @@ export default function TemplatesPage() {
                 style={{
                   padding: "48px 24px",
                   borderRadius: 16,
-                  border: `1px dashed ${mkt.onDarkBorder}`,
+                  border: "1px dashed rgba(15,20,24,0.22)",
                   textAlign: "center",
-                  color: mkt.onDarkMuted,
+                  color: "#3F4549",
                 }}
               >
                 No templates match. Try a different category or clear search.
@@ -399,152 +266,14 @@ export default function TemplatesPage() {
                 style={{
                   display: "grid",
                   gridTemplateColumns:
-                    "repeat(auto-fill, minmax(140px, 1fr))",
+                    "repeat(auto-fill, minmax(168px, 1fr))",
                   gap: 12,
                   justifyContent: "center",
                 }}
               >
-                {filtered.map((template, i) => {
-                  const cat = getCategoryStyle(template.category);
-                  return (
-                    <div
-                      key={template.id}
-                      data-testid={`template-card-${template.id}`}
-                      data-reveal="fade-up"
-                      data-delay={String(((i % 3) + 1) * 100)}
-                      className="mkt-feature-card"
-                      style={{
-                        background: mkt.sectionLight ?? mkt.surface,
-                        borderRadius: 18,
-                        border: `1px solid ${mkt.onDarkBorder}`,
-                        overflow: "hidden",
-                        boxShadow:
-                          "0 1px 3px rgba(0,0,0,0.06), 0 4px 18px rgba(0,0,0,0.06)",
-                        display: "flex",
-                        flexDirection: "column",
-                        width: "100%",
-                        maxWidth: 320,
-                        minWidth: 0,
-                        justifySelf: "center",
-                      }}
-                    >
-                      <TemplateHero template={template} />
-
-                      {/* Card content */}
-                      <div
-                        style={{
-                          padding: "18px 20px 20px",
-                          flex: 1,
-                          display: "flex",
-                          flexDirection: "column",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                            justifyContent: "space-between",
-                            gap: 8,
-                            marginBottom: 8,
-                          }}
-                        >
-                          <h3
-                            style={{
-                              fontSize: 16,
-                              fontWeight: 700,
-                              color: mkt.onDark,
-                              margin: 0,
-                              lineHeight: 1.3,
-                            }}
-                          >
-                            {template.name}
-                          </h3>
-                          <span
-                            style={{
-                              flexShrink: 0,
-                              fontSize: 10,
-                              fontWeight: 700,
-                              letterSpacing: "0.04em",
-                              textTransform: "uppercase",
-                              padding: "3px 9px",
-                              borderRadius: 20,
-                              background: `${cat.heroAccent}1A`,
-                              color: cat.isDark ? cat.heroAccent : cat.ctaFrom,
-                              whiteSpace: "nowrap" as const,
-                              border: `1px solid ${cat.heroAccent}33`,
-                            }}
-                          >
-                            {template.category}
-                          </span>
-                        </div>
-
-                        <p
-                          style={{
-                            fontSize: 13,
-                            color: mkt.onDarkMuted,
-                            lineHeight: 1.55,
-                            margin: "0 0 16px",
-                            flex: 1,
-                          }}
-                        >
-                          {template.description}
-                        </p>
-
-                        {/* CTAs */}
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 8,
-                            marginTop: "auto",
-                          }}
-                        >
-                          <Link
-                            href={`/templates/${template.id}`}
-                            data-testid={`preview-cta-${template.id}`}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 6,
-                              flex: 1,
-                              padding: "10px 0",
-                              borderRadius: 10,
-                              background: mkt.ctaBg,
-                              color: mkt.ctaText,
-                              fontSize: 13,
-                              fontWeight: 600,
-                              textDecoration: "none",
-                              minHeight: 44,
-                            }}
-                          >
-                            Try this template
-                          </Link>
-                          <Link
-                            href={`/wizard?template=${template.id}`}
-                            data-testid={`use-cta-${template.id}`}
-                            aria-label={`Use ${template.name} template in the wizard`}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 5,
-                              padding: "10px 14px",
-                              borderRadius: 10,
-                              background: "transparent",
-                              color: mkt.ctaSecondaryText,
-                              fontSize: 13,
-                              fontWeight: 600,
-                              textDecoration: "none",
-                              border: `1px solid ${mkt.ctaSecondaryBorder}`,
-                              minHeight: 44,
-                            }}
-                          >
-                            Use <ArrowRight size={12} />
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {filtered.map((template) => (
+                  <CalculatorTemplateCard key={template.id} template={template} />
+                ))}
               </div>
             )}
           </div>
