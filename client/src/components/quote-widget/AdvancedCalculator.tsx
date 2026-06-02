@@ -61,6 +61,7 @@ import TrustBlockUnderCTA from './TrustBlockUnderCTA';
 // TrustStripHeader was retired because both rendered overlapping content.
 // Business-profile fields (license #) are folded into TrustBadgeRow.
 import TrustBadgeRow from './TrustBadgeRow';
+import WidgetSelect from './WidgetSelect';
 // BD-2c — image-card radio + ZIP peer-anchor + AI chat visibility gate.
 import ImageRadioStep from './ImageRadioStep';
 import PeerAnchorLine from './PeerAnchorLine';
@@ -2108,7 +2109,7 @@ export default function AdvancedCalculator({
         .${gridId} {
           display: grid;
           gap: 12px;
-          padding: 16px;
+          padding: 16px 2px;
           grid-template-columns: 1fr;
         }
         .${gridId}-fields {
@@ -2127,7 +2128,11 @@ export default function AdvancedCalculator({
         }
         .${gridId}-result { align-self: start; min-width: 0; }
         @media (min-width: 560px) {
-          .${gridId} { gap: 14px; padding: 20px; }
+          /* Horizontal padding trimmed to 2px so the inner containers (fields
+             + result panel) nearly fill the widget body — only a thin 2px frame
+             of the body surface shows on the sides (Alex). Vertical padding
+             kept for breathing room. */
+          .${gridId} { gap: 14px; padding: 20px 2px; }
           .${gridId}[data-layout="two-column"] {
             grid-template-columns: 1fr minmax(190px, 0.8fr);
           }
@@ -3250,26 +3255,24 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   }
 
   if (f.type === 'select') {
+    // Custom dropdown (WidgetSelect) instead of a native <select>: a visible
+    // themed chevron + a rounded, smoothly-animated options panel. Option
+    // labels are projected to plain text (native parity — they were never
+    // rich-HTML in the dropdown).
+    const selectOptions = (f.options || []).map((o) => ({ id: o.id, label: richHtmlToPlainText(o.label) }));
     return (
-      <div className="qq-w-float" style={floatVars}>
-        <select
-          id={inputId}
-          className="qq-w-input"
-          value={value as string}
-          onChange={(e) => onChange(e.target.value)}
-          style={inputBase}
-        >
-          {/* BG-7 Item 3 — option labels are now rich-text (sanitized
-           *  HTML). Native <option> elements can't render HTML, so we
-           *  fall back to a plain-text projection of the label here.
-           *  Every other option renderer below uses dangerouslySet-
-           *  InnerHTML through `richTextRenderProps`. */}
-          {(f.options || []).map((o) => (
-            <option key={o.id} value={o.id}>{richHtmlToPlainText(o.label)}</option>
-          ))}
-        </select>
-        <label htmlFor={inputId}>{f.label}</label>
-      </div>
+      <WidgetSelect
+        id={inputId}
+        value={value as string}
+        options={selectOptions}
+        onChange={(id) => onChange(id)}
+        label={f.label}
+        theme={c}
+        inputBase={inputBase}
+        radiusPx={radiusPx}
+        fontFamily={fontFamily}
+        labelColor={accent}
+      />
     );
   }
 
