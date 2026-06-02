@@ -802,11 +802,12 @@ function StickyActionBar({
         paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
         paddingTop: 12,
         paddingLeft: 14, paddingRight: 14,
-        // Footer is a fully-rounded panel (all four corners) with a 2px seam
-        // above it, so its top corners aren't sharp where it meets the body
-        // — matches the 2px-gap rounded-panel look (Alex).
+        // Footer is an INSET rounded card (2px frame all around + a visible
+        // outline) matching the inner cards — so the bottom section reads as a
+        // distinct rounded container, not a flat edge-to-edge bar (Alex).
+        border: `1px solid ${theme.border}`,
         borderRadius: radiusPx,
-        marginTop: 2,
+        margin: '2px',
         fontFamily,
       }}
     >
@@ -1953,11 +1954,12 @@ export default function AdvancedCalculator({
         style={{
           position: 'sticky', top: 0, zIndex: 40,
           background: c.surface,
-          // Header is a fully-rounded panel (all four corners) with a 2px seam
-          // below it, so its bottom corners aren't sharp where it meets the
-          // body — matches the 2px-gap rounded-panel look (Alex).
-          borderRadius: radiusOuterPx,
-          marginBottom: 2,
+          // Header is an INSET rounded card (2px frame all around + a visible
+          // outline) matching the inner field/result cards — so the top section
+          // reads as a distinct rounded container, not a flat edge-to-edge bar.
+          border: `1px solid ${c.border}`,
+          borderRadius: radiusInnerPx,
+          margin: '2px',
         }}
       >
       {/* ── Title bar (its own separated bar) ── */}
@@ -2811,7 +2813,7 @@ export default function AdvancedCalculator({
             fontFamily={fontFamily}
             calculatorId={calculatorId}
             microSummary={microSummary}
-            radiusPx={radiusOuterPx}
+            radiusPx={radiusInnerPx}
             // BD-2b — inline trust signals beneath the action row (license #,
             // insured-up-to, icon row). Renders null when the business
             // profile is empty so the sticky bar stays compact.
