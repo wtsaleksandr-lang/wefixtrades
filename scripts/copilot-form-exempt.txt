@@ -306,3 +306,6 @@ client/src/pages/portal/mapguard/MapGuardSetup.tsx
 # AI Receptionists browser — read-only template gallery with a client-side
 # search filter only; no fillable form (selection routes to TradeLine setup).
 client/src/pages/portal/PortalAiReceptionists.tsx
+# Calculator Templates browser — read-only gallery with a search filter only;
+# selection routes to the wizard. No fillable form.
+client/src/pages/portal/PortalCalculatorTemplates.tsx

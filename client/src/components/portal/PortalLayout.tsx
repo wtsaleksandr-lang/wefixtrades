@@ -118,6 +118,7 @@ function buildNavItems(active: Set<string>): NavItem[] {
     { label: "24/7 TradeLine", href: "/portal/tradeline/setup", icon: Phone, requires: "tradeline" },
     { label: "AI Receptionists", href: "/portal/tradeline/receptionists", icon: Sparkles, indent: true, requires: "tradeline" },
     { label: "QuoteQuick", href: "/dashboard", icon: Calculator, requires: "quotequick" },
+    { label: "Calculator Templates", href: "/portal/quotequick/templates", icon: Sparkles, indent: true, requires: "quotequick" },
     { label: "ReputationShield", href: "/portal/reviews", icon: Star, requires: "reputationshield" },
     { label: "Review Widget", href: "/portal/reviews/widget", icon: Code, indent: true, requires: "reputationshield" },
     { label: "SocialSync", href: "/portal/socialsync", icon: Share2, requires: "socialsync" },

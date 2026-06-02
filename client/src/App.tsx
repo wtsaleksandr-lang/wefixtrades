@@ -222,6 +222,7 @@ const TradelineSetupPage = lazy(() => import("@/pages/portal/TradelineSetup"));
 const PortStatusPage = lazy(() => import("@/pages/portal/PortStatusPage"));
 const TradeLineDashboard = lazy(() => import("@/pages/portal/tradeline/TradeLineDashboard"));
 const PortalAiReceptionists = lazy(() => import("@/pages/portal/PortalAiReceptionists"));
+const PortalCalculatorTemplates = lazy(() => import("@/pages/portal/PortalCalculatorTemplates"));
 const PortalTradelineKnowledgePage = lazy(() => import("@/pages/portal/PortalTradelineKnowledgePage"));
 const PortalTradelineVoicePage = lazy(() => import("@/pages/portal/PortalTradelineVoicePage"));
 const PortalEmailDomainSetup = lazy(() => import("@/pages/portal/PortalEmailDomainSetup"));
@@ -459,6 +460,7 @@ function Router() {
       <Route path="/portal/tradeline/dashboard">{() => <RequireClient><TradeLineDashboard /></RequireClient>}</Route>
       <Route path="/portal/tradeline/setup">{() => <RequireClient><TradelineSetupPage /></RequireClient>}</Route>
       <Route path="/portal/tradeline/receptionists">{() => <RequireClient><PortalAiReceptionists /></RequireClient>}</Route>
+      <Route path="/portal/quotequick/templates">{() => <RequireClient><PortalCalculatorTemplates /></RequireClient>}</Route>
       {/* Wave 86 — customer-facing live port-status tracker. Polls every 30s. */}
       <Route path="/portal/tradeline/port-status">{() => <RequireClient><PortStatusPage /></RequireClient>}</Route>
       <Route path="/portal/tradeline/knowledge">{() => <RequireClient><PortalTradelineKnowledgePage /></RequireClient>}</Route>
