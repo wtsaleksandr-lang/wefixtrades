@@ -1220,7 +1220,7 @@ function PoweredByWeFixTradesBadge({
         rel="noopener noreferrer"
         data-testid="advanced-powered-by-link"
         style={{
-          fontSize: 10, fontWeight: 600, color: theme.textMuted,
+          fontSize: 10, fontWeight: 600, color: theme.textBody,
           letterSpacing: '0.02em',
           textDecoration: 'none',
           padding: '2px 4px',
@@ -1228,7 +1228,7 @@ function PoweredByWeFixTradesBadge({
         }}
       >
         Powered by{' '}
-        <span style={{ color: theme.accent }}>WeFixTrades</span>
+        <span style={{ color: guardTextColor(theme.accent, theme.surface, 'poweredByBrand') }}>WeFixTrades</span>
       </a>
     </div>
   );
@@ -1882,6 +1882,12 @@ export default function AdvancedCalculator({
   // CTA pair — `ctaBg` was just computed above; we re-derive the foreground
   // so a custom CTA background still produces readable label copy.
   const ctaFgGuarded = guardTextColor(ctaFg, ctaBg, 'ctaText', { largeText: true });
+
+  // Breakdown line-item values: always the plain result text (white on the
+  // dark panel / dark on light), guarded for contrast — NOT the optional
+  // Brand-Studio headline accent, which previously bled a low-contrast blue
+  // into the breakdown values on the result panel.
+  const resultValueColor = guardTextColor(c.resultText, rpBg, 'resultsText');
 
   return (
     <div
@@ -2601,7 +2607,7 @@ export default function AdvancedCalculator({
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                       <span style={{ color: cc.resultMuted }}>{cl.name}</span>
-                      <span style={{ fontWeight: 700, color: cc.resultText, fontFamily: eff.fontMono }}>
+                      <span style={{ fontWeight: 700, color: resultValueColor, fontFamily: eff.fontMono }}>
                         {formatResult(values[cl.name] ?? 0, cl.format, advanced.numberFormat)}
                       </span>
                     </div>

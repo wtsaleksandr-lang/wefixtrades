@@ -83,7 +83,10 @@ export default function TierSelector({
           gap: 4,
           padding: '14px 12px 12px',
           borderRadius: radiusPx,
-          background: isSelected ? theme.accentTint : theme.surface,
+          // Selected tier = solid accent fill so it's clearly chosen AND keeps
+          // white text high-contrast on any result-panel colour (the old faint
+          // accentTint went blue-on-blue on the premium dark-blue panel).
+          background: isSelected ? theme.accent : theme.surface,
           border: isSelected
             ? `2px solid ${theme.accent}`
             : `1px solid ${theme.border}`,
@@ -141,7 +144,7 @@ export default function TierSelector({
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: theme.textMuted,
+                color: isSelected ? "rgba(255,255,255,0.92)" : theme.textMuted,
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
                 marginTop: isMostPopular ? 4 : 0,
@@ -154,7 +157,7 @@ export default function TierSelector({
               style={{
                 fontSize: 18,
                 fontWeight: 800,
-                color: isSelected ? theme.accent : theme.text,
+                color: isSelected ? "rgba(255,255,255,1)" : theme.text,
                 lineHeight: 1.15,
                 wordBreak: 'break-word',
               }}
@@ -165,7 +168,7 @@ export default function TierSelector({
               <span
                 style={{
                   fontSize: 11,
-                  color: theme.textMuted,
+                  color: isSelected ? "rgba(255,255,255,0.85)" : theme.textMuted,
                   lineHeight: 1.4,
                 }}
               >
