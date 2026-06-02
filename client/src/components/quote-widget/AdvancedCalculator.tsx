@@ -2008,19 +2008,20 @@ export default function AdvancedCalculator({
                 data-component-type="title"
                 style={{ fontSize: '17px', fontWeight: headingWeight, color: cc.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
-                {/* BD-2a / BD-1 — small category icon LEFT of the title text.
-                    Sized 16–20px per the research punch list; derived from
-                    `advanced.category` with optional per-template override via
-                    `advanced.categoryIcon`. Brand logo (above, 36×36) keeps
-                    its existing prominence — this is a complementary glyph,
-                    not a replacement. */}
-                <CategoryIcon
-                  category={advanced.category}
-                  override={advanced.categoryIcon}
-                  size={18}
-                  color={c.accent}
-                  strokeWidth={2.25}
-                />
+                {/* Small category glyph LEFT of the title — shown ONLY as a
+                    fallback when there's no brand logo / default icon above, so
+                    the header never shows two icons (Alex: "must be only one").
+                    When the brand logo (uploaded logo or template defaultIcon)
+                    is present, that single icon stands alone. */}
+                {(logoHidden || (!logoUrl && !advanced.defaultIcon)) && (
+                  <CategoryIcon
+                    category={advanced.category}
+                    override={advanced.categoryIcon}
+                    size={18}
+                    color={c.accent}
+                    strokeWidth={2.25}
+                  />
+                )}
                 {/* BD-3d Feature 1 — title may carry sanitized rich HTML. */}
                 {(() => {
                   const props = richTextRenderProps(title);

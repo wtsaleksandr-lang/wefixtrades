@@ -201,7 +201,7 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
           style={{ maxWidth: '780px', fontFamily: eff.font, color: eff.text }}
         >
           {showBrandBadge && (
-            <div style={{ display: 'flex', justifyContent: 'flex-start', padding: '8px 4px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '11px 12px' }}>
               <WeFixTradesBadge variant="header" context={badgeContext} slug={calcSlug} />
             </div>
           )}

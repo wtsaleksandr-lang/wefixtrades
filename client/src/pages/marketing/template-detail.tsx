@@ -303,6 +303,8 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               </Link>
               <a
                 href="#live-preview"
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,1)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = mkt.onDarkBorder; }}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -316,6 +318,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                   textDecoration: "none",
                   border: `1.5px solid ${mkt.onDarkBorder}`,
                   minHeight: 44,
+                  transition: "border-color 0.2s ease",
                 }}
               >
                 See live preview

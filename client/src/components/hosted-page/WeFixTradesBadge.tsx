@@ -67,12 +67,13 @@ export default function WeFixTradesBadge({
       alignItems: 'center',
       gap: 6,
       textDecoration: 'none',
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: 800,
-      color: onDarkBackground ? '#e5e7eb' : '#0f172a',
-      lineHeight: 1.3,
+      color: onDarkBackground ? '#f1f5f9' : '#0f172a',
+      lineHeight: 1.2,
       whiteSpace: 'nowrap',
-      opacity: 0.78,
+      // Fully opaque so the free-tier brand mark is clearly visible (was 0.78).
+      opacity: 1,
       transition: 'opacity 0.12s ease',
     };
     return (
@@ -85,15 +86,15 @@ export default function WeFixTradesBadge({
         data-context={context}
         data-theme="light"
         aria-label="QuoteQuick by WeFixTrades"
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.78'; }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.82'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
       >
         <img
           src="/favicon.svg"
           alt=""
-          width={14}
-          height={14}
-          style={{ width: 14, height: 14, display: 'block' }}
+          width={16}
+          height={16}
+          style={{ width: 16, height: 16, display: 'block' }}
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
         <span>QuoteQuick</span>
