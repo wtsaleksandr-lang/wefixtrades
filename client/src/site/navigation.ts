@@ -169,7 +169,18 @@ export const NAV_LINKS: NavItem[] = [
   // as one entry inside the Free Tools hub (/free-tools, with sections for
   // Local SEO / AI Content / Widgets). The /tools/free-audit page itself
   // is unchanged.
-  { label: "Templates", href: "/templates" },
+  {
+    // Shared "Templates" umbrella — two ready-to-use template types: the
+    // QuoteQuick calculator gallery (/templates) and the AI receptionist
+    // gallery (/ai-receptionists). Both are also surfaced in the portal +
+    // admin so the naming stays consistent across all three surfaces.
+    label: "Templates",
+    href: "/templates",
+    children: [
+      { label: "Quote Calculators", href: "/templates", description: "Instant-quote calculator templates by trade.", icon: "calculator" },
+      { label: "AI Receptionists", href: "/ai-receptionists", description: "Ready-made AI phone & chat receptionists by trade.", icon: "phoneCall" },
+    ],
+  },
   { label: "Pricing", href: "/pricing" },
   {
     label: "Resources",
