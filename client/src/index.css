@@ -625,6 +625,17 @@
   padding-top: 20px !important;
   padding-bottom: 5px !important;
 }
+/* Hide native number spinners — the widget renders its own subtle up/down
+ * steppers (premium, consistent across browsers). */
+.qq-w-float > input.qq-w-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.qq-w-float > input.qq-w-input[type='number']::-webkit-outer-spin-button,
+.qq-w-float > input.qq-w-input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 .qq-w-float > label {
   position: absolute;
   left: 14px;

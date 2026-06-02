@@ -711,12 +711,14 @@ const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
  * indicator on iOS Safari + PWA installs.
  */
 function StickyActionBar({
-  theme, fontFamily, calculatorId, microSummary, children, trustBlock, footerSlot,
+  theme, fontFamily, calculatorId, microSummary, children, trustBlock, footerSlot, radiusPx,
 }: {
   theme: WidgetTheme;
   fontFamily: string;
   /** Used to derive the localStorage key. When absent, fold state is in-memory only. */
   calculatorId?: string | number;
+  /** Outer widget radius so the bottom of the bar rounds to match the card. */
+  radiusPx?: number | string;
   /** Short running quote string (e.g. `Est. $2,400 – $2,800`) shown in folded state. */
   microSummary: string;
   /** The full unfolded action buttons (rendered when expanded). */
@@ -801,6 +803,9 @@ function StickyActionBar({
         paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
         paddingTop: 12,
         paddingLeft: 14, paddingRight: 14,
+        // Round the bottom of the widget explicitly so the footer reads as a
+        // rounded panel even when it sticks during scroll (Alex).
+        borderBottomLeftRadius: radiusPx, borderBottomRightRadius: radiusPx,
         fontFamily,
       }}
     >
@@ -1948,6 +1953,9 @@ export default function AdvancedCalculator({
           position: 'sticky', top: 0, zIndex: 40,
           background: c.surface,
           borderBottom: '1px solid rgba(0,0,0,0.06)',
+          // Round the top of the widget explicitly so the header reads as a
+          // rounded panel even when it sticks during scroll (Alex).
+          borderTopLeftRadius: radiusOuterPx, borderTopRightRadius: radiusOuterPx,
         }}
       >
       {/* ── Title bar (its own separated bar) ── */}
@@ -2801,6 +2809,7 @@ export default function AdvancedCalculator({
             fontFamily={fontFamily}
             calculatorId={calculatorId}
             microSummary={microSummary}
+            radiusPx={radiusOuterPx}
             // BD-2b — inline trust signals beneath the action row (license #,
             // insured-up-to, icon row). Renders null when the business
             // profile is empty so the sticky bar stays compact.
@@ -3114,8 +3123,16 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   const inputId = `adv-field-${f.id || f.name?.replace(/[^a-z0-9]+/gi, '_') || 'x'}`;
 
   if (f.type === 'number') {
+    const numStep = Number(f.step) || 1;
+    const curNum = Number(value) || 0;
+    const bump = (dir: 1 | -1) => {
+      let nv = curNum + dir * numStep;
+      if (typeof f.max === 'number') nv = Math.min(f.max, nv);
+      if (typeof f.min === 'number') nv = Math.max(f.min, nv);
+      onChange(nv);
+    };
     return (
-      <div className="qq-w-float" style={floatVars}>
+      <div className="qq-w-float" style={{ ...floatVars, position: 'relative' }}>
         <input
           id={inputId}
           className="qq-w-input"
@@ -3126,12 +3143,47 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
           step={f.step}
           placeholder=" "
           onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
-          style={{ ...inputBase, fontFamily: eff.fontMono }}
+          style={{ ...inputBase, fontFamily: eff.fontMono, paddingRight: 34 }}
         />
         {/* Only append the unit when the label doesn't already include it —
             several presets put the unit in the label too (e.g. "Home size
-            (sqft)" + unit "sqft"), which produced a doubled "(sqft) (sqft)". */}
+            (sqft)" + unit "sqft"), which produced a doubled "(sqft) (sqft)".
+            NOTE: the <label> MUST stay the immediate next sibling of the
+            <input> — the float CSS uses `input + label`. The steppers go
+            AFTER it (both are absolutely positioned, so DOM order is free). */}
         <label htmlFor={inputId}>{f.label}{f.unit && !f.label.includes(`(${f.unit})`) ? ` (${f.unit})` : ''}</label>
+        {/* Subtle up/down steppers — premium, understated; let customers nudge
+            the value without typing. tabIndex -1 so keyboard users still type. */}
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+          }}
+        >
+          {([1, -1] as const).map((dir) => (
+            <button
+              key={dir}
+              type="button"
+              tabIndex={-1}
+              data-testid={`adv-number-step-${dir === 1 ? 'up' : 'down'}-${f.id}`}
+              onClick={() => bump(dir)}
+              style={{
+                display: 'grid', placeItems: 'center', width: 18, height: 14,
+                padding: 0, border: 'none', background: 'transparent',
+                color: c.textMuted, cursor: 'pointer', lineHeight: 0,
+              }}
+            >
+              <svg width={14} height={14} viewBox="0 0 24 24">
+                <path
+                  d={dir === 1 ? 'M6 14l6-6 6 6' : 'M6 10l6 6 6-6'}
+                  fill="none" stroke="currentColor" strokeWidth={2.25}
+                  strokeLinecap="round" strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
