@@ -1228,7 +1228,7 @@ function PoweredByWeFixTradesBadge({
         }}
       >
         Powered by{' '}
-        <span style={{ color: '#0d3cfc' }}>WeFixTrades</span>
+        <span style={{ color: theme.accent }}>WeFixTrades</span>
       </a>
     </div>
   );
@@ -3012,7 +3012,9 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   // Style-tab accent override).
   const floatVars: React.CSSProperties = {
     // CSS variables consumed by .qq-w-float in index.css.
-    ['--qq-w-label' as any]: c.textMuted,
+    // Resting label uses textBody (not textMuted) so it stays readable — the
+    // muted grey failed AA contrast on the dark themes (e.g. midnight).
+    ['--qq-w-label' as any]: c.textBody,
     ['--qq-w-label-focus' as any]: accent,
     ['--qq-w-bg' as any]: isOutline ? c.bg : c.surface,
   };
@@ -3130,7 +3132,10 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
           onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
           style={{ ...inputBase, fontFamily: eff.fontMono }}
         />
-        <label htmlFor={inputId}>{f.label}{f.unit ? ` (${f.unit})` : ''}</label>
+        {/* Only append the unit when the label doesn't already include it —
+            several presets put the unit in the label too (e.g. "Home size
+            (sqft)" + unit "sqft"), which produced a doubled "(sqft) (sqft)". */}
+        <label htmlFor={inputId}>{f.label}{f.unit && !f.label.includes(`(${f.unit})`) ? ` (${f.unit})` : ''}</label>
       </div>
     );
   }

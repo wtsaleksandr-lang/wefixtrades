@@ -58,7 +58,9 @@ export const WIDGET_THEMES: Record<string, WidgetTheme> = {
     bg: '#161a23', surface: '#232834',
     text: '#f1f5f9', textBody: '#aab3c0', textMuted: '#7c8696', border: '#353c4a',
     accent: '#5b8cff', accentTint: 'rgba(255,255,255,0.07)',
-    result: '#ef6b5e', resultText: '#ffffff', resultMuted: 'rgba(255,255,255,0.82)',
+    // Premium deep brand-blue result panel (was a coral #ef6b5e that read as
+    // "weird orange" on the dark theme). White text on #1e40af is ~7.5:1.
+    result: '#1e40af', resultText: '#ffffff', resultMuted: 'rgba(255,255,255,0.86)',
     shadow: SHADOW_DARK,
   },
   coral: {
