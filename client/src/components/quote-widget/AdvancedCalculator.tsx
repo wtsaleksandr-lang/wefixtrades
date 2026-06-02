@@ -687,8 +687,9 @@ function formatResultRange(
  * so we keep a tiny uppercase caption instead.
  */
 const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
-  fontSize: '11px', fontWeight: 600, color: c.textMuted, display: 'block',
+  fontSize: '11px', fontWeight: 700, color: 'rgba(0,0,0,0.88)', display: 'block',
   marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em',
+  textAlign: 'center',
 });
 
 /**
@@ -798,16 +799,16 @@ function StickyActionBar({
       style={{
         position: 'sticky', bottom: 0, zIndex: 40,
         background: theme.surface,
+        borderTop: '1px solid rgba(0,0,0,0.06)',
         // iOS safe area — clears the home indicator on Safari + PWA.
         paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
         paddingTop: 12,
         paddingLeft: 14, paddingRight: 14,
-        // Footer is an INSET rounded card (2px frame all around + a visible
-        // outline) matching the inner cards — so the bottom section reads as a
-        // distinct rounded container, not a flat edge-to-edge bar (Alex).
-        border: `1px solid ${theme.border}`,
-        borderRadius: radiusPx,
-        margin: '2px',
+        // Footer fills flush to the widget edges; its bottom corners round to
+        // the SAME radius as the outer card so the footer's corner IS the
+        // widget's corner — nothing shows behind it.
+        borderBottomLeftRadius: radiusPx,
+        borderBottomRightRadius: radiusPx,
         fontFamily,
       }}
     >
@@ -1954,12 +1955,12 @@ export default function AdvancedCalculator({
         style={{
           position: 'sticky', top: 0, zIndex: 40,
           background: c.surface,
-          // Header is an INSET rounded card (2px frame all around + a visible
-          // outline) matching the inner field/result cards — so the top section
-          // reads as a distinct rounded container, not a flat edge-to-edge bar.
-          border: `1px solid ${c.border}`,
-          borderRadius: radiusInnerPx,
-          margin: '2px',
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          // Header fills flush to the widget edges; its top corners round to
+          // the SAME radius as the outer card so the header's corner IS the
+          // widget's corner — nothing (no surface/frame) shows behind it.
+          borderTopLeftRadius: radiusOuterPx,
+          borderTopRightRadius: radiusOuterPx,
         }}
       >
       {/* ── Title bar (its own separated bar) ── */}
@@ -2818,7 +2819,7 @@ export default function AdvancedCalculator({
             fontFamily={fontFamily}
             calculatorId={calculatorId}
             microSummary={microSummary}
-            radiusPx={radiusInnerPx}
+            radiusPx={radiusOuterPx}
             // BD-2b — inline trust signals beneath the action row (license #,
             // insured-up-to, icon row). Renders null when the business
             // profile is empty so the sticky bar stays compact.

@@ -361,9 +361,12 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             <div
               data-testid="template-live-preview"
               style={{
-                background: "#FFFFFF",
-                borderRadius: 20,
-                border: `1px solid ${mkt.onDarkBorder}`,
+                // Transparent + radius matched to the widget's own outer radius
+                // so no frame colour shows behind the widget's rounded corners
+                // (Alex's "colour behind the rounded corner"). The widget brings
+                // its own border + rounding; this wrapper only adds the shadow.
+                background: "transparent",
+                borderRadius: 24,
                 boxShadow:
                   "0 4px 14px rgba(0,0,0,0.10), 0 24px 60px rgba(0,0,0,0.20)",
                 overflow: "hidden",
