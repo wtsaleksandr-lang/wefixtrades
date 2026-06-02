@@ -1220,6 +1220,8 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
     ["Any trade", "The well-funded local giant", "An SEO agency on retainer"],
   ];
 
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+
   return (
     <div
       role="dialog"
@@ -1235,19 +1237,19 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
         WebkitBackdropFilter: "blur(4px)",
         display: "grid",
         placeItems: "center",
-        padding: 16,
+        padding: isMobile ? 12 : 16,
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "min(560px, 100%)",
-          maxHeight: "86vh",
+          width: isMobile ? "100%" : "min(560px, 100%)",
+          maxHeight: isMobile ? "82vh" : "86vh",
           overflow: "auto",
           background: mkt.cardBg,
           border: `1px solid ${mkt.cardBorder}`,
-          borderRadius: 18,
-          padding: "22px 22px 18px",
+          borderRadius: isMobile ? 14 : 18,
+          padding: isMobile ? "15px 15px 13px" : "22px 22px 18px",
           boxShadow: "0 30px 80px -30px rgba(0,0,0,0.7)",
         }}
       >
@@ -1256,7 +1258,7 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
             <div
               style={{
                 fontFamily: MONO,
-                fontSize: 10.5,
+                fontSize: isMobile ? 9 : 10.5,
                 fontWeight: 700,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
@@ -1266,7 +1268,7 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
             >
               Who you&apos;re up against
             </div>
-            <div style={{ fontSize: 19, fontWeight: 800, color: mkt.onDark, letterSpacing: "-0.02em" }}>
+            <div style={{ fontSize: isMobile ? 15 : 19, fontWeight: 800, color: mkt.onDark, letterSpacing: "-0.02em" }}>
               Who are &ldquo;the big brands&rdquo;?
             </div>
           </div>
@@ -1308,9 +1310,9 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
               key={h}
               style={{
                 background: mkt.surfaceAlt,
-                padding: "9px 11px",
+                padding: isMobile ? "7px 8px" : "9px 11px",
                 fontFamily: MONO,
-                fontSize: 10,
+                fontSize: isMobile ? 8.5 : 10,
                 fontWeight: 700,
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
@@ -1326,8 +1328,8 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
                 key={`${ri}-${ci}`}
                 style={{
                   background: mkt.cardBg,
-                  padding: "9px 11px",
-                  fontSize: 13,
+                  padding: isMobile ? "7px 8px" : "9px 11px",
+                  fontSize: isMobile ? 10.5 : 13,
                   lineHeight: 1.35,
                   color: ci === 0 ? mkt.onDark : mkt.textMuted,
                   fontWeight: ci === 0 ? 700 : 500,
@@ -1339,7 +1341,7 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        <p style={{ marginTop: 14, marginBottom: 0, fontSize: 13.5, lineHeight: 1.5, color: mkt.textMuted }}>
+        <p style={{ marginTop: isMobile ? 11 : 14, marginBottom: 0, fontSize: isMobile ? 11.5 : 13.5, lineHeight: 1.5, color: mkt.textMuted }}>
           It&apos;s not just famous names — anyone with a real ad budget, a
           marketing team, and custom software.{" "}
           <strong style={{ color: mkt.onDark }}>WeFixTrades gives you the same toolkit.</strong>
@@ -1352,7 +1354,13 @@ function BigBrandsModal({ onClose }: { onClose: () => void }) {
 /* Tap-to-open product popover anchored over the radar. Glass/blur on the card
  * itself (the chart shows through, blurred) — NO full-screen dim/blur. Closes
  * on Escape, the × button, or tapping the badge again. */
-function BadgePopover({ i, onClose }: { i: number; onClose: () => void }) {
+/**
+ * Per-badge product popover. Fixed-positioned NEXT TO the tapped badge
+ * (anchored to its viewport rect, opening toward screen-centre and clamped
+ * on-screen), ~30% smaller on mobile, and dismissed by tapping anywhere
+ * (full-screen transparent overlay), the × button, or Escape.
+ */
+function BadgePopover({ i, anchor, onClose }: { i: number; anchor: { cx: number; cy: number }; onClose: () => void }) {
   const info = CAP_INFO[i];
   const { Icon } = CAPS[i];
   useEffect(() => {
@@ -1362,97 +1370,127 @@ function BadgePopover({ i, onClose }: { i: number; onClose: () => void }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 768;
+  const isMobile = vw < 640;
+  const W = isMobile ? 210 : 264;
+  const estH = isMobile ? 232 : 262;
+  const gap = (isMobile ? 14 : 18) + 20; // gap + half badge width
+  // Open toward the centre of the screen, then clamp fully on-screen.
+  let left = anchor.cx < vw / 2 ? anchor.cx + gap : anchor.cx - W - gap;
+  left = Math.max(8, Math.min(left, vw - W - 8));
+  let top = anchor.cy - estH / 2;
+  top = Math.max(8, Math.min(top, vh - estH - 8));
+
+  // ~30% smaller on mobile.
+  const pad = isMobile ? "11px 12px 11px" : "15px 16px 14px";
+  const tile = isMobile ? 26 : 34;
+  const iconSz = isMobile ? 16 : 20;
+  const titleFs = isMobile ? 13 : 15;
+  const descFs = isMobile ? 11 : 12.5;
+  const bnfFs = isMobile ? 10.5 : 12;
+  const closeSz = isMobile ? 20 : 24;
+  const checkSz = isMobile ? 12 : 14;
+  const moreFs = isMobile ? 10 : 11;
+
   return (
-    <motion.div
-      role="dialog"
-      aria-label={`${info.product} — what it does`}
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: "spring", stiffness: 260, damping: 22 }}
-      style={{
-        position: "absolute",
-        left: "50%",
-        top: "50%",
-        transform: "translate(-50%, -50%)",
-        zIndex: 8,
-        width: "min(300px, 84%)",
-        background: "rgba(18,24,28,0.6)",
-        backdropFilter: "blur(10px) saturate(1.25)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.25)",
-        border: "1px solid rgba(255,255,255,0.14)",
-        borderRadius: 16,
-        padding: "15px 16px 14px",
-        boxShadow: "0 20px 50px rgba(0,0,0,0.45)",
-        textAlign: "left",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 9 }}>
-        <span
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 9,
-            display: "grid",
-            placeItems: "center",
-            background: "rgba(255,255,255,0.96)",
-            border: `1px solid ${mkt.accent}`,
-            flexShrink: 0,
-          }}
-        >
-          <Icon size={20} color={mkt.accent} strokeWidth={2.2} />
-        </span>
-        <span style={{ fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,1)" }}>{info.product}</span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          style={{
-            marginLeft: "auto",
-            width: 24,
-            height: 24,
-            borderRadius: 7,
-            border: "1px solid rgba(255,255,255,0.18)",
-            background: "transparent",
-            color: "rgba(255,255,255,0.7)",
-            cursor: "pointer",
-            display: "grid",
-            placeItems: "center",
-            flexShrink: 0,
-          }}
-        >
-          <X size={14} />
-        </button>
-      </div>
-      <p style={{ fontSize: 12.5, lineHeight: 1.5, color: "rgba(255,255,255,0.8)", margin: "0 0 11px" }}>
-        {info.desc}
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 13 }}>
-        {info.benefits.map((bnf) => (
-          <div key={bnf} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-            <Check size={14} color={mkt.accent} strokeWidth={3} style={{ marginTop: 1, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", lineHeight: 1.4 }}>{bnf}</span>
-          </div>
-        ))}
-      </div>
-      <Link
-        href={info.href}
-        onClick={onClose}
+    <>
+      {/* Tap-anywhere overlay (transparent) — closes on any tap. */}
+      <div onClick={onClose} aria-hidden style={{ position: "fixed", inset: 0, zIndex: 9998, background: "transparent" }} />
+      <motion.div
+        role="dialog"
+        aria-label={`${info.product} — what it does`}
+        onClick={(e) => e.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 22 }}
         style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          fontFamily: MONO,
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: mkt.accent,
-          textDecoration: "none",
+          position: "fixed",
+          left,
+          top,
+          zIndex: 9999,
+          width: W,
+          maxHeight: "76vh",
+          overflow: "auto",
+          background: "rgba(18,24,28,0.92)",
+          backdropFilter: "blur(10px) saturate(1.25)",
+          WebkitBackdropFilter: "blur(10px) saturate(1.25)",
+          border: "1px solid rgba(255,255,255,0.14)",
+          borderRadius: 14,
+          padding: pad,
+          boxShadow: "0 20px 50px rgba(0,0,0,0.55)",
+          textAlign: "left",
         }}
       >
-        Read more →
-      </Link>
-    </motion.div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
+          <span
+            style={{
+              width: tile,
+              height: tile,
+              borderRadius: 8,
+              display: "grid",
+              placeItems: "center",
+              background: "rgba(255,255,255,0.96)",
+              border: `1px solid ${mkt.accent}`,
+              flexShrink: 0,
+            }}
+          >
+            <Icon size={iconSz} color={mkt.accent} strokeWidth={2.2} />
+          </span>
+          <span style={{ fontSize: titleFs, fontWeight: 800, color: "rgba(255,255,255,1)" }}>{info.product}</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              marginLeft: "auto",
+              width: closeSz,
+              height: closeSz,
+              borderRadius: 7,
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "transparent",
+              color: "rgba(255,255,255,0.7)",
+              cursor: "pointer",
+              display: "grid",
+              placeItems: "center",
+              flexShrink: 0,
+            }}
+          >
+            <X size={checkSz} />
+          </button>
+        </div>
+        <p style={{ fontSize: descFs, lineHeight: 1.5, color: "rgba(255,255,255,0.8)", margin: "0 0 10px" }}>
+          {info.desc}
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 11 }}>
+          {info.benefits.map((bnf) => (
+            <div key={bnf} style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
+              <Check size={checkSz} color={mkt.accent} strokeWidth={3} style={{ marginTop: 1, flexShrink: 0 }} />
+              <span style={{ fontSize: bnfFs, color: "rgba(255,255,255,0.85)", lineHeight: 1.4 }}>{bnf}</span>
+            </div>
+          ))}
+        </div>
+        <Link
+          href={info.href}
+          onClick={onClose}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontFamily: MONO,
+            fontSize: moreFs,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: mkt.accent,
+            textDecoration: "none",
+          }}
+        >
+          Read more →
+        </Link>
+      </motion.div>
+    </>
   );
 }
 
@@ -1460,8 +1498,10 @@ export function CompeteCoverageMap() {
   const reduced = useReducedMotion();
   const [claimed, setClaimed] = useState<Set<number>>(new Set());
   const [modal, setModal] = useState(false);
-  // Which badge's product popover is open (tap a badge to open/close).
+  // Which badge's product popover is open + the tapped badge's viewport
+  // centre, so the popover opens NEXT TO it.
   const [openBadge, setOpenBadge] = useState<number | null>(null);
+  const [badgeRect, setBadgeRect] = useState<{ cx: number; cy: number } | null>(null);
 
   // Toggle: tap a badge to claim its axis; tap again to shrink it back.
   const claim = (i: number) =>
@@ -1633,7 +1673,18 @@ export function CompeteCoverageMap() {
                 <div key={cap.label}>
                   <button
                     type="button"
-                    onClick={() => setOpenBadge((p) => (p === i ? null : i))}
+                    onClick={(e) => {
+                      // Grow the net out to this badge (claim its axis) AND open
+                      // its product popover, anchored to the badge's position.
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      setBadgeRect({ cx: r.left + r.width / 2, cy: r.top + r.height / 2 });
+                      setClaimed((s) => {
+                        const n = new Set(s);
+                        n.add(i);
+                        return n;
+                      });
+                      setOpenBadge(i);
+                    }}
                     aria-haspopup="dialog"
                     aria-expanded={openBadge === i}
                     aria-label={`${cap.label} — view details`}
@@ -1698,12 +1749,13 @@ export function CompeteCoverageMap() {
               );
             })}
 
-            {openBadge !== null && (
-              <BadgePopover i={openBadge} onClose={() => setOpenBadge(null)} />
-            )}
           </div>
         </div>
       </div>
+
+      {openBadge !== null && badgeRect && (
+        <BadgePopover i={openBadge} anchor={badgeRect} onClose={() => setOpenBadge(null)} />
+      )}
     </section>
   );
 }
