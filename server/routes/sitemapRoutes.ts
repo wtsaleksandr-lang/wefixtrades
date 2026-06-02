@@ -60,6 +60,10 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/pricing/quotequick", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-24" },
   { loc: "/services", priority: "0.8", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/templates", priority: "0.7", changefreq: "weekly", lastmod: "2026-05-12" },
+  // AI Receptionist templates — public gallery + 40 per-trade SEO pages
+  // (the detail routes are generated dynamically below). High-intent
+  // ("<trade> AI receptionist") long-tail with FAQ schema per page.
+  { loc: "/ai-receptionists", priority: "0.9", changefreq: "weekly", lastmod: "2026-06-02" },
   { loc: "/demo", priority: "0.7", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/demos", priority: "0.7", changefreq: "weekly", lastmod: "2026-05-12" },
   { loc: "/docs", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
@@ -178,9 +182,29 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/case-studies", priority: "0.7", changefreq: "monthly", lastmod: "2026-05-01" },
   { loc: "/resources", priority: "0.6", changefreq: "monthly", lastmod: "2026-05-01" },
   { loc: "/contact", priority: "0.6", changefreq: "monthly", lastmod: "2026-04-01" },
-  { loc: "/privacy", priority: "0.3", changefreq: "yearly", lastmod: "2026-01-01" },
-  { loc: "/terms", priority: "0.3", changefreq: "yearly", lastmod: "2026-01-01" },
+  { loc: "/privacy", priority: "0.3", changefreq: "yearly", lastmod: "2026-06-01" },
+  { loc: "/terms", priority: "0.3", changefreq: "yearly", lastmod: "2026-06-01" },
+  { loc: "/security", priority: "0.4", changefreq: "monthly", lastmod: "2026-06-01" },
+  { loc: "/cookies", priority: "0.3", changefreq: "yearly", lastmod: "2026-06-01" },
   { loc: "/sms-consent-disclosure", priority: "0.3", changefreq: "yearly", lastmod: "2026-05-28" },
+];
+
+/**
+ * AI Receptionist per-trade detail slugs (mirrors client/src/data/
+ * aiReceptionists.ts). Kept as a static list here so the server build does
+ * not have to resolve the client "@/" alias chain. Update when the trade
+ * catalogue changes.
+ */
+const AI_RECEPTIONIST_SLUGS: string[] = [
+  "plumbing", "electrical", "hvac", "roofing", "landscaping", "house-cleaning",
+  "painting", "handyman", "garage-door", "pest-control", "appliance-repair",
+  "cabinet-installation", "carpentry", "chimney-sweep", "concrete",
+  "countertop-installation", "deck-building", "door-installation", "drywall",
+  "fencing", "flooring", "foundation-repair", "general-contractor",
+  "gutter-services", "insulation", "junk-removal", "locksmith", "masonry",
+  "mold-remediation", "moving-services", "pool-service", "septic-services",
+  "siding", "solar-installation", "tile-installation", "tree-service",
+  "water-damage-restoration", "waterproofing", "well-water", "window-installation",
 ];
 
 function escapeXml(value: string): string {
@@ -211,6 +235,11 @@ function buildSitemapXml(): string {
   // Dynamic: one URL per product slug (uses the EffortelProductPage template).
   for (const product of PRODUCT_PAGES) {
     lines.push(urlNode(`/products/${product.slug}`, PRODUCT_LASTMOD, "weekly", "0.8"));
+  }
+
+  // Dynamic: one URL per AI receptionist trade page (high-intent long-tail).
+  for (const slug of AI_RECEPTIONIST_SLUGS) {
+    lines.push(urlNode(`/ai-receptionists/${slug}`, "2026-06-02", "monthly", "0.8"));
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
