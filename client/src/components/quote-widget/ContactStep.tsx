@@ -197,7 +197,12 @@ export default function ContactStep({
   }
 
   async function submitLead(intent: 'email' | 'booking') {
-    if (!ready) return;
+    // Buttons stay full-brightness + clickable; validate here so an empty
+    // submit shows a clear message instead of the CTA looking greyed-out.
+    if (!ready) {
+      setError(!nameOk ? 'Please enter your name.' : 'Please enter a valid email address.');
+      return;
+    }
     setStatus('sending');
     setError(null);
     try {
@@ -389,11 +394,11 @@ export default function ContactStep({
           type="button"
           data-testid="contact-step-email-cta"
           onClick={() => submitLead('email')}
-          disabled={!ready || status === 'sending'}
+          disabled={status === 'sending'}
           style={{
             ...primaryBtnStyle,
-            opacity: ready && status !== 'sending' ? 1 : 0.6,
-            cursor: ready && status !== 'sending' ? 'pointer' : 'not-allowed',
+            opacity: status === 'sending' ? 0.7 : 1,
+            cursor: status === 'sending' ? 'wait' : 'pointer',
           }}
         >
           {/* BG-7 Item 6 — owner override (sanitized HTML) or default copy. */}
