@@ -2113,11 +2113,11 @@ export default function AdvancedCalculator({
           gap: 2px;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           align-content: start;
-          /* Center each field in its row so a short control (e.g. a toggle)
-             sits balanced next to a taller one (e.g. a multi-select with a
-             group label), instead of floating at the top — Alex's page-2
-             "selector fields misaligned". */
-          align-items: center;
+          /* Top-align fields so their captions + first controls line up across
+             columns. Toggles now carry a matching group caption (see the toggle
+             renderer) so a toggle's control card aligns with a neighbour's
+             first option card — Alex's page-2 "selector fields misaligned". */
+          align-items: start;
           min-width: 0;
         }
         .${gridId}-fields > * { grid-column: span 2; min-width: 0; }
@@ -3276,14 +3276,20 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   if (f.type === 'toggle') {
     const on = value === true;
     return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-        padding: '12px 14px', borderRadius: radiusPx,
-        background: isOutline ? 'transparent' : c.surface,
-        border: isOutline ? `2px solid ${c.border}` : `1px solid ${c.border}`,
-      }}>
-        <span style={{ fontSize: '14px', fontWeight: 600, color: c.text }}>{f.label}</span>
-        <button type="button" onClick={() => onChange(!on)} aria-pressed={on}
+      <div>
+        {/* Group caption (same style as a multi-select's group label) so when a
+            toggle sits beside a labelled field its control card lines up with
+            that field's option cards instead of floating (Alex's page-2
+            alignment). */}
+        <label style={groupHeaderStyle(c)}>{f.label}</label>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+          padding: '12px 14px', borderRadius: radiusPx,
+          background: isOutline ? 'transparent' : c.surface,
+          border: isOutline ? `2px solid ${c.border}` : `1px solid ${c.border}`,
+        }}>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: c.text }}>{on ? 'Included' : 'Not included'}</span>
+          <button type="button" onClick={() => onChange(!on)} aria-pressed={on}
           style={{
             width: '44px', height: '26px', borderRadius: '13px', border: 'none', flexShrink: 0,
             background: on ? accent : c.border, cursor: 'pointer', position: 'relative',
@@ -3295,6 +3301,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
             transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
           }} />
         </button>
+        </div>
       </div>
     );
   }
