@@ -106,22 +106,14 @@ export default function WidgetSelect({
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedLabel}</span>
-        {/* Bold, high-contrast dropdown affordance: a visible chip with a large
-            solid triangle so it unmistakably reads as a dropdown on any theme.
-            A small grey chevron was too faint to notice (Alex). */}
-        <span
-          aria-hidden
-          style={{
-            flexShrink: 0, width: 28, height: 28, borderRadius: 8,
-            display: 'grid', placeItems: 'center',
-            background: 'rgba(255,255,255,0.12)',
-            transition: 'transform 200ms ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-          }}
+        {/* Small, subtle down-chevron — premium and understated (matches the
+            up/down steppers on the adjacent number field). */}
+        <svg
+          width={16} height={16} viewBox="0 0 24 24" aria-hidden
+          style={{ color: theme.text, flexShrink: 0, transition: 'transform 200ms ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
         >
-          <svg width={20} height={20} viewBox="0 0 24 24">
-            <path d="M5 9l7 8 7-8z" fill={theme.text} />
-          </svg>
-        </span>
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
 
       {/* Floated title-in-field label (always floated for a select). */}
