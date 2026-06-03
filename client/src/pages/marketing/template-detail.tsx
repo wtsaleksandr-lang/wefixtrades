@@ -13,7 +13,7 @@
 //
 // Unknown slug → redirect to /templates index (avoids dead-end SEO).
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useRoute, Redirect } from "wouter";
 import { ArrowRight, ChevronLeft, Check, Zap, Clock, TrendingUp, ShieldCheck } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
@@ -44,10 +44,14 @@ const SAMPLE_BUSINESS_PROFILE: BusinessProfile = {
 };
 
 /* ─── Build a CalculatorData wrapper around a real preset ─── */
-function buildPreviewCalculator(template: TemplateConfig): CalculatorData {
+function buildPreviewCalculator(template: TemplateConfig, accent?: string): CalculatorData {
+  const base = toAdvancedConfig(template);
   const advanced = {
-    ...toAdvancedConfig(template),
+    ...base,
     businessProfile: SAMPLE_BUSINESS_PROFILE,
+    // The website color tabs override the widget accent live; absent => the
+    // template's own theme accent. (The wizard exposes the full palette.)
+    style: { ...(base.style ?? {}), ...(accent ? { accent } : {}) },
   };
   return {
     id: 0,
@@ -95,6 +99,16 @@ function useTemplateJsonLd(template: TemplateConfig) {
   }, [template.id, template.name, template.description, url]);
 }
 
+/* ─── Website color palette (4 premium, industry-agnostic accents). The wizard
+   exposes the full picker; the site offers these four, reused on every
+   template. Default = Brand Blue. ─── */
+const SITE_PALETTE: { name: string; color: string }[] = [
+  { name: "Brand Blue", color: "#0D3CFC" },
+  { name: "Slate", color: "#334155" },
+  { name: "Emerald", color: "#10B981" },
+  { name: "Amber", color: "#D97706" },
+];
+
 /* ─── Page ─── */
 
 export default function TemplateDetailPage() {
@@ -125,9 +139,10 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
   );
   useBreadcrumbSchema(breadcrumbs);
 
+  const [accent, setAccent] = useState<string>(SITE_PALETTE[0].color);
   const previewCalculator = useMemo(
-    () => buildPreviewCalculator(template),
-    [template],
+    () => buildPreviewCalculator(template, accent),
+    [template, accent],
   );
 
   // Pull key value props from the template's header subtitle (e.g. "Licensed
@@ -283,7 +298,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <Link
-                href={`/wizard?template=${template.id}`}
+                href={`/wizard?template=${template.id}&accent=${encodeURIComponent(accent)}`}
                 data-testid="hero-use-template"
                 style={{
                   display: "inline-flex",
@@ -336,6 +351,39 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             >
               Try the {template.name} calculator
             </h2>
+            {/* Color tabs — recolor the preview live. Four site-wide accents
+                (the wizard exposes the full picker). Buttons use the shared
+                .cs-arrow capsule styling from the blog carousel arrows. */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, margin: "0 0 22px" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: mkt.onDarkMuted }}>
+                Choose a colour
+              </span>
+              <div className="cs-arrow-group" data-theme="dark" style={{ padding: 5, gap: 6 }} data-testid="template-color-tabs">
+                {SITE_PALETTE.map((p) => {
+                  const sel = accent === p.color;
+                  return (
+                    <button
+                      key={p.color}
+                      type="button"
+                      aria-label={p.name}
+                      aria-pressed={sel}
+                      title={p.name}
+                      onClick={() => setAccent(p.color)}
+                      style={{
+                        width: 34, height: 34, borderRadius: 9, border: "none", cursor: "pointer",
+                        background: p.color, display: "grid", placeItems: "center",
+                        boxShadow: sel
+                          ? "0 0 0 2px rgba(11,13,15,1), 0 0 0 4px rgba(255,255,255,0.9)"
+                          : "none",
+                        transition: "box-shadow 150ms ease, transform 120ms ease",
+                      }}
+                    >
+                      {sel && <Check size={16} color="rgba(255,255,255,1)" strokeWidth={3} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div
               data-testid="template-live-preview"
               style={{
@@ -363,6 +411,16 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               Sample pricing for preview. Your real numbers are configured in
               the wizard.
             </p>
+            {/* Deeper-edit note → wizard (carries the chosen template + colour). */}
+            <div style={{ textAlign: "center", marginTop: 14 }}>
+              <Link
+                href={`/wizard?template=${template.id}&accent=${encodeURIComponent(accent)}`}
+                data-testid="template-deeper-edit"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: mkt.accent, textDecoration: "none" }}
+              >
+                Need to edit pricing, formulas &amp; logic? Open the full wizard <ArrowRight size={14} />
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -433,7 +491,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               credit card required.
             </p>
             <Link
-              href={`/wizard?template=${template.id}`}
+              href={`/wizard?template=${template.id}&accent=${encodeURIComponent(accent)}`}
               data-testid="footer-use-template"
               style={{
                 display: "inline-flex",
