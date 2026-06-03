@@ -686,8 +686,29 @@ function formatResultRange(
  * can't carry a floating label naturally (no single input to float into)
  * so we keep a tiny uppercase caption instead.
  */
-const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
-  fontSize: '11px', fontWeight: 700, color: 'rgba(0,0,0,0.88)', display: 'block',
+/** Luminance test on the FIRST colour of a (possibly gradient) background
+ *  string. Templates carry different body gradients — some light, some dark,
+ *  independent of the theme — so a fixed label colour goes invisible on half
+ *  of them. This lets the group label adapt. */
+function bodyIsDarkBg(bg: string | undefined): boolean {
+  if (!bg) return true;
+  const rgb = bg.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+  let r = 22, g = 26, b = 35;
+  if (rgb) { r = +rgb[1]; g = +rgb[2]; b = +rgb[3]; }
+  else {
+    const hex = bg.match(/#([0-9a-fA-F]{6})/);
+    if (hex) { r = parseInt(hex[1].slice(0, 2), 16); g = parseInt(hex[1].slice(2, 4), 16); b = parseInt(hex[1].slice(4, 6), 16); }
+  }
+  return (0.299 * r + 0.587 * g + 0.114 * b) < 140;
+}
+
+const groupHeaderStyle = (c: WidgetTheme, bodyIsDark: boolean): React.CSSProperties => ({
+  fontSize: '11px', fontWeight: 700,
+  // Contrast with the ACTUAL body background: near-white on dark-gradient
+  // bodies, near-black on light-gradient bodies — so the centered group label
+  // is readable everywhere (was hardcoded black → invisible on dark bodies).
+  color: bodyIsDark ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.88)',
+  display: 'block',
   marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em',
   textAlign: 'center',
 });
@@ -1822,6 +1843,9 @@ export default function AdvancedCalculator({
     bodyBackground =
       `linear-gradient(${tintColor}, ${tintColor}), url("${bsBgImageUrl}") center / cover no-repeat`;
   }
+  // Whether the resolved body (often a per-template gradient, light or dark
+  // independent of the theme) is dark — drives readable group-label colour.
+  const bodyIsDark = bodyIsDarkBg(bodyBackground);
 
   // W-AO-6c — result-panel overrides. Each field is optional and falls
   // through to the existing renderer default when absent. We compute the
@@ -2369,6 +2393,7 @@ export default function AdvancedCalculator({
                     value={answers[f.name]}
                     accent={accent}
                     theme={cc}
+                    bodyIsDark={bodyIsDark}
                     radiusPx={radiusInnerPx}
                     fieldStyle={fieldStyle}
                     fontFamily={fontFamily}
@@ -3000,11 +3025,13 @@ function prefixRuleBlock(block: string, scope: string): string {
 
 /* ─── One field ─── */
 
-function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyle, fontFamily }: {
+function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusPx, fieldStyle, fontFamily }: {
   field: AdvField;
   value: Answer;
   accent: string;
   theme: WidgetTheme;
+  /** Whether the widget body is dark — keeps group labels readable. */
+  bodyIsDark: boolean;
   onChange: (v: Answer) => void;
   /** Wave H5 — corner radius applied to inputs / cards. */
   radiusPx: string;
@@ -3294,7 +3321,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
             toggle sits beside a labelled field its control card lines up with
             that field's option cards instead of floating (Alex's page-2
             alignment). */}
-        <label style={groupHeaderStyle(c)}>{f.label}</label>
+        <label style={groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
           padding: '12px 14px', borderRadius: radiusPx,
@@ -3359,7 +3386,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
     }
     return (
       <div>
-        <label style={groupHeaderStyle(c)}>{f.label}</label>
+        <label style={groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
@@ -3401,7 +3428,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
     // image is uploaded yet. Tap target ≥44px (minHeight 120px covers it).
     return (
       <div>
-        <label style={groupHeaderStyle(c)}>{f.label}</label>
+        <label style={groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -3461,7 +3488,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   else if (maxSelect) hint = `Pick up to ${maxSelect}`;
   return (
     <div>
-      <label style={groupHeaderStyle(c)}>{f.label}</label>
+      <label style={groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
       {hint && (
         <p
           data-testid={`adv-multiselect-hint-${f.id}`}
