@@ -132,18 +132,16 @@ export default function TemplatesPage() {
               margin: "0 auto",
               padding: "14px 28px",
               display: "flex",
-              gap: 12,
-              flexWrap: "wrap" as const,
-              alignItems: "center",
+              flexDirection: "column" as const,
+              gap: 10,
             }}
           >
             {/* Search — top-left help cue */}
             <div
               style={{
                 position: "relative",
-                flex: "0 1 280px",
-                minWidth: 200,
-                marginRight: 8,
+                width: "100%",
+                maxWidth: 320,
               }}
             >
               <Search
@@ -178,50 +176,55 @@ export default function TemplatesPage() {
               />
             </div>
 
-            <span
+            {/* Category filter — small, subtle, single scrollable line (swipe). */}
+            <div
+              role="tablist"
+              aria-label="Filter templates by category"
+              className="qq-fade-scroll-row"
               style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: mkt.onDarkMuted,
-                marginRight: 4,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
+                display: "flex",
+                gap: 6,
+                overflowX: "auto",
+                flexWrap: "nowrap" as const,
+                WebkitOverflowScrolling: "touch",
+                paddingBottom: 1,
               }}
             >
-              Filter:
-            </span>
-            {FILTER_FAMILIES.map((f) => {
-              const count =
-                f.id === "all" ? totalCount : (familyCounts[f.id] ?? 0);
-              if (f.id !== "all" && count === 0) return null;
-              const active = activeFilter === f.id;
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => setActiveFilter(f.id)}
-                  data-testid={`filter-${f.id}`}
-                  style={{
-                    padding: "6px 14px",
-                    borderRadius: 20,
-                    border: `1.5px solid ${active ? mkt.accent : mkt.onDarkBorder}`,
-                    background: active ? mkt.accent : "transparent",
-                    color: active ? "#FFFFFF" : mkt.onDarkMuted,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    minHeight: 44,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  {f.label}
-                  <span style={{ marginLeft: 6, opacity: 0.75, fontWeight: 500 }}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+              {FILTER_FAMILIES.map((f) => {
+                const count =
+                  f.id === "all" ? totalCount : (familyCounts[f.id] ?? 0);
+                if (f.id !== "all" && count === 0) return null;
+                const active = activeFilter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setActiveFilter(f.id)}
+                    data-testid={`filter-${f.id}`}
+                    style={{
+                      flex: "0 0 auto",
+                      padding: "4px 11px",
+                      borderRadius: 999,
+                      border: `1px solid ${active ? mkt.accent : mkt.onDarkBorder}`,
+                      background: active ? "rgba(13,60,252,0.14)" : "transparent",
+                      color: active ? mkt.onDark : mkt.onDarkMuted,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      lineHeight: 1.5,
+                      whiteSpace: "nowrap" as const,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {f.label}
+                    <span style={{ marginLeft: 5, opacity: 0.55, fontWeight: 500, fontSize: 11 }}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
