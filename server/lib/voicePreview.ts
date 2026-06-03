@@ -37,6 +37,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getOpenAI } from "../openaiClient";
 import { createLogger } from "./logger";
+import {
+  ELEVENLABS_MODEL_ID,
+  elevenLabsRestVoiceSettings,
+  ELEVENLABS_RACHEL_VOICE_ID as SHARED_RACHEL_VOICE_ID,
+} from "./voiceProfile";
 
 const log = createLogger("VoicePreview");
 
@@ -46,18 +51,16 @@ const SAMPLE_TEXT =
 
 /**
  * ElevenLabs Rachel — same voice used by Vapi for WeFixTrades production
- * calls (see server/services/vapiService.ts where `VAPI_WFT_VOICE_ID`
- * defaults to this same value). Using it as the preview default ensures
- * "what you hear in the preview = what your customers will hear".
+ * calls (see server/lib/voiceProfile.ts). Re-exported from the shared voice
+ * profile so preview + production stay in lock-step: "what you hear in the
+ * preview = what your customers will hear".
  */
-export const ELEVENLABS_RACHEL_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+export const ELEVENLABS_RACHEL_VOICE_ID = SHARED_RACHEL_VOICE_ID;
 
 const ELEVENLABS_API_BASE = "https://api.elevenlabs.io/v1";
-// `eleven_turbo_v2_5` is the fastest model with broad voice support —
-// ~$0.30 per 1k chars on the standard tier; an 80-char greeting costs
-// ≈ $0.024, and we cache to disk so each voice synthesizes once. Well
-// under the $0.50/preview threshold called out in the Wave 44 brief.
-const ELEVENLABS_MODEL = "eleven_turbo_v2_5";
+// Model + voice settings now come from the shared voice profile so preview
+// renders with the exact same tuning as the live VAPI call (Wave 44 goal).
+const ELEVENLABS_MODEL = ELEVENLABS_MODEL_ID;
 
 /** Absolute path to the cache file for a given voice slug. */
 export function cachePathFor(voiceId: string): string {
@@ -125,12 +128,7 @@ async function synthesizeElevenLabs(
         body: JSON.stringify({
           text,
           model_id: ELEVENLABS_MODEL,
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            style: 0,
-            use_speaker_boost: true,
-          },
+          voice_settings: elevenLabsRestVoiceSettings(),
         }),
       },
     );

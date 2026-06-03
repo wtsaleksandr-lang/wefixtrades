@@ -25,6 +25,15 @@ import { storage } from "../storage";
 import type { TradelineConfig, ClientService, Client, TradelineLeadData } from "@shared/schema";
 import { VAPI_BOOKING_FUNCTIONS } from "./bookingTools";
 import { createLogger } from "../lib/logger";
+import {
+  buildVapiVoiceBlock,
+  buildVapiTranscriber,
+  resolveTradeLineVoiceId,
+  VAPI_MAX_DURATION_SECONDS,
+  VAPI_RECORDING_ENABLED,
+  VAPI_END_CALL_PHRASES,
+  ELEVENLABS_RACHEL_VOICE_ID,
+} from "../lib/voiceProfile";
 import { db } from "../db";
 import { onboardingSubmissions } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -60,7 +69,7 @@ export const vapiAssistantPayloadSchema = z.object({
   voice: z.object({
     provider: z.string(),
     voiceId: z.string(),
-  }),
+  }).passthrough(), // allow tuned 11labs fields (model, stability, similarityBoost, style, useSpeakerBoost, speed)
   firstMessage: z.string().optional(),
   transcriber: z.object({
     provider: z.string(),
@@ -796,12 +805,12 @@ export function buildAssistantConfig(): Record<string, any> {
       // `model.model` string is required by Vapi for custom-llm provider —
       // see fix in upsertVapiAssistant() below.
       model: { provider: "custom-llm", model: "wefixtrades-brand-v1", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
-      voice: { provider: "11labs", voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM" },
+      voice: buildVapiVoiceBlock(process.env.VAPI_WFT_VOICE_ID || ELEVENLABS_RACHEL_VOICE_ID),
       firstMessage: "WeFixTrades, this is Riley — how can I help?",
       endCallMessage: "Thanks for calling WeFixTrades. We'll follow up by email shortly — have a great rest of your day.",
-      maxDurationSeconds: 900, recordingEnabled: true,
-      transcriber: { provider: "deepgram", model: "nova-2", language: "en" },
-      endCallPhrases: ["goodbye", "bye", "thanks bye"],
+      maxDurationSeconds: VAPI_MAX_DURATION_SECONDS, recordingEnabled: VAPI_RECORDING_ENABLED,
+      transcriber: buildVapiTranscriber("en"),
+      endCallPhrases: VAPI_END_CALL_PHRASES,
     },
   };
 }
@@ -837,23 +846,29 @@ export async function buildAssistantConfigWithAvailability(): Promise<Record<str
  * Build Vapi assistant config for a TradeLine client, including booking
  * functions when booking is enabled in the client's config.
  */
-export function buildTradeLineAssistantConfig(resolved: ResolvedTradeLineClient): Record<string, any> {
+export async function buildTradeLineAssistantConfig(resolved: ResolvedTradeLineClient): Promise<Record<string, any>> {
   const config = getVapiConfig();
   const ctx = buildTradeLineContext(resolved);
+
+  // Resolve the live voice: customer's portal pick (catalog → elevenlabs id)
+  // wins; fall back to the static preset on config.voice.presetId, then Rachel.
+  const { getVoicePreset } = await import("@shared/tradelineVoices");
+  const presetVoiceId = getVoicePreset(resolved.config.voice?.presetId || "professional-female").voiceId;
+  const voiceId = await resolveTradeLineVoiceId(resolved.client.id, presetVoiceId);
 
   const assistant: Record<string, any> = {
     name: `TradeLine — ${resolved.client.business_name}`,
     // `model.model` string is required by Vapi for custom-llm provider —
     // see fix in upsertVapiAssistant() below.
     model: { provider: "custom-llm", model: "wefixtrades-tradeline-v1", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
-    voice: { provider: "11labs", voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM" },
+    voice: buildVapiVoiceBlock(voiceId),
     firstMessage: ctx.mode === "after_hours"
       ? `Hi, thanks for calling ${ctx.businessName}! We're closed for the day, but I can help make sure you're looked after.`
       : `Hi, thanks for calling ${ctx.businessName}! How can I help you today?`,
     endCallMessage: `Thanks for calling ${ctx.businessName}. We'll follow up shortly — have a great day.`,
-    maxDurationSeconds: 900, recordingEnabled: true,
-    transcriber: { provider: "deepgram", model: "nova-2", language: "en" },
-    endCallPhrases: ["goodbye", "bye", "thanks bye"],
+    maxDurationSeconds: VAPI_MAX_DURATION_SECONDS, recordingEnabled: VAPI_RECORDING_ENABLED,
+    transcriber: buildVapiTranscriber("en"),
+    endCallPhrases: VAPI_END_CALL_PHRASES,
     serverUrl: config.serverUrl ? `${config.serverUrl}/api/vapi/webhook` : "/api/vapi/webhook",
     metadata: { client_service_id: String(resolved.clientService.id) },
   };
@@ -905,9 +920,9 @@ export async function upsertVapiAssistant(
       url: `${config.serverUrl}/api/vapi/conversation`,
       messages: [{ role: "system", content: systemPrompt }],
     },
-    voice: { provider: (voiceConfig?.provider || "11labs") as "11labs", voiceId: voiceConfig?.voiceId || "21m00Tcm4TlvDq8ikWAM" },
+    voice: buildVapiVoiceBlock(voiceConfig?.voiceId),
     firstMessage,
-    transcriber: { provider: "deepgram" as const, model: "nova-2", language: transcriberLanguage || "en" },
+    transcriber: buildVapiTranscriber(transcriberLanguage || "en"),
     serverUrl: `${config.serverUrl}/api/vapi/webhook`,
     metadata: { client_service_id: String(clientServiceId), source: "tradeline_template_engine" },
   };
@@ -952,6 +967,36 @@ export async function upsertVapiAssistant(
     if (err.message?.includes("Vapi assistant creation failed") || err.message?.includes("Vapi returned no")) throw err;
     log.error("Vapi API unreachable during assistant creation", { error: err.message });
     throw new Error(`Voice service temporarily unavailable: ${err.message}`);
+  }
+}
+
+/**
+ * Re-push a client's TradeLine assistant after a portal voice/settings change.
+ *
+ * The pre-provisioned VAPI assistant (bound to the client's phone number) holds
+ * the voice that callers hear, so a `tradeline_assistant_settings.voice_id`
+ * change must be re-pushed to take effect on already-provisioned assistants.
+ * The resolved voice is part of the build hash (see buildTradeLineAssistant), so
+ * this rebuilds + re-pushes rather than no-oping. Fail-soft + fire-and-forget —
+ * never blocks or fails the portal request.
+ */
+export async function reprovisionTradeLineVoiceForClient(clientId: number): Promise<void> {
+  try {
+    const { clientServices } = await import("@shared/schema");
+    const { and, eq, like } = await import("drizzle-orm");
+    const services = await db
+      .select({ id: clientServices.id, status: clientServices.status })
+      .from(clientServices)
+      .where(and(eq(clientServices.client_id, clientId), like(clientServices.service_id, "tradeline%")));
+    const target = services.find((s) => s.status === "active") ?? services[0];
+    if (!target) {
+      log.info("[voice-reprovision] no tradeline service for client — skipping", { clientId });
+      return;
+    }
+    await provisionTradeLineAssistant(target.id);
+    log.info("[voice-reprovision] re-pushed assistant after voice change", { clientId, clientServiceId: target.id });
+  } catch (err) {
+    log.warn("[voice-reprovision] failed (non-blocking)", { clientId, error: (err as Error).message });
   }
 }
 

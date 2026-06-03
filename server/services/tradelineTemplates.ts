@@ -12,6 +12,7 @@ import { storage } from "../storage";
 import { advanceSetupStage, computeSetupStage } from "@shared/schema";
 import type { TradelineConfig, Client } from "@shared/schema";
 import { getVoicePreset } from "@shared/tradelineVoices";
+import { resolveTradeLineVoiceId } from "../lib/voiceProfile";
 
 /* ═══════════════════════════════════════════
    PART 1 — TRADE TEMPLATES
@@ -1535,6 +1536,12 @@ export interface AssistantInput {
   callbackNumber: string | null;
   // Voice & personality settings (affect prompt + Vapi voice config)
   voicePresetId: string;
+  /**
+   * Resolved live ElevenLabs voice id (customer catalog pick → preset → Rachel).
+   * Set by buildTradeLineAssistant after an async catalog lookup. Included in
+   * the idempotency hash so a portal voice change forces a rebuild + re-push.
+   */
+  resolvedVoiceId?: string;
   personalityTone: "friendly" | "professional" | "direct";
   humor: "off" | "light";
   profanity: boolean;
@@ -1653,7 +1660,8 @@ export function buildAssistantDefinition(input: AssistantInput): AssistantDefini
     channels: input.channels,
     voiceConfig: {
       provider: voicePreset.provider,
-      voiceId: voicePreset.voiceId,
+      // Customer catalog pick (resolved upstream) wins; else the static preset.
+      voiceId: input.resolvedVoiceId || voicePreset.voiceId,
     },
     transcriberLanguage: transcriberLangMap[input.language] || "en",
     behaviorRules: {
@@ -1869,9 +1877,19 @@ export async function buildTradeLineAssistant(
   const submission = submissions.find(s => s.client_service_id === clientServiceId);
   const responses = (submission?.responses as Record<string, any>) ?? null;
 
+  // Resolve the customer's live voice once: catalog pick
+  // (tradeline_assistant_settings.voice_id → tradeline_voices.elevenlabs_voice_id)
+  // wins; else the static preset on config.voice.presetId; else Rachel. Injected
+  // into AssistantInput so it participates in the idempotency hash — a portal
+  // voice change alters the hash and forces a rebuild + re-push (otherwise a
+  // voice-only change is skipped as "input unchanged").
+  const presetVoiceId = getVoicePreset(config.voice?.presetId || "professional-female").voiceId;
+  const resolvedVoiceId = await resolveTradeLineVoiceId(client.id, presetVoiceId);
+
   // Safety: manual override flag
   if (config.assistant.manualOverride) {
     const input = buildAssistantInput(config, client, responses);
+    input.resolvedVoiceId = resolvedVoiceId;
     const definition = buildAssistantDefinition(input);
     return {
       definition,
@@ -1884,6 +1902,7 @@ export async function buildTradeLineAssistant(
 
   // 4. Build structured input → select template → generate definition
   const input = buildAssistantInput(config, client, responses);
+  input.resolvedVoiceId = resolvedVoiceId;
   const definition = buildAssistantDefinition(input);
 
   // Idempotency: skip if input hash unchanged

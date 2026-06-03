@@ -104,7 +104,7 @@ export function registerVapiRoutes(app: Express): void {
       switch (eventType) {
         case "assistant-request": {
           if (tradeLineResolved) {
-            const tlConfig = buildTradeLineAssistantConfig(tradeLineResolved);
+            const tlConfig = await buildTradeLineAssistantConfig(tradeLineResolved);
             return res.json(tlConfig);
           }
           // Read brand-availability state and override greeting/system prompt
