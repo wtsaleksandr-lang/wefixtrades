@@ -301,28 +301,6 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               >
                 Use this template <ArrowRight size={14} />
               </Link>
-              <a
-                href="#live-preview"
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,1)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = mkt.onDarkBorder; }}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "12px 22px",
-                  borderRadius: 10,
-                  background: "transparent",
-                  color: mkt.onDark,
-                  fontSize: 15,
-                  fontWeight: 600,
-                  textDecoration: "none",
-                  border: `1.5px solid ${mkt.onDarkBorder}`,
-                  minHeight: 44,
-                  transition: "border-color 0.2s ease",
-                }}
-              >
-                See live preview
-              </a>
             </div>
           </div>
         </div>
