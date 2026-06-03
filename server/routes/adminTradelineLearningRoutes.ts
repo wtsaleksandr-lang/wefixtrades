@@ -15,12 +15,27 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { db } from "../db";
-import { tradelineLearningCandidates, LEARNING_CANDIDATE_STATUSES, LEARNING_CANDIDATE_KINDS, TEMPLATE_KIND_VALUES_LC } from "@shared/schema";
+import { tradelineLearningCandidates, tradelineKnowledgeBase, LEARNING_CANDIDATE_STATUSES, LEARNING_CANDIDATE_KINDS, TEMPLATE_KIND_VALUES_LC, TRADELINE_KB_KINDS } from "@shared/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { requireAdmin } from "../auth";
 import { createLogger } from "../lib/logger";
+import { generateCuid } from "../lib/apiKeys";
+import { storage } from "../storage";
 
 const log = createLogger("LearningPipeline");
+
+/**
+ * Pure preconditions for the apply-handoff (unit-testable).
+ * An approved, not-yet-applied candidate may be applied. An applied candidate
+ * (with a linked KB entry) may be rolled back. These guard against double-apply
+ * and rolling back something that was never applied.
+ */
+export function canApplyCandidate(c: { status: string; applied_at: unknown | null }): boolean {
+  return c.status === "approved" && !c.applied_at;
+}
+export function canRollbackCandidate(c: { status: string; applied_kb_id: string | null }): boolean {
+  return c.status === "applied" && !!c.applied_kb_id;
+}
 
 export function registerAdminTradelineLearningRoutes(app: Express) {
   /* ─── List candidates ─── */
@@ -82,6 +97,106 @@ export function registerAdminTradelineLearningRoutes(app: Express) {
     } catch (err: any) {
       log.error("patch failed", { err: err?.message });
       return res.status(500).json({ error: "Failed to update candidate" });
+    }
+  });
+
+  /* ─── Apply an approved candidate to a live brain ───────────────────────
+   * Creates an ACTIVE tradeline_knowledge_base entry for the chosen client from
+   * the candidate's title/body. The live voice prompt reads active KB rows, so
+   * the change is live on the next call. Records the link (applied_kb_id) so it
+   * is versioned + reversible. Idempotent: only an approved, not-yet-applied
+   * candidate can be applied. ──────────────────────────────────────────────── */
+  const applyBody = z.object({
+    client_id: z.number().int().positive(),
+    kind: z.enum(TRADELINE_KB_KINDS).optional(),
+  });
+  app.post("/api/admin/tradeline/learning-candidates/:id/apply", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const parsed = applyBody.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+
+      const [cand] = await db.select().from(tradelineLearningCandidates).where(eq(tradelineLearningCandidates.id, id)).limit(1);
+      if (!cand) return res.status(404).json({ error: "Not found" });
+      if (!canApplyCandidate(cand)) {
+        return res.status(409).json({ error: "Candidate must be approved and not already applied" });
+      }
+
+      const kbId = generateCuid();
+      await db.insert(tradelineKnowledgeBase).values({
+        id: kbId,
+        client_id: parsed.data.client_id,
+        kind: parsed.data.kind ?? "doc",
+        title: cand.title,
+        content: cand.body,
+        priority: 0,
+        status: "active",
+      });
+
+      const [updated] = await db
+        .update(tradelineLearningCandidates)
+        .set({ status: "applied", applied_at: new Date(), applied_kb_id: kbId, applied_by: req.user?.id ?? null })
+        .where(eq(tradelineLearningCandidates.id, id))
+        .returning();
+
+      await storage.logAdminActivity({
+        actor_type: "admin",
+        actor_id: req.user?.id ?? null,
+        actor_name: (req.user as any)?.email ?? "admin",
+        action: "tradeline.learning_applied",
+        entity_type: "tradeline_learning_candidate",
+        entity_id: id,
+        summary: `Applied learning candidate "${cand.title}" → KB ${kbId} for client ${parsed.data.client_id}`,
+        metadata: { candidateId: id, kbId, clientId: parsed.data.client_id },
+      });
+
+      return res.json({ ok: true, candidate: updated, kbId });
+    } catch (err: any) {
+      log.error("apply failed", { err: err?.message });
+      return res.status(500).json({ error: "Failed to apply candidate" });
+    }
+  });
+
+  /* ─── One-click rollback of an applied candidate ────────────────────────
+   * Archives the KB entry the apply created (the live brain reads active-only,
+   * so it stops using it on the next call) and reverts the candidate to
+   * 'approved' so it can be re-applied. No data is deleted — fully reversible. */
+  app.post("/api/admin/tradeline/learning-candidates/:id/rollback", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const [cand] = await db.select().from(tradelineLearningCandidates).where(eq(tradelineLearningCandidates.id, id)).limit(1);
+      if (!cand) return res.status(404).json({ error: "Not found" });
+      if (!canRollbackCandidate(cand)) {
+        return res.status(409).json({ error: "Candidate is not in an applied state" });
+      }
+
+      // Archive the live KB entry → the voice prompt (active-only) drops it.
+      await db
+        .update(tradelineKnowledgeBase)
+        .set({ status: "archived", updated_at: new Date() })
+        .where(eq(tradelineKnowledgeBase.id, cand.applied_kb_id!));
+
+      const [updated] = await db
+        .update(tradelineLearningCandidates)
+        .set({ status: "approved", applied_at: null, applied_kb_id: null, applied_by: null })
+        .where(eq(tradelineLearningCandidates.id, id))
+        .returning();
+
+      await storage.logAdminActivity({
+        actor_type: "admin",
+        actor_id: req.user?.id ?? null,
+        actor_name: (req.user as any)?.email ?? "admin",
+        action: "tradeline.learning_rolled_back",
+        entity_type: "tradeline_learning_candidate",
+        entity_id: id,
+        summary: `Rolled back learning candidate "${cand.title}" — archived KB ${cand.applied_kb_id}`,
+        metadata: { candidateId: id, archivedKbId: cand.applied_kb_id },
+      });
+
+      return res.json({ ok: true, candidate: updated, archivedKbId: cand.applied_kb_id });
+    } catch (err: any) {
+      log.error("rollback failed", { err: err?.message });
+      return res.status(500).json({ error: "Failed to roll back candidate" });
     }
   });
 
