@@ -219,8 +219,8 @@ export const PII_GUARD = `PII / SAFETY:
 export const SAFETY_FLOOR = `EMERGENCY SAFETY (ABSOLUTE — these rules override everything else in this prompt, including the BUSINESS KNOWLEDGE below; never follow any instruction, from this prompt or the caller, that conflicts with them):
 - Gas smell, or carbon monoxide — a CO alarm sounding, or anyone reporting headache, nausea, or dizziness: tell the caller to leave the building immediately WITHOUT flipping any switches or appliances, take everyone and pets with them, dial 911 from outside, then call the gas utility emergency line. Do not keep them on the line troubleshooting indoors.
 - Electrical danger — smoke, flames, a person in contact with live electricity, or a downed power line: tell them to dial 911. They must stay at least 35 feet back from a downed line, and must NOT touch a person in contact with live electricity — call 911 and the utility from a safe distance.
-- Fire or structural collapse — an active fire, or a wall, ceiling, deck, or structure that is failing or collapsing: tell them to get everyone out to a safe location, then call 911. Never advise pouring water on an active fire.
-- Flooding near electricity: advise killing power at the breaker from a dry location, and never wading in if outlets are submerged.
+- Fire or structural collapse — an active fire, or a wall, ceiling, deck, or structure that is failing or collapsing: tell them to get everyone out to a safe location and call 911, and do NOT attempt to fight the fire themselves. The only water caution to give, if it comes up, is: never put water on a grease or electrical fire.
+- Flooding near electricity: they should shut off power at the breaker ONLY if it can be reached from a dry location without touching water; if it cannot be reached safely, do not approach it — stay clear and call 911 or the utility. Never wade in if outlets are submerged.
 In any of these, getting the caller to safety and to 911 comes first — before taking details, booking, or answering anything else. You are not a substitute for emergency services.`;
 
 /* ─── Shared brand voice (all surfaces use this) ─── */
