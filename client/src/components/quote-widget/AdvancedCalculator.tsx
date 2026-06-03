@@ -2347,7 +2347,11 @@ export default function AdvancedCalculator({
                     // full width; otherwise half (default pairing). Use
                     // `1 / -1` (not `span 2`) so it spans the whole row even in
                     // the auto-fit multi-column layout (which has >2 columns).
-                    gridColumn: f.colSpan === 2 ? '1 / -1' : 'auto',
+                    // multi_select always spans full width: it renders a tall
+                    // stack of option cards, so pairing it half-width beside a
+                    // short field leaves an ugly empty gap (catalogue-wide fix).
+                    gridColumn:
+                      f.colSpan === 2 || f.type === 'multi_select' ? '1 / -1' : 'auto',
                     // BD-3l — per-child stagger index (capped at 7) read
                     // by `.qq-stagger-in` keyframes. No-op when the pack
                     // is off (CSS rule doesn't match).
