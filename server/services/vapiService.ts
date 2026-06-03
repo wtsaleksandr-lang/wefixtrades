@@ -69,7 +69,18 @@ export const vapiAssistantPayloadSchema = z.object({
   voice: z.object({
     provider: z.string(),
     voiceId: z.string(),
-  }).passthrough(), // allow tuned 11labs fields (model, stability, similarityBoost, style, useSpeakerBoost, speed)
+    // Tuned 11labs render fields — listed explicitly (not .passthrough()) so the
+    // boundary still validates the voice object's shape before we POST to Vapi.
+    // A typo'd value type (e.g. stability as a string) or out-of-range tuning
+    // fails HERE instead of sailing through to Vapi as an opaque 400. Ranges
+    // mirror Vapi's ElevenLabsVoice schema.
+    model: z.string().optional(),
+    stability: z.number().min(0).max(1).optional(),
+    similarityBoost: z.number().min(0).max(1).optional(),
+    style: z.number().min(0).max(1).optional(),
+    useSpeakerBoost: z.boolean().optional(),
+    speed: z.number().min(0.7).max(1.2).optional(),
+  }),
   firstMessage: z.string().optional(),
   transcriber: z.object({
     provider: z.string(),

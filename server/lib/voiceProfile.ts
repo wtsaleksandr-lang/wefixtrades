@@ -179,6 +179,17 @@ export async function resolveTradeLineVoiceId(
       // Only honor an active catalog voice; archived → fall through to preset.
       if (voice?.elevenlabs_voice_id && voice.status === "active") {
         catalogElevenId = voice.elevenlabs_voice_id;
+      } else {
+        // The customer DID pick a voice but it no longer resolves to an active
+        // catalog row (archived / deleted). Falling back to preset/Rachel here
+        // would otherwise be a silent "wrong voice" — leave a breadcrumb so it
+        // isn't another invisible no-op (this whole bug class was a silent
+        // fallback with false confirmation).
+        const { createLogger } = await import("./logger");
+        createLogger("VoiceProfile").warn(
+          "client voice_id set but no active catalog voice — falling back to preset/default",
+          { clientId, voiceId: settings.voice_id, voiceStatus: voice?.status ?? "missing" },
+        );
       }
     }
   } catch (err) {
