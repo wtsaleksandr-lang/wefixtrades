@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo } from "react";
 import { Link, useRoute, Redirect } from "wouter";
-import { ArrowRight, ChevronLeft, Check } from "lucide-react";
+import { ArrowRight, ChevronLeft, Check, Zap, Clock, TrendingUp, ShieldCheck } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import { mkt } from "@/theme/tokens";
@@ -363,6 +363,41 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               Sample pricing for preview. Your real numbers are configured in
               the wizard.
             </p>
+          </div>
+        </div>
+
+        {/* Why an instant quote tool wins — KPI row */}
+        <div style={{ padding: "64px 28px", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
+          <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+            <h2 style={{ fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 800, color: mkt.onDark, textAlign: "center", margin: "0 0 8px", letterSpacing: "-0.01em" }}>
+              Why trades win with an instant quote tool
+            </h2>
+            <p style={{ fontSize: 15, color: mkt.onDarkMuted, textAlign: "center", maxWidth: 560, margin: "0 auto 36px" }}>
+              An online calculator turns website visitors into booked jobs — automatically, around the clock.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(228px, 1fr))", gap: 16 }}>
+              {[
+                { Icon: Zap, stat: "21×", title: "Respond first, win more", sub: "Leads contacted within 5 minutes convert 21× more often than slow follow-ups." },
+                { Icon: Clock, stat: "24/7", title: "Never miss a job", sub: "Your calculator captures and prices leads overnight and on weekends, while you sleep." },
+                { Icon: TrendingUp, stat: "2×", title: "Quotes beat forms", sub: "An interactive quote tool converts 2× more website visitors than a plain contact form." },
+                { Icon: ShieldCheck, stat: "Pre-qualified", title: "Fewer tire-kickers", sub: "Upfront pricing filters out mismatched budgets so you only quote serious buyers." },
+              ].map(({ Icon, stat, title, sub }) => (
+                <div key={title} style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: `1px solid ${mkt.onDarkBorder}`,
+                  borderRadius: 16,
+                  padding: "24px 20px",
+                  display: "flex", flexDirection: "column", gap: 8,
+                }}>
+                  <span style={{ width: 40, height: 40, borderRadius: 10, display: "grid", placeItems: "center", background: "rgba(13,60,252,0.14)" }}>
+                    <Icon size={20} color={mkt.accent} />
+                  </span>
+                  <div style={{ fontSize: 30, fontWeight: 800, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1.05 }}>{stat}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark }}>{title}</div>
+                  <p style={{ fontSize: 13, lineHeight: 1.55, color: mkt.onDarkMuted, margin: 0 }}>{sub}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
