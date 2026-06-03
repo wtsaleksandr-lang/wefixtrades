@@ -305,6 +305,8 @@ export function registerPortalTradelineKnowledgeRoutes(app: Express): void {
         .where(eq(tradelineAssistantSettings.client_id, clientId))
         .limit(1);
 
+      const priorVoiceId = existing[0]?.voice_id ?? null;
+
       let row;
       if (existing.length === 0) {
         const [created] = await db
@@ -330,6 +332,26 @@ export function registerPortalTradelineKnowledgeRoutes(app: Express): void {
           .returning();
         row = updated;
       }
+
+      // If the chosen voice changed, re-push the assistant to VAPI so the new
+      // voice reaches the already-provisioned (phone-bound) assistant. The
+      // resolved voice is part of the build hash, so this is not a no-op.
+      // Fire-and-forget + fail-soft: the portal save never waits on or fails
+      // because of VAPI provisioning.
+      const newVoiceId = row?.voice_id ?? null;
+      if (parsed.data.voice_id !== undefined && newVoiceId !== priorVoiceId) {
+        import("../services/vapiService")
+          .then(({ reprovisionTradeLineVoiceForClient }) =>
+            reprovisionTradeLineVoiceForClient(clientId),
+          )
+          .catch((err) =>
+            log.warn("voice re-provision trigger failed", {
+              clientId,
+              error: (err as Error).message,
+            }),
+          );
+      }
+
       res.json({ settings: row });
     } catch (err: any) {
       log.error("update portal settings failed", { error: err?.message, clientId });

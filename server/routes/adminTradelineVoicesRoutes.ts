@@ -346,6 +346,8 @@ export function registerAdminTradelineVoicesRoutes(app: Express): void {
           .where(eq(tradelineAssistantSettings.client_id, clientId))
           .limit(1);
 
+        const priorVoiceId = existing[0]?.voice_id ?? null;
+
         let row;
         if (existing.length === 0) {
           const [created] = await db
@@ -386,6 +388,24 @@ export function registerAdminTradelineVoicesRoutes(app: Express): void {
           summary: `Updated TradeLine settings (voice=${row.voice_id ?? "—"}, budget=${row.monthly_minute_budget ?? "∞"})`,
           metadata: { changed: Object.keys(parsed.data) },
         });
+
+        // Re-push the assistant to VAPI when the voice changed so the live
+        // (phone-bound) assistant picks up the new voice. Fire-and-forget +
+        // fail-soft — never blocks or fails the admin save.
+        const newVoiceId = row?.voice_id ?? null;
+        if (parsed.data.voice_id !== undefined && newVoiceId !== priorVoiceId) {
+          import("../services/vapiService")
+            .then(({ reprovisionTradeLineVoiceForClient }) =>
+              reprovisionTradeLineVoiceForClient(clientId),
+            )
+            .catch((err) =>
+              log.warn("voice re-provision trigger failed", {
+                clientId,
+                error: (err as Error).message,
+              }),
+            );
+        }
+
         res.json({ settings: row });
       } catch (err: any) {
         log.error("upsert settings failed", { error: err?.message, clientId });
