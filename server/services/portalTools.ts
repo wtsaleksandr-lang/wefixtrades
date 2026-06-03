@@ -672,7 +672,10 @@ async function executeSetNotificationPreference(
 const SET_NOTIFICATION_PREFERENCE_ACTION: CopilotAction = {
   name: "set_notification_preference",
   surface: "portal",
-  riskTier: "auto",
+  // Confirm-gated, not "auto": this writes to the owner's live account. Every
+  // live-system write must go through the confirm card — no silent change on a
+  // model tool-call (latent safety bug found in the backlog-D concierge spike).
+  riskTier: "low",
   tool: SET_NOTIFICATION_PREFERENCE_TOOL,
   execute: executeSetNotificationPreference,
 };
@@ -810,7 +813,10 @@ async function executeUpdateBusinessHours(
 const UPDATE_BUSINESS_HOURS_ACTION: CopilotAction = {
   name: "update_business_hours",
   surface: "portal",
-  riskTier: "auto",
+  // Confirm-gated, not "auto": business hours feed downstream behaviour
+  // (e.g. TradeLine after-hours call routing), so a hallucinated change has real
+  // blast radius. Must require an explicit user confirmation. (backlog-D spike.)
+  riskTier: "low",
   tool: UPDATE_BUSINESS_HOURS_TOOL,
   execute: executeUpdateBusinessHours,
 };
