@@ -682,6 +682,34 @@
   color: var(--qq-w-label-focus, #0d3cfc);
 }
 
+/* Mobile — the bold 12px floated field titles read oversized on small
+   screens; dial size + weight down a touch so they don't dominate (Alex). */
+@media (max-width: 480px) {
+  .qq-w-float > input.qq-w-input:focus + label,
+  .qq-w-float > input.qq-w-input:not(:placeholder-shown) + label,
+  .qq-w-float > textarea.qq-w-input:focus + label,
+  .qq-w-float > textarea.qq-w-input:not(:placeholder-shown) + label,
+  .qq-w-float > select.qq-w-input + label {
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+}
+
+/* Mobile rounded-corner fix: iOS Safari does NOT round-clip position:sticky
+   children to an ancestor's border-radius (the widget's top/bottom containers
+   rendered SQUARE on iOS while Chromium rounded them — Alex's recurring
+   "no rounded corners on mobile"). Sticky isn't essential on a phone-width
+   widget, so drop to normal flow on mobile; the rounded card then renders
+   correctly across browsers. Overrides the inline position:sticky. */
+@media (max-width: 480px) {
+  [data-testid="advanced-sticky-top"],
+  [data-testid="advanced-sticky-bottom"] {
+    position: relative !important;
+    top: auto !important;
+    bottom: auto !important;
+  }
+}
+
 /* Wave J — InfoCue trigger + popover (item 2). Inherits the editor theme
  * via CSS variables defined under [data-theme="…"] on the shell root. */
 .qq-info-cue {
