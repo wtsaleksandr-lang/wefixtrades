@@ -41,6 +41,7 @@ import {
 // Importing portalTools registers the portal-surface actions into the
 // shared registry (mirrors how chatRoutes imports adminTools).
 import { PORTAL_TOOLS } from "../../services/portalTools";
+import { buildConciergeAddendum } from "../../services/portalConciergeTemplates";
 import { getAiChannelSettings } from "../../services/aiChannelSettings";
 import { createLogger } from "../../lib/logger";
 import {
@@ -237,6 +238,28 @@ Rules:
 
       if (context?.surface === "help") {
         escalationEnabled = !skipEscalation;
+
+        // Backlog-D: attach the per-trade owner-coaching concierge so the WEB
+        // portal assistant matches the mobile one (was generic on web — the
+        // 40-trade concierge was only reachable from the mobile "Ask" tab).
+        // Fail-soft: any error falls back to the generic concierge.
+        let conciergeBlock = "";
+        try {
+          let tt: string | null = null;
+          if (portalUserId) {
+            const rows = await db
+              .select({ trade_type: clients.trade_type })
+              .from(clients)
+              .where(eq(clients.user_id, portalUserId))
+              .limit(1);
+            tt = rows[0]?.trade_type ?? null;
+          }
+          conciergeBlock = buildConciergeAddendum(tt);
+        } catch (err) {
+          log.warn("concierge trade lookup failed; using generic", { error: (err as Error).message });
+          conciergeBlock = buildConciergeAddendum(null);
+        }
+
         // General help context — with natural escalation behavior
         systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
 
@@ -261,7 +284,9 @@ Do NOT:
 - Make up account-specific details (balances, dates, statuses)
 - Provide legal or financial advice
 - Discuss internal pricing or margins
-- Create tickets automatically — always offer first and let the user decide${COPILOT_GUIDED_TOUR_PREAMBLE}${actionProposalBlock}${formFillInstruction}${COPILOT_PROMPT_INSTRUCTION}${COPILOT_CARDS_INSTRUCTION}${pageContextBlock}${dashboardMetricsBlock}`;
+- Create tickets automatically — always offer first and let the user decide
+
+${conciergeBlock}${COPILOT_GUIDED_TOUR_PREAMBLE}${actionProposalBlock}${formFillInstruction}${COPILOT_PROMPT_INSTRUCTION}${COPILOT_CARDS_INSTRUCTION}${pageContextBlock}${dashboardMetricsBlock}`;
       } else {
         // Onboarding context — no escalation
         const fieldList = (context?.fields ?? [])
