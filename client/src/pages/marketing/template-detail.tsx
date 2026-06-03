@@ -354,7 +354,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Color tabs — recolor the preview live. Four site-wide accents
                 (the wizard exposes the full picker). Buttons use the shared
                 .cs-arrow capsule styling from the blog carousel arrows. */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, margin: "0 0 22px" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, margin: "0 0 10px" }}>
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: mkt.onDarkMuted }}>
                 Choose a colour
               </span>
