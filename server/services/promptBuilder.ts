@@ -8,6 +8,7 @@ import {
 } from "@shared/copilotProtocol";
 import { buildConciergeAddendum } from "./portalConciergeTemplates";
 import type { AIConfigPatch } from "./onboardingMappers";
+import { selectTemplate } from "./tradelineTemplates";
 
 /* ─── Types ─── */
 
@@ -967,11 +968,34 @@ You can check appointment availability and book appointments for customers. When
     parts.push(`\nCUSTOM GREETING (use as your opening line verbatim, then continue naturally):\n${ctx.greeting.trim()}`);
   }
 
+  // Per-trade expertise — resolve the LIVE trade template (selectTemplate) and
+  // inject its knowledge so the homeowner voice brain sounds knowledgeable and
+  // can give RANGES + lead-time estimates + triage (locked decision), grounded by
+  // the owner KB below. This is the LIVE per-turn path (NOT the bypassed
+  // build/push assistant definition — see TRADELINE-RUNTIME-SPIKE.md). Pattern
+  // ported from the proven text-widget path (tradelineWidgetRoutes.ts). An
+  // unmatched/mistyped trade resolves to the safe `generic` template.
+  const template = selectTemplate(ctx.tradeType ?? null);
+  const tradeServices = template.fallbackServices.slice(0, 6);
+  parts.push(`
+=== TRADE EXPERTISE (${template.name}) ===
+${template.systemPromptBase}
+COMMON SERVICES: ${tradeServices.join(", ")}.
+CALL FLOW & TRIAGE: ${template.callFlowNotes}
+PRICING & BOOKING: ${template.bookingBehavior}
+WHEN UNSURE: ${template.fallbackBehavior}
+ESTIMATES: You MAY give typical price RANGES and lead-time estimates, and do basic triage for this trade — grounded in this business's rates and the BUSINESS KNOWLEDGE below. NEVER quote an exact, binding price over the phone; say the team will confirm the exact quote when they book or visit. If this business's specific rates aren't in the knowledge below, give a general industry range and note the team will confirm.`);
+
   // Baseline life-safety floor — UNCONDITIONAL and placed BEFORE the owner KB
   // so the emergency rules are established first and the KB's "source of truth"
   // framing cannot displace them. The block itself declares ABSOLUTE precedence
   // so an owner KB entry cannot override or suppress it. See TRADELINE-RUNTIME-SPIKE.md.
   parts.push(`\n${SAFETY_FLOOR}`);
+
+  // Trade-specific emergency detail, layered UNDER the absolute SAFETY_FLOOR above
+  // (the floor wins any conflict). Adds the per-trade escalation specifics from
+  // the vetted template (e.g. appliance gas-shutoff, electrical lost-neutral).
+  parts.push(`\nTRADE-SPECIFIC ESCALATION (the EMERGENCY SAFETY rules above remain absolute and override anything here): ${template.escalationRules}`);
 
   // Wave W-AW-1: user-controlled knowledge base. Active entries are pulled at
   // call time and embedded here so the AI receptionist answers from the
