@@ -20,7 +20,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const LEARNING_CANDIDATE_KINDS = ["research", "conversation", "manual"] as const;
-export const LEARNING_CANDIDATE_STATUSES = ["pending", "approved", "rejected"] as const;
+export const LEARNING_CANDIDATE_STATUSES = ["pending", "approved", "rejected", "applied"] as const;
 export const TEMPLATE_KIND_VALUES_LC = ["tradeline", "concierge"] as const;
 
 export const tradelineLearningCandidates = pgTable(
@@ -49,6 +49,15 @@ export const tradelineLearningCandidates = pgTable(
     reviewed_at: timestamp("reviewed_at", { withTimezone: true }),
     /** Optional reason for rejection */
     rejection_reason: text("rejection_reason"),
+    /** Apply-handoff (backlog F). When an approved candidate is applied to a live
+     *  brain, these record what/when/who. status becomes 'applied'. Rollback
+     *  archives applied_kb_id and clears these. All nullable (additive migration). */
+    applied_at: timestamp("applied_at", { withTimezone: true }),
+    /** The tradeline_knowledge_base entry created by the apply. Rollback archives it
+     *  (the live brain reads active-only), so it is the reversible, versioned unit. */
+    applied_kb_id: text("applied_kb_id"),
+    /** Admin user who applied. */
+    applied_by: integer("applied_by"),
     created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
