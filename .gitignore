@@ -31,3 +31,17 @@ dev-server.log
 
 # Claude Code runtime state
 .claude/scheduled_tasks.lock
+
+# Overnight audit / preview working artifacts (regenerable; not source).
+# Root-level screenshots + audit shot dirs + audit reports/scripts produced by
+# the idle-time page-audit loop — keep them out of commits so they never get
+# swept in by accident.
+/*.png
+/audit-shots/
+/mkt-shots/
+/audit-report.jsonl
+/mkt-report.jsonl
+/run-audit.mjs
+/run-mkt-audit.mjs
+/nocache-server.mjs
+/OVERNIGHT-FINDINGS.md
