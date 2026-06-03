@@ -2340,6 +2340,14 @@ export default function AdvancedCalculator({
                   data-component-type={`field-${f.type}`}
                   style={{
                     minWidth: 0,
+                    // Apply the column span INLINE. The CSS `> [data-colspan]`
+                    // rules can't reach these field divs because they sit behind
+                    // a `display:contents` FlipCard wrapper, so colSpan was being
+                    // ignored (everything auto-placed half-width). colSpan:2 =>
+                    // full width; otherwise half (default pairing). Use
+                    // `1 / -1` (not `span 2`) so it spans the whole row even in
+                    // the auto-fit multi-column layout (which has >2 columns).
+                    gridColumn: f.colSpan === 2 ? '1 / -1' : 'auto',
                     // BD-3l — per-child stagger index (capped at 7) read
                     // by `.qq-stagger-in` keyframes. No-op when the pack
                     // is off (CSS rule doesn't match).
@@ -3475,7 +3483,10 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
               data-testid={`adv-multiselect-option-${f.id}-${o.id}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left',
-                padding: '11px 13px', borderRadius: radiusPx,
+                // Match the toggle card exactly (padding + min-height) so all
+                // selector cards on a step are identical (Alex).
+                padding: '12px 14px', minHeight: 52, boxSizing: 'border-box',
+                borderRadius: radiusPx,
                 cursor: locked ? 'not-allowed' : 'pointer',
                 opacity: locked ? 0.55 : 1,
                 border: 'none',
