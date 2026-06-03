@@ -3139,7 +3139,12 @@ select:focus {
    808px (capped to 88vw on small viewports).
    ═══════════════════════════════════════════════════════════════════ */
 
-.cs-simple-slider { perspective: 1000px; }
+/* `overflow-x: clip` on the container so the swiper's `overflow: visible`
+   (needed for the 3D side-slide peek) is clipped at the slider's own edge
+   instead of spilling all 808px slides to the document edge — which was
+   forcing a multi-thousand-px horizontal page scroll on /blog and
+   /case-studies (desktop). Vertical stays visible for the perspective. */
+.cs-simple-slider { perspective: 1000px; overflow-x: clip; }
 .cs-simple-slider .swiper { overflow: visible; }
 
 .cs-simple-slider .swiper-slide {
