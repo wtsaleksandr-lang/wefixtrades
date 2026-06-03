@@ -1,0 +1,34 @@
+[
+  {
+    "id": "selftest-perfmetrics",
+    "artifact": {
+      "performanceMetrics": {
+        "turnLatencies": [
+          { "endpointingLatency": 120, "modelLatency": 110, "voiceLatency": 70, "transcriberLatency": 40, "turnLatency": 300 },
+          { "endpointingLatency": 130, "modelLatency": 130, "voiceLatency": 90, "transcriberLatency": 45, "turnLatency": 350 },
+          { "endpointingLatency": 150, "modelLatency": 150, "voiceLatency": 100, "transcriberLatency": 50, "turnLatency": 400 },
+          { "endpointingLatency": 160, "modelLatency": 160, "voiceLatency": 100, "transcriberLatency": 55, "turnLatency": 420 },
+          { "endpointingLatency": 400, "modelLatency": 500, "voiceLatency": 200, "transcriberLatency": 60, "turnLatency": 1100 },
+          { "note": "malformed turn — no turnLatency / no parts → must be skipped fail-soft" }
+        ]
+      }
+    }
+  },
+  {
+    "id": "selftest-messages-fallback",
+    "artifact": {
+      "messages": [
+        { "role": "user", "time": 1000, "endTime": 2000, "message": "hi, how much for a drain unblock?" },
+        { "role": "bot", "time": 2450, "endTime": 3000, "message": "Happy to help — is it a kitchen sink or a main line?" },
+        { "role": "user", "time": 3500, "endTime": 4000, "message": "kitchen sink" },
+        { "role": "bot", "time": 4600, "endTime": 5200, "message": "Got it. For a kitchen sink we usually quote..." },
+        { "role": "user", "time": 6000, "message": "and how soon can someone come" },
+        { "role": "bot", "time": 6500, "endTime": 7000, "message": "We can often do same day." }
+      ]
+    }
+  },
+  {
+    "id": "selftest-empty-call",
+    "artifact": {}
+  }
+]
