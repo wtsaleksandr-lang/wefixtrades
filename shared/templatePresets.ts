@@ -887,9 +887,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
         options: [opt('Insulation', 0), opt('Windows', 1500), opt('HVAC', 4000), opt('Solar', 8000)] },
       { id: 'home_size', name: 'Home Size', label: 'Home size (sqft)', type: 'number',
         min: 200, max: 8000, step: 50, default_value: 1800, unit: 'sqft' },
-      { id: 'incentives', name: 'Local Incentives', label: 'Available rebates & tax credits', type: 'multi_select',
+      { id: 'incentives', name: 'Local Incentives', label: 'Available rebates & tax credits', type: 'multi_select', colSpan: 2,
         options: [opt('Rebates', -500), opt('Tax Incentives', -800)] },
-      { id: 'install', name: 'Installation', label: 'Include professional installation', type: 'toggle', on_value: 1200 },
+      { id: 'install', name: 'Installation', label: 'Include professional installation', type: 'toggle', colSpan: 2, on_value: 1200 },
     ],
     calculations: [
       calc('Equipment & Materials', '[Upgrade Type] + [Home Size] * 2'),
