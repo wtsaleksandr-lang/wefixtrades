@@ -342,6 +342,10 @@ export function registerVapiRoutes(app: Express): void {
               channel: "voice",
               fromIdentity: call?.customer?.number || "unknown",
               message: firstUserMsg,
+              // Riley is a closer with no human handoff — keep a hot/complex buyer
+              // inline to close rather than punting them to a no-op ticket. Spam,
+              // out-of-scope, and availability-off paths are unaffected.
+              keepComplexInline: true,
             });
             log.info("[vapi] brand-call classification", {
               callId: convCallId,

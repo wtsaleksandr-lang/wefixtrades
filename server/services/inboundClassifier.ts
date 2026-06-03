@@ -177,14 +177,42 @@ export async function escalateToHuman(input: {
 }
 
 /**
+ * Pure decision logic (no I/O — unit-testable). Maps a classification +
+ * availability to an action.
+ *
+ * `keepComplexInline` is the Riley-closer knob: when true, a `needs_human`
+ * (hot but complex) caller while the brand is AVAILABLE stays inline ("reply")
+ * to be closed by the agent, instead of dead-ending into a ticket nobody
+ * actions. Availability-off always tickets (take a message); spam/out_of_scope
+ * are unaffected. Default false preserves the original SMS/chat behaviour.
+ */
+export function resolveInboundAction(opts: {
+  category: InboundCategory;
+  isAvailable: boolean;
+  keepComplexInline?: boolean;
+}): "reply" | "drop" | "polite_decline" | "ticket" {
+  if (opts.category === "spam") return "drop";
+  if (opts.category === "out_of_scope") return "polite_decline";
+  if (!opts.isAvailable) return "ticket"; // brand toggled off → take a message
+  if (opts.category === "needs_human") {
+    return opts.keepComplexInline ? "reply" : "ticket";
+  }
+  return "reply";
+}
+
+/**
  * One-shot decision helper for an inbound contact. Combines availability check
  * + classification + escalation. Returns a structured action so the caller
  * (Twilio SMS handler, Vapi conversation, etc.) can act on it.
+ *
+ * Pass `keepComplexInline: true` for the voice brand line (Riley) so a hot,
+ * complex buyer is closed inline rather than punted to a no-op ticket.
  */
 export async function decideInboundAction(input: {
   channel: "voice" | "sms" | "chat";
   fromIdentity: string;
   message: string;
+  keepComplexInline?: boolean;
 }): Promise<{
   action: "reply" | "drop" | "polite_decline" | "ticket";
   category: InboundCategory;
@@ -203,16 +231,20 @@ export async function decideInboundAction(input: {
   // 2. Classification (always run — even when unavailable, we want to skip spam)
   const cls = await classifyInbound(input.message, { from: input.fromIdentity });
 
-  // 3. Decide
-  if (cls.category === "spam") {
-    return { action: "drop", category: cls.category, confidence: cls.confidence };
-  }
-  if (cls.category === "out_of_scope") {
-    return { action: "polite_decline", category: cls.category, confidence: cls.confidence };
-  }
+  // 3. Decide (pure) → act (I/O only on the ticket path)
+  const action = resolveInboundAction({
+    category: cls.category,
+    isAvailable: availability.is_available,
+    keepComplexInline: input.keepComplexInline,
+  });
 
-  // Ticketing path: either the AI says "needs_human" OR we're toggled off
-  if (cls.category === "needs_human" || !availability.is_available) {
+  if (action === "drop") {
+    return { action, category: cls.category, confidence: cls.confidence };
+  }
+  if (action === "polite_decline") {
+    return { action, category: cls.category, confidence: cls.confidence };
+  }
+  if (action === "ticket") {
     const t = await escalateToHuman({
       channel: input.channel,
       fromIdentity: input.fromIdentity,
