@@ -600,7 +600,7 @@ export default function WizardShell({ embed = false }: Props) {
   // business name, settings (trade / lead email / pricing / etc.), and
   // style overrides — those are independent of the template choice.
   // Passing `null` resets to a blank seed.
-  const applyTemplate = useCallback((preset: TemplateConfig | null) => {
+  const applyTemplate = useCallback((preset: TemplateConfig | null, accentOverride?: string) => {
     setState((s) => {
       if (!preset) {
         // Blank seed — same as the H1 first-load behaviour.
@@ -635,7 +635,13 @@ export default function WizardShell({ embed = false }: Props) {
       // (gradient bg, accent, result-panel emphasis, animations) in the
       // wizard preview. Templates with explicit `style` keep it untouched.
       const presetStyle = preset.style ?? deriveStyleFromCategory(preset);
-      const nextStyle = { ...DEFAULT_SHELL_STYLE, ...(presetStyle as typeof s.style) };
+      // The website color tabs pass the chosen accent via `?accent=`; honour it
+      // so the wizard opens with the same colour the visitor previewed.
+      const nextStyle = {
+        ...DEFAULT_SHELL_STYLE,
+        ...(presetStyle as typeof s.style),
+        ...(accentOverride ? { accent: accentOverride } : {}),
+      };
       return {
         ...s,
         activeTemplateId: preset.id,
@@ -761,17 +767,22 @@ export default function WizardShell({ embed = false }: Props) {
       if (params.get('token')) return;
       const requestedId = params.get('template');
       if (!requestedId) return;
+      // Optional accent from the website color tabs. Hex-validated before use
+      // so an arbitrary query value can never be injected into a CSS variable.
+      const rawAccent = (params.get('accent') || '').trim();
+      const accentOverride = /^#[0-9a-fA-F]{3,8}$/.test(rawAccent) ? rawAccent : undefined;
       const preset = getTemplatePreset(requestedId);
       if (preset) {
-        applyTemplate(preset);
+        applyTemplate(preset, accentOverride);
       } else {
         console.warn(
           `[wizard] /wizard?template=${requestedId} — no template preset matches that id; keeping current state.`,
         );
       }
-      // Strip the consumed param from the URL so a reload doesn't re-apply
+      // Strip the consumed params from the URL so a reload doesn't re-apply
       // (which would discard any edits the user made after landing).
       params.delete('template');
+      params.delete('accent');
       const qs = params.toString();
       const nextUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
       try { window.history.replaceState(null, '', nextUrl); } catch { /* ignore */ }

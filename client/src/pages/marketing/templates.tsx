@@ -100,7 +100,6 @@ export default function TemplatesPage() {
       <V7PageShell data-theme="light">
         <V7Hero
           productName={`${totalCount} Templates`}
-          eyebrow={`${totalCount} ready-to-use calculator templates — pick one and customize`}
           headline={
             <>
               {totalCount} high-converting
