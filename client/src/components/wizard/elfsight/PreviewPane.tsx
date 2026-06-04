@@ -307,6 +307,13 @@ export default function PreviewPane({
   // BD-3b — zoom level (0.25 .. 2.0). Persisted to sessionStorage.
   const [zoom, setZoom] = useState<number>(() => loadZoom(sessionId));
 
+  // Live mirrors so the mobile touch-drag listeners (attached once) always read
+  // the current offset/zoom without re-binding on every drag frame.
+  const widgetOffsetRef = useRef(widgetOffset);
+  widgetOffsetRef.current = widgetOffset;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
   // Reload per-device state when the user toggles device — placement, size,
   // and zoom (zoom is session-wide so it doesn't reset).
   useEffect(() => {
@@ -1008,6 +1015,50 @@ export default function PreviewPane({
       pane.removeEventListener('touchend', onTouchEnd);
     };
   }, [zoom, setZoomManual]);
+
+  // Mobile — drag the mockup from ANYWHERE with one finger (desktop keeps the
+  // explicit top-bar handle + corner resize). A touch starting on a form
+  // control, the drag handle, or a resize handle is left alone; two fingers
+  // fall through to pinch-zoom. Native listeners + preventDefault during an
+  // active drag, so we don't need a touch-action:none ancestor that would break
+  // the widget's own controls.
+  useEffect(() => {
+    const bezel = bezelMeasureRef.current;
+    if (!bezel) return;
+    const isControlOrHandle = (t: EventTarget | null) =>
+      t instanceof Element &&
+      !!t.closest('input, select, textarea, button, a, label, [role="slider"], [contenteditable], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"]');
+    let active = false;
+    let sx = 0, sy = 0, bx = 0, by = 0;
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1 || isControlOrHandle(e.target)) { active = false; return; }
+      active = true;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      bx = widgetOffsetRef.current.x; by = widgetOffsetRef.current.y;
+      setWidgetSelected(true);
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!active || e.touches.length !== 1) return;
+      e.preventDefault();
+      const z = zoomRef.current || 1;
+      const aligned = applyAlignSnap(bx + (e.touches[0].clientX - sx) / z, by + (e.touches[0].clientY - sy) / z);
+      setWidgetOffset({ x: aligned.x, y: aligned.y });
+      setGuides(aligned.guides);
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) { active = false; setGuides([]); }
+    };
+    bezel.addEventListener('touchstart', onStart, { passive: true });
+    bezel.addEventListener('touchmove', onMove, { passive: false });
+    bezel.addEventListener('touchend', onEnd, { passive: true });
+    bezel.addEventListener('touchcancel', onEnd, { passive: true });
+    return () => {
+      bezel.removeEventListener('touchstart', onStart);
+      bezel.removeEventListener('touchmove', onMove);
+      bezel.removeEventListener('touchend', onEnd);
+      bezel.removeEventListener('touchcancel', onEnd);
+    };
+  }, [device, applyAlignSnap]);
 
   /* BH-1 — Fit-to-canvas auto-zoom (Figma / Webflow / Builder.io pattern).
    *
@@ -2112,7 +2163,7 @@ export default function PreviewPane({
                 if (onFloatingLauncherExpandedChange) onFloatingLauncherExpandedChange(true);
               }}
             >
-              <Calculator size={26} strokeWidth={2.25} aria-hidden="true" />
+              <Calculator size={24} strokeWidth={2.25} aria-hidden="true" />
               <span className="qq-flp-bubble-tooltip" aria-hidden="true">Click to expand</span>
             </button>
           )}
