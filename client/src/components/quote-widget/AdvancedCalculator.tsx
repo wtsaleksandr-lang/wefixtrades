@@ -2047,7 +2047,7 @@ export default function AdvancedCalculator({
           // every side. A near-black rgba hairline (never a #000/black literal)
           // stays crisp on the light brand bar across themes — the bar itself
           // is light, so a dark hairline reads as a clean rounded outline.
-          border: '1.5px solid rgba(15,23,42,0.9)',
+          border: '1px solid rgba(15,23,42,0.12)',
           // Self-contained rounded box — all four corners use the inner radius
           // so the brand bar reads as a distinct, fully rounded bordered bar
           // sitting at the top of the widget (border + rounding on every side).

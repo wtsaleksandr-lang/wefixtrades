@@ -201,7 +201,17 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
           style={{ maxWidth: '780px', fontFamily: eff.font, color: eff.text }}
         >
           {showBrandBadge && (
-            <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '11px 12px' }}>
+            <div style={{
+              display: 'flex', justifyContent: 'flex-start', alignItems: 'center',
+              padding: '9px 12px',
+              // The QuoteQuick brand bar reads as its own ROUNDED, bordered bar
+              // (thin near-black hairline on every side) sitting above the widget
+              // body — never sharp corners.
+              border: '1.5px solid rgba(15,23,42,0.9)',
+              borderRadius: '10px',
+              background: 'rgba(15,23,42,0.035)',
+              marginBottom: '6px',
+            }}>
               <WeFixTradesBadge variant="header" context={badgeContext} slug={calcSlug} />
             </div>
           )}
