@@ -1988,6 +1988,11 @@ export default function AdvancedCalculator({
       style={{
         background: c.surface, borderRadius: radiusOuterPx,
         border: `1px solid ${c.border}`, boxShadow: c.shadow,
+        // 2px inner gap so the brand bar + body never sit flush against the
+        // widget's outer edge/border — a thin breathing strip inside the
+        // rounded card. Minimal (2px) so the two-zone left/right layout is
+        // untouched.
+        padding: 2,
         // BD-2a-sticky — `overflow: clip` (not `hidden`) so children with
         // `position: sticky` anchor to the page / iframe scroll container
         // instead of being trapped inside the outer card. `clip` still
@@ -2043,13 +2048,10 @@ export default function AdvancedCalculator({
           // never a raw literal), so it stays subtle on both light + dark
           // bodies.
           border: `1px solid ${c.border}`,
-          // Top corners round to the SAME radius as the outer card so the bar's
-          // corner IS the widget's corner; the bottom corners get the inner
-          // radius so the bar reads as its own rounded container.
-          borderTopLeftRadius: radiusOuterPx,
-          borderTopRightRadius: radiusOuterPx,
-          borderBottomLeftRadius: radiusInnerPx,
-          borderBottomRightRadius: radiusInnerPx,
+          // Self-contained rounded box — all four corners use the inner radius
+          // so the brand bar reads as a distinct, fully rounded bordered bar
+          // sitting at the top of the widget (border + rounding on every side).
+          borderRadius: radiusInnerPx,
         }}
       >
       {/* ── Title bar (its own separated bar) ── */}
@@ -3034,6 +3036,37 @@ export default function AdvancedCalculator({
           </StickyActionBar>
         );
       })()}
+      {/* Root-level "Powered by WeFixTrades" attribution. Sits at the very
+          bottom of the widget root as a persistent, low-contrast-but-legible
+          line — distinct from the sticky-bar footer slot, which collapses on
+          mobile fold. Gated by the same showPoweredByBadge resolution
+          (free tier forced ON; Pro+ honours branding.showPoweredBy). */}
+      {showPoweredByBadge && (
+        <div
+          data-testid="advanced-powered-by-root"
+          data-component-name="Powered by WeFixTrades (root)"
+          style={{
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            padding: '6px 8px',
+            fontFamily,
+          }}
+        >
+          <a
+            href="https://wefixtrades.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="advanced-powered-by-root-link"
+            style={{
+              fontSize: 11, fontWeight: 600,
+              color: guardTextColor(cc.textMuted, cc.surface, 'poweredByRoot'),
+              letterSpacing: '0.02em',
+              textDecoration: 'none',
+            }}
+          >
+            Powered by WeFixTrades
+          </a>
+        </div>
+      )}
       {/* W-AO-6c — Brand Studio custom CSS. Author-supplied text rendered
        *  inside a <style> tag and scoped to this widget's unique
        *  `.qq-widget-${id}` root class by prepending the scope selector
