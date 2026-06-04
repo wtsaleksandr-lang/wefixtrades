@@ -658,6 +658,8 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
         title={`${template.name} calculator template`}
         description={`${template.description} Free-to-use calculator template — try the live widget, then customize in our setup wizard.`}
         canonical={`/templates/${template.id}`}
+        ogType="product"
+        keywords={[template.name, template.category, ...template.trades.map(t => t.replace(/_/g, " "))]}
       />
       <V7PageShell>
       <div data-theme="dark">
