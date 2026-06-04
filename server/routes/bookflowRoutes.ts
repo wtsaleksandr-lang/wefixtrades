@@ -41,6 +41,7 @@ import {
   setupBookFlow,
 } from "../services/booking/bookflowService";
 import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
+import { publicCheckoutRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("BookFlow");
 
@@ -727,6 +728,11 @@ export function registerBookflowRoutes(app: Express): void {
 
   /** POST /api/pay/:token/checkout — create Stripe Checkout session */
   app.post("/api/pay/:token/checkout", async (req: Request, res: Response) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!(await publicCheckoutRateLimiter.check(`invoice-checkout:${ip}`))) {
+      return res.status(429).json({ error: "Too many checkout attempts. Try again in a few minutes." });
+    }
+
     try {
       const token = String(req.params.token);
       const [invoice] = await db
@@ -778,7 +784,7 @@ export function registerBookflowRoutes(app: Express): void {
         payment_method_types: paymentMethodTypes,
         line_items: [{
           price_data: {
-            currency: "usd",
+            currency: ((invoice as any).currency || "usd").toLowerCase(),
             product_data: {
               name: `Invoice ${invoice.invoice_number} — ${client?.business_name || "Service"}`,
             },

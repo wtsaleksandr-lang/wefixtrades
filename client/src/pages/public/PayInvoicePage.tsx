@@ -97,6 +97,12 @@ export default function PayInvoicePage() {
     setPaying(true);
     try {
       const res = await fetch(`/api/pay/${token}/checkout`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Payment service unavailable" }));
+        setError(data.error || "Failed to start payment");
+        setPaying(false);
+        return;
+      }
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
