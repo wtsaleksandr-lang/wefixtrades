@@ -416,8 +416,23 @@ function TemplateRail({
     <aside className="tpl-rail" data-testid="template-rail">
       {/* Colour selector — ABOVE the templates */}
       <div className="tpl-rail-block">
-        <div className="tpl-cats-head">Choose a colour</div>
-        <div className="tpl-color-row" data-testid="template-color-tabs">
+        <div className="tpl-cats-head" id="color-selector-label">Choose a colour</div>
+        <div
+              className="tpl-color-row"
+              data-testid="template-color-tabs"
+              role="group"
+              aria-labelledby="color-selector-label"
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+                const btns = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("button"));
+                const idx = btns.findIndex((b) => b === document.activeElement);
+                if (idx < 0) return;
+                const next = e.key === "ArrowRight" ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+                btns[next].focus();
+                btns[next].click();
+                e.preventDefault();
+              }}
+            >
           {SITE_PALETTE.map((p) => {
             const sel = accent === p.color;
             return (
