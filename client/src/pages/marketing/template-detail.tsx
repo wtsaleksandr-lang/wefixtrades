@@ -15,7 +15,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useRoute, Redirect } from "wouter";
-import { ArrowRight, ArrowLeft, ChevronLeft, Check, Zap, Clock, TrendingUp, ShieldCheck, Monitor, Smartphone } from "lucide-react";
+import { ArrowRight, ArrowLeft, ChevronLeft, ChevronDown, Check, Zap, Clock, TrendingUp, ShieldCheck, Monitor, Smartphone } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import { mkt } from "@/theme/tokens";
@@ -447,12 +447,21 @@ function comboLuminance(color: string): number {
 /* ─── Real template thumbnail — a scaled-down live render of the actual
    widget (Elfsight cards show the real calculator, not an icon). Memoised on
    the template so it only mounts once per card. ─── */
-const TemplateThumb = memo(function TemplateThumb({ template }: { template: TemplateConfig }) {
-  // Render each card in its OWN default combo (car_towing → Black · Yellow,
-  // others → Light · Blue) so the thumbnail matches the template's real theme.
+const TemplateThumb = memo(function TemplateThumb({
+  template,
+  combo,
+}: {
+  template: TemplateConfig;
+  /** When set (the currently-selected card) the thumbnail live-recolours to the
+      user's chosen theme; otherwise it renders in the template's OWN default
+      combo so the catalogue keeps its variety. */
+  combo?: ThemeCombination;
+}) {
+  // Selected card → the chosen combo (live theme sync); every other card →
+  // its OWN default combo (car_towing → Black · Yellow, others → Sky Tint).
   const calc = useMemo(
-    () => buildPreviewCalculator(template, undefined, undefined, defaultComboForTemplate(template.id)),
-    [template],
+    () => buildPreviewCalculator(template, undefined, undefined, combo ?? defaultComboForTemplate(template.id)),
+    [template, combo],
   );
   return (
     <div className="tpl-thumb" aria-hidden>
@@ -486,6 +495,12 @@ function TemplateRail({
   const [page, setPage] = useState(0);
   useEffect(() => setPage(0), [category]);
 
+  // Categories scroll affordance: the fade + down-chevron show only while the
+  // list overflows AND is not yet scrolled to the bottom. Recomputed on scroll,
+  // on category change (the list length changes), and on resize.
+  const catsListRef = useRef<HTMLDivElement | null>(null);
+  const [catsHasMore, setCatsHasMore] = useState(false);
+
   const categories = useMemo<[string, number][]>(() => {
     const counts = new Map<string, number>();
     for (const t of TEMPLATE_PRESETS) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
@@ -503,6 +518,24 @@ function TemplateRail({
   const safePage = Math.min(page, pageCount - 1);
   const start = safePage * PER_PAGE;
   const pageItems = shown.slice(start, start + PER_PAGE);
+
+  // Detect whether the categories list overflows + has room left to scroll.
+  const syncCatsOverflow = () => {
+    const el = catsListRef.current;
+    if (!el) return;
+    const overflows = el.scrollHeight > el.clientHeight + 1;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+    setCatsHasMore(overflows && !atBottom);
+  };
+  useEffect(() => {
+    syncCatsOverflow();
+    const el = catsListRef.current;
+    if (!el) return;
+    window.addEventListener("resize", syncCatsOverflow);
+    return () => window.removeEventListener("resize", syncCatsOverflow);
+    // Re-run when the list contents change (category count list is stable, but
+    // the categories array identity changes with the memo).
+  }, [categories]);
 
   return (
     <aside className="tpl-rail" data-testid="template-rail">
@@ -582,7 +615,7 @@ function TemplateRail({
               }}
             >
               <span className="tpl-card-thumb-wrap">
-                <TemplateThumb template={t} />
+                <TemplateThumb template={t} combo={active ? combo : undefined} />
                 {active && (
                   <span className="tpl-card-check">
                     <Check size={12} strokeWidth={3} color="rgba(255,255,255,1)" />
@@ -625,28 +658,46 @@ function TemplateRail({
       {/* Categories filter (Elfsight) */}
       <div className="tpl-cats">
         <div className="tpl-cats-head">Categories</div>
-        <div className="tpl-cats-list">
-          {categories.map(([name, count]) => {
-            const on = category === name;
-            return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => setCategory(name)}
-                aria-pressed={on}
-                className="tpl-cat"
-                style={{
-                  background: on ? "rgba(13,60,252,0.07)" : "transparent",
-                  boxShadow: on
-                    ? `inset 0 0 0 1px ${mkt.accent}66`
-                    : "inset 0 0 0 1px rgba(15,20,24,0.10)",
-                }}
-              >
-                <span className="tpl-cat-name">{name}</span>
-                <span className="tpl-cat-count">{count}</span>
-              </button>
-            );
-          })}
+        {/* Relative wrapper holds the scrollable list plus a bottom fade + a
+            down-chevron hint. Both overlays are pointer-events:none and shown
+            only while the list overflows and isn't scrolled to the bottom, so
+            the cut-off last row reads as "more below", not broken. */}
+        <div className="tpl-cats-scroll">
+          <div
+            ref={catsListRef}
+            className="tpl-cats-list"
+            onScroll={syncCatsOverflow}
+          >
+            {categories.map(([name, count]) => {
+              const on = category === name;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setCategory(name)}
+                  aria-pressed={on}
+                  className="tpl-cat"
+                  style={{
+                    background: on ? "rgba(13,60,252,0.07)" : "transparent",
+                    boxShadow: on
+                      ? `inset 0 0 0 1px ${mkt.accent}66`
+                      : "inset 0 0 0 1px rgba(15,20,24,0.10)",
+                  }}
+                >
+                  <span className="tpl-cat-name">{name}</span>
+                  <span className="tpl-cat-count">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+          {catsHasMore && (
+            <>
+              <div className="tpl-cats-fade" aria-hidden="true" />
+              <span className="tpl-cats-chevron" aria-hidden="true">
+                <ChevronDown size={14} />
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -912,6 +963,9 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 margin: "0 auto",
                 background: showPhoneFrame ? "rgba(15,23,42,0.05)" : "transparent",
                 overflow: "hidden",
+                // Round the grey phone-frame surround so it isn't a sharp-cornered
+                // box when the mobile preview is active.
+                borderRadius: 16,
               }}
             >
               {!isMobileViewport && (
@@ -1090,9 +1144,33 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               .tpl-pager-btn:disabled { opacity: 0.35; cursor: default; }
 
               .tpl-cats { display: flex; flex-direction: column; gap: 8px; }
+              /* Relative shell for the scroll fade + chevron overlays. */
+              .tpl-cats-scroll { position: relative; }
               .tpl-cats-list {
                 display: flex; flex-direction: column; gap: 6px;
-                max-height: 150px; overflow-y: auto; scrollbar-width: thin;
+                max-height: 176px; overflow-y: auto; scrollbar-width: thin;
+                /* A little bottom padding so the fade masks a partial last row
+                   rather than slicing one exactly in half. */
+                padding-bottom: 4px;
+              }
+              /* Bottom fade — blends the cut-off last row into the rail ground
+                 (CS_LIGHT.bg = rgb(194,208,214)) so it reads as "scroll for
+                 more", not a hard clip. pointer-events:none keeps clicks live. */
+              .tpl-cats-fade {
+                position: absolute; left: 0; right: 0; bottom: 0; height: 34px;
+                pointer-events: none; border-radius: 0 0 10px 10px;
+                background: linear-gradient(
+                  180deg,
+                  rgba(194,208,214,0) 0%,
+                  rgba(194,208,214,0.85) 70%,
+                  rgba(194,208,214,1) 100%
+                );
+              }
+              /* Centered down-chevron hint over the fade. */
+              .tpl-cats-chevron {
+                position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%);
+                pointer-events: none; display: flex; align-items: center; justify-content: center;
+                color: rgba(15,20,24,0.55);
               }
               .tpl-cat {
                 display: flex; align-items: center; justify-content: space-between;
