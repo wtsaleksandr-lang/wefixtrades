@@ -201,17 +201,24 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
           style={{ maxWidth: '780px', fontFamily: eff.font, color: eff.text }}
         >
           {showBrandBadge && (
-            <div style={{
-              display: 'flex', justifyContent: 'flex-start', alignItems: 'center',
-              padding: '9px 12px',
-              // The QuoteQuick brand bar reads as its own ROUNDED, bordered bar
-              // (thin near-black hairline on every side) sitting above the widget
-              // body — never sharp corners.
-              border: '1.5px solid rgba(15,23,42,0.9)',
-              borderRadius: '10px',
-              background: 'rgba(15,23,42,0.035)',
-              marginBottom: '6px',
-            }}>
+            <div
+              data-qq-brandbar=""
+              style={{
+                display: 'flex', justifyContent: 'flex-start', alignItems: 'center',
+                padding: '9px 12px',
+                // The QuoteQuick brand bar is CONNECTED to the widget body below:
+                // thin near-black hairline border, rounded only on TOP corners, no
+                // bottom border, and zero gap — so it + the body read as one
+                // continuous rounded unit (the body provides the divider + bottom).
+                borderTop: '1.5px solid rgba(15,23,42,0.9)',
+                borderLeft: '1.5px solid rgba(15,23,42,0.9)',
+                borderRight: '1.5px solid rgba(15,23,42,0.9)',
+                borderTopLeftRadius: '10px',
+                borderTopRightRadius: '10px',
+                background: 'rgba(15,23,42,0.035)',
+                marginBottom: '-1px',
+              }}
+            >
               <WeFixTradesBadge variant="header" context={badgeContext} slug={calcSlug} />
             </div>
           )}
@@ -221,6 +228,9 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
             advanced={advancedConfig}
             accentColor={theme.colors.primary}
             editableTitle={editableTitle}
+            // Connect the body to the brand bar above (flat top corners) when the
+            // brand bar shows, so they read as one continuous rounded unit.
+            connectedTop={showBrandBadge}
             // W-AO-6c — surface plan tier + calculator id so Brand Studio
             // gating (Pro+ only) + scoped custom CSS (`.qq-widget-${id}`)
             // both fire correctly. Free-tier calculators ignore Brand

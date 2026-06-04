@@ -394,6 +394,10 @@ interface Props {
    * mailto: fallback for the hard CTA when no `bookingUrl` is configured.
    */
   ownerEmail?: string;
+  /** When true, the widget body connects to a brand bar above it: the root's
+   *  TOP corners go flat (the brand bar supplies the rounded top), so the two
+   *  read as one continuous rounded unit. */
+  connectedTop?: boolean;
 }
 
 /** W-AO-6c — Brand Studio used to be Pro-only.
@@ -1252,7 +1256,7 @@ function PoweredByWeFixTradesBadge({
 
 export default function AdvancedCalculator({
   businessName, logoUrl, advanced, accentColor, editableTitle = false,
-  planTier, calculatorId, bookingUrl, ownerEmail,
+  planTier, calculatorId, bookingUrl, ownerEmail, connectedTop = false,
 }: Props) {
   // W-AO-6c — Brand Studio gate. When the owner isn't on Pro+ we IGNORE
   // every Brand Studio field even if it's somehow persisted on the row.
@@ -1986,7 +1990,10 @@ export default function AdvancedCalculator({
       // the resolved gates regardless of where they sit.
       {...premiumDataAttrs}
       style={{
-        background: c.surface, borderRadius: radiusOuterPx,
+        background: c.surface,
+        // connectedTop → flat TOP corners so the brand bar above supplies the
+        // rounded top and the two read as one continuous unit; rounded bottom.
+        borderRadius: connectedTop ? `0 0 ${radiusOuterPx} ${radiusOuterPx}` : radiusOuterPx,
         border: `1px solid ${c.border}`, boxShadow: c.shadow,
         // 2px inner gap so the brand bar + body never sit flush against the
         // widget's outer edge/border — a thin breathing strip inside the

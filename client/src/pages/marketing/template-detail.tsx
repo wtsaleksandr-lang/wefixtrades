@@ -500,6 +500,10 @@ function TemplateRail({
   // on category change (the list length changes), and on resize.
   const catsListRef = useRef<HTMLDivElement | null>(null);
   const [catsHasMore, setCatsHasMore] = useState(false);
+  // Theme swatch row — ref so the left/right arrows can scroll it on click.
+  const colorRowRef = useRef<HTMLDivElement | null>(null);
+  const scrollColorRow = (dir: -1 | 1) =>
+    colorRowRef.current?.scrollBy({ left: dir * 132, behavior: "smooth" });
 
   const categories = useMemo<[string, number][]>(() => {
     const counts = new Map<string, number>();
@@ -547,9 +551,8 @@ function TemplateRail({
       <div className="tpl-rail-block">
         <div className="tpl-cats-head">Theme</div>
         <div className="tpl-color-scroll">
-        <span className="tpl-scroll-hint tpl-scroll-hint-l" aria-hidden="true">‹</span>
-        <span className="tpl-scroll-hint tpl-scroll-hint-r" aria-hidden="true">›</span>
-        <div className="tpl-color-row" data-testid="template-combo-tabs">
+        <button type="button" className="tpl-scroll-arrow tpl-scroll-arrow-l" aria-label="Scroll themes left" onClick={() => scrollColorRow(-1)}>‹</button>
+        <div className="tpl-color-row" data-testid="template-combo-tabs" ref={colorRowRef}>
           {THEME_COMBINATIONS.map((c) => {
             const sel = combo.id === c.id;
             return (
@@ -579,6 +582,7 @@ function TemplateRail({
             );
           })}
         </div>
+        <button type="button" className="tpl-scroll-arrow tpl-scroll-arrow-r" aria-label="Scroll themes right" onClick={() => scrollColorRow(1)}>›</button>
         </div>
       </div>
 
@@ -1057,7 +1061,10 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               .tpl-color-row {
                 display: flex; flex-wrap: nowrap; gap: 8px;
                 overflow-x: auto; overflow-y: hidden;
-                max-width: 312px; padding-bottom: 4px;
+                max-width: 312px;
+                /* top/bottom padding so the SELECTED swatch's 4px focus ring
+                   isn't clipped by overflow-y:hidden. */
+                padding: 5px 0 7px;
                 scrollbar-width: thin;
                 -webkit-overflow-scrolling: touch;
               }
@@ -1067,18 +1074,30 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 background: rgba(15,20,24,0.20); border-radius: 999px;
               }
               .tpl-color-row::-webkit-scrollbar-track { background: transparent; }
-              /* Subtle scroll affordance: chevrons flank the swatch row (in the
-                 wrapper side-padding, so they never overlap a swatch) to signal
-                 the row scrolls horizontally past 8 themes. */
-              .tpl-color-scroll { position: relative; padding: 0 14px; width: max-content; max-width: 100%; }
-              .tpl-scroll-hint {
-                position: absolute; top: 50%; transform: translateY(-50%);
-                width: 14px; display: flex; align-items: center; justify-content: center;
-                font-size: 15px; font-weight: 700; line-height: 1;
-                color: rgba(15,20,24,0.42); pointer-events: none; user-select: none;
+              /* CLICKABLE scroll arrows flank the swatch row (flex siblings, so
+                 they're vertically centred and never overlap a swatch). Clicking
+                 scrolls the row; the row still scrolls by drag/trackpad too. */
+              .tpl-color-scroll { display: flex; align-items: center; gap: 2px; max-width: 100%; }
+              .tpl-scroll-arrow {
+                flex: 0 0 auto; width: 18px; height: 32px;
+                display: grid; place-items: center; padding: 0;
+                border: none; background: transparent; cursor: pointer;
+                font-size: 17px; font-weight: 700; line-height: 1;
+                color: rgba(15,20,24,0.5); user-select: none;
               }
-              .tpl-scroll-hint-l { left: 0; }
-              .tpl-scroll-hint-r { right: 0; }
+              .tpl-scroll-arrow:hover { color: rgba(15,20,24,0.85); }
+              /* In the website PREVIEW the QuoteQuick brand badge + the
+                 "Powered by WeFixTrades" footer are NON-clickable — they only
+                 link out on the actually-deployed widget, never in this lite
+                 preview. (Scoped to the preview container; deployed widgets are
+                 unaffected.) */
+              [data-testid="template-live-preview"] [data-qq-brandbar],
+              [data-testid="template-live-preview"] [data-qq-brandbar] *,
+              [data-testid="template-live-preview"] [data-testid="advanced-powered-by-root"],
+              [data-testid="template-live-preview"] [data-testid="advanced-powered-by-root"] * {
+                pointer-events: none !important;
+                cursor: default !important;
+              }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
                 display: grid; place-items: center;
