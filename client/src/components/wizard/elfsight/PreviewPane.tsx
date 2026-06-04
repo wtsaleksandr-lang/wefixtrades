@@ -982,39 +982,67 @@ export default function PreviewPane({
   }, [widgetSelected, device]);
 
   // Pinch-to-zoom on touch devices. Tracks two-finger distance.
+  //
+  // Bound ONCE (empty deps) and reads the live zoom via zoomRef so a
+  // setZoomManual() during the gesture does NOT tear down + rebind these
+  // listeners mid-pinch (that would zero out pinchStartDist and make the
+  // gesture stutter / die after the first move). The pane CSS sets
+  // touch-action:none so the browser yields the multi-touch gesture and the
+  // non-passive touchmove preventDefault() actually suppresses native page
+  // zoom — without that, pinch did nothing in the editor (root cause).
   useEffect(() => {
     const pane = paneRef.current;
     if (!pane) return;
+    let pinchActive = false;
     let pinchStartDist = 0;
     let pinchStartZoom = 1;
     const dist = (a: Touch, b: Touch) =>
       Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const beginPinch = (e: TouchEvent) => {
+      pinchActive = true;
+      pinchStartDist = dist(e.touches[0], e.touches[1]);
+      // Anchor against the LIVE zoom (zoomRef), not a stale closure value, so
+      // adding a second finger mid one-finger drag picks up the real scale.
+      pinchStartZoom = zoomRef.current || 1;
+    };
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        pinchStartDist = dist(e.touches[0], e.touches[1]);
-        pinchStartZoom = zoom;
-      }
+      if (e.touches.length === 2) beginPinch(e);
     };
     const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length !== 2 || pinchStartDist === 0) return;
+      if (e.touches.length !== 2) return;
+      // A second finger may have arrived AFTER touchstart (e.g. mid one-finger
+      // drag); seed the gesture on the first 2-touch move we see.
+      if (!pinchActive || pinchStartDist === 0) { beginPinch(e); return; }
+      // Stop the browser zooming the page / panning the canvas during pinch.
       e.preventDefault();
       const d = dist(e.touches[0], e.touches[1]);
       const ratio = d / pinchStartDist;
-      // BH-1 — pinch-zoom counts as manual.
+      // BH-1 — pinch-zoom counts as manual. clampZoom inside setZoomManual
+      // keeps it within ZOOM_MIN..ZOOM_MAX.
       setZoomManual(pinchStartZoom * ratio);
     };
     const onTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) pinchStartDist = 0;
+      // End the gesture once fewer than two fingers remain so the NEXT pinch
+      // re-seeds its start distance from scratch.
+      if (e.touches.length < 2) {
+        pinchActive = false;
+        pinchStartDist = 0;
+      }
     };
     pane.addEventListener('touchstart', onTouchStart, { passive: true });
     pane.addEventListener('touchmove', onTouchMove, { passive: false });
     pane.addEventListener('touchend', onTouchEnd, { passive: true });
+    pane.addEventListener('touchcancel', onTouchEnd, { passive: true });
     return () => {
       pane.removeEventListener('touchstart', onTouchStart);
       pane.removeEventListener('touchmove', onTouchMove);
       pane.removeEventListener('touchend', onTouchEnd);
+      pane.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, [zoom, setZoomManual]);
+    // setZoomManual is stable (useCallback deps: [clampZoom]); zoom read via
+    // ref so we intentionally bind these listeners exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setZoomManual]);
 
   // Mobile — drag the mockup from ANYWHERE with one finger (desktop keeps the
   // explicit top-bar handle + corner resize). A touch starting on a form
@@ -1038,7 +1066,12 @@ export default function PreviewPane({
       setWidgetSelected(true);
     };
     const onMove = (e: TouchEvent) => {
-      if (!active || e.touches.length !== 1) return;
+      // A second finger means the user is pinch-zooming — abandon the drag so
+      // the pinch handler owns the gesture. Clearing `active` also prevents a
+      // position JUMP when the user lifts back to one finger (the old anchor
+      // would otherwise resume against a finger that has since moved).
+      if (e.touches.length !== 1) { active = false; setGuides([]); return; }
+      if (!active) return;
       e.preventDefault();
       const z = zoomRef.current || 1;
       const aligned = applyAlignSnap(bx + (e.touches[0].clientX - sx) / z, by + (e.touches[0].clientY - sy) / z);
@@ -2224,11 +2257,36 @@ export default function PreviewPane({
         .qq-preview-pane {
           position: relative;
           cursor: default;
-          touch-action: pan-x pan-y;
+          /* Pinch-to-zoom fix — the canvas is the two-finger gesture surface.
+           * touch-action MUST be none here so the browser yields ALL touch
+           * handling to JS; the non-passive touchmove listener can then call
+           * preventDefault() and run the custom pinch-zoom instead of the
+           * browser zooming the whole page. The previous value
+           * (pan-x pan-y) let the browser claim the gesture, so pinch did
+           * nothing useful in the editor. Inner widget controls re-enable
+           * touch-action below so taps / scrolls inside the widget still work. */
+          touch-action: none;
         }
         .qq-preview-pane[data-dragging="1"] { cursor: grabbing; }
         .qq-preview-pane .qq-preview-stage { cursor: auto; }
         .qq-preview-pane [data-testid^="preview-bezel"] { cursor: auto; }
+        /* Pinch-to-zoom fix — restore normal touch behavior INSIDE the live
+         * widget so a one-finger tap / scroll on the calculator's own
+         * inputs, selects, buttons and scrollable areas still works. The
+         * pane above owns the two-finger pinch on the empty canvas; here we
+         * hand single-finger interaction back to the widget controls.
+         * manipulation keeps taps instant (no 300ms delay) while allowing
+         * native vertical panning of long widget content. */
+        .qq-preview-pane .widget-scope input,
+        .qq-preview-pane .widget-scope select,
+        .qq-preview-pane .widget-scope textarea,
+        .qq-preview-pane .widget-scope button,
+        .qq-preview-pane .widget-scope a,
+        .qq-preview-pane .widget-scope label,
+        .qq-preview-pane .widget-scope [role="slider"],
+        .qq-preview-pane .widget-scope [contenteditable] {
+          touch-action: manipulation;
+        }
 
         /* ── P2 UX — Floating launcher preview lens ─────────────────────
          *
