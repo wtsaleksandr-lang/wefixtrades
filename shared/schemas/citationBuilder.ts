@@ -13,7 +13,7 @@
  * cutting audit that flagged the marketing page (PR #815) had no
  * Stripe/portal backing.
  */
-import { pgTable, text, varchar, integer, timestamp, jsonb, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, jsonb, uuid, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./db";
@@ -38,7 +38,7 @@ export const citationBuilderSubmissions = pgTable("citation_builder_submissions"
 }, (table) => ({
   customerIdx: index("idx_citation_builder_subs_customer").on(table.customer_id),
   statusIdx: index("idx_citation_builder_subs_status").on(table.status),
-  stripeSessionIdx: index("idx_citation_builder_subs_session").on(table.stripe_session_id),
+  stripeSessionIdx: uniqueIndex("uq_cb_subs_stripe_session").on(table.stripe_session_id),
 }));
 
 export const insertCitationBuilderSubmissionSchema = createInsertSchema(citationBuilderSubmissions).omit({
