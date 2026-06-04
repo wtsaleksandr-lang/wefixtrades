@@ -11,8 +11,15 @@
 //   2. Progress dots     ~6%  — step count (auto-stepper or template.steps),
 //                              cap 5; first dot filled in accent.
 //   3. Field list        ~48% — 3-4 real field labels with stub input boxes.
-//   4. Result panel      ~28% — resultsBg colour; result label + sample
-//                              price + CTA bar in accent colour.
+//   4. Result panel      ~28% — themed results panel; result label + sample
+//                              price + CTA bar in the template's CTA colour.
+//
+// Colour parity with the WEBSITE: the marketing template pages render every
+// catalogue thumbnail through `defaultComboForTemplate(id)` (see
+// pages/marketing/template-detail.tsx), NOT each preset's own `style.*`. So the
+// wizard thumbnail mirrors that same mapping — Black · Yellow for car_towing,
+// Sky-Tint for every other template — over a white left body. The same template
+// is therefore recognisably the same in both surfaces.
 //
 // Performance:
 //   - Pure render, no state, no effects (the IntersectionObserver lazy-load
@@ -23,8 +30,9 @@
 //
 // Data sources used:
 //   - `template.name` / `template.header.title` — header text
-//   - `template.category` + `getCategoryStyle()` — palette fallback
-//   - `template.style?.accent / surface / resultsBg` — explicit overrides
+//   - `template.id` → `websiteComboForTemplate(id)` — the two-zone palette
+//     (panel / accent / CTA), mirroring the website's `defaultComboForTemplate`.
+//   - `template.category` + `getCategoryStyle()` — category icon id only
 //   - `resolveCategoryIcon(template.category, template.categoryIcon)` —
 //     header icon (lucide).
 //   - `template.steps?.length` — explicit step count when shipped; auto-
@@ -107,17 +115,58 @@ function formatCurrency(n: number): string {
   return `$${n.toLocaleString('en-US')}`;
 }
 
-/** Resolve effective colours from category fallback + explicit overrides. */
+/* ─── Website-parity theme combinations ───────────────────────────────────
+ * The marketing template pages (client/src/pages/marketing/template-detail.tsx)
+ * render every catalogue thumbnail through `defaultComboForTemplate(id)`, NOT
+ * through each preset's own `style.*` colours. That function returns the bold
+ * Black · Yellow combo for `car_towing` and the clean Sky-Tint combo for every
+ * other template. To make the WIZARD gallery thumbnail recognisably the SAME
+ * template as the website preview, we mirror that exact mapping here.
+ *
+ * These three colours come verbatim from `THEME_COMBINATIONS` in
+ * template-detail.tsx (the website's source of truth). Keep them in sync if the
+ * website's default combos ever change. Every combo keeps a WHITE left body +
+ * dark body text; only the two-zone treatment (results panel + accents + CTA)
+ * differs — exactly the two-zone model the website uses.
+ *   - panel  → resultsBg  (the right/result zone background)
+ *   - accent → left-side accents (icon, first step dot, field tint)
+ *   - cta    → CTA-button-only colour (Colour A) */
+const WEBSITE_BODY = {
+  surface: '#f6f7f9',
+  text: '#171717',
+} as const;
+const WEBSITE_COMBO_BLACK_YELLOW = { panel: '#0d0d0d', accent: '#0d0d0d', cta: '#ffd60a' } as const;
+const WEBSITE_COMBO_SKY_TINT = { panel: '#eaf1fb', accent: '#2563eb', cta: '#2563eb' } as const;
+
+/** Mirror of the website's `defaultComboForTemplate(id)` — car_towing leads
+ *  with Black · Yellow; every other template defaults to the Sky-Tint combo. */
+function websiteComboForTemplate(templateId: string) {
+  return templateId === 'car_towing'
+    ? WEBSITE_COMBO_BLACK_YELLOW
+    : WEBSITE_COMBO_SKY_TINT;
+}
+
+/**
+ * Resolve effective colours so the wizard thumbnail matches the WEBSITE preview
+ * for the same template. The body is always white (Elfsight-clean), with the
+ * two-zone treatment (results panel + accents + CTA) driven by the website's
+ * default combo for this template. Result-panel text contrast is derived from
+ * the panel's own luminance so a dark panel keeps light text and a light tinted
+ * panel keeps dark text (never bright-on-bright / dark-on-dark).
+ */
 function resolveColours(template: TemplateConfig) {
   const cat = getCategoryStyle(template.category);
-  const surface = template.style?.surface ?? '#ffffff';
-  const accent = template.style?.accent ?? cat.accent ?? cat.ctaFrom;
-  // ResultsBg explicit override → category bodyRow tint → soft slate fallback.
-  const resultsBg = template.style?.resultsBg
-    ?? (cat.isDark ? '#0f172a' : '#f8fafc');
-  const accentText = cat.isDark || isDarkHex(accent) ? '#ffffff' : '#ffffff';
-  const text = template.style?.text ?? (cat.isDark ? '#e2e8f0' : '#0f172a');
-  return { cat, surface, accent, resultsBg, accentText, text };
+  const combo = websiteComboForTemplate(template.id);
+  // White left body (matches the website's COMBO_LIGHT_BODY); surface + text
+  // are the neutral light-body tokens the website uses.
+  const surface = WEBSITE_BODY.surface;
+  const text = WEBSITE_BODY.text;
+  const accent = combo.accent;
+  const resultsBg = combo.panel;
+  const cta = combo.cta;
+  // CTA label contrast: dark text on a light CTA, light text on a dark CTA.
+  const ctaText = isDarkHex(cta) ? 'rgba(255,255,255,1)' : '#0f172a';
+  return { cat, surface, accent, resultsBg, cta, ctaText, text };
 }
 
 /** Crude perceptual-brightness test on a hex string. */
@@ -137,7 +186,7 @@ function isDarkHex(hex: string): boolean {
 
 /** Pure inner render — no state, no effects. */
 function MockupInner({ template }: Props) {
-  const { cat, surface, accent, resultsBg, accentText, text } =
+  const { cat, surface, accent, resultsBg, cta, ctaText, text } =
     resolveColours(template);
   const Icon = resolveCategoryIcon(template.category, template.categoryIcon);
 
@@ -167,8 +216,9 @@ function MockupInner({ template }: Props) {
     14,
   );
 
-  // Soft inset shadow + 8px corners. Surface is white-ish in light themes,
-  // slate-900 in dark themes (Automotive / Emergency / Construction hero).
+  // Soft inset shadow + 8px corners. Body surface is the website's light body
+  // for every template (Elfsight-clean); the two-zone identity comes from the
+  // accent (left elements) + the themed results panel + the CTA.
   return (
     <div
       className="qq-tm-card"
@@ -215,8 +265,9 @@ function MockupInner({ template }: Props) {
             <span
               className="qq-tm-field-stub"
               style={{
-                borderColor: isDarkHex(surface) ? 'rgba(255,255,255,0.18)' : 'rgba(15,23,42,0.16)',
-                background: isDarkHex(surface) ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.03)',
+                // White left body (matches the website), so stubs read on light.
+                borderColor: 'rgba(15,23,42,0.16)',
+                background: 'rgba(15,23,42,0.03)',
               }}
             />
           </div>
@@ -228,7 +279,7 @@ function MockupInner({ template }: Props) {
         className="qq-tm-result"
         style={{
           background: resultsBg,
-          color: isDarkHex(resultsBg) ? '#ffffff' : '#0f172a',
+          color: isDarkHex(resultsBg) ? 'rgba(255,255,255,1)' : '#0f172a',
         }}
       >
         <div className="qq-tm-result-row">
@@ -237,7 +288,7 @@ function MockupInner({ template }: Props) {
         </div>
         <div
           className="qq-tm-cta"
-          style={{ background: accent, color: accentText }}
+          style={{ background: cta, color: ctaText }}
         >
           <span className="qq-tm-cta-label">{ctaLabel}</span>
         </div>
