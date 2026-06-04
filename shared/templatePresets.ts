@@ -787,17 +787,56 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'car_towing', name: 'Car Towing', description: 'Distance-based tow pricing with add-on services.',
     category: 'Automotive', trades: ['auto_detailing'],
-    trustBadges: BADGES.towing,
-    layout: 'single-column', theme: 'midnight', defaultIcon: 'Truck',
+    // Elfsight-clean: light theme + two-column (inputs left, single result panel
+    // right), no trust-badge row, no line-item breakdown — minimal and airy.
+    trustBadges: [],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Truck',
+    // Explicit light style — without this, toAdvancedConfig() falls back to
+    // deriveStyleFromCategory('Automotive') which paints a dark slate gradient
+    // body (#0c111c→#1a2030). bgMode:'solid' + white body kills that band and
+    // gives the airy Elfsight look (white body, slate-50 fields, slate-100
+    // result panel, single blue CTA).
+    style: {
+      accent: '#0d3cfc',
+      background: '#ffffff',
+      surface: '#f8fafc',
+      border: '#e2e8f0',
+      text: '#0f172a',
+      resultsBg: '#f1f5f9',
+      success: '#10b981',
+      error: '#ef4444',
+      fontFamily: 'inter',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'normal',
+        border: 'subtle',
+        range_mode: { enabled: false, band_pct: 8 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+    },
     header: { title: 'Dispatch a Tow Truck in 60 Seconds', subtitle: 'Licensed & insured · 24/7 response · Flat-rate per-mile pricing', align: 'left' },
+    // Elfsight-clean: every input is full-width (colSpan 2) so the inputs
+    // stack vertically in one column on the left, with the result panel on the
+    // right — instead of half-width pairs that crowd and overlap on mobile.
     fields: [
-      { id: 'vehicle_type', name: 'Vehicle Type', label: 'What are we towing?', type: 'select',
+      { id: 'vehicle_type', name: 'Vehicle Type', label: 'What are we towing?', type: 'select', colSpan: 2,
         options: [opt('Car', 0), opt('SUV', 25), opt('Truck', 60), opt('Motorcycle', -10)] },
-      { id: 'condition', name: 'Vehicle Condition', label: 'Is the vehicle driveable?', type: 'select',
+      { id: 'condition', name: 'Vehicle Condition', label: 'Is the vehicle driveable?', type: 'select', colSpan: 2,
         options: [opt('Driveable', 0), opt('Not driveable', 45)] },
-      { id: 'distance', name: 'Towing Distance', label: 'Distance to destination', type: 'slider',
+      { id: 'distance', name: 'Towing Distance', label: 'Distance to destination', type: 'slider', colSpan: 2,
         min: 1, max: 100, step: 1, default_value: 8, unit: 'miles' },
-      { id: 'extras', name: 'Additional Services', label: 'Roadside add-ons', type: 'multi_select',
+      { id: 'extras', name: 'Additional Services', label: 'Roadside add-ons', type: 'multi_select', colSpan: 2,
         options: [opt('Winching', 50), opt('Tire Change', 25), opt('Lockout Service', 35), opt('Fuel Delivery', 30)] },
     ],
     calculations: [
@@ -809,7 +848,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     result_calc: 'Total Towing Cost',
     results: {
       heading: 'Your Tow Estimate',
-      show_breakdown: true,
+      show_breakdown: false,
       cta_label: 'Dispatch a Truck Now',
       footnote: 'Mileage is charged at $5.00/mile. After-hours and storage surcharges quoted on dispatch.',
     },

@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useRoute, Redirect } from "wouter";
-import { ArrowRight, ChevronLeft, Check, Zap, Clock, TrendingUp, ShieldCheck } from "lucide-react";
+import { ArrowRight, ChevronLeft, Check, Zap, Clock, TrendingUp, ShieldCheck, Monitor, Smartphone } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import { mkt } from "@/theme/tokens";
@@ -44,10 +44,20 @@ const SAMPLE_BUSINESS_PROFILE: BusinessProfile = {
 };
 
 /* ─── Build a CalculatorData wrapper around a real preset ─── */
-function buildPreviewCalculator(template: TemplateConfig, accent?: string): CalculatorData {
+function buildPreviewCalculator(
+  template: TemplateConfig,
+  accent?: string,
+  forceLayout?: "single-column",
+): CalculatorData {
   const base = toAdvancedConfig(template);
   const advanced = {
     ...base,
+    // The fold toggle reflows by container width, but the widget's responsive
+    // breakpoints are viewport-keyed (matchMedia), so a narrowed container
+    // alone would still render the desktop two-column layout — misrepresenting
+    // real mobile. Forcing single-column in mobile preview makes the toggle
+    // truthful: inputs + result stack exactly as they do on a real phone.
+    ...(forceLayout ? { layout: forceLayout } : {}),
     businessProfile: SAMPLE_BUSINESS_PROFILE,
     // The website color tabs override the widget accent live; absent => the
     // template's own theme accent. (The wizard exposes the full palette.)
@@ -140,9 +150,16 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
   useBreadcrumbSchema(breadcrumbs);
 
   const [accent, setAccent] = useState<string>(SITE_PALETTE[0].color);
+  // Elfsight-style in-place desktop↔mobile fold for the live preview.
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const previewCalculator = useMemo(
-    () => buildPreviewCalculator(template, accent),
-    [template, accent],
+    () =>
+      buildPreviewCalculator(
+        template,
+        accent,
+        previewMode === "mobile" ? "single-column" : undefined,
+      ),
+    [template, accent, previewMode],
   );
 
   // Pull key value props from the template's header subtitle (e.g. "Licensed
@@ -384,21 +401,96 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 })}
               </div>
             </div>
+            {/* Elfsight-style floating preview container: white rounded card with a
+                toolbar + desktop/mobile fold toggle. The toggle smoothly shrinks the
+                LIVE widget into a phone frame in place (the widget reflows by
+                container width, so it works for any template/layout). */}
             <div
               data-testid="template-live-preview"
               style={{
-                // Transparent + radius matched to the widget's own outer radius
-                // so no frame colour shows behind the widget's rounded corners
-                // (Alex's "colour behind the rounded corner"). The widget brings
-                // its own border + rounding; this wrapper only adds the shadow.
-                background: "transparent",
-                borderRadius: 24,
-                boxShadow:
-                  "0 4px 14px rgba(0,0,0,0.10), 0 24px 60px rgba(0,0,0,0.20)",
+                maxWidth: 980,
+                margin: "0 auto",
+                background: "rgba(255,255,255,1)",
+                borderRadius: 16,
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.10), 0 30px 70px rgba(0,0,0,0.28)",
                 overflow: "hidden",
               }}
             >
-              <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+              {/* Toolbar */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 14px",
+                  borderBottom: "1px solid rgba(0,0,0,0.07)",
+                  background: "rgba(255,255,255,1)",
+                }}
+              >
+                <span style={{ width: 70 }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.55)", letterSpacing: "0.02em" }}>
+                  Live preview
+                </span>
+                <div
+                  role="group"
+                  aria-label="Preview device"
+                  style={{ display: "flex", gap: 2, padding: 3, borderRadius: 9, background: "rgba(0,0,0,0.05)", width: 70, justifyContent: "flex-end" }}
+                >
+                  {([["desktop", Monitor, "Desktop view"], ["mobile", Smartphone, "Mobile view"]] as const).map(([mode, Icon, label]) => {
+                    const on = previewMode === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-label={label}
+                        aria-pressed={on}
+                        title={label}
+                        onClick={() => setPreviewMode(mode)}
+                        data-testid={`preview-device-${mode}`}
+                        style={{
+                          display: "grid",
+                          placeItems: "center",
+                          width: 28,
+                          height: 28,
+                          borderRadius: 7,
+                          border: "none",
+                          cursor: "pointer",
+                          background: on ? "rgba(255,255,255,1)" : "transparent",
+                          boxShadow: on ? "0 1px 3px rgba(0,0,0,0.18)" : "none",
+                          color: on ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.40)",
+                          transition: "background 140ms ease, color 140ms ease",
+                        }}
+                      >
+                        <Icon size={16} strokeWidth={2.25} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Fold viewport — the live widget shrinks into a phone frame in place */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  padding: previewMode === "mobile" ? "28px 16px" : "0",
+                  background: previewMode === "mobile" ? "rgba(0,0,0,0.03)" : "transparent",
+                  transition: "padding 500ms cubic-bezier(0.22,1,0.36,1), background 500ms ease",
+                }}
+              >
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: previewMode === "mobile" ? 390 : 980,
+                    borderRadius: previewMode === "mobile" ? 24 : 0,
+                    overflow: "hidden",
+                    boxShadow: previewMode === "mobile" ? "0 10px 40px rgba(0,0,0,0.22)" : "none",
+                    transition: "max-width 520ms cubic-bezier(0.22,1,0.36,1), border-radius 300ms ease, box-shadow 300ms ease",
+                  }}
+                >
+                  <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+                </div>
+              </div>
             </div>
             <p
               style={{
