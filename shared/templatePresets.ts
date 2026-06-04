@@ -819,12 +819,15 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     // gives the airy Elfsight look (white body, slate-50 fields, slate-100
     // result panel, single blue CTA).
     style: {
+      // Crisp + airy, but distinctly OURS: our brand blue stays the accent;
+      // surfaces neutralised (cool-slate → clean neutral grays) and text pushed
+      // to near-black for a sharper, higher-contrast read.
       accent: '#0d3cfc',
       background: '#ffffff',
-      surface: '#f8fafc',
-      border: '#e2e8f0',
-      text: '#0f172a',
-      resultsBg: '#f1f5f9',
+      surface: '#f6f7f9',
+      border: '#e5e7eb',
+      text: '#171717',
+      resultsBg: '#f3f4f6',
       success: '#10b981',
       error: '#ef4444',
       fontFamily: 'inter',

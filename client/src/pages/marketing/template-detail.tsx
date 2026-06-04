@@ -947,8 +947,10 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               /* Single device toggle that swaps its icon — pinned to the
                  top-right corner of the preview card. */
               .tpl-device-toggle {
-                position: absolute; top: 10px; right: 10px; z-index: 5;
-                flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px;
+                /* Sits inside the widget's white header strip (band starts ~39px);
+                   28px at top:6 spans 6-34px so it never enters the coloured band. */
+                position: absolute; top: 6px; right: 8px; z-index: 5;
+                flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
                 display: grid; place-items: center; cursor: pointer; border: none;
                 background: rgba(255,255,255,0.85); color: ${CS_LIGHT.ink};
                 box-shadow: inset 0 0 0 1px rgba(15,20,24,0.12), 0 2px 8px rgba(15,20,24,0.12);
