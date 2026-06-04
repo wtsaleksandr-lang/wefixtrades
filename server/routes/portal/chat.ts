@@ -636,17 +636,37 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
             // Parse JSON from AI response — handle potential markdown fences
             const jsonStr = draftJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-            const parsed = JSON.parse(jsonStr);
+            let parsed: unknown;
+            try {
+              parsed = JSON.parse(jsonStr);
+            } catch (parseErr) {
+              log.warn("[portal-ai] Escalation draft JSON parse failed:", {
+                error: String(parseErr),
+                rawResponse: jsonStr.slice(0, 500),
+              });
+              parsed = null;
+            }
 
             // Validate required fields
             const validCategories = ["general", "billing", "service", "onboarding", "access", "other"];
-            if (parsed.subject && parsed.description) {
+            if (
+              parsed &&
+              typeof parsed === "object" &&
+              typeof (parsed as Record<string, unknown>).subject === "string" &&
+              typeof (parsed as Record<string, unknown>).description === "string"
+            ) {
+              const p = parsed as Record<string, unknown>;
               escalationDraft = {
-                subject: String(parsed.subject).slice(0, 100),
-                category: validCategories.includes(parsed.category) ? parsed.category : "general",
-                description: String(parsed.description).slice(0, 2000),
-                ai_summary: parsed.ai_summary ? String(parsed.ai_summary).slice(0, 500) : null,
+                subject: String(p.subject).slice(0, 100),
+                category: validCategories.includes(p.category as string) ? (p.category as string) : "general",
+                description: String(p.description).slice(0, 2000),
+                ai_summary: typeof p.ai_summary === "string" ? p.ai_summary.slice(0, 500) : null,
               };
+            } else if (parsed !== null) {
+              log.warn("[portal-ai] Escalation draft missing required fields:", {
+                hasSubject: !!(parsed as Record<string, unknown>).subject,
+                hasDescription: !!(parsed as Record<string, unknown>).description,
+              });
             }
           } catch (err) {
             log.error("[portal-ai] Failed to generate escalation draft:", { error: String(err) });

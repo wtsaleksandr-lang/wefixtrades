@@ -672,9 +672,9 @@ async function executeSetNotificationPreference(
 const SET_NOTIFICATION_PREFERENCE_ACTION: CopilotAction = {
   name: "set_notification_preference",
   surface: "portal",
-  // Confirm-gated, not "auto": this writes to the owner's live account. Every
-  // live-system write must go through the confirm card — no silent change on a
-  // model tool-call (latent safety bug found in the backlog-D concierge spike).
+  // Confirm-gated (riskTier "low"): modifies the owner's notification channel
+  // toggles. All write operations use "low" so the confirm card is shown before
+  // execution. The "auto" tier is reserved for read-only tools only.
   riskTier: "low",
   tool: SET_NOTIFICATION_PREFERENCE_TOOL,
   execute: executeSetNotificationPreference,
