@@ -19,8 +19,10 @@
  * Accessibility: role="dialog", aria-modal, labelled by the heading, focus
  * trap, Esc-to-close, click-outside-to-close, and body scroll lock while open.
  *
- * Lead delivery is OUT OF SCOPE here — `onLeadSubmit` currently just flips the
- * inline success state. See the TODO below to wire a real endpoint.
+ * Lead delivery: the parent passes an `onSubmit` callback that POSTs to
+ * `/api/leads`. When omitted (preview / wizard) the form still works but
+ * skips the network call — the success state flips regardless so the
+ * preview path isn't broken.
  */
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
@@ -51,11 +53,12 @@ function FloatingLabelInput({
 
   const fieldText = guardTextColor(theme.text, theme.surface, 'leadModalFieldText');
   const labelColor = guardTextColor(theme.textMuted, theme.surface, 'leadModalFieldLabel');
+  const fieldErrorColor = theme.error || 'rgb(185,28,28)';
 
   const wrapperStyle: CSSProperties = { position: 'relative', width: '100%' };
   const inputStyle: CSSProperties = {
     width: '100%', height: 48, borderRadius: radiusPx,
-    border: `1px solid ${invalid ? 'rgb(185,28,28)' : focused ? theme.accent : theme.border}`,
+    border: `1px solid ${invalid ? fieldErrorColor : focused ? theme.accent : theme.border}`,
     padding: '18px 12px 6px 12px',
     fontSize: 14, color: fieldText, background: theme.surface,
     fontFamily, outline: 'none', boxSizing: 'border-box',
@@ -97,6 +100,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // strict format (international numbers vary). Just needs ≥7 digits.
 const phoneOk = (v: string) => v.replace(/\D/g, '').length >= 7;
 
+/** Captured lead data shape — exported for the parent's `onSubmit` signature. */
+export type Lead = { name: string; phone: string; email: string };
+
 export interface LeadModalProps {
   /** Whether the modal is mounted/visible. */
   open: boolean;
@@ -118,20 +124,25 @@ export interface LeadModalProps {
   subcopy?: string;
   /** Optional submit-button label override; defaults to "Send my request". */
   submitLabel?: string;
+  /** Async callback fired with captured lead data. The parent is responsible
+   *  for the actual POST to `/api/leads`. When absent (preview / wizard) the
+   *  form flips to the success state without a network call. */
+  onSubmit?: (lead: Lead) => Promise<void>;
 }
-
-type Lead = { name: string; phone: string; email: string };
 
 export default function LeadModal({
   open, onClose, theme, ctaBg, ctaFg, fontFamily, radiusPx = '10px',
-  heading = 'Almost there — where should we reach you?',
-  subcopy = 'Drop your details and we’ll get back to you shortly.',
+  heading = 'Almost there \u2014 where should we reach you?',
+  subcopy = "Drop your details and we'll get back to you shortly.",
   submitLabel = 'Send my request',
+  onSubmit,
 }: LeadModalProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -162,7 +173,7 @@ export default function LeadModal({
 
   // Reset to a clean form each time the modal is (re)opened.
   useEffect(() => {
-    if (open) { setSubmitted(false); setShowErrors(false); }
+    if (open) { setSubmitted(false); setSubmitting(false); setSubmitError(null); setShowErrors(false); }
   }, [open]);
 
   if (!open) return null;
@@ -183,20 +194,25 @@ export default function LeadModal({
     }
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!ready) { setShowErrors(true); return; }
-    // TODO: wire to real lead endpoint (POST the captured lead to the CRM /
-    // /api/leads). For now we only flip the inline success state — delivery is
-    // intentionally out of scope.
-    onLeadSubmit({ name: name.trim(), phone: phone.trim(), email: email.trim() });
+    const lead: Lead = { name: name.trim(), phone: phone.trim(), email: email.trim() };
+    if (onSubmit) {
+      setSubmitting(true);
+      setSubmitError(null);
+      try {
+        await onSubmit(lead);
+      } catch (e: any) {
+        setSubmitting(false);
+        setSubmitError(e?.message || 'Something went wrong. Please try again.');
+        return;
+      }
+      setSubmitting(false);
+    }
     setSubmitted(true);
   }
 
-  function onLeadSubmit(_lead: Lead) {
-    // Placeholder handler — see TODO in handleSubmit().
-    void _lead;
-  }
-
+  const errorColor = theme.error || 'rgb(185,28,28)';
   const headingColor = guardTextColor(theme.text, theme.surface, 'leadModalHeading');
   const subColor = guardTextColor(theme.textMuted, theme.surface, 'leadModalSub');
   const consentColor = guardTextColor(theme.textMuted, theme.surface, 'leadModalConsent');
@@ -268,10 +284,10 @@ export default function LeadModal({
             }}
           >
             <p style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>
-              Thanks, {name.trim().split(' ')[0] || 'there'} — we’ll be in touch.
+              Thanks, {name.trim().split(' ')[0] || 'there'} — we'll be in touch.
             </p>
             <p style={{ fontSize: 13, color: successSub, margin: 0, lineHeight: 1.5 }}>
-              We’ve got your request and a team member will reach out shortly.
+              We've got your request and a team member will reach out shortly.
             </p>
           </div>
         ) : (
@@ -314,7 +330,7 @@ export default function LeadModal({
             {showErrors && !ready && (
               <p
                 data-testid="lead-modal-error"
-                style={{ fontSize: 12, color: 'rgb(185,28,28)', margin: '8px 0 0 0' }}
+                style={{ fontSize: 12, color: errorColor, margin: '8px 0 0 0' }}
               >
                 {!nameOk
                   ? 'Please enter your full name.'
@@ -324,19 +340,29 @@ export default function LeadModal({
               </p>
             )}
 
+            {submitError && (
+              <p
+                data-testid="lead-modal-submit-error"
+                style={{ fontSize: 12, color: errorColor, margin: '8px 0 0 0' }}
+              >
+                {submitError}
+              </p>
+            )}
+
             <button
               type="button"
               data-testid="lead-modal-submit"
               onClick={handleSubmit}
-              style={submitBtnStyle}
+              disabled={submitting}
+              style={{ ...submitBtnStyle, opacity: submitting ? 0.7 : 1 }}
             >
-              {submitLabel}
-              <span aria-hidden="true" style={{ fontSize: 16 }}>→</span>
+              {submitting ? 'Sending…' : submitLabel}
+              {!submitting && <span aria-hidden="true" style={{ fontSize: 16 }}>→</span>}
             </button>
 
             {/* Optional consent line. */}
             <p style={{ fontSize: 11, color: consentColor, margin: '10px 0 0 0', lineHeight: 1.5 }}>
-              By submitting, you agree to be contacted about your request. We’ll
+              By submitting, you agree to be contacted about your request. We'll
               only use your details to follow up on this quote.
             </p>
           </>

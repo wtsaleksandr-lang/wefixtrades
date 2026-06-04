@@ -54,7 +54,7 @@ import CategoryIcon from './CategoryIcon';
 import CalculatorStepper, { StepperControls } from './CalculatorStepper';
 import ContactStep from './ContactStep';
 // Short modal lead-capture opened by the primary CTA (name / phone / email).
-import LeadModal from './LeadModal';
+import LeadModal, { type Lead } from './LeadModal';
 // BD-2b — Good/Better/Best tier selector + inline trust signals.
 import TierSelector from './TierSelector';
 import TrustBlockUnderCTA from './TrustBlockUnderCTA';
@@ -3133,6 +3133,26 @@ export default function AdvancedCalculator({
         ctaFg={ctaFgGuarded}
         fontFamily={fontFamily}
         radiusPx={radiusInnerPx}
+        onSubmit={analyticsCalcId ? async (lead: Lead) => {
+          const resp = await fetch('/api/leads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              calculator_id: analyticsCalcId,
+              name: lead.name,
+              email: lead.email,
+              phone: lead.phone || null,
+              quote_amount: typeof effectiveQuoteValue === 'number' && Number.isFinite(effectiveQuoteValue)
+                ? effectiveQuoteValue : null,
+              answers: Object.keys(answers).length > 0 ? answers : null,
+            }),
+          });
+          if (!resp.ok) {
+            const body = await resp.json().catch(() => ({}));
+            throw new Error(body?.error || `Request failed (${resp.status})`);
+          }
+          trackSubmit();
+        } : undefined}
       />
     </div>
   );
