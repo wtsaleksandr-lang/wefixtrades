@@ -25,6 +25,7 @@ import {
   getTemplatePreset,
   toAdvancedConfig,
   TEMPLATE_PRESETS,
+  type AdvStyle,
   type BusinessProfile,
   type TemplateConfig,
 } from "@shared/templatePresets";
@@ -56,6 +57,33 @@ const SAMPLE_BUSINESS_PROFILE: BusinessProfile = {
   serviceArea: "Sample Service Area",
 };
 
+/* The Elfsight-clean style token set (car_towing's reference, generalised).
+   Applied to EVERY template preview so the whole catalogue reads light + airy
+   regardless of the template's own (often dark, category-derived) theme.
+   Live customer widgets keep their own style — this is preview-only. */
+const ELFSIGHT_LIGHT_STYLE = {
+  accent: "#0d3cfc",
+  background: "rgba(255,255,255,1)",
+  surface: "#f8fafc",
+  border: "#e2e8f0",
+  text: "#0f172a",
+  resultsBg: "#f1f5f9",
+  success: "#10b981",
+  error: "#ef4444",
+  fontFamily: "inter",
+  fieldStyle: "filled",
+  radius: 12,
+  headingWeight: 700,
+  bodyWeight: 400,
+  fontSize: "medium",
+  logoPlacement: "top-left",
+  logoSize: "medium",
+  bgMode: "solid",
+  resultPanel: { emphasis: "normal", border: "subtle", range_mode: { enabled: false, band_pct: 8 } },
+  animations: { step_transition: "fade", duration_ms: 250, reduced_motion_respect: true },
+  labelLayout: "stacked",
+} satisfies AdvStyle;
+
 /* Mix a hex accent toward white to produce a soft, opaque tint — used to wash
    the whole widget background in the chosen accent (premium, not garish). */
 function tintToward(hex: string, strength: number): string {
@@ -74,37 +102,38 @@ function buildPreviewCalculator(
   forceLayout?: "single-column",
 ): CalculatorData {
   const base = toAdvancedConfig(template);
-  // When a light template is recoloured, wash the whole widget (body + field
-  // surfaces + result panel) in a soft tint of the chosen accent so the colour
-  // change is felt everywhere, not just on the CTA. Layered strengths keep the
-  // fields + result panel reading as distinct cards over the body wash.
-  const isLight = base.theme === "light";
-  const bgTint =
-    accent && isLight
-      ? {
-          bgMode: "solid" as const,
-          background: tintToward(accent, 0.04),
-          surface: tintToward(accent, 0.09),
-          resultsBg: tintToward(accent, 0.13),
-        }
-      : {};
+  const acc = accent ?? ELFSIGHT_LIGHT_STYLE.accent;
+  // Wash the whole widget (body + field surfaces + result panel) in a soft tint
+  // of the chosen accent so a colour change is felt everywhere, not just on the
+  // CTA. Only when an explicit accent is picked; otherwise stay clean white.
+  const bgTint = accent
+    ? {
+        background: tintToward(accent, 0.04),
+        surface: tintToward(accent, 0.09),
+        resultsBg: tintToward(accent, 0.13),
+      }
+    : {};
   const advanced = {
     ...base,
-    // The fold toggle reflows by container width, but the widget's responsive
-    // breakpoints are viewport-keyed (matchMedia), so a narrowed container
-    // alone would still render the desktop two-column layout — misrepresenting
-    // real mobile. Forcing single-column in mobile preview makes the toggle
-    // truthful: inputs + result stack exactly as they do on a real phone.
-    ...(forceLayout ? { layout: forceLayout } : {}),
-    // Drop the subtitle in the preview — the clean Elfsight layout is title +
-    // inputs + result only.
+    // Force the Elfsight-clean treatment on EVERY template preview, overriding
+    // the template's own (often dark) theme/layout so the whole catalogue reads
+    // consistent: light, single-screen, inputs stacked left + result right.
+    theme: "light" as const,
+    stepLayout: "single" as const,
+    // forceLayout (mobile fold) → single-column; otherwise inputs-left/result-right.
+    layout: forceLayout ?? ("two-column" as const),
+    // colSpan 2 = every input is full-width so they stack vertically (the
+    // Elfsight column), instead of pairing into a crowded 2-up grid.
+    fields: (base.fields ?? []).map((f) => ({ ...f, colSpan: 2 as const })),
+    // Drop the subtitle + the trust-badge row in the preview — the clean
+    // Elfsight layout is title + inputs + result only.
     header: { ...(base.header ?? {}), subtitle: "" },
+    trustBadges: [],
     businessProfile: SAMPLE_BUSINESS_PROFILE,
-    // The website color tabs override the widget accent live; absent => the
-    // template's own theme accent. (The wizard exposes the full palette.)
-    // labelLayout 'stacked' = the Elfsight title-above + help-below field
-    // style, scoped to the marketing previews (live widgets keep float).
-    style: { ...(base.style ?? {}), ...(accent ? { accent } : {}), ...bgTint, labelLayout: "stacked" as const },
+    // Uniform clean style + the chosen accent + its background wash. labelLayout
+    // 'stacked' = the Elfsight title-above + help-below field style. Preview-only;
+    // live customer widgets keep the template's own style.
+    style: { ...ELFSIGHT_LIGHT_STYLE, accent: acc, ...bgTint },
   };
   return {
     id: 0,
@@ -692,7 +721,11 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                     transition: "max-width 520ms cubic-bezier(0.22,1,0.36,1), border-radius 300ms ease, box-shadow 300ms ease",
                   }}
                 >
-                  <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+                  {/* key on the active template → remount + fade/rise on swap
+                      (Elfsight/Canva-style polish). */}
+                  <div key={activeTemplate.id} className="tpl-swap-in">
+                    <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -835,6 +868,27 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 transition: background 140ms ease, transform 120ms ease;
               }
               .tpl-device-toggle:hover { transform: translateY(-1px); }
+
+              /* Template-swap polish: remount the widget on selection with a
+                 soft fade + rise. */
+              .tpl-swap-in { animation: tplSwapIn 320ms cubic-bezier(0.22,1,0.36,1) both; }
+              @keyframes tplSwapIn {
+                from { opacity: 0; transform: translateY(8px); }
+                to { opacity: 1; transform: translateY(0); }
+              }
+              @media (prefers-reduced-motion: reduce) {
+                .tpl-swap-in { animation: none; }
+              }
+
+              /* Accessibility — visible focus rings on every control. */
+              .tpl-card:focus-visible,
+              .tpl-swatch:focus-visible,
+              .tpl-device-toggle:focus-visible,
+              .tpl-pager-btn:focus-visible,
+              .tpl-cat:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 2px ${CS_LIGHT.bg}, 0 0 0 4px ${mkt.accent};
+              }
 
               @media (max-width: 760px) {
                 .tpl-editor-section { padding-left: 4px !important; padding-right: 4px !important; }
