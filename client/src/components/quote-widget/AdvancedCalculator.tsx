@@ -2184,7 +2184,7 @@ export default function AdvancedCalculator({
            grid blocks (fields panel, result panel, CTA) should breathe, not
            sit flush to the widget edges. ~16px outer gutters + a comfortable
            12px gap BETWEEN the blocks. NOTE: the 2px gap between STACKED
-           INPUTS (the `-fields` grid) is a locked design-system rule and is
+           INPUTS (the fields grid) is a locked design-system rule and is
            deliberately left untouched here. Desktop (≥560px) keeps its
            deliberate 2px grey-seam rule below — this override is mobile-only. */
         @media (max-width: 559px) {
