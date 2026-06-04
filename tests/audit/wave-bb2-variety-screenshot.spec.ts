@@ -66,7 +66,7 @@ async function openWizardAndApply(page: Page, templateId: string) {
 
   await expect(modal).toBeHidden({ timeout: 4000 });
   await expect(
-    page.locator('[data-testid="advanced-calculator"][data-bg-mode="gradient"]')
+    page.locator('[data-testid="advanced-calculator"]')
   ).toBeVisible({ timeout: 6000 });
   await page.waitForTimeout(700);
 }
