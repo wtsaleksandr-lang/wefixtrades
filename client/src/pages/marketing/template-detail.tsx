@@ -794,6 +794,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               <Link
                 href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}`}
                 data-testid="hero-use-template"
+                className="wft-hover-border-white"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
