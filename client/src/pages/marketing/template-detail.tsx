@@ -513,6 +513,9 @@ function TemplateRail({
           only. Selecting a swatch swaps the whole palette. */}
       <div className="tpl-rail-block">
         <div className="tpl-cats-head">Theme</div>
+        <div className="tpl-color-scroll">
+        <span className="tpl-scroll-hint tpl-scroll-hint-l" aria-hidden="true">‹</span>
+        <span className="tpl-scroll-hint tpl-scroll-hint-r" aria-hidden="true">›</span>
         <div className="tpl-color-row" data-testid="template-combo-tabs">
           {THEME_COMBINATIONS.map((c) => {
             const sel = combo.id === c.id;
@@ -542,6 +545,7 @@ function TemplateRail({
               </button>
             );
           })}
+        </div>
         </div>
       </div>
 
@@ -1009,6 +1013,18 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 background: rgba(15,20,24,0.20); border-radius: 999px;
               }
               .tpl-color-row::-webkit-scrollbar-track { background: transparent; }
+              /* Subtle scroll affordance: chevrons flank the swatch row (in the
+                 wrapper side-padding, so they never overlap a swatch) to signal
+                 the row scrolls horizontally past 8 themes. */
+              .tpl-color-scroll { position: relative; padding: 0 14px; width: max-content; max-width: 100%; }
+              .tpl-scroll-hint {
+                position: absolute; top: 50%; transform: translateY(-50%);
+                width: 14px; display: flex; align-items: center; justify-content: center;
+                font-size: 15px; font-weight: 700; line-height: 1;
+                color: rgba(15,20,24,0.42); pointer-events: none; user-select: none;
+              }
+              .tpl-scroll-hint-l { left: 0; }
+              .tpl-scroll-hint-r { right: 0; }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
                 display: grid; place-items: center;
