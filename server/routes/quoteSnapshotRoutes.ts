@@ -24,7 +24,7 @@
  */
 
 import type { Express, Request, Response } from "express";
-import { randomBytes } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import { db } from "../db";
 import { quoteSnapshots, calculators } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -260,7 +260,7 @@ export function registerQuoteSnapshotRoutes(app: Express): void {
       if (!row) {
         return res.status(404).json({ error: "Quote not found" });
       }
-      if (!row.owner_edit_token || row.owner_edit_token !== owner_edit_token) {
+      if (!row.owner_edit_token || row.owner_edit_token.length !== owner_edit_token.length || !timingSafeEqual(Buffer.from(row.owner_edit_token), Buffer.from(owner_edit_token))) {
         return res.status(403).json({ error: "Not authorised to edit this quote" });
       }
 
@@ -316,7 +316,7 @@ export function registerQuoteSnapshotRoutes(app: Express): void {
       if (!row) {
         return res.status(404).json({ error: "Quote not found" });
       }
-      if (!row.owner_edit_token || row.owner_edit_token !== owner_edit_token) {
+      if (!row.owner_edit_token || row.owner_edit_token.length !== owner_edit_token.length || !timingSafeEqual(Buffer.from(row.owner_edit_token), Buffer.from(owner_edit_token))) {
         return res.status(403).json({ error: "Not authorised to revoke this quote" });
       }
 

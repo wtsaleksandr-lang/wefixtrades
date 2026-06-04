@@ -5,7 +5,7 @@
  *
  * Wave 3.5 launch-wiring closeout (2026-05-25).
  */
-import { pgTable, text, varchar, timestamp, jsonb, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, uuid, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -33,7 +33,7 @@ export const fullAuditMasterOrders = pgTable("full_audit_master_orders", {
   error_message: text("error_message"),
 }, (table) => ({
   emailIdx: index("idx_full_audit_master_orders_email").on(table.customer_email),
-  sessionIdx: index("idx_full_audit_master_orders_session").on(table.stripe_session_id),
+  sessionIdx: uniqueIndex("uq_fam_orders_stripe_session").on(table.stripe_session_id),
   statusIdx: index("idx_full_audit_master_orders_status").on(table.status),
   tokenIdx: index("idx_full_audit_master_orders_token").on(table.report_share_token),
 }));

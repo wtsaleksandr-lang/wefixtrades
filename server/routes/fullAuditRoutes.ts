@@ -41,8 +41,29 @@ function getStripe(): Stripe | null {
   return new Stripe(key, { apiVersion: "2025-01-27.acacia" as any });
 }
 
+/** Reject URLs pointing at internal/private IPs (SSRF prevention). */
+function isPublicUrl(raw: string): boolean {
+  try {
+    const { hostname, protocol } = new URL(raw);
+    if (protocol !== "http:" && protocol !== "https:") return false;
+    const h = hostname.toLowerCase();
+    if (
+      h === "localhost" ||
+      h === "[::1]" ||
+      h.startsWith("127.") ||
+      h.startsWith("10.") ||
+      h.startsWith("192.168.") ||
+      h === "169.254.169.254" ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+      h.endsWith(".internal") ||
+      h.endsWith(".local")
+    ) return false;
+    return true;
+  } catch { return false; }
+}
+
 const checkoutSchema = z.object({
-  business_url: z.string().url().max(2048),
+  business_url: z.string().url().max(2048).refine(isPublicUrl, "URL must be a public website"),
   email: z.string().email().max(320),
 });
 
@@ -210,7 +231,12 @@ export function registerFullAuditRoutes(app: Express): void {
   app.post("/api/full-audit/run", async (req: Request, res: Response) => {
     const adminKey = process.env.ADMIN_API_KEY;
     const provided = req.header("x-admin-api-key") || "";
-    if (!adminKey || provided !== adminKey) {
+    if (
+      !adminKey ||
+      !provided ||
+      adminKey.length !== provided.length ||
+      !crypto.timingSafeEqual(Buffer.from(adminKey), Buffer.from(provided))
+    ) {
       return res.status(401).json({ error: "unauthorized" });
     }
     const parsed = runSchema.safeParse(req.body);
