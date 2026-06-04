@@ -1918,8 +1918,11 @@ export default function AdvancedCalculator({
     textBody: guardTextColor(c.textBody, c.surface, 'labelText'),
     textMuted: guardTextColor(darkenMutedOnLight(c.textMuted, c.surface), c.surface, 'labelMuted'),
   };
-  // CTA pair — `ctaBg` was just computed above; we re-derive the foreground
-  // so a custom CTA background still produces readable label copy.
+  // CONTRAST RULE: never bright-on-bright or dark-on-dark — foreground
+  // luminance must oppose its background. The `cc` theme above routes the
+  // result/heading/label/body pairings through `guardTextColor`; this CTA
+  // pair completes the set — `ctaBg` was computed above, and we re-derive the
+  // foreground so a custom CTA background still produces a readable label.
   const ctaFgGuarded = guardTextColor(ctaFg, ctaBg, 'ctaText', { largeText: true });
 
   // Breakdown line-item values: always the plain result text (white on the
@@ -1927,6 +1930,24 @@ export default function AdvancedCalculator({
   // Brand-Studio headline accent, which previously bled a low-contrast blue
   // into the breakdown values on the result panel.
   const resultValueColor = guardTextColor(c.resultText, rpBg, 'resultsText');
+
+  // ── CONTRAST RULE: never bright-on-bright or dark-on-dark — foreground
+  //    luminance must oppose its background. ──
+  // CHANGE-1 — the big headline TOTAL must read as a FLAT, high-contrast
+  // neutral relative to the result-panel background — never the accent /
+  // brand colour and never a tinted, low-contrast value. We derive it purely
+  // from the panel-background luminance (≥0.5 → near-black; <0.5 → white),
+  // then route it through `guardTextColor` against the SAME panel bg so it
+  // can never slip below the WCAG large-text floor. This OVERRIDES the
+  // accent-aware `cc.resultText` at the headline total site ONLY — secondary
+  // captions (`cc.resultMuted`) and breakdown values (`resultValueColor`)
+  // keep their existing handling. No #fff/#000 literals — rgb() per guard.
+  const headlineTotalColor = guardTextColor(
+    getRelativeLuminance(rpBg) >= 0.5 ? 'rgb(17,17,17)' : 'rgb(255,255,255)',
+    rpBg,
+    'resultsTotal',
+    { largeText: true },
+  );
 
   return (
     <div
@@ -2617,12 +2638,16 @@ export default function AdvancedCalculator({
                 // Brand Studio `resultPanel.emphasis` is unset or 'normal'.
                 fontSize: rpHeadlineFontSize,
                 fontWeight: rpHeadlineWeight,
-                // Accent override only affects the headline value colour when
-                // an accentOverride is explicitly set (otherwise resultText
-                // wins so the contrast logic stays correct on tinted panels).
-                // CONTRAST-1 — `cc.resultText` is the guarded form, derived
-                // from the accent-override-aware token + runtime contrast check.
-                color: cc.resultText,
+                // CHANGE-1 / CONTRAST RULE — the headline TOTAL renders in a
+                // FLAT high-contrast neutral (near-black on a light panel,
+                // white on a dark panel), NEVER the accent/brand colour and
+                // never a tinted low-contrast value. `headlineTotalColor` is
+                // derived from the result-panel background luminance and
+                // already routed through `guardTextColor`, so it can never
+                // fail WCAG. This deliberately overrides the accent-aware
+                // `cc.resultText` at the headline total ONLY — secondary /
+                // muted copy and breakdown values are unaffected.
+                color: headlineTotalColor,
                 margin: 0, paddingTop: 0,
                 fontFamily: eff.fontMono,
                 lineHeight: 1.18,
@@ -2878,7 +2903,14 @@ export default function AdvancedCalculator({
                   }}>
                     <span style={{
                       width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
-                      background: ctaBg, color: ctaFg, fontSize: '12px', fontWeight: 800,
+                      // CONTRAST RULE: never bright-on-bright or dark-on-dark —
+                      // foreground luminance must oppose its background. The ✓
+                      // badge shares the CTA's bg/fg pair, so it uses the SAME
+                      // guarded foreground (`ctaFgGuarded`) the CTA buttons use
+                      // — was the raw `ctaFg`, which could collide on an
+                      // opposite-luminance custom CTA colour. No-op where the
+                      // pair already passes.
+                      background: ctaBg, color: ctaFgGuarded, fontSize: '12px', fontWeight: 800,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>✓</span>
                     <span style={{ fontSize: '13px', fontWeight: 600, color: cc.resultText }}>
