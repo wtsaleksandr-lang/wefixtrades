@@ -896,18 +896,18 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             <div className="tpl-editor">
               <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} setAccent={setAccent} combo={selectedCombo} setCombo={setCombo} />
               <div className="tpl-preview">
-            {/* Elfsight-style preview: the widget renders directly on a white card.
-                The device toggle sits in the top-right corner of the card. */}
+            {/* Full-width preview — NO card chrome/edges. The widget paints its
+                own theme background and fills the preview area edge-to-edge (it
+                reads as deployed-on-a-site, not boxed in a card). The grey shows
+                only BEHIND the narrowed widget in mobile-preview, like Elfsight.
+                maxWidth caps it for readability so it never stretches awkwardly. */}
             <div
               data-testid="template-live-preview"
               style={{
                 position: "relative",
                 maxWidth: 980,
                 margin: "0 auto",
-                background: "rgba(255,255,255,1)",
-                borderRadius: 16,
-                border: "1px solid rgba(0,0,0,0.08)",
-                boxShadow: "0 4px 14px rgba(0,0,0,0.10), 0 30px 70px rgba(0,0,0,0.28)",
+                background: showPhoneFrame ? "rgba(15,23,42,0.05)" : "transparent",
                 overflow: "hidden",
               }}
             >
