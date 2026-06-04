@@ -24,6 +24,7 @@
  */
 import type { Express } from "express";
 import { PRODUCT_PAGES } from "../../client/src/config/products";
+import { TEMPLATE_PRESETS } from "../../shared/templatePresets";
 
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL?.replace(/\/$/, "") || "https://wefixtrades.com";
 
