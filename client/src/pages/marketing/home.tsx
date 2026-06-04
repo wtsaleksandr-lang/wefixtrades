@@ -142,16 +142,6 @@ function HeroEmailCapture() {
   );
 }
 
-/* ── Exit-intent popup ──
-   DISABLED — too aggressive. Was firing at 30s on mobile and on any
-   upward mouse motion on desktop. Owner found it annoying. To re-enable
-   later, remove the early-return below. */
-function ExitIntentPopup() {
-  // Disabled — was firing aggressively (30s on mobile, any upward mouse
-  // motion on desktop). To restore, pull from git history.
-  return null;
-}
-
 const RESPONSIVE_CSS = `
   .mkt-btn-primary:focus-visible, .mkt-btn-ghost:focus-visible {
     outline: 2px solid ${mkt.accent};
@@ -896,7 +886,6 @@ export default function HomePage() {
       </DeferUntilNear>
       <TrustSection />
       <CTASection />
-      <ExitIntentPopup />
     </MarketingLayout>
   );
 }
