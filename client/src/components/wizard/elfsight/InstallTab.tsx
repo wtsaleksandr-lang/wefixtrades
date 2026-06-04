@@ -308,7 +308,7 @@ export default function InstallTab({
                   testid="install-section-hosted"
                   text="A free subdomain that runs your calculator out of the box. Use it if you don't have a website yet, or while you're setting up the embed."
                 />
-                <span style={{ marginLeft: 6 }}>Hosted link — no install needed</span>
+                <span style={{ marginLeft: 6 }}>Hosted link — nothing to install</span>
               </>
             }
           />
@@ -836,8 +836,12 @@ export default function InstallTab({
            * immediate right of the heading text (top-left of the section). */
           display: inline-flex; align-items: center; gap: 6px;
         }
+        /* W2-#18 — section sub-headlines were muted (#6B7280 ≈ 4.83:1 on
+           the white panel, ~2.5:1 against any tinted surface) which read as
+           grey-on-grey. Promoted to body (#374151 ≈ 10.3:1 on white) so every
+           sub-headline clears WCAG AA with clear margin. */
         .qq-install-sub {
-          font-size: 12px; color: ${p.colors.muted};
+          font-size: 12px; color: ${p.colors.body};
           margin: 0 0 8px; line-height: 1.4;
         }
         /* BD-3j Fix 2 — inline code now has a visible border so it doesn't
@@ -1060,8 +1064,10 @@ export default function InstallTab({
           outline: none; min-height: 40px;
         }
         .qq-install-select:focus { border-color: ${p.colors.accent}; }
+        /* W2-#18 — selected-language caption promoted muted→body for the
+           same AA-margin reason as .qq-install-sub (4.83:1 → 10.3:1 on white). */
         .qq-install-current {
-          font-size: 12px; color: ${p.colors.muted};
+          font-size: 12px; color: ${p.colors.body};
           margin: 8px 0 0;
         }
         /* BD-3j Fix 2 — code-block contrast. Was canvas (#A2B6BF) bg with
@@ -1149,8 +1155,10 @@ export default function InstallTab({
           color: ${p.colors.heading};
           line-height: 1.3;
         }
+        /* W2-#18 — embed-mode option hints promoted muted→body so the
+           helper line under each radio clears AA on the white card. */
         .qq-install-mode-opt-hint {
-          font-size: 11px; color: ${p.colors.muted};
+          font-size: 11px; color: ${p.colors.body};
           line-height: 1.35;
           grid-column: 2;
         }
