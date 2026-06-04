@@ -58,7 +58,7 @@ client/src/pages/OnboardingForm.tsx:117:14	rule-c	square w-12 h-12
 client/src/pages/OnboardingForm.tsx:295:24	rule-c	square w-10 h-10
 client/src/pages/OnboardingForm.tsx:312:5	rule-b	<div> contains 3 cues
 client/src/pages/OnboardingForm.tsx:317:13	rule-c	<svg width={28} height={28}>
-client/src/pages/ReviewFunnel.tsx:301:21	rule-c	size={40}
+client/src/pages/ReviewFunnel.tsx:302:21	rule-c	size={40}
 client/src/pages/admin/ApiPlatformPage.tsx:172:19	rule-c	square w-2 h-2
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:376:25	rule-c	square w-12 h-12
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h-12

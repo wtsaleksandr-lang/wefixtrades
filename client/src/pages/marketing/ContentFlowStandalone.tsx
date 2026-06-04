@@ -50,8 +50,8 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, shadows } from "@/theme/tokens";
 import { CONTENTFLOW, formatPrice } from "@shared/pricing";
 
-const FREE_CTA = "/portal-signup?intent=contentflow-free";
-const DEMO_CTA = "/portal-signup?intent=contentflow-demo";
+const FREE_CTA = "/signup?intent=contentflow-free";
+const DEMO_CTA = "/signup?intent=contentflow-demo";
 
 /* ─── Section 2: social-proof audience pills ─── */
 const AUDIENCES = [
@@ -698,7 +698,7 @@ export default function ContentFlowStandalone() {
                       ))}
                     </ul>
                     <Link
-                      href={tier.price === 0 ? FREE_CTA : `/portal-signup?intent=contentflow&plan=${tier.id}`}
+                      href={tier.price === 0 ? FREE_CTA : `/signup?intent=contentflow&plan=${tier.id}`}
                       data-testid={`cf-tier-cta-${tier.id}`}
                       style={{
                         display: "block",
