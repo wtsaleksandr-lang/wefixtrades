@@ -360,6 +360,11 @@ export function registerVapiRoutes(app: Express): void {
             if (decision.action === "polite_decline") {
               return res.json({ output: { content: "Thanks for calling — WeFixTrades sells digital tools to trades businesses, we don't perform the trade work itself. Best of luck finding the right person!", model: "classifier" } });
             }
+            if (decision.action === "emergency") {
+              // Life-safety: hardcoded 911 message — no LLM dependency.
+              // A ticket was already created by decideInboundAction for follow-up.
+              return res.json({ output: { content: "If you or someone nearby is in immediate danger, please hang up and call 911 right away. Do not wait — emergency services can help you faster than we can. I've logged this call so our team can follow up. Stay safe.", model: "emergency" } });
+            }
             if (decision.action === "ticket") {
               const ref = decision.ticketId ? ` Reference T-${decision.ticketId}.` : "";
               const intro = decision.awayMessage ?? "Thanks for calling — our team is briefly tied up. ";
