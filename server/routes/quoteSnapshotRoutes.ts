@@ -36,6 +36,7 @@ import {
   OWNER_EDIT_TOKEN_BYTES,
 } from "@shared/quoteSnapshot";
 import { createLogger } from "../lib/logger";
+import { snapshotMutateRateLimiter } from "../services/rateLimiter";
 import { publishQuoteUpdate } from "./portal/quotequick/liveStream";
 
 const log = createLogger("QuoteSnapshot");
@@ -243,6 +244,12 @@ export function registerQuoteSnapshotRoutes(app: Express): void {
   /* ─── PATCH /api/q/:slug ─── */
   app.patch("/api/q/:slug", async (req: Request, res: Response) => {
     try {
+      const ip = req.ip ?? "unknown";
+      const allowed = await snapshotMutateRateLimiter.check(ip);
+      if (!allowed) {
+        return res.status(429).json({ error: "Too many requests" });
+      }
+
       const slug = String(req.params.slug || "");
       if (!isValidSnapshotSlug(slug)) {
         return res.status(404).json({ error: "Quote not found" });
@@ -299,6 +306,12 @@ export function registerQuoteSnapshotRoutes(app: Express): void {
   /* ─── DELETE /api/q/:slug ─── */
   app.delete("/api/q/:slug", async (req: Request, res: Response) => {
     try {
+      const ip = req.ip ?? "unknown";
+      const allowed = await snapshotMutateRateLimiter.check(ip);
+      if (!allowed) {
+        return res.status(429).json({ error: "Too many requests" });
+      }
+
       const slug = String(req.params.slug || "");
       if (!isValidSnapshotSlug(slug)) {
         return res.status(404).json({ error: "Quote not found" });
