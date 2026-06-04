@@ -1550,13 +1550,13 @@ export function CompeteCoverageMap() {
         </h2>
         <div style={{ height: 18 }} />
 
-        {/* Radar / spider-chart coverage widget — light card with the spider
-            chart on one side and a stats panel on the other (brand blue). Tap
-            a capability (stats row) to add it; the polygon grows toward the
-            dashed outer "big brands" ring. Stacks to one column on mobile. */}
+        {/* Radar / spider-chart coverage widget — dark card with the spider
+            chart ringed by interactive capability badges. Tap a badge to claim
+            its axis; the polygon grows toward the dashed outer "big brands"
+            ring. Badge click also opens a product popover. */}
         <div
           className="ccm-radar-card"
-          data-theme="light"
+          data-theme="dark"
           style={{
             position: "relative",
             backgroundColor: mkt.sectionLight,
@@ -1678,11 +1678,7 @@ export function CompeteCoverageMap() {
                       // its product popover, anchored to the badge's position.
                       const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       setBadgeRect({ cx: r.left + r.width / 2, cy: r.top + r.height / 2 });
-                      setClaimed((s) => {
-                        const n = new Set(s);
-                        n.add(i);
-                        return n;
-                      });
+                      claim(i);
                       setOpenBadge(i);
                     }}
                     aria-haspopup="dialog"
