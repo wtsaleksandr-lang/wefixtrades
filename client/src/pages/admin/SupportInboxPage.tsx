@@ -248,7 +248,7 @@ export default function SupportInboxPage() {
         )}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {isLoading ? (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-border">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="px-5 py-3.5">
                   <div className="flex items-center justify-between gap-3">
@@ -268,7 +268,7 @@ export default function SupportInboxPage() {
               <p className="text-sm text-gray-500">No support tickets yet. Tickets will appear here when clients submit them from the portal.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-border">
               {tickets.map((t) => (
                 <Link
                   key={t.id}

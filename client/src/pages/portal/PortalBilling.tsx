@@ -270,7 +270,7 @@ export default function PortalBilling() {
               ) : (
                 <>
                 {/* Mobile-friendly stacked cards — appears < md */}
-                <div className="md:hidden divide-y divide-gray-50">
+                <div className="md:hidden divide-y divide-border">
                   {payments.map((p) => {
                     const isUnpaid = p.status === "pending" || p.status === "failed";
                     return (
@@ -314,7 +314,7 @@ export default function PortalBilling() {
                         <th className="px-5 py-2 font-medium text-right" />
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-border">
                       {payments.map((p) => {
                         const isUnpaid = p.status === "pending" || p.status === "failed";
                         return (

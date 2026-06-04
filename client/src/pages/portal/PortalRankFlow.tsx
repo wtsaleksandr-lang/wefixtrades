@@ -329,7 +329,7 @@ export default function PortalRankFlow() {
             <div className="px-5 py-4 border-b border-border">
               <h2 className="text-sm font-semibold text-foreground">What We Did This Month</h2>
             </div>
-            <ul className="divide-y divide-gray-50">
+            <ul className="divide-y divide-border">
               {data.completed.map((item, i) => (
                 <li key={i} className="px-5 py-3 flex items-start gap-3">
                   <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
@@ -352,7 +352,7 @@ export default function PortalRankFlow() {
             <div className="px-5 py-4 border-b border-border">
               <h2 className="text-sm font-semibold text-foreground">Currently Working On</h2>
             </div>
-            <ul className="divide-y divide-gray-50">
+            <ul className="divide-y divide-border">
               {data.inProgress.map((item, i) => (
                 <li key={i} className="px-5 py-3 flex items-start gap-3">
                   <Clock className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
@@ -372,7 +372,7 @@ export default function PortalRankFlow() {
           <div className="px-5 py-4 border-b border-border">
             <h2 className="text-sm font-semibold text-foreground">Coming Up Next</h2>
           </div>
-          <ul className="divide-y divide-gray-50">
+          <ul className="divide-y divide-border">
             {data.nextUp.map((item, i) => (
               <li key={i} className="px-5 py-3 flex items-center gap-3">
                 <ArrowRight className="w-4 h-4 text-[#0d3cfc] shrink-0" />

@@ -681,7 +681,7 @@ function PortalDashboardInner() {
                 </Link>
               </div>
             ) : (
-              <ul className="divide-y divide-gray-50">
+              <ul className="divide-y divide-border">
                 {data.recent_activity.map((item) => (
                   <li key={item.id} className="px-5 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
