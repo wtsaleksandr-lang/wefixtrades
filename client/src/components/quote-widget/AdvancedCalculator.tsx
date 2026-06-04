@@ -1424,6 +1424,9 @@ export default function AdvancedCalculator({
   const radiusInnerPx = radiusSet ? `${Math.max(0, radiusValue - 2)}px` : eff.radiusMd;
   // Legacy was filled-only — defaulting to 'filled' is back-compat-safe.
   const fieldStyle: AdvFieldStyle = style.fieldStyle ?? 'filled';
+  // Label placement: `float` (title-in-field, the legacy default) vs `stacked`
+  // (Elfsight-style title-above + help-below). Opt-in; live widgets keep float.
+  const labelLayout: 'float' | 'stacked' = style.labelLayout ?? 'float';
   // `widgetWidth` undefined → no max-width cap (the outer QuoteWidget wrapper
   // handled sizing pre-H5). Only apply a fixed cap when the user picked one.
   const widgetWidth: AdvWidgetWidth | undefined = style.widgetWidth;
@@ -2397,6 +2400,7 @@ export default function AdvancedCalculator({
                     radiusPx={radiusInnerPx}
                     fieldStyle={fieldStyle}
                     fontFamily={fontFamily}
+                    labelLayout={labelLayout}
                     onChange={(v) => setAnswer(f.name, v)}
                   />
                 </div>
@@ -3025,7 +3029,7 @@ function prefixRuleBlock(block: string, scope: string): string {
 
 /* ─── One field ─── */
 
-function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusPx, fieldStyle, fontFamily }: {
+function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusPx, fieldStyle, fontFamily, labelLayout = 'float' }: {
   field: AdvField;
   value: Answer;
   accent: string;
@@ -3039,9 +3043,36 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   fieldStyle: AdvFieldStyle;
   /** Wave H5 — resolved font stack. */
   fontFamily: string;
+  /** `float` (title-in-field) vs `stacked` (Elfsight title-above + help-below). */
+  labelLayout?: 'float' | 'stacked';
 }) {
   const f = field;
   const c = theme;
+  // Elfsight-style stacked layout — bold dark title above the field, a small
+  // grey help line below. Gated behind `labelLayout === 'stacked'` so the
+  // legacy title-in-field float pattern is the unchanged default.
+  const stacked = labelLayout === 'stacked';
+  const stackedLabelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '14px', fontWeight: 700, color: c.text,
+    margin: '0 0 7px', letterSpacing: '-0.005em', lineHeight: 1.3,
+    fontFamily,
+  };
+  const stackedHelp = stacked && f.help
+    ? <p style={{
+        margin: '7px 0 0', fontSize: '12px', fontWeight: 400,
+        color: c.textMuted, lineHeight: 1.45, fontFamily,
+      }}>{f.help}</p>
+    : null;
+  // Wrap a bare control in the stacked label + help scaffold.
+  const wrapStacked = (control: React.ReactNode, labelText?: string) => (
+    <div>
+      {(labelText ?? f.label) ? (
+        <label htmlFor={inputId} style={stackedLabelStyle}>{labelText ?? f.label}</label>
+      ) : null}
+      {control}
+      {stackedHelp}
+    </div>
+  );
 
   // Wave H5 — field style:
   //   filled   = themed surface fill, single-stroke border (the legacy look).
@@ -3180,20 +3211,66 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
       if (typeof f.min === 'number') nv = Math.max(f.min, nv);
       onChange(nv);
     };
+    // Subtle up/down steppers — premium, understated; let customers nudge
+    // the value without typing. tabIndex -1 so keyboard users still type.
+    const steppers = (
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+        }}
+      >
+        {([1, -1] as const).map((dir) => (
+          <button
+            key={dir}
+            type="button"
+            tabIndex={-1}
+            data-testid={`adv-number-step-${dir === 1 ? 'up' : 'down'}-${f.id}`}
+            onClick={() => bump(dir)}
+            style={{
+              display: 'grid', placeItems: 'center', width: 18, height: 14,
+              padding: 0, border: 'none', background: 'transparent',
+              color: c.textMuted, cursor: 'pointer', lineHeight: 0,
+            }}
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24">
+              <path
+                d={dir === 1 ? 'M6 14l6-6 6 6' : 'M6 10l6 6 6-6'}
+                fill="none" stroke="currentColor" strokeWidth={2.25}
+                strokeLinecap="round" strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        ))}
+      </div>
+    );
+    const numberInput = (extra?: React.CSSProperties) => (
+      <input
+        id={inputId}
+        className="qq-w-input"
+        type="number"
+        value={value as number}
+        min={f.min}
+        max={f.max}
+        step={f.step}
+        placeholder=" "
+        onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+        style={{ ...inputBase, fontFamily: eff.fontMono, paddingRight: 34, ...extra }}
+      />
+    );
+    if (stacked) {
+      return wrapStacked(
+        <div style={{ position: 'relative' }}>
+          {numberInput()}
+          {steppers}
+        </div>,
+        `${f.label}${f.unit && !f.label.includes(`(${f.unit})`) ? ` (${f.unit})` : ''}`,
+      );
+    }
     return (
       <div className="qq-w-float" style={{ ...floatVars, position: 'relative' }}>
-        <input
-          id={inputId}
-          className="qq-w-input"
-          type="number"
-          value={value as number}
-          min={f.min}
-          max={f.max}
-          step={f.step}
-          placeholder=" "
-          onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
-          style={{ ...inputBase, fontFamily: eff.fontMono, paddingRight: 34 }}
-        />
+        {numberInput()}
         {/* Only append the unit when the label doesn't already include it —
             several presets put the unit in the label too (e.g. "Home size
             (sqft)" + unit "sqft"), which produced a doubled "(sqft) (sqft)".
@@ -3201,38 +3278,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             <input> — the float CSS uses `input + label`. The steppers go
             AFTER it (both are absolutely positioned, so DOM order is free). */}
         <label htmlFor={inputId}>{f.label}{f.unit && !f.label.includes(`(${f.unit})`) ? ` (${f.unit})` : ''}</label>
-        {/* Subtle up/down steppers — premium, understated; let customers nudge
-            the value without typing. tabIndex -1 so keyboard users still type. */}
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-          }}
-        >
-          {([1, -1] as const).map((dir) => (
-            <button
-              key={dir}
-              type="button"
-              tabIndex={-1}
-              data-testid={`adv-number-step-${dir === 1 ? 'up' : 'down'}-${f.id}`}
-              onClick={() => bump(dir)}
-              style={{
-                display: 'grid', placeItems: 'center', width: 18, height: 14,
-                padding: 0, border: 'none', background: 'transparent',
-                color: c.textMuted, cursor: 'pointer', lineHeight: 0,
-              }}
-            >
-              <svg width={14} height={14} viewBox="0 0 24 24">
-                <path
-                  d={dir === 1 ? 'M6 14l6-6 6 6' : 'M6 10l6 6 6-6'}
-                  fill="none" stroke="currentColor" strokeWidth={2.25}
-                  strokeLinecap="round" strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          ))}
-        </div>
+        {steppers}
       </div>
     );
   }
@@ -3246,20 +3292,24 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
       : f.validation === 'phone' ? 'tel'
       : f.validation === 'url' ? 'url'
       : 'text';
+    const textInput = (
+      <input
+        id={inputId}
+        className="qq-w-input"
+        type={htmlType}
+        value={value as string}
+        placeholder={f.placeholder ? f.placeholder : ' '}
+        maxLength={typeof f.maxLength === 'number' && f.maxLength > 0 ? f.maxLength : undefined}
+        required={f.required ? true : undefined}
+        onChange={(e) => onChange(e.target.value)}
+        style={inputBase}
+        data-validation={f.validation ?? 'none'}
+      />
+    );
+    if (stacked) return wrapStacked(textInput);
     return (
       <div className="qq-w-float" style={floatVars}>
-        <input
-          id={inputId}
-          className="qq-w-input"
-          type={htmlType}
-          value={value as string}
-          placeholder={f.placeholder ? f.placeholder : ' '}
-          maxLength={typeof f.maxLength === 'number' && f.maxLength > 0 ? f.maxLength : undefined}
-          required={f.required ? true : undefined}
-          onChange={(e) => onChange(e.target.value)}
-          style={inputBase}
-          data-validation={f.validation ?? 'none'}
-        />
+        {textInput}
         <label htmlFor={inputId}>{f.label}</label>
       </div>
     );
@@ -3274,11 +3324,14 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             the right. Per Alex's rule we treat this as a "group caption"
             rather than a prominent above-the-input title. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{
+          <span style={stacked ? { ...stackedLabelStyle, margin: 0 } : {
             fontSize: '11px', fontWeight: 600, color: c.textMuted,
             textTransform: 'uppercase', letterSpacing: '0.04em',
           }}>{f.label}</span>
-          <span style={{
+          <span style={stacked ? {
+            fontSize: '13px', fontWeight: 700, color: c.text, fontFamily: eff.fontMono,
+            background: 'rgba(15, 23, 42, 0.06)', borderRadius: eff.radiusSm, padding: '3px 9px',
+          } : {
             fontSize: '13px', fontWeight: 700, color: accent, fontFamily: eff.fontMono,
             background: c.accentTint, borderRadius: eff.radiusSm, padding: '3px 9px',
           }}>
@@ -3309,6 +3362,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
           <span>{min}{f.unit ? ' ' + f.unit : ''}</span>
           <span>{max}{f.unit ? ' ' + f.unit : ''}</span>
         </div>
+        {stackedHelp}
       </div>
     );
   }
@@ -3321,7 +3375,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             toggle sits beside a labelled field its control card lines up with
             that field's option cards instead of floating (Alex's page-2
             alignment). */}
-        <label style={groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
+        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
           padding: '12px 14px', borderRadius: radiusPx,
@@ -3342,6 +3396,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
           }} />
         </button>
         </div>
+        {stackedHelp}
       </div>
     );
   }
@@ -3352,7 +3407,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     // labels are projected to plain text (native parity — they were never
     // rich-HTML in the dropdown).
     const selectOptions = (f.options || []).map((o) => ({ id: o.id, label: richHtmlToPlainText(o.label) }));
-    return (
+    const select = (
       <WidgetSelect
         id={inputId}
         value={value as string}
@@ -3364,8 +3419,11 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
         radiusPx={radiusPx}
         fontFamily={fontFamily}
         labelColor={accent}
+        labelLayout={labelLayout}
       />
     );
+    if (stacked) return wrapStacked(select);
+    return select;
   }
 
   if (f.type === 'radio') {
@@ -3386,7 +3444,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     }
     return (
       <div>
-        <label style={groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
+        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
@@ -3415,6 +3473,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             );
           })}
         </div>
+        {stackedHelp}
       </div>
     );
   }
@@ -3488,7 +3547,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   else if (maxSelect) hint = `Pick up to ${maxSelect}`;
   return (
     <div>
-      <label style={groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
+      <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
       {hint && (
         <p
           data-testid={`adv-multiselect-hint-${f.id}`}
@@ -3554,6 +3613,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
           );
         })}
       </div>
+      {stackedHelp}
     </div>
   );
 }
