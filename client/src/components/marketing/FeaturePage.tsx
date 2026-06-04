@@ -144,7 +144,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
 
   const { hero, demo, benefits, steps, faqs, cta } = config;
   const Mockup = demo.mockup;
-n  /* Inject FAQPage JSON-LD structured data */
+  /* Inject FAQPage JSON-LD structured data */
   useEffect(() => {
     if (!faqs.length) return;
     const schema = faqSchema(faqs.map((f) => ({ question: f.q, answer: f.a })));
