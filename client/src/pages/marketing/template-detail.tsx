@@ -33,15 +33,26 @@ import { getQuoteQuickIcon } from "@/data/quoteQuickIcons";
 
 const BASE = "https://wefixtrades.com";
 
-/* ─── Sample business profile so trust signals render in the preview ─── */
+/* ─── Sample business profile for the preview. License # and insured amount
+   are intentionally omitted: they synthesise a "Licensed #…" trust chip + a
+   bottom trust strip that clutter the clean Elfsight-style preview. ─── */
 const SAMPLE_BUSINESS_PROFILE: BusinessProfile = {
   googleRating: 4.8,
   googleReviewCount: 187,
   yearsInBusiness: 9,
-  licenseNumber: "1043829",
-  insuredAmount: "Insured up to $2M",
   serviceArea: "Sample Service Area",
 };
+
+/* Mix a hex accent toward white to produce a soft, opaque tint — used to wash
+   the whole widget background in the chosen accent (premium, not garish). */
+function tintToward(hex: string, strength: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const mix = (ch: number) => Math.round(ch * strength + 255 * (1 - strength));
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
 
 /* ─── Build a CalculatorData wrapper around a real preset ─── */
 function buildPreviewCalculator(
@@ -50,6 +61,20 @@ function buildPreviewCalculator(
   forceLayout?: "single-column",
 ): CalculatorData {
   const base = toAdvancedConfig(template);
+  // When a light template is recoloured, wash the whole widget (body + field
+  // surfaces + result panel) in a soft tint of the chosen accent so the colour
+  // change is felt everywhere, not just on the CTA. Layered strengths keep the
+  // fields + result panel reading as distinct cards over the body wash.
+  const isLight = base.theme === "light";
+  const bgTint =
+    accent && isLight
+      ? {
+          bgMode: "solid" as const,
+          background: tintToward(accent, 0.04),
+          surface: tintToward(accent, 0.09),
+          resultsBg: tintToward(accent, 0.13),
+        }
+      : {};
   const advanced = {
     ...base,
     // The fold toggle reflows by container width, but the widget's responsive
@@ -58,10 +83,13 @@ function buildPreviewCalculator(
     // real mobile. Forcing single-column in mobile preview makes the toggle
     // truthful: inputs + result stack exactly as they do on a real phone.
     ...(forceLayout ? { layout: forceLayout } : {}),
+    // Drop the subtitle in the preview — the clean Elfsight layout is title +
+    // inputs + result only.
+    header: { ...(base.header ?? {}), subtitle: "" },
     businessProfile: SAMPLE_BUSINESS_PROFILE,
     // The website color tabs override the widget accent live; absent => the
     // template's own theme accent. (The wizard exposes the full palette.)
-    style: { ...(base.style ?? {}), ...(accent ? { accent } : {}) },
+    style: { ...(base.style ?? {}), ...(accent ? { accent } : {}), ...bgTint },
   };
   return {
     id: 0,
@@ -152,14 +180,29 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
   const [accent, setAccent] = useState<string>(SITE_PALETTE[0].color);
   // Elfsight-style in-place desktop↔mobile fold for the live preview.
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
+  // On a real phone the desktop/mobile toggle is pointless (you're already on
+  // mobile) — hide it below the widget's own 560px breakpoint.
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 559px)");
+    const sync = () => setIsMobileViewport(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const effectiveMode: "desktop" | "mobile" = isMobileViewport ? "mobile" : previewMode;
+  // The phone-frame chrome (padding, rounded frame, shadow) only makes sense
+  // when previewing mobile FROM a desktop screen. On a real phone we render the
+  // widget plainly at full width.
+  const showPhoneFrame = !isMobileViewport && previewMode === "mobile";
   const previewCalculator = useMemo(
     () =>
       buildPreviewCalculator(
         template,
         accent,
-        previewMode === "mobile" ? "single-column" : undefined,
+        effectiveMode === "mobile" ? "single-column" : undefined,
       ),
-    [template, accent, previewMode],
+    [template, accent, effectiveMode],
   );
 
   // Pull key value props from the template's header subtitle (e.g. "Licensed
@@ -435,7 +478,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 <div
                   role="group"
                   aria-label="Preview device"
-                  style={{ display: "flex", gap: 2, padding: 3, borderRadius: 9, background: "rgba(0,0,0,0.05)", width: 70, justifyContent: "flex-end" }}
+                  style={{ display: isMobileViewport ? "none" : "flex", gap: 2, padding: 3, borderRadius: 9, background: "rgba(0,0,0,0.05)", width: 70, justifyContent: "flex-end" }}
                 >
                   {([["desktop", Monitor, "Desktop view"], ["mobile", Smartphone, "Mobile view"]] as const).map(([mode, Icon, label]) => {
                     const on = previewMode === mode;
@@ -473,18 +516,18 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 style={{
                   display: "flex",
                   justifyContent: "center",
-                  padding: previewMode === "mobile" ? "28px 16px" : "0",
-                  background: previewMode === "mobile" ? "rgba(0,0,0,0.03)" : "transparent",
+                  padding: showPhoneFrame ? "28px 16px" : "0",
+                  background: showPhoneFrame ? "rgba(0,0,0,0.03)" : "transparent",
                   transition: "padding 500ms cubic-bezier(0.22,1,0.36,1), background 500ms ease",
                 }}
               >
                 <div
                   style={{
                     width: "100%",
-                    maxWidth: previewMode === "mobile" ? 390 : 980,
-                    borderRadius: previewMode === "mobile" ? 24 : 0,
+                    maxWidth: showPhoneFrame ? 390 : 980,
+                    borderRadius: showPhoneFrame ? 24 : 0,
                     overflow: "hidden",
-                    boxShadow: previewMode === "mobile" ? "0 10px 40px rgba(0,0,0,0.22)" : "none",
+                    boxShadow: showPhoneFrame ? "0 10px 40px rgba(0,0,0,0.22)" : "none",
                     transition: "max-width 520ms cubic-bezier(0.22,1,0.36,1), border-radius 300ms ease, box-shadow 300ms ease",
                   }}
                 >
