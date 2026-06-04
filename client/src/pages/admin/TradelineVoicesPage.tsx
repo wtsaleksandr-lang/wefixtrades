@@ -636,7 +636,7 @@ function ClientRow({
           disabled={!dirty || saving}
           onClick={() => onSave({
             voice_id: voiceId || null,
-            monthly_minute_budget: budget.trim() === "" ? null : Number.parseInt(budget, 10),
+            monthly_minute_budget: budget.trim() === "" ? null : (() => { const n = Number.parseInt(budget, 10); return Number.isNaN(n) ? null : n; })(),
           })}
         >
           Save

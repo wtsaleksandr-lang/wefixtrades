@@ -80,6 +80,7 @@ function ReplaceItem({ icon: Icon, before, after }: { icon: any; before: string;
 export default function QuoteQuickPricing() {
   const [annual, setAnnual] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   useEffect(() => { trackEvent('pricing_page_viewed'); }, []);
 
   // Detect if an existing calculator owner is visiting (via URL params)
@@ -103,6 +104,7 @@ export default function QuoteQuickPricing() {
       return;
     }
     setCheckoutLoading(plan);
+    setCheckoutError(null);
     try {
       const res = await fetch('/api/calculators/checkout', {
         method: 'POST',
@@ -114,13 +116,20 @@ export default function QuoteQuickPricing() {
           billing: annual ? 'annual' : 'monthly',
         }),
       });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        setCheckoutError((errBody as any).error || "Checkout failed. Please try again.");
+        setCheckoutLoading(null);
+        return;
+      }
       const data = await res.json();
       if (data.checkout_url) {
         window.location.href = data.checkout_url;
       } else {
         setCheckoutLoading(null);
       }
-    } catch {
+    } catch (e: any) {
+      setCheckoutError(e?.message || "Network error. Please try again.");
       setCheckoutLoading(null);
     }
   };
@@ -178,6 +187,12 @@ export default function QuoteQuickPricing() {
             </button>
           </div>
         </div>
+
+        {checkoutError && (
+          <p style={{ textAlign: "center", fontSize: 13, color: "#dc2626", margin: "0 0 16px" }}>
+            {checkoutError}
+          </p>
+        )}
 
         {/* ─── PRICING CARDS (Wave Q — three-tier ladder) ─── */}
         <div style={{
