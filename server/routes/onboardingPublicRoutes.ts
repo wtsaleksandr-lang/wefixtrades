@@ -8,6 +8,7 @@ import { storage } from "../storage";
 import { mapOnboardingToTradeLineConfig, advanceSetupStage } from "@shared/schema";
 import { sendOnboardingConfirmationEmail } from "../lib/onboardingConfirmationEmail";
 import { createLogger } from "../lib/logger";
+import { publicCheckoutRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("OnboardingPublic");
 
@@ -55,6 +56,11 @@ export function registerOnboardingPublicRoutes(app: Express): void {
    * and triggers the assistant build pipeline.
    */
   app.post("/api/onboarding/:token", async (req: Request, res: Response) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!(await publicCheckoutRateLimiter.check(`onboarding:${ip}`))) {
+      return res.status(429).json({ error: "Too many submissions. Please try again in a few minutes." });
+    }
+
     try {
       const token = req.params.token as string;
       const { responses } = req.body;
