@@ -74,11 +74,13 @@ export default function InstallQueuePage() {
 
   const query = useQuery<{ rows: QueueRow[] }>({
     queryKey: ["/api/admin/install-queue", statusFilter],
-    queryFn: () => {
+    queryFn: async () => {
       const url = statusFilter === "all"
         ? "/api/admin/install-queue"
         : `/api/admin/install-queue?status=${statusFilter}`;
-      return fetch(url, { credentials: "include" }).then((r) => r.json());
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to load install queue (${res.status})`);
+      return res.json();
     },
   });
 
@@ -203,7 +205,11 @@ function InstallDetailDialog({ id, onClose }: { id: number; onClose: () => void 
   const { toast } = useToast();
   const detail = useQuery<{ request: any; client: any }>({
     queryKey: [`/api/admin/install-queue/${id}`],
-    queryFn: () => fetch(`/api/admin/install-queue/${id}`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/install-queue/${id}`, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to load install detail (${res.status})`);
+      return res.json();
+    },
   });
 
   const [adminNotes, setAdminNotes] = useState<string>("");
