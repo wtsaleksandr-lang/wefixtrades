@@ -5,6 +5,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 import { mkt, colors, shadows } from "@/theme/tokens";
+import { faqSchema } from "@/lib/seo/jsonLd";
 
 const C = {
   navy: colors.brand.dark,
@@ -143,6 +144,17 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
 
   const { hero, demo, benefits, steps, faqs, cta } = config;
   const Mockup = demo.mockup;
+  /* Inject FAQPage JSON-LD structured data */
+  useEffect(() => {
+    if (!faqs.length) return;
+    const schema = faqSchema(faqs.map((f) => ({ question: f.q, answer: f.a })));
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.textContent = JSON.stringify(schema);
+    script.dataset.faqSchema = "true";
+    document.head.appendChild(script);
+    return () => { script.remove(); };
+  }, [faqs]);
 
   /* Highlight certain words in the headline */
   const renderHeadline = () => {
