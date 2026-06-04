@@ -837,7 +837,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       logoSize: 'medium',
       bgMode: 'solid',
       resultPanel: {
-        emphasis: 'normal',
+        // Total is the visual hero: a single large, bold figure on the light
+        // summary panel — the clearest read for an instant-quote calculator.
+        emphasis: 'bold',
         border: 'subtle',
         range_mode: { enabled: false, band_pct: 8 },
       },
