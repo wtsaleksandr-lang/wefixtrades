@@ -30,8 +30,10 @@
 // editor-theme-toggle, editor-undo, editor-redo, editor-tabs,
 // editor-tab-build, editor-tab-style, editor-tab-settings, editor-tab-install.
 
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  HelpCircle, MessageCircle, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen,
+  HelpCircle, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen,
   Redo2, Smartphone, Sun, Tablet, Undo2, X,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -47,7 +49,14 @@ interface Props {
   editorTheme: EditorTheme;
   /** Wave J — flip the chrome theme. */
   onEditorThemeChange: (t: EditorTheme) => void;
-  onHelp: () => void;
+  /** DEPRECATED (2026-06-04) — the top-bar Help button now opens a
+   *  self-contained popover owned by EditorTopBar (with Escape + backdrop +
+   *  click-outside dismissal) instead of the WizardShell `showHelp` overlay,
+   *  which was a focus/click trap with no Escape handler. The prop is still
+   *  accepted so the WizardShell call site stays type-valid; it is no longer
+   *  invoked by the top-bar button. (Other entry points — e.g. the mobile
+   *  action bar — may still call it.) */
+  onHelp?: () => void;
   onClose: () => void;
   /** IA-1 (2026-05-22) — minimize the WHOLE wizard back to the
    *  dashboard the user came from. A floating "QQ" badge appears on
@@ -62,10 +71,12 @@ interface Props {
   /** BH-2 — preview fold/unfold (formerly on the standalone tab bar). */
   previewCollapsed?: boolean;
   onTogglePreview?: () => void;
-  /** P2 UX — Floating launcher preview mode. When on, the canvas dims and
-   *  the widget shrinks to a 56×56 bubble in the bottom-right of the
-   *  preview pane (mimicking the BD-3m floating launcher visitors see).
-   *  Click bubble = expand; click outside = collapse back to bubble. */
+  /** DEPRECATED (2026-06-04) — the "Preview as bubble" toggle was removed
+   *  from the top bar (it hogged ~151px and squeezed the right cluster).
+   *  These props are still accepted so the WizardShell call site stays
+   *  type-valid, but they are intentionally ignored / unrendered. The
+   *  floating-launcher preview lens itself still lives in PreviewPane and
+   *  WizardShell state — only its top-bar entry point is gone. */
   floatingLauncherPreview?: boolean;
   onToggleFloatingLauncherPreview?: () => void;
   /** Revert of PR #535 — wizard tab strip lives in the top chrome again. */
@@ -76,14 +87,40 @@ interface Props {
 export default function EditorTopBar({
   justSaved, device, onDeviceChange,
   editorTheme, onEditorThemeChange,
-  onHelp, onClose, onMinimize,
+  onClose, onMinimize,
   canUndo = false, canRedo = false, onUndo, onRedo,
   previewCollapsed = false, onTogglePreview,
-  floatingLauncherPreview = false, onToggleFloatingLauncherPreview,
+  // onHelp intentionally NOT destructured — the top-bar Help button now drives
+  // a self-contained popover (see `helpOpen` below) instead of the WizardShell
+  // overlay, so Escape / backdrop / click-outside all close it reliably.
+  // floatingLauncherPreview / onToggleFloatingLauncherPreview intentionally
+  // NOT destructured — the "Preview as bubble" button was removed (2026-06-04).
   activeTab, onTabChange,
 }: Props) {
   const nextTheme: EditorTheme = editorTheme === 'dark' ? 'light' : 'dark';
   const ThemeIcon = editorTheme === 'dark' ? Sun : Moon;
+
+  // 2026-06-04 — self-contained Help popover. The previous implementation
+  // called `onHelp()` which flipped WizardShell's `showHelp` overlay: that
+  // overlay had NO Escape handler and, because it's a fixed inset:0 layer at
+  // z-index 1100, it captured every pointer event until dismissed. We replace
+  // it with a local modal that closes on (a) Escape, (b) backdrop click, and
+  // (c) the explicit "Got it" button. Rendered via a portal to document.body
+  // so the wizard-shell-modal's transform doesn't reparent its fixed layer.
+  const [helpOpen, setHelpOpen] = useState(false);
+  const closeHelp = useCallback(() => setHelpOpen(false), []);
+  useEffect(() => {
+    if (!helpOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setHelpOpen(false);
+      }
+    };
+    // Capture phase so this wins even if an ancestor also listens for Escape.
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [helpOpen]);
   // BD-3a fix 1 — Mac-style shortcut label is purely cosmetic; the keyboard
   // listener in WizardShell handles both ⌘ and Ctrl.
   const isMac = typeof navigator !== 'undefined'
@@ -211,40 +248,12 @@ export default function EditorTopBar({
         ))}
       </div>
 
-      {/* P1 UX — "Preview as bubble" toggle (renamed 2026-05-22 from the
-       * earlier "Floating" label). Previews the widget the way a visitor
-       * sees it when it's collapsed to a corner bubble on the host site —
-       * NOT the same thing as the in-flight IA-1 "Minimize wizard" button
-       * (which minimises the whole wizard chrome). The rename
-       * disambiguates the two icons so future IA-1 wave doesn't read as a
-       * duplicate.
-       *
-       * Discoverability fix retained from the earlier P1 pass:
-       *  - 16px icon paired with a visible label on widths >= 1024px.
-       *  - Pill shape, not a circle, so it reads as a distinct toggle.
-       *  - Tooltip explains what bubble preview MEANS, not just a
-       *    one-word reminder.
-       *  - At-rest accent pulse (CSS) draws the eye on first paint.
-       *  - Always renders so it can't be hidden behind a config flip.
-       *  - On <= 480px the pill collapses to icon-only (label hidden via
-       *    CSS) so the mobile chrome doesn't crowd. */}
-      {onToggleFloatingLauncherPreview && (
-        <button
-          type="button"
-          onClick={onToggleFloatingLauncherPreview}
-          className={`qq-editor-icon-btn qq-editor-launcher-toggle${floatingLauncherPreview ? ' is-active' : ''}`}
-          data-testid="editor-floating-launcher-toggle"
-          data-active={floatingLauncherPreview ? 'true' : 'false'}
-          aria-pressed={floatingLauncherPreview}
-          aria-label={floatingLauncherPreview
-            ? 'Exit bubble preview'
-            : 'Preview as bubble'}
-          title="Preview the widget as a floating bubble on a customer's website"
-        >
-          <MessageCircle style={{ width: 16, height: 16 }} aria-hidden="true" />
-          <span className="qq-editor-launcher-toggle-label">Preview as bubble</span>
-        </button>
-      )}
+      {/* 2026-06-04 — the "Preview as bubble" toggle was removed from the top
+       *  bar. It consumed ~151px (16px icon + visible label + pill padding)
+       *  and squeezed the right-side controls (theme · help · fold · close)
+       *  at common editor widths. The floating-launcher preview lens still
+       *  exists in PreviewPane / WizardShell state; only this redundant
+       *  top-bar entry point is gone. */}
 
       <span className="qq-editor-divider" aria-hidden="true" />
 
@@ -263,10 +272,12 @@ export default function EditorTopBar({
 
         <button
           type="button"
-          onClick={onHelp}
+          onClick={() => setHelpOpen(true)}
           className="qq-editor-icon-btn"
           data-testid="editor-help"
           aria-label="Help"
+          aria-haspopup="dialog"
+          aria-expanded={helpOpen}
           title="Help"
         >
           <HelpCircle style={{ width: 14, height: 14 }} aria-hidden="true" />
@@ -321,6 +332,49 @@ export default function EditorTopBar({
           <X style={{ width: 14, height: 14 }} aria-hidden="true" />
         </button>
       </div>
+
+      {/* 2026-06-04 — self-contained Help modal (replaces the WizardShell
+       *  trap overlay). Portaled to <body> so the wizard-shell-modal's
+       *  open-animation transform doesn't reparent this fixed layer.
+       *  Dismissal: Escape (capture-phase listener above), backdrop click,
+       *  or the "Got it" button. data-theme mirrors the editor chrome so the
+       *  card reads correctly in both light and dark mode. */}
+      {helpOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          className="qq-editor-help"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Editor help"
+          data-theme={editorTheme}
+          data-testid="editor-help-overlay"
+          onClick={closeHelp}
+        >
+          <div
+            className="qq-editor-help-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: p.colors.heading }}>
+              QuoteQuick editor
+            </p>
+            <p style={{ fontSize: 12.5, color: p.colors.muted, margin: '8px 0 0', lineHeight: 1.5 }}>
+              Build your calculator on the left, preview it live on the right.
+              Use the tabs to switch between Build, Style, Settings, and Install.
+              Press Esc or click outside this box to close.
+            </p>
+            <button
+              type="button"
+              onClick={closeHelp}
+              data-testid="editor-help-dismiss"
+              className="qq-editor-btn"
+              style={{ marginTop: 14 }}
+              autoFocus
+            >
+              Got it
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

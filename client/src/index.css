@@ -798,10 +798,25 @@
 .qq-editor-shell[data-theme="dark"] .qq-editor-frame,
 .qq-editor-shell[data-theme="dark"] .qq-editor-topbar,
 .qq-editor-shell[data-theme="dark"] .qq-editor-tabs,
+.qq-editor-shell[data-theme="dark"] .qq-editor-tabstrip,
 .qq-editor-shell[data-theme="dark"] .qq-editor-left {
   background: var(--qq-surface) !important;
   color: var(--qq-text);
   border-color: var(--qq-border);
+}
+/* 2026-06-04 — desktop dark-mode chrome repaint fix.
+ * The editor body WRAPPER (.qq-editor-body) and its spacer sit between the
+ * top bar and the panes. They were transparent with NO dark override, so on
+ * desktop the toggle left the body region painted with whatever the frame
+ * showed THROUGH any opaque child — and crucially the old rule keyed the tab
+ * strip off `.qq-editor-tabs`, a class that does not exist in the markup
+ * (the real container class is `.qq-editor-tabstrip`; `editor-tabs` is only
+ * a data-testid). Both are now covered. We force the body wrapper to the
+ * dark canvas so the chrome flips light/dark uniformly at every width, not
+ * just on mobile.  !important to defeat the non-!important inline <style>
+ * background declared in WizardShell.tsx. */
+.qq-editor-shell[data-theme="dark"] .qq-editor-body {
+  background: var(--qq-bg) !important;
 }
 .qq-editor-shell[data-theme="dark"] .qq-editor-brand,
 .qq-editor-shell[data-theme="dark"] .qq-editor-tab,
@@ -826,6 +841,24 @@
   background: var(--qq-surface);
   color: var(--qq-text);
   border-color: var(--qq-border);
+}
+/* 2026-06-04 — Help modal is now portaled to <body> by EditorTopBar (so it
+ * escapes the wizard-shell-modal transform). Because it lives OUTSIDE
+ * .qq-editor-shell, the chrome's [data-theme] descendant selectors can't
+ * reach it; EditorTopBar stamps data-theme directly on the overlay instead.
+ * These rules give the portaled modal its own light/dark surface + an
+ * explicit high z-index so it always sits above the editor chrome. No
+ * #fff/#000/white/black literals — rgba() per the colour guard. */
+.qq-editor-help {
+  z-index: 1200;
+}
+.qq-editor-help[data-theme="dark"] .qq-editor-help-card {
+  background: var(--qq-surface, #1E293B);
+  border-color: var(--qq-border, #334155);
+  color: var(--qq-text, #F1F5F9);
+}
+.qq-editor-help[data-theme="dark"] .qq-editor-help-card p {
+  color: rgba(241, 245, 249, 0.92) !important;
 }
 .qq-editor-shell[data-theme="dark"] .qq-editor-icon-btn {
   background: var(--qq-surface);
