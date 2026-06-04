@@ -281,7 +281,7 @@ export default function AdFlowOpsPage() {
                 <th className="px-4 py-3 font-medium w-10"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-border">
               {services.map((svc) => (
                 <tr key={svc.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 py-3">

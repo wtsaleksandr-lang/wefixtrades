@@ -48,7 +48,7 @@ function FaqSection() {
       <div className="px-5 py-4 border-b border-gray-100">
         <h2 className="text-sm font-semibold text-gray-900">Frequently Asked Questions</h2>
       </div>
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-border">
         {FAQS.map((faq, i) => {
           const open = openIndex === i;
           const Icon = faq.icon;
@@ -239,7 +239,7 @@ function TicketSection() {
           <div className="px-5 py-4 border-b border-gray-100">
             <h2 className="text-sm font-semibold text-gray-900">Your Tickets</h2>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-border">
             {tickets.map((t) => (
               <Link
                 key={t.id}

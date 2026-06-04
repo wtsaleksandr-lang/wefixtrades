@@ -1123,7 +1123,7 @@ export default function PortalServiceDetail() {
                     Your monthly performance report history.
                   </p>
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-border">
                   {adflowReports.map((rpt) => {
                     const m = rpt.metrics || {};
                     return (
@@ -1186,7 +1186,7 @@ export default function PortalServiceDetail() {
                         <th className="px-5 py-2 font-medium">Date</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-border">
                       {qqLeads.leads.map((lead) => (
                         <tr key={lead.id}>
                           <td className="px-5 py-3 text-foreground">{lead.name || "-"}</td>
@@ -1262,7 +1262,7 @@ export default function PortalServiceDetail() {
                         <th className="px-5 py-2 font-medium">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-border">
                       {data.payments.map((p) => (
                         <tr key={p.id}>
                           <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{formatDate(p.created_at)}</td>
