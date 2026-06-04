@@ -31,7 +31,7 @@
 // editor-tab-build, editor-tab-style, editor-tab-settings, editor-tab-install.
 
 import {
-  HelpCircle, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen,
+  HelpCircle, MessageCircle, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen,
   Redo2, Smartphone, Sun, Tablet, Undo2, X,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -241,7 +241,7 @@ export default function EditorTopBar({
             : 'Preview as bubble'}
           title="Preview the widget as a floating bubble on a customer's website"
         >
-          <Minimize2 style={{ width: 16, height: 16 }} aria-hidden="true" />
+          <MessageCircle style={{ width: 16, height: 16 }} aria-hidden="true" />
           <span className="qq-editor-launcher-toggle-label">Preview as bubble</span>
         </button>
       )}

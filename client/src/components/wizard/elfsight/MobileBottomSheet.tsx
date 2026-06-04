@@ -329,8 +329,20 @@ export default function MobileBottomSheet({
           }
 
           /* ── Three snap states ─────────────────────────────────── */
+          /* Collapsed = a slim FLOATING ROUNDED PILL (Alex: thinner + truly
+           * rounded, not a full-width bar with only top corners rounded). It
+           * detaches from the screen edges so there's no rectangular wrap.
+           * Half/full re-attach to the edges as a normal bottom sheet. */
           .qq-sheet--collapsed {
-            height: calc(56px + env(safe-area-inset-bottom, 0px));
+            height: 46px;
+            left: 10px; right: 10px;
+            bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+            margin: 0 auto;
+            max-width: 460px;
+            border-radius: 999px;
+            border: 1px solid ${d.colors.borderLight};
+            box-shadow: 0 8px 28px rgba(15, 23, 42, 0.20);
+            overflow: hidden;
           }
           .qq-sheet--half {
             height: 62vh;
@@ -438,6 +450,12 @@ export default function MobileBottomSheet({
             color: ${p.colors.muted};
             line-height: 0;
           }
+          /* Collapsed pill — compress the handle so the bar + label fit the
+           * slim 46px pill without clipping. */
+          .qq-sheet--collapsed .qq-sheet-handle {
+            min-height: 46px;
+            padding: 5px 18px 4px;
+          }
 
           /* ── Scrollable content ────────────────────────────────── */
           .qq-sheet-content {
@@ -523,6 +541,18 @@ export default function MobileBottomSheet({
             background: rgba(255,255,255,0.04);
             border-color: var(--qq-border);
             color: var(--qq-text);
+          }
+          /* Collapsed-pill title contrast — in dark editor mode the sheet
+           * surface flips dark, so the active-tab label + caret must go light
+           * (Alex: white font in dark mode, dark font in light mode). */
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-handle-label {
+            color: var(--qq-text, rgba(255,255,255,1));
+          }
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-handle-caret {
+            color: var(--qq-text-muted, rgba(255,255,255,0.65));
+          }
+          .qq-editor-shell[data-theme="dark"] .qq-sheet--collapsed {
+            border-color: var(--qq-border);
           }
         }
 
