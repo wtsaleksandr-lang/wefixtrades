@@ -48,6 +48,7 @@ console.log("riley: grounded — must cite the knowledge base, never invent");
   check("explicit no-invention guard", riley.includes("Never invent a service name, price"));
   check("real pricing is available to cite (a $-amount is present)", /\$\d/.test(riley));
   check("PII guard present", riley.includes("PII / SAFETY"));
+  check("SAFETY_FLOOR present (gas/fire/electrical → 911)", riley.includes("EMERGENCY SAFETY") && riley.includes("911"));
 }
 
 console.log("riley: closer behaviour is SCOPED to the voice line (regression catch)");
