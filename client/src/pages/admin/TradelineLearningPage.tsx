@@ -58,17 +58,23 @@ export default function TradelineLearningPage() {
 
   const candidates = useQuery<{ rows: Candidate[] }>({
     queryKey: ["/api/admin/tradeline/learning-candidates", statusFilter],
-    queryFn: () => {
+    queryFn: async () => {
       const url = statusFilter === "all"
         ? "/api/admin/tradeline/learning-candidates"
         : `/api/admin/tradeline/learning-candidates?status=${statusFilter}`;
-      return fetch(url, { credentials: "include" }).then((r) => r.json());
+      const r = await fetch(url, { credentials: "include" });
+      if (!r.ok) throw new Error(`Failed to load candidates (${r.status})`);
+      return r.json();
     },
   });
 
   const budget = useQuery<BudgetResponse>({
     queryKey: ["/api/admin/tradeline/training-budget"],
-    queryFn: () => fetch("/api/admin/tradeline/training-budget", { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/admin/tradeline/training-budget", { credentials: "include" });
+      if (!r.ok) throw new Error(`Failed to load budget (${r.status})`);
+      return r.json();
+    },
   });
 
   const filteredNiches = search.trim()
@@ -152,6 +158,7 @@ export default function TradelineLearningPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter niches…"
+            aria-label="Filter niches"
             className="w-full sm:max-w-sm mb-3 px-3 py-2 rounded-md border border-gray-300 text-sm"
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -279,7 +286,7 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
       <pre className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 border border-gray-100 rounded px-3 py-2">{candidate.body}</pre>
       {candidate.source_url && (
         <a href={candidate.source_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-brand-blue-600 inline-flex items-center gap-0.5 mt-2">
-          source <ExternalLink className="w-2.5 h-2.5" />
+          source <ExternalLink className="w-3 h-3" />
         </a>
       )}
       {candidate.rejection_reason && (
