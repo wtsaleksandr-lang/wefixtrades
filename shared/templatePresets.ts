@@ -110,6 +110,12 @@ export interface TemplateField {
   required?: boolean; default_value?: number; min?: number; max?: number;
   step?: number; unit?: string; on_value?: number; options?: TemplateOption[];
   /**
+   * Optional short explanation rendered BELOW the field in the Elfsight-style
+   * stacked layout (`AdvStyle.labelLayout === 'stacked'`). Ignored by the
+   * legacy float layout. Keep it to one concise line.
+   */
+  help?: string;
+  /**
    * Optional layout hint — column span inside the inputs grid. `1` (default)
    * means the field occupies one grid column; `2` makes it span the full
    * width. Combined with the natural auto-fit grid this lets two short
@@ -831,12 +837,16 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     // right — instead of half-width pairs that crowd and overlap on mobile.
     fields: [
       { id: 'vehicle_type', name: 'Vehicle Type', label: 'Vehicle type', type: 'select', colSpan: 2,
+        help: 'Pick the type of vehicle that needs towing.',
         options: [opt('Car', 0), opt('SUV', 25), opt('Truck', 60), opt('Motorcycle', -10)] },
       { id: 'condition', name: 'Vehicle Condition', label: 'Vehicle condition', type: 'select', colSpan: 2,
+        help: 'Lets us send the right equipment if it can’t roll.',
         options: [opt('Driveable', 0), opt('Not driveable', 45)] },
       { id: 'distance', name: 'Towing Distance', label: 'Distance to destination', type: 'slider', colSpan: 2,
+        help: 'Drag the slider to the distance from pickup to drop-off.',
         min: 1, max: 100, step: 1, default_value: 8, unit: 'miles' },
       { id: 'extras', name: 'Additional Services', label: 'Roadside add-ons', type: 'multi_select', colSpan: 2,
+        help: 'Add any roadside help you need on arrival.',
         options: [opt('Winching', 50), opt('Tire Change', 25), opt('Lockout Service', 35), opt('Fuel Delivery', 30)] },
     ],
     calculations: [
@@ -3624,6 +3634,13 @@ export interface AdvStyle {
   error?: string;
   fontFamily?: AdvFontFamily;
   fieldStyle?: AdvFieldStyle;
+  /**
+   * Label placement for inputs. `float` (default) = the title-in-field
+   * floating-label pattern. `stacked` = an Elfsight-style layout: a bold
+   * dark title ABOVE the field with a small grey help line BELOW it. Opt-in
+   * per calculator (currently used by the marketing template previews).
+   */
+  labelLayout?: 'float' | 'stacked';
   /** Corner radius in pixels (0–24). */
   radius?: number;
   widgetWidth?: AdvWidgetWidth;
@@ -4105,7 +4122,10 @@ type AdvStyleOptionalOnly =
   | 'floatingLauncher'
   // BG-7 Item 6 — per-template button-copy overrides. Pro-tier only;
   // absent → renderer default copy.
-  | 'buttonCopy';
+  | 'buttonCopy'
+  // Label placement. Absent → `float` (title-in-field, the legacy default),
+  // so a fresh calculator renders identically; `stacked` is opt-in.
+  | 'labelLayout';
 
 export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, AdvStyleOptionalOnly>> = {
   accent: '#0d3cfc',

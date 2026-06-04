@@ -89,7 +89,9 @@ function buildPreviewCalculator(
     businessProfile: SAMPLE_BUSINESS_PROFILE,
     // The website color tabs override the widget accent live; absent => the
     // template's own theme accent. (The wizard exposes the full palette.)
-    style: { ...(base.style ?? {}), ...(accent ? { accent } : {}), ...bgTint },
+    // labelLayout 'stacked' = the Elfsight title-above + help-below field
+    // style, scoped to the marketing previews (live widgets keep float).
+    style: { ...(base.style ?? {}), ...(accent ? { accent } : {}), ...bgTint, labelLayout: "stacked" as const },
   };
   return {
     id: 0,

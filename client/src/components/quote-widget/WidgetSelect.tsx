@@ -29,11 +29,19 @@ interface Props {
   fontFamily?: string;
   /** Floated-label colour (the accent), matching the other float fields. */
   labelColor: string;
+  /**
+   * `float` (default) renders the title-in-field floated label. `stacked`
+   * renders no internal label — the caller places a title ABOVE the box
+   * (Elfsight layout) — and the trigger uses normal centred padding.
+   */
+  labelLayout?: 'float' | 'stacked';
 }
 
 export default function WidgetSelect({
   id, value, options, onChange, label, theme, inputBase, radiusPx, fontFamily, labelColor,
+  labelLayout = 'float',
 }: Props) {
+  const stacked = labelLayout === 'stacked';
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -102,7 +110,11 @@ export default function WidgetSelect({
           ...inputBase,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           textAlign: 'left', cursor: 'pointer',
-          paddingTop: 20, paddingBottom: 5, paddingRight: 12,
+          // Float mode reserves top room for the floated label; stacked mode
+          // (title sits above the box) centres the value normally.
+          ...(stacked
+            ? { paddingRight: 12 }
+            : { paddingTop: 20, paddingBottom: 5, paddingRight: 12 }),
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedLabel}</span>
@@ -116,17 +128,21 @@ export default function WidgetSelect({
         </svg>
       </button>
 
-      {/* Floated title-in-field label (always floated for a select). */}
-      <label
-        htmlFor={id}
-        style={{
-          position: 'absolute', left: 14, top: 4, fontSize: 12, fontWeight: 800,
-          letterSpacing: '0.015em', color: labelColor, pointerEvents: 'none',
-          textShadow: '0 1px 2px rgba(0,0,0,0.55)', lineHeight: 1, background: 'transparent', padding: '0 2px',
-        }}
-      >
-        {label}
-      </label>
+      {/* Floated title-in-field label (float mode only — stacked callers
+          render their own title above the box). No text-shadow: the old drop
+          shadow read as a glow on light backgrounds (Alex). */}
+      {!stacked && (
+        <label
+          htmlFor={id}
+          style={{
+            position: 'absolute', left: 14, top: 4, fontSize: 12, fontWeight: 700,
+            letterSpacing: '0.015em', color: labelColor, pointerEvents: 'none',
+            lineHeight: 1, background: 'transparent', padding: '0 2px',
+          }}
+        >
+          {label}
+        </label>
+      )}
 
       <AnimatePresence>
         {open && (
