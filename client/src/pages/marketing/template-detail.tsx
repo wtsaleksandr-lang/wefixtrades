@@ -527,10 +527,12 @@ function TemplateRail({
                 data-testid={`template-combo-${c.id}`}
                 className="tpl-swatch tpl-swatch-split"
                 style={{
-                  // Dual-colour 50/50 split: left = Colour B (accent), right =
-                  // Colour A (ctaColor). For combos where A === B (e.g.
-                  // light-blue) the split reads as one solid colour — fine.
-                  background: `linear-gradient(90deg, ${c.accent} 0 50%, ${c.ctaColor} 50% 100%)`,
+                  // Dual-colour 50/50 split: left = the PANEL colour
+                  // (resultsBg), right = the CTA colour (ctaColor). Using panel
+                  // (not accent) guarantees a true dual for every theme, since
+                  // panel !== CTA in all combos (e.g. Onyx = black|red, Navy =
+                  // navy|blue) — whereas accent often equals the CTA.
+                  background: `linear-gradient(90deg, ${c.resultsBg} 0 50%, ${c.ctaColor} 50% 100%)`,
                   boxShadow: sel
                     ? `0 0 0 2px ${CS_LIGHT.bg}, 0 0 0 4px ${mkt.accent}`
                     : "0 0 0 1px rgba(15,20,24,0.12)",
