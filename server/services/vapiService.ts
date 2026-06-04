@@ -28,6 +28,7 @@ import { createLogger } from "../lib/logger";
 import {
   buildVapiVoiceBlock,
   buildVapiTranscriber,
+  buildVoiceBasePreset,
   resolveTradeLineVoiceId,
   VAPI_MAX_DURATION_SECONDS,
   VAPI_RECORDING_ENABLED,
@@ -86,6 +87,25 @@ export const vapiAssistantPayloadSchema = z.object({
     provider: z.string(),
     model: z.string(),
     language: z.string().optional(),
+  }).optional(),
+  // Shared turn-detection layer — validated explicitly so a typo'd/mistyped
+  // field fails at our boundary instead of as an opaque Vapi 400. Names +
+  // nesting verified against Vapi's voice-pipeline schema (2026-06-03).
+  startSpeakingPlan: z.object({
+    waitSeconds: z.number().min(0).max(5).optional(),
+    smartEndpointingPlan: z.object({
+      provider: z.string(),
+    }).passthrough().optional(),
+    transcriptionEndpointingPlan: z.object({
+      onPunctuationSeconds: z.number().min(0).optional(),
+      onNoPunctuationSeconds: z.number().min(0).optional(),
+      onNumberSeconds: z.number().min(0).optional(),
+    }).optional(),
+  }).optional(),
+  stopSpeakingPlan: z.object({
+    numWords: z.number().int().min(0).max(10).optional(),
+    voiceSeconds: z.number().min(0).max(1).optional(),
+    backoffSeconds: z.number().min(0).max(10).optional(),
   }).optional(),
   serverUrl: z.string().url().optional(),
   metadata: z.record(z.unknown()).optional(),
@@ -822,6 +842,8 @@ export function buildAssistantConfig(): Record<string, any> {
       maxDurationSeconds: VAPI_MAX_DURATION_SECONDS, recordingEnabled: VAPI_RECORDING_ENABLED,
       transcriber: buildVapiTranscriber("en"),
       endCallPhrases: VAPI_END_CALL_PHRASES,
+      // Shared turn-detection / barge-in layer (brand line uses the base preset).
+      ...buildVoiceBasePreset(),
     },
   };
 }
@@ -880,6 +902,9 @@ export async function buildTradeLineAssistantConfig(resolved: ResolvedTradeLineC
     maxDurationSeconds: VAPI_MAX_DURATION_SECONDS, recordingEnabled: VAPI_RECORDING_ENABLED,
     transcriber: buildVapiTranscriber("en"),
     endCallPhrases: VAPI_END_CALL_PHRASES,
+    // Shared turn-detection / barge-in layer (TradeLine uses the base preset;
+    // thin per-agent override hook available for env-specific VAD).
+    ...buildVoiceBasePreset(),
     serverUrl: config.serverUrl ? `${config.serverUrl}/api/vapi/webhook` : "/api/vapi/webhook",
     metadata: { client_service_id: String(resolved.clientService.id) },
   };
@@ -934,6 +959,8 @@ export async function upsertVapiAssistant(
     voice: buildVapiVoiceBlock(voiceConfig?.voiceId),
     firstMessage,
     transcriber: buildVapiTranscriber(transcriberLanguage || "en"),
+    // Shared turn-detection / barge-in layer (pre-provision path).
+    ...buildVoiceBasePreset(),
     serverUrl: `${config.serverUrl}/api/vapi/webhook`,
     metadata: { client_service_id: String(clientServiceId), source: "tradeline_template_engine" },
   };
