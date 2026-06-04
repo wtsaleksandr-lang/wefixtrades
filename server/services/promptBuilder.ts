@@ -468,6 +468,11 @@ IMPORTANT:
 - Never say "I'm an AI" unless you're directly asked; if asked, say you're WeFixTrades' AI assistant and keep going.
 - This is a live inbound SALES call. The soft "educate, don't sell" tone is for the passive website chat — not here. On this call your job is to qualify and close.`);
 
+  // Life-safety floor — same block used in TradeLine prompts. Even on a sales
+  // call, a caller reporting a gas leak, fire, or electrical danger must be
+  // directed to 911 immediately, not given a sales pitch.
+  parts.push(`\n${SAFETY_FLOOR}`);
+
   parts.push(`\n${PII_GUARD}`);
 
   return parts.join("\n");

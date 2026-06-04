@@ -60,7 +60,23 @@ const SPAM_HEURISTICS = [
   /\bclick\s+(here|now)\b/i,
 ];
 
+/** Life-safety keywords — must be checked BEFORE the AI model call so an API
+ *  timeout can never cause an emergency to be routed as a normal sales lead. */
+const EMERGENCY_PATTERNS = [
+  /\b(gas\s*leak|smell(ing|s)?\s*gas|carbon\s*monoxide|co\s*alarm)\b/i,
+  /\b(house\s*(is\s*)?on\s*fire|flames?|active\s*fire|smoke\s*(everywhere|coming))\b/i,
+  /\b(electric(al)?\s*(shock|fire|danger)|downed?\s*(power\s*)?line|live\s*wire)\b/i,
+  /\b(structural\s*collapse|flood(ing)?\s*(near|around)\s*electric)\b/i,
+  /\b(call\s*911|need\s*(an?\s*)?ambulance|someone('s)?\s*(hurt|injured|unconscious))\b/i,
+];
+
 function heuristicCheck(text: string): ClassifyResult | null {
+  // Emergency detection — highest priority, before spam checks.
+  for (const re of EMERGENCY_PATTERNS) {
+    if (re.test(text)) {
+      return { category: "needs_human", confidence: 1.0, reason: `emergency keyword detected: ${re}` };
+    }
+  }
   for (const re of SPAM_HEURISTICS) {
     if (re.test(text)) {
       return { category: "spam", confidence: 0.95, reason: `matched spam pattern ${re}` };
