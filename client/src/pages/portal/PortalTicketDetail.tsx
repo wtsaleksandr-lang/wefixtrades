@@ -209,6 +209,7 @@ export default function PortalTicketDetail() {
                 <div className="border-t border-gray-100 px-5 py-4">
                   <div className="flex gap-2">
                     <textarea
+                      aria-label="Reply message"
                       value={reply}
                       onChange={(e) => setReply(e.target.value)}
                       onKeyDown={(e) => {

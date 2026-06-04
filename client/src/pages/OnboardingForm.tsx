@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,16 +90,17 @@ function SetupProgress({ token }: { token: string }) {
     } catch { /* ignore network blips */ }
   }, [token]);
 
-  useEffect(() => {
-    poll(); // immediate first fetch
-    const id = setInterval(poll, 2500);
-    return () => clearInterval(id);
-  }, [poll]);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Stop polling once terminal
   useEffect(() => {
-    if (isTerminal) return;
-  }, [isTerminal]);
+    if (isTerminal) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+    poll(); // immediate first fetch
+    intervalRef.current = setInterval(poll, 2500);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [poll, isTerminal]);
 
   const steps = [
     { label: "Configuration received", done: status.onboardingStatus === "submitted" || status.onboardingStatus === "approved" },

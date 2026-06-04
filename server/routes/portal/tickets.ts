@@ -186,11 +186,17 @@ export function registerPortalTicketsRoutes(app: Express) {
       if (!subject || typeof subject !== "string" || !subject.trim()) {
         return res.status(400).json({ error: "Subject is required" });
       }
+      if (subject.trim().length > 200) {
+        return res.status(400).json({ error: "Subject must be under 200 characters" });
+      }
       if (!message || typeof message !== "string" || !message.trim()) {
         return res.status(400).json({ error: "Message is required" });
       }
       if (message.trim().length < 10) {
         return res.status(400).json({ error: "Message must be at least 10 characters" });
+      }
+      if (message.trim().length > 10000) {
+        return res.status(400).json({ error: "Message must be under 10,000 characters" });
       }
 
       const validCategories = ["general", "billing", "service", "onboarding", "access", "other"];
@@ -314,6 +320,9 @@ export function registerPortalTicketsRoutes(app: Express) {
       const { message } = req.body;
       if (!message || typeof message !== "string" || !message.trim()) {
         return res.status(400).json({ error: "Message is required" });
+      }
+      if (message.trim().length > 10000) {
+        return res.status(400).json({ error: "Reply must be under 10,000 characters" });
       }
 
       // Verify ownership and status

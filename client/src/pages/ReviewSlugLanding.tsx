@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { Loader2, Star, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageMeta } from "@/components/seo/PageMeta";
 
 /**
  * Public review-funnel landing page — /r/:slug
@@ -59,7 +60,7 @@ export default function ReviewSlugLanding() {
       .then((data: ConfigResponse) => {
         setCfg(data);
         setStage("stars");
-        document.title = `Review ${data.businessName}`;
+        // PageMeta handles document.title
       })
       .catch((e: Error) => {
         setErrorMsg(e.message || "We couldn't load this review link.");
@@ -127,6 +128,7 @@ export default function ReviewSlugLanding() {
       data-theme="light"
       className="min-h-screen bg-slate-50 flex flex-col items-center justify-start sm:justify-center px-4 py-8"
     >
+      <PageMeta noIndex title={cfg ? `Review ${cfg.businessName}` : "Leave a Review"} description="Share your experience with this business." />
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-gray-100 p-6 sm:p-8">
           {/* Brand block */}

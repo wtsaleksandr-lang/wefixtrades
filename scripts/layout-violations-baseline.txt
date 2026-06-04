@@ -54,10 +54,10 @@ client/src/pages/Blog.tsx:356:17	rule-c	size={84}
 client/src/pages/CaseStudies.tsx:490:24	rule-c	size={48}
 client/src/pages/CaseStudies.tsx:500:19	rule-c	size={56}
 client/src/pages/CaseStudies.tsx:639:22	rule-c	size={80}
-client/src/pages/OnboardingForm.tsx:117:14	rule-c	square w-12 h-12
-client/src/pages/OnboardingForm.tsx:295:24	rule-c	square w-10 h-10
-client/src/pages/OnboardingForm.tsx:312:5	rule-b	<div> contains 3 cues
-client/src/pages/OnboardingForm.tsx:317:13	rule-c	<svg width={28} height={28}>
+client/src/pages/OnboardingForm.tsx:118:14	rule-c	square w-12 h-12
+client/src/pages/OnboardingForm.tsx:296:24	rule-c	square w-10 h-10
+client/src/pages/OnboardingForm.tsx:313:5	rule-b	<div> contains 3 cues
+client/src/pages/OnboardingForm.tsx:318:13	rule-c	<svg width={28} height={28}>
 client/src/pages/ReviewFunnel.tsx:302:21	rule-c	size={40}
 client/src/pages/admin/ApiPlatformPage.tsx:172:19	rule-c	square w-2 h-2
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:376:25	rule-c	square w-12 h-12
