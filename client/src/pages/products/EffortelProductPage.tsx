@@ -144,7 +144,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
   })();
 
   const productUrl = `${SITE_URL}/products/${cfg.slug}`;
-  const productOgImage = `${SITE_URL}/og/${cfg.slug}.svg`;
+  const productOgImage = `${SITE_URL}/og/${cfg.slug}.png`;
 
   const productJsonLd = productSchema({
     name: cfg.name,
@@ -210,7 +210,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
         description={cfg.seoDescription}
         canonical={`/products/${slug}`}
         ogType="product"
-        ogImage={`/og/${cfg.slug}.svg`}
+        ogImage={`/og/${cfg.slug}.png`}
         jsonLd={pageJsonLd}
       />
       {/* CONTRAST-2 — EffortelProductPage is a marketing dark-hero page. */}
