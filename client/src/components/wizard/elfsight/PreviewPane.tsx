@@ -2587,9 +2587,22 @@ export default function PreviewPane({
           .qq-widget-resize-handle--e  { right: -10px; }
           .qq-widget-resize-handle--w  { left: -10px; }
 
-          /* Match drag-handle bar to >=44px tap target standard. */
+          /* Touch — make the drag-to-move bar a clear, grabbable 44px target
+           * that's VISIBLE without hover (touch devices have no hover, so the
+           * faint 0.35 default left the move affordance undiscoverable on
+           * mobile). It already carries touch-action:none so one-finger
+           * tap-and-swipe on this bar moves the widget; pinch (2-finger) on the
+           * canvas still zooms. */
           .qq-widget-drag-handle {
             height: 44px;
+            opacity: 0.92;
+            background: rgba(13, 60, 252, 0.55);
+            color: rgba(255, 255, 255, 1);
+            gap: 7px;
+          }
+          .qq-widget-drag-handle::after {
+            content: "Drag to move";
+            font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
           }
         }
 
