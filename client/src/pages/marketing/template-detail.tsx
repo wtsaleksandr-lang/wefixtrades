@@ -665,12 +665,12 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                     width: 52,
                     height: 52,
                     borderRadius: 14,
-                    background: `${cat.heroAccent}22`,
-                    border: `1.5px solid ${cat.heroAccent}`,
+                    background: `${mkt.accent}22`,
+                    border: `1.5px solid ${mkt.accent}`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: cat.heroAccent,
+                    color: mkt.accent,
                     flexShrink: 0,
                   }}
                 >
@@ -795,24 +795,22 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                     : <Monitor size={16} strokeWidth={2.25} />}
                 </button>
               )}
-              {/* Fold viewport — the live widget shrinks into a phone frame in place */}
+              {/* Fold viewport — the live widget narrows to mobile width IN PLACE.
+                  No extra gray surround or phone-frame wrapper; just a 2px
+                  breathing gap on the left/right so it isn't flush to the card. */}
               <div
                 style={{
                   display: "flex",
                   justifyContent: "center",
-                  padding: showPhoneFrame ? "28px 16px" : "0",
-                  background: showPhoneFrame ? "rgba(0,0,0,0.03)" : "transparent",
-                  transition: "padding 500ms cubic-bezier(0.22,1,0.36,1), background 500ms ease",
+                  padding: "0 2px",
                 }}
               >
                 <div
                   style={{
                     width: "100%",
                     maxWidth: showPhoneFrame ? 390 : 980,
-                    borderRadius: showPhoneFrame ? 24 : 0,
                     overflow: "hidden",
-                    boxShadow: showPhoneFrame ? "0 10px 40px rgba(0,0,0,0.22)" : "none",
-                    transition: "max-width 520ms cubic-bezier(0.22,1,0.36,1), border-radius 300ms ease, box-shadow 300ms ease",
+                    transition: "max-width 520ms cubic-bezier(0.22,1,0.36,1)",
                   }}
                 >
                   {/* key on the active template → remount + fade/rise on swap
@@ -949,8 +947,8 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               /* Single device toggle that swaps its icon — pinned to the
                  top-right corner of the preview card. */
               .tpl-device-toggle {
-                position: absolute; top: 12px; right: 12px; z-index: 5;
-                flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+                position: absolute; top: 10px; right: 10px; z-index: 5;
+                flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px;
                 display: grid; place-items: center; cursor: pointer; border: none;
                 background: rgba(255,255,255,0.85); color: ${CS_LIGHT.ink};
                 box-shadow: inset 0 0 0 1px rgba(15,20,24,0.12), 0 2px 8px rgba(15,20,24,0.12);
