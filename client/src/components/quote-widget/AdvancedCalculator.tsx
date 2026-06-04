@@ -3512,7 +3512,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     // image is uploaded yet. Tap target ≥44px (minHeight 120px covers it).
     return (
       <div>
-        <label style={groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
+        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -3523,6 +3523,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             return (
               <button key={o.id} type="button" onClick={() => onChange(o.id)}
                 aria-pressed={sel}
+                aria-label={richHtmlToPlainText(o.label)}
                 style={{
                   display: 'flex', flexDirection: 'column', gap: '8px',
                   padding: '8px', minHeight: '120px',
@@ -3552,6 +3553,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             );
           })}
         </div>
+        {stackedHelp}
       </div>
     );
   }

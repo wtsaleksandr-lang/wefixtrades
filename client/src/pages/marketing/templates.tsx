@@ -181,6 +181,16 @@ export default function TemplatesPage() {
               role="tablist"
               aria-label="Filter templates by category"
               className="qq-fade-scroll-row"
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+                const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]'));
+                const idx = tabs.findIndex((t) => t === document.activeElement);
+                if (idx < 0) return;
+                const next = e.key === "ArrowRight" ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
+                tabs[next].focus();
+                tabs[next].click();
+                e.preventDefault();
+              }}
               style={{
                 display: "flex",
                 gap: 6,
@@ -200,6 +210,7 @@ export default function TemplatesPage() {
                     key={f.id}
                     role="tab"
                     aria-selected={active}
+                    tabIndex={active ? 0 : -1}
                     onClick={() => setActiveFilter(f.id)}
                     data-testid={`filter-${f.id}`}
                     style={{

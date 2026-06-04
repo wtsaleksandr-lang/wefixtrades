@@ -41,7 +41,7 @@ export default function CalculatorTemplateCard({ template, tryHref, useHref, new
     <div
       className="calx-card"
       data-testid={`template-card-${template.id}`}
-      style={{ ["--calx-accent" as string]: cat.heroAccent, ["--calx-ink" as string]: cat.ctaText } as CSSProperties}
+      style={{ ["--calx-accent" as string]: cat.heroAccent, ["--calx-ink" as string]: cat.ctaText, ["--calx-cta" as string]: cat.ctaOnWhite } as CSSProperties}
     >
       <div className="calx-thumb">
         <div className="calx-bg" />

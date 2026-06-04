@@ -365,6 +365,17 @@ export function registerPortalTradelineKnowledgeRoutes(app: Express): void {
       return;
     }
     try {
+      if (parsed.data.voice_id) {
+        const [voice] = await db
+          .select({ id: tradelineVoices.id })
+          .from(tradelineVoices)
+          .where(and(eq(tradelineVoices.id, parsed.data.voice_id), eq(tradelineVoices.status, "active")))
+          .limit(1);
+        if (!voice) {
+          res.status(400).json({ error: "voice_not_found", message: "Selected voice is not available" });
+          return;
+        }
+      }
       const existing = await db
         .select()
         .from(tradelineAssistantSettings)
