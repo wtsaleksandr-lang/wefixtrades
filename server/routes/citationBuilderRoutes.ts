@@ -26,6 +26,7 @@ import {
 } from "@shared/schema";
 import { CITATIONBUILDER } from "@shared/pricing";
 import { createLogger } from "../lib/logger";
+import { publicCheckoutRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("CitationBuilderRoutes");
 
@@ -44,7 +45,7 @@ const checkoutSchema = z.object({
     address: z.string().max(500).optional(),
     phone: z.string().max(50).optional(),
     website: z.string().max(500).optional(),
-    categories: z.array(z.string()).optional(),
+    categories: z.array(z.string().max(100)).max(20).optional(),
   }),
   email: z.string().email().optional(),
 });
@@ -66,6 +67,11 @@ export function registerCitationBuilderRoutes(app: Express): void {
 
   /* ─── POST /api/citation-builder/checkout ──────────────────────── */
   app.post("/api/citation-builder/checkout", async (req: Request, res: Response) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!(await publicCheckoutRateLimiter.check(`cb-checkout:${ip}`))) {
+      return res.status(429).json({ error: "Too many checkout attempts. Try again in a few minutes." });
+    }
+
     const parsed = checkoutSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
 

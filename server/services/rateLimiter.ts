@@ -231,3 +231,12 @@ export const auditWriteRateLimiter = new RateLimiter(
   30,
   AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
 );
+
+/** Public checkout endpoints (Citation Builder, Full Audit Master).
+ *  5 sessions / IP / 10 min — generous for a real buyer, tight enough
+ *  to stop Stripe-session-creation spam. */
+export const publicCheckoutRateLimiter = new RateLimiter(
+  defaultStore,
+  5,
+  AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
+);
