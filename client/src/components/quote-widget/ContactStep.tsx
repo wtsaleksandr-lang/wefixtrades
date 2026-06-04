@@ -244,7 +244,9 @@ export default function ContactStep({
       }
     } catch (e: any) {
       setStatus('error');
-      setError(e?.message || 'Something went wrong. Please try again.');
+      setError(e instanceof Error && e.message === 'Failed to fetch'
+        ? 'Network error. Please check your connection.'
+        : 'Something went wrong. Please try again.');
     }
   }
 
