@@ -384,10 +384,12 @@ type ThemeCombination = {
 };
 
 /* EVERY combo keeps the SAME light body (bg white, dark text, light surface +
-   border). A theme changes ONLY the right panel (resultsBg = Colour B), the
-   left-side accents (accent = Colour B), and the CTA (ctaColor = Colour A).
-   The left body background is ALWAYS white. EXCEPTION: `light-blue` keeps a
-   LIGHT result panel (resultsBg) — the rest follow the dark-panel pattern. */
+   border). A theme sets THREE independent colours: the right panel
+   (resultsBg), the left-side accents (accent — slider/toggle/checkbox/
+   selector), and the CTA (ctaColor). They are NOT locked together. The left
+   body background is ALWAYS white. Panel text contrast is automatic via
+   comboLuminance (white on dark/saturated panels, dark on light tinted
+   panels). LIGHT panels: 'mortgage' (Sky Tint) and 'bmi' (Mint Tint). */
 const COMBO_LIGHT_BODY = {
   bg: "rgba(255,255,255,1)",
   text: "#171717",
@@ -396,24 +398,24 @@ const COMBO_LIGHT_BODY = {
 } as const;
 
 const THEME_COMBINATIONS: ThemeCombination[] = [
-  { id: "light-blue", name: "Light · Blue", ...COMBO_LIGHT_BODY, resultsBg: "#f3f4f6", accent: "#0d3cfc", ctaColor: "#0d3cfc" },
   { id: "black-yellow", name: "Black · Yellow", ...COMBO_LIGHT_BODY, resultsBg: "#0d0d0d", accent: "#0d0d0d", ctaColor: "#ffd60a" },
-  { id: "navy-sky", name: "Navy · Sky", ...COMBO_LIGHT_BODY, resultsBg: "#0f2747", accent: "#0f2747", ctaColor: "#38bdf8" },
-  { id: "slate-amber", name: "Slate · Amber", ...COMBO_LIGHT_BODY, resultsBg: "#1f2937", accent: "#1f2937", ctaColor: "#f59e0b" },
-  { id: "teal-coral", name: "Teal · Coral", ...COMBO_LIGHT_BODY, resultsBg: "#134e4a", accent: "#134e4a", ctaColor: "#fb7185" },
-  { id: "indigo-lime", name: "Indigo · Lime", ...COMBO_LIGHT_BODY, resultsBg: "#312e81", accent: "#312e81", ctaColor: "#a3e635" },
-  { id: "plum-gold", name: "Plum · Gold", ...COMBO_LIGHT_BODY, resultsBg: "#4c1d4f", accent: "#4c1d4f", ctaColor: "#fbbf24" },
-  { id: "forest-mint", name: "Forest · Mint", ...COMBO_LIGHT_BODY, resultsBg: "#14532d", accent: "#14532d", ctaColor: "#34d399" },
-  { id: "charcoal-orange", name: "Charcoal · Orange", ...COMBO_LIGHT_BODY, resultsBg: "#27272a", accent: "#27272a", ctaColor: "#fb923c" },
-  { id: "maroon-sand", name: "Maroon · Sand", ...COMBO_LIGHT_BODY, resultsBg: "#7f1d1d", accent: "#7f1d1d", ctaColor: "#fcd34d" },
-  { id: "royal-aqua", name: "Royal · Aqua", ...COMBO_LIGHT_BODY, resultsBg: "#1e3a8a", accent: "#1e3a8a", ctaColor: "#22d3ee" },
+  { id: "car-rental", name: "Crimson", ...COMBO_LIGHT_BODY, resultsBg: "#d83a3d", accent: "#d83a3d", ctaColor: "#141414" },
+  { id: "mortgage", name: "Sky Tint", ...COMBO_LIGHT_BODY, resultsBg: "#eaf1fb", accent: "#2563eb", ctaColor: "#2563eb" },
+  { id: "loan", name: "Onyx · Red", ...COMBO_LIGHT_BODY, resultsBg: "#1a1a1a", accent: "#ed3237", ctaColor: "#ed3237" },
+  { id: "emi", name: "Azure", ...COMBO_LIGHT_BODY, resultsBg: "#29abe2", accent: "#29abe2", ctaColor: "#141414" },
+  { id: "bmi", name: "Mint Tint", ...COMBO_LIGHT_BODY, resultsBg: "#e8f3e9", accent: "#2e9e3f", ctaColor: "#2e9e3f" },
+  { id: "profit", name: "Forest", ...COMBO_LIGHT_BODY, resultsBg: "#4a7a4e", accent: "#4a7a4e", ctaColor: "#141414" },
+  { id: "fees", name: "Navy", ...COMBO_LIGHT_BODY, resultsBg: "#1e2a44", accent: "#2f6be0", ctaColor: "#2f6be0" },
+  { id: "reno", name: "Olive · Orange", ...COMBO_LIGHT_BODY, resultsBg: "#4a5240", accent: "#e8821e", ctaColor: "#e8821e" },
+  { id: "tshirt", name: "Violet", ...COMBO_LIGHT_BODY, resultsBg: "#7c5cc4", accent: "#7c5cc4", ctaColor: "#141414" },
+  { id: "wedding", name: "Royal · Orange", ...COMBO_LIGHT_BODY, resultsBg: "#1e6fd4", accent: "#1e6fd4", ctaColor: "#e8821e" },
 ];
 
 const DEFAULT_COMBO =
-  THEME_COMBINATIONS.find((c) => c.id === "light-blue") ?? THEME_COMBINATIONS[0];
+  THEME_COMBINATIONS.find((c) => c.id === "mortgage") ?? THEME_COMBINATIONS[0];
 
 /* Per-template default combo. car_towing leads with the bold Black · Yellow
-   reference; every other template defaults to the clean Light · Blue. */
+   reference; every other template defaults to the clean light Sky Tint. */
 function defaultComboForTemplate(templateId: string): ThemeCombination {
   if (templateId === "car_towing") {
     return THEME_COMBINATIONS.find((c) => c.id === "black-yellow") ?? DEFAULT_COMBO;
@@ -985,7 +987,24 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 letter-spacing: 0.10em; text-transform: uppercase; color: ${CS_LIGHT.inkMuted};
                 padding-left: 2px;
               }
-              .tpl-color-row { display: flex; flex-wrap: wrap; gap: 8px; }
+              /* Single non-wrapping row: ~8 swatches visible, then horizontal
+                 scroll. Each swatch is 32px wide + 8px gap; cap the visible
+                 width at 8 swatches (8*32 + 7*8 = 312px) so the 9th onward
+                 scrolls into view. Thin unobtrusive scrollbar + touch momentum
+                 for mobile. */
+              .tpl-color-row {
+                display: flex; flex-wrap: nowrap; gap: 8px;
+                overflow-x: auto; overflow-y: hidden;
+                max-width: 312px; padding-bottom: 4px;
+                scrollbar-width: thin;
+                -webkit-overflow-scrolling: touch;
+              }
+              .tpl-color-row > .tpl-swatch { flex: 0 0 auto; }
+              .tpl-color-row::-webkit-scrollbar { height: 6px; }
+              .tpl-color-row::-webkit-scrollbar-thumb {
+                background: rgba(15,20,24,0.20); border-radius: 999px;
+              }
+              .tpl-color-row::-webkit-scrollbar-track { background: transparent; }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
                 display: grid; place-items: center;
