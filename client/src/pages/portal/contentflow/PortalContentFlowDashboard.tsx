@@ -422,7 +422,7 @@ export default function PortalContentFlowDashboard() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold">ContentFlow</h1>
+            <h2 className="text-2xl font-semibold">ContentFlow</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Your AI content factory — generate, approve, publish.
             </p>

@@ -408,7 +408,7 @@ export default function RankFlowDashboard() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold">RankFlow</h1>
+            <h2 className="text-2xl font-semibold">RankFlow</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Done-for-you SEO. Watch the AI brain choose, write, and rank.
             </p>
