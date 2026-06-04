@@ -24,6 +24,7 @@ import { db } from "../db";
 import { fullAuditMasterOrders } from "@shared/schema";
 import { FULL_AUDIT_MASTER } from "@shared/pricing";
 import { createLogger } from "../lib/logger";
+import { publicCheckoutRateLimiter } from "../services/rateLimiter";
 import {
   renderReportPage,
   renderPendingPage,
@@ -55,6 +56,11 @@ export function registerFullAuditRoutes(app: Express): void {
 
   /* ─── POST /api/full-audit/checkout ────────────────────────────── */
   app.post("/api/full-audit/checkout", async (req: Request, res: Response) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!(await publicCheckoutRateLimiter.check(`fam-checkout:${ip}`))) {
+      return res.status(429).json({ error: "Too many checkout attempts. Try again in a few minutes." });
+    }
+
     const parsed = checkoutSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
 
@@ -240,7 +246,7 @@ export function registerFullAuditRoutes(app: Express): void {
       res.json({ ok: true, report });
     } catch (err: any) {
       log.error("manual run failed", { error: err?.message });
-      res.status(500).json({ error: "Run failed", message: err?.message });
+      res.status(500).json({ error: "Run failed" });
     }
   });
 
