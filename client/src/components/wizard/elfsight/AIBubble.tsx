@@ -1175,7 +1175,13 @@ export default function AIBubble(props: AIBubbleProps) {
 
       <style>{`
         .qq-ai-bubble {
-          position: fixed; right: 18px; bottom: 18px; z-index: 1100;
+          /* Wave 6 fix — raised bottom 18px -> 76px so the floating bubble
+           *  clears the canvas zoom toolbar pill (Actual size / Recenter),
+           *  which sits at the editor's bottom-right. At 18px the bubble
+           *  physically covered those controls and stole their hit-test,
+           *  making them un-clickable. 76px leaves a comfortable gap above
+           *  the pill while keeping the bubble bottom-right and reachable. */
+          position: fixed; right: 18px; bottom: 76px; z-index: 1100;
           display: inline-flex; align-items: center; gap: 6px;
           padding: 10px 14px; border-radius: 999px;
           background: #0d3cfc; color: #fff;
@@ -1252,7 +1258,15 @@ export default function AIBubble(props: AIBubbleProps) {
           .qq-ai-panel.is-collapsed {
             height: 46px;
           }
-          .qq-ai-bubble { right: 12px; bottom: 12px; padding: 9px 12px; font-size: 12px; }
+          /* Wave 6 fix — on mobile the bubble at bottom 12px overlapped the
+           *  right edge of the full-width bottom action/Done bar (~64px tall).
+           *  Sit it ABOVE that bar plus the device safe-area inset so it no
+           *  longer covers the footer's Done button. */
+          .qq-ai-bubble {
+            right: 12px;
+            bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+            padding: 9px 12px; font-size: 12px;
+          }
         }
 
         .qq-ai-panel-header {
