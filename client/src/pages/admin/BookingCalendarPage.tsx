@@ -42,7 +42,14 @@ function ConnectDialog({ open, onClose }: { open: boolean; onClose: () => void }
       if (bookingUrl) body.booking_url = bookingUrl;
       const r = await apiRequest("POST", "/api/admin/booking/connections", body);
       const d = await r.json();
-      if (d.oauth_url) { window.location.href = d.oauth_url; return; }
+      if (d.oauth_url) {
+        if (typeof d.oauth_url === "string" && d.oauth_url.startsWith("https://")) {
+          window.location.href = d.oauth_url;
+        } else {
+          toast({ title: "Invalid OAuth URL", description: "The redirect URL must use HTTPS.", variant: "destructive" });
+        }
+        return;
+      }
       qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: "Calendar connected" }); onClose(); setPlatform(""); setApiKey(""); setEventTypeId(""); setBookingUrl("");
     } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); } finally { setConnecting(false); }
   };

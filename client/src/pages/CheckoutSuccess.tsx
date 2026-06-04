@@ -14,6 +14,14 @@ export default function CheckoutSuccess() {
 
   useEffect(() => {
     document.title = "Payment Successful — WeFixTrades";
+    // Prevent indexing of transactional checkout result pages.
+    let meta = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "robots");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", "noindex, nofollow");
   }, []);
 
   // Auto-login via checkout session

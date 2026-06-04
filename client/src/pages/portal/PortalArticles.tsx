@@ -143,13 +143,13 @@ function AICopilotPanel({ draftId, draftBody }: { draftId: number | null; draftB
     }
   }
 
-  function copySuggestion() {
+  async function copySuggestion() {
     if (!result) return;
     try {
-      void navigator.clipboard?.writeText(result.suggestion);
+      await navigator.clipboard.writeText(result.suggestion);
       toast({ title: "Copied", description: "Suggestion copied to clipboard." });
     } catch {
-      /* clipboard may be unavailable; silently ignore */
+      toast({ title: "Copy failed", description: "Clipboard is not available in this browser.", variant: "destructive" });
     }
   }
 

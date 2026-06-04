@@ -176,7 +176,7 @@ export default function InvoicesPage() {
             cursor: "pointer",
           }}
         >
-          <Plus size={14} />
+          <Plus size={14} aria-hidden="true" />
           New Invoice
         </button>
       </div>
@@ -201,7 +201,7 @@ export default function InvoicesPage() {
             marginLeft: "auto",
           }}
         >
-          <Settings size={12} />
+          <Settings size={12} aria-hidden="true" />
           Payment Methods
         </Link>
       </div>
@@ -212,7 +212,7 @@ export default function InvoicesPage() {
        *  to a query param the server applies as a created_at cutoff. */}
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ position: "relative", flex: "1 1 220px", minWidth: 220 }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: 12, color: "#9ca3af", pointerEvents: "none" }} />
+          <Search size={14} aria-hidden="true" style={{ position: "absolute", left: 10, top: 12, color: "#9ca3af", pointerEvents: "none" }} />
           <input
             type="text"
             placeholder="Search customer or #"
@@ -313,7 +313,7 @@ export default function InvoicesPage() {
           borderRadius: 12,
           border: "1px solid #e5e7eb",
         }}>
-          <FileText size={32} style={{ color: "#d1d5db", marginBottom: 12 }} />
+          <FileText size={32} aria-hidden="true" style={{ color: "#d1d5db", marginBottom: 12 }} />
           <p style={{ fontSize: 15, fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>
             No invoices yet
           </p>
@@ -549,8 +549,9 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
 
         {/* Customer */}
         <div style={{ marginBottom: 12 }}>
-          <label style={labelStyle}>Customer Name *</label>
+          <label htmlFor="invoice-customer-name" style={labelStyle}>Customer Name *</label>
           <input
+            id="invoice-customer-name"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             placeholder="John Smith"
@@ -559,8 +560,9 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Email</label>
+            <label htmlFor="invoice-customer-email" style={labelStyle}>Email</label>
             <input
+              id="invoice-customer-email"
               type="email"
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
@@ -569,8 +571,9 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
             />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Phone</label>
+            <label htmlFor="invoice-customer-phone" style={labelStyle}>Phone</label>
             <input
+              id="invoice-customer-phone"
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
               placeholder="(555) 123-4567"

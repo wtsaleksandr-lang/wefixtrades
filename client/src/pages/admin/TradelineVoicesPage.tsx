@@ -190,17 +190,26 @@ export default function TradelineVoicesPage() {
       setEditing(null);
       setCreating(false);
     },
+    onError: (err: Error) => {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    },
   });
 
   const archiveVoice = useMutation({
     mutationFn: (id: string) => api(`/api/admin/tradeline/voices/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tradeline/voices"] }),
+    onError: (err: Error) => {
+      toast({ title: "Archive failed", description: err.message, variant: "destructive" });
+    },
   });
 
   const saveClient = useMutation({
     mutationFn: ({ clientId, body }: { clientId: number; body: Partial<ClientSetting> }) =>
       api(`/api/admin/tradeline/settings/${clientId}`, { method: "PATCH", body: JSON.stringify(body) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tradeline/settings/clients"] }),
+    onError: (err: Error) => {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    },
   });
 
   const voiceMap = useMemo(() => new Map((voices.data?.voices ?? []).map((v) => [v.id, v])), [voices.data]);

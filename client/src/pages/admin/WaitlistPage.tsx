@@ -47,7 +47,7 @@ export default function WaitlistPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data, isLoading } = useQuery<WaitlistResponse>({
+  const { data, isLoading, isError, error, refetch } = useQuery<WaitlistResponse>({
     queryKey: ["/api/admin/marketing/waitlist"],
   });
 
@@ -110,7 +110,16 @@ export default function WaitlistPage() {
           </div>
         )}
 
-        {isLoading ? (
+        {isError ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-destructive mb-3">
+              Failed to load waitlist{(error as Error | null)?.message ? `: ${(error as Error).message}` : ""}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : isLoading ? (
           <p className="text-sm text-gray-500">Loading…</p>
         ) : grouped.length === 0 ? (
           <Card className="p-8 text-center text-sm text-gray-500">
