@@ -7,10 +7,13 @@
  * Pricing + feature data is based on public listings as of the page's
  * publishedDate. Anything we can't verify carries a hedge in the copy.
  */
+import { Link } from "wouter";
 import CompareLandingPage from "@/components/marketing/CompareLandingPage";
 import { mkt } from "@/theme/tokens";
 
 const PUBLISHED = "2026-05-25";
+
+const LINK_STYLE = { color: "inherit", textDecoration: "underline" } as const;
 
 export default function CompareVsHousecallPro() {
   return (
@@ -153,6 +156,11 @@ export default function CompareVsHousecallPro() {
           question: "Is WeFixTrades cheaper than Housecall Pro?",
           answer:
             "Yes for the same feature scope. Housecall Pro's Basic plan starts at $69/mo for one user and most shops with marketing needs end up on Essentials ($179/mo) plus paid add-ons. WeFixTrades' Growth plan at $49/mo includes the AI suite, MapGuard, reputation tools, and content — categories that are paid extras inside HCP.",
+          answerNode: (
+            <>
+              Yes for the same feature scope. Housecall Pro's Basic plan starts at $69/mo for one user and most shops with marketing needs end up on Essentials ($179/mo) plus paid add-ons. WeFixTrades' Growth plan at $49/mo includes the AI suite, <Link href="/products/mapguard" style={LINK_STYLE}>MapGuard</Link>, reputation tools, and content — categories that are paid extras inside HCP.
+            </>
+          ),
         },
         {
           question: "Can WeFixTrades replace Housecall Pro for an HVAC shop?",
@@ -168,6 +176,16 @@ export default function CompareVsHousecallPro() {
           question: "How does WeFixTrades' AI compare to Housecall Pro's AI assistant?",
           answer:
             "Different scope. HCP's AI helps with text drafting and some workflow automation. WeFixTrades' AI actually answers the phone 24/7 via TradeLine, generates marketing content and images via ContentFlow, and monitors Google Business + reviews via MapGuard and ReputationShield. We're an AI-first platform; HCP is an FSM platform with AI on top.",
+
+          answerNode: (
+            <>
+              Different scope. HCP's AI helps with text drafting and some workflow automation. WeFixTrades' AI actually answers the phone 24/7 via{" "}
+              <Link href="/products/tradeline" style={LINK_STYLE}>TradeLine</Link>, generates marketing content and images via{" "}
+              <Link href="/products/contentflow" style={LINK_STYLE}>ContentFlow</Link>, and monitors Google Business + reviews via{" "}
+              <Link href="/products/mapguard" style={LINK_STYLE}>MapGuard</Link> and{" "}
+              <Link href="/products/reputationshield" style={LINK_STYLE}>ReputationShield</Link>. We're an AI-first platform; HCP is an FSM platform with AI on top.
+            </>
+          ),
         },
         {
           question: "Can I import my Housecall Pro customers?",

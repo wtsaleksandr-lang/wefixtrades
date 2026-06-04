@@ -103,7 +103,10 @@ export function articleSchema(article: ArticleSchemaInput) {
 
 export interface FaqItem {
   question: string;
+  /** Plain-text answer used in JSON-LD structured data. */
   answer: string;
+  /** Optional rich answer with inline links rendered in the UI only. */
+  answerNode?: import("react").ReactNode;
 }
 
 export function faqSchema(items: FaqItem[]) {

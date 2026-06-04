@@ -8,10 +8,13 @@
  * below are framed as third-party ESTIMATES, never as fact — stating an
  * unpublished competitor's price as fact is a false-advertising risk.
  */
+import { Link } from "wouter";
 import CompareLandingPage from "@/components/marketing/CompareLandingPage";
 import { mkt } from "@/theme/tokens";
 
 const PUBLISHED = "2026-05-25";
+
+const LINK_STYLE = { color: "inherit", textDecoration: "underline" } as const;
 
 export default function CompareVsServiceTitan() {
   return (
@@ -165,6 +168,13 @@ export default function CompareVsServiceTitan() {
           question: "Does WeFixTrades have AI voice like ServiceTitan's AI Voice Agent?",
           answer:
             "Yes — 24/7 TradeLine answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It's bundled into our $49/mo Growth plan rather than billed as a separate add-on. ServiceTitan's AI Voice Agent is a strong product; the difference is pricing model and target shop size.",
+
+          answerNode: (
+            <>
+              Yes — 24/7{" "}
+              <Link href="/products/tradeline" style={LINK_STYLE}>TradeLine</Link> answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It's bundled into our $49/mo Growth plan rather than billed as a separate add-on. ServiceTitan's AI Voice Agent is a strong product; the difference is pricing model and target shop size.
+            </>
+          ),
         },
         {
           question: "How long does ServiceTitan implementation take?",

@@ -6,10 +6,13 @@
  * Pricing + feature data is based on public listings as of the page's
  * publishedDate. Anything we can't verify carries a hedge in the copy.
  */
+import { Link } from "wouter";
 import CompareLandingPage from "@/components/marketing/CompareLandingPage";
 import { mkt } from "@/theme/tokens";
 
 const PUBLISHED = "2026-05-25";
+
+const LINK_STYLE = { color: "inherit", textDecoration: "underline" } as const;
 
 export default function CompareVsJobber() {
   return (
@@ -182,6 +185,13 @@ export default function CompareVsJobber() {
           question: "Can I try both before deciding?",
           answer:
             "Yes — we recommend it. Jobber offers a 14-day free trial (card not required). WeFixTrades has a permanent free tier so you can sign up, hook up TradeLine to a forwarding number, and see exactly how the AI handles a real call before paying anything.",
+
+          answerNode: (
+            <>
+              Yes — we recommend it. Jobber offers a 14-day free trial (card not required). WeFixTrades has a permanent free tier so you can sign up, hook up{" "}
+              <Link href="/products/tradeline" style={LINK_STYLE}>TradeLine</Link> to a forwarding number, and see exactly how the AI handles a real call before paying anything.
+            </>
+          ),
         },
       ]}
       finalCtaTitle={
