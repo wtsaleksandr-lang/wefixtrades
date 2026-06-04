@@ -53,6 +53,8 @@ import {
 import CategoryIcon from './CategoryIcon';
 import CalculatorStepper, { StepperControls } from './CalculatorStepper';
 import ContactStep from './ContactStep';
+// Short modal lead-capture opened by the primary CTA (name / phone / email).
+import LeadModal from './LeadModal';
 // BD-2b — Good/Better/Best tier selector + inline trust signals.
 import TierSelector from './TierSelector';
 import TrustBlockUnderCTA from './TrustBlockUnderCTA';
@@ -1479,6 +1481,8 @@ export default function AdvancedCalculator({
 
   // Result-panel call-to-action — button → inline lead form → thank-you.
   const [leadView, setLeadView] = useState<'cta' | 'form' | 'done'>('cta');
+  // Short modal lead-capture (name / phone / email) opened by the primary CTA.
+  const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [leadName, setLeadName] = useState('');
   const [leadEmail, setLeadEmail] = useState('');
   // BD-2c — captured ZIP from the address autocomplete (or a dedicated ZIP
@@ -2176,6 +2180,16 @@ export default function AdvancedCalculator({
           padding: 2px;
           grid-template-columns: 1fr;
         }
+        /* Mobile spacing tune — on the single-column ≤559px layout the body
+           grid blocks (fields panel, result panel, CTA) should breathe, not
+           sit flush to the widget edges. ~16px outer gutters + a comfortable
+           12px gap BETWEEN the blocks. NOTE: the 2px gap between STACKED
+           INPUTS (the `-fields` grid) is a locked design-system rule and is
+           deliberately left untouched here. Desktop (≥560px) keeps its
+           deliberate 2px grey-seam rule below — this override is mobile-only. */
+        @media (max-width: 559px) {
+          .${gridId} { gap: 12px; padding: 16px; }
+        }
         .${gridId}-fields {
           display: grid;
           gap: 2px;
@@ -2818,7 +2832,7 @@ export default function AdvancedCalculator({
                     // stays as the fallback for browsers without
                     // `@property` support.
                     {...(premiumCtaPulseOn ? { 'data-qq-cta-pulse': '' } : null)}
-                    onClick={() => setLeadView('form')}
+                    onClick={() => setLeadModalOpen(true)}
                     style={{
                       width: '100%', height: '46px', borderRadius: radiusInnerPx, border: 'none',
                       background: ctaBg, color: ctaFgGuarded, fontSize: '14px', fontWeight: 800,
@@ -3035,6 +3049,20 @@ export default function AdvancedCalculator({
           scopeKey={String(calculatorId ?? widgetClass)}
         />
       )}
+
+      {/* Short modal lead-capture (name / phone / email) opened by the primary
+          CTA. Theme + contrast come through the guarded `cc` theme and the
+          CTA's guarded bg/fg pair. `position: fixed` overlays the viewport so
+          the mount point here (widget root) is fine. */}
+      <LeadModal
+        open={leadModalOpen}
+        onClose={() => setLeadModalOpen(false)}
+        theme={cc}
+        ctaBg={ctaBg}
+        ctaFg={ctaFgGuarded}
+        fontFamily={fontFamily}
+        radiusPx={radiusInnerPx}
+      />
     </div>
   );
 }
