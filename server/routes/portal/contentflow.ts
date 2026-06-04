@@ -946,7 +946,8 @@ export function registerPortalContentflowRoutes(app: Express) {
         }
         try {
           const humanized = await humanizeViaOrchestrator(draftText, {
-                industry: tradeType ?? undefined,
+            clientId,
+            industry: tradeType ?? undefined,
             targetWordCount: 400,
             sourceProvider: (draftRaw as any).provider === "openai" ? "openai" : "anthropic",
           });
