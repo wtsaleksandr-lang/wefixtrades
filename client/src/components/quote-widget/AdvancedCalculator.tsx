@@ -2920,8 +2920,31 @@ export default function AdvancedCalculator({
                       value={leadEmail} onChange={(e) => setLeadEmail(e.target.value)}
                       style={leadInputStyle} />
                     <button type="button" data-testid="advanced-cta-send"
-                      onClick={() => {
+                      onClick={async () => {
                         if (leadReady) {
+                          // POST to /api/leads — mirrors ContactStep pattern.
+                          if (analyticsCalcId) {
+                            try {
+                              const resp = await fetch('/api/leads', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  calculator_id: analyticsCalcId,
+                                  name: leadName.trim(),
+                                  email: leadEmail.trim(),
+                                  phone: null,
+                                  quote_amount: typeof effectiveQuoteValue === 'number' && Number.isFinite(effectiveQuoteValue)
+                                    ? effectiveQuoteValue : null,
+                                  answers: Object.keys(answers).length > 0 ? answers : null,
+                                }),
+                              });
+                              if (!resp.ok) {
+                                console.error('[QuoteQuick] inline lead POST failed:', resp.status);
+                              }
+                            } catch (err) {
+                              console.error('[QuoteQuick] inline lead POST error:', err);
+                            }
+                          }
                           // W-BB-4 — fire conversion event before flipping
                           // the panel so a fast unmount doesn't drop the beacon.
                           trackSubmit();
