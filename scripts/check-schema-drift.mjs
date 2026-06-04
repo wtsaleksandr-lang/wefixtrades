@@ -190,8 +190,8 @@ function parseMigrationObjects(migrationsDir) {
 
     // Track DROP INDEX / DROP TABLE — a later migration may supersede an
     // earlier CREATE (e.g. DROP plain index + ADD UNIQUE constraint).
-    const dropTableRx = /DROPs+TABLEs+(?:IFs+EXISTSs+)?(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))/gi;
-    const dropIndexRx = /DROPs+INDEXs+(?:IFs+EXISTSs+)?(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))/gi;
+    const dropTableRx = /DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))/gi;
+    const dropIndexRx = /DROP\s+INDEX\s+(?:IF\s+EXISTS\s+)?(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))/gi;
     for (const m of stripped.matchAll(dropTableRx)) {
       const name = m[1] ?? m[2];
       if (name) tables.delete(name);
