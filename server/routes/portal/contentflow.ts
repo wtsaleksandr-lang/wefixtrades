@@ -19,6 +19,8 @@
  *   GET    /api/portal/contentflow/custom-prompts              (Phase 3)
  *   POST   /api/portal/contentflow/custom-prompts              (Phase 3)
  *   DELETE /api/portal/contentflow/custom-prompts/:id          (Phase 3)
+ *   GET    /api/portal/contentflow/cms-config                   (self-serve)
+ *   PUT    /api/portal/contentflow/cms-config                   (self-serve)
  */
 
 import type { Express, Request, Response } from "express";
@@ -62,6 +64,7 @@ import { listPending as listPipelineForClient } from "../../services/contentflow
 import { humanizeViaOrchestrator } from "../../services/contentflow/humanizationOrchestrator";
 import { writeAudit } from "../../lib/auditLog";
 import { createLogger } from "../../lib/logger";
+import { encryptToken, isEncryptionConfigured } from "../../services/socialSync/tokenEncryption";
 import { withClientIdOrPreview } from "../../middleware/adminPreviewSafe";
 
 const log = createLogger("PortalContentflow");
@@ -1230,6 +1233,107 @@ export function registerPortalContentflowRoutes(app: Express) {
     } catch (err: any) {
       log.error("[portal/contentflow/pipeline]", err?.message || err);
       res.status(500).json({ error: err?.message });
+    }
+  });
+
+
+  /* ─── CMS publishing credentials (self-serve) ────────────────── */
+
+
+  /**
+   * GET /api/portal/contentflow/cms-config
+   * Returns current WordPress CMS configuration (password stripped).
+   */
+  app.get("/api/portal/contentflow/cms-config", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res, { cms_configured: false });
+      if (!clientId) return;
+      const profile = await storage.getRankFlowProfile(clientId);
+      if (!profile?.credentials) return res.json({ cms_configured: false });
+      const wp = (profile.credentials as Record<string, any>)?.wordpress;
+      if (!wp) return res.json({ cms_configured: false });
+      res.json({
+        cms_configured: true,
+        cms_type: profile.cms_type || "wordpress",
+        cms_url: wp.cms_url || "",
+        cms_username: wp.cms_username || "",
+        cms_default_status: wp.cms_default_status || "draft",
+        configured_at: wp.configured_at || null,
+      });
+    } catch (err: any) {
+      log.error("[portal/contentflow/cms-config GET]", err?.message || err);
+      res.status(500).json({ error: "Failed to load CMS config" });
+    }
+  });
+
+
+  /**
+   * PUT /api/portal/contentflow/cms-config
+   * Stores WordPress credentials (password encrypted at rest via AES-256-GCM).
+   * Mirrors the admin endpoint but scoped to the authenticated portal user.
+   */
+  app.put("/api/portal/contentflow/cms-config", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res, {}, "write");
+      if (!clientId) return;
+      const cmsUrl = typeof req.body?.cms_url === "string" ? req.body.cms_url.trim() : "";
+      const cmsUsername = typeof req.body?.cms_username === "string" ? req.body.cms_username.trim() : "";
+      const cmsAppPassword = typeof req.body?.cms_app_password === "string" ? req.body.cms_app_password : "";
+      const cmsDefaultStatus = req.body?.cms_default_status === "publish" ? "publish" : "draft";
+
+      if (!cmsUrl || !/^https?:\/\//i.test(cmsUrl)) {
+        return res.status(400).json({ error: "cms_url must be an http(s) URL" });
+      }
+      const isLocalhostDev = process.env.NODE_ENV !== "production" && /^http:\/\/localhost(:\d+)?\/.test(cmsUrl);
+      if (!cmsUrl.startsWith("https://") && !isLocalhostDev) {
+        return res.status(422).json({ error: "cms_url must use https://" });
+      }
+      if (!cmsUsername) return res.status(400).json({ error: "cms_username required" });
+      if (!cmsAppPassword) return res.status(400).json({ error: "cms_app_password required" });
+      if (!isEncryptionConfigured()) {
+        return res.status(500).json({ error: "Encryption not configured on this server" });
+      }
+
+      const encryptedPassword = encryptToken(cmsAppPassword);
+      const configuredAt = new Date().toISOString();
+      const profile = await storage.getRankFlowProfile(clientId);
+      const existingCreds = (profile?.credentials || {}) as Record<string, any>;
+
+      await storage.upsertRankFlowProfile(clientId, {
+        cms_type: "wordpress",
+        credentials: {
+          ...existingCreds,
+          wordpress: {
+            cms_url: cmsUrl,
+            cms_username: cmsUsername,
+            cms_app_password: encryptedPassword,
+            cms_default_status: cmsDefaultStatus,
+            configured_at: configuredAt,
+          },
+        },
+      } as any);
+
+      writeAudit({
+        userId: (req as any).user?.id,
+        clientId,
+        action: "contentflow.cms_config_saved",
+        entity: "rankflow_profiles",
+        entityId: clientId,
+        details: { cms_url: cmsUrl, cms_username: cmsUsername, cms_default_status: cmsDefaultStatus },
+      });
+      log.info("[portal/contentflow/cms-config] saved for client=" + clientId + " cms_url=" + cmsUrl);
+
+      res.json({
+        ok: true,
+        cms_configured: true,
+        cms_url: cmsUrl,
+        cms_username: cmsUsername,
+        cms_default_status: cmsDefaultStatus,
+        configured_at: configuredAt,
+      });
+    } catch (err: any) {
+      log.error("[portal/contentflow/cms-config PUT]", err?.message || err);
+      res.status(500).json({ error: "Failed to save CMS config" });
     }
   });
 }
