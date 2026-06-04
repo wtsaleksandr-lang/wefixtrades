@@ -141,7 +141,7 @@ export const MenuItem = ({
         </motion.button>
       ) : (
         <Link
-          href={href || "#"}
+          href={href ?? "/"}
           data-testid={`nav-link-${item.toLowerCase()}`}
           style={{ ...topItemBase, textDecoration: "none" }}
           onMouseEnter={(e) => topHoverOn(e.currentTarget as HTMLElement)}

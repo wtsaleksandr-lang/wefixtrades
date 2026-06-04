@@ -22,7 +22,7 @@ const COMPARISON_ROWS: { feature: string; us: boolean | string; them: boolean | 
   { feature: "Google + Facebook review routing", us: true, them: "Google + Facebook" },
   { feature: "Review monitoring + instant alerts", us: true, them: true },
   { feature: "Low-rating alert emails", us: true, them: false },
-  { feature: "AI-drafted review responses", us: true, them: false },
+  { feature: "AI-drafted review responses", us: true, them: "Partial" },
   { feature: "Post responses directly to Google", us: true, them: false },
   { feature: "Review widget (badge + carousel)", us: true, them: true },
   { feature: "QR code for field collection", us: true, them: false },
@@ -78,7 +78,7 @@ export default function CompareNiceJob() {
           <Card className="p-5">
             <Zap className="w-5 h-5 text-amber-500 mb-2" />
             <h3 style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 4 }}>AI Response Drafts</h3>
-            <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.5 }}>NiceJob has no AI. We draft professional responses in seconds — with tone control for positive, negative, or neutral reviews.</p>
+            <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.5 }}>NiceJob now offers basic AI suggestions. We draft professional responses in seconds — with tone control for positive, negative, or neutral reviews.</p>
           </Card>
           <Card className="p-5">
             <Shield className="w-5 h-5 text-violet-500 mb-2" />

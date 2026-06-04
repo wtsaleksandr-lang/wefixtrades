@@ -57,19 +57,6 @@ const HELP_LINKS: { icon: typeof Phone; title: string; sub: string; href: string
   { icon: Mail, title: "Contact us", sub: "Talk to a human", href: "/contact" },
 ];
 
-/**
- * Capture a live text snapshot of the page the visitor is on, so the
- * assistant can answer about what they're looking at — and stay current
- * with the site without any sync step. Prefers <main> to skip nav /
- * footer / the chat widget itself.
- */
-function capturePageSnapshot(): string {
-  if (typeof document === "undefined") return "";
-  const root = document.querySelector("main") ?? document.body;
-  const text = (root as HTMLElement).innerText || "";
-  return text.replace(/\n{3,}/g, "\n\n").trim().slice(0, 4000);
-}
-
 const BRAND_GRAD = "linear-gradient(135deg, #0d3cfc 0%, #0b34d6 100%)";
 
 export default function SiteChatWidget() {
@@ -143,7 +130,6 @@ export default function SiteChatWidget() {
       setShowDot(false);
     }
 
-    void capturePageSnapshot;
 
     const newMessages: MarketingChatMessage[] = [
       ...messages,
