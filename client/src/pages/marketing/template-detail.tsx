@@ -13,7 +13,7 @@
 //
 // Unknown slug → redirect to /templates index (avoids dead-end SEO).
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useRoute, Redirect } from "wouter";
 import { ArrowRight, ArrowLeft, ChevronLeft, Check, Zap, Clock, TrendingUp, ShieldCheck, Monitor, Smartphone } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
@@ -150,6 +150,102 @@ function buildPreviewCalculator(
       advanced,
     },
   };
+}
+
+/* ─── Mobile pinch-zoom + drag gesture layer for the preview widget ───
+   On touch: pinch (2 fingers) zooms the widget; one-finger drag moves it. A
+   touch that starts on a form control (slider/select/etc.) is left alone so
+   the calculator stays usable. Inert on desktop (no touch events). Uses
+   non-passive listeners + preventDefault during an active gesture so the
+   browser doesn't scroll/zoom the page out from under the gesture. */
+function PreviewGestureLayer({ children }: { children: ReactNode }) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [tf, setTf] = useState({ z: 1, x: 0, y: 0 });
+  const tfRef = useRef(tf);
+  tfRef.current = tf;
+  const transformed = tf.z !== 1 || tf.x !== 0 || tf.y !== 0;
+
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+    const isControl = (t: EventTarget | null) =>
+      t instanceof Element &&
+      !!t.closest('input, select, textarea, button, a, label, [role="slider"], [contenteditable]');
+    const dist = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    let mode: "pan" | "pinch" | "control" | null = null;
+    let sx = 0, sy = 0, bx = 0, by = 0, pd = 0, pz = 1;
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        mode = "pinch"; pd = dist(e.touches[0], e.touches[1]); pz = tfRef.current.z;
+      } else if (e.touches.length === 1) {
+        if (isControl(e.target)) { mode = "control"; return; }
+        mode = "pan";
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+        bx = tfRef.current.x; by = tfRef.current.y;
+      }
+    };
+    const onMove = (e: TouchEvent) => {
+      if (mode === "control" || mode === null) return;
+      if (mode === "pinch" && e.touches.length >= 2) {
+        e.preventDefault();
+        const z = clamp(pz * (dist(e.touches[0], e.touches[1]) / (pd || 1)), 1, 4);
+        setTf((p) => ({ ...p, z }));
+      } else if (mode === "pan" && e.touches.length === 1) {
+        e.preventDefault();
+        setTf((p) => ({ ...p, x: bx + (e.touches[0].clientX - sx), y: by + (e.touches[0].clientY - sy) }));
+      }
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) { mode = null; return; }
+      // a finger lifted from a pinch → continue as a one-finger pan
+      if (e.touches.length === 1 && !isControl(e.touches[0].target)) {
+        mode = "pan";
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+        bx = tfRef.current.x; by = tfRef.current.y;
+      }
+    };
+    el.addEventListener("touchstart", onStart, { passive: false });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: false });
+    el.addEventListener("touchcancel", onEnd, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
+  }, []);
+
+  return (
+    <div ref={hostRef} data-testid="preview-gesture-layer" style={{ position: "relative" }}>
+      <div
+        style={{
+          transform: `translate(${tf.x}px, ${tf.y}px) scale(${tf.z})`,
+          transformOrigin: "center top",
+          willChange: "transform",
+        }}
+      >
+        {children}
+      </div>
+      {transformed && (
+        <button
+          type="button"
+          onClick={() => setTf({ z: 1, x: 0, y: 0 })}
+          data-testid="preview-reset-view"
+          aria-label="Reset preview view"
+          style={{
+            position: "absolute", top: 10, left: 10, zIndex: 6,
+            padding: "6px 11px", borderRadius: 999, border: "none", cursor: "pointer",
+            background: "rgba(15,20,24,0.72)", color: "rgba(255,255,255,1)",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.03em",
+          }}
+        >
+          Reset view
+        </button>
+      )}
+    </div>
+  );
 }
 
 /* ─── JSON-LD SoftwareApplication schema ─── */
@@ -727,9 +823,12 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                   }}
                 >
                   {/* key on the active template → remount + fade/rise on swap
-                      (Elfsight/Canva-style polish). */}
+                      (Elfsight/Canva-style polish). Wrapped in a gesture layer
+                      so mobile users can pinch-zoom + drag the preview. */}
                   <div key={activeTemplate.id} className="tpl-swap-in">
-                    <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+                    <PreviewGestureLayer>
+                      <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+                    </PreviewGestureLayer>
                   </div>
                 </div>
               </div>
