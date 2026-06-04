@@ -6,7 +6,7 @@
 // sheet slides up from the bottom and snaps between three heights.
 //
 // Snap heights:
-//   - collapsed: ~56px (just the handle + active-tab label)
+//   - collapsed: 46px (just the handle + active-tab label)
 //   - half:      62vh
 //   - full:      88vh
 //
@@ -217,7 +217,7 @@ export default function MobileBottomSheet({
          * which some screen readers don't honour gracefully on a
          * single dialog node. Both half + full render the backdrop
          * (snap !== 'collapsed') and intercept page interaction, so
-         * both are modal contexts. Collapsed is a 56px peek bar with
+         * both are modal contexts. Collapsed is a 46px peek bar with
          * no backdrop, but the dialog node remains in the tree —
          * keep aria-modal stable as 'true' since role="dialog" is
          * always set; expansion state is signalled via aria-expanded

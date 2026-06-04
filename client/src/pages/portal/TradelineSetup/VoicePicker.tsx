@@ -82,7 +82,7 @@ export function VoicePicker({ onSaved }: Props) {
   }, []);
 
   // Revoke any outstanding object URL on unmount.
-  useEffect(() => stopCurrentAudio, [stopCurrentAudio]);
+  useEffect(() => () => { stopCurrentAudio(); }, [stopCurrentAudio]);
 
   const playFromUrl = useCallback(
     (voiceId: string, url: string) => {

@@ -192,6 +192,7 @@ function PreviewGestureLayer({ children }: { children: ReactNode }) {
     const onStart = (e: TouchEvent) => {
       clearTimer(); pending = false;
       if (e.touches.length === 2) {
+        e.preventDefault();
         mode = "pinch"; pd = dist(e.touches[0], e.touches[1]); pz = tfRef.current.z;
         return;
       }
@@ -221,7 +222,8 @@ function PreviewGestureLayer({ children }: { children: ReactNode }) {
       if (mode === "pan" && e.touches.length === 1) {
         e.preventDefault();
         const t = e.touches[0];
-        setTf((p) => ({ ...p, x: bx + (t.clientX - sx), y: by + (t.clientY - sy) }));
+        const maxPan = 300;
+        setTf((p) => ({ ...p, x: clamp(bx + (t.clientX - sx), -maxPan, maxPan), y: clamp(by + (t.clientY - sy), -maxPan, maxPan) }));
         return;
       }
       if (pending && e.touches.length === 1) {
@@ -337,6 +339,16 @@ function useTemplateJsonLd(template: TemplateConfig) {
   }, [template.id, template.name, template.description, url]);
 }
 
+/** Relative luminance (WCAG 2.1) — used to pick a contrasting check-mark on colour swatches. */
+function luminanceOf(hex: string): number {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
 /* ─── Website color palette (4 premium, industry-agnostic accents). The wizard
    exposes the full picker; the site offers these four, reused on every
    template. Default = Brand Blue. ─── */
@@ -424,7 +436,7 @@ function TemplateRail({
                     : "0 0 0 1px rgba(15,20,24,0.12)",
                 }}
               >
-                {sel && <Check size={14} color="rgba(255,255,255,1)" strokeWidth={3} />}
+                {sel && <Check size={14} color={luminanceOf(p.color) > 0.2 ? "#0F1418" : "rgba(255,255,255,1)"} strokeWidth={3} />}
               </button>
             );
           })}

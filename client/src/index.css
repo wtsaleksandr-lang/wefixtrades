@@ -3791,8 +3791,8 @@ select:focus {
   padding: 8px 13px; border-radius: 9px; font-family: inherit; text-decoration: none;
   transition: background 200ms ease, color 200ms ease;
 }
-.calx-try { background: var(--calx-accent, #0D3CFC); color: var(--calx-ink, rgba(255, 255, 255, 1)); border: 1.5px solid var(--calx-accent, #0D3CFC); }
-.calx-try:hover { background: rgba(255, 255, 255, 1); color: var(--calx-accent, #0D3CFC); }
-.calx-use { background: rgba(255, 255, 255, 1); color: var(--calx-accent, #0D3CFC); border: 1.5px solid var(--calx-accent, #0D3CFC); }
-.calx-use:hover { background: var(--calx-accent, #0D3CFC); color: var(--calx-ink, rgba(255, 255, 255, 1)); }
+.calx-try { background: var(--calx-cta, var(--calx-accent, #0D3CFC)); color: var(--calx-ink, rgba(255, 255, 255, 1)); border: 1.5px solid var(--calx-cta, var(--calx-accent, #0D3CFC)); }
+.calx-try:hover { background: rgba(255, 255, 255, 1); color: var(--calx-cta, var(--calx-accent, #0D3CFC)); }
+.calx-use { background: rgba(255, 255, 255, 1); color: var(--calx-cta, var(--calx-accent, #0D3CFC)); border: 1.5px solid var(--calx-cta, var(--calx-accent, #0D3CFC)); }
+.calx-use:hover { background: var(--calx-cta, var(--calx-accent, #0D3CFC)); color: var(--calx-ink, rgba(255, 255, 255, 1)); }
 
