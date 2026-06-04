@@ -544,24 +544,20 @@ export default function StyleTab({
               onClick={() => applyPreset(preset.style)}
             >
               <div
-                className="qq-style-preset-card-swatch"
+                className="qq-style-preset-card-swatch qq-style-preset-card-swatch--split"
                 aria-hidden="true"
                 style={{
-                  background: preset.style.background ?? '#ffffff',
+                  /* W2 #11 — dual-colour split swatch matching the marketing
+                     template page: left half = the results/panel colour
+                     (resultsBg), right half = the CTA/accent colour. This
+                     makes a user recognise the same themes in both surfaces.
+                     resultsBg falls back to the panel background, then to the
+                     general background, so every preset reads as two colours. */
+                  background: `linear-gradient(90deg, ${preset.style.resultsBg ?? preset.style.background ?? 'rgba(255,255,255,1)'} 0 50%, ${preset.style.accent ?? '#0d3cfc'} 50% 100%)`,
                   borderColor: preset.style.border ?? '#e5e7eb',
                 }}
-              >
-                <span
-                  className="qq-style-preset-card-accent"
-                  style={{ background: preset.style.accent ?? '#0d3cfc' }}
-                />
-                <span
-                  className="qq-style-preset-card-text"
-                  style={{ color: preset.style.text ?? '#0f172a' }}
-                >
-                  Aa
-                </span>
-              </div>
+              />
+
               <span className="qq-style-preset-card-name">{preset.name}</span>
             </button>
           ))}
@@ -1161,51 +1157,63 @@ export default function StyleTab({
 
         {/* W-AO-6b — typography depth. Heading weight, body weight, base
             size. All flow into the renderer as CSS variables so the title
-            bar, breakdown rows + body text inherit cleanly. */}
-        <label className="qq-style-label" style={{ marginTop: 12 }}>
-          <span className="qq-style-label-text">Heading weight</span>
-        </label>
-        <SegmentedControl<ShellHeadingWeight>
-          name="heading-weight"
-          testid="style-segmented-heading-weight"
-          value={headingWeight}
-          options={[
-            { value: 500, label: '500' },
-            { value: 600, label: '600' },
-            { value: 700, label: '700' },
-            { value: 800, label: '800' },
-          ]}
-          onChange={(v) => patch({ headingWeight: v })}
-        />
+            bar, breakdown rows + body text inherit cleanly.
+            W2 #15 — compacted onto a single row (three labelled controls in a
+            flex-wrap row) so they no longer eat three full-width rows of
+            vertical space. Each control keeps its own label + testid; on the
+            narrow mobile sheet the row wraps gracefully. */}
+        <div className="qq-style-type-row" style={{ marginTop: 12 }}>
+          <div className="qq-style-type-cell">
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Heading weight</span>
+            </label>
+            <SegmentedControl<ShellHeadingWeight>
+              name="heading-weight"
+              testid="style-segmented-heading-weight"
+              value={headingWeight}
+              options={[
+                { value: 500, label: '500' },
+                { value: 600, label: '600' },
+                { value: 700, label: '700' },
+                { value: 800, label: '800' },
+              ]}
+              onChange={(v) => patch({ headingWeight: v })}
+            />
+          </div>
 
-        <label className="qq-style-label" style={{ marginTop: 12 }}>
-          <span className="qq-style-label-text">Body weight</span>
-        </label>
-        <SegmentedControl<ShellBodyWeight>
-          name="body-weight"
-          testid="style-segmented-body-weight"
-          value={bodyWeight}
-          options={[
-            { value: 400, label: '400' },
-            { value: 500, label: '500' },
-          ]}
-          onChange={(v) => patch({ bodyWeight: v })}
-        />
+          <div className="qq-style-type-cell">
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Body weight</span>
+            </label>
+            <SegmentedControl<ShellBodyWeight>
+              name="body-weight"
+              testid="style-segmented-body-weight"
+              value={bodyWeight}
+              options={[
+                { value: 400, label: '400' },
+                { value: 500, label: '500' },
+              ]}
+              onChange={(v) => patch({ bodyWeight: v })}
+            />
+          </div>
 
-        <label className="qq-style-label" style={{ marginTop: 12 }}>
-          <span className="qq-style-label-text">Base size</span>
-        </label>
-        <SegmentedControl<ShellFontSize>
-          name="font-size"
-          testid="style-segmented-font-size"
-          value={fontSize}
-          options={[
-            { value: 'small', label: 'Small' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'large', label: 'Large' },
-          ]}
-          onChange={(v) => patch({ fontSize: v })}
-        />
+          <div className="qq-style-type-cell">
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Base size</span>
+            </label>
+            <SegmentedControl<ShellFontSize>
+              name="font-size"
+              testid="style-segmented-font-size"
+              value={fontSize}
+              options={[
+                { value: 'small', label: 'Small' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'large', label: 'Large' },
+              ]}
+              onChange={(v) => patch({ fontSize: v })}
+            />
+          </div>
+        </div>
         </div>
       </fieldset>
 
@@ -1857,8 +1865,14 @@ export default function StyleTab({
            * absolute-positioned labels (top: 100% + margin-top: 4px ≈ 14-18px
            * below the swatch button) behind row 2's circles. Bumped row gap
            * to 16px so each label has clear breathing room before the next
-           * row of swatches. Column gap unchanged at 4px. */
-          gap: 16px 4px;
+           * row of swatches.
+           *
+           * W2 #13 — column gap was 4px, which let the 36px swatch circles sit
+           * too tight and let the ≤52px floating labels overlap into the next
+           * column. Bumped to 12px so swatches never touch and labels have
+           * room; the label max-width is also tightened (below) to the swatch
+           * footprint so adjacent labels never collide on the narrow sheet. */
+          gap: 16px 12px;
           padding-bottom: 22px;
           align-items: start;
           justify-items: center;
@@ -1897,7 +1911,10 @@ export default function StyleTab({
           font-size: 10px; font-weight: 600;
           color: ${p.colors.muted};
           letter-spacing: -0.01em;
-          max-width: 52px;
+          /* W2 #13 — was 52px (wider than the 36px swatch), which let labels
+             bleed under neighbouring columns. Capped to the column footprint
+             so labels ellipsis-truncate instead of overlapping. */
+          max-width: 48px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -2074,6 +2091,29 @@ export default function StyleTab({
           font-size: 11.5px; font-weight: 600;
           color: ${p.colors.muted};
           font-family: 'SF Mono', Menlo, Consolas, monospace;
+        }
+        /* W2 #14 — StyledSelect inside a FloatField (Font family, Calendar
+           source) rendered as a custom button.premium-input, NOT a native
+           select. The index.css float-up rules only match select.premium-input,
+           so the floating label stayed in its un-floated centre position and
+           overlapped the trigger's own value text. That read as two stacked
+           selectors with a single chevron. These rules float the label to the
+           top-left and add matching top padding to the trigger, so one control
+           shows one label affordance plus one chevron. */
+        .float-field--select > .qq-styled-select-trigger {
+          padding-top: 24px;
+          padding-bottom: 4px;
+        }
+        .float-field--select > .qq-styled-select-trigger + label {
+          top: 6px;
+          left: 17px;
+          font-size: 11px;
+          font-weight: 600;
+          color: #0d3cfc;
+          pointer-events: none;
+        }
+        .float-field--select > .qq-styled-select-trigger .qq-styled-select-trigger-label {
+          font-size: 13.5px;
         }
         .qq-style-select {
           width: 100%; padding: 8px 10px;
@@ -2253,6 +2293,29 @@ export default function StyleTab({
          * customised). Acts as the wizard's "toggle button" surface — the
          * Pro tier toggle, Brand Studio chevron, animation toggle, etc.
          * all flow through this control. */
+        /* W2 #15 — typography weights + base size on one line. The three
+           labelled controls sit in a flex-wrap row so they share a single
+           row on normal widths and wrap cleanly on the narrow mobile sheet.
+           Each cell stacks its own label above its compact SegmentedControl. */
+        .qq-style-type-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px 16px;
+          align-items: flex-start;
+        }
+        .qq-style-type-cell {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        .qq-style-type-cell .qq-style-label {
+          margin-bottom: 4px;
+        }
+        /* Slightly tighter seg buttons in this row so all three controls have
+           the best chance of sharing one line before the flex row wraps. */
+        .qq-style-type-cell .qq-style-seg-btn {
+          padding: 6px 10px;
+        }
         .qq-style-seg {
           display: inline-flex;
           padding: 3px;
