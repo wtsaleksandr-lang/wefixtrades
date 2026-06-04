@@ -368,17 +368,6 @@ const RESPONSIVE_CSS = `
   .hero-warm-headline {
     text-shadow: 0 1px 2px rgba(15,23,42,0.04);
   }
-  @media (max-width: 820px) {
-    .flow-map-desktop { display: none !important; } /* already hidden inline */
-    .flow-map-mobile { display: none !important; }
-  }
-  @keyframes flowPulse {
-    0%, 100% { box-shadow: 0 8px 32px ${mkt.accentGlow}; }
-    50% { box-shadow: 0 8px 40px rgba(13,60,252,0.35); }
-  }
-  .flow-center-node { animation: flowPulse 3s ease-in-out infinite; }
-  .flow-node { transition: box-shadow 0.2s ease; }
-  .flow-node:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.20) !important; }
   @media (max-width: 768px) {
     .hero-section-responsive { padding: 96px 20px 28px !important; }
     .hero-subtext { font-size: 16px !important; }

@@ -104,7 +104,7 @@ export default function AiReceptionistsPage() {
             </div>
 
             {filtered.length === 0 && (
-              <p style={{ textAlign: "center", color: CS.inkMuted, marginTop: 40, fontSize: 15 }}>
+              <p aria-live="polite" style={{ textAlign: "center", color: CS.inkMuted, marginTop: 40, fontSize: 15 }}>
                 No trades match “{query}”. Don't see yours?{" "}
                 <Link href="/contact" style={{ color: mkt.accent }}>Tell us</Link> — we add new trades fast.
               </p>
@@ -127,7 +127,7 @@ export default function AiReceptionistsPage() {
             }}>
               Request your trade <ArrowRight size={16} />
             </Link>
-            <Link href="/products/quickquotepro" style={{
+            <Link href="/products/tradeline" style={{
               display: "inline-block", padding: "13px 26px", borderRadius: 12, background: "transparent",
               color: mkt.onDark, fontSize: 15, fontWeight: 600, textDecoration: "none",
               border: `1px solid ${mkt.onDarkBorder}`,
