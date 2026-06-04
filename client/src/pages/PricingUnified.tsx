@@ -474,6 +474,7 @@ function ExpandableDetails({ label, children }: { label?: string; children: Reac
     <div>
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         style={{
           display: "flex",
           alignItems: "center",
