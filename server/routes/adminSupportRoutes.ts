@@ -221,7 +221,7 @@ export function registerAdminSupportRoutes(app: Express): void {
       if (!ticket) return res.status(404).json({ error: "Ticket not found" });
 
       const body = z.object({
-        message: z.string().min(1, "Message is required"),
+        message: z.string().min(1, "Message is required").max(50000),
         visibility: z.enum(["customer", "internal"]),
       }).safeParse(req.body);
 
