@@ -154,7 +154,7 @@ export default function PayInvoicePage() {
 
   return (
     <div style={pageStyle}>
-      <PageMeta noIndex title="Invoice Payment" />
+      <PageMeta noIndex title="Invoice Payment" description="Pay your invoice securely online." />
       <div style={cardStyle}>
         {/* Header */}
         <div style={{ marginBottom: 20 }}>
