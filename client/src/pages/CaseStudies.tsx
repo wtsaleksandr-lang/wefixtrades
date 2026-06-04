@@ -609,7 +609,7 @@ function StudyCard({ study }: { study: Study }) {
         borderRadius: 18,
         padding: 4,                          // ← .19em frame
         display: "flex", flexDirection: "column",
-        cursor: "pointer",
+        cursor: "default",
         minHeight: 440,                      // ~20% taller
         transition: "background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
         transform: hover ? "translateY(-3px)" : "translateY(0)",
