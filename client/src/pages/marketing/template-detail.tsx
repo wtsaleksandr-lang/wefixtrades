@@ -359,20 +359,6 @@ function useTemplateJsonLd(template: TemplateConfig) {
   }, [template.id, template.name, template.description, url]);
 }
 
-/* ─── Website color palette (8 premium, industry-agnostic accents). The wizard
-   exposes the full picker; the site offers these eight, reused on every
-   template. Default = Brand Blue. ─── */
-const SITE_PALETTE: { name: string; color: string }[] = [
-  { name: "Brand Blue", color: "#0D3CFC" },
-  { name: "Slate", color: "#334155" },
-  { name: "Emerald", color: "#10B981" },
-  { name: "Amber", color: "#D97706" },
-  { name: "Violet", color: "#7C3AED" },
-  { name: "Rose", color: "#E11D48" },
-  { name: "Teal", color: "#0D9488" },
-  { name: "Indigo", color: "#4338CA" },
-];
-
 /* ─── Full theme COMBINATIONS — a pre-balanced palette (background + text +
    surface + border + result panel + accent) the live preview can switch
    between, beyond the single-accent swatches above. Each combo is contrast-
@@ -397,13 +383,30 @@ type ThemeCombination = {
   ctaColor: string;
 };
 
+/* EVERY combo keeps the SAME light body (bg white, dark text, light surface +
+   border). A theme changes ONLY the right panel (resultsBg = Colour B), the
+   left-side accents (accent = Colour B), and the CTA (ctaColor = Colour A).
+   The left body background is ALWAYS white. EXCEPTION: `light-blue` keeps a
+   LIGHT result panel (resultsBg) — the rest follow the dark-panel pattern. */
+const COMBO_LIGHT_BODY = {
+  bg: "rgba(255,255,255,1)",
+  text: "#171717",
+  surface: "#f6f7f9",
+  border: "#e5e7eb",
+} as const;
+
 const THEME_COMBINATIONS: ThemeCombination[] = [
-  { id: "light-blue", name: "Light · Blue", bg: "rgba(255,255,255,1)", text: "#171717", surface: "#f6f7f9", border: "#e5e7eb", resultsBg: "#f3f4f6", accent: "#0d3cfc", ctaColor: "#0d3cfc" },
-  // TWO-ZONE: white body + dark text (LEFT zone), Colour B (#0d0d0d) drives the
-  // left accents AND the dark result panel, Colour A (#ffd60a) is the CTA only.
-  { id: "black-yellow", name: "Black · Yellow", bg: "rgba(255,255,255,1)", text: "#171717", surface: "#f6f7f9", border: "#e5e7eb", resultsBg: "#0d0d0d", accent: "#0d0d0d", ctaColor: "#ffd60a" },
-  { id: "slate-teal", name: "Slate · Teal", bg: "#0f172a", text: "rgba(255,255,255,1)", surface: "#1e293b", border: "#334155", resultsBg: "#172033", accent: "#2dd4bf", ctaColor: "#2dd4bf" },
-  { id: "warm-amber", name: "Warm · Amber", bg: "#faf7f2", text: "#1c1917", surface: "#f3ede3", border: "#e7ddcd", resultsBg: "#efe7d8", accent: "#d97706", ctaColor: "#d97706" },
+  { id: "light-blue", name: "Light · Blue", ...COMBO_LIGHT_BODY, resultsBg: "#f3f4f6", accent: "#0d3cfc", ctaColor: "#0d3cfc" },
+  { id: "black-yellow", name: "Black · Yellow", ...COMBO_LIGHT_BODY, resultsBg: "#0d0d0d", accent: "#0d0d0d", ctaColor: "#ffd60a" },
+  { id: "navy-sky", name: "Navy · Sky", ...COMBO_LIGHT_BODY, resultsBg: "#0f2747", accent: "#0f2747", ctaColor: "#38bdf8" },
+  { id: "slate-amber", name: "Slate · Amber", ...COMBO_LIGHT_BODY, resultsBg: "#1f2937", accent: "#1f2937", ctaColor: "#f59e0b" },
+  { id: "teal-coral", name: "Teal · Coral", ...COMBO_LIGHT_BODY, resultsBg: "#134e4a", accent: "#134e4a", ctaColor: "#fb7185" },
+  { id: "indigo-lime", name: "Indigo · Lime", ...COMBO_LIGHT_BODY, resultsBg: "#312e81", accent: "#312e81", ctaColor: "#a3e635" },
+  { id: "plum-gold", name: "Plum · Gold", ...COMBO_LIGHT_BODY, resultsBg: "#4c1d4f", accent: "#4c1d4f", ctaColor: "#fbbf24" },
+  { id: "forest-mint", name: "Forest · Mint", ...COMBO_LIGHT_BODY, resultsBg: "#14532d", accent: "#14532d", ctaColor: "#34d399" },
+  { id: "charcoal-orange", name: "Charcoal · Orange", ...COMBO_LIGHT_BODY, resultsBg: "#27272a", accent: "#27272a", ctaColor: "#fb923c" },
+  { id: "maroon-sand", name: "Maroon · Sand", ...COMBO_LIGHT_BODY, resultsBg: "#7f1d1d", accent: "#7f1d1d", ctaColor: "#fcd34d" },
+  { id: "royal-aqua", name: "Royal · Aqua", ...COMBO_LIGHT_BODY, resultsBg: "#1e3a8a", accent: "#1e3a8a", ctaColor: "#22d3ee" },
 ];
 
 const DEFAULT_COMBO =
@@ -441,7 +444,12 @@ function comboLuminance(color: string): number {
    widget (Elfsight cards show the real calculator, not an icon). Memoised on
    the template so it only mounts once per card. ─── */
 const TemplateThumb = memo(function TemplateThumb({ template }: { template: TemplateConfig }) {
-  const calc = useMemo(() => buildPreviewCalculator(template), [template]);
+  // Render each card in its OWN default combo (car_towing → Black · Yellow,
+  // others → Light · Blue) so the thumbnail matches the template's real theme.
+  const calc = useMemo(
+    () => buildPreviewCalculator(template, undefined, undefined, defaultComboForTemplate(template.id)),
+    [template],
+  );
   return (
     <div className="tpl-thumb" aria-hidden>
       <div className="tpl-thumb-scale">
@@ -461,14 +469,12 @@ function TemplateRail({
   selectedSlug,
   onSelect,
   accent,
-  setAccent,
   combo,
   setCombo,
 }: {
   selectedSlug: string;
   onSelect: (slug: string) => void;
   accent: string;
-  setAccent: (color: string) => void;
   combo: ThemeCombination;
   setCombo: (combo: ThemeCombination) => void;
 }) {
@@ -496,13 +502,11 @@ function TemplateRail({
 
   return (
     <aside className="tpl-rail" data-testid="template-rail">
-      {/* Theme-combination selector — ABOVE the accent swatches. Each entry is a
-          minimal ROUND dual-colour swatch (no visible text) matching the
-          "Choose a colour" single-swatch row below, so the two read as a
-          family. Left half = Colour B (combo.accent / panel), right half =
-          Colour A (combo.ctaColor / CTA). The combo name lives in title +
-          aria-label only. Selecting a swatch swaps the whole palette; the
-          accent swatches below still override accent. */}
+      {/* Theme-combination selector — the sole colour control. Each entry is a
+          minimal dual-colour swatch (no visible text): left half = Colour B
+          (combo.accent / panel + left accents), right half = Colour A
+          (combo.ctaColor / CTA). The combo name lives in title + aria-label
+          only. Selecting a swatch swaps the whole palette. */}
       <div className="tpl-rail-block">
         <div className="tpl-cats-head">Theme</div>
         <div className="tpl-color-row" data-testid="template-combo-tabs">
@@ -525,35 +529,6 @@ function TemplateRail({
                   background: `linear-gradient(90deg, ${c.accent} 0 50%, ${c.ctaColor} 50% 100%)`,
                   boxShadow: sel
                     ? `0 0 0 2px ${CS_LIGHT.bg}, 0 0 0 4px ${mkt.accent}`
-                    : "0 0 0 1px rgba(15,20,24,0.12)",
-                }}
-              >
-                {sel && <Check size={14} color="rgba(255,255,255,1)" strokeWidth={3} />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Colour selector — ABOVE the templates */}
-      <div className="tpl-rail-block">
-        <div className="tpl-cats-head">Choose a colour</div>
-        <div className="tpl-color-row" data-testid="template-color-tabs">
-          {SITE_PALETTE.map((p) => {
-            const sel = accent === p.color;
-            return (
-              <button
-                key={p.color}
-                type="button"
-                aria-label={p.name}
-                aria-pressed={sel}
-                title={p.name}
-                onClick={() => setAccent(p.color)}
-                className="tpl-swatch"
-                style={{
-                  background: p.color,
-                  boxShadow: sel
-                    ? `0 0 0 2px ${CS_LIGHT.bg}, 0 0 0 4px ${p.color}`
                     : "0 0 0 1px rgba(15,20,24,0.12)",
                 }}
               >
@@ -912,7 +887,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Two-pane editor: template rail (colour selector + catalogue) on
                 the left, the title + live widget on the right. */}
             <div className="tpl-editor">
-              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} setAccent={setAccent} combo={selectedCombo} setCombo={setCombo} />
+              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} combo={selectedCombo} setCombo={setCombo} />
               <div className="tpl-preview">
             {/* Full-width preview — NO card chrome/edges. The widget paints its
                 own theme background and fills the preview area edge-to-edge (it
