@@ -255,7 +255,7 @@ export default function PortalChatWidgetSetup() {
                   type="color"
                   value={(draft.accent_color as string) || DEFAULT_ACCENT}
                   onChange={(e) => setDraft({ ...draft, accent_color: e.target.value })}
-                  className="h-9 w-9 rounded-md border border-gray-200 p-0 cursor-pointer"
+                  className="h-8 w-8 rounded-md border border-gray-200 p-0 cursor-pointer"
                 />
               </div>
             </div>
