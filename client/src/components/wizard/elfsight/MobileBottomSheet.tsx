@@ -256,6 +256,36 @@ export default function MobileBottomSheet({
           )}
         </button>
 
+        {/* ── In-sheet tab switcher (BH-tabs 2026-06-04) ──────────
+         *  Compact segmented row mirroring the top-chrome tabs, wired to
+         *  the SAME activeTab state (onTabChange === WizardShell's
+         *  setActiveTab — the single source of truth shared with the top
+         *  bar). Switching here changes the sheet body AND the top tabs in
+         *  lockstep; no duplicated state. Hidden when collapsed (only the
+         *  pill handle shows there). */}
+        {snap !== 'collapsed' && (
+          <div
+            className="qq-sheet-tabs"
+            role="tablist"
+            aria-label="Configuration sections"
+            data-testid="wizard-sheet-tabs"
+          >
+            {EDITOR_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === t.id}
+                className={`qq-sheet-tab${activeTab === t.id ? ' is-active' : ''}`}
+                data-testid={`wizard-sheet-tab-${t.id}`}
+                onClick={() => onTabChange(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ── Scrollable content (active tab's panel only) ───────── */}
         <div
           ref={contentRef}
@@ -338,23 +368,30 @@ export default function MobileBottomSheet({
            * Half/full re-attach to the edges as a normal bottom sheet. */
           .qq-sheet--collapsed {
             height: 46px;
+            /* NARROWER + RECTANGULAR + LOWER (2026-06-04) — Alex: the
+             * collapsed button was ~full-width and floated too high. Now it's
+             * ~50% narrower (max-width 200px, centered via the symmetric
+             * left/right + margin:auto), more rectangular (border-radius 14px
+             * reads as a rounded rectangle, not a full pill), and sits just
+             * above the bottom action bar with a small gap instead of way up. */
             left: 10px; right: 10px;
-            /* ALWAYS-VISIBLE FIX (2026-06-04) — sit the collapsed pill ABOVE
-             * the fixed mobile action bar (.qq-mobile-actionbar, bottom:0,
-             * ~64px tall incl. safe-area) instead of at bottom:10px where the
-             * action bar physically covered it. 72px clears the bar; the
-             * safe-area inset keeps it off the home indicator. This — plus the
-             * transform:none pin on .qq-editor-frame (WizardShell) so fixed
-             * descendants anchor to the viewport — is what keeps this pill on
-             * screen at all times, including during page scroll. */
-            bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+            /* ALWAYS-VISIBLE FIX (2026-06-04) — sit the collapsed button just
+             * ABOVE the fixed mobile action bar (.qq-mobile-actionbar,
+             * bottom:0, ~64px tall incl. safe-area). Dropped from 72px to a
+             * tight 8px gap above the bar so it sits low, just above it,
+             * rather than floating high. The safe-area inset keeps it off the
+             * home indicator. This — plus the transform:none pin on
+             * .qq-editor-frame (WizardShell) so fixed descendants anchor to
+             * the viewport — keeps this button on screen at all times,
+             * including during page scroll. */
+            bottom: calc(64px + 8px + env(safe-area-inset-bottom, 0px));
             margin: 0 auto;
-            max-width: 460px;
-            border-radius: 999px;
+            max-width: 200px;
+            border-radius: 14px;
             border: 1px solid ${d.colors.borderLight};
             box-shadow: 0 8px 28px rgba(15, 23, 42, 0.20);
             overflow: hidden;
-            /* The collapsed pill is a clean fixed box — no self-transform /
+            /* The collapsed button is a clean fixed box — no self-transform /
              * will-change so nothing about it can detach from the viewport. */
             transform: none;
             will-change: auto;
@@ -470,6 +507,61 @@ export default function MobileBottomSheet({
           .qq-sheet--collapsed .qq-sheet-handle {
             min-height: 46px;
             padding: 5px 18px 4px;
+          }
+
+          /* ── In-sheet tab switcher (BH-tabs 2026-06-04) ──────────
+           * Compact segmented row under the handle. Mirrors the top-chrome
+           * tabs and drives the SAME shared activeTab state, so the user can
+           * change section without reaching the top bar. Horizontally
+           * scrollable on very narrow phones so all four always reach. */
+          .qq-sheet-tabs {
+            display: flex; align-items: stretch; gap: 4px;
+            flex-shrink: 0;
+            margin: 0 12px 6px;
+            padding: 3px;
+            border-radius: 12px;
+            background: ${p.colors.surfaceRaised};
+            border: 1px solid ${d.colors.borderLight};
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+          .qq-sheet-tabs::-webkit-scrollbar { display: none; }
+          .qq-sheet-tab {
+            flex: 1 1 0; min-width: 64px; min-height: 36px;
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 0 10px;
+            background: transparent; border: none; border-radius: 9px;
+            font: inherit; font-size: 13px; font-weight: 600;
+            color: ${p.colors.muted};
+            cursor: pointer; white-space: nowrap;
+            transition: background 0.12s ease, color 0.12s ease;
+          }
+          .qq-sheet-tab:hover { color: ${p.colors.heading}; }
+          /* Selected = subtle raised surface + brand-tinted text (outline
+           * approach, NOT a bright accent fill — per the hard UI rules). */
+          .qq-sheet-tab.is-active {
+            background: var(--qq-surface, rgba(255,255,255,1));
+            color: ${p.colors.accentDark};
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.10);
+          }
+          .qq-sheet-tab:focus-visible {
+            outline: 2px solid ${p.colors.accent};
+            outline-offset: -2px;
+          }
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-tabs {
+            background: rgba(255,255,255,0.04);
+            border-color: var(--qq-border);
+          }
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-tab {
+            color: var(--qq-text-muted, rgba(255,255,255,0.65));
+          }
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-tab:hover {
+            color: var(--qq-text, rgba(255,255,255,1));
+          }
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-tab.is-active {
+            background: rgba(255,255,255,0.10);
+            color: var(--qq-text, rgba(255,255,255,1));
           }
 
           /* ── Scrollable content ────────────────────────────────── */

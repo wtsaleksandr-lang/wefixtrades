@@ -1044,18 +1044,21 @@ export default function PreviewPane({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setZoomManual]);
 
-  // Mobile — drag the mockup from ANYWHERE with one finger (desktop keeps the
-  // explicit top-bar handle + corner resize). A touch starting on a form
-  // control, the drag handle, or a resize handle is left alone; two fingers
-  // fall through to pinch-zoom. Native listeners + preventDefault during an
+  // Drag the mockup from ANYWHERE with one finger — the EMPTY CANVAS and the
+  // mockup bezel BODY alike (desktop keeps the explicit top-bar handle + corner
+  // resize too). Attached to the PANE (not just the bezel) so a one-finger drag
+  // that starts on the empty canvas around the mockup moves it as well. A touch
+  // starting on a form control, the drag handle, or a resize handle is left
+  // alone; two fingers fall through to the pinch-zoom handler (also on the
+  // pane), which owns the gesture. Native listeners + preventDefault during an
   // active drag, so we don't need a touch-action:none ancestor that would break
   // the widget's own controls.
   useEffect(() => {
-    const bezel = bezelMeasureRef.current;
-    if (!bezel) return;
+    const pane = paneRef.current;
+    if (!pane) return;
     const isControlOrHandle = (t: EventTarget | null) =>
       t instanceof Element &&
-      !!t.closest('input, select, textarea, button, a, label, [role="slider"], [contenteditable], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"]');
+      !!t.closest('input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos');
     let active = false;
     let sx = 0, sy = 0, bx = 0, by = 0;
     const onStart = (e: TouchEvent) => {
@@ -1081,15 +1084,15 @@ export default function PreviewPane({
     const onEnd = (e: TouchEvent) => {
       if (e.touches.length === 0) { active = false; setGuides([]); }
     };
-    bezel.addEventListener('touchstart', onStart, { passive: true });
-    bezel.addEventListener('touchmove', onMove, { passive: false });
-    bezel.addEventListener('touchend', onEnd, { passive: true });
-    bezel.addEventListener('touchcancel', onEnd, { passive: true });
+    pane.addEventListener('touchstart', onStart, { passive: true });
+    pane.addEventListener('touchmove', onMove, { passive: false });
+    pane.addEventListener('touchend', onEnd, { passive: true });
+    pane.addEventListener('touchcancel', onEnd, { passive: true });
     return () => {
-      bezel.removeEventListener('touchstart', onStart);
-      bezel.removeEventListener('touchmove', onMove);
-      bezel.removeEventListener('touchend', onEnd);
-      bezel.removeEventListener('touchcancel', onEnd);
+      pane.removeEventListener('touchstart', onStart);
+      pane.removeEventListener('touchmove', onMove);
+      pane.removeEventListener('touchend', onEnd);
+      pane.removeEventListener('touchcancel', onEnd);
     };
   }, [device, applyAlignSnap]);
 
@@ -1152,16 +1155,45 @@ export default function PreviewPane({
     userZoomLockedRef.current = false;
   }, [device]);
 
-  // Background click — deselect the widget so resize handles go away.
+  // Drag-from-anywhere (mouse) — a left-button pointer-down on the EMPTY
+  // CANVAS or the mockup bezel BODY (anywhere that isn't an interactive
+  // control) starts a widget move, reusing the exact same move logic the
+  // top-bar drag handle uses (dragStateRef + applyAlignSnap, via
+  // onHandlePointerMove / onHandlePointerUp). Pointer capture is taken on
+  // the pane (e.currentTarget) so move/up route here for the whole gesture.
+  //
+  // Skips (closest() check) anything the user might mean to interact with:
+  //  - the widget's own form controls (input/select/textarea/button/a/label/
+  //    slider/contenteditable)
+  //  - the resize handles + the existing drag handle (they own their gesture)
+  //  - the floating zoom toolbar + reset/recenter pills
+  // Touch is handled separately by the one-finger native listener on the
+  // pane (above) + the two-finger pinch handler, so this is mouse-only.
+  const SKIP_MOVE_SELECTOR =
+    'input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos';
+
+  // Background click — deselect the widget so resize handles go away. Also the
+  // mouse drag-from-anywhere entry point: when the pointer-down isn't on an
+  // interactive control, start a move instead of just deselecting.
   const onPaneBackgroundPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
+    const onInteractive = !!target.closest(SKIP_MOVE_SELECTOR);
+    // Mouse, primary button, not on an interactive control → start a move
+    // from anywhere on the canvas / bezel body. Reuses the handle's move
+    // logic by delegating to onHandlePointerDown (which reads e.currentTarget
+    // for pointer capture — here that's the pane, so move/up stay routed).
+    if (e.pointerType === 'mouse' && e.button === 0 && !onInteractive) {
+      onHandlePointerDown(e);
+      return;
+    }
+    // Otherwise keep the original deselect-on-background-click behaviour.
     if (target.closest('[data-testid^="preview-bezel"]')) return;
     if (target.closest('.qq-widget-drag-handle')) return;
     if (target.closest('.qq-widget-resize-handle')) return;
     if (target.closest('.qq-zoom-toolbar')) return;
     if (target.closest('.qq-preview-reset-pos')) return;
     setWidgetSelected(false);
-  }, []);
+  }, [onHandlePointerDown]);
 
   const previewCalculatorData = useMemo<CalculatorData>(() => {
     const advanced = buildBlankPreviewConfig(layout, businessName);
@@ -1389,6 +1421,18 @@ export default function PreviewPane({
   // We attach click handlers via event delegation on the bezel.
   const onBezelClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
+
+    // Pencil edit-hint — the small pencil glyph the renderer draws next to the
+    // in-mockup title (data-testid="advanced-title-edit-hint") had no action
+    // even though it sits inside the title. Wire it explicitly to the same
+    // inline title editor the title text uses, BEFORE the control-match guard
+    // (so the click can never be swallowed by a surrounding control).
+    if (target.closest('[data-testid="advanced-title-edit-hint"]')) {
+      selection.select({ kind: 'header', id: '__header' });
+      openTitleEditor();
+      return;
+    }
+
     const controlMatch = target.closest(
       'input, select, button, textarea, label, a, [role="slider"], [role="radio"], [role="checkbox"], [role="option"]',
     );
@@ -1748,6 +1792,9 @@ export default function PreviewPane({
       data-flp-phase={flpPhase}
       ref={paneRef}
       onPointerDown={onPaneBackgroundPointerDown}
+      onPointerMove={onHandlePointerMove}
+      onPointerUp={onHandlePointerUp}
+      onPointerCancel={onHandlePointerUp}
     >
       {(widgetOffset.x !== 0 || widgetOffset.y !== 0 || widgetSize) && (
         <button
