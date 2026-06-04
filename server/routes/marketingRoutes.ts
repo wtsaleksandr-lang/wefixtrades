@@ -126,7 +126,7 @@ export function registerMarketingRoutes(app: Express): void {
             entity_type: "client_service",
             entity_id: first.id,
             summary: `Exit reason: ${reason}`,
-          } as any).catch(() => {});
+          } as any).catch((err: any) => log.warn("[exit-survey] activity log failed", { error: err?.message }));
         }
       }
     } catch (err: any) {
