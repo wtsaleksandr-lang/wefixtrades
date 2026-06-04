@@ -806,28 +806,29 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'car_towing', name: 'Car Towing', description: 'Distance-based tow pricing with add-on services.',
     category: 'Automotive', trades: ['auto_detailing'],
-    // Elfsight-clean: light theme + two-column (inputs left, single result panel
-    // right), no trust-badge row, no line-item breakdown — minimal and airy.
+    // Black + yellow dark theme + two-column (inputs left, single result panel
+    // right), no trust-badge row, no line-item breakdown — minimal and bold.
     trustBadges: [],
     // Elfsight-style single screen: every input + the result + the CTA on ONE
     // form, no step-by-step wizard.
     stepLayout: 'single',
-    layout: 'two-column', theme: 'light', defaultIcon: 'Truck',
-    // Explicit light style — without this, toAdvancedConfig() falls back to
-    // deriveStyleFromCategory('Automotive') which paints a dark slate gradient
-    // body (#0c111c→#1a2030). bgMode:'solid' + white body kills that band and
-    // gives the airy Elfsight look (white body, slate-50 fields, slate-100
-    // result panel, single blue CTA).
+    layout: 'two-column', theme: 'dark', defaultIcon: 'Truck',
+    // Explicit dark style — a generic automotive/hazard black+yellow scheme.
+    // Without this, toAdvancedConfig() falls back to
+    // deriveStyleFromCategory('Automotive'). bgMode:'solid' + near-black body
+    // gives the bold black+yellow look (near-black body + surfaces, white text,
+    // a single bright-yellow CTA).
     style: {
-      // Crisp + airy, but distinctly OURS: our brand blue stays the accent;
-      // surfaces neutralised (cool-slate → clean neutral grays) and text pushed
-      // to near-black for a sharper, higher-contrast read.
-      accent: '#0d3cfc',
-      background: '#ffffff',
-      surface: '#f6f7f9',
-      border: '#e5e7eb',
-      text: '#171717',
-      resultsBg: '#f3f4f6',
+      // Black + yellow, distinctly OURS: a bright hazard-yellow accent drives
+      // the CTA; surfaces are layered near-blacks and text is pure white for a
+      // high-contrast read. CTA text colour is left to the widget's contrast
+      // guard (dark text auto-rendered on the bright yellow button).
+      accent: '#ffd60a',
+      background: '#0d0d0d',
+      surface: '#1a1a1a',
+      border: '#2a2a2a',
+      text: 'rgba(255,255,255,1)',
+      resultsBg: '#141414',
       success: '#10b981',
       error: '#ef4444',
       fontFamily: 'inter',
@@ -840,7 +841,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       logoSize: 'medium',
       bgMode: 'solid',
       resultPanel: {
-        // Total is the visual hero: a single large, bold figure on the light
+        // Total is the visual hero: a single large, bold figure on the dark
         // summary panel — the clearest read for an instant-quote calculator.
         emphasis: 'bold',
         border: 'subtle',
