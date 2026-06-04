@@ -2596,7 +2596,7 @@ export default function PreviewPane({
         /* Wave 54 — coarse-pointer (touch) override: bigger HIT area but
          * keep the visual subtle. Uses a transparent hit-area expansion
          * via padding + background-clip so finger taps still register on a
-         * 22-24px target without enlarging the visible white circle/pill. */
+         * 30-32px target without enlarging the visible white circle/pill. */
         @media (max-width: 768px) and (pointer: coarse) {
           .qq-widget-resize-handle {
             z-index: 11;
@@ -2609,34 +2609,36 @@ export default function PreviewPane({
           .qq-widget-resize-handle--ne,
           .qq-widget-resize-handle--sw,
           .qq-widget-resize-handle--se {
-            /* 10px visual circle + 5px padding all around = 20px hit area. */
-            padding: 5px;
+            /* 10px visual circle + 11px padding all around = 32px hit area
+             * (Apple HIG comfort target) without enlarging the visible dot. */
+            padding: 11px;
             /* Re-centre the visual circle since hit area grew. */
             background: #fff content-box;
             background-clip: content-box;
           }
           .qq-widget-resize-handle--n,
           .qq-widget-resize-handle--s {
-            padding: 6px 4px;
+            padding: 11px 9px;
             background: #fff content-box;
             background-clip: content-box;
           }
           .qq-widget-resize-handle--e,
           .qq-widget-resize-handle--w {
-            padding: 4px 6px;
+            padding: 9px 11px;
             background: #fff content-box;
             background-clip: content-box;
           }
           /* Re-anchor offsets so the visible center of the handle still
-           * sits on the bezel edge after the padding-driven hit-area grew. */
-          .qq-widget-resize-handle--nw { top: -10px; left: -10px; }
-          .qq-widget-resize-handle--ne { top: -10px; right: -10px; }
-          .qq-widget-resize-handle--sw { bottom: -10px; left: -10px; }
-          .qq-widget-resize-handle--se { bottom: -10px; right: -10px; }
-          .qq-widget-resize-handle--n  { top: -10px; }
-          .qq-widget-resize-handle--s  { bottom: -10px; }
-          .qq-widget-resize-handle--e  { right: -10px; }
-          .qq-widget-resize-handle--w  { left: -10px; }
+           * sits on the bezel edge after the padding-driven hit-area grew.
+           * Corner offset = -(5 + padding); edge offset = -(4 + padding). */
+          .qq-widget-resize-handle--nw { top: -16px; left: -16px; }
+          .qq-widget-resize-handle--ne { top: -16px; right: -16px; }
+          .qq-widget-resize-handle--sw { bottom: -16px; left: -16px; }
+          .qq-widget-resize-handle--se { bottom: -16px; right: -16px; }
+          .qq-widget-resize-handle--n  { top: -15px; }
+          .qq-widget-resize-handle--s  { bottom: -15px; }
+          .qq-widget-resize-handle--e  { right: -15px; }
+          .qq-widget-resize-handle--w  { left: -15px; }
 
           /* Touch — make the drag-to-move bar a clear, grabbable 44px target
            * that's VISIBLE without hover (touch devices have no hover, so the
