@@ -2819,13 +2819,34 @@ export default function AdvancedCalculator({
                       value={leadEmail} onChange={(e) => setLeadEmail(e.target.value)}
                       style={leadInputStyle} />
                     <button type="button" data-testid="advanced-cta-send"
-                      onClick={() => {
-                        if (leadReady) {
-                          // W-BB-4 — fire conversion event before flipping
-                          // the panel so a fast unmount doesn't drop the beacon.
-                          trackSubmit();
-                          setLeadView('done');
+                      onClick={async () => {
+                        if (!leadReady) return;
+                        // W-BB-4 — fire conversion event before flipping
+                        // the panel so a fast unmount doesn't drop the beacon.
+                        trackSubmit();
+                        try {
+                          if (analyticsCalcId != null) {
+                            const resp = await fetch('/api/leads', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                calculator_id: analyticsCalcId,
+                                name: leadName.trim(),
+                                email: leadEmail.trim(),
+                                quote_amount: typeof effectiveQuoteValue === 'number'
+                                  && Number.isFinite(effectiveQuoteValue)
+                                  ? effectiveQuoteValue : null,
+                                answers: answers ?? null,
+                              }),
+                            });
+                            if (!resp.ok) {
+                              console.warn('[QQ] inline lead POST failed', resp.status);
+                            }
+                          }
+                        } catch (e) {
+                          console.warn('[QQ] inline lead POST error', e);
                         }
+                        setLeadView('done');
                       }}
                       style={{
                         width: '100%', height: '44px', borderRadius: radiusInnerPx, border: 'none',
