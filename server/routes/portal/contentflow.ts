@@ -946,8 +946,7 @@ export function registerPortalContentflowRoutes(app: Express) {
         }
         try {
           const humanized = await humanizeViaOrchestrator(draftText, {
-            clientId,
-            industry: tradeType ?? undefined,
+                industry: tradeType ?? undefined,
             targetWordCount: 400,
             sourceProvider: (draftRaw as any).provider === "openai" ? "openai" : "anthropic",
           });
@@ -1225,7 +1224,6 @@ export function registerPortalContentflowRoutes(app: Express) {
       if (!clientId) return;
       const stage = (req.query.stage as string | undefined) ?? undefined;
       const items = await listPipelineForClient({
-        clientId,
         currentStage: stage as any,
         limit: 100,
       });
@@ -1284,7 +1282,7 @@ export function registerPortalContentflowRoutes(app: Express) {
       if (!cmsUrl || !/^https?:\/\//i.test(cmsUrl)) {
         return res.status(400).json({ error: "cms_url must be an http(s) URL" });
       }
-      const isLocalhostDev = process.env.NODE_ENV !== "production" && /^http:\/\/localhost(:\d+)?\/.test(cmsUrl);
+      const isLocalhostDev = process.env.NODE_ENV !== "production" && /^http:\/\/localhost(:\d+)?\//.test(cmsUrl);
       if (!cmsUrl.startsWith("https://") && !isLocalhostDev) {
         return res.status(422).json({ error: "cms_url must use https://" });
       }
@@ -1314,12 +1312,11 @@ export function registerPortalContentflowRoutes(app: Express) {
       } as any);
 
       writeAudit({
-        userId: (req as any).user?.id,
-        clientId,
+        actorId: (req as any).user?.id,
         action: "contentflow.cms_config_saved",
-        entity: "rankflow_profiles",
-        entityId: clientId,
-        details: { cms_url: cmsUrl, cms_username: cmsUsername, cms_default_status: cmsDefaultStatus },
+        entityType: "rankflow_profiles",
+        entityId: String(clientId),
+        metadata: { cms_url: cmsUrl, cms_username: cmsUsername, cms_default_status: cmsDefaultStatus },
       });
       log.info("[portal/contentflow/cms-config] saved for client=" + clientId + " cms_url=" + cmsUrl);
 
