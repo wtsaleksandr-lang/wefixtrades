@@ -60,7 +60,7 @@ import MapMockup from "@/pages/products/mapguard/MapMockup";
 const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: string }> = {
   tradeline: {
     eyebrow: "Every missed call is a competitor's win.",
-    headline: <>Never miss a lead.<br/><span style={{ color: mkt.accent }}>Even at 2 AM.</span></>,
+    headline: <>Never miss a lead.<span style={{ display: "block", color: mkt.accent }}>Even at 2 AM.</span></>,
     sub: "AI answers every call and chat 24/7, gives instant estimates, books jobs, and follows up — automatically.",
   },
   quickquotepro: {
@@ -70,53 +70,53 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
   },
   mapguard: {
     eyebrow: "Customers can't book you if they can't find you.",
-    headline: <>Show up first.<br/><span style={{ color: mkt.accent }}>On Google Maps.</span></>,
+    headline: <>Show up first.<span style={{ display: "block", color: mkt.accent }}>On Google Maps.</span></>,
     sub: "We monitor your Google Business Profile every week and fix issues before customers see them. You get the calls, not your competitors.",
   },
   reputationshield: {
     eyebrow: "One ignored bad review can cost you 22 customers.",
-    headline: <>Every review answered.<br/><span style={{ color: mkt.accent }}>Within minutes.</span></>,
+    headline: <>Every review answered.<span style={{ display: "block", color: mkt.accent }}>Within minutes.</span></>,
     sub: "AI drafts a personal reply to every Google and Facebook review. 5-stars get amplified. 1-stars get flagged to your phone.",
   },
   socialsync: {
     eyebrow: "Posting consistently is a full-time job. You already have one.",
-    headline: <>Stay visible.<br/><span style={{ color: mkt.accent }}>Without lifting a finger.</span></>,
+    headline: <>Stay visible.<span style={{ display: "block", color: mkt.accent }}>Without lifting a finger.</span></>,
     sub: "AI drafts your weekly social posts in your voice. You approve in one tap. We handle the calendar, the captions, and the analytics.",
   },
   rankflow: {
     eyebrow: "Hiring an SEO agency? They charge $2K/mo for the same data.",
-    headline: <>Outrank competitors.<br/><span style={{ color: mkt.accent }}>Without an agency.</span></>,
+    headline: <>Outrank competitors.<span style={{ display: "block", color: mkt.accent }}>Without an agency.</span></>,
     sub: "Weekly keyword tracking + monthly reports that tell you exactly which pages to update. No fluff, no agency-speak.",
   },
   sitelaunch: {
     eyebrow: "Your current site looks like 2014. Visitors notice.",
-    headline: <>A site that converts.<br/><span style={{ color: mkt.accent }}>Live in a week.</span></>,
+    headline: <>A site that converts.<span style={{ display: "block", color: mkt.accent }}>Live in a week.</span></>,
     sub: "We design, build, and host a trade-tuned site that ranks on Google and turns visitors into booked jobs.",
   },
   webcare: {
     eyebrow: "Last time WordPress broke your site, you lost a day fixing it.",
-    headline: <>We watch your site.<br/><span style={{ color: mkt.accent }}>So you don't have to.</span></>,
+    headline: <>We watch your site.<span style={{ display: "block", color: mkt.accent }}>So you don't have to.</span></>,
     sub: "Uptime checks every 15 minutes. Plugin updates auto-tested. Security & SSL checks. Monthly health report.",
   },
   webfix: {
     eyebrow: "Slow website? You're invisible to Google and your visitors.",
-    headline: <>From 42 to 98.<br/><span style={{ color: mkt.accent }}>In a week.</span></>,
+    headline: <>From 42 to 98.<span style={{ display: "block", color: mkt.accent }}>In a week.</span></>,
     sub: "We audit, fix, and monitor your site speed and SEO. Lighthouse scores climb from 40s to 90s — and your Google rank follows.",
   },
   contentflow: {
     eyebrow: "Blog posts won't write themselves. Until now.",
-    headline: <>Build authority.<br/><span style={{ color: mkt.accent }}>Without writing a word.</span></>,
+    headline: <>Build authority.<span style={{ display: "block", color: mkt.accent }}>Without writing a word.</span></>,
     sub: "AI drafts trade-specific articles every month — tuned to your service area, your voice, and what's actually ranking.",
   },
   adflow: {
     eyebrow: "Most trade businesses pay $80+ per Google Ads lead. There's a way down to $20.",
-    headline: <>Real ads.<br/><span style={{ color: mkt.accent }}>Real ROI.</span></>,
+    headline: <>Real ads.<span style={{ display: "block", color: mkt.accent }}>Real ROI.</span></>,
     sub: "Google + Meta campaigns run by a vetted ad-agency partner. Weekly tuning. Plain-English reports — no agency-speak.",
   },
   bookflow: {
     // Wave 11D D2 — reframed as a QuoteQuick-bundled feature, not a standalone SKU.
     eyebrow: "Booking is part of QuoteQuick now — not a separate bill.",
-    headline: <>Booking flow.<br/><span style={{ color: mkt.accent }}>Included with QuoteQuick.</span></>,
+    headline: <>Booking flow.<span style={{ display: "block", color: mkt.accent }}>Included with QuoteQuick.</span></>,
     sub: "Every QuoteQuick plan ships with the BookFlow scheduling experience — customers quote and book in one flow, you pay one subscription.",
   },
 };
@@ -964,8 +964,8 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
           background: "radial-gradient(ellipse 50% 80% at 50% 50%, rgba(13,60,252,0.10) 0%, transparent 60%)",
         }} />
         <h2 style={{ position: "relative", fontSize: "clamp(32px, 4.5vw, 52px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, marginBottom: 18 }}>
-          Ready to start with<br />
-          <span style={{ color: mkt.accent }}>{cfg.name}?</span>
+          Ready to start with{" "}
+          <span style={{ display: "block", color: mkt.accent }}>{cfg.name}?</span>
         </h2>
         <p style={{ position: "relative", fontSize: 16, lineHeight: 1.55, color: mkt.onDarkMuted, marginBottom: 32 }}>
           Setup is fast. No card required. Cancel anytime.
