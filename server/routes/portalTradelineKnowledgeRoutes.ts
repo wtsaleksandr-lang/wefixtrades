@@ -71,7 +71,11 @@ const reorderBody = z.object({
 
 const settingsBody = z.object({
   voice_id: z.string().max(80).nullable().optional(),
-  greeting: z.string().max(2000).nullable().optional(),
+  greeting: z.string().max(400).nullable().optional().transform((v) => {
+    if (!v) return v;
+    // Strip characters commonly used for prompt injection framing.
+    return v.replace(/[\[\]{}|\\`]/g, "").replace(/\n{2,}/g, "\n").trim();
+  }),
   response_style: z.enum(["concise", "detailed", "friendly"]).nullable().optional(),
 });
 
