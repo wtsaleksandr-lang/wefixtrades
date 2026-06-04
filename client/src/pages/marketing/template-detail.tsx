@@ -24,6 +24,7 @@ import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import {
   getTemplatePreset,
   toAdvancedConfig,
+  TEMPLATE_PRESETS,
   type BusinessProfile,
   type TemplateConfig,
 } from "@shared/templatePresets";
@@ -161,6 +162,65 @@ const SITE_PALETTE: { name: string; color: string }[] = [
   { name: "Amber", color: "#D97706" },
 ];
 
+/* ─── Template picker rail (Elfsight "Select a Template") ───
+   Left column on desktop, horizontal strip at the bottom on mobile. Clicking
+   a card swaps the live preview to that template in place. */
+function TemplateRail({
+  selectedSlug,
+  onSelect,
+}: {
+  selectedSlug: string;
+  onSelect: (slug: string) => void;
+}) {
+  return (
+    <aside className="tpl-rail" data-testid="template-rail">
+      <div className="tpl-rail-head">
+        <span style={{ opacity: 0.4 }}>(</span> Select a template{" "}
+        <span style={{ opacity: 0.4 }}>)</span>
+      </div>
+      <div className="tpl-rail-scroll">
+        {TEMPLATE_PRESETS.map((t) => {
+          const tcat = getCategoryStyle(t.category);
+          const TIcon = getQuoteQuickIcon(t.defaultIcon);
+          const active = t.id === selectedSlug;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              data-testid={`template-rail-card-${t.id}`}
+              aria-pressed={active}
+              title={t.name}
+              onClick={() => onSelect(t.id)}
+              className="tpl-card"
+              style={{
+                boxShadow: active
+                  ? `0 0 0 2px ${mkt.accent}`
+                  : "0 0 0 1px rgba(15,20,24,0.12)",
+                background: active
+                  ? "rgba(13,60,252,0.06)"
+                  : "rgba(255,255,255,0.55)",
+              }}
+            >
+              <span
+                className="tpl-card-thumb"
+                style={{ background: `${tcat.heroAccent}24`, color: tcat.heroAccent }}
+              >
+                {TIcon ? <TIcon size={20} strokeWidth={2} /> : null}
+              </span>
+              <span className="tpl-card-name">{t.name}</span>
+              {active && (
+                <span className="tpl-card-check">
+                  <Check size={12} strokeWidth={3} color="rgba(255,255,255,1)" />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
 /* ─── Page ─── */
 
 export default function TemplateDetailPage() {
@@ -176,8 +236,18 @@ export default function TemplateDetailPage() {
 }
 
 function TemplateDetailInner({ template }: { template: TemplateConfig }) {
-  const cat = getCategoryStyle(template.category);
-  const Icon = getQuoteQuickIcon(template.defaultIcon);
+  // Elfsight "Edit Widget" template picker: the rail swaps the live preview to
+  // any other template in place. The page's SEO (meta/canonical/breadcrumb/
+  // JSON-LD) stays anchored to the URL `template`; the VISIBLE hero + preview
+  // follow the selected one.
+  const [selectedSlug, setSelectedSlug] = useState<string>(template.id);
+  useEffect(() => setSelectedSlug(template.id), [template.id]);
+  const activeTemplate = useMemo(
+    () => getTemplatePreset(selectedSlug) ?? template,
+    [selectedSlug, template],
+  );
+  const cat = getCategoryStyle(activeTemplate.category);
+  const Icon = getQuoteQuickIcon(activeTemplate.defaultIcon);
 
   useTemplateJsonLd(template);
 
@@ -212,25 +282,25 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
   const previewCalculator = useMemo(
     () =>
       buildPreviewCalculator(
-        template,
+        activeTemplate,
         accent,
         effectiveMode === "mobile" ? "single-column" : undefined,
       ),
-    [template, accent, effectiveMode],
+    [activeTemplate, accent, effectiveMode],
   );
 
   // Pull key value props from the template's header subtitle (e.g. "Licensed
   // & insured · 24/7 response · Flat-rate per-mile pricing"). Split on
   // common bullet separators so each fragment can render as a chip.
   const valueProps = useMemo(() => {
-    const sub = template.header.subtitle?.trim() ?? "";
+    const sub = activeTemplate.header.subtitle?.trim() ?? "";
     if (!sub) return [] as string[];
     return sub
       .split(/[·•|]+/)
       .map((s) => s.trim())
       .filter(Boolean)
       .slice(0, 4);
-  }, [template.header.subtitle]);
+  }, [activeTemplate.header.subtitle]);
 
   return (
     <MarketingLayout>
@@ -306,7 +376,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                   border: `1px solid ${cat.heroAccent}40`,
                 }}
               >
-                {template.category}
+                {activeTemplate.category}
               </span>
             </div>
 
@@ -320,7 +390,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 lineHeight: 1.1,
               }}
             >
-              {template.name}{" "}
+              {activeTemplate.name}{" "}
               <span style={{ color: mkt.accent }}>template</span>
             </h1>
 
@@ -333,7 +403,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 maxWidth: 720,
               }}
             >
-              {template.description} Try the live widget below — adjust the
+              {activeTemplate.description} Try the live widget below — adjust the
               inputs to see how the price updates in real time. When you’re
               ready, customize it in the wizard.
             </p>
@@ -372,7 +442,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <Link
-                href={`/wizard?template=${template.id}&accent=${encodeURIComponent(accent)}`}
+                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}`}
                 data-testid="hero-use-template"
                 style={{
                   display: "inline-flex",
@@ -400,6 +470,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             dark ink so it reads on the light ground. */}
         <div
           id="live-preview"
+          className="tpl-editor-section"
           style={{
             padding: "64px 24px 72px",
             background: CS_LIGHT.bg,
@@ -407,7 +478,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             marginTop: 32,
           }}
         >
-          <div style={{ maxWidth: 980, margin: "0 auto" }}>
+          <div style={{ maxWidth: 1180, margin: "0 auto" }}>
             <div
               style={{
                 display: "inline-flex",
@@ -437,8 +508,13 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 fontFamily: SANS,
               }}
             >
-              Try the {template.name} calculator
+              Try the {activeTemplate.name} calculator
             </h2>
+            {/* Two-pane editor: template rail (left desktop / bottom mobile) +
+                live preview. */}
+            <div className="tpl-editor">
+              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} />
+              <div className="tpl-preview">
             {/* Color tabs — recolor the preview live. Four site-wide accents
                 (the wizard exposes the full picker). Buttons use the shared
                 .cs-arrow capsule styling from the blog carousel arrows. */}
@@ -578,13 +654,68 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Deeper-edit note → wizard (carries the chosen template + colour). */}
             <div style={{ textAlign: "center", marginTop: 14 }}>
               <Link
-                href={`/wizard?template=${template.id}&accent=${encodeURIComponent(accent)}`}
+                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}`}
                 data-testid="template-deeper-edit"
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: mkt.accent, textDecoration: "none" }}
               >
                 Need to edit pricing, formulas &amp; logic? Open the full wizard <ArrowRight size={14} />
               </Link>
             </div>
+              </div>{/* /.tpl-preview */}
+            </div>{/* /.tpl-editor */}
+            <style>{`
+              .tpl-editor { display: flex; gap: 18px; align-items: flex-start; }
+              .tpl-rail { width: 268px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+              .tpl-rail-head {
+                font-family: ${MONO}; font-size: 11px; font-weight: 600;
+                letter-spacing: 0.10em; text-transform: uppercase; color: ${CS_LIGHT.inkMuted};
+                padding-left: 2px;
+              }
+              .tpl-rail-scroll {
+                display: flex; flex-direction: column; gap: 8px;
+                overflow-y: auto; max-height: 620px; padding: 2px 6px 2px 2px;
+                scrollbar-width: thin;
+              }
+              .tpl-card {
+                position: relative; display: flex; align-items: center; gap: 11px;
+                width: 100%; padding: 9px 11px; border: none; border-radius: 13px;
+                cursor: pointer; text-align: left;
+                transition: box-shadow 160ms ease, background 160ms ease, transform 160ms ease;
+              }
+              .tpl-card:hover { transform: translateY(-1px); }
+              .tpl-card-thumb {
+                width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+                display: grid; place-items: center;
+              }
+              .tpl-card-name {
+                font-family: ${SANS}; font-size: 13px; font-weight: 600; line-height: 1.25;
+                color: ${CS_LIGHT.ink}; overflow: hidden; text-overflow: ellipsis;
+                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+              }
+              .tpl-card-check {
+                position: absolute; top: 7px; right: 7px;
+                width: 16px; height: 16px; border-radius: 50%;
+                background: ${mkt.accent}; display: grid; place-items: center;
+              }
+              .tpl-preview { flex: 1; min-width: 0; }
+
+              @media (max-width: 760px) {
+                .tpl-editor-section { padding-left: 4px !important; padding-right: 4px !important; }
+                .tpl-editor { flex-direction: column; gap: 14px; }
+                .tpl-rail { width: 100%; order: 2; }
+                .tpl-rail-scroll {
+                  flex-direction: row; max-height: none;
+                  overflow-x: auto; overflow-y: hidden;
+                  padding: 2px 0 8px;
+                }
+                .tpl-card {
+                  flex-direction: column; width: 108px; flex-shrink: 0;
+                  align-items: flex-start; gap: 8px; padding: 9px;
+                }
+                .tpl-card-name { font-size: 12px; }
+                .tpl-preview { order: 1; }
+              }
+            `}</style>
           </div>
         </div>
 
@@ -630,7 +761,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
           sub="Drop in your pricing in our setup wizard. Free to start, no credit card required."
           primaryCta={{
             label: "Use this template",
-            href: `/wizard?template=${template.id}&accent=${encodeURIComponent(accent)}`,
+            href: `/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}`,
           }}
         />
       </div>
