@@ -168,18 +168,37 @@ const SITE_PALETTE: { name: string; color: string }[] = [
 function TemplateRail({
   selectedSlug,
   onSelect,
+  accent,
 }: {
   selectedSlug: string;
   onSelect: (slug: string) => void;
+  accent: string;
 }) {
+  const [category, setCategory] = useState<string>("All");
+  const categories = useMemo<[string, number][]>(() => {
+    const counts = new Map<string, number>();
+    for (const t of TEMPLATE_PRESETS) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
+    const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    return [["All", TEMPLATE_PRESETS.length], ...entries];
+  }, []);
+  const shown = useMemo(
+    () =>
+      category === "All"
+        ? TEMPLATE_PRESETS
+        : TEMPLATE_PRESETS.filter((t) => t.category === category),
+    [category],
+  );
+
   return (
     <aside className="tpl-rail" data-testid="template-rail">
       <div className="tpl-rail-head">
         <span style={{ opacity: 0.4 }}>(</span> Select a template{" "}
         <span style={{ opacity: 0.4 }}>)</span>
       </div>
-      <div className="tpl-rail-scroll">
-        {TEMPLATE_PRESETS.map((t) => {
+
+      {/* 2-column thumbnail card grid (Elfsight "Select a Template") */}
+      <div className="tpl-rail-grid">
+        {shown.map((t) => {
           const tcat = getCategoryStyle(t.category);
           const TIcon = getQuoteQuickIcon(t.defaultIcon);
           const active = t.id === selectedSlug;
@@ -195,28 +214,63 @@ function TemplateRail({
               style={{
                 boxShadow: active
                   ? `0 0 0 2px ${mkt.accent}`
-                  : "0 0 0 1px rgba(15,20,24,0.12)",
-                background: active
-                  ? "rgba(13,60,252,0.06)"
-                  : "rgba(255,255,255,0.55)",
+                  : "0 0 0 1px rgba(15,20,24,0.10)",
+                background: active ? "rgba(13,60,252,0.05)" : "rgba(255,255,255,0.55)",
               }}
             >
               <span
                 className="tpl-card-thumb"
-                style={{ background: `${tcat.heroAccent}24`, color: tcat.heroAccent }}
+                style={{ background: `${tcat.heroAccent}1F`, color: tcat.heroAccent }}
               >
-                {TIcon ? <TIcon size={20} strokeWidth={2} /> : null}
+                {TIcon ? <TIcon size={24} strokeWidth={1.75} /> : null}
+                {active && (
+                  <span className="tpl-card-check">
+                    <Check size={12} strokeWidth={3} color="rgba(255,255,255,1)" />
+                  </span>
+                )}
               </span>
               <span className="tpl-card-name">{t.name}</span>
-              {active && (
-                <span className="tpl-card-check">
-                  <Check size={12} strokeWidth={3} color="rgba(255,255,255,1)" />
-                </span>
-              )}
             </button>
           );
         })}
       </div>
+
+      {/* Categories filter (Elfsight) */}
+      <div className="tpl-cats">
+        <div className="tpl-cats-head">Categories</div>
+        <div className="tpl-cats-list">
+          {categories.map(([name, count]) => {
+            const on = category === name;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setCategory(name)}
+                aria-pressed={on}
+                className="tpl-cat"
+                style={{
+                  background: on ? "rgba(13,60,252,0.07)" : "transparent",
+                  boxShadow: on
+                    ? `inset 0 0 0 1px ${mkt.accent}66`
+                    : "inset 0 0 0 1px rgba(15,20,24,0.10)",
+                }}
+              >
+                <span className="tpl-cat-name">{name}</span>
+                <span className="tpl-cat-count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Continue with this template (Elfsight bottom CTA) */}
+      <Link
+        href={`/wizard?template=${selectedSlug}&accent=${encodeURIComponent(accent)}`}
+        className="tpl-rail-cta wft-hover-border-white"
+        data-testid="rail-continue"
+      >
+        Continue with this template <ArrowRight size={16} />
+      </Link>
     </aside>
   );
 }
@@ -513,7 +567,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Two-pane editor: template rail (left desktop / bottom mobile) +
                 live preview. */}
             <div className="tpl-editor">
-              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} />
+              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} />
               <div className="tpl-preview">
             {/* Color tabs — recolor the preview live. Four site-wide accents
                 (the wizard exposes the full picker). Buttons use the shared
@@ -548,13 +602,13 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 })}
               </div>
             </div>
-            {/* Elfsight-style floating preview container: white rounded card with a
-                toolbar + desktop/mobile fold toggle. The toggle smoothly shrinks the
-                LIVE widget into a phone frame in place (the widget reflows by
-                container width, so it works for any template/layout). */}
+            {/* Elfsight-style preview: the widget renders directly on a white
+                card — no labelled toolbar. A minimal device toggle floats in the
+                top-right corner (desktop only). */}
             <div
               data-testid="template-live-preview"
               style={{
+                position: "relative",
                 maxWidth: 980,
                 margin: "0 auto",
                 background: "rgba(255,255,255,1)",
@@ -564,25 +618,12 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 overflow: "hidden",
               }}
             >
-              {/* Toolbar */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 14px",
-                  borderBottom: "1px solid rgba(0,0,0,0.07)",
-                  background: "rgba(255,255,255,1)",
-                }}
-              >
-                <span style={{ width: 70 }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.55)", letterSpacing: "0.02em" }}>
-                  Live preview
-                </span>
+              {/* Minimal floating device toggle (top-right) */}
+              {!isMobileViewport && (
                 <div
                   role="group"
                   aria-label="Preview device"
-                  style={{ display: isMobileViewport ? "none" : "flex", gap: 2, padding: 3, borderRadius: 9, background: "rgba(0,0,0,0.05)", width: 70, justifyContent: "flex-end" }}
+                  style={{ position: "absolute", top: 12, right: 12, zIndex: 5, display: "flex", gap: 2, padding: 3, borderRadius: 9, background: "rgba(0,0,0,0.05)" }}
                 >
                   {([["desktop", Monitor, "Desktop view"], ["mobile", Smartphone, "Mobile view"]] as const).map(([mode, Icon, label]) => {
                     const on = previewMode === mode;
@@ -614,7 +655,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                     );
                   })}
                 </div>
-              </div>
+              )}
               {/* Fold viewport — the live widget shrinks into a phone frame in place */}
               <div
                 style={{
@@ -665,37 +706,65 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             </div>{/* /.tpl-editor */}
             <style>{`
               .tpl-editor { display: flex; gap: 18px; align-items: flex-start; }
-              .tpl-rail { width: 268px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+              .tpl-rail {
+                width: 300px; flex-shrink: 0;
+                display: flex; flex-direction: column; gap: 12px;
+              }
               .tpl-rail-head {
                 font-family: ${MONO}; font-size: 11px; font-weight: 600;
                 letter-spacing: 0.10em; text-transform: uppercase; color: ${CS_LIGHT.inkMuted};
                 padding-left: 2px;
               }
-              .tpl-rail-scroll {
-                display: flex; flex-direction: column; gap: 8px;
-                overflow-y: auto; max-height: 620px; padding: 2px 6px 2px 2px;
-                scrollbar-width: thin;
+              .tpl-rail-grid {
+                display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+                overflow-y: auto; max-height: 440px; align-content: start;
+                padding: 2px 6px 2px 2px; scrollbar-width: thin;
               }
               .tpl-card {
-                position: relative; display: flex; align-items: center; gap: 11px;
-                width: 100%; padding: 9px 11px; border: none; border-radius: 13px;
+                display: flex; flex-direction: column; gap: 8px;
+                padding: 6px; border: none; border-radius: 14px;
                 cursor: pointer; text-align: left;
                 transition: box-shadow 160ms ease, background 160ms ease, transform 160ms ease;
               }
-              .tpl-card:hover { transform: translateY(-1px); }
+              .tpl-card:hover { transform: translateY(-2px); }
               .tpl-card-thumb {
-                width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
-                display: grid; place-items: center;
-              }
-              .tpl-card-name {
-                font-family: ${SANS}; font-size: 13px; font-weight: 600; line-height: 1.25;
-                color: ${CS_LIGHT.ink}; overflow: hidden; text-overflow: ellipsis;
-                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+                position: relative; width: 100%; aspect-ratio: 4 / 3;
+                border-radius: 10px; display: grid; place-items: center;
               }
               .tpl-card-check {
-                position: absolute; top: 7px; right: 7px;
-                width: 16px; height: 16px; border-radius: 50%;
+                position: absolute; top: 6px; right: 6px;
+                width: 18px; height: 18px; border-radius: 50%;
                 background: ${mkt.accent}; display: grid; place-items: center;
+              }
+              .tpl-card-name {
+                font-family: ${SANS}; font-size: 12px; font-weight: 600; line-height: 1.25;
+                color: ${CS_LIGHT.ink}; padding: 0 3px 2px;
+                overflow: hidden; text-overflow: ellipsis;
+                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+              }
+              .tpl-cats { display: flex; flex-direction: column; gap: 8px; }
+              .tpl-cats-head {
+                font-family: ${MONO}; font-size: 10.5px; font-weight: 600;
+                letter-spacing: 0.10em; text-transform: uppercase; color: ${CS_LIGHT.inkMuted};
+                padding-left: 2px;
+              }
+              .tpl-cats-list {
+                display: flex; flex-direction: column; gap: 6px;
+                max-height: 156px; overflow-y: auto; scrollbar-width: thin;
+              }
+              .tpl-cat {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 9px 12px; border: none; border-radius: 10px; cursor: pointer;
+                transition: background 140ms ease, box-shadow 140ms ease;
+              }
+              .tpl-cat-name { font-family: ${SANS}; font-size: 12.5px; font-weight: 600; color: ${CS_LIGHT.ink}; }
+              .tpl-cat-count { font-family: ${MONO}; font-size: 11px; font-weight: 700; color: ${mkt.accent}; }
+              .tpl-rail-cta {
+                display: flex; align-items: center; justify-content: center; gap: 8px;
+                padding: 14px; border-radius: 12px;
+                background: ${mkt.accent}; color: rgba(255,255,255,1);
+                font-family: ${MONO}; font-size: 12px; font-weight: 600;
+                letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
               }
               .tpl-preview { flex: 1; min-width: 0; }
 
@@ -703,16 +772,12 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 .tpl-editor-section { padding-left: 4px !important; padding-right: 4px !important; }
                 .tpl-editor { flex-direction: column; gap: 14px; }
                 .tpl-rail { width: 100%; order: 2; }
-                .tpl-rail-scroll {
-                  flex-direction: row; max-height: none;
-                  overflow-x: auto; overflow-y: hidden;
-                  padding: 2px 0 8px;
+                .tpl-rail-grid {
+                  display: flex; flex-direction: row; max-height: none;
+                  overflow-x: auto; overflow-y: hidden; padding: 2px 0 8px;
                 }
-                .tpl-card {
-                  flex-direction: column; width: 108px; flex-shrink: 0;
-                  align-items: flex-start; gap: 8px; padding: 9px;
-                }
-                .tpl-card-name { font-size: 12px; }
+                .tpl-card { width: 132px; flex-shrink: 0; }
+                .tpl-cats { display: none; }
                 .tpl-preview { order: 1; }
               }
             `}</style>

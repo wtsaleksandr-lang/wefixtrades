@@ -297,6 +297,13 @@ export interface TemplateResults {
   heading?: string; footnote?: string; show_breakdown?: boolean;
   /** Result-panel call-to-action button label (empty string hides it). */
   cta_label?: string;
+  /**
+   * Elfsight-style marketing block rendered in the summary panel just above the
+   * CTA button. `cta_heading` is a bold line ("Take the First Step…"),
+   * `cta_sub` a short paragraph beneath it. Both optional; absent → no block.
+   */
+  cta_heading?: string;
+  cta_sub?: string;
 }
 
 /* ─── Stepper (BD-2a — multi-step renderer) ─── */
@@ -379,6 +386,12 @@ export interface TemplateConfig {
    * Either way, the user can opt back to single-form via Style tab.
    */
   steps?: TemplateStep[];
+  /**
+   * Step layout. `stepper` (default) walks the customer through one step at a
+   * time; `single` renders every field + the result + CTA on ONE screen
+   * (Elfsight-style). Absent → `stepper`.
+   */
+  stepLayout?: 'stepper' | 'single';
   /** Input fields. */
   fields: TemplateField[];
   /** Calculations / formulas. */
@@ -796,6 +809,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     // Elfsight-clean: light theme + two-column (inputs left, single result panel
     // right), no trust-badge row, no line-item breakdown — minimal and airy.
     trustBadges: [],
+    // Elfsight-style single screen: every input + the result + the CTA on ONE
+    // form, no step-by-step wizard.
+    stepLayout: 'single',
     layout: 'two-column', theme: 'light', defaultIcon: 'Truck',
     // Explicit light style — without this, toAdvancedConfig() falls back to
     // deriveStyleFromCategory('Automotive') which paints a dark slate gradient
@@ -849,18 +865,22 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
         help: 'Add any roadside help you need on arrival.',
         options: [opt('Winching', 50), opt('Tire Change', 25), opt('Lockout Service', 35), opt('Fuel Delivery', 30)] },
     ],
+    // Elfsight-style summary: a primary total + secondary metric rows (each
+    // with a caption sublabel), mirroring "Total / Scholarships / Net Price".
     calculations: [
-      calc('Hook-up Fee', '45 + [Vehicle Type] + [Vehicle Condition]'),
-      calc('Mileage Charge', '[Towing Distance] * 5'),
-      calc('Roadside Add-ons', '[Additional Services]'),
-      calc('Total Towing Cost', '[Hook-up Fee] + [Mileage Charge] + [Roadside Add-ons]'),
+      { ...calc('Hook-up Fee', '45 + [Vehicle Type] + [Vehicle Condition]'), caption: 'Base callout + vehicle type.' },
+      { ...calc('Mileage Charge', '[Towing Distance] * 5'), caption: 'Charged at $5.00 per mile.' },
+      { ...calc('Roadside Add-ons', '[Additional Services]'), caption: 'Winching, lockout, fuel & more.' },
+      { ...calc('Total Towing Cost', '[Hook-up Fee] + [Mileage Charge] + [Roadside Add-ons]'), caption: 'Estimated total — final cost confirmed at dispatch.' },
     ],
     result_calc: 'Total Towing Cost',
     results: {
-      heading: 'Your Tow Estimate',
-      show_breakdown: false,
-      cta_label: 'Dispatch a Truck Now',
-      footnote: 'Mileage is charged at $5.00/mile. After-hours and storage surcharges quoted on dispatch.',
+      heading: 'Total estimated cost',
+      show_breakdown: true,
+      cta_label: 'Contact dispatch',
+      cta_heading: 'Need a tow right now?',
+      cta_sub: 'Our licensed, insured drivers are on call 24/7 — most tows arrive within 30–45 minutes. Get moving in one tap.',
+      footnote: 'After-hours and storage surcharges quoted on dispatch.',
     },
   },
 
@@ -4563,6 +4583,7 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
     ...(t.defaultIcon ? { defaultIcon: t.defaultIcon } : {}),
     ...(t.categoryIcon ? { categoryIcon: t.categoryIcon } : {}),
     ...(t.steps ? { steps: t.steps } : {}),
+    ...(t.stepLayout ? { stepLayout: t.stepLayout } : {}),
     // BD-2b — carry an explicit `tiered` block through verbatim when the
     // template ships one; otherwise leave it absent so the renderer's
     // category-driven default (`resolveTieredConfig`) takes over.

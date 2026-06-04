@@ -274,7 +274,7 @@ interface AdvCalc {
   divider?: boolean;
 }
 interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'center' | 'right'; }
-interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; }
+interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; cta_heading?: string; cta_sub?: string; }
 /**
  * Wave H6 — Settings tab number-format slot. Drives the renderer's
  * currency / number formatting independent of the user's browser locale.
@@ -1786,7 +1786,11 @@ export default function AdvancedCalculator({
   // A tinted result panel (coral / dark) drops its border and uses a
   // translucent divider; a white panel keeps the theme border.
   const resultTinted = c.result.toLowerCase() !== c.surface.toLowerCase();
-  const resultDivider = resultTinted ? 'rgba(255,255,255,0.22)' : c.border;
+  // A tint can be DARK (coral/midnight) or LIGHT (the Elfsight-style accent
+  // wash). The white-on-dark treatment only reads on a dark panel; on a light
+  // tint the dividers + CTA must use dark/accent tokens instead.
+  const resultIsDark = bodyIsDarkBg(c.result);
+  const resultDivider = resultTinted && resultIsDark ? 'rgba(255,255,255,0.22)' : c.border;
 
   // CTA — always high-contrast against the result panel (a solid accent
   // button on a white panel; a white button on a coloured panel).
@@ -1797,8 +1801,11 @@ export default function AdvancedCalculator({
   const ctaProps = richTextRenderProps(ctaLabel);
   const ctaLabelPlain = ctaProps.text ?? richHtmlToPlainText(ctaLabel);
   const showCta = ctaLabel.trim() !== '';
-  const ctaBg = resultTinted ? '#ffffff' : accent;
-  const ctaFg = resultTinted ? c.result : '#ffffff';
+  // Solid accent CTA on white/light panels; a white CTA only on a DARK tinted
+  // panel (where it pops). Previously every tint got a white CTA, which read as
+  // a weak ghost button on the light Elfsight-style wash.
+  const ctaBg = resultTinted && resultIsDark ? '#ffffff' : accent;
+  const ctaFg = resultTinted && resultIsDark ? c.result : '#ffffff';
   const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail.trim());
   const leadReady = leadName.trim() !== '' && leadEmailOk;
   const leadInputStyle: React.CSSProperties = {
@@ -2723,6 +2730,24 @@ export default function AdvancedCalculator({
               // stepTransition === 'none' the rule below is empty and
               // the mount is instant (legacy behaviour).
               <div style={{ marginTop: '14px' }} key={`leadview-${leadView}`} data-qq-step-enter>
+                {/* Elfsight-style marketing block above the CTA button:
+                    a bold heading + a short paragraph (both optional). */}
+                {leadView === 'cta' && (results.cta_heading || results.cta_sub) && (
+                  <div data-testid="advanced-cta-pitch" style={{ marginBottom: '14px' }}>
+                    {results.cta_heading && (
+                      <p style={{
+                        margin: 0, fontSize: '18px', fontWeight: 800,
+                        color: cc.resultText, lineHeight: 1.2, letterSpacing: '-0.01em',
+                      }}>{results.cta_heading}</p>
+                    )}
+                    {results.cta_sub && (
+                      <p style={{
+                        margin: '7px 0 0', fontSize: '13px', fontWeight: 400,
+                        color: cc.resultMuted, lineHeight: 1.5,
+                      }}>{results.cta_sub}</p>
+                    )}
+                  </div>
+                )}
                 {leadView === 'cta' && (
                   <button type="button" data-testid="advanced-cta"
                     data-component-name="CTA button"
@@ -2817,7 +2842,7 @@ export default function AdvancedCalculator({
                   <div data-testid="advanced-cta-done" style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     padding: '11px 13px', borderRadius: eff.radiusMd,
-                    background: resultTinted ? 'rgba(255,255,255,0.16)' : c.accentTint,
+                    background: resultTinted && resultIsDark ? 'rgba(255,255,255,0.16)' : c.accentTint,
                   }}>
                     <span style={{
                       width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
