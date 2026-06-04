@@ -1785,7 +1785,13 @@ export default function WizardShell({ embed = false }: Props) {
             }
             .wizard-shell-modal.is-open .qq-editor-frame {
               opacity: 1;
-              transform: translateY(0) scale(1);
+              /* No rest-state transform: an identity transform (or
+               * will-change: transform) still establishes a containing block,
+               * which made position:fixed descendants (the mobile bottom sheet,
+               * the floating toolbar) anchor to THIS frame instead of the
+               * viewport — pushing the bottom-sheet pill off-screen until you
+               * scrolled. Animating to none still tweens the entrance. */
+              transform: none;
               transition: opacity 200ms ease-out, transform 200ms ease-out;
             }
             .wizard-shell-modal.is-leaving {
@@ -1809,7 +1815,10 @@ export default function WizardShell({ embed = false }: Props) {
               overflow: clip;
               min-height: calc(100vh - ${d.layout.shellPad} - ${d.layout.shellPad});
               transition: opacity 200ms ease-out, transform 200ms ease-out;
-              will-change: opacity, transform;
+              /* will-change: transform is intentionally OMITTED — it alone
+               * establishes a fixed-positioning containing block (see the
+               * .is-open note above). opacity-only is safe. */
+              will-change: opacity;
             }
             /* BD-3c Feature 1 — on desktop, constrain frame to viewport so
                its children own their own scroll (left pane scrolls, canvas
@@ -2537,6 +2546,12 @@ export default function WizardShell({ embed = false }: Props) {
                * through the three presets if the user wants to preview a
                * tablet/desktop view. */
               .qq-editor-device { display: none; }
+              /* Declutter the phone top-bar (Alex: "6 buttons, very
+               * confusing"). The "Preview as bubble" toggle is a niche
+               * desktop preview mode; drop it on phones so the right cluster
+               * reads as the 4 clear actions: collapse-preview, theme, help,
+               * close. (Bubble preview stays available on tablet/desktop.) */
+              .qq-editor-launcher-toggle { display: none !important; }
             }
             @media (max-width: 480px) {
               /* W-MT-1 (2026-05-23) — promote the wizard tab strip to its
