@@ -13,9 +13,9 @@
 //
 // Unknown slug → redirect to /templates index (avoids dead-end SEO).
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Link, useRoute, Redirect } from "wouter";
-import { ArrowRight, ChevronLeft, Check, Zap, Clock, TrendingUp, ShieldCheck, Monitor, Smartphone } from "lucide-react";
+import { ArrowRight, ArrowLeft, ChevronLeft, Check, Zap, Clock, TrendingUp, ShieldCheck, Monitor, Smartphone } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import { mkt } from "@/theme/tokens";
@@ -162,19 +162,41 @@ const SITE_PALETTE: { name: string; color: string }[] = [
   { name: "Amber", color: "#D97706" },
 ];
 
+/* ─── Real template thumbnail — a scaled-down live render of the actual
+   widget (Elfsight cards show the real calculator, not an icon). Memoised on
+   the template so it only mounts once per card. ─── */
+const TemplateThumb = memo(function TemplateThumb({ template }: { template: TemplateConfig }) {
+  const calc = useMemo(() => buildPreviewCalculator(template), [template]);
+  return (
+    <div className="tpl-thumb" aria-hidden>
+      <div className="tpl-thumb-scale">
+        <QuoteWidget calculator={calc} isEmbed={false} />
+      </div>
+    </div>
+  );
+});
+
 /* ─── Template picker rail (Elfsight "Select a Template") ───
-   Left column on desktop, horizontal strip at the bottom on mobile. Clicking
-   a card swaps the live preview to that template in place. */
+   Left column on desktop, horizontal strip at the bottom on mobile. Holds the
+   colour selector (top), a paginated 2×2 grid of real thumbnails, a category
+   filter, and the Continue CTA (bottom). Clicking a card swaps the live
+   preview to that template in place. */
+const PER_PAGE = 4;
 function TemplateRail({
   selectedSlug,
   onSelect,
   accent,
+  setAccent,
 }: {
   selectedSlug: string;
   onSelect: (slug: string) => void;
   accent: string;
+  setAccent: (color: string) => void;
 }) {
   const [category, setCategory] = useState<string>("All");
+  const [page, setPage] = useState(0);
+  useEffect(() => setPage(0), [category]);
+
   const categories = useMemo<[string, number][]>(() => {
     const counts = new Map<string, number>();
     for (const t of TEMPLATE_PRESETS) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
@@ -188,28 +210,66 @@ function TemplateRail({
         : TEMPLATE_PRESETS.filter((t) => t.category === category),
     [category],
   );
+  const pageCount = Math.max(1, Math.ceil(shown.length / PER_PAGE));
+  const safePage = Math.min(page, pageCount - 1);
+  const start = safePage * PER_PAGE;
+  const pageItems = shown.slice(start, start + PER_PAGE);
 
   return (
     <aside className="tpl-rail" data-testid="template-rail">
+      {/* Colour selector — ABOVE the templates */}
+      <div className="tpl-rail-block">
+        <div className="tpl-cats-head">Choose a colour</div>
+        <div className="tpl-color-row" data-testid="template-color-tabs">
+          {SITE_PALETTE.map((p) => {
+            const sel = accent === p.color;
+            return (
+              <button
+                key={p.color}
+                type="button"
+                aria-label={p.name}
+                aria-pressed={sel}
+                title={p.name}
+                onClick={() => setAccent(p.color)}
+                className="tpl-swatch"
+                style={{
+                  background: p.color,
+                  boxShadow: sel
+                    ? `0 0 0 2px ${CS_LIGHT.bg}, 0 0 0 4px ${p.color}`
+                    : "0 0 0 1px rgba(15,20,24,0.12)",
+                }}
+              >
+                {sel && <Check size={14} color="rgba(255,255,255,1)" strokeWidth={3} />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="tpl-rail-head">
         <span style={{ opacity: 0.4 }}>(</span> Select a template{" "}
         <span style={{ opacity: 0.4 }}>)</span>
       </div>
 
-      {/* 2-column thumbnail card grid (Elfsight "Select a Template") */}
+      {/* 2×2 grid of real thumbnails */}
       <div className="tpl-rail-grid">
-        {shown.map((t) => {
-          const tcat = getCategoryStyle(t.category);
-          const TIcon = getQuoteQuickIcon(t.defaultIcon);
+        {pageItems.map((t) => {
           const active = t.id === selectedSlug;
           return (
-            <button
+            <div
               key={t.id}
-              type="button"
+              role="button"
+              tabIndex={0}
               data-testid={`template-rail-card-${t.id}`}
               aria-pressed={active}
               title={t.name}
               onClick={() => onSelect(t.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelect(t.id);
+                }
+              }}
               className="tpl-card"
               style={{
                 boxShadow: active
@@ -218,11 +278,8 @@ function TemplateRail({
                 background: active ? "rgba(13,60,252,0.05)" : "rgba(255,255,255,0.55)",
               }}
             >
-              <span
-                className="tpl-card-thumb"
-                style={{ background: `${tcat.heroAccent}1F`, color: tcat.heroAccent }}
-              >
-                {TIcon ? <TIcon size={24} strokeWidth={1.75} /> : null}
+              <span className="tpl-card-thumb-wrap">
+                <TemplateThumb template={t} />
                 {active && (
                   <span className="tpl-card-check">
                     <Check size={12} strokeWidth={3} color="rgba(255,255,255,1)" />
@@ -230,9 +287,36 @@ function TemplateRail({
                 )}
               </span>
               <span className="tpl-card-name">{t.name}</span>
-            </button>
+            </div>
           );
         })}
+      </div>
+
+      {/* Pagination — N–M of total */}
+      <div className="tpl-pager">
+        <span className="tpl-pager-count">
+          {start + 1}–{Math.min(start + PER_PAGE, shown.length)} of {shown.length}
+        </span>
+        <div className="tpl-pager-btns">
+          <button
+            type="button"
+            aria-label="Previous templates"
+            disabled={safePage === 0}
+            onClick={() => setPage(safePage - 1)}
+            className="tpl-pager-btn"
+          >
+            <ArrowLeft size={14} />
+          </button>
+          <button
+            type="button"
+            aria-label="More templates"
+            disabled={safePage >= pageCount - 1}
+            onClick={() => setPage(safePage + 1)}
+            className="tpl-pager-btn"
+          >
+            <ArrowRight size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Categories filter (Elfsight) */}
@@ -551,60 +635,30 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               <span>Live preview</span>
               <span style={{ opacity: 0.4 }}>)</span>
             </div>
-            <h2
-              style={{
-                fontSize: "clamp(26px, 3.4vw, 40px)",
-                fontWeight: 700,
-                color: CS_LIGHT.ink,
-                margin: "0 0 28px",
-                letterSpacing: "-0.025em",
-                lineHeight: 1.08,
-                fontFamily: SANS,
-              }}
-            >
-              Try the {activeTemplate.name} calculator
-            </h2>
-            {/* Two-pane editor: template rail (left desktop / bottom mobile) +
-                live preview. */}
+            {/* Two-pane editor: template rail (colour selector + catalogue) on
+                the left, the title + live widget on the right. */}
             <div className="tpl-editor">
-              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} />
+              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} setAccent={setAccent} />
               <div className="tpl-preview">
-            {/* Color tabs — recolor the preview live. Four site-wide accents
-                (the wizard exposes the full picker). Buttons use the shared
-                .cs-arrow capsule styling from the blog carousel arrows. */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, margin: "0 0 18px" }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: CS_LIGHT.inkMuted }}>
-                Choose a colour
-              </span>
-              <div className="cs-arrow-group" data-theme="dark" style={{ padding: 5, gap: 6 }} data-testid="template-color-tabs">
-                {SITE_PALETTE.map((p) => {
-                  const sel = accent === p.color;
-                  return (
+                {/* Template title + single device toggle, right above the preview */}
+                <div className="tpl-preview-titlebar">
+                  <h2 className="tpl-preview-title">{activeTemplate.name}</h2>
+                  {!isMobileViewport && (
                     <button
-                      key={p.color}
                       type="button"
-                      aria-label={p.name}
-                      aria-pressed={sel}
-                      title={p.name}
-                      onClick={() => setAccent(p.color)}
-                      style={{
-                        width: 34, height: 34, borderRadius: 9, border: "none", cursor: "pointer",
-                        background: p.color, display: "grid", placeItems: "center",
-                        boxShadow: sel
-                          ? "0 0 0 2px rgba(11,13,15,1), 0 0 0 4px rgba(255,255,255,0.9)"
-                          : "none",
-                        transition: "box-shadow 150ms ease, transform 120ms ease",
-                      }}
+                      onClick={() => setPreviewMode((m) => (m === "desktop" ? "mobile" : "desktop"))}
+                      data-testid="preview-device-toggle"
+                      aria-label={previewMode === "desktop" ? "Switch to mobile view" : "Switch to desktop view"}
+                      title={previewMode === "desktop" ? "Mobile view" : "Desktop view"}
+                      className="tpl-device-toggle"
                     >
-                      {sel && <Check size={16} color="rgba(255,255,255,1)" strokeWidth={3} />}
+                      {previewMode === "desktop"
+                        ? <Smartphone size={16} strokeWidth={2.25} />
+                        : <Monitor size={16} strokeWidth={2.25} />}
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Elfsight-style preview: the widget renders directly on a white
-                card — no labelled toolbar. A minimal device toggle floats in the
-                top-right corner (desktop only). */}
+                  )}
+                </div>
+            {/* Elfsight-style preview: the widget renders directly on a white card. */}
             <div
               data-testid="template-live-preview"
               style={{
@@ -618,44 +672,6 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 overflow: "hidden",
               }}
             >
-              {/* Minimal floating device toggle (top-right) */}
-              {!isMobileViewport && (
-                <div
-                  role="group"
-                  aria-label="Preview device"
-                  style={{ position: "absolute", top: 12, right: 12, zIndex: 5, display: "flex", gap: 2, padding: 3, borderRadius: 9, background: "rgba(0,0,0,0.05)" }}
-                >
-                  {([["desktop", Monitor, "Desktop view"], ["mobile", Smartphone, "Mobile view"]] as const).map(([mode, Icon, label]) => {
-                    const on = previewMode === mode;
-                    return (
-                      <button
-                        key={mode}
-                        type="button"
-                        aria-label={label}
-                        aria-pressed={on}
-                        title={label}
-                        onClick={() => setPreviewMode(mode)}
-                        data-testid={`preview-device-${mode}`}
-                        style={{
-                          display: "grid",
-                          placeItems: "center",
-                          width: 28,
-                          height: 28,
-                          borderRadius: 7,
-                          border: "none",
-                          cursor: "pointer",
-                          background: on ? "rgba(255,255,255,1)" : "transparent",
-                          boxShadow: on ? "0 1px 3px rgba(0,0,0,0.18)" : "none",
-                          color: on ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.40)",
-                          transition: "background 140ms ease, color 140ms ease",
-                        }}
-                      >
-                        <Icon size={16} strokeWidth={2.25} />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
               {/* Fold viewport — the live widget shrinks into a phone frame in place */}
               <div
                 style={{
@@ -705,21 +721,29 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               </div>{/* /.tpl-preview */}
             </div>{/* /.tpl-editor */}
             <style>{`
-              .tpl-editor { display: flex; gap: 18px; align-items: flex-start; }
-              .tpl-rail {
-                width: 300px; flex-shrink: 0;
-                display: flex; flex-direction: column; gap: 12px;
+              /* Equal-height columns: CSS grid stretches the rail to the
+                 preview's height (item 1). */
+              .tpl-editor {
+                display: grid; grid-template-columns: 320px minmax(0, 1fr);
+                gap: 18px; align-items: stretch;
               }
-              .tpl-rail-head {
-                font-family: ${MONO}; font-size: 11px; font-weight: 600;
+              .tpl-rail { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+              .tpl-rail-block { display: flex; flex-direction: column; gap: 8px; }
+              .tpl-rail-head, .tpl-cats-head {
+                font-family: ${MONO}; font-size: 10.5px; font-weight: 600;
                 letter-spacing: 0.10em; text-transform: uppercase; color: ${CS_LIGHT.inkMuted};
                 padding-left: 2px;
               }
-              .tpl-rail-grid {
-                display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-                overflow-y: auto; max-height: 440px; align-content: start;
-                padding: 2px 6px 2px 2px; scrollbar-width: thin;
+              .tpl-color-row { display: flex; gap: 8px; }
+              .tpl-swatch {
+                width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
+                display: grid; place-items: center;
+                transition: box-shadow 150ms ease, transform 120ms ease;
               }
+              .tpl-swatch:hover { transform: translateY(-1px); }
+
+              /* 2×2 catalogue grid (item 2). */
+              .tpl-rail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
               .tpl-card {
                 display: flex; flex-direction: column; gap: 8px;
                 padding: 6px; border: none; border-radius: 14px;
@@ -727,12 +751,25 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 transition: box-shadow 160ms ease, background 160ms ease, transform 160ms ease;
               }
               .tpl-card:hover { transform: translateY(-2px); }
-              .tpl-card-thumb {
-                position: relative; width: 100%; aspect-ratio: 4 / 3;
-                border-radius: 10px; display: grid; place-items: center;
+              .tpl-card-thumb-wrap { position: relative; width: 100%; }
+              /* Real template thumbnail — a scaled live widget HARD-clipped to a
+                 fixed frame (item 6). contain:strict + the scale transform keep
+                 the widget sticky header / min-height / fixed children from
+                 escaping the box. */
+              .tpl-thumb {
+                position: relative; width: 100%; height: 104px;
+                border-radius: 10px; overflow: hidden;
+                background: rgba(255,255,255,1);
+                box-shadow: inset 0 0 0 1px rgba(15,20,24,0.06);
+                contain: strict;
+              }
+              .tpl-thumb-scale {
+                position: absolute; top: 0; left: 0;
+                width: calc(100% / 0.30); transform: scale(0.30);
+                transform-origin: top left; pointer-events: none;
               }
               .tpl-card-check {
-                position: absolute; top: 6px; right: 6px;
+                position: absolute; top: 6px; right: 6px; z-index: 2;
                 width: 18px; height: 18px; border-radius: 50%;
                 background: ${mkt.accent}; display: grid; place-items: center;
               }
@@ -742,15 +779,25 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 overflow: hidden; text-overflow: ellipsis;
                 display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
               }
-              .tpl-cats { display: flex; flex-direction: column; gap: 8px; }
-              .tpl-cats-head {
-                font-family: ${MONO}; font-size: 10.5px; font-weight: 600;
-                letter-spacing: 0.10em; text-transform: uppercase; color: ${CS_LIGHT.inkMuted};
-                padding-left: 2px;
+
+              /* Pagination (item 2). */
+              .tpl-pager { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+              .tpl-pager-count { font-family: ${MONO}; font-size: 11px; font-weight: 600; color: ${CS_LIGHT.inkMuted}; }
+              .tpl-pager-btns { display: flex; gap: 6px; }
+              .tpl-pager-btn {
+                width: 28px; height: 28px; border-radius: 8px; cursor: pointer;
+                display: grid; place-items: center;
+                background: rgba(255,255,255,0.6); border: none;
+                box-shadow: inset 0 0 0 1px rgba(15,20,24,0.12);
+                color: ${CS_LIGHT.ink};
+                transition: background 140ms ease, opacity 140ms ease;
               }
+              .tpl-pager-btn:disabled { opacity: 0.35; cursor: default; }
+
+              .tpl-cats { display: flex; flex-direction: column; gap: 8px; }
               .tpl-cats-list {
                 display: flex; flex-direction: column; gap: 6px;
-                max-height: 156px; overflow-y: auto; scrollbar-width: thin;
+                max-height: 150px; overflow-y: auto; scrollbar-width: thin;
               }
               .tpl-cat {
                 display: flex; align-items: center; justify-content: space-between;
@@ -760,25 +807,41 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               .tpl-cat-name { font-family: ${SANS}; font-size: 12.5px; font-weight: 600; color: ${CS_LIGHT.ink}; }
               .tpl-cat-count { font-family: ${MONO}; font-size: 11px; font-weight: 700; color: ${mkt.accent}; }
               .tpl-rail-cta {
+                margin-top: auto;
                 display: flex; align-items: center; justify-content: center; gap: 8px;
                 padding: 14px; border-radius: 12px;
                 background: ${mkt.accent}; color: rgba(255,255,255,1);
                 font-family: ${MONO}; font-size: 12px; font-weight: 600;
                 letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
               }
-              .tpl-preview { flex: 1; min-width: 0; }
+
+              .tpl-preview { min-width: 0; display: flex; flex-direction: column; }
+              /* Template title right above the preview (item 4). */
+              .tpl-preview-titlebar {
+                display: flex; align-items: center; justify-content: space-between;
+                gap: 12px; margin-bottom: 14px;
+              }
+              .tpl-preview-title {
+                margin: 0; font-family: ${SANS};
+                font-size: clamp(22px, 2.4vw, 30px); font-weight: 700;
+                letter-spacing: -0.02em; color: ${CS_LIGHT.ink}; line-height: 1.1;
+              }
+              /* Single device toggle that swaps its icon (item 5). */
+              .tpl-device-toggle {
+                flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+                display: grid; place-items: center; cursor: pointer; border: none;
+                background: rgba(255,255,255,0.7); color: ${CS_LIGHT.ink};
+                box-shadow: inset 0 0 0 1px rgba(15,20,24,0.12);
+                transition: background 140ms ease, transform 120ms ease;
+              }
+              .tpl-device-toggle:hover { transform: translateY(-1px); }
 
               @media (max-width: 760px) {
                 .tpl-editor-section { padding-left: 4px !important; padding-right: 4px !important; }
-                .tpl-editor { flex-direction: column; gap: 14px; }
-                .tpl-rail { width: 100%; order: 2; }
-                .tpl-rail-grid {
-                  display: flex; flex-direction: row; max-height: none;
-                  overflow-x: auto; overflow-y: hidden; padding: 2px 0 8px;
-                }
-                .tpl-card { width: 132px; flex-shrink: 0; }
-                .tpl-cats { display: none; }
+                .tpl-editor { grid-template-columns: 1fr; gap: 14px; align-items: start; }
+                .tpl-rail { order: 2; }
                 .tpl-preview { order: 1; }
+                .tpl-rail-cta { margin-top: 0; }
               }
             `}</style>
           </div>
