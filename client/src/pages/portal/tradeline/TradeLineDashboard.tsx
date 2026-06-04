@@ -349,9 +349,9 @@ export default function TradeLineDashboard() {
         {/* ─── Header ─────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-end justify-between gap-2 border-b border-[color:var(--border)] pb-3">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">
+            <h2 className="text-xl font-semibold text-foreground">
               TradeLine — Dashboard
-            </h1>
+            </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Live call activity, booking funnel, and cost-per-booking — at a glance.{" "}
               <Link href="/portal/tradeline/voice" className="underline">

@@ -567,9 +567,9 @@ export default function ReputationShieldDashboard() {
               <Star className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-foreground">
                 ReputationShield
-              </h1>
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Gmail-style inbox · AI draft replies · multi-platform health
               </p>

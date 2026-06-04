@@ -594,9 +594,9 @@ export default function SocialSyncDashboard() {
         {/* ─── Header ─────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-end justify-between gap-2 border-b border-[color:var(--border)] pb-3">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">
+            <h2 className="text-xl font-semibold text-foreground">
               SocialSync — Dashboard
-            </h1>
+            </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Approve, schedule, and preview every channel in one view.
               {/* Wave 36 — "Open legacy report" link removed (exposes internal versioning). */}
