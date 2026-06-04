@@ -268,7 +268,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "core",
     heroVisualType: "website",
     primaryCTA: { label: "Get Your Website Built", href: "#pricing" },
-    secondaryCTA: { label: "See What\u2019s Included", href: "#pricing" },
+    secondaryCTA: { label: "See Pricing", href: "#pricing" },
     highlights: [
       "Mobile-first design \u2014 Most of your customers will find you on their phone. Your site works perfectly on every screen.",
       "Speed optimized \u2014 Fast-loading pages mean fewer visitors bouncing before they contact you.",
@@ -457,7 +457,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "core",
     heroVisualType: "website",
     primaryCTA: { label: "Fix My Website", href: "/wizard" },
-    secondaryCTA: { label: "See What’s Included", href: "#pricing" },
+    secondaryCTA: { label: "See Pricing", href: "#pricing" },
     highlights: [
       "Page-speed audit + Core Web Vitals fixes by our specialists — faster load times mean fewer bounced visitors and better Google rankings.",
       "Mobile-responsiveness audit + fixes for every phone, tablet, and desktop — handled by our team on your CMS.",
