@@ -326,7 +326,7 @@ export default function PortalTradelineKnowledgePage() {
               <div className="space-y-3">
                 <label className="block text-sm">
                   <span className="text-gray-700 font-medium">Title</span>
-                  <Input className="mt-1" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
+                  <Input className="mt-1" maxLength={255} value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
                 </label>
                 <label className="block text-sm">
                   <span className="text-gray-700 font-medium">Content (markdown)</span>
