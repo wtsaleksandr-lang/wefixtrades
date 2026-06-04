@@ -1808,8 +1808,19 @@ export default function AdvancedCalculator({
   // Solid accent CTA on white/light panels; a white CTA only on a DARK tinted
   // panel (where it pops). Previously every tint got a white CTA, which read as
   // a weak ghost button on the light Elfsight-style wash.
-  const ctaBg = resultTinted && resultIsDark ? '#ffffff' : accent;
-  const ctaFg = resultTinted && resultIsDark ? c.result : '#ffffff';
+  //
+  // TWO-ZONE THEMING — Colour A. When a template sets `style.ctaColor` it
+  // OWNS the CTA background (Colour A), independent of accent (Colour B) and
+  // the result-panel tint. The foreground is then derived purely from the
+  // CTA background's luminance: a BRIGHT ctaColor (e.g. yellow #ffd60a) gets
+  // DARK text rgb(17,17,17) — never white-on-yellow; a DARK ctaColor gets
+  // white. `guardTextColor` (applied below as `ctaFgGuarded`) enforces the
+  // contrast floor on top. Templates that DON'T set `ctaColor` fall through
+  // to the exact legacy derivation — no regression.
+  const ctaBg = style.ctaColor ?? (resultTinted && resultIsDark ? '#ffffff' : accent);
+  const ctaFg = style.ctaColor !== undefined
+    ? (getRelativeLuminance(style.ctaColor) >= 0.5 ? 'rgb(17,17,17)' : 'rgb(255,255,255)')
+    : (resultTinted && resultIsDark ? c.result : '#ffffff');
   const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail.trim());
   const leadReady = leadName.trim() !== '' && leadEmailOk;
   const leadInputStyle: React.CSSProperties = {
@@ -2026,12 +2037,19 @@ export default function AdvancedCalculator({
         style={{
           position: 'sticky', top: 0, zIndex: 40,
           background: c.surface,
-          borderBottom: '1px solid rgba(0,0,0,0.06)',
-          // Header fills flush to the widget edges; its top corners round to
-          // the SAME radius as the outer card so the header's corner IS the
-          // widget's corner — nothing (no surface/frame) shows behind it.
+          // TWO-ZONE — the top brand bar (the QuoteQuick header row) reads as a
+          // separated, ROUNDED bar with a thin 1px hairline on every side. The
+          // border is theme-aware (routed through the resolved border token,
+          // never a raw literal), so it stays subtle on both light + dark
+          // bodies.
+          border: `1px solid ${c.border}`,
+          // Top corners round to the SAME radius as the outer card so the bar's
+          // corner IS the widget's corner; the bottom corners get the inner
+          // radius so the bar reads as its own rounded container.
           borderTopLeftRadius: radiusOuterPx,
           borderTopRightRadius: radiusOuterPx,
+          borderBottomLeftRadius: radiusInnerPx,
+          borderBottomRightRadius: radiusInnerPx,
         }}
       >
       {/* ── Title bar (its own separated bar) ── */}

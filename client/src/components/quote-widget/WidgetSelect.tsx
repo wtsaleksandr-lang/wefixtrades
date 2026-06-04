@@ -14,6 +14,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { WidgetTheme } from './widgetThemes';
+import { getRelativeLuminance } from '@/lib/contrastGuard';
 
 export interface SelectOption { id: string; label: string }
 
@@ -94,6 +95,14 @@ export default function WidgetSelect({
   const rPx = typeof radiusPx === 'number' ? radiusPx : (parseInt(String(radiusPx), 10) || 12);
   const optRadius = Math.max(8, rPx - 4);
   const panelRadius = Math.max(12, rPx);
+  // CONTRAST RULE — the SELECTED option highlight paints `theme.accent` behind
+  // its label, so the label colour must OPPOSE the accent's luminance: white on
+  // a dark accent, DARK text on a BRIGHT accent. This is the dropdown's version
+  // of the no-white-on-yellow rule — a yellow accent (two-zone Colour A scheme,
+  // or any bright brand accent) must never render white-on-yellow here.
+  const selectedOptionFg = getRelativeLuminance(theme.accent) >= 0.5
+    ? 'rgb(17,17,17)'
+    : 'rgba(255,255,255,1)';
 
   return (
     <div ref={wrapRef} style={{ position: 'relative', fontFamily }}>
@@ -177,7 +186,7 @@ export default function WidgetSelect({
                   style={{
                     padding: '9px 12px', borderRadius: optRadius, cursor: 'pointer',
                     fontSize: 14, lineHeight: 1.3,
-                    color: isSel ? 'rgba(255,255,255,1)' : theme.text,
+                    color: isSel ? selectedOptionFg : theme.text,
                     background: isSel ? theme.accent : (isActive ? hoverBg : 'transparent'),
                     transition: 'background 120ms ease',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

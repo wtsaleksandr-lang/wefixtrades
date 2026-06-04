@@ -806,29 +806,37 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'car_towing', name: 'Car Towing', description: 'Distance-based tow pricing with add-on services.',
     category: 'Automotive', trades: ['auto_detailing'],
-    // Black + yellow dark theme + two-column (inputs left, single result panel
+    // TWO-ZONE black + yellow + two-column (inputs left, single result panel
     // right), no trust-badge row, no line-item breakdown — minimal and bold.
     trustBadges: [],
     // Elfsight-style single screen: every input + the result + the CTA on ONE
     // form, no step-by-step wizard.
     stepLayout: 'single',
-    layout: 'two-column', theme: 'dark', defaultIcon: 'Truck',
-    // Explicit dark style — a generic automotive/hazard black+yellow scheme.
-    // Without this, toAdvancedConfig() falls back to
-    // deriveStyleFromCategory('Automotive'). bgMode:'solid' + near-black body
-    // gives the bold black+yellow look (near-black body + surfaces, white text,
-    // a single bright-yellow CTA).
+    layout: 'two-column', theme: 'light', defaultIcon: 'Truck',
+    // TWO-ZONE THEMING — two colours that NEVER overlap:
+    //   * LEFT zone = white body + dark text; its accents (slider fill,
+    //     toggles, selectors, checkmarks) use Colour B (#0d0d0d, near-black).
+    //   * RIGHT zone = the result/summary panel, background = Colour B
+    //     (#0d0d0d); the existing luminance/muted logic + the flat total
+    //     render white on that dark panel.
+    //   * Colour A (#ffd60a, hazard-yellow) is the CTA button ONLY — the
+    //     widget's contrast guard auto-renders DARK text on the bright yellow.
+    // Without an explicit style, toAdvancedConfig() would fall back to
+    // deriveStyleFromCategory('Automotive').
     style: {
-      // Black + yellow, distinctly OURS: a bright hazard-yellow accent drives
-      // the CTA; surfaces are layered near-blacks and text is pure white for a
-      // high-contrast read. CTA text colour is left to the widget's contrast
-      // guard (dark text auto-rendered on the bright yellow button).
-      accent: '#ffd60a',
-      background: '#0d0d0d',
-      surface: '#1a1a1a',
-      border: '#2a2a2a',
-      text: 'rgba(255,255,255,1)',
-      resultsBg: '#141414',
+      // Colour B — drives the LEFT-side accents AND the right result panel.
+      accent: '#0d0d0d',
+      // LEFT zone body = white, dark text on light surfaces.
+      background: 'rgba(255,255,255,1)',
+      surface: '#f6f7f9',
+      border: '#e5e7eb',
+      text: '#171717',
+      // Colour B — the RIGHT result panel background (near-black).
+      resultsBg: '#0d0d0d',
+      // Colour A — the CTA button ONLY (hazard-yellow). The CTA's label colour
+      // is derived from this colour's luminance → dark text on the yellow,
+      // never white-on-yellow.
+      ctaColor: '#ffd60a',
       success: '#10b981',
       error: '#ef4444',
       fontFamily: 'inter',
@@ -3642,6 +3650,16 @@ export type AdvFontSize = 'small' | 'medium' | 'large';
 export interface AdvStyle {
   /** Accent / CTA colour. Overrides theme.accent. */
   accent?: string;
+  /**
+   * Colour A — the CTA button background ONLY. When set, the CTA uses this
+   * colour instead of deriving from `accent`/result panel, and its label
+   * colour is derived from this colour's luminance (dark text on a bright
+   * CTA, white on a dark CTA — never white-on-yellow). Two-zone theming:
+   * `accent` (Colour B) drives the left-side accents + result panel, while
+   * `ctaColor` (Colour A) is reserved for the CTA alone. Absent → the CTA
+   * keeps its legacy accent/result-tinted derivation (no regression).
+   */
+  ctaColor?: string;
   /** Calculator body background. Overrides theme.bg. */
   background?: string;
   /** Primary text colour. Overrides theme.text. */
@@ -4118,6 +4136,10 @@ export type BrandStudioStyleKey = (typeof BRAND_STUDIO_STYLE_KEYS)[number];
  */
 type AdvStyleOptionalOnly =
   | 'widgetWidthDesktop' | 'widgetWidthMobile'
+  // Colour A — CTA-only colour. Optional and intentionally absent from
+  // DEFAULT_ADV_STYLE so a calculator that doesn't set it keeps the legacy
+  // accent/result-tinted CTA derivation (no regression).
+  | 'ctaColor'
   | 'secondary' | 'surface' | 'border' | 'success' | 'error'
   | 'logoPlacement' | 'logoSize'
   | 'headingWeight' | 'bodyWeight' | 'fontSize'

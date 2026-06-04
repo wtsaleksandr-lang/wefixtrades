@@ -117,6 +117,11 @@ function buildPreviewCalculator(
         surface: combo.surface,
         border: combo.border,
         resultsBg: combo.resultsBg,
+        // Colour A — the CTA-only colour. For single-colour combos this equals
+        // the accent (no visible change); for the two-zone black-yellow combo
+        // this is the distinct yellow CTA (the widget renders dark text on it),
+        // while `accent` (Colour B) drives the left accents + the dark panel.
+        ctaColor: combo.ctaColor,
       }
     : // No combo → keep the EXACT prior light behaviour: full-contrast white
       // body, with the field surfaces + result panel tinted toward the accent
@@ -383,13 +388,22 @@ type ThemeCombination = {
   border: string;
   resultsBg: string;
   accent: string;
+  /**
+   * Colour A — the CTA button colour ONLY. For single-colour combos this
+   * equals `accent` (no behaviour change). For the two-zone black-yellow
+   * combo it is the distinct yellow CTA while `accent` (Colour B) drives the
+   * left accents + the dark result panel.
+   */
+  ctaColor: string;
 };
 
 const THEME_COMBINATIONS: ThemeCombination[] = [
-  { id: "light-blue", name: "Light · Blue", bg: "rgba(255,255,255,1)", text: "#171717", surface: "#f6f7f9", border: "#e5e7eb", resultsBg: "#f3f4f6", accent: "#0d3cfc" },
-  { id: "black-yellow", name: "Black · Yellow", bg: "#0d0d0d", text: "rgba(255,255,255,1)", surface: "#1a1a1a", border: "#2a2a2a", resultsBg: "#141414", accent: "#ffd60a" },
-  { id: "slate-teal", name: "Slate · Teal", bg: "#0f172a", text: "rgba(255,255,255,1)", surface: "#1e293b", border: "#334155", resultsBg: "#172033", accent: "#2dd4bf" },
-  { id: "warm-amber", name: "Warm · Amber", bg: "#faf7f2", text: "#1c1917", surface: "#f3ede3", border: "#e7ddcd", resultsBg: "#efe7d8", accent: "#d97706" },
+  { id: "light-blue", name: "Light · Blue", bg: "rgba(255,255,255,1)", text: "#171717", surface: "#f6f7f9", border: "#e5e7eb", resultsBg: "#f3f4f6", accent: "#0d3cfc", ctaColor: "#0d3cfc" },
+  // TWO-ZONE: white body + dark text (LEFT zone), Colour B (#0d0d0d) drives the
+  // left accents AND the dark result panel, Colour A (#ffd60a) is the CTA only.
+  { id: "black-yellow", name: "Black · Yellow", bg: "rgba(255,255,255,1)", text: "#171717", surface: "#f6f7f9", border: "#e5e7eb", resultsBg: "#0d0d0d", accent: "#0d0d0d", ctaColor: "#ffd60a" },
+  { id: "slate-teal", name: "Slate · Teal", bg: "#0f172a", text: "rgba(255,255,255,1)", surface: "#1e293b", border: "#334155", resultsBg: "#172033", accent: "#2dd4bf", ctaColor: "#2dd4bf" },
+  { id: "warm-amber", name: "Warm · Amber", bg: "#faf7f2", text: "#1c1917", surface: "#f3ede3", border: "#e7ddcd", resultsBg: "#efe7d8", accent: "#d97706", ctaColor: "#d97706" },
 ];
 
 const DEFAULT_COMBO =
@@ -506,9 +520,15 @@ function TemplateRail({
                     : "inset 0 0 0 1px rgba(15,20,24,0.12)",
                 }}
               >
+                {/* Split swatch. Single-colour combos (ctaColor === accent)
+                    show body + accent (legacy look). The two-zone combo
+                    (ctaColor !== accent) shows its two distinct identity
+                    colours — Colour B (accent / dark panel) + Colour A (the
+                    CTA) — so "Black · Yellow" still reads as black + yellow
+                    even though its BODY is now white. */}
                 <span className="tpl-combo-swatch" aria-hidden>
-                  <span style={{ background: c.bg }} />
-                  <span style={{ background: c.accent }} />
+                  <span style={{ background: c.ctaColor !== c.accent ? c.accent : c.bg }} />
+                  <span style={{ background: c.ctaColor }} />
                 </span>
                 <span className="tpl-combo-name">{c.name}</span>
               </button>
