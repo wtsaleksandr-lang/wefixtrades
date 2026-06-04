@@ -4,7 +4,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import {
-  ArrowRight, ArrowLeft, Search,
+  ArrowRight, ArrowLeft,
   TrendingDown, Gauge, Star, Zap, MapPin, Calendar,
 } from "lucide-react";
 import { V7PageShell } from "@/components/marketing/v7";
@@ -566,20 +566,7 @@ function FilterBar({ categories, active, onToggle, onClear }: {
         );
       })}
 
-      <button
-        aria-label="Search"
-        style={{
-          marginLeft: "auto",
-          width: 36, height: 36, borderRadius: 999,
-          border: `1px solid ${LIGHT.pillBorder}`,
-          background: LIGHT.searchBg,
-          color: LIGHT.ink,
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer",
-        }}
-      >
-        <Search size={16} />
-      </button>
+      {/* Search removed — no handler; misleading cursor:pointer */}
     </div>
   );
 }
