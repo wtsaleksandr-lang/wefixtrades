@@ -37,7 +37,7 @@ export default function AdminNoticesPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data, isLoading } = useQuery<{ notices: Notice[]; unread_count: number }>({
+  const { data, isLoading, isError, error, refetch } = useQuery<{ notices: Notice[]; unread_count: number }>({
     queryKey: ["/api/admin/notices"],
   });
 
@@ -69,7 +69,16 @@ export default function AdminNoticesPage() {
           </p>
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-destructive mb-3">
+              Failed to load notices{(error as Error | null)?.message ? `: ${(error as Error).message}` : ""}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : isLoading ? (
           <>{Array.from({ length: 3 }).map((_, i) => (
             <Card key={i} className="mb-2"><CardContent className="p-4"><Skeleton className="h-20" /></CardContent></Card>
           ))}</>

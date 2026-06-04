@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import PortalLayout from "@/components/portal/PortalLayout";
 import BackButton from "@/components/ui/back-button";
@@ -56,6 +57,7 @@ function buildSnippet(host: string, siteKey: string): string {
 export default function PortalChatWidgetSetup() {
   usePageTitle("Chat widget setup");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const state = useQuery<SiteResponse>({
     queryKey: ["/api/portal/widget/site"],
     queryFn: () => fetch("/api/portal/widget/site", { credentials: "include" }).then((r) => r.json()),
@@ -166,7 +168,9 @@ export default function PortalChatWidgetSetup() {
       await navigator.clipboard.writeText(snippet);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {}
+    } catch {
+      toast({ title: "Copy failed", description: "Clipboard not available.", variant: "destructive" });
+    }
   }
 
   return (
