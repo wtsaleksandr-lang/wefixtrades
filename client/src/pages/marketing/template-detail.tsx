@@ -100,25 +100,41 @@ function buildPreviewCalculator(
   template: TemplateConfig,
   accent?: string,
   forceLayout?: "single-column",
+  combo?: ThemeCombination,
 ): CalculatorData {
   const base = toAdvancedConfig(template);
-  const acc = accent ?? ELFSIGHT_LIGHT_STYLE.accent;
-  // Keep the widget BODY at full-contrast white (no body wash → the preview
-  // content reads crisp, not dimmed). Still tint the field surfaces + result
-  // panel so a colour change is felt beyond the CTA, but never the body.
-  const bgTint = accent
+  // The standalone accent swatch overrides the combo's accent when set; with no
+  // accent and no combo, fall back to the Elfsight-light default accent.
+  const acc = accent ?? combo?.accent ?? ELFSIGHT_LIGHT_STYLE.accent;
+  // Combo present → drive the preview from the full pre-balanced palette
+  // (bg / text / surface / border / resultsBg). Dark bg (luminance < 0.5) →
+  // the widget renders its dark theme; light bg → light theme.
+  const comboIsDark = combo ? comboLuminance(combo.bg) < 0.5 : false;
+  const styleOverrides = combo
     ? {
-        background: "rgba(255,255,255,1)",
-        surface: tintToward(accent, 0.07),
-        resultsBg: tintToward(accent, 0.11),
+        background: combo.bg,
+        text: combo.text,
+        surface: combo.surface,
+        border: combo.border,
+        resultsBg: combo.resultsBg,
       }
-    : {};
+    : // No combo → keep the EXACT prior light behaviour: full-contrast white
+      // body, with the field surfaces + result panel tinted toward the accent
+      // (only when an explicit accent is set) so a colour change is felt.
+      accent
+      ? {
+          background: "rgba(255,255,255,1)",
+          surface: tintToward(accent, 0.07),
+          resultsBg: tintToward(accent, 0.11),
+        }
+      : {};
   const advanced = {
     ...base,
     // Force the Elfsight-clean treatment on EVERY template preview, overriding
     // the template's own (often dark) theme/layout so the whole catalogue reads
     // consistent: light, single-screen, inputs stacked left + result right.
-    theme: "light" as const,
+    // With a combo, the theme follows the combo's background luminance.
+    theme: (combo ? (comboIsDark ? "dark" : "light") : "light") as "dark" | "light",
     stepLayout: "single" as const,
     // forceLayout (mobile fold) → single-column; otherwise inputs-left/result-right.
     layout: forceLayout ?? ("two-column" as const),
@@ -135,10 +151,11 @@ function buildPreviewCalculator(
     // reference and keeps the CTA high-right, clear of the footer.
     tiered: { enabled: false },
     businessProfile: SAMPLE_BUSINESS_PROFILE,
-    // Uniform clean style + the chosen accent + its background wash. labelLayout
-    // 'stacked' = the Elfsight title-above + help-below field style. Preview-only;
-    // live customer widgets keep the template's own style.
-    style: { ...ELFSIGHT_LIGHT_STYLE, accent: acc, ...bgTint },
+    // Uniform clean style + the chosen accent + the combo (or accent-wash)
+    // colour overrides. labelLayout 'stacked' = the Elfsight title-above +
+    // help-below field style. Preview-only; live customer widgets keep the
+    // template's own style.
+    style: { ...ELFSIGHT_LIGHT_STYLE, accent: acc, ...styleOverrides },
   };
   return {
     id: 0,
@@ -351,6 +368,61 @@ const SITE_PALETTE: { name: string; color: string }[] = [
   { name: "Indigo", color: "#4338CA" },
 ];
 
+/* ─── Full theme COMBINATIONS — a pre-balanced palette (background + text +
+   surface + border + result panel + accent) the live preview can switch
+   between, beyond the single-accent swatches above. Each combo is contrast-
+   safe by construction: a dark `bg` always pairs a light `text`, a light `bg`
+   always pairs a dark `text` — never bright-on-bright or dark-on-dark. The
+   standalone accent swatch still overrides `accent` within the chosen combo. ─── */
+type ThemeCombination = {
+  id: string;
+  name: string;
+  bg: string;
+  text: string;
+  surface: string;
+  border: string;
+  resultsBg: string;
+  accent: string;
+};
+
+const THEME_COMBINATIONS: ThemeCombination[] = [
+  { id: "light-blue", name: "Light · Blue", bg: "rgba(255,255,255,1)", text: "#171717", surface: "#f6f7f9", border: "#e5e7eb", resultsBg: "#f3f4f6", accent: "#0d3cfc" },
+  { id: "black-yellow", name: "Black · Yellow", bg: "#0d0d0d", text: "rgba(255,255,255,1)", surface: "#1a1a1a", border: "#2a2a2a", resultsBg: "#141414", accent: "#ffd60a" },
+  { id: "slate-teal", name: "Slate · Teal", bg: "#0f172a", text: "rgba(255,255,255,1)", surface: "#1e293b", border: "#334155", resultsBg: "#172033", accent: "#2dd4bf" },
+  { id: "warm-amber", name: "Warm · Amber", bg: "#faf7f2", text: "#1c1917", surface: "#f3ede3", border: "#e7ddcd", resultsBg: "#efe7d8", accent: "#d97706" },
+];
+
+const DEFAULT_COMBO =
+  THEME_COMBINATIONS.find((c) => c.id === "light-blue") ?? THEME_COMBINATIONS[0];
+
+/* Per-template default combo. car_towing leads with the bold Black · Yellow
+   reference; every other template defaults to the clean Light · Blue. */
+function defaultComboForTemplate(templateId: string): ThemeCombination {
+  if (templateId === "car_towing") {
+    return THEME_COMBINATIONS.find((c) => c.id === "black-yellow") ?? DEFAULT_COMBO;
+  }
+  return DEFAULT_COMBO;
+}
+
+/* Relative luminance of a colour token (hex or rgba(...) literal). Used to
+   pick light vs dark widget theme + readable chip text. < 0.5 ⇒ dark. */
+function comboLuminance(color: string): number {
+  let r = 255, g = 255, b = 255;
+  const rgba = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (rgba) {
+    r = parseInt(rgba[1], 10);
+    g = parseInt(rgba[2], 10);
+    b = parseInt(rgba[3], 10);
+  } else {
+    const h = color.replace("#", "");
+    const hx = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+    r = parseInt(hx.slice(0, 2), 16);
+    g = parseInt(hx.slice(2, 4), 16);
+    b = parseInt(hx.slice(4, 6), 16);
+  }
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
 /* ─── Real template thumbnail — a scaled-down live render of the actual
    widget (Elfsight cards show the real calculator, not an icon). Memoised on
    the template so it only mounts once per card. ─── */
@@ -376,11 +448,15 @@ function TemplateRail({
   onSelect,
   accent,
   setAccent,
+  combo,
+  setCombo,
 }: {
   selectedSlug: string;
   onSelect: (slug: string) => void;
   accent: string;
   setAccent: (color: string) => void;
+  combo: ThemeCombination;
+  setCombo: (combo: ThemeCombination) => void;
 }) {
   const [category, setCategory] = useState<string>("All");
   const [page, setPage] = useState(0);
@@ -406,6 +482,41 @@ function TemplateRail({
 
   return (
     <aside className="tpl-rail" data-testid="template-rail">
+      {/* Theme-combination selector — ABOVE the accent swatches. Each chip is a
+          split swatch (combo bg + accent) + the combo name; selecting it swaps
+          the whole palette. The accent swatches below still override accent. */}
+      <div className="tpl-rail-block">
+        <div className="tpl-cats-head">Theme</div>
+        <div className="tpl-combo-row" data-testid="template-combo-tabs">
+          {THEME_COMBINATIONS.map((c) => {
+            const sel = combo.id === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                aria-label={c.name}
+                aria-pressed={sel}
+                title={c.name}
+                onClick={() => setCombo(c)}
+                data-testid={`template-combo-${c.id}`}
+                className="tpl-combo-chip"
+                style={{
+                  boxShadow: sel
+                    ? `0 0 0 2px ${CS_LIGHT.bg}, 0 0 0 4px ${mkt.accent}`
+                    : "inset 0 0 0 1px rgba(15,20,24,0.12)",
+                }}
+              >
+                <span className="tpl-combo-swatch" aria-hidden>
+                  <span style={{ background: c.bg }} />
+                  <span style={{ background: c.accent }} />
+                </span>
+                <span className="tpl-combo-name">{c.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Colour selector — ABOVE the templates */}
       <div className="tpl-rail-block">
         <div className="tpl-cats-head">Choose a colour</div>
@@ -588,7 +699,25 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
   );
   useBreadcrumbSchema(breadcrumbs);
 
-  const [accent, setAccent] = useState<string>(SITE_PALETTE[0].color);
+  // Full theme combination for the preview. Defaults per-template (car_towing →
+  // Black · Yellow, others → Light · Blue) and re-derives when the selected
+  // template changes, so swapping templates resets to that template's combo.
+  const [selectedCombo, setSelectedCombo] = useState<ThemeCombination>(() =>
+    defaultComboForTemplate(template.id),
+  );
+  // Accent defaults to the active combo's accent. A manual swatch pick overrides
+  // it (and persists until the combo changes). Picking a combo chip re-syncs the
+  // accent to that combo's accent via setCombo below.
+  const [accent, setAccent] = useState<string>(selectedCombo.accent);
+  const setCombo = (c: ThemeCombination) => {
+    setSelectedCombo(c);
+    setAccent(c.accent);
+  };
+  useEffect(() => {
+    const next = defaultComboForTemplate(selectedSlug);
+    setSelectedCombo(next);
+    setAccent(next.accent);
+  }, [selectedSlug]);
   // Elfsight-style in-place desktop↔mobile fold for the live preview.
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   // On a real phone the desktop/mobile toggle is pointless (you're already on
@@ -612,8 +741,9 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
         activeTemplate,
         accent,
         effectiveMode === "mobile" ? "single-column" : undefined,
+        selectedCombo,
       ),
-    [activeTemplate, accent, effectiveMode],
+    [activeTemplate, accent, effectiveMode, selectedCombo],
   );
 
   return (
@@ -764,7 +894,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Two-pane editor: template rail (colour selector + catalogue) on
                 the left, the title + live widget on the right. */}
             <div className="tpl-editor">
-              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} setAccent={setAccent} />
+              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} setAccent={setAccent} combo={selectedCombo} setCombo={setCombo} />
               <div className="tpl-preview">
             {/* Elfsight-style preview: the widget renders directly on a white card.
                 The device toggle sits in the top-right corner of the card. */}
@@ -862,6 +992,27 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 letter-spacing: 0.10em; text-transform: uppercase; color: ${CS_LIGHT.inkMuted};
                 padding-left: 2px;
               }
+              /* Theme-combination chips — split swatch + name, same rhythm as
+                 the accent swatches below. Wrap so all combos stay visible. */
+              .tpl-combo-row { display: flex; flex-wrap: wrap; gap: 8px; }
+              .tpl-combo-chip {
+                display: inline-flex; align-items: center; gap: 8px;
+                padding: 6px 10px 6px 6px; border-radius: 10px; border: none;
+                cursor: pointer; background: rgba(255,255,255,0.55);
+                transition: box-shadow 150ms ease, transform 120ms ease;
+              }
+              .tpl-combo-chip:hover { transform: translateY(-1px); }
+              .tpl-combo-swatch {
+                display: inline-flex; width: 28px; height: 20px; border-radius: 6px;
+                overflow: hidden; box-shadow: inset 0 0 0 1px rgba(15,20,24,0.14);
+                flex-shrink: 0;
+              }
+              .tpl-combo-swatch > span { display: block; width: 50%; height: 100%; }
+              .tpl-combo-name {
+                font-family: ${SANS}; font-size: 12px; font-weight: 600;
+                line-height: 1.2; color: ${CS_LIGHT.ink}; white-space: nowrap;
+              }
+
               .tpl-color-row { display: flex; gap: 8px; }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
@@ -971,6 +1122,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
               /* Accessibility — visible focus rings on every control. */
               .tpl-card:focus-visible,
+              .tpl-combo-chip:focus-visible,
               .tpl-swatch:focus-visible,
               .tpl-device-toggle:focus-visible,
               .tpl-pager-btn:focus-visible,
