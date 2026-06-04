@@ -286,7 +286,7 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
       <pre className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 border border-gray-100 rounded px-3 py-2">{candidate.body}</pre>
       {candidate.source_url && (
         <a href={candidate.source_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-brand-blue-600 inline-flex items-center gap-0.5 mt-2">
-          source <ExternalLink className="w-2.5 h-2.5" />
+          source <ExternalLink className="w-3 h-3" />
         </a>
       )}
       {candidate.rejection_reason && (
