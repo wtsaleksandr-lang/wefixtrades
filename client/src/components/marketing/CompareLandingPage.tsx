@@ -292,8 +292,8 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                     phones scroll the "them" column into view instead of the
                     card's overflow:hidden clipping it. Desktop fits, so no
                     scrollbar appears and the layout is unchanged. */}
-                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                  <div
+                <div role="table" aria-label={`TL;DR: WeFixTrades vs ${competitorName}`} style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                  <div role="row"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "minmax(104px, 1.2fr) 1fr 1fr",
@@ -307,12 +307,12 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       color: mkt.onDarkFaint,
                     }}
                   >
-                    <div style={{ padding: "14px 18px" }}>Category</div>
-                    <div style={{ padding: "14px 18px", color: mkt.accent }}>WeFixTrades</div>
-                    <div style={{ padding: "14px 18px" }}>{competitorName}</div>
+                    <div role="columnheader" style={{ padding: "14px 18px" }}>Category</div>
+                    <div role="columnheader" style={{ padding: "14px 18px", color: mkt.accent }}>WeFixTrades</div>
+                    <div role="columnheader" style={{ padding: "14px 18px" }}>{competitorName}</div>
                   </div>
                   {tldrRows.map((r, i) => (
-                    <div
+                    <div role="row"
                       key={r.label}
                       style={{
                         display: "grid",
@@ -326,7 +326,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                         fontFamily: SANS,
                       }}
                     >
-                      <div
+                      <div role="rowheader"
                         style={{
                           padding: "16px 18px",
                           color: mkt.onDark,
@@ -335,10 +335,10 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       >
                         {r.label}
                       </div>
-                      <div style={{ padding: "16px 18px", color: mkt.onDark, lineHeight: 1.5 }}>
+                      <div role="cell" style={{ padding: "16px 18px", color: mkt.onDark, lineHeight: 1.5 }}>
                         {r.us}
                       </div>
-                      <div style={{ padding: "16px 18px", color: "rgba(232,239,238,0.78)", lineHeight: 1.5 }}>
+                      <div role="cell" style={{ padding: "16px 18px", color: "rgba(232,239,238,0.78)", lineHeight: 1.5 }}>
                         {r.them}
                       </div>
                     </div>
