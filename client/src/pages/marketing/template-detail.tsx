@@ -153,14 +153,22 @@ function buildPreviewCalculator(
 }
 
 /* ─── Mobile pinch-zoom + drag gesture layer for the preview widget ───
-   On touch: pinch (2 fingers) zooms the widget; one-finger drag moves it. A
-   touch that starts on a form control (slider/select/etc.) is left alone so
-   the calculator stays usable. Inert on desktop (no touch events). Uses
-   non-passive listeners + preventDefault during an active gesture so the
-   browser doesn't scroll/zoom the page out from under the gesture. */
+   Resolves the classic "embedded interactive element inside a scrolling page"
+   conflict the way the big apps do:
+     • Pinch (2 fingers) → zoom 1×–4× (always).
+     • At 1×, a QUICK one-finger swipe scrolls the PAGE (we don't claim it).
+     • Once zoomed in, one finger pans the zoomed widget (Apple-Photos pattern).
+     • A ~400ms long-press at 1× "picks up" the widget (lift cue + haptic) so
+       you can drag-to-move from anywhere on a deliberate hold.
+   A touch starting on a form control is left alone so the calculator stays
+   usable. Inert on desktop. Non-passive listeners + preventDefault only during
+   an actually-engaged gesture, so a plain scroll is never trapped. */
+const GESTURE_LONGPRESS_MS = 400;
+const GESTURE_MOVE_CANCEL_PX = 8;
 function PreviewGestureLayer({ children }: { children: ReactNode }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [tf, setTf] = useState({ z: 1, x: 0, y: 0 });
+  const [lifted, setLifted] = useState(false);
   const tfRef = useRef(tf);
   tfRef.current = tf;
   const transformed = tf.z !== 1 || tf.x !== 0 || tf.y !== 0;
@@ -174,35 +182,65 @@ function PreviewGestureLayer({ children }: { children: ReactNode }) {
       !!t.closest('input, select, textarea, button, a, label, [role="slider"], [contenteditable]');
     const dist = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     let mode: "pan" | "pinch" | "control" | null = null;
+    let pending = false; // z=1: armed, waiting for the long-press to "pick up"
+    let timer: ReturnType<typeof setTimeout> | null = null;
     let sx = 0, sy = 0, bx = 0, by = 0, pd = 0, pz = 1;
+    const clearTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    const beginPan = (t: Touch) => {
+      mode = "pan"; sx = t.clientX; sy = t.clientY; bx = tfRef.current.x; by = tfRef.current.y;
+    };
     const onStart = (e: TouchEvent) => {
+      clearTimer(); pending = false;
       if (e.touches.length === 2) {
         mode = "pinch"; pd = dist(e.touches[0], e.touches[1]); pz = tfRef.current.z;
-      } else if (e.touches.length === 1) {
-        if (isControl(e.target)) { mode = "control"; return; }
-        mode = "pan";
-        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
-        bx = tfRef.current.x; by = tfRef.current.y;
+        return;
       }
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (isControl(t.target)) { mode = "control"; return; }
+      // Zoomed in → pan immediately (Apple-Photos pattern: navigate the zoom).
+      if (tfRef.current.z > 1) { beginPan(t); return; }
+      // At 1×: DON'T claim the gesture — a quick swipe must scroll the page.
+      // Arm a ~400ms long-press; holding still "picks up" the widget to move it.
+      mode = null; pending = true;
+      sx = t.clientX; sy = t.clientY; bx = tfRef.current.x; by = tfRef.current.y;
+      timer = setTimeout(() => {
+        if (!pending) return;
+        pending = false; mode = "pan"; setLifted(true);
+        try { (navigator as Navigator & { vibrate?: (n: number) => void }).vibrate?.(12); } catch { /* no haptics */ }
+      }, GESTURE_LONGPRESS_MS);
     };
     const onMove = (e: TouchEvent) => {
-      if (mode === "control" || mode === null) return;
+      if (mode === "control") return;
       if (mode === "pinch" && e.touches.length >= 2) {
         e.preventDefault();
         const z = clamp(pz * (dist(e.touches[0], e.touches[1]) / (pd || 1)), 1, 4);
         setTf((p) => ({ ...p, z }));
-      } else if (mode === "pan" && e.touches.length === 1) {
+        return;
+      }
+      if (mode === "pan" && e.touches.length === 1) {
         e.preventDefault();
-        setTf((p) => ({ ...p, x: bx + (e.touches[0].clientX - sx), y: by + (e.touches[0].clientY - sy) }));
+        const t = e.touches[0];
+        setTf((p) => ({ ...p, x: bx + (t.clientX - sx), y: by + (t.clientY - sy) }));
+        return;
+      }
+      if (pending && e.touches.length === 1) {
+        const t = e.touches[0];
+        // Moved before the long-press fired → it's a page scroll: release
+        // (do NOT preventDefault) so the page scrolls normally.
+        if (Math.hypot(t.clientX - sx, t.clientY - sy) > GESTURE_MOVE_CANCEL_PX) {
+          pending = false; clearTimer();
+        }
       }
     };
     const onEnd = (e: TouchEvent) => {
-      if (e.touches.length === 0) { mode = null; return; }
-      // a finger lifted from a pinch → continue as a one-finger pan
-      if (e.touches.length === 1 && !isControl(e.touches[0].target)) {
-        mode = "pan";
-        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
-        bx = tfRef.current.x; by = tfRef.current.y;
+      clearTimer(); pending = false;
+      if (e.touches.length === 0) { mode = null; setLifted(false); return; }
+      // A finger lifted from a pinch → keep panning if we're still zoomed.
+      if (e.touches.length === 1 && !isControl(e.touches[0].target) && tfRef.current.z > 1) {
+        beginPan(e.touches[0]);
+      } else if (e.touches.length === 1) {
+        mode = null;
       }
     };
     el.addEventListener("touchstart", onStart, { passive: false });
@@ -210,6 +248,7 @@ function PreviewGestureLayer({ children }: { children: ReactNode }) {
     el.addEventListener("touchend", onEnd, { passive: false });
     el.addEventListener("touchcancel", onEnd, { passive: false });
     return () => {
+      clearTimer();
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
@@ -220,14 +259,30 @@ function PreviewGestureLayer({ children }: { children: ReactNode }) {
   return (
     <div ref={hostRef} data-testid="preview-gesture-layer" style={{ position: "relative" }}>
       <div
+        data-lifted={lifted ? "1" : undefined}
         style={{
           transform: `translate(${tf.x}px, ${tf.y}px) scale(${tf.z})`,
           transformOrigin: "center top",
+          transition: lifted ? "box-shadow 140ms ease" : "none",
+          boxShadow: lifted ? "0 16px 44px rgba(13,60,252,0.30)" : "none",
           willChange: "transform",
         }}
       >
         {children}
       </div>
+      {lifted && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 7,
+            padding: "5px 12px", borderRadius: 999, pointerEvents: "none",
+            background: "rgba(13,60,252,0.92)", color: "rgba(255,255,255,1)",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.03em", whiteSpace: "nowrap",
+          }}
+        >
+          Drag to move
+        </div>
+      )}
       {transformed && (
         <button
           type="button"
