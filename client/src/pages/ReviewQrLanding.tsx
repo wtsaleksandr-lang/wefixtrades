@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { Loader2, AlertCircle, Star } from "lucide-react";
+import { PageMeta } from "@/components/seo/PageMeta";
 
 /**
  * QR landing page — scanned by a customer in the field, right after
@@ -55,6 +56,7 @@ export default function ReviewQrLanding() {
         padding: 20,
       }}
     >
+      <PageMeta noIndex title="Loading Review" description="Preparing your review page." />
       <div
         style={{
           background: "#fff",

@@ -7,6 +7,7 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "../storage";
 import { createLogger } from "../lib/logger";
+import { leadsSubmissionRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("ReviewPublic");
 
@@ -58,6 +59,10 @@ export function registerReviewPublicRoutes(app: Express): void {
    */
   app.post("/api/review/:token/respond", async (req: Request, res: Response) => {
     try {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!(await leadsSubmissionRateLimiter.check(`review-respond:${ip}`))) {
+        return res.status(429).json({ error: "Too many requests. Please try again later." });
+      }
       const token = req.params.token as string;
       const { sentiment } = req.body;
 
@@ -122,6 +127,10 @@ export function registerReviewPublicRoutes(app: Express): void {
    */
   app.post("/api/review/:token/feedback", async (req: Request, res: Response) => {
     try {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      if (!(await leadsSubmissionRateLimiter.check(`review-feedback:${ip}`))) {
+        return res.status(429).json({ error: "Too many requests. Please try again later." });
+      }
       const token = req.params.token as string;
       const { message } = req.body;
 
