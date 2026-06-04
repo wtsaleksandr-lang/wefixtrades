@@ -338,6 +338,12 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </div>
       </fieldset>
 
+      {/* ── Deposit + Online booking pair (W2 #12) ───────────────────
+       *  Alex: "booking and deposit should be on one row." Both fieldsets
+       *  sit side-by-side in a two-column grid on desktop and stack to a
+       *  single column on the narrow mobile sheet (≤640px). All testids and
+       *  onChange wiring are unchanged — only the surrounding layout moved. */}
+      <div className="qq-settings-pair" data-testid="settings-pair-booking-deposit">
       {/* ── Deposit (Wave R-2) ──────────────────────────────────── */}
       <fieldset
         className={`qq-style-group qq-settings-deposit${stripeConnected ? '' : ' is-disabled'}`}
@@ -506,128 +512,9 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </div>
       </fieldset>
 
-      {/* ── Number formatting ───────────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-numberformat"
-                  region="result"
-                  text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
-                />
-                <span style={{ marginLeft: 6 }}>Number formatting</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        <div className="qq-style-grid">
-          <FloatField
-            label="Thousands separator"
-            htmlFor="qq-settings-thousands"
-            variant="select"
-            infoText="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
-            infoTestid="settings-numberformat"
-          >
-            <select
-              id="qq-settings-thousands"
-              className="premium-input"
-              value={numberFormat.thousands}
-              onChange={(e) =>
-                patchNumberFormat({ thousands: e.target.value as ShellThousandsSep })
-              }
-              data-testid="settings-select-thousands"
-            >
-              {THOUSANDS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </FloatField>
-          <FloatField label="Decimal separator" htmlFor="qq-settings-decimal" variant="select">
-            <select
-              id="qq-settings-decimal"
-              className="premium-input"
-              value={numberFormat.decimal}
-              onChange={(e) =>
-                patchNumberFormat({ decimal: e.target.value as ShellDecimalSep })
-              }
-              data-testid="settings-select-decimal"
-            >
-              {DECIMAL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </FloatField>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <FloatField label="Currency code" htmlFor="qq-settings-currency">
-            <input
-              id="qq-settings-currency"
-              type="text"
-              maxLength={3}
-              className="premium-input"
-              placeholder=" "
-              style={{ textTransform: 'uppercase' }}
-              value={numberFormat.currency}
-              onChange={(e) =>
-                patchNumberFormat({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })
-              }
-              data-testid="settings-input-currency"
-              aria-invalid={!CURRENCY_RE.test(numberFormat.currency) ? 'true' : 'false'}
-            />
-          </FloatField>
-        </div>
-        </div>
-      </fieldset>
-
-      {/* ── Custom CTA label ────────────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="settings-group-cta">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-cta"
-                  region="sticky-footer"
-                  text="The button text shown on the result panel after the quote is calculated."
-                />
-                <span style={{ marginLeft: 6 }}>Call to action</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-          {/* BF-11 — CTA label is now rich-text editable so owners can stamp
-              emoji, bold, color and inline images on the call-to-action
-              button. Backwards-compatible: a plain string still saves; the
-              renderer's sanitizer accepts both. */}
-          <RichTextField
-            label="CTA label"
-            htmlFor="qq-settings-cta-label"
-            value={ctaLabel}
-            onChange={(next) => patch({ ctaLabel: next })}
-            placeholder='Click to override (default: "Get My Quote")'
-            infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
-            infoTestid="settings-cta"
-            infoRegion="sticky-footer"
-            testid="settings-input-cta-label"
-            // P2 UX — Settings panel; the next fieldset (Online booking)
-            // sits directly below. Inline mode pushes it down rather than
-            // covering it while the CTA copy is being edited.
-            expansionMode="inline"
-          />
-        </div>
-      </fieldset>
-
-      {/* ── Online booking (Wave R-1) ───────────────────────────── */}
-      {/* W-AO-7 — restored top-left legend with InfoCue so the section
-          carries a discoverable title like the others. */}
+      {/* ── Online booking (Wave R-1) ─────────────────────────────
+       *  W2 #12 — moved up to pair with Deposit on one row. W-AO-7 legend
+       *  + InfoCue preserved so the section keeps a discoverable title. */}
       <fieldset className="qq-style-group" data-testid="settings-group-scheduling">
         <legend className="qq-style-legend">
           {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
@@ -753,6 +640,126 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             </div>
           </div>
         )}
+        </div>
+      </fieldset>
+      </div>
+
+      {/* ── Number formatting ───────────────────────────────────── */}
+      <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-numberformat"
+                  region="result"
+                  text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+                />
+                <span style={{ marginLeft: 6 }}>Number formatting</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        <div className="qq-style-grid">
+          <FloatField
+            label="Thousands separator"
+            htmlFor="qq-settings-thousands"
+            variant="select"
+            infoText="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+            infoTestid="settings-numberformat"
+          >
+            <select
+              id="qq-settings-thousands"
+              className="premium-input"
+              value={numberFormat.thousands}
+              onChange={(e) =>
+                patchNumberFormat({ thousands: e.target.value as ShellThousandsSep })
+              }
+              data-testid="settings-select-thousands"
+            >
+              {THOUSANDS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </FloatField>
+          <FloatField label="Decimal separator" htmlFor="qq-settings-decimal" variant="select">
+            <select
+              id="qq-settings-decimal"
+              className="premium-input"
+              value={numberFormat.decimal}
+              onChange={(e) =>
+                patchNumberFormat({ decimal: e.target.value as ShellDecimalSep })
+              }
+              data-testid="settings-select-decimal"
+            >
+              {DECIMAL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </FloatField>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <FloatField label="Currency code" htmlFor="qq-settings-currency">
+            <input
+              id="qq-settings-currency"
+              type="text"
+              maxLength={3}
+              className="premium-input"
+              placeholder=" "
+              style={{ textTransform: 'uppercase' }}
+              value={numberFormat.currency}
+              onChange={(e) =>
+                patchNumberFormat({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })
+              }
+              data-testid="settings-input-currency"
+              aria-invalid={!CURRENCY_RE.test(numberFormat.currency) ? 'true' : 'false'}
+            />
+          </FloatField>
+        </div>
+        </div>
+      </fieldset>
+
+      {/* ── Custom CTA label ────────────────────────────────────── */}
+      <fieldset className="qq-style-group" data-testid="settings-group-cta">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-cta"
+                  region="sticky-footer"
+                  text="The button text shown on the result panel after the quote is calculated."
+                />
+                <span style={{ marginLeft: 6 }}>Call to action</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+          {/* BF-11 — CTA label is now rich-text editable so owners can stamp
+              emoji, bold, color and inline images on the call-to-action
+              button. Backwards-compatible: a plain string still saves; the
+              renderer's sanitizer accepts both. */}
+          <RichTextField
+            label="CTA label"
+            htmlFor="qq-settings-cta-label"
+            value={ctaLabel}
+            onChange={(next) => patch({ ctaLabel: next })}
+            placeholder='Click to override (default: "Get My Quote")'
+            infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
+            infoTestid="settings-cta"
+            infoRegion="sticky-footer"
+            testid="settings-input-cta-label"
+            // P2 UX — Settings panel; the next fieldset (Online booking)
+            // sits directly below. Inline mode pushes it down rather than
+            // covering it while the CTA copy is being edited.
+            expansionMode="inline"
+          />
         </div>
       </fieldset>
 
@@ -890,6 +897,20 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         }
         @media (max-width: 480px) {
           .qq-style-grid { grid-template-columns: 1fr; }
+        }
+        /* W2 #12 — Deposit + Online booking on one row. Two equal columns
+         * aligned to the top so the cards sit shoulder-to-shoulder; collapses
+         * to a single stacked column on the narrow mobile sheet so neither
+         * card is crushed. Matches the .qq-style-grid breakpoint pattern. */
+        .qq-settings-pair {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 2px;
+          align-items: start;
+        }
+        .qq-settings-pair > .qq-style-group { margin: 0; }
+        @media (max-width: 640px) {
+          .qq-settings-pair { grid-template-columns: 1fr; }
         }
         .qq-style-label {
           display: flex; align-items: center; justify-content: space-between;
