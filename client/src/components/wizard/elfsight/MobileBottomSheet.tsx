@@ -318,11 +318,14 @@ export default function MobileBottomSheet({
             border-top-right-radius: 18px;
             box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.18);
             border-top: 1px solid ${d.colors.borderLight};
-            /* GPU-accelerated transform-based snap transitions. */
-            transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
-                        height 240ms cubic-bezier(0.22, 1, 0.36, 1);
-            will-change: transform, height;
-            transform: translate3d(0, 0, 0);
+            /* Snap transitions animate HEIGHT only — no snap state applies a
+             * translate, so the old transform:translate3d(0,0,0) +
+             * will-change:transform were dead weight that only risked
+             * compositing quirks around the always-fixed pill. Keep the height
+             * tween; drop the self-transform so the sheet stays a clean fixed
+             * box anchored to the viewport. */
+            transition: height 240ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: height;
             /* Touch action — let inner content scroll; the handle itself
              * captures vertical pans for drag-resize. */
             touch-action: pan-y;
@@ -336,13 +339,25 @@ export default function MobileBottomSheet({
           .qq-sheet--collapsed {
             height: 46px;
             left: 10px; right: 10px;
-            bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+            /* ALWAYS-VISIBLE FIX (2026-06-04) — sit the collapsed pill ABOVE
+             * the fixed mobile action bar (.qq-mobile-actionbar, bottom:0,
+             * ~64px tall incl. safe-area) instead of at bottom:10px where the
+             * action bar physically covered it. 72px clears the bar; the
+             * safe-area inset keeps it off the home indicator. This — plus the
+             * transform:none pin on .qq-editor-frame (WizardShell) so fixed
+             * descendants anchor to the viewport — is what keeps this pill on
+             * screen at all times, including during page scroll. */
+            bottom: calc(72px + env(safe-area-inset-bottom, 0px));
             margin: 0 auto;
             max-width: 460px;
             border-radius: 999px;
             border: 1px solid ${d.colors.borderLight};
             box-shadow: 0 8px 28px rgba(15, 23, 42, 0.20);
             overflow: hidden;
+            /* The collapsed pill is a clean fixed box — no self-transform /
+             * will-change so nothing about it can detach from the viewport. */
+            transform: none;
+            will-change: auto;
           }
           .qq-sheet--half {
             height: 62vh;
