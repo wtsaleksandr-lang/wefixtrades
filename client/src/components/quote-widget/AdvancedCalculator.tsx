@@ -74,7 +74,7 @@ import { sanitizeRichHtml, richHtmlToPlainText } from '@/components/wizard/elfsi
 // is self-healing against bright-on-bright Brand Studio picks. The
 // original user-saved tokens are NOT mutated — only the final rendered
 // colour is corrected. See `client/src/lib/contrastGuard.ts`.
-import { guardTextColor } from '@/lib/contrastGuard';
+import { guardTextColor, getRelativeLuminance } from '@/lib/contrastGuard';
 
 /**
  * BD-3d — owner-configured heading/footer/title/subtitle may be rich HTML
@@ -1896,15 +1896,27 @@ export default function AdvancedCalculator({
   // theme via `theme={cc}` below, so their tier-card text / footer copy
   // inherits the corrected tokens transparently.
   const guardedHeadlineText = bsResultPanel?.accentOverride ? rpAccent : c.resultText;
+  // POLISH-1 — secondary copy should read near-black (high-contrast), not
+  // dimmed, on LIGHT surfaces. The theme's muted tokens are intentionally
+  // low-contrast grays (e.g. `#94a3b8`); Alex wants the result-panel
+  // captions / cta_sub / field captions to read crisply on light widgets.
+  // We promote a muted token to a dark neutral ONLY when its own surface is
+  // light (luminance ≥ 0.5). On DARK surfaces the original light/translucent
+  // muted token is preserved untouched, so dark themes stay legible. The
+  // result still flows through `guardTextColor`, so the contrast floor is
+  // enforced and an unreadable combo can never escape.
+  const MUTED_DARK = 'rgb(38,38,38)';
+  const darkenMutedOnLight = (token: string, surface: string): string =>
+    getRelativeLuminance(surface) >= 0.5 ? MUTED_DARK : token;
   const cc: WidgetTheme = {
     ...c,
     // Result panel pairs — both critical-pair sites + headline emphasis.
     resultText: guardTextColor(guardedHeadlineText, rpBg, 'resultsText', { largeText: true }),
-    resultMuted: guardTextColor(c.resultMuted, rpBg, 'resultsMuted'),
+    resultMuted: guardTextColor(darkenMutedOnLight(c.resultMuted, rpBg), rpBg, 'resultsMuted'),
     // Heading + field labels render on the outer card surface.
     text: guardTextColor(c.text, c.surface, 'headingText'),
     textBody: guardTextColor(c.textBody, c.surface, 'labelText'),
-    textMuted: guardTextColor(c.textMuted, c.surface, 'labelMuted'),
+    textMuted: guardTextColor(darkenMutedOnLight(c.textMuted, c.surface), c.surface, 'labelMuted'),
   };
   // CTA pair — `ctaBg` was just computed above; we re-derive the foreground
   // so a custom CTA background still produces readable label copy.
@@ -2163,6 +2175,11 @@ export default function AdvancedCalculator({
           .${gridId}-fields > [data-colspan="1"] { grid-column: span 2; }
         }
         .${gridId}-result { align-self: start; min-width: 0; }
+        /* POLISH-2 — CTA block default spacing. Lives in CSS (not inline) so
+           the two-column media-query rule can override it to margin-top:auto
+           and bottom-pin the CTA. In single-column / mobile-stacked this is
+           the only rule that applies, preserving the original 14px gap. */
+        .${gridId}-cta { margin-top: 14px; }
         @media (min-width: 560px) {
           /* All-round 2px padding AND 2px grid gap so the inner containers
              (fields + result panel) nearly fill the widget body — only a thin
@@ -2171,7 +2188,22 @@ export default function AdvancedCalculator({
           .${gridId} { gap: 2px; padding: 2px; }
           .${gridId}[data-layout="two-column"] {
             grid-template-columns: 1fr minmax(190px, 0.8fr);
+            /* POLISH-2 — equal-height columns so the result panel grows to
+               match the (usually taller) inputs column. Combined with the
+               result panel being a flex column + the CTA block's
+               margin-top:auto below, the CTA bottom-aligns to where the
+               inputs column ends. Only in the desktop two-column layout. */
+            align-items: stretch;
           }
+          /* The result panel defaults to align-self:start (top-aligned, its
+             natural height). In two-column we let it stretch to the row
+             height so the flex auto-margin has slack to push the CTA down. */
+          .${gridId}[data-layout="two-column"] .${gridId}-result { align-self: stretch; }
+          /* Push the CTA block to the very bottom of the stretched panel.
+             Scoped to two-column + this >=560px media query, so single-column
+             and mobile-stacked layouts keep their natural marginTop and never
+             open a huge gap. */
+          .${gridId}[data-layout="two-column"] .${gridId}-cta { margin-top: auto; }
           .${gridId}[data-layout="multi-column"] .${gridId}-fields {
             grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
             gap: 2px;
@@ -2729,7 +2761,7 @@ export default function AdvancedCalculator({
               // the injected step-transition <style>. Pro-only; when
               // stepTransition === 'none' the rule below is empty and
               // the mount is instant (legacy behaviour).
-              <div style={{ marginTop: '14px' }} key={`leadview-${leadView}`} data-qq-step-enter>
+              <div className={`${gridId}-cta`} key={`leadview-${leadView}`} data-qq-step-enter>
                 {/* Elfsight-style marketing block above the CTA button:
                     a bold heading + a short paragraph (both optional). */}
                 {leadView === 'cta' && (results.cta_heading || results.cta_sub) && (
