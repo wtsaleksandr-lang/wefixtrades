@@ -130,8 +130,6 @@ export default function SiteChatWidget() {
       setShowDot(false);
     }
 
-    void capturePageSnapshot;
-
     const newMessages: MarketingChatMessage[] = [
       ...messages,
       { role: "user", content: text.trim() },
