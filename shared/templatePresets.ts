@@ -830,9 +830,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     // stack vertically in one column on the left, with the result panel on the
     // right — instead of half-width pairs that crowd and overlap on mobile.
     fields: [
-      { id: 'vehicle_type', name: 'Vehicle Type', label: 'What are we towing?', type: 'select', colSpan: 2,
+      { id: 'vehicle_type', name: 'Vehicle Type', label: 'Vehicle type', type: 'select', colSpan: 2,
         options: [opt('Car', 0), opt('SUV', 25), opt('Truck', 60), opt('Motorcycle', -10)] },
-      { id: 'condition', name: 'Vehicle Condition', label: 'Is the vehicle driveable?', type: 'select', colSpan: 2,
+      { id: 'condition', name: 'Vehicle Condition', label: 'Vehicle condition', type: 'select', colSpan: 2,
         options: [opt('Driveable', 0), opt('Not driveable', 45)] },
       { id: 'distance', name: 'Towing Distance', label: 'Distance to destination', type: 'slider', colSpan: 2,
         min: 1, max: 100, step: 1, default_value: 8, unit: 'miles' },
