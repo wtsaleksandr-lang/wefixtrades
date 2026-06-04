@@ -444,8 +444,8 @@ function TemplateRail({
       </div>
 
       <div className="tpl-rail-head">
-        <span style={{ opacity: 0.4 }}>(</span> Select a template{" "}
-        <span style={{ opacity: 0.4 }}>)</span>
+        <span aria-hidden="true" style={{ opacity: 0.4 }}>(</span> Select a template{" "}
+        <span aria-hidden="true" style={{ opacity: 0.4 }}>)</span>
       </div>
 
       {/* 2×2 grid of real thumbnails */}
@@ -828,9 +828,9 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 marginBottom: 14,
               }}
             >
-              <span style={{ opacity: 0.4 }}>(</span>
+              <span aria-hidden="true" style={{ opacity: 0.4 }}>(</span>
               <span>Live preview</span>
-              <span style={{ opacity: 0.4 }}>)</span>
+              <span aria-hidden="true" style={{ opacity: 0.4 }}>)</span>
             </div>
             {/* Two-pane editor: template rail (colour selector + catalogue) on
                 the left, the title + live widget on the right. */}
