@@ -2393,6 +2393,27 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-shell { padding: 8px; }
               .qq-editor-frame {
                 min-height: calc(100vh - 16px);
+                /* ALWAYS-VISIBLE BOTTOM-SHEET FIX (2026-06-04) — root cause of
+                 * the collapsed sheet pill vanishing on scroll. On mobile the
+                 * frame is taller than the viewport and scrolls inside
+                 * .wizard-shell-modal. ANY transform on this ancestor (the
+                 * entrance/leave slide animations below set translateY+scale)
+                 * turns it into the containing block for position:fixed
+                 * descendants — so the sheet's fixed pill stops anchoring to
+                 * the viewport and instead rides UP with the frame as the page
+                 * scrolls, sliding off the bottom of the screen. We hard-pin
+                 * the frame to transform:none + will-change:auto at this
+                 * breakpoint in EVERY phase so the fixed pill always anchors to
+                 * the viewport and stays on-screen. The entrance fade (opacity)
+                 * still plays; only the transform slide is dropped on mobile. */
+                transform: none !important;
+                will-change: auto !important;
+              }
+              .wizard-shell-modal.is-entering .qq-editor-frame,
+              .wizard-shell-modal.is-open .qq-editor-frame,
+              .wizard-shell-modal.is-leaving .qq-editor-frame {
+                transform: none !important;
+                will-change: auto !important;
               }
               .qq-editor-body { flex-direction: column; }
               .qq-editor-left {
