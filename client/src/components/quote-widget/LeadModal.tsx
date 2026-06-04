@@ -112,18 +112,21 @@ export interface LeadModalProps {
   fontFamily?: string;
   /** Style-tab radius applied to inputs / buttons. */
   radiusPx?: string;
-  /** Optional heading override; defaults to "Request your quote". */
+  /** Optional heading override; defaults to "Almost there — where should we reach you?". */
   heading?: string;
   /** Optional subcopy override. */
   subcopy?: string;
+  /** Optional submit-button label override; defaults to "Send my request". */
+  submitLabel?: string;
 }
 
 type Lead = { name: string; phone: string; email: string };
 
 export default function LeadModal({
   open, onClose, theme, ctaBg, ctaFg, fontFamily, radiusPx = '10px',
-  heading = 'Request your quote',
+  heading = 'Almost there — where should we reach you?',
   subcopy = 'Drop your details and we’ll get back to you shortly.',
+  submitLabel = 'Send my request',
 }: LeadModalProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -327,7 +330,7 @@ export default function LeadModal({
               onClick={handleSubmit}
               style={submitBtnStyle}
             >
-              Request quote
+              {submitLabel}
               <span aria-hidden="true" style={{ fontSize: 16 }}>→</span>
             </button>
 

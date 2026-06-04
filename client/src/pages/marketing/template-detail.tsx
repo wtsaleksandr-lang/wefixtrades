@@ -496,12 +496,16 @@ function TemplateRail({
 
   return (
     <aside className="tpl-rail" data-testid="template-rail">
-      {/* Theme-combination selector — ABOVE the accent swatches. Each chip is a
-          split swatch (combo bg + accent) + the combo name; selecting it swaps
-          the whole palette. The accent swatches below still override accent. */}
+      {/* Theme-combination selector — ABOVE the accent swatches. Each entry is a
+          minimal ROUND dual-colour swatch (no visible text) matching the
+          "Choose a colour" single-swatch row below, so the two read as a
+          family. Left half = Colour B (combo.accent / panel), right half =
+          Colour A (combo.ctaColor / CTA). The combo name lives in title +
+          aria-label only. Selecting a swatch swaps the whole palette; the
+          accent swatches below still override accent. */}
       <div className="tpl-rail-block">
         <div className="tpl-cats-head">Theme</div>
-        <div className="tpl-combo-row" data-testid="template-combo-tabs">
+        <div className="tpl-color-row" data-testid="template-combo-tabs">
           {THEME_COMBINATIONS.map((c) => {
             const sel = combo.id === c.id;
             return (
@@ -513,24 +517,18 @@ function TemplateRail({
                 title={c.name}
                 onClick={() => setCombo(c)}
                 data-testid={`template-combo-${c.id}`}
-                className="tpl-combo-chip"
+                className="tpl-swatch tpl-swatch-split"
                 style={{
+                  // Dual-colour 50/50 split: left = Colour B (accent), right =
+                  // Colour A (ctaColor). For combos where A === B (e.g.
+                  // light-blue) the split reads as one solid colour — fine.
+                  background: `linear-gradient(90deg, ${c.accent} 0 50%, ${c.ctaColor} 50% 100%)`,
                   boxShadow: sel
                     ? `0 0 0 2px ${CS_LIGHT.bg}, 0 0 0 4px ${mkt.accent}`
-                    : "inset 0 0 0 1px rgba(15,20,24,0.12)",
+                    : "0 0 0 1px rgba(15,20,24,0.12)",
                 }}
               >
-                {/* Split swatch. Single-colour combos (ctaColor === accent)
-                    show body + accent (legacy look). The two-zone combo
-                    (ctaColor !== accent) shows its two distinct identity
-                    colours — Colour B (accent / dark panel) + Colour A (the
-                    CTA) — so "Black · Yellow" still reads as black + yellow
-                    even though its BODY is now white. */}
-                <span className="tpl-combo-swatch" aria-hidden>
-                  <span style={{ background: c.ctaColor !== c.accent ? c.accent : c.bg }} />
-                  <span style={{ background: c.ctaColor }} />
-                </span>
-                <span className="tpl-combo-name">{c.name}</span>
+                {sel && <Check size={14} color="rgba(255,255,255,1)" strokeWidth={3} />}
               </button>
             );
           })}
@@ -1012,34 +1010,18 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 letter-spacing: 0.10em; text-transform: uppercase; color: ${CS_LIGHT.inkMuted};
                 padding-left: 2px;
               }
-              /* Theme-combination chips — split swatch + name, same rhythm as
-                 the accent swatches below. Wrap so all combos stay visible. */
-              .tpl-combo-row { display: flex; flex-wrap: wrap; gap: 8px; }
-              .tpl-combo-chip {
-                display: inline-flex; align-items: center; gap: 8px;
-                padding: 6px 10px 6px 6px; border-radius: 10px; border: none;
-                cursor: pointer; background: rgba(255,255,255,0.55);
-                transition: box-shadow 150ms ease, transform 120ms ease;
-              }
-              .tpl-combo-chip:hover { transform: translateY(-1px); }
-              .tpl-combo-swatch {
-                display: inline-flex; width: 28px; height: 20px; border-radius: 6px;
-                overflow: hidden; box-shadow: inset 0 0 0 1px rgba(15,20,24,0.14);
-                flex-shrink: 0;
-              }
-              .tpl-combo-swatch > span { display: block; width: 50%; height: 100%; }
-              .tpl-combo-name {
-                font-family: ${SANS}; font-size: 12px; font-weight: 600;
-                line-height: 1.2; color: ${CS_LIGHT.ink}; white-space: nowrap;
-              }
-
-              .tpl-color-row { display: flex; gap: 8px; }
+              .tpl-color-row { display: flex; flex-wrap: wrap; gap: 8px; }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
                 display: grid; place-items: center;
                 transition: box-shadow 150ms ease, transform 120ms ease;
               }
               .tpl-swatch:hover { transform: translateY(-1px); }
+              /* Dual-colour theme swatch — identical box (size / radius / ring /
+                 spacing) to the single-colour .tpl-swatch above; the background
+                 gradient supplies the 50/50 split, so the THEME row reads as the
+                 same family as the CHOOSE A COLOUR row. */
+              .tpl-swatch-split { overflow: hidden; }
 
               /* 2×2 catalogue grid (item 2). */
               .tpl-rail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1142,7 +1124,6 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
               /* Accessibility — visible focus rings on every control. */
               .tpl-card:focus-visible,
-              .tpl-combo-chip:focus-visible,
               .tpl-swatch:focus-visible,
               .tpl-device-toggle:focus-visible,
               .tpl-pager-btn:focus-visible,
