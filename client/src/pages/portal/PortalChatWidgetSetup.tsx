@@ -245,6 +245,8 @@ export default function PortalChatWidgetSetup() {
               <div className="flex gap-2">
                 <Input
                   id="accent"
+                  maxLength={7}
+                  pattern="^#[0-9A-Fa-f]{6}$"
                   value={(draft.accent_color as string) || ""}
                   onChange={(e) => setDraft({ ...draft, accent_color: e.target.value })}
                   placeholder="#0d3cfc"

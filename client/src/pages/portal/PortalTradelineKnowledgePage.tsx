@@ -333,6 +333,7 @@ export default function PortalTradelineKnowledgePage() {
                   <Textarea
                     className="mt-1"
                     rows={8}
+                    maxLength={5000}
                     value={editing.content}
                     onChange={(e) => setEditing({ ...editing, content: e.target.value })}
                     placeholder="Write what you want the AI to know — pricing, service area, hours, special offers, etc."
