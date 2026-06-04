@@ -409,6 +409,8 @@ const THEME_COMBINATIONS: ThemeCombination[] = [
   { id: "reno", name: "Olive · Orange", ...COMBO_LIGHT_BODY, resultsBg: "#4a5240", accent: "#e8821e", ctaColor: "#e8821e" },
   { id: "tshirt", name: "Violet", ...COMBO_LIGHT_BODY, resultsBg: "#7c5cc4", accent: "#7c5cc4", ctaColor: "#141414" },
   { id: "wedding", name: "Royal · Orange", ...COMBO_LIGHT_BODY, resultsBg: "#1e6fd4", accent: "#1e6fd4", ctaColor: "#e8821e" },
+  { id: "carbon", name: "Teal", ...COMBO_LIGHT_BODY, resultsBg: "#1a9b8e", accent: "#1a9b8e", ctaColor: "#141414" },
+  { id: "cake", name: "Blush", ...COMBO_LIGHT_BODY, resultsBg: "#fce7f0", accent: "#ec4899", ctaColor: "#ec4899" },
 ];
 
 const DEFAULT_COMBO =
