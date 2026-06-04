@@ -30,8 +30,20 @@ import {
 import type { CalculatorData } from "@/components/quote-widget/types";
 import { getCategoryStyle } from "@/lib/categoryStyles";
 import { getQuoteQuickIcon } from "@/data/quoteQuickIcons";
+import { V7PageShell, V7FinalCta } from "@/components/marketing/v7";
+import { MONO, SANS } from "@/components/effortel-blocks";
 
 const BASE = "https://wefixtrades.com";
+
+/* Bright cool-grey panel — the Case Studies "great company" slate, reused here
+   so the template page adopts the same V7 layout (dark hero → light slate
+   rounded panel → dark CTA). Solid inks hold WCAG AA on the #C2D0D6 ground. */
+const CS_LIGHT = {
+  bg: "#C2D0D6",
+  ink: "#0F1418",
+  inkMuted: "#3F4549",
+  inkFaint: "#4A5258",
+} as const;
 
 /* ─── Sample business profile for the preview. License # and insured amount
    are intentionally omitted: they synthesise a "Licensed #…" trust chip + a
@@ -227,12 +239,12 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
         description={`${template.description} Free-to-use calculator template — try the live widget, then customize in our setup wizard.`}
         canonical={`/templates/${template.id}`}
       />
-      <div data-theme="dark" style={{ background: mkt.bg }}>
+      <V7PageShell>
+      <div data-theme="dark">
         {/* Hero / Intro */}
         <div
           style={{
-            padding: "48px 28px 32px",
-            borderBottom: `1px solid ${mkt.onDarkBorder}`,
+            padding: "56px 28px 40px",
             background: `linear-gradient(180deg, ${cat.heroBg}1F 0%, transparent 100%)`,
           }}
         >
@@ -382,33 +394,47 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
           </div>
         </div>
 
-        {/* Live preview */}
+        {/* Live preview — V7 "Case Studies" bright slate panel. Dark hero
+            above, then this #C2D0D6 rounded panel emerging with rounded top
+            corners (matches /case-studies "great company"). Text switches to
+            dark ink so it reads on the light ground. */}
         <div
           id="live-preview"
-          style={{ padding: "48px 28px 56px", background: mkt.bg }}
+          style={{
+            padding: "64px 24px 72px",
+            background: CS_LIGHT.bg,
+            borderRadius: "32px 32px 0 0",
+            marginTop: 32,
+          }}
         >
-          <div style={{ maxWidth: 780, margin: "0 auto" }}>
+          <div style={{ maxWidth: 980, margin: "0 auto" }}>
             <div
               style={{
+                display: "inline-flex",
+                gap: 6,
+                alignItems: "baseline",
+                fontFamily: MONO,
                 fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.1em",
+                fontWeight: 600,
+                letterSpacing: "0.10em",
                 textTransform: "uppercase",
-                color: mkt.accent,
-                marginBottom: 8,
-                textAlign: "center",
+                color: CS_LIGHT.inkMuted,
+                marginBottom: 14,
               }}
             >
-              Live preview
+              <span style={{ opacity: 0.4 }}>(</span>
+              <span>Live preview</span>
+              <span style={{ opacity: 0.4 }}>)</span>
             </div>
             <h2
               style={{
-                fontSize: 22,
+                fontSize: "clamp(26px, 3.4vw, 40px)",
                 fontWeight: 700,
-                color: mkt.onDark,
-                margin: "0 0 24px",
-                textAlign: "center",
-                letterSpacing: "-0.01em",
+                color: CS_LIGHT.ink,
+                margin: "0 0 28px",
+                letterSpacing: "-0.025em",
+                lineHeight: 1.08,
+                fontFamily: SANS,
               }}
             >
               Try the {template.name} calculator
@@ -416,8 +442,8 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Color tabs — recolor the preview live. Four site-wide accents
                 (the wizard exposes the full picker). Buttons use the shared
                 .cs-arrow capsule styling from the blog carousel arrows. */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, margin: "0 0 10px" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: mkt.onDarkMuted }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, margin: "0 0 18px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: CS_LIGHT.inkMuted }}>
                 Choose a colour
               </span>
               <div className="cs-arrow-group" data-theme="dark" style={{ padding: 5, gap: 6 }} data-testid="template-color-tabs">
@@ -540,9 +566,10 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             <p
               style={{
                 fontSize: 12,
-                color: mkt.onDarkMuted,
+                color: CS_LIGHT.inkFaint,
                 textAlign: "center",
                 margin: "16px 0 0",
+                fontFamily: MONO,
               }}
             >
               Sample pricing for preview. Your real numbers are configured in
@@ -561,8 +588,8 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
           </div>
         </div>
 
-        {/* Why an instant quote tool wins — KPI row */}
-        <div style={{ padding: "64px 28px", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
+        {/* Why an instant quote tool wins — KPI row (back on the dark ground) */}
+        <div style={{ padding: "72px 28px 64px" }}>
           <div style={{ maxWidth: 1120, margin: "0 auto" }}>
             <h2 style={{ fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 800, color: mkt.onDark, textAlign: "center", margin: "0 0 8px", letterSpacing: "-0.01em" }}>
               Why trades win with an instant quote tool
@@ -596,59 +623,18 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
           </div>
         </div>
 
-        {/* Final CTA */}
-        <div
-          style={{
-            background: `linear-gradient(135deg, ${mkt.accent} 0%, #0b34d6 100%)`,
-            padding: "72px 28px",
-            textAlign: "center",
+        {/* Final CTA — V7 gradient closer (slate rounded card on the dark
+            ground), matching the Case Studies / product-page rhythm. */}
+        <V7FinalCta
+          title="Ready to use this template?"
+          sub="Drop in your pricing in our setup wizard. Free to start, no credit card required."
+          primaryCta={{
+            label: "Use this template",
+            href: `/wizard?template=${template.id}&accent=${encodeURIComponent(accent)}`,
           }}
-        >
-          <div style={{ maxWidth: 640, margin: "0 auto" }}>
-            <h2
-              style={{
-                fontSize: "clamp(24px, 3vw, 36px)",
-                fontWeight: 800,
-                color: "#FFFFFF",
-                margin: "0 0 12px",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Ready to use this template?
-            </h2>
-            <p
-              style={{
-                fontSize: 16,
-                color: "rgba(255,255,255,0.75)",
-                margin: "0 0 28px",
-                lineHeight: 1.6,
-              }}
-            >
-              Drop in your pricing in our setup wizard. Free to start, no
-              credit card required.
-            </p>
-            <Link
-              href={`/wizard?template=${template.id}&accent=${encodeURIComponent(accent)}`}
-              data-testid="footer-use-template"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "14px 32px",
-                borderRadius: 10,
-                background: "#FFFFFF",
-                color: mkt.accent,
-                fontSize: 16,
-                fontWeight: 800,
-                textDecoration: "none",
-                minHeight: 44,
-              }}
-            >
-              Use this template <ArrowRight size={16} />
-            </Link>
-          </div>
-        </div>
+        />
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }
