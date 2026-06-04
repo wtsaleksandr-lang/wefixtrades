@@ -103,14 +103,14 @@ function buildPreviewCalculator(
 ): CalculatorData {
   const base = toAdvancedConfig(template);
   const acc = accent ?? ELFSIGHT_LIGHT_STYLE.accent;
-  // Wash the whole widget (body + field surfaces + result panel) in a soft tint
-  // of the chosen accent so a colour change is felt everywhere, not just on the
-  // CTA. Only when an explicit accent is picked; otherwise stay clean white.
+  // Keep the widget BODY at full-contrast white (no body wash → the preview
+  // content reads crisp, not dimmed). Still tint the field surfaces + result
+  // panel so a colour change is felt beyond the CTA, but never the body.
   const bgTint = accent
     ? {
-        background: tintToward(accent, 0.04),
-        surface: tintToward(accent, 0.09),
-        resultsBg: tintToward(accent, 0.13),
+        background: "rgba(255,255,255,1)",
+        surface: tintToward(accent, 0.07),
+        resultsBg: tintToward(accent, 0.11),
       }
     : {};
   const advanced = {
@@ -337,14 +337,18 @@ function useTemplateJsonLd(template: TemplateConfig) {
   }, [template.id, template.name, template.description, url]);
 }
 
-/* ─── Website color palette (4 premium, industry-agnostic accents). The wizard
-   exposes the full picker; the site offers these four, reused on every
+/* ─── Website color palette (8 premium, industry-agnostic accents). The wizard
+   exposes the full picker; the site offers these eight, reused on every
    template. Default = Brand Blue. ─── */
 const SITE_PALETTE: { name: string; color: string }[] = [
   { name: "Brand Blue", color: "#0D3CFC" },
   { name: "Slate", color: "#334155" },
   { name: "Emerald", color: "#10B981" },
   { name: "Amber", color: "#D97706" },
+  { name: "Violet", color: "#7C3AED" },
+  { name: "Rose", color: "#E11D48" },
+  { name: "Teal", color: "#0D9488" },
+  { name: "Indigo", color: "#4338CA" },
 ];
 
 /* ─── Real template thumbnail — a scaled-down live render of the actual
@@ -612,19 +616,6 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
     [activeTemplate, accent, effectiveMode],
   );
 
-  // Pull key value props from the template's header subtitle (e.g. "Licensed
-  // & insured · 24/7 response · Flat-rate per-mile pricing"). Split on
-  // common bullet separators so each fragment can render as a chip.
-  const valueProps = useMemo(() => {
-    const sub = activeTemplate.header.subtitle?.trim() ?? "";
-    if (!sub) return [] as string[];
-    return sub
-      .split(/[·•|]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .slice(0, 4);
-  }, [activeTemplate.header.subtitle]);
-
   return (
     <MarketingLayout>
       <PageMeta
@@ -637,7 +628,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
         {/* Hero / Intro */}
         <div
           style={{
-            padding: "56px 28px 40px",
+            padding: "56px 28px 24px",
             background: `linear-gradient(180deg, ${cat.heroBg}1F 0%, transparent 100%)`,
           }}
         >
@@ -688,15 +679,15 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               ) : null}
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 700,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  padding: "4px 10px",
+                  padding: "3px 8px",
                   borderRadius: 20,
-                  background: `${cat.heroAccent}1F`,
-                  color: cat.isDark ? cat.heroAccent : cat.ctaFrom,
-                  border: `1px solid ${cat.heroAccent}40`,
+                  background: `${mkt.accent}1F`,
+                  color: mkt.accent,
+                  border: `1px solid ${mkt.accent}40`,
                 }}
               >
                 {activeTemplate.category}
@@ -705,7 +696,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
             <h1
               style={{
-                fontSize: "clamp(28px, 4vw, 46px)",
+                fontSize: "clamp(32px, 4.4vw, 52px)",
                 fontWeight: 800,
                 color: mkt.onDark,
                 margin: "0 0 14px",
@@ -730,38 +721,6 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               inputs to see how the price updates in real time. When you’re
               ready, customize it in the wizard.
             </p>
-
-            {valueProps.length > 0 ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  marginBottom: 24,
-                }}
-              >
-                {valueProps.map((vp) => (
-                  <span
-                    key={vp}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: mkt.onDarkMuted,
-                      background: mkt.surfaceAlt,
-                      border: `1px solid ${mkt.onDarkBorder}`,
-                      padding: "5px 11px",
-                      borderRadius: 20,
-                    }}
-                  >
-                    <Check size={12} color={mkt.accent} strokeWidth={2.5} />
-                    {vp}
-                  </span>
-                ))}
-              </div>
-            ) : null}
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <Link
@@ -795,55 +754,20 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
           id="live-preview"
           className="tpl-editor-section"
           style={{
-            padding: "64px 24px 72px",
+            padding: "32px 24px 72px",
             background: CS_LIGHT.bg,
             borderRadius: "32px 32px 0 0",
-            marginTop: 32,
+            marginTop: 12,
           }}
         >
           <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-            <div
-              style={{
-                display: "inline-flex",
-                gap: 6,
-                alignItems: "baseline",
-                fontFamily: MONO,
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.10em",
-                textTransform: "uppercase",
-                color: CS_LIGHT.inkMuted,
-                marginBottom: 14,
-              }}
-            >
-              <span style={{ opacity: 0.4 }}>(</span>
-              <span>Live preview</span>
-              <span style={{ opacity: 0.4 }}>)</span>
-            </div>
             {/* Two-pane editor: template rail (colour selector + catalogue) on
                 the left, the title + live widget on the right. */}
             <div className="tpl-editor">
               <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} setAccent={setAccent} />
               <div className="tpl-preview">
-                {/* Template title + single device toggle, right above the preview */}
-                <div className="tpl-preview-titlebar">
-                  <h2 className="tpl-preview-title">{activeTemplate.name}</h2>
-                  {!isMobileViewport && (
-                    <button
-                      type="button"
-                      onClick={() => setPreviewMode((m) => (m === "desktop" ? "mobile" : "desktop"))}
-                      data-testid="preview-device-toggle"
-                      aria-label={previewMode === "desktop" ? "Switch to mobile view" : "Switch to desktop view"}
-                      title={previewMode === "desktop" ? "Mobile view" : "Desktop view"}
-                      className="tpl-device-toggle"
-                    >
-                      {previewMode === "desktop"
-                        ? <Smartphone size={16} strokeWidth={2.25} />
-                        : <Monitor size={16} strokeWidth={2.25} />}
-                    </button>
-                  )}
-                </div>
-            {/* Elfsight-style preview: the widget renders directly on a white card. */}
+            {/* Elfsight-style preview: the widget renders directly on a white card.
+                The device toggle sits in the top-right corner of the card. */}
             <div
               data-testid="template-live-preview"
               style={{
@@ -857,6 +781,20 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 overflow: "hidden",
               }}
             >
+              {!isMobileViewport && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode((m) => (m === "desktop" ? "mobile" : "desktop"))}
+                  data-testid="preview-device-toggle"
+                  aria-label={previewMode === "desktop" ? "Switch to mobile view" : "Switch to desktop view"}
+                  title={previewMode === "desktop" ? "Mobile view" : "Desktop view"}
+                  className="tpl-device-toggle"
+                >
+                  {previewMode === "desktop"
+                    ? <Smartphone size={16} strokeWidth={2.25} />
+                    : <Monitor size={16} strokeWidth={2.25} />}
+                </button>
+              )}
               {/* Fold viewport — the live widget shrinks into a phone frame in place */}
               <div
                 style={{
@@ -1008,22 +946,14 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               }
 
               .tpl-preview { min-width: 0; display: flex; flex-direction: column; }
-              /* Template title right above the preview (item 4). */
-              .tpl-preview-titlebar {
-                display: flex; align-items: center; justify-content: space-between;
-                gap: 12px; margin-bottom: 14px;
-              }
-              .tpl-preview-title {
-                margin: 0; font-family: ${SANS};
-                font-size: clamp(22px, 2.4vw, 30px); font-weight: 700;
-                letter-spacing: -0.02em; color: ${CS_LIGHT.ink}; line-height: 1.1;
-              }
-              /* Single device toggle that swaps its icon (item 5). */
+              /* Single device toggle that swaps its icon — pinned to the
+                 top-right corner of the preview card. */
               .tpl-device-toggle {
+                position: absolute; top: 12px; right: 12px; z-index: 5;
                 flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
                 display: grid; place-items: center; cursor: pointer; border: none;
-                background: rgba(255,255,255,0.7); color: ${CS_LIGHT.ink};
-                box-shadow: inset 0 0 0 1px rgba(15,20,24,0.12);
+                background: rgba(255,255,255,0.85); color: ${CS_LIGHT.ink};
+                box-shadow: inset 0 0 0 1px rgba(15,20,24,0.12), 0 2px 8px rgba(15,20,24,0.12);
                 transition: background 140ms ease, transform 120ms ease;
               }
               .tpl-device-toggle:hover { transform: translateY(-1px); }
