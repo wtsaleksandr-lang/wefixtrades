@@ -12,6 +12,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { eff, primaryButtonStyle } from "@/components/quote-widget/designTokens";
+import { PageMeta } from "@/components/seo/PageMeta";
 
 interface PaymentMethods {
   stripe?: boolean;
@@ -72,7 +73,6 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
 export default function PayInvoicePage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
-  const isPaid = new URLSearchParams(window.location.search).get("paid") === "1";
 
   const [invoice, setInvoice] = useState<InvoiceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -141,7 +141,7 @@ export default function PayInvoicePage() {
     );
   }
 
-  const showPaid = invoice.status === "paid" || isPaid;
+  const showPaid = invoice.status === "paid";
   const pm = invoice.payment_methods || {};
   const hasAltMethods = !!(
     pm.paypal_email ||
@@ -154,6 +154,7 @@ export default function PayInvoicePage() {
 
   return (
     <div style={pageStyle}>
+      <PageMeta noIndex title="Invoice Payment" />
       <div style={cardStyle}>
         {/* Header */}
         <div style={{ marginBottom: 20 }}>

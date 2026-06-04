@@ -800,7 +800,7 @@ export function registerBookflowRoutes(app: Express): void {
             type: "bookflow_invoice",
           },
         },
-        success_url: `${baseUrl}/pay/${token}?paid=1`,
+        success_url: `${baseUrl}/pay/${token}`,
         cancel_url: `${baseUrl}/pay/${token}`,
         customer_email: invoice.customer_email || undefined,
       }, {

@@ -6,6 +6,7 @@ import { eq, sql } from "drizzle-orm";
 import { sendContactAck, sendContactInternalNotification } from "../lib/contactEmails";
 import { createLogger } from "../lib/logger";
 import { noisyCatch } from "../lib/silentFailureGuard";
+import { publicCheckoutRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("Marketing");
 
@@ -24,6 +25,11 @@ export function registerMarketingRoutes(app: Express): void {
   });
 
   app.post("/api/contact", async (req, res) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!(await publicCheckoutRateLimiter.check(`contact:${ip}`))) {
+      return res.status(429).json({ error: "Too many submissions. Please try again in a few minutes." });
+    }
+
     const parsed = contactSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
     const { name, email, subject, message } = parsed.data;
