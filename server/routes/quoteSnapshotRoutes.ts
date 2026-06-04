@@ -84,8 +84,6 @@ function toPublicCalculator(row: typeof calculators.$inferSelect) {
     primary_color: row.primary_color,
     theme_overrides: row.theme_overrides,
     appearance: (row.calculator_settings as any)?.appearance ?? null,
-    pricing_config: row.pricing_config,
-    calculator_settings: row.calculator_settings,
   };
 }
 

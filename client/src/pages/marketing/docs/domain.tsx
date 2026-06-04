@@ -68,7 +68,7 @@ export default function DocsDomain() {
 
       <DocH2>Custom Subdomain (Recommended)</DocH2>
       <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, marginBottom: 12 }}>
-        With a Pro or Elite plan, you can serve your calculator under your own subdomain:
+        With a Pro or Business plan, you can serve your calculator under your own subdomain:
       </p>
       <CodeBlock lang="text" code={`https://quotes.yourbusiness.com`} />
       <Checklist items={[
@@ -137,7 +137,7 @@ TTL:   3600 (or "Auto")`} />
       </Accordion>
 
       <InfoBox type="info">
-        Custom domain requires a <strong>Pro or Elite plan</strong>. If you're on Free or Starter, upgrade from Dashboard → Settings → Plan.
+        Custom domain requires a <strong>Pro or Business plan</strong>. If you're on Free, upgrade from Dashboard → Settings → Plan.
       </InfoBox>
 
     </DocsLayout>

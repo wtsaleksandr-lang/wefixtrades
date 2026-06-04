@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRoute } from "wouter";
 import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
+import { PageMeta } from "@/components/seo/PageMeta";
 
 /* ─── Types ─── */
 
@@ -240,6 +241,7 @@ export default function BookingPage() {
 
   return (
     <PageShell accent={accent} accentRgb={accentRgb}>
+      <PageMeta noIndex title="Book an Appointment" description="Schedule an appointment online." />
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
 
       <header style={{ textAlign: "center", padding: "32px 24px 24px" }}>

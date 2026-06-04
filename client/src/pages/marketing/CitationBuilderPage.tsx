@@ -788,8 +788,9 @@ export default function CitationBuilderPage() {
             Pick a tier above. Submit your intake form. We handle the rest.
             7-day delivery — guaranteed.
           </p>
-          <a
-            href={mailto("Starter")}
+          <button
+            type="button"
+            onClick={() => setActiveTier(TIERS[0])}
             data-testid="cta-footer-start"
             style={{
               display: "inline-flex",
@@ -801,11 +802,12 @@ export default function CitationBuilderPage() {
               borderRadius: 12,
               fontSize: 14,
               fontWeight: 700,
-              textDecoration: "none",
+              border: "none",
+              cursor: "pointer",
             }}
           >
             Start at $79 <ArrowRight size={14} />
-          </a>
+          </button>
         </div>
       </section>
 
