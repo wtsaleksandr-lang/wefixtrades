@@ -168,6 +168,7 @@ function parseMigrationObjects(migrationsDir) {
   // Names may be either quoted ("foo") or bare (foo).
   const tableRx = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))/gi;
   const indexRx = /CREATE\s+(UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))/gi;
+  const dropIndexRx = /DROP\s+INDEX\s+(?:IF\s+EXISTS\s+)?(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))/gi;
 
   for (const file of files) {
     const src = readFileSync(join(migrationsDir, file), "utf-8");
@@ -186,6 +187,11 @@ function parseMigrationObjects(migrationsDir) {
       const name = m[2] ?? m[3];
       if (!name) continue;
       if (!indexes.has(name)) indexes.set(name, { file, unique });
+    }
+    for (const m of stripped.matchAll(dropIndexRx)) {
+      const name = m[1] ?? m[2];
+      if (!name) continue;
+      indexes.delete(name);
     }
   }
 
