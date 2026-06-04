@@ -28,17 +28,27 @@ console.log("inbound-action: spam / out-of-scope unaffected by the voice flag");
 check("spam → drop", resolveInboundAction({ category: "spam", isAvailable: true, keepComplexInline: true }), "drop");
 check("out_of_scope → polite_decline", resolveInboundAction({ category: "out_of_scope", isAvailable: true, keepComplexInline: true }), "polite_decline");
 
-console.log("inbound-action: THE FIX — needs_human + available flips on keepComplexInline");
-check("needs_human + available + keepComplexInline (voice/Riley) → reply (NOT ticket)",
-  resolveInboundAction({ category: "needs_human", isAvailable: true, keepComplexInline: true }), "reply");
+console.log("inbound-action: THE FIX — needs_human + available flips on keepComplexInline (non-emergency)");
+check("needs_human + available + keepComplexInline + low confidence → reply (complex buyer path)",
+  resolveInboundAction({ category: "needs_human", isAvailable: true, keepComplexInline: true, confidence: 0.7 }), "reply");
 check("needs_human + available + NO flag (sms/chat) → ticket (unchanged)",
   resolveInboundAction({ category: "needs_human", isAvailable: true }), "ticket");
 check("needs_human + available + flag explicitly false → ticket",
   resolveInboundAction({ category: "needs_human", isAvailable: true, keepComplexInline: false }), "ticket");
 
-console.log("inbound-action: availability-off always takes a message (flag cannot override)");
-check("needs_human + UNAVAILABLE + keepComplexInline → ticket (availability wins)",
-  resolveInboundAction({ category: "needs_human", isAvailable: false, keepComplexInline: true }), "ticket");
+console.log("inbound-action: EMERGENCY (confidence 1.0) always returns 'emergency' — overrides everything");
+check("emergency + available + keepComplexInline → emergency (NOT reply)",
+  resolveInboundAction({ category: "needs_human", isAvailable: true, keepComplexInline: true, confidence: 1.0 }), "emergency");
+check("emergency + available + no flag → emergency (NOT ticket)",
+  resolveInboundAction({ category: "needs_human", isAvailable: true, confidence: 1.0 }), "emergency");
+check("emergency + UNAVAILABLE → emergency (life-safety overrides availability)",
+  resolveInboundAction({ category: "needs_human", isAvailable: false, confidence: 1.0 }), "emergency");
+check("emergency + UNAVAILABLE + keepComplexInline → emergency",
+  resolveInboundAction({ category: "needs_human", isAvailable: false, keepComplexInline: true, confidence: 1.0 }), "emergency");
+
+console.log("inbound-action: availability-off takes a message for non-emergency needs_human");
+check("needs_human + UNAVAILABLE + keepComplexInline + low confidence → ticket (availability wins)",
+  resolveInboundAction({ category: "needs_human", isAvailable: false, keepComplexInline: true, confidence: 0.7 }), "ticket");
 check("legitimate + UNAVAILABLE → ticket (take a message)",
   resolveInboundAction({ category: "legitimate", isAvailable: false }), "ticket");
 
