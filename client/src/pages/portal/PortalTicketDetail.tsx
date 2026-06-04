@@ -53,13 +53,13 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function formatDate(d: string | null): string {
   if (!d) return "";
-  return new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function formatTime(d: string | null): string {
   if (!d) return "";
   const date = new Date(d);
-  return `${date.toLocaleDateString("en-AU", { day: "numeric", month: "short" })} at ${date.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}`;
+  return `${date.toLocaleDateString("en-US", { day: "numeric", month: "short" })} at ${date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
 }
 
 /* ─── Main Page ─── */

@@ -54,6 +54,7 @@ function FaqSection() {
           const Icon = faq.icon;
           return (
             <button
+              type="button"
               key={i}
               onClick={() => setOpenIndex(open ? null : i)}
               aria-expanded={open}
@@ -61,10 +62,10 @@ function FaqSection() {
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <Icon className="w-4 h-4 text-gray-400 shrink-0" />
+                  <Icon aria-hidden="true" className="w-4 h-4 text-gray-400 shrink-0" />
                   <span className="text-sm font-medium text-gray-800">{faq.question}</span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+                <ChevronDown aria-hidden="true" className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
               </div>
               {open && (
                 <p className="text-sm text-gray-600 mt-2 ml-7 leading-relaxed">{faq.answer}</p>
@@ -100,7 +101,7 @@ function TicketSection() {
     queryKey: ["/api/portal/tickets"],
     queryFn: async () => {
       const res = await fetch("/api/portal/tickets", { credentials: "include" });
-      if (!res.ok) return { tickets: [] };
+      if (!res.ok) throw new Error("Failed to load tickets");
       return res.json();
     },
   });
@@ -268,7 +269,7 @@ function TicketSection() {
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${TICKET_STATUS[t.status] || "bg-gray-100 text-gray-600"}`}>
                     {TICKET_STATUS_LABELS[t.status] || t.status.replace(/_/g, " ")}
                   </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                  <ChevronRight aria-hidden="true" className="w-3.5 h-3.5 text-gray-300" />
                 </div>
               </Link>
             ))}
@@ -314,7 +315,7 @@ const TICKET_STATUS_LABELS: Record<string, string> = {
 
 function formatDate(d: string | null): string {
   if (!d) return "";
-  return new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+  return new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }
 
 /* ─── Main Page ─── */
