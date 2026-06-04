@@ -436,9 +436,11 @@ function AdflowSettingsCard({ productId, initial }: { productId: string; initial
         credentials: "include",
         body: JSON.stringify({ adflow: form }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to save AdFlow settings");
-      return json;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to save AdFlow settings");
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/products", productId] });

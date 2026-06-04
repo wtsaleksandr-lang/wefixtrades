@@ -383,8 +383,9 @@ export default function ContactStep({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
         {error && (
           <p
+            role="alert"
             data-testid="contact-step-error"
-            style={{ fontSize: 12, color: '#b91c1c', margin: 0 }}
+            style={{ fontSize: 12, color: '#ef4444', margin: 0 }}
           >
             {error}
           </p>
