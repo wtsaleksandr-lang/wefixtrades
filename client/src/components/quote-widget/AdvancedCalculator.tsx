@@ -2209,6 +2209,17 @@ export default function AdvancedCalculator({
            deliberate 2px grey-seam rule below — this override is mobile-only. */
         @media (max-width: 559px) {
           .${gridId} { gap: 12px; padding: 16px; }
+          /* Mobile / single-column price-first ordering. The DOM order is
+             inputs-then-result so desktop two-column stays inputs-left /
+             result-right. On narrow screens we flip the result panel ABOVE
+             the inputs with CSS order so the total + CTA lead — the CTA is
+             never buried at the bottom. Scoped to this max-width:559px block
+             only; the desktop two-column order is untouched. The result
+             panel's internal order (total then secondary rows then CTA) is
+             unaffected. The base .${gridId} is already display:grid so order
+             applies directly to its grid items. */
+          .${gridId}-result { order: -1; }
+          .${gridId}-fields { order: 0; }
         }
         .${gridId}-fields {
           display: grid;
