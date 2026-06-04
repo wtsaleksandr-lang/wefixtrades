@@ -41,7 +41,7 @@ import {
   setupBookFlow,
 } from "../services/booking/bookflowService";
 import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
-import { publicCheckoutRateLimiter } from "../services/rateLimiter";
+import { publicCheckoutRateLimiter, leadsSubmissionRateLimiter, LEADS_RATE_LIMIT_WINDOW_MS } from "../services/rateLimiter";
 
 const log = createLogger("BookFlow");
 
@@ -1262,8 +1262,13 @@ export function registerBookflowRoutes(app: Express): void {
 
   /** POST /api/bookflow/:slug/book — create an appointment from the public page */
   app.post("/api/bookflow/:slug/book", async (req: Request, res: Response) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const slug = String(req.params.slug);
+    if (!(await leadsSubmissionRateLimiter.check(`booking:${ip}:${slug}`))) {
+      return res.status(429).json({ error: "Too many booking attempts. Please try again later." });
+    }
+
     try {
-      const slug = String(req.params.slug);
       const settings = await getBookFlowSettingsBySlug(slug);
 
       if (!settings || !settings.is_active) {
