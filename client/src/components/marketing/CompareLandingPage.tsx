@@ -307,9 +307,9 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       color: mkt.onDarkFaint,
                     }}
                   >
-                    <div style={{ padding: "14px 18px" }}>Category</div>
-                    <div style={{ padding: "14px 18px", color: mkt.accent }}>WeFixTrades</div>
-                    <div style={{ padding: "14px 18px" }}>{competitorName}</div>
+                    <div role="columnheader" style={{ padding: "14px 18px" }}>Category</div>
+                    <div role="columnheader" style={{ padding: "14px 18px", color: mkt.accent }}>WeFixTrades</div>
+                    <div role="columnheader" style={{ padding: "14px 18px" }}>{competitorName}</div>
                   </div>
                   {tldrRows.map((r, i) => (
                     <div
