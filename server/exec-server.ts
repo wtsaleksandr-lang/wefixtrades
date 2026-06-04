@@ -1,4 +1,5 @@
 import http from "http";
+import crypto from "node:crypto";
 import { exec } from "child_process";
 
 const EXEC_SECRET = process.env.EXEC_SECRET;
@@ -20,7 +21,12 @@ const server = http.createServer((req, res) => {
   const authHeader = req.headers["authorization"] ?? "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
-  if (!EXEC_SECRET || token !== EXEC_SECRET) {
+  if (
+    !EXEC_SECRET ||
+    !token ||
+    EXEC_SECRET.length !== token.length ||
+    !crypto.timingSafeEqual(Buffer.from(EXEC_SECRET), Buffer.from(token))
+  ) {
     res.writeHead(401);
     res.end(JSON.stringify({ error: "Unauthorized" }));
     return;
