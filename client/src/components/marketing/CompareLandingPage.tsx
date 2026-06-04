@@ -835,7 +835,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                         fontFamily: SANS,
                       }}
                     >
-                      {item.answer}
+                      {item.answerNode ?? item.answer}
                     </p>
                   </details>
                 ))}
