@@ -424,7 +424,7 @@ export default function SmsConsentDisclosurePage() {
               <p
                 style={{
                   fontSize: 12,
-                  color: mkt.onDarkFaint,
+                  color: mkt.onDarkMuted,
                   marginTop: 40,
                   paddingTop: 20,
                   borderTop: `1px solid ${mkt.onDarkBorder}`,
