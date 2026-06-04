@@ -2043,11 +2043,11 @@ export default function AdvancedCalculator({
           position: 'sticky', top: 0, zIndex: 40,
           background: c.surface,
           // TWO-ZONE — the top brand bar (the QuoteQuick header row) reads as a
-          // separated, ROUNDED bar with a thin 1px hairline on every side. The
-          // border is theme-aware (routed through the resolved border token,
-          // never a raw literal), so it stays subtle on both light + dark
-          // bodies.
-          border: `1px solid ${c.border}`,
+          // separated, ROUNDED bar with a clearly VISIBLE thin dark hairline on
+          // every side. A near-black rgba hairline (never a #000/black literal)
+          // stays crisp on the light brand bar across themes — the bar itself
+          // is light, so a dark hairline reads as a clean rounded outline.
+          border: '1px solid rgba(15,23,42,0.45)',
           // Self-contained rounded box — all four corners use the inner radius
           // so the brand bar reads as a distinct, fully rounded bordered bar
           // sitting at the top of the widget (border + rounding on every side).
@@ -3063,7 +3063,9 @@ export default function AdvancedCalculator({
               textDecoration: 'none',
             }}
           >
-            Powered by WeFixTrades
+            {/* Brand the "Fix" in WeFixTrades the brand blue (#0d3cfc),
+                matching the wordmark; the rest stays the muted footer colour. */}
+            Powered by We<span style={{ color: '#0d3cfc' }}>Fix</span>Trades
           </a>
         </div>
       )}
