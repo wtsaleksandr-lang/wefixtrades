@@ -385,9 +385,9 @@ export default function PortalLayout({
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
               Back to website
             </Link>
-            <h1 className="text-sm font-medium text-foreground flex items-center gap-1.5 min-w-0 truncate">
+            <span className="text-sm font-medium text-foreground flex items-center gap-1.5 min-w-0 truncate" role="heading" aria-level={2}>
               {breadcrumb ?? (NAV_ITEMS.find((item) => isActive(location, item.href))?.label ?? "Portal")}
-            </h1>
+            </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {/* AI Copilot trigger — icon + label so users immediately
