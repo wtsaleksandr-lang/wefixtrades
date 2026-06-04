@@ -129,6 +129,11 @@ function buildPreviewCalculator(
     // Elfsight layout is title + inputs + result only.
     header: { ...(base.header ?? {}), subtitle: "" },
     trustBadges: [],
+    // Disable auto Good/Better/Best tiers in the preview: the 3 tier cards make
+    // the result panel much taller than the form (CTA then collides with the
+    // sticky bottom nav). A single total + breakdown matches the car_towing
+    // reference and keeps the CTA high-right, clear of the footer.
+    tiered: { enabled: false },
     businessProfile: SAMPLE_BUSINESS_PROFILE,
     // Uniform clean style + the chosen accent + its background wash. labelLayout
     // 'stacked' = the Elfsight title-above + help-below field style. Preview-only;
