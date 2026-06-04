@@ -884,6 +884,7 @@ export function registerBookflowRoutes(app: Express): void {
         customer_email: invoice.customer_email || undefined,
       }, {
         stripeAccount: stripeAccountId,
+        idempotencyKey: `pay-checkout-${token}-${invoice.total_cents}`,
       });
 
       res.json({ url: session.url });

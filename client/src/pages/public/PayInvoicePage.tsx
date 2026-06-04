@@ -35,13 +35,23 @@ interface InvoiceData {
   status: string;
   paid_at: string | null;
   notes: string | null;
+  currency: string;
   business_name: string;
   stripe_enabled: boolean;
   payment_methods: PaymentMethods;
 }
 
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  CAD: "CA$",
+  EUR: "€",
+  GBP: "£",
+  AUD: "A$",
+};
+
+function formatCents(cents: number, currency?: string): string {
+  const sym = CURRENCY_SYMBOLS[(currency || "USD").toUpperCase()] ?? "$";
+  return `${sym}${(cents / 100).toFixed(2)}`;
 }
 
 function formatDate(d: string): string {
@@ -120,7 +130,9 @@ export default function PayInvoicePage() {
     return (
       <div style={pageStyle}>
         <div style={cardStyle}>
-          <p style={{ color: eff.textBody, textAlign: "center", fontSize: 14 }}>Loading invoice...</p>
+          <p role="status" style={{ color: eff.textBody, textAlign: "center", fontSize: 14 }}>
+            Loading invoice...
+          </p>
         </div>
       </div>
     );
@@ -227,7 +239,7 @@ export default function PayInvoicePage() {
                 )}
               </div>
               <span style={{ fontSize: 14, fontWeight: 600, color: eff.text, fontFamily: eff.fontMono }}>
-                {formatCents(li.quantity * li.unit_price_cents)}
+                {formatCents(li.quantity * li.unit_price_cents, invoice.currency)}
               </span>
             </div>
           ))}
@@ -237,12 +249,12 @@ export default function PayInvoicePage() {
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: eff.textBody, marginBottom: 4 }}>
             <span>Subtotal</span>
-            <span>{formatCents(invoice.subtotal_cents)}</span>
+            <span>{formatCents(invoice.subtotal_cents, invoice.currency)}</span>
           </div>
           {(invoice.tax_cents ?? 0) > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: eff.textBody, marginBottom: 4 }}>
               <span>Tax</span>
-              <span>{formatCents(invoice.tax_cents)}</span>
+              <span>{formatCents(invoice.tax_cents, invoice.currency)}</span>
             </div>
           )}
           <div style={{
@@ -256,7 +268,7 @@ export default function PayInvoicePage() {
             fontFamily: eff.fontMono,
           }}>
             <span>Total</span>
-            <span>{formatCents(invoice.total_cents)}</span>
+            <span>{formatCents(invoice.total_cents, invoice.currency)}</span>
           </div>
         </div>
 
@@ -280,6 +292,7 @@ export default function PayInvoicePage() {
             {/* Primary: Stripe Pay Online */}
             {invoice.stripe_enabled && (
               <button
+                aria-label="Pay invoice online"
                 onClick={handlePay}
                 disabled={paying}
                 style={{
@@ -290,7 +303,7 @@ export default function PayInvoicePage() {
                 onMouseOver={(e) => (e.currentTarget.style.background = eff.buttonBgHover)}
                 onMouseOut={(e) => (e.currentTarget.style.background = eff.buttonBg)}
               >
-                {paying ? "Redirecting..." : `Pay Online ${formatCents(invoice.total_cents)}`}
+                {paying ? "Redirecting..." : `Pay Online ${formatCents(invoice.total_cents, invoice.currency)}`}
               </button>
             )}
 
@@ -316,6 +329,7 @@ export default function PayInvoicePage() {
             {hasAltMethods && (
               <div style={{ marginTop: invoice.stripe_enabled ? 20 : 0 }}>
                 <button
+                  aria-expanded={showMore}
                   onClick={() => setShowMore(!showMore)}
                   style={{
                     width: "100%",
@@ -353,7 +367,7 @@ export default function PayInvoicePage() {
                           <span style={methodTitleStyle}>PayPal</span>
                         </div>
                         <p style={methodBodyStyle}>
-                          Send {formatCents(invoice.total_cents)} to <strong>{pm.paypal_email}</strong>
+                          Send {formatCents(invoice.total_cents, invoice.currency)} to <strong>{pm.paypal_email}</strong>
                         </p>
                         <p style={{ fontSize: 11, color: eff.textBody, margin: "4px 0 0", opacity: 0.7 }}>
                           Reference: {invoice.invoice_number}
@@ -380,7 +394,7 @@ export default function PayInvoicePage() {
                           <span style={methodTitleStyle}>E-Transfer / Interac</span>
                         </div>
                         <p style={methodBodyStyle}>
-                          Send {formatCents(invoice.total_cents)} via e-transfer to:
+                          Send {formatCents(invoice.total_cents, invoice.currency)} via e-transfer to:
                         </p>
                         <p style={{
                           fontSize: 15,
@@ -406,7 +420,7 @@ export default function PayInvoicePage() {
                           <span style={methodTitleStyle}>Bank Transfer</span>
                         </div>
                         <p style={methodBodyStyle}>
-                          Send {formatCents(invoice.total_cents)} using these details:
+                          Send {formatCents(invoice.total_cents, invoice.currency)} using these details:
                         </p>
                         <pre style={{
                           fontSize: 12,
@@ -437,7 +451,7 @@ export default function PayInvoicePage() {
                           <span style={methodTitleStyle}>Venmo</span>
                         </div>
                         <p style={methodBodyStyle}>
-                          Send {formatCents(invoice.total_cents)} via Venmo to:
+                          Send {formatCents(invoice.total_cents, invoice.currency)} via Venmo to:
                         </p>
                         <p style={{
                           fontSize: 15,
@@ -462,7 +476,7 @@ export default function PayInvoicePage() {
                           <span style={methodTitleStyle}>Zelle</span>
                         </div>
                         <p style={methodBodyStyle}>
-                          Send {formatCents(invoice.total_cents)} via Zelle to:
+                          Send {formatCents(invoice.total_cents, invoice.currency)} via Zelle to:
                         </p>
                         <p style={{
                           fontSize: 15,
@@ -487,7 +501,7 @@ export default function PayInvoicePage() {
                           <span style={methodTitleStyle}>Cash / Check</span>
                         </div>
                         <p style={methodBodyStyle}>
-                          Pay in person. Mention invoice <strong>#{invoice.invoice_number}</strong> and the amount of {formatCents(invoice.total_cents)}.
+                          Pay in person. Mention invoice <strong>#{invoice.invoice_number}</strong> and the amount of {formatCents(invoice.total_cents, invoice.currency)}.
                         </p>
                       </div>
                     )}
