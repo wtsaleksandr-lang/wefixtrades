@@ -12,6 +12,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { V7PageShell } from "@/components/marketing/v7";
 import { MONO, SANS } from "@/components/effortel-blocks";
+import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import { SITE_URL } from "@/lib/seo/pageMeta";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Keyboard, Navigation } from "swiper/modules";
 import type { Swiper as SwiperClass } from "swiper";
@@ -715,6 +717,11 @@ function StudyCard({ study }: { study: Study }) {
 
 export default function CaseStudiesPage() {
   // Title + meta tags handled by <PageMeta> below.
+
+  useBreadcrumbSchema([
+    { name: "Home", url: SITE_URL },
+    { name: "Case Studies", url: `${SITE_URL}/case-studies` },
+  ]);
 
   return (
     <MarketingLayout>

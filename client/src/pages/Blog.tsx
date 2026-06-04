@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { V7PageShell } from "@/components/marketing/v7";
 import { MONO, SANS } from "@/components/effortel-blocks";
+import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import { SITE_URL } from "@/lib/seo/pageMeta";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Keyboard, Navigation } from "swiper/modules";
 import type { Swiper as SwiperClass } from "swiper";
@@ -598,6 +600,11 @@ export default function BlogPage() {
   };
 
   const activePost = openArticle !== null ? BLOG_POSTS[openArticle] : null;
+
+  useBreadcrumbSchema([
+    { name: "Home", url: SITE_URL },
+    { name: "Blog", url: `${SITE_URL}/blog` },
+  ]);
 
   return (
     <MarketingLayout>
