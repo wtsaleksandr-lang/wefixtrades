@@ -93,7 +93,7 @@ async function nextInvoiceNumber(clientId: number): Promise<string> {
 /* ─── Validation ─── */
 
 const lineItemSchema = z.object({
-  description: z.string().min(1),
+  description: z.string().min(1).max(500),
   quantity: z.number().min(1),
   unit_price_cents: z.number().int().min(0),
 });
@@ -103,15 +103,15 @@ const TEMPLATE_SLUGS_ZOD = z.enum(["classic-minimal", "modern-bold", "trade-serv
 
 const createInvoiceBody = z.object({
   appointment_id: z.number().int().optional(),
-  customer_name: z.string().min(1),
+  customer_name: z.string().min(1).max(200),
   customer_email: z.string().email().optional(),
-  customer_phone: z.string().optional(),
-  line_items: z.array(lineItemSchema).min(1),
+  customer_phone: z.string().max(30).optional(),
+  line_items: z.array(lineItemSchema).min(1).max(50),
   tax_cents: z.number().int().min(0).optional().default(0),
   due_date: z.string().optional(), // ISO string
   issue_date: z.string().optional(), // ISO string (defaults to today)
-  invoice_number: z.string().min(1).optional(), // user override; else auto
-  notes: z.string().optional(),
+  invoice_number: z.string().min(1).max(50).optional(), // user override; else auto
+  notes: z.string().max(5000).optional(),
   currency: z.enum(CURRENCY_VALUES).optional(),
   template_slug: TEMPLATE_SLUGS_ZOD.optional(),
   contact_id: z.string().uuid().optional(),
@@ -119,15 +119,15 @@ const createInvoiceBody = z.object({
 });
 
 const updateInvoiceBody = z.object({
-  customer_name: z.string().min(1).optional(),
+  customer_name: z.string().min(1).max(200).optional(),
   customer_email: z.string().email().optional(),
-  customer_phone: z.string().optional(),
-  line_items: z.array(lineItemSchema).min(1).optional(),
+  customer_phone: z.string().max(30).optional(),
+  line_items: z.array(lineItemSchema).min(1).max(50).optional(),
   tax_cents: z.number().int().min(0).optional(),
   due_date: z.string().optional(),
   issue_date: z.string().optional(),
-  invoice_number: z.string().min(1).optional(),
-  notes: z.string().optional(),
+  invoice_number: z.string().min(1).max(50).optional(),
+  notes: z.string().max(5000).optional(),
   status: z.enum(["draft", "sent", "viewed", "paid", "overdue", "cancelled"]).optional(),
   payment_method: z.enum(["stripe", "cash", "check", "etransfer", "other"]).optional(),
   currency: z.enum(CURRENCY_VALUES).optional(),
@@ -324,7 +324,31 @@ export function registerBookflowRoutes(app: Express): void {
       })();
 
       const invoices = await db
-        .select()
+        .select({
+          id: bookflowInvoices.id,
+          client_id: bookflowInvoices.client_id,
+          appointment_id: bookflowInvoices.appointment_id,
+          customer_name: bookflowInvoices.customer_name,
+          customer_email: bookflowInvoices.customer_email,
+          customer_phone: bookflowInvoices.customer_phone,
+          line_items: bookflowInvoices.line_items,
+          subtotal_cents: bookflowInvoices.subtotal_cents,
+          tax_cents: bookflowInvoices.tax_cents,
+          total_cents: bookflowInvoices.total_cents,
+          status: bookflowInvoices.status,
+          due_date: bookflowInvoices.due_date,
+          paid_at: bookflowInvoices.paid_at,
+          payment_method: bookflowInvoices.payment_method,
+          invoice_number: bookflowInvoices.invoice_number,
+          notes: bookflowInvoices.notes,
+          pay_link_token: bookflowInvoices.pay_link_token,
+          currency: bookflowInvoices.currency,
+          issue_date: bookflowInvoices.issue_date,
+          template_slug: bookflowInvoices.template_slug,
+          contact_id: bookflowInvoices.contact_id,
+          created_at: bookflowInvoices.created_at,
+          updated_at: bookflowInvoices.updated_at,
+        })
         .from(bookflowInvoices)
         .where(and(...conditions))
         .orderBy(orderBy)
@@ -347,7 +371,32 @@ export function registerBookflowRoutes(app: Express): void {
       if (isNaN(invoiceId)) return res.status(400).json({ error: "Invalid invoice ID" });
 
       const [invoice] = await db
-        .select()
+        .select({
+          id: bookflowInvoices.id,
+          client_id: bookflowInvoices.client_id,
+          appointment_id: bookflowInvoices.appointment_id,
+          customer_name: bookflowInvoices.customer_name,
+          customer_email: bookflowInvoices.customer_email,
+          customer_phone: bookflowInvoices.customer_phone,
+          line_items: bookflowInvoices.line_items,
+          subtotal_cents: bookflowInvoices.subtotal_cents,
+          tax_cents: bookflowInvoices.tax_cents,
+          total_cents: bookflowInvoices.total_cents,
+          status: bookflowInvoices.status,
+          due_date: bookflowInvoices.due_date,
+          paid_at: bookflowInvoices.paid_at,
+          payment_method: bookflowInvoices.payment_method,
+          invoice_number: bookflowInvoices.invoice_number,
+          notes: bookflowInvoices.notes,
+          pay_link_token: bookflowInvoices.pay_link_token,
+          currency: bookflowInvoices.currency,
+          issue_date: bookflowInvoices.issue_date,
+          template_slug: bookflowInvoices.template_slug,
+          contact_id: bookflowInvoices.contact_id,
+          metadata: bookflowInvoices.metadata,
+          created_at: bookflowInvoices.created_at,
+          updated_at: bookflowInvoices.updated_at,
+        })
         .from(bookflowInvoices)
         .where(and(eq(bookflowInvoices.id, invoiceId), eq(bookflowInvoices.client_id, clientId)))
         .limit(1);
@@ -407,6 +456,20 @@ export function registerBookflowRoutes(app: Express): void {
 
       const { data } = parsed;
 
+      // Guard against escaping terminal states (paid/cancelled)
+      if (data.status) {
+        const [existing] = await db
+          .select({ status: bookflowInvoices.status })
+          .from(bookflowInvoices)
+          .where(and(eq(bookflowInvoices.id, invoiceId), eq(bookflowInvoices.client_id, clientId)))
+          .limit(1);
+        if (!existing) return res.status(404).json({ error: "Invoice not found" });
+        const terminal = ["paid", "cancelled"];
+        if (terminal.includes(existing.status || "")) {
+          return res.status(400).json({ error: `Cannot change status of a ${existing.status} invoice` });
+        }
+      }
+
       // Recalculate totals if line items changed.
       const updates: Record<string, any> = { ...data, updated_at: new Date() };
       if (data.line_items) {
@@ -463,6 +526,11 @@ export function registerBookflowRoutes(app: Express): void {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
+
+      // Rate limit: 20 invoice sends per hour per client
+      if (!(await leadsSubmissionRateLimiter.check(`invoice-send:${clientId}`))) {
+        return res.status(429).json({ error: "Too many sends. Please try again later." });
+      }
 
       const invoiceId = parseInt(String(req.params.id));
       if (isNaN(invoiceId)) return res.status(400).json({ error: "Invalid invoice ID" });
@@ -702,8 +770,18 @@ export function registerBookflowRoutes(app: Express): void {
       const calcSettings = (calc?.calculator_settings as any) || {};
       const stripeAccountId = calcSettings?.booking_settings?.stripe_account_id;
 
-      // Payment methods configured by the tradesperson
-      const paymentMethods = (settings?.payment_methods as Record<string, unknown>) || {};
+      // Payment methods configured by the tradesperson — strip bank_details
+      // (account/routing numbers) from the public response; only expose safe fields
+      const rawPm = (settings?.payment_methods as Record<string, unknown>) || {};
+      const paymentMethods: Record<string, unknown> = {
+        stripe_enabled: !!rawPm.stripe_enabled,
+        paypal_email: rawPm.paypal_email || null,
+        etransfer_email: rawPm.etransfer_email || null,
+        venmo_handle: rawPm.venmo_handle || null,
+        zelle_info: rawPm.zelle_info || null,
+        cash_accepted: !!rawPm.cash_accepted,
+        bank_transfer_available: !!(rawPm.bank_details && String(rawPm.bank_details).trim()),
+      };
 
       res.json({
         invoice_number: invoice.invoice_number,
@@ -716,6 +794,7 @@ export function registerBookflowRoutes(app: Express): void {
         status: invoice.status,
         paid_at: invoice.paid_at,
         notes: invoice.notes,
+        currency: invoice.currency || "usd",
         business_name: client?.business_name || "Service Provider",
         stripe_enabled: !!stripeAccountId,
         payment_methods: paymentMethods,
@@ -826,11 +905,25 @@ export function registerBookflowRoutes(app: Express): void {
 
       // Date filter — defaults to today
       const dateStr = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return res.status(400).json({ error: "Invalid date — expected YYYY-MM-DD" });
+      }
       const dayStart = new Date(dateStr + "T00:00:00.000Z");
       const dayEnd = new Date(dateStr + "T23:59:59.999Z");
 
       const appointments = await db
-        .select()
+        .select({
+          id: bookflowAppointments.id,
+          customer_name: bookflowAppointments.customer_name,
+          customer_email: bookflowAppointments.customer_email,
+          customer_phone: bookflowAppointments.customer_phone,
+          customer_address: bookflowAppointments.customer_address,
+          service_name: bookflowAppointments.service_name,
+          start_time: bookflowAppointments.start_time,
+          end_time: bookflowAppointments.end_time,
+          status: bookflowAppointments.status,
+          notes: bookflowAppointments.notes,
+        })
         .from(bookflowAppointments)
         .where(
           and(
@@ -853,6 +946,11 @@ export function registerBookflowRoutes(app: Express): void {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
+
+      // Rate limit: 30 status changes per hour per client
+      if (!(await leadsSubmissionRateLimiter.check(`dispatch-status:${clientId}`))) {
+        return res.status(429).json({ error: "Too many updates. Please try again later." });
+      }
 
       const appointmentId = parseInt(String(req.params.id));
       if (isNaN(appointmentId)) return res.status(400).json({ error: "Invalid appointment ID" });
@@ -1060,13 +1158,18 @@ export function registerBookflowRoutes(app: Express): void {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
+      // Rate limit: 20 saves per hour per client
+      if (!(await leadsSubmissionRateLimiter.check(`payment-methods:${clientId}`))) {
+        return res.status(429).json({ error: "Too many updates. Please try again later." });
+      }
+
       const paymentMethodsSchema = z.object({
         stripe: z.boolean().optional(),
-        paypal_email: z.string().optional(),
-        bank_details: z.string().optional(),
-        etransfer_email: z.string().optional(),
-        venmo_handle: z.string().optional(),
-        zelle_info: z.string().optional(),
+        paypal_email: z.string().email().max(254).optional().or(z.literal("")),
+        bank_details: z.string().max(1000).optional(),
+        etransfer_email: z.string().email().max(254).optional().or(z.literal("")),
+        venmo_handle: z.string().max(100).optional(),
+        zelle_info: z.string().max(200).optional(),
         cash_accepted: z.boolean().optional(),
       });
 

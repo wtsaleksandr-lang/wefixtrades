@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CheckCircle2, XCircle, MessageSquare, RefreshCw } from "lucide-react";
 
 interface InFlightRow {
@@ -90,6 +91,8 @@ export default function AdminTradelinePorts() {
   const { toast } = useToast();
   const [msgTarget, setMsgTarget] = useState<InFlightRow | null>(null);
   const [msgBody, setMsgBody] = useState("");
+  const [pendingComplete, setPendingComplete] = useState<number | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<number | null>(null);
 
   const listQuery = useQuery<InFlightResponse>({
     queryKey: ["/api/admin/tradeline-ports/in-flight"],
@@ -118,6 +121,9 @@ export default function AdminTradelinePorts() {
       toast({ title: "Port marked complete" });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tradeline-ports/in-flight"] });
     },
+    onError: (err: Error) => {
+      toast({ title: "Force complete failed", description: err.message, variant: "destructive" });
+    },
   });
 
   const cancelMut = useMutation({
@@ -134,6 +140,9 @@ export default function AdminTradelinePorts() {
     onSuccess: () => {
       toast({ title: "Port canceled" });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tradeline-ports/in-flight"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Force cancel failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -152,6 +161,9 @@ export default function AdminTradelinePorts() {
       toast({ title: "Message sent" });
       setMsgTarget(null);
       setMsgBody("");
+    },
+    onError: (err: Error) => {
+      toast({ title: "Send failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -226,7 +238,7 @@ export default function AdminTradelinePorts() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => completeMut.mutate(r.id)}
+                          onClick={() => setPendingComplete(r.id)}
                           disabled={completeMut.isPending}
                           data-testid={`complete-${r.id}`}
                         >
@@ -235,7 +247,7 @@ export default function AdminTradelinePorts() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => cancelMut.mutate(r.id)}
+                          onClick={() => setPendingCancel(r.id)}
                           disabled={cancelMut.isPending}
                           data-testid={`cancel-${r.id}`}
                         >
@@ -298,6 +310,40 @@ export default function AdminTradelinePorts() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Force-complete confirmation */}
+        <ConfirmDialog
+          open={pendingComplete !== null}
+          onOpenChange={(o) => { if (!o) setPendingComplete(null); }}
+          title="Force-complete this port?"
+          description="This marks the port as complete without carrier confirmation. Only use when the carrier has confirmed out-of-band."
+          confirmLabel="Mark complete"
+          destructive
+          pending={completeMut.isPending}
+          onConfirm={() => {
+            if (pendingComplete !== null) {
+              completeMut.mutate(pendingComplete);
+              setPendingComplete(null);
+            }
+          }}
+        />
+
+        {/* Force-cancel confirmation */}
+        <ConfirmDialog
+          open={pendingCancel !== null}
+          onOpenChange={(o) => { if (!o) setPendingCancel(null); }}
+          title="Force-cancel this port?"
+          description="This permanently cancels the in-flight port request. The customer's number will remain with their current carrier."
+          confirmLabel="Cancel port"
+          destructive
+          pending={cancelMut.isPending}
+          onConfirm={() => {
+            if (pendingCancel !== null) {
+              cancelMut.mutate(pendingCancel);
+              setPendingCancel(null);
+            }
+          }}
+        />
       </div>
     </AdminLayout>
   );
