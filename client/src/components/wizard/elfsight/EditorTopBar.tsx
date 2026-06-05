@@ -37,7 +37,10 @@ import {
   Redo2, Smartphone, Sun, Tablet, Undo2, X,
 } from 'lucide-react';
 import { AE } from './appleEditor';
-import { EDITOR_TABS, type EditorTab, type EditorTheme, type PreviewDevice } from './types';
+// Phase 0b — EDITOR_TABS is no longer rendered here; the section nav moved to
+// the left icon rail in WizardShell. The EditorTab type is still imported for
+// the (still-accepted) activeTab / onTabChange props.
+import { type EditorTab, type EditorTheme, type PreviewDevice } from './types';
 
 interface Props {
   justSaved?: boolean;
@@ -166,45 +169,14 @@ export default function EditorTopBar({
         </button>
       </div>
 
-      {/* Revert of PR #535 — wizard tab strip (Build · Style · Settings ·
-       *  Install) lives in the top chrome again. Tighter sizing (10-11px
-       *  font, 6px vertical / 12px horizontal padding, font-weight 500)
-       *  plus the BH-2 horizontal-scroll fallback keeps the row usable at
-       *  every width. Active pill keeps PR #515's brand-blue bg + white
-       *  text. Stable testids preserved. */}
-      <div
-        className="qq-editor-tabstrip"
-        role="tablist"
-        aria-label="Editor sections"
-        data-testid="editor-tabs"
-      >
-        {EDITOR_TABS.map(({ id, label }) => {
-          const isActive = id === activeTab;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              data-testid={`editor-tab-${id}`}
-              className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
-              onClick={() => onTabChange(id)}
-              style={{
-                // Apple-clean (Phase 0) — inactive = secondary grey on
-                // transparent; active = near-black on a soft grey pill. The
-                // active surface/text also have a matching !important rule in
-                // the WizardShell stylesheet so the dark-mode index.css can't
-                // mask the active contrast; these inline values cover the
-                // light chrome and keep AA on the white top bar.
-                color: isActive ? AE.color.text : AE.color.secondary,
-                background: isActive ? AE.color.surface : 'transparent',
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Phase 0b (2026-06-05) — the wizard section tabs (Build · Style ·
+       *  Settings · Install) MOVED OUT of the top chrome into a left vertical
+       *  ICON RAIL (Elfsight-style), rendered by WizardShell as the first
+       *  column of the desktop editor frame. The top bar no longer renders
+       *  the pill strip. The activeTab / onTabChange props are still accepted
+       *  (the rail in WizardShell drives the same state) so the parent call
+       *  site stays type-valid. The editor-tabs tablist + editor-tab-(id)
+       *  testids now live on the rail buttons. */}
 
       <div className="qq-editor-spacer" aria-hidden="true" />
 

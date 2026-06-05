@@ -42,6 +42,9 @@ import {
   type TrustBadge,
   type TemplateStep,
 } from '@shared/templatePresets';
+import {
+  SlidersHorizontal, Palette, Settings as SettingsIcon, Code2, HelpCircle,
+} from 'lucide-react';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
 // 2026-05-22 (revert of PR #535) — EditorBottomBar was deleted; the tab
@@ -62,7 +65,7 @@ import { SelectionProvider } from './selection';
 import { useEditorDndSensors, DND_CONTAINERS } from './dnd';
 import {
   INITIAL_SHELL_STATE, DEFAULT_SHELL_STYLE, DEFAULT_SHELL_NUMBER_FORMAT,
-  DEVICE_PRESET_STORAGE_KEY,
+  DEVICE_PRESET_STORAGE_KEY, EDITOR_TABS,
   type EditorTab, type EditorTheme, type PreviewDevice, type ShellState,
   type ShellHeader, type ShellResults, type ShellStyle,
   type ShellSettings, type ShellNumberFormat, type ShellPricing,
@@ -1329,6 +1332,69 @@ export default function WizardShell({ embed = false }: Props) {
               data-preview-collapsed={previewCollapsed ? 'true' : 'false'}
               data-mobile-sheet={isMobile ? 'true' : 'false'}
             >
+              {/* Phase 0b (2026-06-05) — Elfsight-style left ICON RAIL.
+                  The section nav (Build · Style · Settings · Install) moved
+                  out of the top chrome into this vertical rail, the first
+                  column of the desktop editor frame. A Help item is pinned to
+                  the bottom, wired to the SAME help overlay the top-bar / mobile
+                  Help buttons use (setShowHelp(true)). The rail is hidden under
+                  the mobile breakpoint (the bottom sheet stays the mobile nav).
+                  Testids preserved: the tablist carries data-testid="editor-tabs"
+                  and each button data-testid="editor-tab-${id}" so existing
+                  checks/Playwright still pass. The same activeTab state +
+                  setActiveTab handler the top strip used drive the panel. */}
+              <nav
+                className="qq-editor-rail"
+                role="tablist"
+                aria-label="Editor sections"
+                aria-orientation="vertical"
+                data-testid="editor-tabs"
+              >
+                <div className="qq-editor-rail-tabs">
+                  {EDITOR_TABS.map(({ id, label }) => {
+                    const isActive = id === activeTab;
+                    const RailIcon =
+                      id === 'build' ? SlidersHorizontal
+                      : id === 'style' ? Palette
+                      : id === 'settings' ? SettingsIcon
+                      : Code2; // install
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        data-testid={`editor-tab-${id}`}
+                        className={`qq-editor-rail-item${isActive ? ' is-active' : ''}`}
+                        onClick={() => setActiveTab(id)}
+                        title={label}
+                      >
+                        <RailIcon
+                          className="qq-editor-rail-icon"
+                          style={{ width: 20, height: 20 }}
+                          aria-hidden="true"
+                        />
+                        <span className="qq-editor-rail-label">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  className="qq-editor-rail-item qq-editor-rail-help"
+                  data-testid="editor-rail-help"
+                  onClick={() => setShowHelp(true)}
+                  aria-label="Help"
+                  title="Help"
+                >
+                  <HelpCircle
+                    className="qq-editor-rail-icon"
+                    style={{ width: 20, height: 20 }}
+                    aria-hidden="true"
+                  />
+                  <span className="qq-editor-rail-label">Help</span>
+                </button>
+              </nav>
               <div
                 className="qq-editor-left"
                 data-testid="editor-left-panel"
@@ -2084,6 +2150,56 @@ export default function WizardShell({ embed = false }: Props) {
               background: ${AE.color.surface} !important;
             }
 
+            /* ── Phase 0b — left vertical icon rail (Elfsight-style) ──────
+             * The section nav lives here now (not the top bar). First column
+             * of the desktop editor frame, flush-left of the settings panel,
+             * full editor height, white bg with a 1px hairline right border.
+             * Tabs stack from the top; the Help item is pushed to the bottom
+             * via margin-top:auto. Hidden under the mobile breakpoint (the
+             * bottom sheet is the mobile nav) — see the max-width:768px block. */
+            .qq-editor-rail {
+              flex-shrink: 0;
+              width: 64px;
+              display: flex; flex-direction: column;
+              align-items: stretch;
+              padding: 8px 6px;
+              background: ${AE.color.bg};
+              border-right: 1px solid ${AE.color.hairline};
+              font-family: ${AE.font.family};
+              overflow-y: auto;
+            }
+            .qq-editor-rail-tabs {
+              display: flex; flex-direction: column;
+              align-items: stretch; gap: 4px;
+            }
+            .qq-editor-rail-help { margin-top: auto; }
+            .qq-editor-rail-item {
+              display: flex; flex-direction: column;
+              align-items: center; justify-content: center;
+              gap: 5px;
+              width: 100%; min-height: 60px;
+              padding: 8px 2px;
+              border: none; background: transparent; cursor: pointer;
+              border-radius: ${AE.radius.md};
+              color: ${AE.color.secondary};
+              transition: background 0.12s ease, color 0.12s ease;
+            }
+            .qq-editor-rail-item:hover {
+              background: ${AE.color.surface};
+            }
+            .qq-editor-rail-icon { display: block; }
+            .qq-editor-rail-label {
+              font-size: 11px; font-weight: 500; line-height: 1;
+              letter-spacing: -0.01em;
+            }
+            /* Active = brand-blue icon + label on a subtle accent-tint pill
+             * (outline/tint, NOT a heavy fill). !important guards the colour
+             * against the dark-mode index.css that pins editor text tokens. */
+            .qq-editor-rail-item.is-active {
+              color: ${AE.color.accent} !important;
+              background: ${AE.color.accentTint} !important;
+            }
+
             /* BH-2 — preview fold/unfold reuses the icon-btn footprint. The
              * collapsed state takes on accent colour so the user can see
              * the preview is hidden at a glance. */
@@ -2498,6 +2614,10 @@ export default function WizardShell({ embed = false }: Props) {
                 will-change: auto !important;
               }
               .qq-editor-body { flex-direction: column; }
+              /* Phase 0b — the icon rail is desktop-only. On mobile the
+                 bottom sheet (MobileBottomSheet) owns section navigation, so
+                 the rail is hidden entirely at this breakpoint. */
+              .qq-editor-rail { display: none !important; }
               .qq-editor-left {
                 width: 100% !important; border-right: none;
                 border-bottom: 1px solid ${AE.color.hairline};
