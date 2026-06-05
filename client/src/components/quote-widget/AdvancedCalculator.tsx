@@ -3731,9 +3731,16 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
                 {/* BG-7 Item 3 — sanitized rich-text label. */}
                 {(() => {
                   const rp = richTextRenderProps(o.label);
-                  // Guard against the option row's ACTUAL bg: selected → accentTint,
-                  // outline → c.bg (transparent shows body through), else c.surface.
-                  const optBg = sel ? c.accentTint : (isOutline ? c.bg : c.surface);
+                  // Guard against the option row's EFFECTIVE opaque bg. The
+                  // selected fill is a ~10% accentTint composited over the LIGHT
+                  // base (c.bg / c.surface), so the real background is near the
+                  // base, not the alpha-dropped (opaque) accent. guardTextColor
+                  // drops alpha, so passing accentTint would make it see the
+                  // dark opaque accent and leave white text on a near-white fill
+                  // (invisible). A 10% tint barely shifts base luminance, so the
+                  // base is a faithful proxy and forces light text to dark.
+                  // Outline → c.bg (transparent shows body through), else surface.
+                  const optBg = isOutline ? c.bg : c.surface;
                   const optColor = guardTextColor(c.text, optBg, 'radioOptionLabel');
                   return rp.__html
                     ? <span style={{ fontSize: '14px', color: optColor }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
@@ -3790,9 +3797,17 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
                 {/* BG-7 Item 3 — sanitized rich-text label. */}
                 {(() => {
                   const rp = richTextRenderProps(o.label);
+                  // Same selected-fill trap as the radio rows: when selected the
+                  // card bg is a ~10% accentTint over the LIGHT base (c.surface /
+                  // body), so the effective bg is near-white. Guard the label
+                  // against the opaque light base (guardTextColor drops alpha, so
+                  // passing accentTint would see the dark opaque accent and leave
+                  // white text invisible on the near-white fill).
+                  const cardBg = isOutline ? c.bg : c.surface;
+                  const cardColor = guardTextColor(c.text, cardBg, 'imageChoiceCardLabel');
                   return rp.__html
-                    ? <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }}>{rp.text}</span>;
+                    ? <span style={{ fontSize: '13px', fontWeight: 600, color: cardColor }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={{ fontSize: '13px', fontWeight: 600, color: cardColor }}>{rp.text}</span>;
                 })()}
               </button>
             );
