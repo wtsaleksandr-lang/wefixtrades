@@ -44,6 +44,7 @@ import {
 } from '@shared/templatePresets';
 import {
   SlidersHorizontal, Palette, Settings as SettingsIcon, MousePointerClick, HelpCircle,
+  LifeBuoy, Lightbulb,
 } from 'lucide-react';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
@@ -1720,14 +1721,89 @@ export default function WizardShell({ embed = false }: Props) {
                 data-testid="editor-help-overlay"
               >
                 <div className="qq-editor-help-card" onClick={(e) => e.stopPropagation()}>
-                  <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: p.colors.heading }}>
-                    QuoteQuick editor
+                  <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: AE.color.text }}>
+                    Need a hand?
                   </p>
-                  <ul style={{ fontSize: 12.5, color: p.colors.muted, margin: '8px 0 0', lineHeight: 1.5, paddingLeft: 18 }}>
-                    <li>Use the Build, Action, Style, and Settings tabs to set up your calculator.</li>
-                    <li>The right pane is a live preview that updates as you edit.</li>
-                    <li>Undo and redo your changes with the toolbar buttons or Ctrl/Cmd+Z.</li>
-                  </ul>
+                  <p style={{ fontSize: 13, color: AE.color.secondary, margin: '6px 0 0', lineHeight: 1.5 }}>
+                    Build on the left, preview on the right. Esc or click outside to close.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+                    <a
+                      href="mailto:support@wefixtrades.com"
+                      data-testid="help-action-get-help"
+                      aria-label="Get help — email our support team"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: 12,
+                        borderRadius: AE.radius.md,
+                        border: `1px solid ${AE.color.hairline}`,
+                        background: AE.color.surface,
+                        textDecoration: 'none',
+                        color: AE.color.text,
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          flexShrink: 0,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 32, height: 32,
+                          borderRadius: AE.radius.sm,
+                          background: AE.color.accentTint,
+                          color: AE.color.accent,
+                        }}
+                      >
+                        <LifeBuoy style={{ width: 20, height: 20 }} />
+                      </span>
+                      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
+                          Get help
+                        </span>
+                        <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
+                          Questions or stuck? Our team replies fast.
+                        </span>
+                      </span>
+                    </a>
+
+                    <a
+                      href="mailto:support@wefixtrades.com?subject=Feature%20request"
+                      data-testid="help-action-request-feature"
+                      aria-label="Request a feature — email us your idea"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: 12,
+                        borderRadius: AE.radius.md,
+                        border: `1px solid ${AE.color.hairline}`,
+                        background: AE.color.surface,
+                        textDecoration: 'none',
+                        color: AE.color.text,
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          flexShrink: 0,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 32, height: 32,
+                          borderRadius: AE.radius.sm,
+                          background: AE.color.accentTint,
+                          color: AE.color.accent,
+                        }}
+                      >
+                        <Lightbulb style={{ width: 20, height: 20 }} />
+                      </span>
+                      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
+                          Request a feature
+                        </span>
+                        <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
+                          Tell us what would make QuoteQuick better.
+                        </span>
+                      </span>
+                    </a>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => setShowHelp(false)}
