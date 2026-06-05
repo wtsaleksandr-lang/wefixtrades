@@ -4521,6 +4521,147 @@ export function shouldDefaultRangeMode(category: string | undefined): boolean {
   return id === 'construction' || id === 'emergency' || id === 'home-improvement';
 }
 
+/* ─── Template themes — 13 approved reference combos ──────────────────
+ *
+ * Single source of truth for the per-template theming system. Every
+ * style-LESS template resolves to ONE of these 13 combos (via
+ * `defaultThemeForTemplate`) so it loads with a category-appropriate
+ * palette instead of the generic white/blue default. The website +
+ * wizard thumbnail import these same exports so the gallery, the live
+ * widget, and the picker thumbnail all agree on the colours.
+ */
+export interface ThemeCombo {
+  id: string; name: string;
+  bg: string; text: string; surface: string; border: string;   // shared light body
+  resultsBg: string; accent: string; ctaColor: string;
+}
+
+// Shared light body — identical across all 13 (white body, dark text).
+const COMBO_BODY = { bg: 'rgba(255,255,255,1)', text: '#171717', surface: '#f6f7f9', border: '#e5e7eb' } as const;
+
+export const THEME_COMBOS: readonly ThemeCombo[] = [
+  { id: 'black-yellow', name: 'Black · Yellow', ...COMBO_BODY, resultsBg: '#0d0d0d', accent: '#0d0d0d', ctaColor: '#ffd60a' },
+  { id: 'car-rental',   name: 'Crimson',        ...COMBO_BODY, resultsBg: '#d83a3d', accent: '#d83a3d', ctaColor: '#141414' },
+  { id: 'mortgage',     name: 'Sky Tint',       ...COMBO_BODY, resultsBg: '#eaf1fb', accent: '#2563eb', ctaColor: '#2563eb' },
+  { id: 'loan',         name: 'Onyx · Red',     ...COMBO_BODY, resultsBg: '#1a1a1a', accent: '#ed3237', ctaColor: '#ed3237' },
+  { id: 'emi',          name: 'Azure',          ...COMBO_BODY, resultsBg: '#29abe2', accent: '#29abe2', ctaColor: '#141414' },
+  { id: 'bmi',          name: 'Mint Tint',      ...COMBO_BODY, resultsBg: '#e8f3e9', accent: '#2e9e3f', ctaColor: '#2e9e3f' },
+  { id: 'profit',       name: 'Forest',         ...COMBO_BODY, resultsBg: '#4a7a4e', accent: '#4a7a4e', ctaColor: '#141414' },
+  { id: 'fees',         name: 'Navy',           ...COMBO_BODY, resultsBg: '#1e2a44', accent: '#2f6be0', ctaColor: '#2f6be0' },
+  { id: 'reno',         name: 'Olive · Orange', ...COMBO_BODY, resultsBg: '#4a5240', accent: '#e8821e', ctaColor: '#e8821e' },
+  { id: 'tshirt',       name: 'Violet',         ...COMBO_BODY, resultsBg: '#7c5cc4', accent: '#7c5cc4', ctaColor: '#141414' },
+  { id: 'wedding',      name: 'Royal · Orange', ...COMBO_BODY, resultsBg: '#1e6fd4', accent: '#1e6fd4', ctaColor: '#e8821e' },
+  { id: 'carbon',       name: 'Teal',           ...COMBO_BODY, resultsBg: '#1a9b8e', accent: '#1a9b8e', ctaColor: '#141414' },
+  { id: 'cake',         name: 'Blush',          ...COMBO_BODY, resultsBg: '#fce7f0', accent: '#ec4899', ctaColor: '#ec4899' },
+];
+
+export const DEFAULT_THEME_COMBO: ThemeCombo = THEME_COMBOS.find(c => c.id === 'mortgage')!;
+
+/** Map a combo's palette onto the AdvStyle colour slots the renderer reads. */
+export function comboToStyleColors(c: ThemeCombo): Pick<AdvStyle,'accent'|'background'|'text'|'surface'|'border'|'resultsBg'|'ctaColor'> {
+  return { accent: c.accent, background: c.bg, text: c.text, surface: c.surface, border: c.border, resultsBg: c.resultsBg, ctaColor: c.ctaColor };
+}
+
+/** Per-template-id overrides (combo id keyed by template id). These win over
+ *  the category default. */
+const THEME_OVERRIDES_BY_ID: Record<string, string> = {
+  // black-yellow
+  car_towing: 'black-yellow', mobile_car_detail: 'black-yellow',
+  electrical_work: 'black-yellow', locksmith: 'black-yellow',
+  locksmith_service: 'black-yellow',
+  // loan
+  roof_repair: 'loan', roofing: 'loan', roof_replacement: 'loan',
+  chimney_sweep: 'loan', water_damage: 'loan',
+  water_damage_restoration: 'loan', mold_remediation: 'loan',
+  emergency_hvac: 'loan',
+  // cake
+  interior_painting: 'cake', interior_painting_pro: 'cake',
+  // tshirt
+  web_design_quote: 'tshirt',
+  // wedding
+  photography_package: 'wedding',
+  // emi
+  solar_panels: 'emi', solar_panel_install: 'emi',
+  window_replacement: 'emi', window_replacement_quote: 'emi',
+  window_cleaning_quote: 'emi', bathroom_renovation: 'emi',
+  plumbing_service: 'emi',
+  // bmi
+  energy_upgrade: 'bmi', insulation: 'bmi',
+  move_out_cleaning: 'bmi', ev_charger_install: 'bmi',
+  // carbon
+  property_cleaning: 'carbon', gutter_cleaning: 'carbon',
+  pool_service_quote: 'carbon', pressure_washing_quote: 'carbon',
+  deep_home_cleaning: 'carbon',
+  // profit
+  landscaping: 'profit', siding: 'profit', pest_control: 'profit',
+  pest_control_quote: 'profit', tree_service: 'profit',
+  tree_trimming: 'profit', lawn_care_subscription: 'profit',
+  // reno
+  driveway_paving: 'reno', fence_installation: 'reno',
+  house_renovation: 'reno', drywall: 'reno', deck: 'reno',
+  junk_removal: 'reno', junk_removal_quote: 'reno',
+  kitchen_renovation: 'reno', concrete_driveway_replacement: 'reno',
+  tile_installation: 'reno', flooring: 'reno',
+  // fees
+  general_contractor: 'fees', moving_services: 'fees',
+  moving_service: 'fees', hvac_installation: 'fees',
+  appliance_repair: 'fees', door_installation: 'fees',
+  garage_door: 'fees', garage_door_service: 'fees',
+  office_cleaning: 'fees', basement_finishing: 'fees',
+  home_inspection_quote: 'fees',
+};
+
+/** Per-category default combo (combo id keyed by the preset's `category`
+ *  string). Used when the template id has no explicit override. */
+const THEME_BY_CATEGORY: Record<string, string> = {
+  'Automotive': 'black-yellow',
+  'Emergency': 'black-yellow',
+  'Restoration': 'loan',
+  'Construction': 'reno',
+  'Renovation': 'reno',
+  'Driveway': 'reno',
+  'Home Improvement': 'emi',
+  'HVAC & Mechanical': 'fees',
+  'Mechanical': 'fees',
+  'Cleaning': 'carbon',
+  'Outdoor': 'profit',
+  'Professional': 'fees',
+  'Photography & Events': 'wedding',
+  'Renewable Energy': 'emi',
+  'Specialty Services': 'profit',
+  'Repair Services': 'fees',
+  'Moving': 'fees',
+};
+
+function comboById(id: string): ThemeCombo | undefined {
+  return THEME_COMBOS.find(c => c.id === id);
+}
+
+/**
+ * Resolve a template's default theme combo: per-id override → category
+ * default → mortgage fallback.
+ *
+ * `category` is optional; when omitted, the preset is looked up in
+ * TEMPLATE_PRESETS by id to read its category.
+ */
+export function defaultThemeForTemplate(templateId: string, category?: string): ThemeCombo {
+  const id = (templateId ?? '').toLowerCase();
+  const overrideId = THEME_OVERRIDES_BY_ID[id];
+  if (overrideId) {
+    const combo = comboById(overrideId);
+    if (combo) return combo;
+  }
+  const cat = category ?? TEMPLATE_PRESETS.find(p => p.id === templateId)?.category;
+  if (cat) {
+    const catComboId = THEME_BY_CATEGORY[cat];
+    if (catComboId) {
+      const combo = comboById(catComboId);
+      if (combo) return combo;
+    }
+  }
+  return DEFAULT_THEME_COMBO;
+}
+
 /**
  * W-BB-2 — derive a full `AdvStyle` from a template's `category` field.
  *
@@ -4548,11 +4689,17 @@ export function deriveStyleFromCategory(t: Pick<TemplateConfig, 'id' | 'category
   // flip per template via Style tab → Brand Studio → Result panel → Display
   // as range.
   const defaultRangeEnabled = shouldDefaultRangeMode(t.category);
+  // Per-template theming — resolve the category-appropriate reference combo
+  // and spread its palette onto the colour slots the renderer reads, so a
+  // style-LESS template loads themed (not the generic white/blue default).
+  // Combos are FLAT light bodies → bgMode 'solid' (was 'gradient').
+  const combo = defaultThemeForTemplate(t.id ?? '', t.category);
   return {
-    bgMode: 'gradient',
+    ...comboToStyleColors(combo),
+    bgMode: 'solid',
     bgGradient: { from: palette.bgFromHex, to: palette.bgToHex, direction },
     resultPanel: {
-      accentOverride: palette.accent,
+      accentOverride: combo.accent,
       emphasis: palette.urgency === 'high' ? 'bold' : 'normal',
       border: palette.urgency === 'high' ? 'accent-tinted' : 'subtle',
       range_mode: { enabled: defaultRangeEnabled, band_pct: 8 },
