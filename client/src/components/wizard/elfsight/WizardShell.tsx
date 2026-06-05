@@ -43,7 +43,7 @@ import {
   type TemplateStep,
 } from '@shared/templatePresets';
 import {
-  SlidersHorizontal, Palette, Settings as SettingsIcon, Code2, HelpCircle,
+  SlidersHorizontal, Palette, Settings as SettingsIcon, MousePointerClick, HelpCircle,
 } from 'lucide-react';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
@@ -1346,7 +1346,7 @@ export default function WizardShell({ embed = false }: Props) {
               data-mobile-sheet={isMobile ? 'true' : 'false'}
             >
               {/* Phase 0b (2026-06-05) — Elfsight-style left ICON RAIL.
-                  The section nav (Build · Style · Settings · Install) moved
+                  The section nav (Build · Action · Style · Settings) moved
                   out of the top chrome into this vertical rail, the first
                   column of the desktop editor frame. A Help item is pinned to
                   the bottom, wired to the SAME help overlay the top-bar / mobile
@@ -1371,9 +1371,9 @@ export default function WizardShell({ embed = false }: Props) {
                     const isActive = id === activeTab;
                     const RailIcon =
                       id === 'build' ? SlidersHorizontal
+                      : id === 'action' ? MousePointerClick
                       : id === 'style' ? Palette
-                      : id === 'settings' ? SettingsIcon
-                      : Code2; // install
+                      : SettingsIcon; // settings
                     return (
                       <button
                         key={id}

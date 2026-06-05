@@ -451,6 +451,34 @@ export default function EditorTopBar({
        *  exists in PreviewPane / WizardShell state; only this redundant
        *  top-bar entry point is gone. */}
 
+      {/* 2026-06-05 — desktop Publish entry point. Install/embed was folded
+       *  into the Publish flow (Elfsight parity), so the desktop top bar now
+       *  needs the same primary action the mobile bar already has. Opens the
+       *  Publish modal (hosted link · embed · install) via onPublish. */}
+      {onPublish && (
+        <button
+          type="button"
+          onClick={() => onPublish?.()}
+          disabled={isPublishing}
+          data-testid="quotequick-publish"
+          style={{
+            flexShrink: 0,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: 30, padding: '0 16px',
+            background: AE.color.accent,
+            color: AE.color.publishText,
+            border: 'none', borderRadius: AE.radius.sm,
+            fontFamily: AE.font.family,
+            fontSize: 13, fontWeight: 600,
+            cursor: isPublishing ? 'not-allowed' : 'pointer',
+            opacity: isPublishing ? 0.6 : 1,
+          }}
+          title="Publish — get your embed code & share link"
+        >
+          {isPublishing ? 'Publishing…' : 'Publish'}
+        </button>
+      )}
+
       <span className="qq-editor-divider" aria-hidden="true" />
 
       <div className="qq-editor-group" role="group" aria-label="Tools">
