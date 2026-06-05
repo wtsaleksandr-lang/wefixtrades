@@ -15,7 +15,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useRoute, Redirect } from "wouter";
-import { ArrowRight, ArrowLeft, ChevronLeft, ChevronDown, Check, Zap, Clock, TrendingUp, ShieldCheck, Monitor, Smartphone } from "lucide-react";
+import { ArrowRight, ArrowLeft, ChevronLeft, ChevronDown, Check, Zap, Clock, TrendingUp, ShieldCheck, Monitor, Smartphone, SlidersHorizontal, Calculator, Palette, UserPlus, Code2, Wand2, Globe } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import { mkt } from "@/theme/tokens";
@@ -1204,6 +1204,133 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             `}</style>
           </div>
         </div>
+
+        {/* Everything-you-need feature grid + benefit ribbon (dark ground).
+            Original benefit-led copy for QuoteQuick's real capabilities; lucide
+            icons at semantic sizes; brand blue used sparingly. */}
+        <section data-testid="template-features" style={{ padding: "76px 28px 8px" }}>
+          <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+            <h2 style={{ fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 800, color: mkt.onDark, textAlign: "center", margin: "0 0 8px", letterSpacing: "-0.01em" }}>
+              Everything you need to quote, built in
+            </h2>
+            <p style={{ fontSize: 15, lineHeight: 1.6, color: mkt.onDarkMuted, textAlign: "center", maxWidth: 600, margin: "0 auto 40px" }}>
+              Every template ships with the full toolkit — interactive inputs, live math,
+              your branding and built-in lead capture. Launch a calculator that prices and
+              books work without writing a line of code.
+            </p>
+            <div className="tpl-feat-grid">
+              {[
+                {
+                  Icon: SlidersHorizontal,
+                  title: "Smart input fields",
+                  body: "Sliders, dropdowns, number steppers, multi-select and image choices — guide customers to an accurate quote in seconds.",
+                },
+                {
+                  Icon: Calculator,
+                  title: "Formula calculations",
+                  body: "Spreadsheet-style math runs the moment they choose. Tiers, add-ons and conditional pricing recalculate live, no refresh.",
+                },
+                {
+                  Icon: Palette,
+                  title: "Themes & branding",
+                  body: "Colours, fonts and your logo applied in a click, so the calculator looks like a native part of your own site.",
+                },
+                {
+                  Icon: UserPlus,
+                  title: "Built-in lead capture",
+                  body: "Collect name, email and phone with every estimate and turn anonymous visitors into priced, ready-to-call leads.",
+                },
+                {
+                  Icon: Code2,
+                  title: "Embed anywhere",
+                  body: "Share a hosted link or paste one line of code. It drops into any website builder, CMS or landing page.",
+                },
+                {
+                  Icon: Smartphone,
+                  title: "Mobile-ready",
+                  body: "Fully responsive and touch-friendly out of the box — fast, tappable and pixel-clean on every screen size.",
+                },
+              ].map(({ Icon, title, body }) => (
+                <div key={title} className="tpl-feat-card">
+                  <span className="tpl-feat-ico" aria-hidden="true">
+                    <Icon size={24} color={mkt.accent} strokeWidth={2} />
+                  </span>
+                  <div className="tpl-feat-title">{title}</div>
+                  <p className="tpl-feat-body">{body}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Benefit ribbon — compact value chips, wraps on mobile. */}
+            <ul className="tpl-feat-ribbon" data-testid="template-features-ribbon" aria-label="Key benefits">
+              {[
+                { Icon: Wand2, label: "No-code setup" },
+                { Icon: Clock, label: "Live in 60 seconds" },
+                { Icon: Smartphone, label: "Mobile-ready" },
+                { Icon: Globe, label: "Embed anywhere" },
+                { Icon: ShieldCheck, label: "Secure & GDPR-friendly" },
+              ].map(({ Icon, label }) => (
+                <li key={label} className="tpl-feat-chip">
+                  <Icon size={16} color={mkt.accent} strokeWidth={2.25} aria-hidden="true" />
+                  <span>{label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <style>{`
+            /* Feature grid — 3 cols desktop, 2 tablet, 1 small mobile. */
+            .tpl-feat-grid {
+              display: grid;
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+              gap: 16px;
+            }
+            .tpl-feat-card {
+              background: rgba(255,255,255,0.04);
+              border: 1px solid ${mkt.onDarkBorder};
+              border-radius: 16px;
+              padding: 24px 22px;
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+              transition: border-color 160ms ease, transform 160ms ease;
+            }
+            .tpl-feat-card:hover {
+              border-color: rgba(13,60,252,0.45);
+              transform: translateY(-2px);
+            }
+            .tpl-feat-ico {
+              width: 44px; height: 44px; border-radius: 11px;
+              display: grid; place-items: center;
+              background: rgba(13,60,252,0.14);
+            }
+            .tpl-feat-title {
+              font-size: 16px; font-weight: 700; color: ${mkt.onDark};
+              letter-spacing: -0.01em;
+            }
+            .tpl-feat-body {
+              font-size: 13.5px; line-height: 1.6; color: ${mkt.onDarkMuted}; margin: 0;
+            }
+            /* Benefit ribbon — single wrapping row of value chips. */
+            .tpl-feat-ribbon {
+              list-style: none; margin: 40px 0 0; padding: 0;
+              display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+            }
+            .tpl-feat-chip {
+              display: inline-flex; align-items: center; gap: 8px;
+              padding: 9px 16px; border-radius: 999px;
+              background: rgba(255,255,255,0.04);
+              border: 1px solid ${mkt.onDarkBorder};
+              font-size: 13.5px; font-weight: 600; color: ${mkt.onDark};
+              white-space: nowrap;
+            }
+            @media (max-width: 900px) {
+              .tpl-feat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            }
+            @media (max-width: 560px) {
+              .tpl-feat-grid { grid-template-columns: 1fr; }
+            }
+          `}</style>
+        </section>
 
         {/* Why an instant quote tool wins — KPI row (back on the dark ground) */}
         <div style={{ padding: "72px 28px 64px" }}>
