@@ -60,6 +60,7 @@ import BuildTab from './BuildTab';
 import PreviewPane from './PreviewPane';
 import StyleTab from './StyleTab';
 import SettingsTab from './SettingsTab';
+import ActionTab from './ActionTab';
 import InstallTab from './InstallTab';
 import { makeField } from './FieldsPanel';
 import { SelectionProvider } from './selection';
@@ -232,6 +233,10 @@ export default function WizardShell({ embed = false }: Props) {
   }, []);
   const [justSaved, setJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  // Elfsight-parity (2026-06): Install/embed folded into the Publish flow.
+  // Tapping Publish saves the draft AND opens this modal with the hosted link,
+  // embed code, and "have us install" — there is no separate Install tab.
+  const [publishOpen, setPublishOpen] = useState(false);
 
   // BD-3a fix 1 — undo / redo stacks of prior ShellState snapshots. We use
   // refs so pushing to the stacks doesn't itself trigger a re-render; the
@@ -1324,7 +1329,7 @@ export default function WizardShell({ embed = false }: Props) {
               mobile={isMobile}
               businessName={state.businessName}
               onBusinessNameChange={setBusinessName}
-              onPublish={() => saveDraftMutation.mutate()}
+              onPublish={() => { saveDraftMutation.mutate(); setPublishOpen(true); }}
               isPublishing={saveDraftMutation.isPending}
             />
 
@@ -1469,13 +1474,13 @@ export default function WizardShell({ embed = false }: Props) {
                       onChange={setSettings}
                       planTier={planTier}
                     />
-                  ) : activeTab === 'install' ? (
-                    <InstallTab
+                  ) : activeTab === 'action' ? (
+                    <ActionTab
                       settings={state.settings ?? {}}
                       onChange={setSettings}
-                      businessName={state.businessName}
-                      logoUrl={state.logo}
                       style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                      onStyleChange={setStyle}
+                      planTier={planTier}
                     />
                   ) : (
                     <TabPlaceholder
@@ -1570,7 +1575,7 @@ export default function WizardShell({ embed = false }: Props) {
                    * widget inside the user's chosen hosted-page chrome so
                    * the preview matches what visitors at {slug}.your-quote
                    * .net actually see. */
-                  hostedFrame={activeTab === 'install'}
+                  hostedFrame={publishOpen}
                   /* BD-3b — session id for zoom persistence. Uses the
                    * active template id when present (per-calculator) and
                    * falls back to 'draft' for unsaved calculators. */
@@ -1652,13 +1657,13 @@ export default function WizardShell({ embed = false }: Props) {
                     onChange={setSettings}
                     planTier={planTier}
                   />
-                ) : activeTab === 'install' ? (
-                  <InstallTab
+                ) : activeTab === 'action' ? (
+                  <ActionTab
                     settings={state.settings ?? {}}
                     onChange={setSettings}
-                    businessName={state.businessName}
-                    logoUrl={state.logo}
                     style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                    onStyleChange={setStyle}
+                    planTier={planTier}
                   />
                 ) : (
                   <TabPlaceholder
@@ -1719,7 +1724,7 @@ export default function WizardShell({ embed = false }: Props) {
                     QuoteQuick editor
                   </p>
                   <ul style={{ fontSize: 12.5, color: p.colors.muted, margin: '8px 0 0', lineHeight: 1.5, paddingLeft: 18 }}>
-                    <li>Use the Build, Style, Settings, and Install tabs to set up your calculator.</li>
+                    <li>Use the Build, Action, Style, and Settings tabs to set up your calculator.</li>
                     <li>The right pane is a live preview that updates as you edit.</li>
                     <li>Undo and redo your changes with the toolbar buttons or Ctrl/Cmd+Z.</li>
                   </ul>
@@ -1731,6 +1736,49 @@ export default function WizardShell({ embed = false }: Props) {
                   >
                     Got it
                   </button>
+                </div>
+              </div>,
+              document.body,
+            )}
+
+            {/* Publish flow (Elfsight-parity) — embed/hosted-link/install folded
+                here from the old Install tab. Opens on Publish. */}
+            {publishOpen && typeof document !== 'undefined' && createPortal(
+              <div
+                className="qq-editor-help"
+                role="dialog"
+                aria-label="Publish your calculator"
+                data-theme={editorTheme}
+                onClick={() => setPublishOpen(false)}
+                data-testid="editor-publish-overlay"
+              >
+                <div
+                  className="qq-editor-help-card"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ maxWidth: 560, width: '92%', maxHeight: '86vh', overflowY: 'auto' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: p.colors.heading }}>
+                      Publish your calculator
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPublishOpen(false)}
+                      aria-label="Close publish"
+                      data-testid="editor-publish-close"
+                      className="qq-editor-btn"
+                      style={{ padding: '5px 12px' }}
+                    >
+                      Done
+                    </button>
+                  </div>
+                  <InstallTab
+                    settings={state.settings ?? {}}
+                    onChange={setSettings}
+                    businessName={state.businessName}
+                    logoUrl={state.logo}
+                    style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                  />
                 </div>
               </div>,
               document.body,

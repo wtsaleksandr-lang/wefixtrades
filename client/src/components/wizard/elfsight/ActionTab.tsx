@@ -159,6 +159,10 @@ export default function ActionTab({
       data-testid="editor-tabpanel-action"
       aria-label="Action"
       role="tabpanel"
+      /* Panel-level container: each card below is its own surface with a
+         single cue in its head. The escape hatch applies here so the outer
+         section isn't flagged for aggregating its children's lone cues. */
+      data-cue-allowed-multiple
     >
       {/* ── 1. Mode segmented control ─────────────────────────────── */}
       <div className="qq-action-card" data-testid="action-group-mode">
@@ -304,7 +308,7 @@ export default function ActionTab({
                 aria-disabled="true"
                 title="Configurable lead fields are coming soon"
               >
-                <Plus size={15} aria-hidden="true" />
+                <Plus size={16} aria-hidden="true" />
                 <span>Add field</span>
                 <span className="qq-action-soon">Coming soon</span>
               </button>
@@ -321,7 +325,7 @@ export default function ActionTab({
             <div className="qq-action-card" data-testid="action-group-payment">
               <div className="qq-action-card-head">
                 <span className="qq-action-card-headicon" aria-hidden="true">
-                  <CreditCard size={15} />
+                  <CreditCard size={16} />
                 </span>
                 <span className="qq-action-card-title">Payment</span>
                 <InfoCue
@@ -413,7 +417,7 @@ export default function ActionTab({
             <div className="qq-action-card" data-testid="action-group-email">
               <div className="qq-action-card-head">
                 <span className="qq-action-card-headicon" aria-hidden="true">
-                  <BellRing size={15} />
+                  <BellRing size={16} />
                 </span>
                 <span className="qq-action-card-title">Email notifications</span>
                 <InfoCue
@@ -454,7 +458,7 @@ export default function ActionTab({
             <div className="qq-action-card" data-testid="action-group-booking">
               <div className="qq-action-card-head">
                 <span className="qq-action-card-headicon" aria-hidden="true">
-                  <CalendarDays size={15} />
+                  <CalendarDays size={16} />
                 </span>
                 <span className="qq-action-card-title">Online booking</span>
                 <InfoCue

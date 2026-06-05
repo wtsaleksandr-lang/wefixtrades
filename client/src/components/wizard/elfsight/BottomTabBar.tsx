@@ -29,7 +29,7 @@
 // white/black). The accent + font come from the AE token module.
 
 import {
-  SlidersHorizontal, Palette, Settings as SettingsIcon, Code2, HelpCircle,
+  SlidersHorizontal, MousePointerClick, Palette, Settings as SettingsIcon, HelpCircle,
 } from 'lucide-react';
 import { AE } from './appleEditor';
 import { EDITOR_TABS, type EditorTab } from './types';
@@ -49,9 +49,9 @@ interface Props {
 
 const TAB_ICON: Record<EditorTab, typeof SlidersHorizontal> = {
   build: SlidersHorizontal,
+  action: MousePointerClick,
   style: Palette,
   settings: SettingsIcon,
-  install: Code2,
 };
 
 export default function BottomTabBar({

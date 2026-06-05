@@ -16,13 +16,13 @@ import type {
 } from '@shared/templatePresets';
 import { DEFAULT_ADV_STYLE } from '@shared/templatePresets';
 
-export type EditorTab = 'build' | 'style' | 'settings' | 'install';
+export type EditorTab = 'build' | 'action' | 'style' | 'settings';
 
 export const EDITOR_TABS: ReadonlyArray<{ id: EditorTab; label: string }> = [
   { id: 'build', label: 'Build' },
+  { id: 'action', label: 'Action' },
   { id: 'style', label: 'Style' },
   { id: 'settings', label: 'Settings' },
-  { id: 'install', label: 'Install' },
 ];
 
 /**
