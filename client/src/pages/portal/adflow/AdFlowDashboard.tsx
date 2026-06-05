@@ -453,10 +453,10 @@ export default function AdFlowDashboard() {
         {/* Header */}
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="flex flex-col">
-            <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground md:text-2xl">
+            <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground md:text-2xl">
               <Megaphone className="h-5 w-5" aria-hidden="true" />
               AdFlow dashboard
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground">
               Trade-first ad performance — money spent, jobs booked, revenue
               earned. Jargon hidden by default.

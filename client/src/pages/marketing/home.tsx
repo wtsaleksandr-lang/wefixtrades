@@ -10,7 +10,7 @@ import { organizationSchema, websiteSchema } from "@/lib/seo/jsonLd";
 // the marketing critical path. Other pages that DO use data-reveal
 // keep the hook — this change is scoped to home.tsx.
 // WorkflowDemo removed in round 8 — covered by AutomationDiagram.
-import { mkt, colors, shadows, typography } from "@/theme/tokens";
+import { mkt, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
 import HeroProductPreview from "@/components/marketing/HeroProductPreview";
 import DeferUntilNear from "@/components/marketing/DeferUntilNear";
@@ -22,13 +22,7 @@ import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import BuiltForRotator from "@/components/marketing/BuiltForRotator";
 import TrustSection from "@/components/marketing/TrustSection";
 import CTASection from "@/components/marketing/CTASection";
-import {
-  Zap, Check,
-  ArrowRight, Star,
-  Phone, ThumbsUp, Mail, Target,
-  MapPin, Briefcase, Award, Hammer,
-  Calculator, PhoneCall, RefreshCw, Wrench,
-} from "lucide-react";
+import { Check, ArrowRight, Star } from "lucide-react";
 
 /* ─── Below-the-fold heavy components — lazy-loaded ───
  *
@@ -63,160 +57,6 @@ const CompeteCoverageMap = lazy(() =>
 const lazyFallback = (minHeight: number) => (
   <div aria-hidden="true" style={{ minHeight, background: "transparent" }} />
 );
-
-
-
-const FLOW_SERVICES = [
-  { label: "Instant Estimates on Your Site", sub: "Give prices in seconds", icon: Calculator, color: mkt.accent },
-  { label: "Calls & Messages Answered 24/7", sub: "No missed jobs", icon: PhoneCall, color: mkt.cyan },
-  { label: "Rank Higher on Google Maps", sub: "Show up when customers search", icon: MapPin, color: mkt.orange },
-  { label: "Automatic Review Requests", sub: "Turn jobs into 5-star reviews", icon: Star, color: "#A3D190" },
-  { label: "Quote Follow-ups Sent Automatically", sub: "No chasing leads", icon: RefreshCw, color: mkt.cyan },
-  { label: "Website Speed & Fixes Handled", sub: "We keep it running fast", icon: Wrench, color: mkt.orange },
-];
-
-const FLOW_OUTCOMES = [
-  { label: "More booked jobs", sub: "Turn more quotes into paying work", icon: Target, color: mkt.accent },
-  { label: "Missed calls recovered", sub: "Capture every enquiry", icon: Phone, color: mkt.cyan },
-  { label: "Faster estimates", sub: "Quotes delivered in seconds", icon: Zap, color: mkt.orange },
-  { label: "More 5-star reviews", sub: "Build trust automatically", icon: Award, color: "#A3D190" },
-  { label: "You focus on the work", sub: "Less admin, more tools", icon: Hammer, color: mkt.accent },
-];
-
-const FL = { cardW: 240, cardH: 56, gap: 10, connW: 52, centerR: 58, iconBox: 36 };
-
-function FlowCard({ label, sub, icon: Icon, color }: { label: string; sub: string; icon: typeof Zap; color: string }) {
-  return (
-    <div
-      className="flow-node"
-      style={{
-        display: "flex", alignItems: "center", gap: 10,
-        background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 12,
-        padding: "0 14px",
-        width: FL.cardW, height: FL.cardH,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-        boxSizing: "border-box",
-      }}
-    >
-      <div style={{
-        width: FL.iconBox, height: FL.iconBox, borderRadius: 10,
-        background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-      }}>
-        <Icon size={16} color={color} strokeWidth={1.5} />
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: mkt.text, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
-        <div style={{ fontSize: 10.5, fontWeight: 500, color: mkt.textMuted, lineHeight: 1.3, whiteSpace: "nowrap" }}>{sub}</div>
-      </div>
-    </div>
-  );
-}
-
-function FlowConnectorSvg({ count, direction }: { count: number; direction: "left" | "right" }) {
-  const totalH = count * FL.cardH + (count - 1) * FL.gap;
-  const centerY = totalH / 2;
-  const w = FL.connW;
-  const cpOff = w * 0.45;
-
-  return (
-    <svg width={w} height={totalH} style={{ overflow: "visible", flexShrink: 0, display: "block" }} aria-hidden="true">
-      {Array.from({ length: count }).map((_, i) => {
-        const anchorY = i * (FL.cardH + FL.gap) + FL.cardH / 2;
-        const pathId = `fpath-${direction}-${i}`;
-        const pathD = direction === "left"
-          ? `M 0 ${anchorY} C ${cpOff} ${anchorY}, ${w - cpOff} ${centerY}, ${w} ${centerY}`
-          : `M 0 ${centerY} C ${cpOff} ${centerY}, ${w - cpOff} ${anchorY}, ${w} ${anchorY}`;
-        return (
-          <g key={i}>
-            <path d={pathD} stroke={mkt.accentGlow} strokeWidth="1.5" fill="none" id={pathId} />
-            <circle r="3" fill={mkt.accent} opacity="0.55">
-              <animateMotion dur={`${2.8 + i * 0.35}s`} repeatCount="indefinite" begin={`${i * 0.4}s`}>
-                <mpath href={`#${pathId}`} />
-              </animateMotion>
-            </circle>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-function FlowMapHero() {
-  const svcH = FLOW_SERVICES.length * FL.cardH + (FLOW_SERVICES.length - 1) * FL.gap;
-  const outH = FLOW_OUTCOMES.length * FL.cardH + (FLOW_OUTCOMES.length - 1) * FL.gap;
-  const maxH = Math.max(svcH, outH);
-
-  return (
-    <div data-theme="light" data-testid="flow-map-hero" style={{ position: "relative", maxWidth: 1000, margin: "0 auto" }}>
-      {/* Hidden for now — re-enable by removing display:"none" */}
-      <div className="flow-map-desktop" style={{
-        display: "none", alignItems: "center", justifyContent: "center", gap: 0, minHeight: maxH,
-      }}>
-        <div style={{ display: "grid", gridAutoRows: FL.cardH, rowGap: FL.gap, alignItems: "center", justifyItems: "end" }}>
-          {FLOW_SERVICES.map((s) => <FlowCard key={s.label} {...s} />)}
-        </div>
-        <FlowConnectorSvg count={FLOW_SERVICES.length} direction="left" />
-        <div className="flow-center-node" style={{
-          width: FL.centerR * 2, height: FL.centerR * 2, borderRadius: "50%",
-          background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          boxShadow: `0 8px 32px ${mkt.accentGlow}`,
-          position: "relative", zIndex: 2, flexShrink: 0,
-        }}>
-          <Briefcase size={24} color={mkt.buttonText} strokeWidth={1.5} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: mkt.buttonText, marginTop: 6, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
-        </div>
-        <FlowConnectorSvg count={FLOW_OUTCOMES.length} direction="right" />
-        <div style={{ display: "grid", gridAutoRows: FL.cardH, rowGap: FL.gap, alignItems: "center", justifyItems: "start" }}>
-          {FLOW_OUTCOMES.map((o) => <FlowCard key={o.label} {...o} />)}
-        </div>
-      </div>
-
-      <div className="flow-map-mobile" style={{ display: "none", flexDirection: "column", alignItems: "center", gap: 14 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-          {FLOW_SERVICES.map(({ label, icon: SIcon, color }) => (
-            <div key={label} style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 10,
-              padding: "8px 12px", fontSize: 12, fontWeight: 600, color: mkt.text,
-            }}>
-              <SIcon size={14} color={color} strokeWidth={1.5} /> {label}
-            </div>
-          ))}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-          <div style={{ width: 1.5, height: 18, background: mkt.accentGlow }} />
-          <ArrowRight size={14} color={mkt.accent} strokeWidth={1.5} style={{ transform: "rotate(90deg)" }} />
-        </div>
-        <div className="flow-center-node" style={{
-          width: 88, height: 88, borderRadius: "50%",
-          background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          boxShadow: `0 8px 32px ${mkt.accentGlow}`,
-        }}>
-          <Briefcase size={20} color={mkt.buttonText} strokeWidth={1.5} />
-          <span style={{ fontSize: 9, fontWeight: 700, color: mkt.buttonText, marginTop: 3, textAlign: "center", lineHeight: 1.2 }}>Your<br />Business</span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-          <div style={{ width: 1.5, height: 18, background: mkt.accentGlow }} />
-          <ArrowRight size={14} color={mkt.accent} strokeWidth={1.5} style={{ transform: "rotate(90deg)" }} />
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-          {FLOW_OUTCOMES.map(({ label, icon: OIcon, color }) => (
-            <div key={label} style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 10,
-              padding: "8px 12px", fontSize: 12, fontWeight: 600, color: mkt.text,
-            }}>
-              <OIcon size={14} color={color} strokeWidth={1.5} /> {label}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── Hero email capture form ── */
 function HeroEmailCapture() {
   const [email, setEmail] = useState("");
@@ -300,16 +140,6 @@ function HeroEmailCapture() {
       )}
     </form>
   );
-}
-
-/* ── Exit-intent popup ──
-   DISABLED — too aggressive. Was firing at 30s on mobile and on any
-   upward mouse motion on desktop. Owner found it annoying. To re-enable
-   later, remove the early-return below. */
-function ExitIntentPopup() {
-  // Disabled — was firing aggressively (30s on mobile, any upward mouse
-  // motion on desktop). To restore, pull from git history.
-  return null;
 }
 
 const RESPONSIVE_CSS = `
@@ -437,7 +267,7 @@ const RESPONSIVE_CSS = `
   .hero-cta-primary-warm {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 14px 22px; border-radius: 10px;
-    background: ${mkt.accent}; color: #FFFFFF;
+    background: ${mkt.accent}; color: ${mkt.buttonText};
     font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
     text-decoration: none; cursor: pointer;
     border: 0.5px solid rgba(15,23,42,0.06);
@@ -528,17 +358,6 @@ const RESPONSIVE_CSS = `
   .hero-warm-headline {
     text-shadow: 0 1px 2px rgba(15,23,42,0.04);
   }
-  @media (max-width: 820px) {
-    .flow-map-desktop { display: none !important; } /* already hidden inline */
-    .flow-map-mobile { display: none !important; }
-  }
-  @keyframes flowPulse {
-    0%, 100% { box-shadow: 0 8px 32px ${mkt.accentGlow}; }
-    50% { box-shadow: 0 8px 40px rgba(13,60,252,0.35); }
-  }
-  .flow-center-node { animation: flowPulse 3s ease-in-out infinite; }
-  .flow-node { transition: box-shadow 0.2s ease; }
-  .flow-node:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.20) !important; }
   @media (max-width: 768px) {
     .hero-section-responsive { padding: 96px 20px 28px !important; }
     .hero-subtext { font-size: 16px !important; }
@@ -1067,7 +886,6 @@ export default function HomePage() {
       </DeferUntilNear>
       <TrustSection />
       <CTASection />
-      <ExitIntentPopup />
     </MarketingLayout>
   );
 }

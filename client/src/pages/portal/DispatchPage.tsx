@@ -87,6 +87,9 @@ export default function DispatchPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/bookflow/dispatch", selectedDate] });
     },
+    onError: (err: Error) => {
+      toast({ title: "Status update failed", description: err.message, variant: "destructive" });
+    },
   });
 
   const handleMarkComplete = (apt: Appointment) => {

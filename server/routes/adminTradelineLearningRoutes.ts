@@ -116,41 +116,56 @@ export function registerAdminTradelineLearningRoutes(app: Express) {
       const parsed = applyBody.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
-      const [cand] = await db.select().from(tradelineLearningCandidates).where(eq(tradelineLearningCandidates.id, id)).limit(1);
-      if (!cand) return res.status(404).json({ error: "Not found" });
-      if (!canApplyCandidate(cand)) {
-        return res.status(409).json({ error: "Candidate must be approved and not already applied" });
-      }
+      // Atomic: SELECT + INSERT + UPDATE inside a single transaction so a
+      // concurrent apply can't orphan a KB entry.
+      const result = await db.transaction(async (tx) => {
+        const [cand] = await tx.select().from(tradelineLearningCandidates).where(eq(tradelineLearningCandidates.id, id)).limit(1);
+        if (!cand) return { error: "Not found", status: 404 } as const;
+        if (!canApplyCandidate(cand)) {
+          return { error: "Candidate must be approved and not already applied", status: 409 } as const;
+        }
 
-      const kbId = generateCuid();
-      await db.insert(tradelineKnowledgeBase).values({
-        id: kbId,
-        client_id: parsed.data.client_id,
-        kind: parsed.data.kind ?? "doc",
-        title: cand.title,
-        content: cand.body,
-        priority: 0,
-        status: "active",
+        // Sanitize title/body before inserting to the live KB — same pattern as
+        // greeting sanitization in portalTradelineKnowledgeRoutes (strips prompt
+        // injection markers: brackets, pipes, backticks).
+        const sanitize = (s: string) => s.replace(/[\[\]{}|\\`]/g, "").replace(/\n{2,}/g, "\n").trim();
+
+        const kbId = generateCuid();
+        await tx.insert(tradelineKnowledgeBase).values({
+          id: kbId,
+          client_id: parsed.data.client_id,
+          kind: parsed.data.kind ?? "doc",
+          title: sanitize(cand.title),
+          content: sanitize(cand.body),
+          priority: 0,
+          status: "active",
+        });
+
+        const [updated] = await tx
+          .update(tradelineLearningCandidates)
+          .set({ status: "applied", applied_at: new Date(), applied_kb_id: kbId, applied_by: req.user?.id ?? null })
+          .where(eq(tradelineLearningCandidates.id, id))
+          .returning();
+
+        return { ok: true, candidate: updated, kbId, title: cand.title } as const;
       });
 
-      const [updated] = await db
-        .update(tradelineLearningCandidates)
-        .set({ status: "applied", applied_at: new Date(), applied_kb_id: kbId, applied_by: req.user?.id ?? null })
-        .where(eq(tradelineLearningCandidates.id, id))
-        .returning();
+      if ("error" in result) return res.status(result.status as number).json({ error: result.error });
 
-      await storage.logAdminActivity({
+      // Fire-and-forget audit logging — don't let a logging failure break the
+      // response after a successful apply (would cause admin to retry → double-apply).
+      storage.logAdminActivity({
         actor_type: "admin",
         actor_id: req.user?.id ?? null,
         actor_name: (req.user as any)?.email ?? "admin",
         action: "tradeline.learning_applied",
         entity_type: "tradeline_learning_candidate",
         entity_id: id,
-        summary: `Applied learning candidate "${cand.title}" → KB ${kbId} for client ${parsed.data.client_id}`,
-        metadata: { candidateId: id, kbId, clientId: parsed.data.client_id },
-      });
+        summary: `Applied learning candidate "${result.title}" → KB ${result.kbId} for client ${parsed.data.client_id}`,
+        metadata: { candidateId: id, kbId: result.kbId, clientId: parsed.data.client_id },
+      }).catch((err: any) => log.warn("audit log failed after successful apply", { err: err?.message, candidateId: id }));
 
-      return res.json({ ok: true, candidate: updated, kbId });
+      return res.json({ ok: true, candidate: result.candidate, kbId: result.kbId });
     } catch (err: any) {
       log.error("apply failed", { err: err?.message });
       return res.status(500).json({ error: "Failed to apply candidate" });
@@ -164,36 +179,46 @@ export function registerAdminTradelineLearningRoutes(app: Express) {
   app.post("/api/admin/tradeline/learning-candidates/:id/rollback", requireAdmin, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
-      const [cand] = await db.select().from(tradelineLearningCandidates).where(eq(tradelineLearningCandidates.id, id)).limit(1);
-      if (!cand) return res.status(404).json({ error: "Not found" });
-      if (!canRollbackCandidate(cand)) {
-        return res.status(409).json({ error: "Candidate is not in an applied state" });
-      }
 
-      // Archive the live KB entry → the voice prompt (active-only) drops it.
-      await db
-        .update(tradelineKnowledgeBase)
-        .set({ status: "archived", updated_at: new Date() })
-        .where(eq(tradelineKnowledgeBase.id, cand.applied_kb_id!));
+      // Atomic: SELECT + archive KB + reset candidate in a single transaction
+      // so a partial failure can't leave corrupted state.
+      const result = await db.transaction(async (tx) => {
+        const [cand] = await tx.select().from(tradelineLearningCandidates).where(eq(tradelineLearningCandidates.id, id)).limit(1);
+        if (!cand) return { error: "Not found", status: 404 } as const;
+        if (!canRollbackCandidate(cand)) {
+          return { error: "Candidate is not in an applied state", status: 409 } as const;
+        }
 
-      const [updated] = await db
-        .update(tradelineLearningCandidates)
-        .set({ status: "approved", applied_at: null, applied_kb_id: null, applied_by: null })
-        .where(eq(tradelineLearningCandidates.id, id))
-        .returning();
+        // Archive the live KB entry → the voice prompt (active-only) drops it.
+        await tx
+          .update(tradelineKnowledgeBase)
+          .set({ status: "archived", updated_at: new Date() })
+          .where(eq(tradelineKnowledgeBase.id, cand.applied_kb_id!));
 
-      await storage.logAdminActivity({
+        const [updated] = await tx
+          .update(tradelineLearningCandidates)
+          .set({ status: "approved", applied_at: null, applied_kb_id: null, applied_by: null })
+          .where(eq(tradelineLearningCandidates.id, id))
+          .returning();
+
+        return { ok: true, candidate: updated, title: cand.title, archivedKbId: cand.applied_kb_id } as const;
+      });
+
+      if ("error" in result) return res.status(result.status as number).json({ error: result.error });
+
+      // Fire-and-forget audit logging.
+      storage.logAdminActivity({
         actor_type: "admin",
         actor_id: req.user?.id ?? null,
         actor_name: (req.user as any)?.email ?? "admin",
         action: "tradeline.learning_rolled_back",
         entity_type: "tradeline_learning_candidate",
         entity_id: id,
-        summary: `Rolled back learning candidate "${cand.title}" — archived KB ${cand.applied_kb_id}`,
-        metadata: { candidateId: id, archivedKbId: cand.applied_kb_id },
-      });
+        summary: `Rolled back learning candidate "${result.title}" — archived KB ${result.archivedKbId}`,
+        metadata: { candidateId: id, archivedKbId: result.archivedKbId },
+      }).catch((err: any) => log.warn("audit log failed after successful rollback", { err: err?.message, candidateId: id }));
 
-      return res.json({ ok: true, candidate: updated, archivedKbId: cand.applied_kb_id });
+      return res.json({ ok: true, candidate: result.candidate, archivedKbId: result.archivedKbId });
     } catch (err: any) {
       log.error("rollback failed", { err: err?.message });
       return res.status(500).json({ error: "Failed to roll back candidate" });

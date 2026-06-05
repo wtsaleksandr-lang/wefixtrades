@@ -49,21 +49,21 @@ client/src/components/wizard/elfsight/StyleTab.tsx:4599:32	rule-c	size={13}
 client/src/components/wizard/elfsight/StyleTab.tsx:4612:26	rule-c	size={13}
 client/src/components/wizard/elfsight/TemplateGallery.tsx:812:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:228:17	rule-c	size={11}
-client/src/pages/Blog.tsx:237:19	rule-c	size={120}
-client/src/pages/Blog.tsx:356:17	rule-c	size={84}
-client/src/pages/CaseStudies.tsx:490:24	rule-c	size={48}
-client/src/pages/CaseStudies.tsx:500:19	rule-c	size={56}
-client/src/pages/CaseStudies.tsx:639:22	rule-c	size={80}
-client/src/pages/OnboardingForm.tsx:117:14	rule-c	square w-12 h-12
-client/src/pages/OnboardingForm.tsx:295:24	rule-c	square w-10 h-10
-client/src/pages/OnboardingForm.tsx:312:5	rule-b	<div> contains 3 cues
-client/src/pages/OnboardingForm.tsx:317:13	rule-c	<svg width={28} height={28}>
-client/src/pages/ReviewFunnel.tsx:301:21	rule-c	size={40}
+client/src/pages/Blog.tsx:239:19	rule-c	size={120}
+client/src/pages/Blog.tsx:358:17	rule-c	size={84}
+client/src/pages/CaseStudies.tsx:492:24	rule-c	size={48}
+client/src/pages/CaseStudies.tsx:502:19	rule-c	size={56}
+client/src/pages/CaseStudies.tsx:641:22	rule-c	size={80}
+client/src/pages/OnboardingForm.tsx:118:14	rule-c	square w-12 h-12
+client/src/pages/OnboardingForm.tsx:296:24	rule-c	square w-10 h-10
+client/src/pages/OnboardingForm.tsx:313:5	rule-b	<div> contains 3 cues
+client/src/pages/OnboardingForm.tsx:318:13	rule-c	<svg width={28} height={28}>
+client/src/pages/ReviewFunnel.tsx:302:21	rule-c	size={40}
 client/src/pages/admin/ApiPlatformPage.tsx:172:19	rule-c	square w-2 h-2
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:376:25	rule-c	square w-12 h-12
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h-12
-client/src/pages/admin/BookingCalendarPage.tsx:53:16	rule-c	square w-10 h-10
-client/src/pages/admin/BookingCalendarPage.tsx:138:24	rule-c	square w-10 h-10
+client/src/pages/admin/BookingCalendarPage.tsx:60:16	rule-c	square w-10 h-10
+client/src/pages/admin/BookingCalendarPage.tsx:145:24	rule-c	square w-10 h-10
 client/src/pages/admin/ClientDetailPage.tsx:770:7	rule-b	<div> contains 2 cues
 client/src/pages/admin/CommunicationsPage.tsx:1136:21	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CommunicationsPage.tsx:1141:21	rule-c	square w-1.5 h-1.5
@@ -108,7 +108,6 @@ client/src/pages/admin/SystemWorkersPage.tsx:199:16	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/SystemWorkersPage.tsx:407:31	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/TradeLineOpsPage.tsx:63:71	rule-c	square w-10 h-10
 client/src/pages/admin/TradeLineOpsPage.tsx:147:90	rule-c	square w-10 h-10
-client/src/pages/admin/TradelineLearningPage.tsx:282:32	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/TradelineTemplatesPage.tsx:290:15	rule-c	square w-7 h-7
 client/src/pages/admin/TradelineTemplatesPage.tsx:307:15	rule-c	square w-7 h-7
 client/src/pages/admin/TradelineTemplatesPage.tsx:315:15	rule-c	square w-7 h-7
@@ -143,7 +142,6 @@ client/src/pages/portal/PortalBilling.tsx:167:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBilling.tsx:178:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBilling.tsx:189:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBrandKitsPage.tsx:140:23	rule-c	size={10}
-client/src/pages/portal/PortalChatWidgetSetup.tsx:252:19	rule-c	square w-9 h-9
 client/src/pages/portal/PortalCompetitors.tsx:165:18	rule-c	square w-12 h-12
 client/src/pages/portal/PortalOnboarding.tsx:427:5	rule-b	<div> contains 3 cues
 client/src/pages/portal/PortalOnboarding.tsx:428:12	rule-c	square w-12 h-12

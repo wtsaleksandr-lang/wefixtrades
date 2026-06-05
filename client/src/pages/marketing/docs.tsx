@@ -69,7 +69,7 @@ const GUIDES = [
     icon: Webhook,
     title: "Webhooks",
     description: "Push real-time events to Zapier, Make, or your own system on every lead and booking.",
-    badge: "Elite",
+    badge: "Business",
     badgeColor: "#F59E0B",
     badgeBg: "#FFFBEB",
     time: "4 min read",

@@ -34,6 +34,11 @@ import { createLogger } from "../lib/logger";
 import { generateCuid } from "../lib/apiKeys";
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
+import {
+  getOrCreateSample,
+  isPreviewAvailable,
+  pickOpenAIVoice,
+} from "../lib/voicePreview";
 
 const log = createLogger("PortalTradelineKnowledge");
 
@@ -71,7 +76,11 @@ const reorderBody = z.object({
 
 const settingsBody = z.object({
   voice_id: z.string().max(80).nullable().optional(),
-  greeting: z.string().max(2000).nullable().optional(),
+  greeting: z.string().max(400).nullable().optional().transform((v) => {
+    if (!v) return v;
+    // Strip characters commonly used for prompt injection framing.
+    return v.replace(/[\[\]{}|\\`]/g, "").replace(/\n{2,}/g, "\n").trim();
+  }),
   response_style: z.enum(["concise", "detailed", "friendly"]).nullable().optional(),
 });
 
@@ -272,6 +281,63 @@ export function registerPortalTradelineKnowledgeRoutes(app: Express): void {
     }
   });
 
+  /* ─── GET /tradeline/voices/:voiceId/sample — portal-scoped TTS preview ──
+   * Portal equivalent of the admin sample route (which is requireAdmin and so
+   * unreachable from the portal). Streams a short cached MP3 so the picker can
+   * preview a voice whose `sample_audio_url` is null. requireClient — any
+   * authenticated client may preview an ACTIVE catalog voice (no client-private
+   * data; the catalog is shared). 503 when no TTS provider is configured so the
+   * UI can show a friendly "preview unavailable" instead of a dead control.
+   * ──────────────────────────────────────────────────────────────────── */
+  app.get(
+    `${PORTAL_VOICES}/:voiceId/sample`,
+    requireClient,
+    async (req: Request, res: Response) => {
+      const voiceId = String(req.params.voiceId);
+      if (!/^[a-z0-9][a-z0-9_-]*$/i.test(voiceId)) {
+        res.status(400).json({ error: "invalid_voice_id" });
+        return;
+      }
+      if (!isPreviewAvailable()) {
+        res.status(503).json({ error: "preview_unavailable" });
+        return;
+      }
+      try {
+        const [row] = await db
+          .select({
+            id: tradelineVoices.id,
+            gender: tradelineVoices.gender,
+            elevenlabs_voice_id: tradelineVoices.elevenlabs_voice_id,
+            status: tradelineVoices.status,
+          })
+          .from(tradelineVoices)
+          .where(eq(tradelineVoices.id, voiceId))
+          .limit(1);
+        if (!row || row.status !== "active") {
+          res.status(404).json({ error: "voice_not_found" });
+          return;
+        }
+        const openaiVoice = pickOpenAIVoice(row.id, row.gender);
+        const buf = await getOrCreateSample(
+          row.id,
+          openaiVoice,
+          row.elevenlabs_voice_id,
+        );
+        if (!buf) {
+          res.status(503).json({ error: "preview_unavailable" });
+          return;
+        }
+        res.setHeader("Content-Type", "audio/mpeg");
+        res.setHeader("Cache-Control", "private, max-age=86400");
+        res.setHeader("Content-Length", String(buf.length));
+        res.end(buf);
+      } catch (err: any) {
+        log.error("portal voice sample failed", { error: err?.message, voiceId });
+        res.status(503).json({ error: "preview_unavailable" });
+      }
+    },
+  );
+
   /* ─── GET /tradeline/settings — get MY voice + greeting settings ─── */
   app.get(PORTAL_SETTINGS, requireClient, async (req: Request, res: Response) => {
     const clientId = await withClientId(req, res);
@@ -299,6 +365,17 @@ export function registerPortalTradelineKnowledgeRoutes(app: Express): void {
       return;
     }
     try {
+      if (parsed.data.voice_id) {
+        const [voice] = await db
+          .select({ id: tradelineVoices.id })
+          .from(tradelineVoices)
+          .where(and(eq(tradelineVoices.id, parsed.data.voice_id), eq(tradelineVoices.status, "active")))
+          .limit(1);
+        if (!voice) {
+          res.status(400).json({ error: "voice_not_found", message: "Selected voice is not available" });
+          return;
+        }
+      }
       const existing = await db
         .select()
         .from(tradelineAssistantSettings)

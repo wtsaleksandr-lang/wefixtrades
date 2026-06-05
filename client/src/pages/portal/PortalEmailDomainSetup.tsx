@@ -314,7 +314,11 @@ function DnsRecordRow({ record }: { record: DnsRecord }) {
       await navigator.clipboard.writeText(text);
       setCopied(which);
       setTimeout(() => setCopied(null), 2000);
-    } catch {}
+    } catch {
+      // Clipboard unavailable — still indicate the attempt visually
+      setCopied(which);
+      setTimeout(() => setCopied(null), 2000);
+    }
   }
   return (
     <div data-theme="light" className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">

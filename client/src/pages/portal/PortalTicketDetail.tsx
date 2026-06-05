@@ -53,13 +53,13 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function formatDate(d: string | null): string {
   if (!d) return "";
-  return new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function formatTime(d: string | null): string {
   if (!d) return "";
   const date = new Date(d);
-  return `${date.toLocaleDateString("en-AU", { day: "numeric", month: "short" })} at ${date.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}`;
+  return `${date.toLocaleDateString("en-US", { day: "numeric", month: "short" })} at ${date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
 }
 
 /* ─── Main Page ─── */
@@ -209,6 +209,7 @@ export default function PortalTicketDetail() {
                 <div className="border-t border-gray-100 px-5 py-4">
                   <div className="flex gap-2">
                     <textarea
+                      aria-label="Reply message"
                       value={reply}
                       onChange={(e) => setReply(e.target.value)}
                       onKeyDown={(e) => {

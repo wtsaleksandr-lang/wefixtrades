@@ -28,6 +28,8 @@ import {
   FileText,
   Image as ImageIcon,
   LayoutGrid,
+  Globe,
+  Lock,
   MoreHorizontal,
   Wand2,
 } from "lucide-react";
@@ -422,7 +424,7 @@ export default function PortalContentFlowDashboard() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold">ContentFlow</h1>
+            <h2 className="text-2xl font-semibold">ContentFlow</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Your AI content factory — generate, approve, publish.
             </p>
@@ -759,11 +761,130 @@ export default function PortalContentFlowDashboard() {
         </Tabs>
       </div>
 
+      <CmsPublishingCard />
+
       {/* Onboarding walkthrough (one-time per user via localStorage) */}
       <OnboardingWalkthrough
         steps={WALKTHROUGH_STEPS}
         storageKey="contentflow_onboarding_v1"
       />
     </PortalLayout>
+  );
+}
+
+
+/* ─── CMS Publishing connection card ─────────────────────────── */
+
+function CmsPublishingCard() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ cms_url: "", cms_username: "", cms_app_password: "", cms_default_status: "draft" });
+
+  const config = useQuery<{ cms_configured: boolean; cms_url?: string; cms_username?: string; cms_default_status?: string; configured_at?: string }>({
+    queryKey: ["/api/portal/contentflow/cms-config"],
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/portal/contentflow/cms-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Save failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/portal/contentflow/cms-config"] });
+      setOpen(false);
+      toast({ title: "WordPress connected", description: "Content can now be published to your site." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const cfg = config.data;
+  const connected = cfg?.cms_configured === true;
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Globe className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">WordPress publishing</h3>
+        </div>
+        {connected ? (
+          <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+            <Lock className="h-3 w-3" /> Connected
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">Not connected</span>
+        )}
+      </div>
+      {connected && !open && (
+        <div className="text-xs text-muted-foreground space-y-0.5">
+          <p>{cfg?.cms_url}</p>
+          <p>User: {cfg?.cms_username} &middot; Default status: {cfg?.cms_default_status}</p>
+        </div>
+      )}
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (connected) setForm({ cms_url: cfg?.cms_url || "", cms_username: cfg?.cms_username || "", cms_app_password: "", cms_default_status: cfg?.cms_default_status || "draft" });
+            setOpen(true);
+          }}
+          className="text-xs text-brand-blue-600 hover:underline"
+        >
+          {connected ? "Update connection" : "Connect WordPress"}
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <input
+            type="url"
+            placeholder="https://yoursite.com"
+            value={form.cms_url}
+            onChange={(e) => setForm((f) => ({ ...f, cms_url: e.target.value }))}
+            className="w-full rounded-md border border-input px-3 py-1.5 text-sm"
+          />
+          <input
+            placeholder="WordPress username"
+            value={form.cms_username}
+            onChange={(e) => setForm((f) => ({ ...f, cms_username: e.target.value }))}
+            className="w-full rounded-md border border-input px-3 py-1.5 text-sm"
+          />
+          <input
+            type="password"
+            placeholder="Application password"
+            value={form.cms_app_password}
+            onChange={(e) => setForm((f) => ({ ...f, cms_app_password: e.target.value }))}
+            className="w-full rounded-md border border-input px-3 py-1.5 text-sm"
+          />
+          <p className="text-[11px] text-muted-foreground">WordPress &rarr; Users &rarr; Profile &rarr; Application Passwords. Not your login password.</p>
+          <select
+            value={form.cms_default_status}
+            onChange={(e) => setForm((f) => ({ ...f, cms_default_status: e.target.value }))}
+            className="w-full rounded-md border border-input px-3 py-1.5 text-sm"
+          >
+            <option value="draft">Save as draft</option>
+            <option value="publish">Publish immediately</option>
+          </select>
+          <div className="flex gap-2 justify-end">
+            <button type="button" onClick={() => setOpen(false)} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+            <button
+              type="button"
+              onClick={() => save.mutate()}
+              disabled={save.isPending || !form.cms_url || !form.cms_username || !form.cms_app_password}
+              className="rounded-md bg-primary px-3 py-1 text-xs text-primary-foreground disabled:opacity-50"
+            >
+              {save.isPending ? "Saving…" : "Save connection"}
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }

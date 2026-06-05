@@ -2930,35 +2930,33 @@ export default function AdvancedCalculator({
                       style={leadInputStyle} />
                     <button type="button" data-testid="advanced-cta-send"
                       onClick={async () => {
-                        if (leadReady) {
-                          // POST to /api/leads — mirrors ContactStep pattern.
-                          if (analyticsCalcId) {
-                            try {
-                              const resp = await fetch('/api/leads', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  calculator_id: analyticsCalcId,
-                                  name: leadName.trim(),
-                                  email: leadEmail.trim(),
-                                  phone: null,
-                                  quote_amount: typeof effectiveQuoteValue === 'number' && Number.isFinite(effectiveQuoteValue)
-                                    ? effectiveQuoteValue : null,
-                                  answers: Object.keys(answers).length > 0 ? answers : null,
-                                }),
-                              });
-                              if (!resp.ok) {
-                                console.error('[QuoteQuick] inline lead POST failed:', resp.status);
-                              }
-                            } catch (err) {
-                              console.error('[QuoteQuick] inline lead POST error:', err);
+                        if (!leadReady) return;
+                        // W-BB-4 — fire conversion event before flipping
+                        // the panel so a fast unmount doesn't drop the beacon.
+                        trackSubmit();
+                        try {
+                          if (analyticsCalcId != null) {
+                            const resp = await fetch('/api/leads', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                calculator_id: analyticsCalcId,
+                                name: leadName.trim(),
+                                email: leadEmail.trim(),
+                                quote_amount: typeof effectiveQuoteValue === 'number'
+                                  && Number.isFinite(effectiveQuoteValue)
+                                  ? effectiveQuoteValue : null,
+                                answers: answers ?? null,
+                              }),
+                            });
+                            if (!resp.ok) {
+                              console.warn('[QQ] inline lead POST failed', resp.status);
                             }
                           }
-                          // W-BB-4 — fire conversion event before flipping
-                          // the panel so a fast unmount doesn't drop the beacon.
-                          trackSubmit();
-                          setLeadView('done');
+                        } catch (e) {
+                          console.warn('[QQ] inline lead POST error', e);
                         }
+                        setLeadView('done');
                       }}
                       style={{
                         width: '100%', height: '44px', borderRadius: radiusInnerPx, border: 'none',
@@ -3737,7 +3735,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     // image is uploaded yet. Tap target ≥44px (minHeight 120px covers it).
     return (
       <div>
-        <label style={groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
+        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -3748,6 +3746,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             return (
               <button key={o.id} type="button" onClick={() => onChange(o.id)}
                 aria-pressed={sel}
+                aria-label={richHtmlToPlainText(o.label)}
                 style={{
                   display: 'flex', flexDirection: 'column', gap: '8px',
                   padding: '8px', minHeight: '120px',
@@ -3777,6 +3776,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             );
           })}
         </div>
+        {stackedHelp}
       </div>
     );
   }

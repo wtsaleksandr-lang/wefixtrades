@@ -24,7 +24,7 @@
  */
 
 import type { Express, Request, Response } from "express";
-import { randomBytes } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import { db } from "../db";
 import { quoteSnapshots, calculators } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -36,6 +36,7 @@ import {
   OWNER_EDIT_TOKEN_BYTES,
 } from "@shared/quoteSnapshot";
 import { createLogger } from "../lib/logger";
+import { snapshotMutateRateLimiter } from "../services/rateLimiter";
 import { publishQuoteUpdate } from "./portal/quotequick/liveStream";
 
 const log = createLogger("QuoteSnapshot");
@@ -84,8 +85,6 @@ function toPublicCalculator(row: typeof calculators.$inferSelect) {
     primary_color: row.primary_color,
     theme_overrides: row.theme_overrides,
     appearance: (row.calculator_settings as any)?.appearance ?? null,
-    pricing_config: row.pricing_config,
-    calculator_settings: row.calculator_settings,
   };
 }
 
@@ -245,6 +244,12 @@ export function registerQuoteSnapshotRoutes(app: Express): void {
   /* ─── PATCH /api/q/:slug ─── */
   app.patch("/api/q/:slug", async (req: Request, res: Response) => {
     try {
+      const ip = req.ip ?? "unknown";
+      const allowed = await snapshotMutateRateLimiter.check(ip);
+      if (!allowed) {
+        return res.status(429).json({ error: "Too many requests" });
+      }
+
       const slug = String(req.params.slug || "");
       if (!isValidSnapshotSlug(slug)) {
         return res.status(404).json({ error: "Quote not found" });
@@ -262,7 +267,7 @@ export function registerQuoteSnapshotRoutes(app: Express): void {
       if (!row) {
         return res.status(404).json({ error: "Quote not found" });
       }
-      if (!row.owner_edit_token || row.owner_edit_token !== owner_edit_token) {
+      if (!row.owner_edit_token || row.owner_edit_token.length !== owner_edit_token.length || !timingSafeEqual(Buffer.from(row.owner_edit_token), Buffer.from(owner_edit_token))) {
         return res.status(403).json({ error: "Not authorised to edit this quote" });
       }
 
@@ -301,6 +306,12 @@ export function registerQuoteSnapshotRoutes(app: Express): void {
   /* ─── DELETE /api/q/:slug ─── */
   app.delete("/api/q/:slug", async (req: Request, res: Response) => {
     try {
+      const ip = req.ip ?? "unknown";
+      const allowed = await snapshotMutateRateLimiter.check(ip);
+      if (!allowed) {
+        return res.status(429).json({ error: "Too many requests" });
+      }
+
       const slug = String(req.params.slug || "");
       if (!isValidSnapshotSlug(slug)) {
         return res.status(404).json({ error: "Quote not found" });
@@ -318,7 +329,7 @@ export function registerQuoteSnapshotRoutes(app: Express): void {
       if (!row) {
         return res.status(404).json({ error: "Quote not found" });
       }
-      if (!row.owner_edit_token || row.owner_edit_token !== owner_edit_token) {
+      if (!row.owner_edit_token || row.owner_edit_token.length !== owner_edit_token.length || !timingSafeEqual(Buffer.from(row.owner_edit_token), Buffer.from(owner_edit_token))) {
         return res.status(403).json({ error: "Not authorised to revoke this quote" });
       }
 

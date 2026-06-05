@@ -8,13 +8,13 @@
  * `tradeline_assistant_settings` table.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Play, Check, Mic2 } from "lucide-react";
+import { Play, Check, Mic2, Loader2, AlertCircle } from "lucide-react";
 
 interface Voice {
   id: string;
@@ -57,6 +57,80 @@ export function VoicePicker({ onSaved }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [greeting, setGreeting] = useState("");
   const [style, setStyle] = useState<"concise" | "detailed" | "friendly" | "">("");
+
+  // ── Voice preview playback ──
+  // Every voice gets a play control. When a catalog row has no static
+  // `sample_audio_url`, we fall back to the portal on-demand TTS route
+  // (/api/portal/tradeline/voices/:id/sample), with loading + error states so
+  // the picker never shows a dead/silent control.
+  type PreviewStatus = "idle" | "loading" | "playing" | "error";
+  const [preview, setPreview] = useState<{ id: string | null; status: PreviewStatus }>(
+    { id: null, status: "idle" },
+  );
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+
+  const stopCurrentAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+  }, []);
+
+  // Revoke any outstanding object URL on unmount.
+  useEffect(() => () => { stopCurrentAudio(); }, [stopCurrentAudio]);
+
+  const playFromUrl = useCallback(
+    (voiceId: string, url: string) => {
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => setPreview({ id: null, status: "idle" });
+      audio.onerror = () => setPreview({ id: voiceId, status: "error" });
+      audio
+        .play()
+        .then(() => setPreview({ id: voiceId, status: "playing" }))
+        .catch(() => setPreview({ id: voiceId, status: "error" }));
+    },
+    [],
+  );
+
+  const handlePlay = useCallback(
+    async (v: Voice) => {
+      // Clicking the voice currently playing stops it.
+      if (preview.id === v.id && preview.status === "playing") {
+        stopCurrentAudio();
+        setPreview({ id: null, status: "idle" });
+        return;
+      }
+      stopCurrentAudio();
+
+      if (v.sample_audio_url) {
+        playFromUrl(v.id, v.sample_audio_url);
+        return;
+      }
+
+      // Fallback: generate/fetch an on-demand sample for this voice.
+      setPreview({ id: v.id, status: "loading" });
+      try {
+        const r = await fetch(
+          `/api/portal/tradeline/voices/${encodeURIComponent(v.id)}/sample`,
+          { credentials: "include" },
+        );
+        if (!r.ok) throw new Error(`${r.status}`);
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        objectUrlRef.current = url;
+        playFromUrl(v.id, url);
+      } catch {
+        setPreview({ id: v.id, status: "error" });
+      }
+    },
+    [preview, playFromUrl, stopCurrentAudio],
+  );
 
   useEffect(() => {
     if (settingsQ.data?.settings) {
@@ -117,16 +191,35 @@ export function VoicePicker({ onSaved }: Props) {
                     {v.accent && <Badge variant="outline">{v.accent}</Badge>}
                     {v.tags?.slice(0, 3).map((t) => <Badge key={t} variant="outline">{t}</Badge>)}
                   </div>
+                  {preview.id === v.id && preview.status === "error" && (
+                    <div
+                      className="text-xs text-red-600 mt-1.5 flex items-center gap-1"
+                      data-testid={`voice-preview-error-${v.id}`}
+                    >
+                      <AlertCircle className="w-3 h-3" /> Preview unavailable — tap play to retry
+                    </div>
+                  )}
                 </div>
-                {v.sample_audio_url && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={(e) => { e.stopPropagation(); new Audio(v.sample_audio_url!).play(); }}
-                  >
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={preview.id === v.id && preview.status === "loading"}
+                  onClick={(e) => { e.stopPropagation(); handlePlay(v); }}
+                  aria-label={
+                    preview.id === v.id && preview.status === "error"
+                      ? `Preview unavailable for ${v.display_name}, tap to retry`
+                      : `Preview ${v.display_name} voice`
+                  }
+                  data-testid={`voice-play-${v.id}`}
+                >
+                  {preview.id === v.id && preview.status === "loading" ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : preview.id === v.id && preview.status === "error" ? (
+                    <AlertCircle className="w-3 h-3 text-red-500" />
+                  ) : (
                     <Play className="w-3 h-3" />
-                  </Button>
-                )}
+                  )}
+                </Button>
               </div>
             </Card>
           );

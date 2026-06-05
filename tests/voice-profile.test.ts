@@ -20,12 +20,14 @@
 import {
   buildVapiVoiceBlock,
   buildVapiTranscriber,
+  buildVoiceBasePreset,
   elevenLabsRestVoiceSettings,
   pickTradeLineVoiceId,
   ELEVENLABS_RACHEL_VOICE_ID,
   ELEVENLABS_MODEL_ID,
   ELEVENLABS_VOICE_TUNING,
   VAPI_TRANSCRIBER_MODEL,
+  VOICE_BASE_PRESET,
 } from "../server/lib/voiceProfile";
 
 let failures = 0;
@@ -119,6 +121,57 @@ console.log("voice-profile: (d) preview ↔ production tuning parity");
   check("REST style === production style", rest.style === ELEVENLABS_VOICE_TUNING.style, rest.style);
   check("REST use_speaker_boost === production useSpeakerBoost", rest.use_speaker_boost === ELEVENLABS_VOICE_TUNING.useSpeakerBoost, rest.use_speaker_boost);
   check("shared model id is eleven_turbo_v2_5", ELEVENLABS_MODEL_ID === "eleven_turbo_v2_5", ELEVENLABS_MODEL_ID);
+}
+
+console.log("voice-profile: VOICE_BASE_PRESET turn-detection defaults");
+{
+  const p = buildVoiceBasePreset();
+  // startSpeakingPlan
+  check("waitSeconds 0.4", (p.startSpeakingPlan as any).waitSeconds === 0.4, p.startSpeakingPlan);
+  check("smartEndpointingPlan.provider vapi", (p.startSpeakingPlan as any).smartEndpointingPlan?.provider === "vapi");
+  check(
+    "onNoPunctuationSeconds lowered to 0.4 (NOT the 1.5 default 'killer')",
+    (p.startSpeakingPlan as any).transcriptionEndpointingPlan?.onNoPunctuationSeconds === 0.4,
+    (p.startSpeakingPlan as any).transcriptionEndpointingPlan,
+  );
+  check("onPunctuationSeconds 0.1", (p.startSpeakingPlan as any).transcriptionEndpointingPlan?.onPunctuationSeconds === 0.1);
+  check("onNumberSeconds 0.5", (p.startSpeakingPlan as any).transcriptionEndpointingPlan?.onNumberSeconds === 0.5);
+  // stopSpeakingPlan
+  check("numWords 2 (ignores stray uh-huh)", (p.stopSpeakingPlan as any).numWords === 2, p.stopSpeakingPlan);
+  check("voiceSeconds 0.2", (p.stopSpeakingPlan as any).voiceSeconds === 0.2);
+  check("backoffSeconds 1", (p.stopSpeakingPlan as any).backoffSeconds === 1);
+}
+
+console.log("voice-profile: backchanneling is gated (removed field never emitted)");
+{
+  const off = buildVoiceBasePreset({ backchanneling: false });
+  const on = buildVoiceBasePreset({ backchanneling: true });
+  // Vapi removed backchannelingEnabled — it must NEVER appear in the payload,
+  // even when toggled on, or every provision 400s.
+  check("no backchannelingEnabled when off", !("backchannelingEnabled" in off));
+  check("no backchannelingEnabled when ON (gated)", !("backchannelingEnabled" in on));
+  check("preset default backchanneling is off", VOICE_BASE_PRESET.backchanneling.enabled === false);
+  check(
+    "toggling backchanneling does not change the emitted payload (gated no-op)",
+    JSON.stringify(off) === JSON.stringify(on),
+  );
+  check(
+    "preset emits exactly startSpeakingPlan + stopSpeakingPlan (no stray keys)",
+    JSON.stringify(Object.keys(off).sort()) === JSON.stringify(["startSpeakingPlan", "stopSpeakingPlan"]),
+    Object.keys(off),
+  );
+}
+
+console.log("voice-profile: thin per-agent override merges (env VAD + provider), base untouched elsewhere");
+{
+  const base = buildVoiceBasePreset();
+  const ov = buildVoiceBasePreset({ voiceSeconds: 0.35, numWords: 3, smartEndpointingProvider: "livekit" });
+  check("override voiceSeconds applies", (ov.stopSpeakingPlan as any).voiceSeconds === 0.35, ov.stopSpeakingPlan);
+  check("override numWords applies", (ov.stopSpeakingPlan as any).numWords === 3);
+  check("override smartEndpointing provider applies", (ov.startSpeakingPlan as any).smartEndpointingPlan?.provider === "livekit");
+  check("override leaves backoffSeconds at base", (ov.stopSpeakingPlan as any).backoffSeconds === (base.stopSpeakingPlan as any).backoffSeconds);
+  check("override leaves transcriptionEndpointingPlan at base", JSON.stringify((ov.startSpeakingPlan as any).transcriptionEndpointingPlan) === JSON.stringify((base.startSpeakingPlan as any).transcriptionEndpointingPlan));
+  check("no override → equals base preset", JSON.stringify(buildVoiceBasePreset()) === JSON.stringify(base));
 }
 
 if (failures > 0) {

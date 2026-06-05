@@ -12,6 +12,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { V7PageShell } from "@/components/marketing/v7";
 import { MONO, SANS } from "@/components/effortel-blocks";
+import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import { SITE_URL } from "@/lib/seo/pageMeta";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Keyboard, Navigation } from "swiper/modules";
 import type { Swiper as SwiperClass } from "swiper";
@@ -609,7 +611,7 @@ function StudyCard({ study }: { study: Study }) {
         borderRadius: 18,
         padding: 4,                          // ← .19em frame
         display: "flex", flexDirection: "column",
-        cursor: "pointer",
+        cursor: "default",
         minHeight: 440,                      // ~20% taller
         transition: "background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
         transform: hover ? "translateY(-3px)" : "translateY(0)",
@@ -715,6 +717,11 @@ function StudyCard({ study }: { study: Study }) {
 
 export default function CaseStudiesPage() {
   // Title + meta tags handled by <PageMeta> below.
+
+  useBreadcrumbSchema([
+    { name: "Home", url: SITE_URL },
+    { name: "Case Studies", url: `${SITE_URL}/case-studies` },
+  ]);
 
   return (
     <MarketingLayout>

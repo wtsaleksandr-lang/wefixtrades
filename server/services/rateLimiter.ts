@@ -231,3 +231,30 @@ export const auditWriteRateLimiter = new RateLimiter(
   30,
   AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
 );
+
+/** Public checkout endpoints (Citation Builder, Full Audit Master).
+ *  5 sessions / IP / 10 min — generous for a real buyer, tight enough
+ *  to stop Stripe-session-creation spam. */
+export const publicCheckoutRateLimiter = new RateLimiter(
+  defaultStore,
+  5,
+  AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
+);
+
+/** Public coupon-validation endpoint (POST /api/calculators/:slug/coupons/validate).
+ *  Per-IP, 10 / min — generous for a customer trying codes, tight enough
+ *  to prevent brute-force enumeration of active coupon codes. */
+export const couponValidateRateLimiter = new RateLimiter(
+  defaultStore,
+  10,
+  60_000,
+);
+
+/** Quote snapshot edit/delete endpoints (PATCH/DELETE /api/q/:slug).
+ *  Per-IP, 30 / 10 min — generous for a real user editing a quote,
+ *  tight enough to bound spam from a compromised edit token. */
+export const snapshotMutateRateLimiter = new RateLimiter(
+  defaultStore,
+  30,
+  AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
+);

@@ -142,7 +142,7 @@ const config: FeaturePageConfig = {
   faqs: [
     { q: "What formula types are supported?", a: "We support 10 formula families: Fixed Price, Hourly Rate, Area-Based (m²), Per-Item/Room, Tiered Ranges, Base + Addon, Percentage Markup, Package Selector, Range Only, and Custom Combination formulas." },
     { q: "What is the AI test gate?", a: "Before publishing, you enter 3 real job scenarios (small, typical, large) and compare the calculator's output against what you would actually charge. AI reviews the accuracy and gives you a score. A score of 80%+ unlocks publishing." },
-    { q: "Can I have multiple calculators?", a: "Yes. The number of calculators depends on your plan — Free (1), Starter (1), Pro (3), Elite (unlimited). Each calculator can have a different formula, template, and branding." },
+    { q: "Can I have multiple calculators?", a: "Yes. The number of calculators depends on your plan — Free (1), Pro (3), Business (unlimited). Each calculator can have a different formula, template, and branding." },
     { q: "Can I update pricing after going live?", a: "Yes, anytime. Changes are reflected in all future estimates immediately. Old estimates retain their original price if you've set a validity period." },
     { q: "What trades are supported?", a: "All of them. The engine is trade-agnostic — it works for plumbing, roofing, cleaning, electrical, landscaping, painting, flooring, photography, pet services, and any other service business." },
   ],

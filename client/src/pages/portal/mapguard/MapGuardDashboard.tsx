@@ -324,9 +324,9 @@ export default function MapGuardDashboard() {
               <Shield className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-foreground">
                 MapGuard
-              </h1>
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Live Google Maps visibility + recommended actions
               </p>

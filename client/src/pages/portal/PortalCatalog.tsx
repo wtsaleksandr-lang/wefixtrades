@@ -133,9 +133,11 @@ export default function PortalCatalog() {
         credentials: "include",
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Couldn't start checkout");
-      return data as { checkout_url: string; session_id: string };
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || "Couldn't start checkout");
+      }
+      return (await res.json()) as { checkout_url: string; session_id: string };
     },
     onSuccess: ({ checkout_url }) => {
       if (checkout_url) window.location.href = checkout_url;

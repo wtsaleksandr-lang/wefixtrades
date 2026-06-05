@@ -42,7 +42,14 @@ function ConnectDialog({ open, onClose }: { open: boolean; onClose: () => void }
       if (bookingUrl) body.booking_url = bookingUrl;
       const r = await apiRequest("POST", "/api/admin/booking/connections", body);
       const d = await r.json();
-      if (d.oauth_url) { window.location.href = d.oauth_url; return; }
+      if (d.oauth_url) {
+        if (typeof d.oauth_url === "string" && d.oauth_url.startsWith("https://")) {
+          window.location.href = d.oauth_url;
+        } else {
+          toast({ title: "Invalid OAuth URL", description: "The redirect URL must use HTTPS.", variant: "destructive" });
+        }
+        return;
+      }
       qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: "Calendar connected" }); onClose(); setPlatform(""); setApiKey(""); setEventTypeId(""); setBookingUrl("");
     } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); } finally { setConnecting(false); }
   };
@@ -99,7 +106,7 @@ export default function BookingCalendarPage() {
   const { data: conns, isLoading: cl, isError: cErr, refetch: cRefetch } = useQuery<CalendarConnection[]>({ queryKey: ["/api/admin/booking/connections"], queryFn: async () => { const r = await apiRequest("GET", "/api/admin/booking/connections"); const d = await r.json(); return d.connections; } });
   const { data: bk, isLoading: bl, isError: bErr, refetch: bRefetch } = useQuery<{ data: BookingRow[]; total: number }>({ queryKey: ["/api/admin/booking/recent"] });
   const testM = useMutation({ mutationFn: async (id: number) => { const r = await apiRequest("POST", `/api/admin/booking/connections/${id}/test`); return r.json(); }, onSuccess: (d: any) => { toast({ title: "Works", description: `${d.slots?.length || 0} slots` }); }, onError: () => { toast({ title: "Test failed", variant: "destructive" }); } });
-  const delM = useMutation({ mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/admin/booking/connections/${id}`); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: "Disconnected" }); } });
+  const delM = useMutation({ mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/admin/booking/connections/${id}`); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: "Disconnected" }); }, onError: () => { toast({ title: "Disconnect failed", variant: "destructive" }); } });
   const acceptingM = useMutation({ mutationFn: async ({ id, metadata, accepting }: { id: number; metadata: Record<string, any> | null | undefined; accepting: boolean }) => { await apiRequest("PATCH", `/api/admin/booking/connections/${id}`, { metadata: { ...(metadata || {}), accepting_bookings: accepting } }); }, onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: v.accepting ? "Accepting bookings" : "Bookings paused" }); }, onError: () => { toast({ title: "Update failed", variant: "destructive" }); } });
 
   return (

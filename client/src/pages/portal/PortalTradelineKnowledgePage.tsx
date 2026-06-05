@@ -326,13 +326,14 @@ export default function PortalTradelineKnowledgePage() {
               <div className="space-y-3">
                 <label className="block text-sm">
                   <span className="text-gray-700 font-medium">Title</span>
-                  <Input className="mt-1" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
+                  <Input className="mt-1" maxLength={255} value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
                 </label>
                 <label className="block text-sm">
                   <span className="text-gray-700 font-medium">Content (markdown)</span>
                   <Textarea
                     className="mt-1"
                     rows={8}
+                    maxLength={5000}
                     value={editing.content}
                     onChange={(e) => setEditing({ ...editing, content: e.target.value })}
                     placeholder="Write what you want the AI to know — pricing, service area, hours, special offers, etc."

@@ -62,7 +62,7 @@ export default function DocsBooking() {
         "Reschedule or cancel within limits you set",
       ]} />
       <InfoBox type="tip">
-        Booking is available on <strong>Pro and Elite plans</strong>. It works with the estimate flow — customers can't book without seeing a quote first (unless you set your calculator to Booking Only mode).
+        Booking is available on <strong>Pro and Business plans</strong>. It works with the estimate flow — customers can't book without seeing a quote first (unless you set your calculator to Booking Only mode).
       </InfoBox>
 
       <DocH2>Enabling Booking</DocH2>

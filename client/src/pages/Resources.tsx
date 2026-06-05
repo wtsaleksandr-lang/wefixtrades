@@ -24,7 +24,7 @@ const RESOURCE_CATEGORIES: ResourceCategory[] = [
     icon: FileText,
     href: "/docs",
     cta: "Browse Docs",
-    stat: "120+ articles",
+    stat: "Guides & articles",
   },
   {
     title: "Video Tutorials",
@@ -32,7 +32,7 @@ const RESOURCE_CATEGORIES: ResourceCategory[] = [
     icon: Video,
     href: "/docs",
     cta: "Watch Now",
-    stat: "40+ walkthroughs",
+    stat: "Step-by-step guides",
   },
   {
     title: "Knowledge Base",
@@ -48,7 +48,7 @@ const RESOURCE_CATEGORIES: ResourceCategory[] = [
     icon: Headphones,
     href: "/contact",
     cta: "Register",
-    stat: "Monthly sessions",
+    stat: "Coming soon",
   },
 ];
 

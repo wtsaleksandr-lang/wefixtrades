@@ -3,6 +3,7 @@ import { useRoute } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Star, MessageSquare, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
+import { PageMeta } from "@/components/seo/PageMeta";
 
 interface ReviewData {
   businessName: string;
@@ -312,6 +313,7 @@ export default function ReviewFunnel() {
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f5f5f5", padding: 20 }}>
+      <PageMeta noIndex title="Leave a Review" description="Share your experience with this business." />
       <Card style={{ maxWidth: 480, width: "100%", padding: 32, textAlign: "center" }}>
         {children}
       </Card>

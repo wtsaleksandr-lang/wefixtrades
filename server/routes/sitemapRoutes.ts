@@ -24,6 +24,7 @@
  */
 import type { Express } from "express";
 import { PRODUCT_PAGES } from "../../client/src/config/products";
+import { TEMPLATE_PRESETS } from "../../shared/templatePresets";
 
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL?.replace(/\/$/, "") || "https://wefixtrades.com";
 
@@ -149,6 +150,7 @@ const STATIC_ROUTES: StaticRoute[] = [
   // Citation Builder — paid one-time service ($79/$179/$299). Marketing
   // page only for now; Stripe checkout + submission backend ship in Wave 2.5.
   { loc: "/citation-builder", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  { loc: "/citation-tracker", priority: "0.8", changefreq: "monthly", lastmod: "2026-06-04" },
   // ContentFlow Phase 1 — public AI-prompt-library landings, one per seed trade.
   { loc: "/tools/plumbing-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
   { loc: "/tools/hvac-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },

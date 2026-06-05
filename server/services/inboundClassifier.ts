@@ -60,7 +60,23 @@ const SPAM_HEURISTICS = [
   /\bclick\s+(here|now)\b/i,
 ];
 
+/** Life-safety keywords — must be checked BEFORE the AI model call so an API
+ *  timeout can never cause an emergency to be routed as a normal sales lead. */
+const EMERGENCY_PATTERNS = [
+  /\b(gas\s*leak|smell(ing|s)?\s*gas|carbon\s*monoxide|co\s*alarm)\b/i,
+  /\b(house\s*(is\s*)?on\s*fire|flames?|active\s*fire|smoke\s*(everywhere|coming))\b/i,
+  /\b(electric(al)?\s*(shock|fire|danger)|downed?\s*(power\s*)?line|live\s*wire)\b/i,
+  /\b(structural\s*collapse|flood(ing)?\s*(near|around)\s*electric)\b/i,
+  /\b(call\s*911|need\s*(an?\s*)?ambulance|someone('s)?\s*(hurt|injured|unconscious))\b/i,
+];
+
 function heuristicCheck(text: string): ClassifyResult | null {
+  // Emergency detection — highest priority, before spam checks.
+  for (const re of EMERGENCY_PATTERNS) {
+    if (re.test(text)) {
+      return { category: "needs_human", confidence: 1.0, reason: `emergency keyword detected: ${re}` };
+    }
+  }
   for (const re of SPAM_HEURISTICS) {
     if (re.test(text)) {
       return { category: "spam", confidence: 0.95, reason: `matched spam pattern ${re}` };
@@ -133,13 +149,15 @@ export async function escalateToHuman(input: {
   channel: "voice" | "sms" | "chat";
   fromIdentity: string;        // phone number or email
   message: string;
-  reason: "needs_human" | "availability_off";
+  reason: "needs_human" | "availability_off" | "emergency";
   category?: string;
   metadata?: Record<string, any>;
 }): Promise<{ ticketId: number | null }> {
   try {
     const subject =
-      input.reason === "availability_off"
+      input.reason === "emergency"
+        ? `[EMERGENCY] Inbound ${input.channel} — life-safety keywords detected`
+        : input.reason === "availability_off"
         ? `[Auto] Inbound ${input.channel} — team unavailable`
         : `[Auto] Inbound ${input.channel} needs human review`;
 
@@ -162,8 +180,8 @@ export async function escalateToHuman(input: {
       client_id: internalClientId,
       subject,
       description: body,
-      category: input.reason === "availability_off" ? "general" : "service",
-      priority: "high",
+      category: input.reason === "emergency" ? "urgent" : input.reason === "availability_off" ? "general" : "service",
+      priority: input.reason === "emergency" ? "urgent" : "high",
       status: "open",
       source: "ai_escalation",
     } as any);
@@ -185,14 +203,23 @@ export async function escalateToHuman(input: {
  * to be closed by the agent, instead of dead-ending into a ticket nobody
  * actions. Availability-off always tickets (take a message); spam/out_of_scope
  * are unaffected. Default false preserves the original SMS/chat behaviour.
+ *
+ * Life-safety override: when confidence === 1.0 (emergency keyword heuristic),
+ * the action is always "emergency" — a hardcoded 911 message that bypasses the
+ * LLM entirely. This takes priority over keepComplexInline AND availability.
  */
 export function resolveInboundAction(opts: {
   category: InboundCategory;
   isAvailable: boolean;
   keepComplexInline?: boolean;
-}): "reply" | "drop" | "polite_decline" | "ticket" {
+  confidence?: number;
+}): "reply" | "drop" | "polite_decline" | "ticket" | "emergency" {
   if (opts.category === "spam") return "drop";
   if (opts.category === "out_of_scope") return "polite_decline";
+  // Life-safety: emergency keyword heuristic (confidence 1.0) always escalates,
+  // regardless of keepComplexInline or availability — the caller needs 911, not
+  // a sales pitch or a "we'll call you back".
+  if (opts.category === "needs_human" && opts.confidence === 1.0) return "emergency";
   if (!opts.isAvailable) return "ticket"; // brand toggled off → take a message
   if (opts.category === "needs_human") {
     return opts.keepComplexInline ? "reply" : "ticket";
@@ -214,7 +241,7 @@ export async function decideInboundAction(input: {
   message: string;
   keepComplexInline?: boolean;
 }): Promise<{
-  action: "reply" | "drop" | "polite_decline" | "ticket";
+  action: "reply" | "drop" | "polite_decline" | "ticket" | "emergency";
   category: InboundCategory;
   confidence: number;
   awayMessage?: string;
@@ -231,11 +258,12 @@ export async function decideInboundAction(input: {
   // 2. Classification (always run — even when unavailable, we want to skip spam)
   const cls = await classifyInbound(input.message, { from: input.fromIdentity });
 
-  // 3. Decide (pure) → act (I/O only on the ticket path)
+  // 3. Decide (pure) → act (I/O only on the ticket/emergency path)
   const action = resolveInboundAction({
     category: cls.category,
     isAvailable: availability.is_available,
     keepComplexInline: input.keepComplexInline,
+    confidence: cls.confidence,
   });
 
   if (action === "drop") {
@@ -243,6 +271,19 @@ export async function decideInboundAction(input: {
   }
   if (action === "polite_decline") {
     return { action, category: cls.category, confidence: cls.confidence };
+  }
+  if (action === "emergency") {
+    // Life-safety: create an urgent ticket for follow-up, but the caller gets
+    // a hardcoded 911 message (handled by the voice/SMS handler, not here).
+    const t = await escalateToHuman({
+      channel: input.channel,
+      fromIdentity: input.fromIdentity,
+      message: input.message,
+      reason: "emergency",
+      category: cls.category,
+    });
+    log.warn("[classifier] EMERGENCY detected", { channel: input.channel, from: input.fromIdentity, ticketId: t.ticketId });
+    return { action: "emergency", category: cls.category, confidence: cls.confidence, ticketId: t.ticketId };
   }
   if (action === "ticket") {
     const t = await escalateToHuman({

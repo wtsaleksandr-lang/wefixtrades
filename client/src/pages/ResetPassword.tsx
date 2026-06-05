@@ -165,8 +165,10 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Reset failed");
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || "Reset failed");
+      }
       setDone(true);
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");

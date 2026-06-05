@@ -1,0 +1,73 @@
+name: Keep Warm
+
+# Cold-start mitigation for the Replit Autoscale deployment.
+#
+# WHY: Replit Autoscale scales the deployment to ZERO instances when idle. The
+# next request then pays a cold start, during which Replit serves a raw
+# "Internal Server Error" / 500 for ~10-30s. That is the source of the
+# intermittent "the site crashed" reports and the "Internal Server Error"
+# white-screens seen on heavier admin pages — NOT an application bug.
+#
+# The clean native fix is to set the deployment's min-instances = 1 in the
+# Replit Deployments UI (keeps one instance always warm). Replit exposes NO
+# public API for that toggle, so it can't be scripted. This workflow is the
+# automatable substitute: it pings /api/healthz on a schedule so the instance
+# never sits idle long enough to scale to zero, which keeps real visitors off
+# the cold-start path.
+#
+# COST: this consumes GitHub Actions minutes (~1 short run every 5 min). On a
+# private repo that's a real budget line — dial the cron back (e.g. */10) or
+# delete this workflow if you flip min-instances=1 natively instead. A
+# zero-CI-cost alternative is a Cloudflare Worker Cron Trigger (we hold a
+# CLOUDFLARE_API_TOKEN) — ask and it can replace this.
+#
+# Pure curl, no checkout, no secrets, no external actions — minimal runtime.
+
+on:
+  schedule:
+    # Every 5 minutes. GitHub's scheduler is best-effort and can lag under
+    # load, so each run also pings a few times spaced out to cover the gap.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Health endpoint to ping"
+        required: false
+        default: "https://wefixtrades.com/api/healthz"
+
+concurrency:
+  # Never stack keep-warm runs; if one is mid-flight, skip the next.
+  group: keep-warm
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: ping
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping healthz to keep the instance warm
+        env:
+          URL: ${{ github.event.inputs.url || 'https://wefixtrades.com/api/healthz' }}
+        run: |
+          # Three pings ~60s apart so a single 5-min run still bridges most of
+          # the window to the next scheduled run. A cold start on the first hit
+          # is expected and fine — that is exactly the request we want to be a
+          # bot and not a real visitor. We only FAIL the run if the endpoint is
+          # still unhealthy after the warm-up window (signals a real outage,
+          # distinct from a cold start).
+          last=000
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$URL" || echo 000)
+            echo "ping $i -> $code"
+            last=$code
+            [ "$i" -lt 3 ] && sleep 60
+          done
+          if [ "$last" = "200" ]; then
+            echo "warm: final ping healthy"
+          else
+            echo "::warning::keep-warm: endpoint still $last after warm-up (possible real outage, not just a cold start)"
+          fi

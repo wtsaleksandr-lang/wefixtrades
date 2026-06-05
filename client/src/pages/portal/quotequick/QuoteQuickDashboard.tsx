@@ -345,9 +345,9 @@ export default function QuoteQuickDashboard() {
         {/* Header */}
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="flex flex-col">
-            <h1 className="text-xl font-semibold text-foreground md:text-2xl">
+            <h2 className="text-xl font-semibold text-foreground md:text-2xl">
               QuoteQuick dashboard
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground">
               Live conversion funnel + 1-click actions for every embedded widget.
             </p>

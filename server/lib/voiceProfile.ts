@@ -117,6 +117,117 @@ export const VAPI_MAX_DURATION_SECONDS = 900;
 export const VAPI_RECORDING_ENABLED = true;
 export const VAPI_END_CALL_PHRASES = ["goodbye", "bye", "thanks bye"];
 
+/* ─── Turn-detection / realism preset (shared across all assistants) ─── */
+
+/**
+ * VOICE_BASE_PRESET — the single shared turn-detection / realism layer that
+ * every assistant (brand "Riley" + per-client TradeLine) inherits, so latency
+ * and barge-in behave uniformly. Field names + nesting verified against Vapi's
+ * voice-pipeline schema on 2026-06-03 (startSpeakingPlan / stopSpeakingPlan are
+ * flat objects on the assistant; camelCase).
+ *
+ * SCOPE: turn-end detection, barge-in, VAD only. Voice identity, transcriber,
+ * and ElevenLabs render tuning live in the other helpers above.
+ */
+export const VOICE_BASE_PRESET = {
+  startSpeakingPlan: {
+    /** Delay after the caller stops before the assistant begins (Vapi default 0.4). */
+    waitSeconds: 0.4,
+    /**
+     * Model-based, content-aware turn-end detection — the PRIMARY signal.
+     * `vapi` is the native, language-agnostic provider (safe for the en/es/fr
+     * TradeLine languages; `livekit` is faster but English-only, so it's left
+     * as a per-agent override rather than the shared default).
+     */
+    smartEndpointingPlan: { provider: "vapi" as const },
+    /**
+     * Heuristic fallback used only when smart endpointing is inconclusive.
+     * Vapi's `onNoPunctuationSeconds` default of 1.5s was the latency "killer"
+     * the voice-infra report flagged — brought down to 0.4s here, secondary to
+     * the smart plan above. Targets p50 < 500ms / p95 < 800ms end-to-end.
+     */
+    transcriptionEndpointingPlan: {
+      onPunctuationSeconds: 0.1,
+      onNoPunctuationSeconds: 0.4,
+      onNumberSeconds: 0.5,
+    },
+  },
+  stopSpeakingPlan: {
+    /**
+     * Require ~2 words before treating caller speech as a real interruption,
+     * so a stray "uh-huh" / background noise doesn't cut the assistant off —
+     * but a genuine sentence does. (Vapi default is 0 = VAD-only.)
+     */
+    numWords: 2,
+    /** VAD: seconds of detected speech before interrupting (Vapi default 0.2). */
+    voiceSeconds: 0.2,
+    /** After a genuine interruption, stay silent this long before resuming. */
+    backoffSeconds: 1,
+  },
+  /**
+   * Backchanneling (natural "mm-hm" acknowledgements). MOST taste-dependent
+   * setting, default OFF. NOTE: Vapi REMOVED the flat `backchannelingEnabled`
+   * field — emitting it now 400s the assistant create/update. The toggle is
+   * kept here and honored by buildBackchannelingFields(), which currently emits
+   * NOTHING (see that function) until the replacement mechanism is verified.
+   */
+  backchanneling: { enabled: false },
+} as const;
+
+/** Thin per-agent override — environment-specific VAD + the backchanneling toggle only. */
+export interface VoicePresetOverride {
+  /** Override VAD sensitivity (e.g. noisy job-site lines). */
+  voiceSeconds?: number;
+  /** Override interruption word threshold. */
+  numWords?: number;
+  /** Override smart-endpointing provider (e.g. "livekit" for English-only lines). */
+  smartEndpointingProvider?: "vapi" | "livekit";
+  /** Toggle backchanneling (see emission note on VOICE_BASE_PRESET). */
+  backchanneling?: boolean;
+}
+
+/**
+ * Backchanneling payload fields. Vapi removed the flat `backchannelingEnabled`
+ * field (POST/PATCH returns 400 "property backchannelingEnabled should not
+ * exist"), and the documented replacement (acknowledgement phrases on
+ * stopSpeakingPlan) was NOT verifiable against the live schema as of
+ * 2026-06-03. So even when the toggle is ON we emit NOTHING here rather than
+ * 400 every provision. Wired so enabling becomes a one-line change once the
+ * replacement is confirmed. See PR notes + CARRYOVER.md.
+ */
+function buildBackchannelingFields(enabled: boolean): Record<string, never> {
+  void enabled;
+  return {};
+}
+
+/**
+ * Build the shared turn-detection / realism fields to spread onto an assistant
+ * object. All three builders (brand + TradeLine dynamic + TradeLine provision)
+ * call this so the layer is defined once. `override` is thin — environment VAD
+ * and the backchanneling toggle — not a place to re-specify the whole preset.
+ */
+export function buildVoiceBasePreset(override?: VoicePresetOverride): {
+  startSpeakingPlan: Record<string, unknown>;
+  stopSpeakingPlan: Record<string, unknown>;
+} {
+  const startSpeakingPlan = {
+    ...VOICE_BASE_PRESET.startSpeakingPlan,
+    ...(override?.smartEndpointingProvider
+      ? { smartEndpointingPlan: { provider: override.smartEndpointingProvider } }
+      : {}),
+  };
+  const stopSpeakingPlan = {
+    ...VOICE_BASE_PRESET.stopSpeakingPlan,
+    ...(override?.voiceSeconds !== undefined ? { voiceSeconds: override.voiceSeconds } : {}),
+    ...(override?.numWords !== undefined ? { numWords: override.numWords } : {}),
+  };
+  return {
+    startSpeakingPlan,
+    stopSpeakingPlan,
+    ...buildBackchannelingFields(override?.backchanneling ?? VOICE_BASE_PRESET.backchanneling.enabled),
+  };
+}
+
 /**
  * Pure voice-precedence picker (no I/O — unit-testable).
  *

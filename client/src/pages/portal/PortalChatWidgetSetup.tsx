@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import PortalLayout from "@/components/portal/PortalLayout";
 import BackButton from "@/components/ui/back-button";
@@ -56,6 +57,7 @@ function buildSnippet(host: string, siteKey: string): string {
 export default function PortalChatWidgetSetup() {
   usePageTitle("Chat widget setup");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const state = useQuery<SiteResponse>({
     queryKey: ["/api/portal/widget/site"],
     queryFn: () => fetch("/api/portal/widget/site", { credentials: "include" }).then((r) => r.json()),
@@ -166,7 +168,9 @@ export default function PortalChatWidgetSetup() {
       await navigator.clipboard.writeText(snippet);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {}
+    } catch {
+      toast({ title: "Copy failed", description: "Clipboard not available.", variant: "destructive" });
+    }
   }
 
   return (
@@ -241,6 +245,8 @@ export default function PortalChatWidgetSetup() {
               <div className="flex gap-2">
                 <Input
                   id="accent"
+                  maxLength={7}
+                  pattern="^#[0-9A-Fa-f]{6}$"
                   value={(draft.accent_color as string) || ""}
                   onChange={(e) => setDraft({ ...draft, accent_color: e.target.value })}
                   placeholder="#0d3cfc"
@@ -249,7 +255,7 @@ export default function PortalChatWidgetSetup() {
                   type="color"
                   value={(draft.accent_color as string) || DEFAULT_ACCENT}
                   onChange={(e) => setDraft({ ...draft, accent_color: e.target.value })}
-                  className="h-9 w-9 rounded-md border border-gray-200 p-0 cursor-pointer"
+                  className="h-8 w-8 rounded-md border border-gray-200 p-0 cursor-pointer"
                 />
               </div>
             </div>

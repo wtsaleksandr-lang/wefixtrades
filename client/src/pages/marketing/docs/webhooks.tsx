@@ -19,7 +19,7 @@ export default function DocsWebhooks() {
     >
 
       <InfoBox type="info">
-        Webhooks are available on <strong>Elite plans</strong>. For Starter and Pro, use the CSV export or check the Dashboard for lead data.
+        Webhooks are available on <strong>Business plans</strong>. For Free and Pro, use the CSV export or check the Dashboard for lead data.
       </InfoBox>
 
       <DocH2>What Are Webhooks?</DocH2>

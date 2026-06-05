@@ -11,6 +11,7 @@ import { emitApiWebhookEvent } from "../services/apiWebhookDispatcher";
 import {
   leadsSubmissionRateLimiter,
   leadsIpRateLimiter,
+  couponValidateRateLimiter,
   LEADS_RATE_LIMIT_WINDOW_MS,
 } from "../services/rateLimiter";
 import { sendQuoteReadySms } from "../services/quotequickHomeownerSmsService";
@@ -544,6 +545,12 @@ export function registerLeadRoutes(app: Express): void {
 
   app.post("/api/calculators/:slug/coupons/validate", async (req, res) => {
     try {
+      const ip = req.ip ?? "unknown";
+      const allowed = await couponValidateRateLimiter.check(ip);
+      if (!allowed) {
+        return res.status(429).json({ valid: false, error: "rate_limited" });
+      }
+
       const { slug } = req.params;
       const body = z.object({ code: z.string().min(1) }).safeParse(req.body);
       if (!body.success) {

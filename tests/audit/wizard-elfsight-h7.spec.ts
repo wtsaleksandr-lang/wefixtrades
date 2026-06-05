@@ -176,11 +176,11 @@ test.describe('wizard H7 — Template gallery', () => {
     await expect(card).toBeVisible({ timeout: 2000 });
     await card.click();
 
-    // The car_towing preset has a select field whose label asks
-    // "What are we towing?" (Wave AH-3 content rewrite). The live preview
-    // renders the field's `label`, so assert the label text appears.
+    // The car_towing preset has a select field whose label is "Vehicle type"
+    // (renamed from "What are we towing?" in the Elfsight-clean template
+    // refinement). The live preview renders the field's `label`.
     const preview = page.getByTestId('editor-preview-pane');
-    await expect(preview).toContainText('What are we towing?', { timeout: 2500 });
+    await expect(preview).toContainText('Vehicle type', { timeout: 2500 });
 
     // And the persisted shell state carries the activeTemplateId.
     const stored = await page.evaluate(() => localStorage.getItem('qq_elfsight_shell'));

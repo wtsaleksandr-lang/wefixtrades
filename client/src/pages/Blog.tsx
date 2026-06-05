@@ -4,11 +4,13 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 import {
-  ArrowRight, ArrowLeft, Search,
+  ArrowRight, ArrowLeft,
   TrendingDown, Gauge, Star, Zap, MapPin, Calendar,
 } from "lucide-react";
 import { V7PageShell } from "@/components/marketing/v7";
 import { MONO, SANS } from "@/components/effortel-blocks";
+import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import { SITE_URL } from "@/lib/seo/pageMeta";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Keyboard, Navigation } from "swiper/modules";
 import type { Swiper as SwiperClass } from "swiper";
@@ -566,20 +568,7 @@ function FilterBar({ categories, active, onToggle, onClear }: {
         );
       })}
 
-      <button
-        aria-label="Search"
-        style={{
-          marginLeft: "auto",
-          width: 36, height: 36, borderRadius: 999,
-          border: `1px solid ${LIGHT.pillBorder}`,
-          background: LIGHT.searchBg,
-          color: LIGHT.ink,
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer",
-        }}
-      >
-        <Search size={16} />
-      </button>
+      {/* Search removed — no handler; misleading cursor:pointer */}
     </div>
   );
 }
@@ -611,6 +600,11 @@ export default function BlogPage() {
   };
 
   const activePost = openArticle !== null ? BLOG_POSTS[openArticle] : null;
+
+  useBreadcrumbSchema([
+    { name: "Home", url: SITE_URL },
+    { name: "Blog", url: `${SITE_URL}/blog` },
+  ]);
 
   return (
     <MarketingLayout>

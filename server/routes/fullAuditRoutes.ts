@@ -24,6 +24,7 @@ import { db } from "../db";
 import { fullAuditMasterOrders } from "@shared/schema";
 import { FULL_AUDIT_MASTER } from "@shared/pricing";
 import { createLogger } from "../lib/logger";
+import { publicCheckoutRateLimiter } from "../services/rateLimiter";
 import {
   renderReportPage,
   renderPendingPage,
@@ -40,8 +41,29 @@ function getStripe(): Stripe | null {
   return new Stripe(key, { apiVersion: "2025-01-27.acacia" as any });
 }
 
+/** Reject URLs pointing at internal/private IPs (SSRF prevention). */
+function isPublicUrl(raw: string): boolean {
+  try {
+    const { hostname, protocol } = new URL(raw);
+    if (protocol !== "http:" && protocol !== "https:") return false;
+    const h = hostname.toLowerCase();
+    if (
+      h === "localhost" ||
+      h === "[::1]" ||
+      h.startsWith("127.") ||
+      h.startsWith("10.") ||
+      h.startsWith("192.168.") ||
+      h === "169.254.169.254" ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+      h.endsWith(".internal") ||
+      h.endsWith(".local")
+    ) return false;
+    return true;
+  } catch { return false; }
+}
+
 const checkoutSchema = z.object({
-  business_url: z.string().url().max(2048),
+  business_url: z.string().url().max(2048).refine(isPublicUrl, "URL must be a public website"),
   email: z.string().email().max(320),
 });
 
@@ -55,6 +77,11 @@ export function registerFullAuditRoutes(app: Express): void {
 
   /* ─── POST /api/full-audit/checkout ────────────────────────────── */
   app.post("/api/full-audit/checkout", async (req: Request, res: Response) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!(await publicCheckoutRateLimiter.check(`fam-checkout:${ip}`))) {
+      return res.status(429).json({ error: "Too many checkout attempts. Try again in a few minutes." });
+    }
+
     const parsed = checkoutSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
 
@@ -204,7 +231,12 @@ export function registerFullAuditRoutes(app: Express): void {
   app.post("/api/full-audit/run", async (req: Request, res: Response) => {
     const adminKey = process.env.ADMIN_API_KEY;
     const provided = req.header("x-admin-api-key") || "";
-    if (!adminKey || provided !== adminKey) {
+    if (
+      !adminKey ||
+      !provided ||
+      adminKey.length !== provided.length ||
+      !crypto.timingSafeEqual(Buffer.from(adminKey), Buffer.from(provided))
+    ) {
       return res.status(401).json({ error: "unauthorized" });
     }
     const parsed = runSchema.safeParse(req.body);
@@ -240,7 +272,7 @@ export function registerFullAuditRoutes(app: Express): void {
       res.json({ ok: true, report });
     } catch (err: any) {
       log.error("manual run failed", { error: err?.message });
-      res.status(500).json({ error: "Run failed", message: err?.message });
+      res.status(500).json({ error: "Run failed" });
     }
   });
 

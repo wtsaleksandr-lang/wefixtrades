@@ -501,7 +501,7 @@ export default function WizardShell({ embed = false }: Props) {
       setIsResizing(false);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchmove', onMove, { capture: false } as EventListenerOptions);
       window.removeEventListener('touchend', onUp);
     };
     window.addEventListener('mousemove', onMove);

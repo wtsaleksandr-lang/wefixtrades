@@ -65,6 +65,8 @@ export interface CategoryStyle {
   ctaTo: string;
   /** CTA text colour. */
   ctaText: string;
+  /** CTA accent guaranteed ≥4.5:1 on white — used for small-text buttons. */
+  ctaOnWhite: string;
   /** Hero composition style. */
   hero: HeroTreatment;
   /** CTA button shape. */
@@ -98,6 +100,7 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     ctaFrom: '#f97316',          // orange-500
     ctaTo: '#ea580c',            // orange-600
     ctaText: '#ffffff',
+    ctaOnWhite: '#c2410c',
     hero: 'dark-mode',
     ctaShape: 'pill',
     isDark: true,
@@ -118,6 +121,7 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     ctaFrom: '#f59e0b',          // amber-500
     ctaTo: '#d97706',            // amber-600
     ctaText: '#1e293b',
+    ctaOnWhite: '#92400e',
     hero: 'diagonal-stripe',
     ctaShape: 'rounded-sq',
     isDark: true,
@@ -138,6 +142,7 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     ctaFrom: '#10b981',          // emerald-500
     ctaTo: '#059669',            // emerald-600
     ctaText: '#ffffff',
+    ctaOnWhite: '#047857',
     hero: 'sparkle',
     ctaShape: 'pill',
     isDark: false,
@@ -158,6 +163,7 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     ctaFrom: '#2563eb',          // blue-600
     ctaTo: '#1d4ed8',            // blue-700
     ctaText: '#ffffff',
+    ctaOnWhite: '#1d4ed8',
     hero: 'grid-pattern',
     ctaShape: 'pill',
     isDark: false,
@@ -178,6 +184,7 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     ctaFrom: '#dc2626',          // red-600
     ctaTo: '#991b1b',            // red-800
     ctaText: '#ffffff',
+    ctaOnWhite: '#b91c1c',
     hero: 'chevrons',
     ctaShape: 'pill',
     isDark: true,
@@ -198,6 +205,7 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     ctaFrom: '#16a34a',          // green-600
     ctaTo: '#15803d',            // green-700
     ctaText: '#ffffff',
+    ctaOnWhite: '#166534',
     hero: 'leaf',
     ctaShape: 'pill',
     isDark: true,
@@ -218,6 +226,7 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     ctaFrom: '#7c3aed',          // violet-600
     ctaTo: '#6d28d9',            // violet-700
     ctaText: '#ffffff',
+    ctaOnWhite: '#6d28d9',
     hero: 'geometric',
     ctaShape: 'squared',
     isDark: false,
@@ -238,6 +247,7 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     ctaFrom: '#475569',
     ctaTo: '#334155',
     ctaText: '#ffffff',
+    ctaOnWhite: '#334155',
     hero: 'geometric',
     ctaShape: 'pill',
     isDark: false,

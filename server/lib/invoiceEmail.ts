@@ -32,6 +32,15 @@ interface InvoiceEmailParams {
   pdfAttachment?: { filename: string; buffer: Buffer };
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -50,7 +59,7 @@ function buildLineItemRows(items: InvoiceEmailParams["lineItems"]): string {
       (li) => `
       <tr>
         <td style="padding:8px 0;font-size:14px;color:#CDD1D6;border-bottom:1px solid rgba(255,255,255,0.06);">
-          ${li.description}
+          ${escapeHtml(li.description)}
         </td>
         <td style="padding:8px 0;font-size:14px;color:#CDD1D6;text-align:center;border-bottom:1px solid rgba(255,255,255,0.06);">
           ${li.quantity}
@@ -113,7 +122,7 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
     </div>
 
     ${dueDateStr ? `<p style="font-size:13px;color:#8B919A;margin:0 0 8px;">Due by <strong style="color:#CDD1D6;">${dueDateStr}</strong></p>` : ""}
-    ${params.notes ? `<p style="font-size:13px;color:#8B919A;line-height:1.5;margin:0 0 8px;">${params.notes}</p>` : ""}
+    ${params.notes ? `<p style="font-size:13px;color:#8B919A;line-height:1.5;margin:0 0 8px;">${escapeHtml(params.notes)}</p>` : ""}
   `;
 
   const morePayOptionsHtml = `
@@ -124,13 +133,13 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
 
   const introLine =
     params.introOverride && params.introOverride.trim().length > 0
-      ? params.introOverride
-      : `Hi ${params.customerName}, here's your invoice from ${params.businessName}.`;
+      ? escapeHtml(params.introOverride)
+      : `Hi ${escapeHtml(params.customerName)}, here&#39;s your invoice from ${escapeHtml(params.businessName)}.`;
 
   const html = buildTransactionalEmail({
     recipientEmail: params.recipientEmail,
-    subjectForTitle: `Invoice ${params.invoiceNumber}`,
-    headline: `Invoice ${params.invoiceNumber}`,
+    subjectForTitle: `Invoice ${escapeHtml(params.invoiceNumber)}`,
+    headline: `Invoice ${escapeHtml(params.invoiceNumber)}`,
     intro: introLine,
     bodyHtml,
     cta: {
@@ -140,7 +149,7 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
     },
     afterCtaHtml: morePayOptionsHtml,
     pasteLinkFallback: { url: params.payUrl },
-    supportNote: `Questions about this invoice? Reply to this email or contact ${params.businessName} directly.`,
+    supportNote: `Questions about this invoice? Reply to this email or contact ${escapeHtml(params.businessName)} directly.`,
   });
 
   const bodyLines = [
@@ -163,6 +172,7 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
     params.subjectOverride && params.subjectOverride.trim().length > 0
       ? params.subjectOverride
       : `Invoice ${params.invoiceNumber} from ${params.businessName}`;
+  // Subject is plain text (not HTML) — no escaping needed there.
 
   const attachments = params.pdfAttachment
     ? [{

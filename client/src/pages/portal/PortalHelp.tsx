@@ -54,16 +54,18 @@ function FaqSection() {
           const Icon = faq.icon;
           return (
             <button
+              type="button"
               key={i}
               onClick={() => setOpenIndex(open ? null : i)}
+              aria-expanded={open}
               className="w-full text-left px-5 py-3.5 hover:bg-gray-50/50 transition-colors"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <Icon className="w-4 h-4 text-gray-400 shrink-0" />
+                  <Icon aria-hidden="true" className="w-4 h-4 text-gray-400 shrink-0" />
                   <span className="text-sm font-medium text-gray-800">{faq.question}</span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+                <ChevronDown aria-hidden="true" className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
               </div>
               {open && (
                 <p className="text-sm text-gray-600 mt-2 ml-7 leading-relaxed">{faq.answer}</p>
@@ -99,7 +101,7 @@ function TicketSection() {
     queryKey: ["/api/portal/tickets"],
     queryFn: async () => {
       const res = await fetch("/api/portal/tickets", { credentials: "include" });
-      if (!res.ok) return { tickets: [] };
+      if (!res.ok) throw new Error("Failed to load tickets");
       return res.json();
     },
   });
@@ -159,10 +161,11 @@ function TicketSection() {
             </div>
           )}
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">
+            <label htmlFor="ticket-subject" className="text-xs font-medium text-gray-600 mb-1 block">
               Subject <span className="text-red-400">*</span>
             </label>
             <input
+              id="ticket-subject"
               value={subject}
               onChange={(e) => {
                 setSubject(e.target.value);
@@ -175,8 +178,9 @@ function TicketSection() {
             <p className="text-xs text-gray-500 mt-1">{subject.length}/80</p>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Category</label>
+            <label htmlFor="ticket-category" className="text-xs font-medium text-gray-600 mb-1 block">Category</label>
             <select
+              id="ticket-category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue bg-white"
@@ -187,10 +191,11 @@ function TicketSection() {
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">
+            <label htmlFor="ticket-message" className="text-xs font-medium text-gray-600 mb-1 block">
               Message <span className="text-red-400">*</span>
             </label>
             <textarea
+              id="ticket-message"
               value={message}
               onChange={(e) => {
                 setMessage(e.target.value);
@@ -264,7 +269,7 @@ function TicketSection() {
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${TICKET_STATUS[t.status] || "bg-gray-100 text-gray-600"}`}>
                     {TICKET_STATUS_LABELS[t.status] || t.status.replace(/_/g, " ")}
                   </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                  <ChevronRight aria-hidden="true" className="w-3.5 h-3.5 text-gray-300" />
                 </div>
               </Link>
             ))}
@@ -310,7 +315,7 @@ const TICKET_STATUS_LABELS: Record<string, string> = {
 
 function formatDate(d: string | null): string {
   if (!d) return "";
-  return new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+  return new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }
 
 /* ─── Main Page ─── */
