@@ -56,6 +56,7 @@ import {
   shouldDefaultTiered,
   DEFAULT_TIERS,
 } from '@shared/templatePresets';
+import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import RichTextField from './RichTextField';
@@ -484,25 +485,6 @@ export default function StyleTab({
       aria-label="Style"
       role="tabpanel"
     >
-      {/* ── W-AO-6d — Brand Kit (Pro) ────────────────────────────────
-       *
-       * Reusable bundle of Style settings the user can apply across
-       * every calculator they own. Sits at the top so it's the first
-       * thing a Pro user reaches for; free users see a Lock + upsell.
-       * The picker / save dialog talk to /api/portal/brand-kits/* via
-       * the cookie-authenticated portal session. If the user isn't
-       * portal-authenticated (e.g. token-based edit page), the
-       * picker silently degrades to a sign-in CTA. */}
-      <BrandKitGroup
-        style={style}
-        logo={logo ?? null}
-        onApply={(next, nextLogo) => {
-          onChange({ ...style, ...next });
-          if (nextLogo && onLogoChange) onLogoChange(nextLogo);
-        }}
-        isProTier={isProTier}
-      />
-
       {/* ── Theme presets (W-AO-6b) ─────────────────────────────────
        *
        * One-click bundles that overwrite every Style token. Sits at the top
@@ -562,6 +544,524 @@ export default function StyleTab({
             </button>
           ))}
         </div>
+        </div>
+      </fieldset>
+
+      {/* ── Colours ─────────────────────────────────────────────────
+       *
+       * BD-3f Item 2 — 5+4 grid layout (row 1 has 5 swatches, row 2 has 4)
+       * via `display: grid; grid-template-columns: repeat(5, 1fr)`. Pure
+       * CSS — the 9th item naturally falls onto the second row.
+       *
+       * BD-3f Item 4 — Secondary swatch REMOVED. The `style.secondary`
+       * slot was plumbed into the AdvancedCalculator's resolveTheme()
+       * but never read anywhere in the rendered widget, so the picker was
+       * misleading the owner. Removed pending an actual consumer in a
+       * future wave; the optional field stays on the type for forward
+       * compat. Decision documented in the BD-3f PR body.
+       *
+       * BD-3f Item 5 — Success / Error swatches mount a dismissable
+       * "ghost" demo toast onto the preview pane so the owner can SEE the
+       * colour they're picking in context. The ghost auto-dismisses after
+       * 6s; it's editor-only and never reaches the exported widget. */}
+      <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-colours"
+                  region="background"
+                  text="Click any swatch to change the calculator's accent, background, body text, or result-card colour. Success / Error briefly preview a demo toast on the canvas."
+                />
+                <span style={{ marginLeft: 6 }}>Colours</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-row">
+          {/* CONTRAST-3 — every readable-by-design swatch declares its
+              expected pair so the popover surfaces a live ratio + a
+              suggested-colour swatch when AA fails. The runtime guard
+              (CONTRAST-1) still auto-corrects on render so this layer is
+              informational, never blocking. */}
+          <ColourSwatch
+            icon={MousePointerClick}
+            label="Accent"
+            testid="style-input-accent"
+            value={accent}
+            fallback={DEFAULT_SHELL_STYLE.accent}
+            onChange={(v) => patch({ accent: v })}
+            pairColour={getContrastingColor(accent)}
+            pairLabel="CTA text"
+            pairRole="bg"
+          />
+          <ColourSwatch
+            icon={Square}
+            label="Background"
+            testid="style-input-background"
+            value={background}
+            fallback={DEFAULT_SHELL_STYLE.background}
+            onChange={(v) => patch({ background: v })}
+            pairColour={text}
+            pairLabel="body text"
+            pairRole="bg"
+          />
+          <ColourSwatch
+            icon={Box}
+            label="Surface"
+            testid="style-input-surface"
+            value={surface}
+            fallback={TOKEN_FALLBACKS.surface}
+            onChange={(v) => patch({ surface: v })}
+            pairColour={text}
+            pairLabel="body text"
+            pairRole="bg"
+          />
+          <ColourSwatch
+            icon={Type}
+            label="Text"
+            testid="style-input-text"
+            value={text}
+            fallback={DEFAULT_SHELL_STYLE.text}
+            onChange={(v) => patch({ text: v })}
+            pairColour={surface}
+            pairLabel="surface"
+            pairRole="fg"
+          />
+          <ColourSwatch
+            icon={Receipt}
+            label="Results bg"
+            testid="style-input-resultsbg"
+            value={resultsBg}
+            fallback={DEFAULT_SHELL_STYLE.resultsBg}
+            onChange={(v) => patch({ resultsBg: v })}
+            pairColour={text}
+            pairLabel="result text"
+            pairRole="bg"
+          />
+          {/* Row 2 — secondary tokens. 4 items: Border, Success, Error,
+              and a placeholder slot (intentionally empty for now —
+              keeps the 5+4 grid balanced. Future colour tokens slot in
+              here without re-flowing the layout). */}
+          <ColourSwatch
+            icon={Frame}
+            label="Border"
+            testid="style-input-border"
+            value={borderColour}
+            fallback={TOKEN_FALLBACKS.border}
+            onChange={(v) => patch({ border: v })}
+          />
+          <ColourSwatch
+            icon={CheckCircle2}
+            label="Success"
+            testid="style-input-success"
+            value={success}
+            fallback={TOKEN_FALLBACKS.success}
+            onChange={(v) => patch({ success: v })}
+            onOpen={() => setGhost('success')}
+            pairColour="#ffffff"
+            pairLabel="badge text"
+            pairRole="bg"
+          />
+          <ColourSwatch
+            icon={XCircle}
+            label="Error"
+            testid="style-input-error"
+            value={errorColour}
+            fallback={TOKEN_FALLBACKS.error}
+            onChange={(v) => patch({ error: v })}
+            onOpen={() => setGhost('error')}
+            pairColour="#ffffff"
+            pairLabel="badge text"
+            pairRole="bg"
+          />
+        </div>
+        </div>
+      </fieldset>
+
+      {/* ── Typography ──────────────────────────────────────────────
+       *
+       * Wave L S2 — visible "Typography" heading dropped; the font picker
+       * speaks for itself. Legend kept for screen readers. */}
+      <fieldset className="qq-style-group" data-testid="style-group-typography">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-typography"
+                  region="header"
+                  text="Sets the font family the calculator renders in. We load each option from the host site so widget pages don't pull a new web font."
+                />
+                <span style={{ marginLeft: 6 }}>Typography</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        {/* CONFIG-NATIVE-SELECT-1 — was a native <select> over the 9-entry
+            FONT_FAMILY_LABELS map; migrated to StyledSelect so the OS sheet
+            stops covering the wizard's typography section on mobile. The
+            list is small enough that we suppress the auto-search. */}
+        <FloatField label="Font family" htmlFor="qq-style-font" variant="select">
+          <StyledSelect
+            value={fontFamily}
+            onChange={(next) => patch({ fontFamily: next as ShellFontFamily })}
+            options={(Object.keys(FONT_FAMILY_LABELS) as ShellFontFamily[]).map((k) => ({
+              value: k,
+              label: FONT_FAMILY_LABELS[k],
+            }))}
+            title="Font family"
+            ariaLabel="Font family"
+            searchable={false}
+            testId="style-select-font"
+          />
+        </FloatField>
+
+        {/* W-AO-6b — typography depth. Heading weight, body weight, base
+            size. All flow into the renderer as CSS variables so the title
+            bar, breakdown rows + body text inherit cleanly.
+            W2 #15 — compacted onto a single row (three labelled controls in a
+            flex-wrap row) so they no longer eat three full-width rows of
+            vertical space. Each control keeps its own label + testid; on the
+            narrow mobile sheet the row wraps gracefully. */}
+        <div className="qq-style-type-row" style={{ marginTop: 12 }}>
+          <div className="qq-style-type-cell">
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Heading weight</span>
+            </label>
+            <SegmentedControl<ShellHeadingWeight>
+              name="heading-weight"
+              testid="style-segmented-heading-weight"
+              value={headingWeight}
+              options={[
+                { value: 500, label: '500' },
+                { value: 600, label: '600' },
+                { value: 700, label: '700' },
+                { value: 800, label: '800' },
+              ]}
+              onChange={(v) => patch({ headingWeight: v })}
+            />
+          </div>
+
+          <div className="qq-style-type-cell">
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Body weight</span>
+            </label>
+            <SegmentedControl<ShellBodyWeight>
+              name="body-weight"
+              testid="style-segmented-body-weight"
+              value={bodyWeight}
+              options={[
+                { value: 400, label: '400' },
+                { value: 500, label: '500' },
+              ]}
+              onChange={(v) => patch({ bodyWeight: v })}
+            />
+          </div>
+
+          <div className="qq-style-type-cell">
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Base size</span>
+            </label>
+            <SegmentedControl<ShellFontSize>
+              name="font-size"
+              testid="style-segmented-font-size"
+              value={fontSize}
+              options={[
+                { value: 'small', label: 'Small' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'large', label: 'Large' },
+              ]}
+              onChange={(v) => patch({ fontSize: v })}
+            />
+          </div>
+        </div>
+        </div>
+      </fieldset>
+
+      {/* ── Layout ──────────────────────────────────────────────── */}
+      <fieldset className="qq-style-group" data-testid="style-group-layout">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-layout"
+                  region="background"
+                  text="How wide the calculator renders on desktop and mobile. Narrow / Wide / Full controls the breakpoint; the sliders below override with exact pixel values."
+                />
+                <span style={{ marginLeft: 6 }}>Layout</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        {/* BD-3e Fix 3 — duplicate `<InfoCue testid="style-layout">` removed.
+         * The section legend's cue already covers Widget width. */}
+        <label className="qq-style-label">
+          <span className="qq-style-label-text">
+            Widget width
+          </span>
+        </label>
+        <SegmentedControl<ShellWidgetWidth>
+          name="widget-width"
+          testid="style-segmented-width"
+          value={widgetWidth}
+          options={[
+            { value: 'narrow', label: 'Narrow' },
+            { value: 'wide', label: 'Wide' },
+            { value: 'full', label: 'Full' },
+          ]}
+          onChange={(v) => patch({ widgetWidth: v })}
+        />
+
+        {/* Wave AC-1 — per-viewport pixel overrides. Optional; when set
+         * they win over the enum on the matching viewport. Clamped to safe
+         * ranges (desktop 320–800, mobile 320–440). */}
+        <label className="qq-style-label" htmlFor="qq-style-width-desktop" style={{ marginTop: 12 }}>
+          Desktop width
+          <span className="qq-style-value" data-testid="style-width-desktop-value">
+            {widgetWidthDesktop !== undefined ? `${widgetWidthDesktop}px` : 'Auto'}
+          </span>
+        </label>
+        <input
+          id="qq-style-width-desktop"
+          type="range"
+          min={320}
+          max={800}
+          step={10}
+          value={widgetWidthDesktop ?? 560}
+          onChange={(e) => patch({ widgetWidthDesktop: Number(e.target.value) })}
+          className="qq-style-range"
+          data-testid="style-input-width-desktop"
+          aria-valuemin={320}
+          aria-valuemax={800}
+          aria-valuenow={widgetWidthDesktop ?? 560}
+          style={{
+            ['--qq-slider-thumb-bg' as any]: '#ffffff',
+            ['--qq-slider-pct' as any]: `${(((widgetWidthDesktop ?? 560) - 320) / (800 - 320)) * 100}%`,
+          }}
+        />
+
+        <label className="qq-style-label" htmlFor="qq-style-width-mobile" style={{ marginTop: 12 }}>
+          Mobile width
+          <span className="qq-style-value" data-testid="style-width-mobile-value">
+            {widgetWidthMobile !== undefined ? `${widgetWidthMobile}px` : 'Auto'}
+          </span>
+        </label>
+        <input
+          id="qq-style-width-mobile"
+          type="range"
+          min={320}
+          max={440}
+          step={5}
+          value={widgetWidthMobile ?? 380}
+          onChange={(e) => patch({ widgetWidthMobile: Number(e.target.value) })}
+          className="qq-style-range"
+          data-testid="style-input-width-mobile"
+          aria-valuemin={320}
+          aria-valuemax={440}
+          aria-valuenow={widgetWidthMobile ?? 380}
+          style={{
+            ['--qq-slider-thumb-bg' as any]: '#ffffff',
+            ['--qq-slider-pct' as any]: `${(((widgetWidthMobile ?? 380) - 320) / (440 - 320)) * 100}%`,
+          }}
+        />
+
+        {/* ── BD-2a — Step layout subsection ───────────────────────
+         *
+         * Toggle between the multi-step renderer (default — ships the
+         * 3x-CVR lever from BD-0 research) and the legacy single-form
+         * layout. Owners on conservative templates can opt back; new
+         * templates get the stepper out of the box.
+         */}
+        {onStepLayoutChange && (
+          <div
+            data-testid="style-step-layout"
+            style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))' }}
+          >
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">
+                Step layout
+                <InfoCue
+                  testid="style-step-layout-info"
+                  region="step-content"
+                  text="Multi-step (the default) renders one question per screen — ~3x higher quote completion in industry benchmarks. Single form keeps every field on one page."
+                />
+              </span>
+            </label>
+            <SegmentedControl<'stepper' | 'single'>
+              name="step-layout"
+              testid="style-segmented-step-layout"
+              value={stepLayout ?? 'stepper'}
+              options={[
+                { value: 'stepper', label: 'Multi-step' },
+                { value: 'single', label: 'Single form' },
+              ]}
+              onChange={(v) => onStepLayoutChange(v)}
+            />
+            <p
+              style={{
+                fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
+                margin: '6px 0 0', lineHeight: 1.4,
+              }}
+            >
+              Recommended: Multi-step. Industry data shows multi-step quote forms
+              convert at ~13.85% vs ~4.53% for single-page forms.
+            </p>
+          </div>
+        )}
+
+        {/* ── BD-2b — Pricing tiers subsection ──────────────────────
+         *
+         * Good/Better/Best 3-tier pricing toggle + per-tier editor.
+         * Auto-enabled for scope-spectrum categories (Construction, Home
+         * Improvement, Outdoor); off by default for flat-fee categories.
+         * Owners can flip explicitly.
+         *
+         * Research (BD-0): tiered presentation consistently outperforms
+         * single-price AND 4+-tier alternatives (FieldPulse / Jobber /
+         * Journal of Business Research). The middle "Most Popular" tier
+         * anchors choice.
+         */}
+        {onTieredChange && (
+          <PricingTiersSubsection
+            tiered={tiered}
+            onTieredChange={onTieredChange}
+            templateCategory={templateCategory}
+          />
+        )}
+
+        {/* ── BD-2c — AI chat visibility subsection (Pro tier) ────────
+         *
+         * Toggle between the new "stuck-customer rescue" default (bubble
+         * stays hidden until the user has progressed past step 2, idles for
+         * 30s on a single step, or explicitly clicks Help) and the legacy
+         * "always visible" behaviour. Research (BD-0): always-visible
+         * bubbles compete with the form — treating AI as a rescue surface
+         * lifts both form completion AND chat engagement.
+         *
+         * Free-tier calculators always use 'rescue' (server-enforced via
+         * BRAND_STUDIO_STYLE_KEYS-style strip in calculatorRoutes).
+         */}
+        <div
+          data-testid="style-ai-chat-visibility"
+          style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))' }}
+        >
+          <label className="qq-style-label">
+            <span className="qq-style-label-text">
+              AI chat visibility
+              {!isProTier && (
+                <span className="qq-style-pro-pill">
+                  PRO
+                </span>
+              )}
+              <InfoCue
+                testid="style-ai-chat-visibility-info"
+                region="chat-bubble"
+                text="Stuck-customer rescue (default) keeps the AI bubble hidden until the user has progressed past step 2, idles for 30s, or clicks Help. Always visible matches the legacy behaviour."
+              />
+            </span>
+          </label>
+          <SegmentedControl<AiChatVisibility>
+            name="ai-chat-visibility"
+            testid="style-segmented-ai-chat-visibility"
+            value={(style.aiChatVisibility as AiChatVisibility) ?? 'rescue'}
+            options={[
+              { value: 'rescue', label: 'Stuck-customer rescue' },
+              { value: 'always', label: 'Always visible' },
+            ]}
+            onChange={(v) => {
+              if (!isProTier) return;
+              patch({ aiChatVisibility: v });
+            }}
+          />
+          <p
+            style={{
+              fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
+              margin: '6px 0 0', lineHeight: 1.4,
+            }}
+          >
+            Recommended: Stuck-customer rescue. BD-0 research shows always-on
+            bubbles compete with the form — treating AI as a rescue surface
+            lifts both form completion AND chat engagement.
+          </p>
+        </div>
+        </div>
+      </fieldset>
+
+      <AdvancedSection id="style-advanced" label="Advanced settings" hint="brand, badges, deposit, booking & more">
+      {/* ── Shape ────────────────────────────────────────────────── */}
+      <fieldset className="qq-style-group" data-testid="style-group-shape">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-shape"
+                  region="step-content"
+                  text="Controls input style (filled vs outline) and how rounded corners are everywhere — cards, inputs, the CTA button."
+                />
+                <span style={{ marginLeft: 6 }}>Shape</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        {/* BD-3e Fix 3 — duplicate `<InfoCue testid="style-shape">` removed.
+         * The section legend's cue already covers Field style. Matches the
+         * Typography section (legend-cue only, per-label cues omitted). */}
+        <label className="qq-style-label">
+          <span className="qq-style-label-text">
+            Field style
+          </span>
+        </label>
+        <SegmentedControl<ShellFieldStyle>
+          name="field-style"
+          testid="style-segmented-fieldstyle"
+          value={fieldStyle}
+          options={[
+            { value: 'filled', label: 'Filled' },
+            { value: 'outline', label: 'Outline' },
+          ]}
+          onChange={(v) => patch({ fieldStyle: v })}
+        />
+
+        <label className="qq-style-label" htmlFor="qq-style-radius" style={{ marginTop: 12 }}>
+          Corner radius
+          <span className="qq-style-value" data-testid="style-radius-value">
+            {radius}px
+          </span>
+        </label>
+        <input
+          id="qq-style-radius"
+          type="range"
+          min={0}
+          max={24}
+          step={1}
+          value={radius}
+          onChange={(e) => patch({ radius: Number(e.target.value) })}
+          className="qq-style-range"
+          data-testid="style-input-radius"
+          aria-valuemin={0}
+          aria-valuemax={24}
+          aria-valuenow={radius}
+          style={{
+            ['--qq-slider-thumb-bg' as any]: '#ffffff',
+            ['--qq-slider-pct' as any]: `${((radius - 0) / (24 - 0)) * 100}%`,
+          }}
+        />
         </div>
       </fieldset>
 
@@ -731,6 +1231,74 @@ export default function StyleTab({
           </div>
         </fieldset>
       )}
+
+      {/* ── W-AO-6d — Brand Kit (Pro) ────────────────────────────────
+       *
+       * Reusable bundle of Style settings the user can apply across
+       * every calculator they own. Sits at the top so it's the first
+       * thing a Pro user reaches for; free users see a Lock + upsell.
+       * The picker / save dialog talk to /api/portal/brand-kits/* via
+       * the cookie-authenticated portal session. If the user isn't
+       * portal-authenticated (e.g. token-based edit page), the
+       * picker silently degrades to a sign-in CTA. */}
+      <BrandKitGroup
+        style={style}
+        logo={logo ?? null}
+        onApply={(next, nextLogo) => {
+          onChange({ ...style, ...next });
+          if (nextLogo && onLogoChange) onLogoChange(nextLogo);
+        }}
+        isProTier={isProTier}
+      />
+
+      {/* ── W-AO-6c — Brand Studio (Pro) ────────────────────────────
+       *
+       * Three Pro-tier features grouped in a single collapsible section
+       * at the bottom of the Style tab: Custom CSS, image / gradient
+       * background, and result-panel overrides. Free users see the
+       * controls (preview-only) but the section header shows a Lock +
+       * Upgrade CTA; the server strips the fields before persistence
+       * for non-paid plans. */}
+      <BrandStudioGroup
+        style={style}
+        patch={patch}
+        isProTier={isProTier}
+      />
+
+      {/* ── BG-7 Item 6 — Button copy override ──────────────────────
+       *
+       * Per-template overrides for the 5 widget action buttons (Back,
+       * Continue, See my quote, Email me, Book a consultation). All
+       * five fields are optional — an empty value falls back to the
+       * renderer's default copy. Compact RichTextField inputs so the
+       * section stays dense.
+       *
+       * Tier gating: Pro-only — listed in BRAND_STUDIO_STYLE_KEYS so
+       * free-tier patches are stripped before persistence. Free-tier
+       * owners see disabled inputs + a small PRO pill. */}
+      <ButtonCopyGroup
+        buttonCopy={style.buttonCopy}
+        onChange={(next) => patch({ buttonCopy: next })}
+        isProTier={isProTier}
+      />
+
+      {/* ── BG-7 Item 1 — Trust badge editor ────────────────────────
+       *
+       * BF-8+9 (PR #498) pre-loaded 4 trust badges per template into
+       * `templatePresets.ts` but never shipped the owner-facing editor.
+       * This section closes that loop: owners can re-order, edit, add
+       * or remove badges via the inline editor below.
+       *
+       * Tier gating: Pro-only edits (`BRAND_STUDIO_STYLE_KEYS` doesn't
+       * cover trustBadges directly because they live on
+       * AdvancedConfigShape rather than AdvStyle — the gating happens
+       * here in the UI; free-tier users see the 4 defaults from the
+       * template seed but every editor control is disabled). */}
+      <TrustBadgesGroup
+        badges={trustBadges}
+        onChange={onTrustBadgesChange}
+        isProTier={isProTier}
+      />
 
       {/* ── BD-3k — Deposit preview ──────────────────────────────────
         *
@@ -978,523 +1546,6 @@ export default function StyleTab({
         </div>
       </fieldset>
 
-      {/* ── Colours ─────────────────────────────────────────────────
-       *
-       * BD-3f Item 2 — 5+4 grid layout (row 1 has 5 swatches, row 2 has 4)
-       * via `display: grid; grid-template-columns: repeat(5, 1fr)`. Pure
-       * CSS — the 9th item naturally falls onto the second row.
-       *
-       * BD-3f Item 4 — Secondary swatch REMOVED. The `style.secondary`
-       * slot was plumbed into the AdvancedCalculator's resolveTheme()
-       * but never read anywhere in the rendered widget, so the picker was
-       * misleading the owner. Removed pending an actual consumer in a
-       * future wave; the optional field stays on the type for forward
-       * compat. Decision documented in the BD-3f PR body.
-       *
-       * BD-3f Item 5 — Success / Error swatches mount a dismissable
-       * "ghost" demo toast onto the preview pane so the owner can SEE the
-       * colour they're picking in context. The ghost auto-dismisses after
-       * 6s; it's editor-only and never reaches the exported widget. */}
-      <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-colours"
-                  region="background"
-                  text="Click any swatch to change the calculator's accent, background, body text, or result-card colour. Success / Error briefly preview a demo toast on the canvas."
-                />
-                <span style={{ marginLeft: 6 }}>Colours</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-row">
-          {/* CONTRAST-3 — every readable-by-design swatch declares its
-              expected pair so the popover surfaces a live ratio + a
-              suggested-colour swatch when AA fails. The runtime guard
-              (CONTRAST-1) still auto-corrects on render so this layer is
-              informational, never blocking. */}
-          <ColourSwatch
-            icon={MousePointerClick}
-            label="Accent"
-            testid="style-input-accent"
-            value={accent}
-            fallback={DEFAULT_SHELL_STYLE.accent}
-            onChange={(v) => patch({ accent: v })}
-            pairColour={getContrastingColor(accent)}
-            pairLabel="CTA text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={Square}
-            label="Background"
-            testid="style-input-background"
-            value={background}
-            fallback={DEFAULT_SHELL_STYLE.background}
-            onChange={(v) => patch({ background: v })}
-            pairColour={text}
-            pairLabel="body text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={Box}
-            label="Surface"
-            testid="style-input-surface"
-            value={surface}
-            fallback={TOKEN_FALLBACKS.surface}
-            onChange={(v) => patch({ surface: v })}
-            pairColour={text}
-            pairLabel="body text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={Type}
-            label="Text"
-            testid="style-input-text"
-            value={text}
-            fallback={DEFAULT_SHELL_STYLE.text}
-            onChange={(v) => patch({ text: v })}
-            pairColour={surface}
-            pairLabel="surface"
-            pairRole="fg"
-          />
-          <ColourSwatch
-            icon={Receipt}
-            label="Results bg"
-            testid="style-input-resultsbg"
-            value={resultsBg}
-            fallback={DEFAULT_SHELL_STYLE.resultsBg}
-            onChange={(v) => patch({ resultsBg: v })}
-            pairColour={text}
-            pairLabel="result text"
-            pairRole="bg"
-          />
-          {/* Row 2 — secondary tokens. 4 items: Border, Success, Error,
-              and a placeholder slot (intentionally empty for now —
-              keeps the 5+4 grid balanced. Future colour tokens slot in
-              here without re-flowing the layout). */}
-          <ColourSwatch
-            icon={Frame}
-            label="Border"
-            testid="style-input-border"
-            value={borderColour}
-            fallback={TOKEN_FALLBACKS.border}
-            onChange={(v) => patch({ border: v })}
-          />
-          <ColourSwatch
-            icon={CheckCircle2}
-            label="Success"
-            testid="style-input-success"
-            value={success}
-            fallback={TOKEN_FALLBACKS.success}
-            onChange={(v) => patch({ success: v })}
-            onOpen={() => setGhost('success')}
-            pairColour="#ffffff"
-            pairLabel="badge text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={XCircle}
-            label="Error"
-            testid="style-input-error"
-            value={errorColour}
-            fallback={TOKEN_FALLBACKS.error}
-            onChange={(v) => patch({ error: v })}
-            onOpen={() => setGhost('error')}
-            pairColour="#ffffff"
-            pairLabel="badge text"
-            pairRole="bg"
-          />
-        </div>
-        </div>
-      </fieldset>
-
-      {/* ── Typography ──────────────────────────────────────────────
-       *
-       * Wave L S2 — visible "Typography" heading dropped; the font picker
-       * speaks for itself. Legend kept for screen readers. */}
-      <fieldset className="qq-style-group" data-testid="style-group-typography">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-typography"
-                  region="header"
-                  text="Sets the font family the calculator renders in. We load each option from the host site so widget pages don't pull a new web font."
-                />
-                <span style={{ marginLeft: 6 }}>Typography</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        {/* CONFIG-NATIVE-SELECT-1 — was a native <select> over the 9-entry
-            FONT_FAMILY_LABELS map; migrated to StyledSelect so the OS sheet
-            stops covering the wizard's typography section on mobile. The
-            list is small enough that we suppress the auto-search. */}
-        <FloatField label="Font family" htmlFor="qq-style-font" variant="select">
-          <StyledSelect
-            value={fontFamily}
-            onChange={(next) => patch({ fontFamily: next as ShellFontFamily })}
-            options={(Object.keys(FONT_FAMILY_LABELS) as ShellFontFamily[]).map((k) => ({
-              value: k,
-              label: FONT_FAMILY_LABELS[k],
-            }))}
-            title="Font family"
-            ariaLabel="Font family"
-            searchable={false}
-            testId="style-select-font"
-          />
-        </FloatField>
-
-        {/* W-AO-6b — typography depth. Heading weight, body weight, base
-            size. All flow into the renderer as CSS variables so the title
-            bar, breakdown rows + body text inherit cleanly.
-            W2 #15 — compacted onto a single row (three labelled controls in a
-            flex-wrap row) so they no longer eat three full-width rows of
-            vertical space. Each control keeps its own label + testid; on the
-            narrow mobile sheet the row wraps gracefully. */}
-        <div className="qq-style-type-row" style={{ marginTop: 12 }}>
-          <div className="qq-style-type-cell">
-            <label className="qq-style-label">
-              <span className="qq-style-label-text">Heading weight</span>
-            </label>
-            <SegmentedControl<ShellHeadingWeight>
-              name="heading-weight"
-              testid="style-segmented-heading-weight"
-              value={headingWeight}
-              options={[
-                { value: 500, label: '500' },
-                { value: 600, label: '600' },
-                { value: 700, label: '700' },
-                { value: 800, label: '800' },
-              ]}
-              onChange={(v) => patch({ headingWeight: v })}
-            />
-          </div>
-
-          <div className="qq-style-type-cell">
-            <label className="qq-style-label">
-              <span className="qq-style-label-text">Body weight</span>
-            </label>
-            <SegmentedControl<ShellBodyWeight>
-              name="body-weight"
-              testid="style-segmented-body-weight"
-              value={bodyWeight}
-              options={[
-                { value: 400, label: '400' },
-                { value: 500, label: '500' },
-              ]}
-              onChange={(v) => patch({ bodyWeight: v })}
-            />
-          </div>
-
-          <div className="qq-style-type-cell">
-            <label className="qq-style-label">
-              <span className="qq-style-label-text">Base size</span>
-            </label>
-            <SegmentedControl<ShellFontSize>
-              name="font-size"
-              testid="style-segmented-font-size"
-              value={fontSize}
-              options={[
-                { value: 'small', label: 'Small' },
-                { value: 'medium', label: 'Medium' },
-                { value: 'large', label: 'Large' },
-              ]}
-              onChange={(v) => patch({ fontSize: v })}
-            />
-          </div>
-        </div>
-        </div>
-      </fieldset>
-
-      {/* ── Shape ────────────────────────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="style-group-shape">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-shape"
-                  region="step-content"
-                  text="Controls input style (filled vs outline) and how rounded corners are everywhere — cards, inputs, the CTA button."
-                />
-                <span style={{ marginLeft: 6 }}>Shape</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        {/* BD-3e Fix 3 — duplicate `<InfoCue testid="style-shape">` removed.
-         * The section legend's cue already covers Field style. Matches the
-         * Typography section (legend-cue only, per-label cues omitted). */}
-        <label className="qq-style-label">
-          <span className="qq-style-label-text">
-            Field style
-          </span>
-        </label>
-        <SegmentedControl<ShellFieldStyle>
-          name="field-style"
-          testid="style-segmented-fieldstyle"
-          value={fieldStyle}
-          options={[
-            { value: 'filled', label: 'Filled' },
-            { value: 'outline', label: 'Outline' },
-          ]}
-          onChange={(v) => patch({ fieldStyle: v })}
-        />
-
-        <label className="qq-style-label" htmlFor="qq-style-radius" style={{ marginTop: 12 }}>
-          Corner radius
-          <span className="qq-style-value" data-testid="style-radius-value">
-            {radius}px
-          </span>
-        </label>
-        <input
-          id="qq-style-radius"
-          type="range"
-          min={0}
-          max={24}
-          step={1}
-          value={radius}
-          onChange={(e) => patch({ radius: Number(e.target.value) })}
-          className="qq-style-range"
-          data-testid="style-input-radius"
-          aria-valuemin={0}
-          aria-valuemax={24}
-          aria-valuenow={radius}
-          style={{
-            ['--qq-slider-thumb-bg' as any]: '#ffffff',
-            ['--qq-slider-pct' as any]: `${((radius - 0) / (24 - 0)) * 100}%`,
-          }}
-        />
-        </div>
-      </fieldset>
-
-      {/* ── Layout ──────────────────────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="style-group-layout">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-layout"
-                  region="background"
-                  text="How wide the calculator renders on desktop and mobile. Narrow / Wide / Full controls the breakpoint; the sliders below override with exact pixel values."
-                />
-                <span style={{ marginLeft: 6 }}>Layout</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        {/* BD-3e Fix 3 — duplicate `<InfoCue testid="style-layout">` removed.
-         * The section legend's cue already covers Widget width. */}
-        <label className="qq-style-label">
-          <span className="qq-style-label-text">
-            Widget width
-          </span>
-        </label>
-        <SegmentedControl<ShellWidgetWidth>
-          name="widget-width"
-          testid="style-segmented-width"
-          value={widgetWidth}
-          options={[
-            { value: 'narrow', label: 'Narrow' },
-            { value: 'wide', label: 'Wide' },
-            { value: 'full', label: 'Full' },
-          ]}
-          onChange={(v) => patch({ widgetWidth: v })}
-        />
-
-        {/* Wave AC-1 — per-viewport pixel overrides. Optional; when set
-         * they win over the enum on the matching viewport. Clamped to safe
-         * ranges (desktop 320–800, mobile 320–440). */}
-        <label className="qq-style-label" htmlFor="qq-style-width-desktop" style={{ marginTop: 12 }}>
-          Desktop width
-          <span className="qq-style-value" data-testid="style-width-desktop-value">
-            {widgetWidthDesktop !== undefined ? `${widgetWidthDesktop}px` : 'Auto'}
-          </span>
-        </label>
-        <input
-          id="qq-style-width-desktop"
-          type="range"
-          min={320}
-          max={800}
-          step={10}
-          value={widgetWidthDesktop ?? 560}
-          onChange={(e) => patch({ widgetWidthDesktop: Number(e.target.value) })}
-          className="qq-style-range"
-          data-testid="style-input-width-desktop"
-          aria-valuemin={320}
-          aria-valuemax={800}
-          aria-valuenow={widgetWidthDesktop ?? 560}
-          style={{
-            ['--qq-slider-thumb-bg' as any]: '#ffffff',
-            ['--qq-slider-pct' as any]: `${(((widgetWidthDesktop ?? 560) - 320) / (800 - 320)) * 100}%`,
-          }}
-        />
-
-        <label className="qq-style-label" htmlFor="qq-style-width-mobile" style={{ marginTop: 12 }}>
-          Mobile width
-          <span className="qq-style-value" data-testid="style-width-mobile-value">
-            {widgetWidthMobile !== undefined ? `${widgetWidthMobile}px` : 'Auto'}
-          </span>
-        </label>
-        <input
-          id="qq-style-width-mobile"
-          type="range"
-          min={320}
-          max={440}
-          step={5}
-          value={widgetWidthMobile ?? 380}
-          onChange={(e) => patch({ widgetWidthMobile: Number(e.target.value) })}
-          className="qq-style-range"
-          data-testid="style-input-width-mobile"
-          aria-valuemin={320}
-          aria-valuemax={440}
-          aria-valuenow={widgetWidthMobile ?? 380}
-          style={{
-            ['--qq-slider-thumb-bg' as any]: '#ffffff',
-            ['--qq-slider-pct' as any]: `${(((widgetWidthMobile ?? 380) - 320) / (440 - 320)) * 100}%`,
-          }}
-        />
-
-        {/* ── BD-2a — Step layout subsection ───────────────────────
-         *
-         * Toggle between the multi-step renderer (default — ships the
-         * 3x-CVR lever from BD-0 research) and the legacy single-form
-         * layout. Owners on conservative templates can opt back; new
-         * templates get the stepper out of the box.
-         */}
-        {onStepLayoutChange && (
-          <div
-            data-testid="style-step-layout"
-            style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))' }}
-          >
-            <label className="qq-style-label">
-              <span className="qq-style-label-text">
-                Step layout
-                <InfoCue
-                  testid="style-step-layout-info"
-                  region="step-content"
-                  text="Multi-step (the default) renders one question per screen — ~3x higher quote completion in industry benchmarks. Single form keeps every field on one page."
-                />
-              </span>
-            </label>
-            <SegmentedControl<'stepper' | 'single'>
-              name="step-layout"
-              testid="style-segmented-step-layout"
-              value={stepLayout ?? 'stepper'}
-              options={[
-                { value: 'stepper', label: 'Multi-step' },
-                { value: 'single', label: 'Single form' },
-              ]}
-              onChange={(v) => onStepLayoutChange(v)}
-            />
-            <p
-              style={{
-                fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
-                margin: '6px 0 0', lineHeight: 1.4,
-              }}
-            >
-              Recommended: Multi-step. Industry data shows multi-step quote forms
-              convert at ~13.85% vs ~4.53% for single-page forms.
-            </p>
-          </div>
-        )}
-
-        {/* ── BD-2b — Pricing tiers subsection ──────────────────────
-         *
-         * Good/Better/Best 3-tier pricing toggle + per-tier editor.
-         * Auto-enabled for scope-spectrum categories (Construction, Home
-         * Improvement, Outdoor); off by default for flat-fee categories.
-         * Owners can flip explicitly.
-         *
-         * Research (BD-0): tiered presentation consistently outperforms
-         * single-price AND 4+-tier alternatives (FieldPulse / Jobber /
-         * Journal of Business Research). The middle "Most Popular" tier
-         * anchors choice.
-         */}
-        {onTieredChange && (
-          <PricingTiersSubsection
-            tiered={tiered}
-            onTieredChange={onTieredChange}
-            templateCategory={templateCategory}
-          />
-        )}
-
-        {/* ── BD-2c — AI chat visibility subsection (Pro tier) ────────
-         *
-         * Toggle between the new "stuck-customer rescue" default (bubble
-         * stays hidden until the user has progressed past step 2, idles for
-         * 30s on a single step, or explicitly clicks Help) and the legacy
-         * "always visible" behaviour. Research (BD-0): always-visible
-         * bubbles compete with the form — treating AI as a rescue surface
-         * lifts both form completion AND chat engagement.
-         *
-         * Free-tier calculators always use 'rescue' (server-enforced via
-         * BRAND_STUDIO_STYLE_KEYS-style strip in calculatorRoutes).
-         */}
-        <div
-          data-testid="style-ai-chat-visibility"
-          style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))' }}
-        >
-          <label className="qq-style-label">
-            <span className="qq-style-label-text">
-              AI chat visibility
-              {!isProTier && (
-                <span className="qq-style-pro-pill">
-                  PRO
-                </span>
-              )}
-              <InfoCue
-                testid="style-ai-chat-visibility-info"
-                region="chat-bubble"
-                text="Stuck-customer rescue (default) keeps the AI bubble hidden until the user has progressed past step 2, idles for 30s, or clicks Help. Always visible matches the legacy behaviour."
-              />
-            </span>
-          </label>
-          <SegmentedControl<AiChatVisibility>
-            name="ai-chat-visibility"
-            testid="style-segmented-ai-chat-visibility"
-            value={(style.aiChatVisibility as AiChatVisibility) ?? 'rescue'}
-            options={[
-              { value: 'rescue', label: 'Stuck-customer rescue' },
-              { value: 'always', label: 'Always visible' },
-            ]}
-            onChange={(v) => {
-              if (!isProTier) return;
-              patch({ aiChatVisibility: v });
-            }}
-          />
-          <p
-            style={{
-              fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
-              margin: '6px 0 0', lineHeight: 1.4,
-            }}
-          >
-            Recommended: Stuck-customer rescue. BD-0 research shows always-on
-            bubbles compete with the form — treating AI as a rescue surface
-            lifts both form completion AND chat engagement.
-          </p>
-        </div>
-        </div>
-      </fieldset>
-
       {/* ── BD-3m — Floating launcher embed mode ───────────────────
        *
        * Section-title-in-container pattern + BD-3h help-cue with
@@ -1670,55 +1721,7 @@ export default function StyleTab({
           )}
         </div>
       </fieldset>
-
-      {/* ── BG-7 Item 1 — Trust badge editor ────────────────────────
-       *
-       * BF-8+9 (PR #498) pre-loaded 4 trust badges per template into
-       * `templatePresets.ts` but never shipped the owner-facing editor.
-       * This section closes that loop: owners can re-order, edit, add
-       * or remove badges via the inline editor below.
-       *
-       * Tier gating: Pro-only edits (`BRAND_STUDIO_STYLE_KEYS` doesn't
-       * cover trustBadges directly because they live on
-       * AdvancedConfigShape rather than AdvStyle — the gating happens
-       * here in the UI; free-tier users see the 4 defaults from the
-       * template seed but every editor control is disabled). */}
-      <TrustBadgesGroup
-        badges={trustBadges}
-        onChange={onTrustBadgesChange}
-        isProTier={isProTier}
-      />
-
-      {/* ── BG-7 Item 6 — Button copy override ──────────────────────
-       *
-       * Per-template overrides for the 5 widget action buttons (Back,
-       * Continue, See my quote, Email me, Book a consultation). All
-       * five fields are optional — an empty value falls back to the
-       * renderer's default copy. Compact RichTextField inputs so the
-       * section stays dense.
-       *
-       * Tier gating: Pro-only — listed in BRAND_STUDIO_STYLE_KEYS so
-       * free-tier patches are stripped before persistence. Free-tier
-       * owners see disabled inputs + a small PRO pill. */}
-      <ButtonCopyGroup
-        buttonCopy={style.buttonCopy}
-        onChange={(next) => patch({ buttonCopy: next })}
-        isProTier={isProTier}
-      />
-
-      {/* ── W-AO-6c — Brand Studio (Pro) ────────────────────────────
-       *
-       * Three Pro-tier features grouped in a single collapsible section
-       * at the bottom of the Style tab: Custom CSS, image / gradient
-       * background, and result-panel overrides. Free users see the
-       * controls (preview-only) but the section header shows a Lock +
-       * Upgrade CTA; the server strips the fields before persistence
-       * for non-paid plans. */}
-      <BrandStudioGroup
-        style={style}
-        patch={patch}
-        isProTier={isProTier}
-      />
+      </AdvancedSection>
 
       {/* BD-3f Item 5 — Success / Error ghost preview. Mounts a demo
        *  toast onto the preview pane so the owner sees the colour they
