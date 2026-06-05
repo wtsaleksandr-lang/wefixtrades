@@ -34,6 +34,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { apiRequest } from '@/lib/queryClient';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
+import { AE } from './appleEditor';
 import {
   buildBlankPreviewConfig, getTemplatePreset, deriveStyleFromCategory,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
@@ -1808,6 +1809,11 @@ export default function WizardShell({ embed = false }: Props) {
               min-height: 100vh;
               padding: ${d.layout.shellPad};
               box-sizing: border-box;
+              /* Apple-clean (Phase 0) — SF-style system type + near-black text
+                 across the editor chrome. Dark-theme overrides still apply via
+                 the [data-theme="dark"] rules below / index.css. */
+              font-family: ${AE.font.family};
+              color: ${AE.color.text};
             }
             /* BD-3c Feature 1 — desktop static canvas. Lock the shell
                to viewport height and hide outer overflow so ONLY the
@@ -1872,9 +1878,9 @@ export default function WizardShell({ embed = false }: Props) {
             }
             .qq-editor-frame {
               display: flex; flex-direction: column;
-              background: ${d.colors.panel};
-              border-radius: 14px;
-              box-shadow: ${d.shadows.panel};
+              background: ${AE.color.bg};
+              border-radius: ${AE.radius.lg};
+              box-shadow: ${AE.shadow.pop};
               /* P0 sticky fix — use clip (not hidden) so sticky descendants
                * in the preview widget bind to the preview pane's scroll
                * context. See memory/project_overflow_clip_for_sticky.md */
@@ -1943,13 +1949,16 @@ export default function WizardShell({ embed = false }: Props) {
              * within a functional group are 2–4px, between groups 8–10px.
              *
              * Sticky behaviour preserved (only one sticky surface now). */
+            /* Apple-clean (Phase 0) — white bar, single hairline bottom
+               border, no heavy shadow, ~56px tall. */
             .qq-editor-topbar {
               display: flex; align-items: center;
-              gap: 8px;
-              padding: 6px 12px; flex-shrink: 0;
-              min-height: 44px;
-              background: ${d.colors.panelHeader};
-              border-bottom: 1px solid ${d.colors.borderLight};
+              gap: 10px;
+              padding: 10px 16px; flex-shrink: 0;
+              min-height: 56px;
+              background: ${AE.color.bg};
+              border-bottom: 1px solid ${AE.color.hairline};
+              font-family: ${AE.font.family};
               position: sticky;
               top: 0;
               z-index: 6;
@@ -1957,7 +1966,8 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-brand {
               display: inline-flex; align-items: center; gap: 6px;
               text-decoration: none;
-              font-size: 13px; font-weight: 800; color: ${p.colors.heading};
+              font-size: 15px; font-weight: 600; color: ${AE.color.text};
+              letter-spacing: -0.01em;
               flex-shrink: 0;
               min-height: 32px;
               padding: 0 2px;
@@ -1968,8 +1978,8 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-brand-label { display: none; }
             }
             .qq-editor-saved {
-              font-size: 11px; font-weight: 600; color: ${p.colors.accentDark};
-              background: ${p.colors.accentLighter}; padding: 3px 9px; border-radius: 999px;
+              font-size: 12px; font-weight: 500; color: ${AE.color.secondary};
+              padding: 3px 4px; border-radius: ${AE.radius.pill};
               transition: opacity 0.3s ease; flex-shrink: 0;
             }
             .qq-editor-spacer { flex: 1; min-width: 4px; }
@@ -1979,7 +1989,7 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-divider {
               flex-shrink: 0;
               width: 1px; height: 22px;
-              background: ${d.colors.borderLight};
+              background: ${AE.color.hairline};
               margin: 0 2px;
             }
             /* BH-2 — tight group cluster (history, tools). 2px gap so two
@@ -1990,12 +2000,13 @@ export default function WizardShell({ embed = false }: Props) {
             }
             .qq-editor-device {
               display: flex; gap: 2px; padding: 2px; flex-shrink: 0;
-              border-radius: 8px; background: #fff;
-              border: 1px solid ${p.colors.borderLight};
+              border-radius: ${AE.radius.md}; background: ${AE.color.surface};
+              border: 1px solid ${AE.color.hairline};
             }
             .qq-editor-device button {
               display: flex; align-items: center; justify-content: center;
-              width: 30px; height: 24px; border-radius: 6px; border: none;
+              width: 30px; height: 26px; border-radius: 7px; border: none;
+              background: transparent;
               cursor: pointer; transition: background 0.15s ease;
             }
             /* BH-2 / BH-5 — icon-btn at-rest contrast lifted (was muted /
@@ -2003,27 +2014,28 @@ export default function WizardShell({ embed = false }: Props) {
              * remain readable on both light and dark chrome backgrounds.
              * Icons inherit colour via currentColor — see the inline SVG
              * style on each lucide-react icon in EditorTopBar.tsx. */
+            /* Apple-clean (Phase 0) — quiet icon button: transparent at rest,
+               secondary-grey icon, soft grey hover fill, 10px radius. No
+               border / circle chrome. */
             .qq-editor-icon-btn {
-              width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
-              border: 1px solid ${p.colors.border}; background: #fff;
-              color: ${p.colors.heading}; padding: 0;
-              opacity: 0.85;
+              width: 32px; height: 32px; border-radius: ${AE.radius.md}; cursor: pointer;
+              border: none; background: transparent;
+              color: ${AE.color.secondary}; padding: 0;
+              opacity: 1;
               display: flex; align-items: center; justify-content: center;
               transition: background 0.12s ease, color 0.12s ease, opacity 0.12s ease;
               flex-shrink: 0;
             }
             .qq-editor-icon-btn:hover:not(:disabled) {
-              background: ${p.colors.surfaceRaised};
-              color: ${p.colors.heading};
+              background: ${AE.color.surface};
+              color: ${AE.color.text};
               opacity: 1;
             }
             /* BD-3a fix 1 / BH-2 / BH-5 — Undo/Redo share the icon-btn base
-             * but gain a brand-blue tint on hover. At-rest opacity 0.85
-             * matches the rest of the chrome's tool icons. */
+             * but gain a brand-blue tint on hover. */
             .qq-editor-history-btn:hover:not(:disabled) {
-              background: ${p.colors.accentLighter};
-              color: ${p.colors.accent};
-              border-color: ${p.colors.accent};
+              background: ${AE.color.accentTint};
+              color: ${AE.color.accent};
               opacity: 1;
             }
             .qq-editor-history-btn:disabled {
@@ -2048,35 +2060,36 @@ export default function WizardShell({ embed = false }: Props) {
              * tab strip fits comfortably in the single-row top chrome.
              * 11px font / 6px vertical / 12px horizontal padding / weight 500
              * (active pill bumps to 600 + #fff/brand-blue from PR #515). */
+            /* Apple-clean (Phase 0) — clean segmented tabs. Inactive =
+               secondary-grey text on transparent; active = near-black text on
+               a subtle grey pill. Quiet, not a loud brand-blue fill. */
             .qq-editor-tab {
               font: inherit; background: transparent; border: none; cursor: pointer;
-              padding: 6px 12px;
-              min-height: 28px;
-              font-size: 11px; font-weight: 500;
-              border-radius: 999px;
+              padding: 6px 14px;
+              min-height: 30px;
+              font-size: 13px; font-weight: 500;
+              color: ${AE.color.secondary};
+              border-radius: ${AE.radius.sm};
               white-space: nowrap;
               transition: color 0.12s ease, background 0.12s ease;
             }
-            .qq-editor-tab:hover { color: ${p.colors.heading}; }
-            /* BH-5 — solid brand-blue active pill (Option A). The dark-mode
-             * stylesheet (index.css) forces every .qq-editor-tab color to
-             * var(--qq-text) !important, which previously masked the inline
-             * accent color and made the active label invisible against its
-             * own light-blue pill. We force white on the active pill here
-             * with !important so the label stays legible in either theme. */
+            .qq-editor-tab:hover { color: ${AE.color.text}; }
+            /* Active = near-black label on a soft grey pill. We force the
+             * colours with !important so the dark-mode stylesheet (index.css),
+             * which pins every .qq-editor-tab color to var(--qq-text), can't
+             * mask the active-state contrast. */
             .qq-editor-tab.is-active {
               font-weight: 600;
-              color: #ffffff !important;
-              background: ${p.colors.accent} !important;
+              color: ${AE.color.text} !important;
+              background: ${AE.color.surface} !important;
             }
 
             /* BH-2 — preview fold/unfold reuses the icon-btn footprint. The
              * collapsed state takes on accent colour so the user can see
              * the preview is hidden at a glance. */
             .qq-editor-fold.is-collapsed {
-              color: ${p.colors.accent};
-              background: ${p.colors.accentLighter};
-              border-color: ${p.colors.accentLighter};
+              color: ${AE.color.accent};
+              background: ${AE.color.accentTint};
             }
             /* P1 UX (2026-05-22) — Floating launcher preview toggle.
              *
@@ -2219,7 +2232,7 @@ export default function WizardShell({ embed = false }: Props) {
                 min-width: 0 !important;
                 opacity: 1 !important;
                 pointer-events: auto !important;
-                border-left: 1px solid ${d.colors.borderLight} !important;
+                border-left: 1px solid ${AE.color.hairline} !important;
               }
               .qq-editor-body.is-preview-collapsed .qq-editor-left {
                 flex: 0 0 auto;
@@ -2233,8 +2246,8 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-left {
               position: relative;
               flex-shrink: 0;
-              background: ${d.colors.panel};
-              border-right: 1px solid ${d.colors.borderLight};
+              background: ${AE.color.bg};
+              border-right: 1px solid ${AE.color.hairline};
               overflow-y: auto;
             }
             .qq-editor-left-inner {
@@ -2353,8 +2366,8 @@ export default function WizardShell({ embed = false }: Props) {
               margin-top: auto;
               padding: 12px 18px 14px;
               margin-left: -18px; margin-right: -18px;
-              border-top: 1px solid ${d.colors.borderLight};
-              background: ${d.colors.panel};
+              border-top: 1px solid ${AE.color.hairline};
+              background: ${AE.color.bg};
               position: sticky; bottom: 0; z-index: 4;
             }
             .qq-editor-shell[data-theme="dark"] .qq-editor-actions {
@@ -2362,13 +2375,13 @@ export default function WizardShell({ embed = false }: Props) {
             }
             .qq-editor-btn {
               display: inline-flex; align-items: center; justify-content: center;
-              padding: 8px 14px; border-radius: 8px;
-              font-size: 12.5px; font-weight: 700; cursor: pointer;
-              background: ${p.colors.accent}; color: #fff; border: none;
-              box-shadow: ${p.shadows.button};
-              transition: box-shadow 0.12s ease, transform 0.06s ease;
+              padding: 9px 16px; border-radius: ${AE.radius.md};
+              font-size: 13px; font-weight: 600; cursor: pointer;
+              background: ${AE.color.publish}; color: ${AE.color.publishText}; border: none;
+              box-shadow: none;
+              transition: background 0.12s ease, transform 0.06s ease;
             }
-            .qq-editor-btn:hover:not(:disabled) { box-shadow: ${p.shadows.buttonHover}; }
+            .qq-editor-btn:hover:not(:disabled) { background: ${AE.color.accentHover}; }
             .qq-editor-btn:disabled { opacity: 0.55; cursor: not-allowed; }
             .qq-editor-save-error { font-size: 11.5px; color: ${p.colors.danger}; font-weight: 600; }
             .qq-editor-right {
@@ -2450,10 +2463,10 @@ export default function WizardShell({ embed = false }: Props) {
               padding: 20px;
             }
             .qq-editor-help-card {
-              background: #fff; border-radius: 14px;
+              background: ${AE.color.bg}; border-radius: ${AE.radius.lg};
               padding: 18px 20px; max-width: 380px; width: 100%;
-              box-shadow: ${p.shadows.xl};
-              border: 1px solid ${p.colors.borderLight};
+              box-shadow: ${AE.shadow.pop};
+              border: 1px solid ${AE.color.hairline};
             }
 
             /* Mobile — preview stacks below the editor column. Resize handle
@@ -2487,7 +2500,7 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-body { flex-direction: column; }
               .qq-editor-left {
                 width: 100% !important; border-right: none;
-                border-bottom: 1px solid ${d.colors.borderLight};
+                border-bottom: 1px solid ${AE.color.hairline};
                 order: 1;
               }
               /* Wave N — trim wasted side-padding on the editor pane so field
@@ -2686,7 +2699,7 @@ export default function WizardShell({ embed = false }: Props) {
                 background: rgba(255, 255, 255, 0.92);
                 backdrop-filter: blur(10px);
                 -webkit-backdrop-filter: blur(10px);
-                border-top: 1px solid ${d.colors.borderLight};
+                border-top: 1px solid ${AE.color.hairline};
                 box-shadow: 0 -6px 18px rgba(15,23,42,0.06);
                 padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
                 gap: 8px;

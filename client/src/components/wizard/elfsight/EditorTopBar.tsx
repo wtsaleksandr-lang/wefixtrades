@@ -36,10 +36,8 @@ import {
   HelpCircle, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen,
   Redo2, Smartphone, Sun, Tablet, Undo2, X,
 } from 'lucide-react';
-import { platformTheme } from '@/theme/platformTheme';
+import { AE } from './appleEditor';
 import { EDITOR_TABS, type EditorTab, type EditorTheme, type PreviewDevice } from './types';
-
-const p = platformTheme;
 
 interface Props {
   justSaved?: boolean;
@@ -192,13 +190,14 @@ export default function EditorTopBar({
               className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
               onClick={() => onTabChange(id)}
               style={{
-                // Wave 94 — bump inactive-tab text from p.colors.muted
-                // (#6B7280) to p.colors.body (#374151) so the pill clears
-                // WCAG-AA on the #E4EDF1 topbar background. The previous
-                // 4.07:1 was below the 4.5:1 threshold and was the dominant
-                // contributor to axe color-contrast failures in the audit.
-                color: isActive ? '#ffffff' : p.colors.body,
-                background: isActive ? p.colors.accent : 'transparent',
+                // Apple-clean (Phase 0) — inactive = secondary grey on
+                // transparent; active = near-black on a soft grey pill. The
+                // active surface/text also have a matching !important rule in
+                // the WizardShell stylesheet so the dark-mode index.css can't
+                // mask the active contrast; these inline values cover the
+                // light chrome and keep AA on the white top bar.
+                color: isActive ? AE.color.text : AE.color.secondary,
+                background: isActive ? AE.color.surface : 'transparent',
               }}
             >
               {label}
@@ -236,12 +235,12 @@ export default function EditorTopBar({
             aria-label={`${label} preview`}
             aria-pressed={device === mode}
             title={`${label} preview`}
-            style={{ background: device === mode ? p.colors.accentLighter : 'transparent' }}
+            style={{ background: device === mode ? AE.color.bg : 'transparent' }}
           >
             <Icon
               style={{
                 width: 14, height: 14,
-                color: device === mode ? p.colors.accent : p.colors.muted,
+                color: device === mode ? AE.color.accent : AE.color.secondary,
               }}
             />
           </button>
@@ -353,10 +352,10 @@ export default function EditorTopBar({
             className="qq-editor-help-card"
             onClick={(e) => e.stopPropagation()}
           >
-            <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: p.colors.heading }}>
+            <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: AE.color.text }}>
               QuoteQuick editor
             </p>
-            <p style={{ fontSize: 12.5, color: p.colors.muted, margin: '8px 0 0', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: AE.color.secondary, margin: '8px 0 0', lineHeight: 1.5 }}>
               Build your calculator on the left, preview it live on the right.
               Use the tabs to switch between Build, Style, Settings, and Install.
               Press Esc or click outside this box to close.

@@ -39,6 +39,7 @@ import {
 import { ChevronUp, HelpCircle, RotateCcw } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
+import { AE } from './appleEditor';
 import { useLayoutGuard } from '@/lib/layoutGuard';
 import { EDITOR_TABS, type EditorTab } from './types';
 
@@ -357,11 +358,15 @@ export default function MobileBottomSheet({
             display: flex; flex-direction: column;
             position: fixed; left: 0; right: 0; bottom: 0;
             z-index: 9998;
-            background: ${d.colors.panel};
-            border-top-left-radius: 18px;
-            border-top-right-radius: 18px;
-            box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.18);
-            border-top: 1px solid ${d.colors.borderLight};
+            /* Apple-clean (Phase 0) — white sheet, 14px top radius, hairline
+               top border, soft pop shadow, SF-system type. */
+            background: ${AE.color.bg};
+            font-family: ${AE.font.family};
+            color: ${AE.color.text};
+            border-top-left-radius: ${AE.radius.lg};
+            border-top-right-radius: ${AE.radius.lg};
+            box-shadow: ${AE.shadow.pop};
+            border-top: 1px solid ${AE.color.hairline};
             /* Snap transitions animate HEIGHT only — no snap state applies a
              * translate, so the old transform:translate3d(0,0,0) +
              * will-change:transform were dead weight that only risked
@@ -401,9 +406,9 @@ export default function MobileBottomSheet({
             bottom: calc(64px + 8px + env(safe-area-inset-bottom, 0px));
             margin: 0 auto;
             max-width: 200px;
-            border-radius: 14px;
-            border: 1px solid ${d.colors.borderLight};
-            box-shadow: 0 8px 28px rgba(15, 23, 42, 0.20);
+            border-radius: ${AE.radius.lg};
+            border: 1px solid ${AE.color.hairline};
+            box-shadow: ${AE.shadow.pop};
             overflow: hidden;
             /* The collapsed button is a clean fixed box — no self-transform /
              * will-change so nothing about it can detach from the viewport. */
@@ -462,12 +467,12 @@ export default function MobileBottomSheet({
             /* BH-3-defaults (2026-05-23) — bolder bar + brand-tint
              * background so the affordance reads even when the sheet
              * is collapsed at the foot of a busy canvas. */
-            width: 48px; height: 5px; border-radius: 999px;
-            background: var(--qq-accent-lighter, rgba(13, 60, 252, 0.14));
+            width: 40px; height: 5px; border-radius: ${AE.radius.pill};
+            background: ${AE.color.hairline};
             margin-bottom: 2px;
-            opacity: 0.6;
+            opacity: 0.9;
             transform-origin: center;
-            box-shadow: 0 0 8px rgba(13, 60, 252, 0.18);
+            box-shadow: none;
             will-change: transform, opacity;
           }
           /* Pulse only when collapsed — once open the bar has done its
@@ -502,8 +507,8 @@ export default function MobileBottomSheet({
             }
           }
           .qq-sheet-handle-label {
-            font-size: 13px; font-weight: 700;
-            color: ${p.colors.heading};
+            font-size: 13px; font-weight: 600;
+            color: ${AE.color.text};
             display: inline-flex; align-items: center; gap: 4px;
           }
           .qq-sheet-handle-caret {
@@ -513,7 +518,7 @@ export default function MobileBottomSheet({
             align-items: center;
             justify-content: center;
             margin-left: 2px;
-            color: ${p.colors.muted};
+            color: ${AE.color.secondary};
             line-height: 0;
           }
           /* Collapsed pill — compress the handle so the bar + label fit the
@@ -533,9 +538,9 @@ export default function MobileBottomSheet({
             flex-shrink: 0;
             margin: 0 12px 6px;
             padding: 3px;
-            border-radius: 12px;
-            background: ${p.colors.surfaceRaised};
-            border: 1px solid ${d.colors.borderLight};
+            border-radius: ${AE.radius.md};
+            background: ${AE.color.surface};
+            border: 1px solid ${AE.color.hairline};
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
@@ -545,22 +550,23 @@ export default function MobileBottomSheet({
             flex: 1 1 0; min-width: 64px; min-height: 36px;
             display: inline-flex; align-items: center; justify-content: center;
             padding: 0 10px;
-            background: transparent; border: none; border-radius: 9px;
-            font: inherit; font-size: 13px; font-weight: 600;
-            color: ${p.colors.muted};
+            background: transparent; border: none; border-radius: ${AE.radius.sm};
+            font: inherit; font-size: 13px; font-weight: 500;
+            color: ${AE.color.secondary};
             cursor: pointer; white-space: nowrap;
             transition: background 0.12s ease, color 0.12s ease;
           }
-          .qq-sheet-tab:hover { color: ${p.colors.heading}; }
-          /* Selected = subtle raised surface + brand-tinted text (outline
+          .qq-sheet-tab:hover { color: ${AE.color.text}; }
+          /* Apple-clean (Phase 0) — selected = white pill that lifts off the
+           * recessed grey track + near-black label (outline/elevation
            * approach, NOT a bright accent fill — per the hard UI rules). */
           .qq-sheet-tab.is-active {
-            background: var(--qq-surface, rgba(255,255,255,1));
-            color: ${p.colors.accentDark};
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.10);
+            background: ${AE.color.bg};
+            color: ${AE.color.text};
+            box-shadow: ${AE.shadow.card};
           }
           .qq-sheet-tab:focus-visible {
-            outline: 2px solid ${p.colors.accent};
+            outline: 2px solid ${AE.color.accent};
             outline-offset: -2px;
           }
           .qq-editor-shell[data-theme="dark"] .qq-sheet-tabs {
@@ -601,30 +607,27 @@ export default function MobileBottomSheet({
             position: sticky; bottom: 0;
             display: flex; align-items: center; gap: 8px;
             padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
-            border-top: 1px solid ${d.colors.borderLight};
-            background: ${d.colors.panel};
+            border-top: 1px solid ${AE.color.hairline};
+            background: ${AE.color.bg};
             flex-shrink: 0;
             z-index: 2;
           }
           .qq-sheet-footer-reset {
             display: inline-flex; align-items: center; gap: 6px;
             min-height: 44px; padding: 0 14px;
-            /* AUDIT-LOW — was hardcoded #fff. Token resolves to white
-             * in light theme + dark surface (#1E293B) in dark theme.
-             * Pairs with the existing dark override below + the
-             * .qq-editor-shell[data-theme="dark"] .qq-sheet-footer-reset
-             * rule in client/src/index.css (lines 1206-1213). */
-            background: var(--qq-surface, #fff);
-            border: 1px solid ${p.colors.border};
-            border-radius: 10px;
-            font: inherit; font-size: 13px; font-weight: 600;
-            color: ${p.colors.heading};
+            /* Apple-clean (Phase 0) — secondary action: recessed grey surface,
+             * hairline border, near-black label, 10px radius. */
+            background: ${AE.color.surface};
+            border: 1px solid ${AE.color.hairline};
+            border-radius: ${AE.radius.md};
+            font: inherit; font-size: 13px; font-weight: 500;
+            color: ${AE.color.text};
             cursor: pointer;
             transition: background 0.12s ease, border-color 0.12s ease,
                         color 0.12s ease;
           }
           .qq-sheet-footer-reset:hover {
-            background: ${p.colors.surfaceRaised};
+            background: ${AE.color.surfaceHover};
           }
           /* Icon-only Help control — mirrors the Reset button's surface so it
            * reads as a secondary chrome action. The mobile action bar's Help
@@ -633,39 +636,39 @@ export default function MobileBottomSheet({
           .qq-sheet-footer-help {
             display: inline-flex; align-items: center; justify-content: center;
             min-width: 44px; min-height: 44px; padding: 0 10px;
-            background: var(--qq-surface, rgba(255,255,255,1));
-            border: 1px solid ${p.colors.border};
-            border-radius: 10px;
-            color: ${p.colors.heading};
+            background: ${AE.color.surface};
+            border: 1px solid ${AE.color.hairline};
+            border-radius: ${AE.radius.md};
+            color: ${AE.color.text};
             cursor: pointer;
             transition: background 0.12s ease, border-color 0.12s ease,
                         color 0.12s ease;
           }
           .qq-sheet-footer-help:hover {
-            background: ${p.colors.surfaceRaised};
+            background: ${AE.color.surfaceHover};
           }
           .qq-sheet-footer-help:focus-visible {
-            outline: 2px solid ${p.colors.accent};
+            outline: 2px solid ${AE.color.accent};
             outline-offset: -2px;
           }
           .qq-sheet-footer-reset.is-confirm {
-            background: ${p.colors.accentLighter};
-            border-color: ${p.colors.accent};
-            color: ${p.colors.accentDark};
+            background: ${AE.color.accentTint};
+            border-color: ${AE.color.accent};
+            color: ${AE.color.accent};
           }
           .qq-sheet-footer-done {
             flex: 1; min-height: 44px;
-            background: ${p.colors.accent};
-            color: #fff;
+            background: ${AE.color.publish};
+            color: ${AE.color.publishText};
             border: none;
-            border-radius: 10px;
-            font: inherit; font-size: 14px; font-weight: 700;
+            border-radius: ${AE.radius.md};
+            font: inherit; font-size: 14px; font-weight: 600;
             cursor: pointer;
-            box-shadow: ${p.shadows.button};
+            box-shadow: none;
             transition: box-shadow 0.12s ease, background 0.12s ease;
           }
           .qq-sheet-footer-done:hover:not(:disabled) {
-            box-shadow: ${p.shadows.buttonHover};
+            background: ${AE.color.accentHover};
           }
           .qq-sheet-footer-done:disabled {
             opacity: 0.55; cursor: not-allowed;
