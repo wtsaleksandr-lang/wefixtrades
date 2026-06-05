@@ -2094,7 +2094,21 @@ export default function AdvancedCalculator({
                 data-testid="advanced-title"
                 data-component-name="Title"
                 data-component-type="title"
-                style={{ fontSize: '17px', fontWeight: headingWeight, color: cc.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                style={{
+                  fontSize: '17px', fontWeight: headingWeight, color: cc.text, margin: 0,
+                  letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6,
+                  // AE mobile (2026-06-05) — when the title is editable (wizard
+                  // preview only), make the WHOLE name+pencil row a comfortable
+                  // tap target so tapping anywhere on it opens the inline title
+                  // editor (the onBezelClick delegation matches advanced-title).
+                  // Live/published widget never gets editableTitle, so this adds
+                  // no chrome there. cursor:pointer + min tap height read it as
+                  // editable; the per-element CSS in PreviewPane scopes the
+                  // larger 44px touch height + active affordance to ≤768px.
+                  ...(editableTitle
+                    ? { cursor: 'pointer', padding: '4px 6px', borderRadius: 6, minHeight: 32 }
+                    : null),
+                }}
               >
                 {/* Small category glyph LEFT of the title — shown ONLY as a
                     fallback when there's no brand logo / default icon above, so
@@ -2124,16 +2138,25 @@ export default function AdvancedCalculator({
                     title="Click to edit"
                     style={{
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      width: 18, height: 18, borderRadius: 4,
+                      // AE mobile (2026-06-05) — the pencil was a 18x18 box with a
+                      // 12px glyph: too small to reliably tap on a phone, so users
+                      // thought tap-to-edit was dead. Bump the tap target to 40x40
+                      // (min) with a ~18px glyph. The onBezelClick delegation
+                      // matches advanced-title-edit-hint, so a tap anywhere on this
+                      // box opens the inline editor. cursor:pointer + a subtle tint
+                      // make it read as a button.
+                      minWidth: 40, minHeight: 40, borderRadius: 8,
                       color: cc.textBody,
-                      opacity: 0.55,
-                      transition: 'opacity 0.12s ease',
+                      opacity: 0.6,
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      transition: 'opacity 0.12s ease, background 0.12s ease',
                     }}
                   >
                     {/* lucide-style pencil glyph (small inline SVG, no
                         extra import on AdvancedCalculator). */}
                     <svg
-                      width={12} height={12} viewBox="0 0 24 24"
+                      width={18} height={18} viewBox="0 0 24 24"
                       fill="none" stroke="currentColor" strokeWidth={2.4}
                       strokeLinecap="round" strokeLinejoin="round"
                     >

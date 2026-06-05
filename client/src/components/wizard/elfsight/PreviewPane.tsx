@@ -2480,32 +2480,87 @@ export default function PreviewPane({
          * scrollable column with NO stage transform, NO bezel, NO dotted grid,
          * NO zoom pill and NO drag — just the live calculator. Desktop is
          * unaffected (these rules are scoped to .is-mobile-clean). */
+        /* AE mobile seamless (2026-06-05) — the mobile preview must be a single
+         * SEAMLESS white calculator filling the width, with NO visible outer
+         * card / floating corners / dark gutter, regardless of the editor
+         * light/dark theme. The pane background was transparent, so in the dark
+         * editor theme the dark shell showed around a white rounded card (the
+         * floating-card look). Force the whole mobile-clean preview column
+         * white, edge-to-edge, and below the widget too. !important wins over
+         * any dark editor-shell background applied to the pane. Desktop is
+         * untouched (all rules scoped to .is-mobile-clean / .qq-bezel--mobile-clean). */
         .qq-preview-pane.is-mobile-clean {
           display: block;
-          padding: 0;
+          padding: 0 !important;
+          margin: 0;
           /* Vertical scroll only — the widget is natural-width and the column
            * scrolls between the top bar and the bottom tab bar. Allow native
            * vertical panning (the desktop pinch surface is not mounted here). */
           touch-action: pan-y;
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
-          background: transparent;
+          background: rgba(255,255,255,1) !important;
         }
         .qq-preview-mobile-clean {
           width: 100%;
           box-sizing: border-box;
-          /* Small side padding so the calculator doesn't touch the edges,
-           * matching Elfsight's mobile gutter. Bottom padding clears the
-           * persistent dark bottom tab bar + safe area. */
-          padding: 10px 10px calc(72px + env(safe-area-inset-bottom, 0px));
+          /* Full-bleed white: no side gutter (the widget merges flush to the
+           * edges); only a bottom pad to clear the dark bottom tab bar + safe
+           * area. The padded area stays white too — no dark gutter shows. */
+          padding: 0 0 calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+          margin: 0;
+          background: rgba(255,255,255,1) !important;
         }
         .qq-preview-mobile-widget-scope {
           width: 100%;
+          padding: 0 !important;
+          margin: 0;
+          background: rgba(255,255,255,1) !important;
         }
         .qq-bezel--mobile-clean {
           width: 100%;
-          border-radius: 16px;
+          /* Flattened/seamless on mobile — the outer card rounding/border is
+           * removed so the calculator merges flush with the white preview edge
+           * to edge (no floating corners). */
+          border-radius: 0 !important;
+          border: 0 !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+          margin: 0;
+          background: rgba(255,255,255,1) !important;
           overflow: clip; /* sticky-safe (see project_overflow_clip_for_sticky) */
+        }
+        /* Flatten the AdvancedCalculator's OUTERMOST card on mobile so there are
+         * no floating corners/edges. Only the outer wrapper is merged — the INNER
+         * cards (Your Business header box, field boxes, result/total card) keep
+         * their own styling. Scoped under the mobile-clean bezel so desktop and
+         * the live published widget are untouched. */
+        .qq-bezel--mobile-clean [data-testid="advanced-calculator"] {
+          border-radius: 0 !important;
+          border: 0 !important;
+          box-shadow: none !important;
+          width: 100% !important;
+          margin: 0 !important;
+        }
+        /* AE mobile tap-to-edit (2026-06-05) — on a real phone make the editable
+         * title row + pencil a big, obvious tap target. The onBezelClick
+         * delegation opens the inline editor when advanced-title (whole row) or
+         * advanced-title-edit-hint (pencil) is tapped, so a comfortable 44px
+         * touch height + a clear active/hover affordance makes tap-to-edit read
+         * as alive. Scoped to ≤768px so desktop is unchanged. */
+        @media (max-width: 768px) {
+          .qq-bezel--mobile-clean [data-testid="advanced-title"] {
+            min-height: 44px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.12s ease;
+          }
+          .qq-bezel--mobile-clean [data-testid="advanced-title"]:active {
+            background: rgba(13,60,252,0.06);
+          }
+          .qq-bezel--mobile-clean [data-testid="advanced-title-edit-hint"]:active {
+            background: rgba(13,60,252,0.1);
+          }
         }
         /* Pinch-to-zoom fix — restore normal touch behavior INSIDE the live
          * widget so a one-finger tap / scroll on the calculator's own
