@@ -23,6 +23,7 @@
 //    respects `prefers-reduced-motion`). Snappier on mobile.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import {
@@ -251,6 +252,14 @@ export default function WizardShell({ embed = false }: Props) {
   // doesn't get pushed back onto the undo stack (which would make undo a no-op
   // toggle between the two most recent states).
   const isReplayingRef = useRef(false);
+  // Coalescing — a burst of rapid consecutive edits (e.g. typing a word) should
+  // collapse into ONE undo entry, not one-per-keystroke. We push a new history
+  // entry only when the gap since the last edit is ≥ COALESCE_MS; within the
+  // window the earlier pre-burst snapshot already on the stack stays the undo
+  // target. `lastPushTsRef` records the timestamp of the last edit (push or
+  // coalesced). Reset to 0 after discrete actions (drag) to force a fresh entry.
+  const COALESCE_MS = 350;
+  const lastPushTsRef = useRef(0);
   // BD-3a-fix2 — real state that drives the Undo/Redo button enabled-state.
   // `u` = undo stack length, `r` = redo stack length. Updated SYNCHRONOUSLY
   // right after every stack mutation so the rendered enabled-state can never
@@ -284,8 +293,19 @@ export default function WizardShell({ embed = false }: Props) {
     if (next === prev) return;
     setStateInner(next);
     const stack = undoStackRef.current;
-    stack.push(prev);
-    if (stack.length > HISTORY_LIMIT) stack.shift();
+    // Coalesce rapid consecutive edits (typing) into a single undo entry. If
+    // the previous edit landed < COALESCE_MS ago AND there's already a snapshot
+    // on the stack to undo back to, skip pushing a new entry — the pre-burst
+    // snapshot already on top stays the undo target. We STILL clear redo and
+    // refresh the counter (redo length may have changed). Otherwise push as
+    // normal (idle gap ≥ COALESCE_MS, or empty stack).
+    const now = Date.now();
+    const coalesce = now - lastPushTsRef.current < COALESCE_MS && stack.length > 0;
+    lastPushTsRef.current = now;
+    if (!coalesce) {
+      stack.push(prev);
+      if (stack.length > HISTORY_LIMIT) stack.shift();
+    }
     redoStackRef.current = [];
     setHistLen({ u: stack.length, r: 0 });
     // BD-3d Feature 2 — broadcast every user-initiated patch so the AI
@@ -331,6 +351,21 @@ export default function WizardShell({ embed = false }: Props) {
 
   const canUndo = histLen.u > 0;
   const canRedo = histLen.r > 0;
+
+  // Bug A — Escape-to-close for the in-shell Help overlay. On mobile the
+  // overlay portals above the bottom sheet, so backdrop/"Got it" are reachable;
+  // Escape is the keyboard escape hatch and matches the top-bar help modal.
+  useEffect(() => {
+    if (!showHelp) return;
+    const onHelpKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') {
+        ev.stopPropagation();
+        setShowHelp(false);
+      }
+    };
+    window.addEventListener('keydown', onHelpKey);
+    return () => window.removeEventListener('keydown', onHelpKey);
+  }, [showHelp]);
 
   // BD-3a fix 1 — keyboard shortcuts. Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z
   // (or Cmd/Ctrl+Y) = redo. We skip when the user is typing in a real text
@@ -947,6 +982,9 @@ export default function WizardShell({ embed = false }: Props) {
         if (stack.length > HISTORY_LIMIT) stack.shift();
         redoStackRef.current = [];
         setHistLen({ u: stack.length, r: 0 });
+        // Discrete action — force the next text edit to start a fresh undo
+        // entry instead of coalescing into this drag.
+        lastPushTsRef.current = 0;
       }
       return;
     }
@@ -966,6 +1004,8 @@ export default function WizardShell({ embed = false }: Props) {
       if (stack.length > HISTORY_LIMIT) stack.shift();
       redoStackRef.current = [];
       setHistLen({ u: stack.length, r: 0 });
+      // Discrete action — force the next text edit to start a fresh undo entry.
+      lastPushTsRef.current = 0;
       setStateInner(next);
       // Mirror setState()'s broadcast so the AIBubble rapid-edit
       // counter still ticks for drag-driven reorders.
@@ -1658,22 +1698,24 @@ export default function WizardShell({ embed = false }: Props) {
               replaceTemplate={applyTemplate}
             />
 
-            {showHelp && (
+            {showHelp && typeof document !== 'undefined' && createPortal(
               <div
                 className="qq-editor-help"
                 role="dialog"
                 aria-label="Editor help"
+                data-theme={editorTheme}
                 onClick={() => setShowHelp(false)}
                 data-testid="editor-help-overlay"
               >
                 <div className="qq-editor-help-card" onClick={(e) => e.stopPropagation()}>
                   <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: p.colors.heading }}>
-                    QuoteQuick editor — Wave H1 preview
+                    QuoteQuick editor
                   </p>
-                  <p style={{ fontSize: 12.5, color: p.colors.muted, margin: '8px 0 0', lineHeight: 1.5 }}>
-                    The new editor shell is in place. Build · Style · Settings · Install
-                    tab content lands in subsequent waves.
-                  </p>
+                  <ul style={{ fontSize: 12.5, color: p.colors.muted, margin: '8px 0 0', lineHeight: 1.5, paddingLeft: 18 }}>
+                    <li>Use the Build, Style, Settings, and Install tabs to set up your calculator.</li>
+                    <li>The right pane is a live preview that updates as you edit.</li>
+                    <li>Undo and redo your changes with the toolbar buttons or Ctrl/Cmd+Z.</li>
+                  </ul>
                   <button
                     type="button"
                     onClick={() => setShowHelp(false)}
@@ -1683,7 +1725,8 @@ export default function WizardShell({ embed = false }: Props) {
                     Got it
                   </button>
                 </div>
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
 
@@ -2398,7 +2441,10 @@ export default function WizardShell({ embed = false }: Props) {
               align-items: center; justify-content: flex-start; background: transparent;
             }
             .qq-editor-help {
-              position: fixed; inset: 0; z-index: 1100;
+              /* Portaled to document.body — must paint ABOVE the mobile bottom
+               * sheet (backdrop 9997 / sheet 9998 / topbar+bubble bumped to
+               * 9999) and any modal. Near-max int guarantees it's on top. */
+              position: fixed; inset: 0; z-index: 2147483600;
               background: rgba(15,23,42,0.45);
               display: flex; align-items: center; justify-content: center;
               padding: 20px;
