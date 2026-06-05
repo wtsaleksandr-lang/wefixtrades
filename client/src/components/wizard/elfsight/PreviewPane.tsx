@@ -1544,7 +1544,25 @@ export default function PreviewPane({
     const id1 = requestAnimationFrame(measureTitle);
     const onResize = () => measureTitle();
     window.addEventListener('resize', onResize);
-    return () => { cancelAnimationFrame(id1); window.removeEventListener('resize', onResize); };
+    // Apple-mobile-clean — the clean mobile preview scrolls (the pane is
+    // overflow-y:auto and the bezel/overlay host is the same scrolling element
+    // on mobile). The title-edit input is absolutely positioned from a box
+    // measured at open time, so without re-measuring on scroll it can land at
+    // a stale offset (appearing to "do nothing"). Re-measure on scroll of the
+    // pane and the overlay host so the editor stays pinned over the title.
+    // Desktop is unaffected — its panes don't scroll the title out of view,
+    // and a no-op re-measure there is harmless.
+    const onScroll = () => measureTitle();
+    const paneEl = paneRef.current;
+    const hostEl = overlayHostRef.current;
+    paneEl?.addEventListener('scroll', onScroll, { passive: true });
+    if (hostEl && hostEl !== paneEl) hostEl.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(id1);
+      window.removeEventListener('resize', onResize);
+      paneEl?.removeEventListener('scroll', onScroll);
+      if (hostEl && hostEl !== paneEl) hostEl.removeEventListener('scroll', onScroll);
+    };
   }, [titleEditing, measureTitle, businessName, header]);
 
   const openTitleEditor = useCallback(() => {
