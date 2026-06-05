@@ -713,7 +713,14 @@ const groupHeaderStyle = (c: WidgetTheme, bodyIsDark: boolean): React.CSSPropert
   // Contrast with the ACTUAL body background: near-white on dark-gradient
   // bodies, near-black on light-gradient bodies — so the centered group label
   // is readable everywhere (was hardcoded black → invisible on dark bodies).
-  color: bodyIsDark ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.88)',
+  // Keep the adaptive base choice, then run it through the contrast guard
+  // against the body bg so edge themes (where c.bg disagrees with bodyIsDark)
+  // are corrected too. 11px → normal (non-large) WCAG floor.
+  color: guardTextColor(
+    bodyIsDark ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.88)',
+    c.bg,
+    'groupHeader',
+  ),
   display: 'block',
   marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em',
   textAlign: 'center',
@@ -3285,14 +3292,19 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   // legacy title-in-field float pattern is the unchanged default.
   const stacked = labelLayout === 'stacked';
   const stackedLabelStyle: React.CSSProperties = {
-    display: 'block', fontSize: '14px', fontWeight: 700, color: c.text,
+    display: 'block', fontSize: '14px', fontWeight: 700,
+    // Guard the stacked title against the body bg it renders on (c.bg — no
+    // dedicated body-bg var is in this component's scope). 14px bold → large
+    // text floor.
+    color: guardTextColor(c.text, c.bg, 'fieldLabelStacked', { largeText: true }),
     margin: '0 0 7px', letterSpacing: '-0.005em', lineHeight: 1.3,
     fontFamily,
   };
   const stackedHelp = stacked && f.help
     ? <p style={{
         margin: '7px 0 0', fontSize: '12px', fontWeight: 400,
-        color: c.textMuted, lineHeight: 1.45, fontFamily,
+        color: guardTextColor(c.textMuted, c.bg, 'fieldHelpStacked'),
+        lineHeight: 1.45, fontFamily,
       }}>{f.help}</p>
     : null;
   // Wrap a bare control in the stacked label + help scaffold.
@@ -3357,7 +3369,10 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     // image) just like header.title. Plain strings fall through unchanged.
     const headingProps = richTextRenderProps(f.label || '');
     const headingStyle = {
-      fontSize: '15px', fontWeight: 700, color: c.text, margin: '2px 0 0',
+      fontSize: '15px', fontWeight: 700,
+      // Heading sits on the body bg (c.bg). 15px bold → large-text floor.
+      color: guardTextColor(c.text, c.bg, 'headingField', { largeText: true }),
+      margin: '2px 0 0',
       paddingBottom: '7px', borderBottom: `1px solid ${c.border}`,
     } as const;
     return headingProps.__html
@@ -3573,7 +3588,10 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             rather than a prominent above-the-input title. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <span style={stacked ? { ...stackedLabelStyle, margin: 0 } : {
-            fontSize: '11px', fontWeight: 600, color: c.textMuted,
+            // Resting (non-stacked) slider caption sits on the body bg (c.bg).
+            // The stacked branch reuses stackedLabelStyle, already guarded.
+            fontSize: '11px', fontWeight: 600,
+            color: guardTextColor(c.textMuted, c.bg, 'sliderLabelResting'),
             textTransform: 'uppercase', letterSpacing: '0.04em',
           }}>{f.label}</span>
           <span style={stacked ? {
@@ -3713,9 +3731,13 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
                 {/* BG-7 Item 3 — sanitized rich-text label. */}
                 {(() => {
                   const rp = richTextRenderProps(o.label);
+                  // Guard against the option row's ACTUAL bg: selected → accentTint,
+                  // outline → c.bg (transparent shows body through), else c.surface.
+                  const optBg = sel ? c.accentTint : (isOutline ? c.bg : c.surface);
+                  const optColor = guardTextColor(c.text, optBg, 'radioOptionLabel');
                   return rp.__html
-                    ? <span style={{ fontSize: '14px', color: c.text }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '14px', color: c.text }}>{rp.text}</span>;
+                    ? <span style={{ fontSize: '14px', color: optColor }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={{ fontSize: '14px', color: optColor }}>{rp.text}</span>;
                 })()}
               </button>
             );
@@ -3848,15 +3870,22 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                 {(() => {
                   const rp = richTextRenderProps(o.label);
+                  // Multi-select row bg does NOT switch to accentTint on select
+                  // (see comment above) — it stays surface/transparent. Outline →
+                  // c.bg (body shows through), else c.surface.
+                  const optBg = isOutline ? c.bg : c.surface;
+                  const optColor = guardTextColor(c.text, optBg, 'multiSelectOptionLabel');
                   return rp.__html
-                    ? <span style={{ fontSize: '14px', color: c.text }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '14px', color: c.text }}>{rp.text}</span>;
+                    ? <span style={{ fontSize: '14px', color: optColor }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={{ fontSize: '14px', color: optColor }}>{rp.text}</span>;
                 })()}
                 {(o as any).description && (() => {
                   const rp = richTextRenderProps((o as any).description as string);
+                  const descBg = isOutline ? c.bg : c.surface;
+                  const descColor = guardTextColor(c.textMuted, descBg, 'multiSelectOptionDesc');
                   return rp.__html
-                    ? <span style={{ fontSize: '12px', color: c.textMuted, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '12px', color: c.textMuted, lineHeight: 1.4 }}>{rp.text}</span>;
+                    ? <span style={{ fontSize: '12px', color: descColor, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={{ fontSize: '12px', color: descColor, lineHeight: 1.4 }}>{rp.text}</span>;
                 })()}
               </span>
             </button>
