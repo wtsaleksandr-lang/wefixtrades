@@ -488,6 +488,109 @@ export default function StyleTab({
         </div>
       </fieldset>
 
+      {/* ── Typography ──────────────────────────────────────────────
+       *
+       * Wave L S2 — visible "Typography" heading dropped; the font picker
+       * speaks for itself. Legend kept for screen readers. */}
+      <fieldset className="qq-style-group" data-testid="style-group-typography">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-typography"
+                  region="header"
+                  text="Sets the font family the calculator renders in. We load each option from the host site so widget pages don't pull a new web font."
+                />
+                <span style={{ marginLeft: 6 }}>Typography</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        {/* CONFIG-NATIVE-SELECT-1 — was a native <select> over the 9-entry
+            FONT_FAMILY_LABELS map; migrated to StyledSelect so the OS sheet
+            stops covering the wizard's typography section on mobile. The
+            list is small enough that we suppress the auto-search. */}
+        <FloatField label="Font family" htmlFor="qq-style-font" variant="select">
+          <StyledSelect
+            value={fontFamily}
+            onChange={(next) => patch({ fontFamily: next as ShellFontFamily })}
+            options={(Object.keys(FONT_FAMILY_LABELS) as ShellFontFamily[]).map((k) => ({
+              value: k,
+              label: FONT_FAMILY_LABELS[k],
+            }))}
+            title="Font family"
+            ariaLabel="Font family"
+            searchable={false}
+            testId="style-select-font"
+          />
+        </FloatField>
+
+        {/* W-AO-6b — typography depth. Heading weight, body weight, base
+            size. All flow into the renderer as CSS variables so the title
+            bar, breakdown rows + body text inherit cleanly.
+            W2 #15 — compacted onto a single row (three labelled controls in a
+            flex-wrap row) so they no longer eat three full-width rows of
+            vertical space. Each control keeps its own label + testid; on the
+            narrow mobile sheet the row wraps gracefully. */}
+        <div className="qq-style-type-row" style={{ marginTop: 12 }}>
+          <div className="qq-style-type-cell">
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Heading weight</span>
+            </label>
+            <SegmentedControl<ShellHeadingWeight>
+              name="heading-weight"
+              testid="style-segmented-heading-weight"
+              value={headingWeight}
+              options={[
+                { value: 500, label: '500' },
+                { value: 600, label: '600' },
+                { value: 700, label: '700' },
+                { value: 800, label: '800' },
+              ]}
+              onChange={(v) => patch({ headingWeight: v })}
+            />
+          </div>
+
+          <div className="qq-style-type-cell">
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Body weight</span>
+            </label>
+            <SegmentedControl<ShellBodyWeight>
+              name="body-weight"
+              testid="style-segmented-body-weight"
+              value={bodyWeight}
+              options={[
+                { value: 400, label: '400' },
+                { value: 500, label: '500' },
+              ]}
+              onChange={(v) => patch({ bodyWeight: v })}
+            />
+          </div>
+
+          <div className="qq-style-type-cell">
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Base size</span>
+            </label>
+            <SegmentedControl<ShellFontSize>
+              name="font-size"
+              testid="style-segmented-font-size"
+              value={fontSize}
+              options={[
+                { value: 'small', label: 'Small' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'large', label: 'Large' },
+              ]}
+              onChange={(v) => patch({ fontSize: v })}
+            />
+          </div>
+        </div>
+        </div>
+      </fieldset>
+
       {/* ── Colours ─────────────────────────────────────────────────
        *
        * BD-3f Item 2 — 5+4 grid layout (row 1 has 5 swatches, row 2 has 4)
@@ -624,110 +727,10 @@ export default function StyleTab({
         </div>
       </fieldset>
 
-      {/* ── Typography ──────────────────────────────────────────────
-       *
-       * Wave L S2 — visible "Typography" heading dropped; the font picker
-       * speaks for itself. Legend kept for screen readers. */}
-      <fieldset className="qq-style-group" data-testid="style-group-typography">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-typography"
-                  region="header"
-                  text="Sets the font family the calculator renders in. We load each option from the host site so widget pages don't pull a new web font."
-                />
-                <span style={{ marginLeft: 6 }}>Typography</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        {/* CONFIG-NATIVE-SELECT-1 — was a native <select> over the 9-entry
-            FONT_FAMILY_LABELS map; migrated to StyledSelect so the OS sheet
-            stops covering the wizard's typography section on mobile. The
-            list is small enough that we suppress the auto-search. */}
-        <FloatField label="Font family" htmlFor="qq-style-font" variant="select">
-          <StyledSelect
-            value={fontFamily}
-            onChange={(next) => patch({ fontFamily: next as ShellFontFamily })}
-            options={(Object.keys(FONT_FAMILY_LABELS) as ShellFontFamily[]).map((k) => ({
-              value: k,
-              label: FONT_FAMILY_LABELS[k],
-            }))}
-            title="Font family"
-            ariaLabel="Font family"
-            searchable={false}
-            testId="style-select-font"
-          />
-        </FloatField>
-
-        {/* W-AO-6b — typography depth. Heading weight, body weight, base
-            size. All flow into the renderer as CSS variables so the title
-            bar, breakdown rows + body text inherit cleanly.
-            W2 #15 — compacted onto a single row (three labelled controls in a
-            flex-wrap row) so they no longer eat three full-width rows of
-            vertical space. Each control keeps its own label + testid; on the
-            narrow mobile sheet the row wraps gracefully. */}
-        <div className="qq-style-type-row" style={{ marginTop: 12 }}>
-          <div className="qq-style-type-cell">
-            <label className="qq-style-label">
-              <span className="qq-style-label-text">Heading weight</span>
-            </label>
-            <SegmentedControl<ShellHeadingWeight>
-              name="heading-weight"
-              testid="style-segmented-heading-weight"
-              value={headingWeight}
-              options={[
-                { value: 500, label: '500' },
-                { value: 600, label: '600' },
-                { value: 700, label: '700' },
-                { value: 800, label: '800' },
-              ]}
-              onChange={(v) => patch({ headingWeight: v })}
-            />
-          </div>
-
-          <div className="qq-style-type-cell">
-            <label className="qq-style-label">
-              <span className="qq-style-label-text">Body weight</span>
-            </label>
-            <SegmentedControl<ShellBodyWeight>
-              name="body-weight"
-              testid="style-segmented-body-weight"
-              value={bodyWeight}
-              options={[
-                { value: 400, label: '400' },
-                { value: 500, label: '500' },
-              ]}
-              onChange={(v) => patch({ bodyWeight: v })}
-            />
-          </div>
-
-          <div className="qq-style-type-cell">
-            <label className="qq-style-label">
-              <span className="qq-style-label-text">Base size</span>
-            </label>
-            <SegmentedControl<ShellFontSize>
-              name="font-size"
-              testid="style-segmented-font-size"
-              value={fontSize}
-              options={[
-                { value: 'small', label: 'Small' },
-                { value: 'medium', label: 'Medium' },
-                { value: 'large', label: 'Large' },
-              ]}
-              onChange={(v) => patch({ fontSize: v })}
-            />
-          </div>
-        </div>
-        </div>
-      </fieldset>
-
-      {/* ── Layout ──────────────────────────────────────────────── */}
+      <AdvancedSection id="style-advanced" label="Advanced settings" hint="layout, shape, branding, badges, brand kit & more">
+      {/* ── Layout ── Elfsight-style: width/layout is not a default-visible
+       *  Style control, so it lives under Advanced settings with the rest of
+       *  the non-core groups. Markup unchanged — only placement moved. */}
       <fieldset className="qq-style-group" data-testid="style-group-layout">
         <legend className="qq-style-legend">
           {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
@@ -940,7 +943,6 @@ export default function StyleTab({
         </div>
       </fieldset>
 
-      <AdvancedSection id="style-advanced" label="Advanced settings" hint="brand, badges, deposit, booking & more">
       {/* ── Shape ────────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-shape">
         <legend className="qq-style-legend">
