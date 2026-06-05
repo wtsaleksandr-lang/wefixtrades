@@ -231,6 +231,19 @@ export interface ShellSettings {
    */
   ctaLabel?: string;
   /**
+   * Action tab — follow-up behaviour after the customer sees their quote.
+   *   'lead-form' (default) — collect Name / Email / Phone and notify.
+   *   'redirect'            — send the customer to `redirectUrl`.
+   *   'no-action'           — show the result only; no follow-up step.
+   */
+  actionMode?: 'redirect' | 'lead-form' | 'no-action';
+  /** Action tab — lead-form CTA card heading shown above the open-form button. */
+  ctaHeading?: string;
+  /** Action tab — lead-form CTA card caption shown under the heading. */
+  ctaCaption?: string;
+  /** Action tab — destination URL used when `actionMode === 'redirect'`. */
+  redirectUrl?: string;
+  /**
    * Wave H7 — render-time language for the embedded widget. ISO 639-1 code
    * (e.g. `en`, `es`, `zh`). Defaults to `en`. Used by the Install tab to
    * stamp `lang="…"` on the embed snippet and to set `document.documentElement

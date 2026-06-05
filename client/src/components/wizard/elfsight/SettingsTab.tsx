@@ -36,7 +36,6 @@ import {
 import type { BusinessProfile } from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
-import RichTextField from './RichTextField';
 import AdvancedSection from './AdvancedSection';
 import { useFoldablePanels } from './useFoldablePanels';
 import { useLayoutGuard } from '@/lib/layoutGuard';
@@ -44,7 +43,6 @@ import { HelpCueRow } from '@/components/primitives';
 
 const p = platformTheme;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CURRENCY_RE = /^[A-Z]{3}$/;
 
 const THOUSANDS_OPTIONS: ReadonlyArray<{ value: ShellThousandsSep; label: string }> = [
@@ -109,11 +107,10 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
   // Resolved values with defaults — keeps the controls predictable when a
   // partial `settings` object lands (older persisted state pre-H6).
   const tradeId = settings.tradeId ?? '';
-  const leadEmail = settings.leadEmail ?? '';
+  // settings.leadEmail + settings.ctaLabel are now owned by ActionTab.
   const pricing: ShellPricing = settings.pricing ?? { mode: 'hourly', rate: 75 };
   const numberFormat: ShellNumberFormat =
     settings.numberFormat ?? { ...DEFAULT_SHELL_NUMBER_FORMAT };
-  const ctaLabel = settings.ctaLabel ?? '';
   const scheduling: ShellSchedulingSettings =
     settings.scheduling ?? { ...DEFAULT_SHELL_SCHEDULING };
 
@@ -374,97 +371,11 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </div>
       </fieldset>
 
-      {/* ── Custom CTA label ────────────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="settings-group-cta">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-cta"
-                  region="sticky-footer"
-                  text="The button text shown on the result panel after the quote is calculated."
-                />
-                <span style={{ marginLeft: 6 }}>Call to action</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-          {/* BF-11 — CTA label is now rich-text editable so owners can stamp
-              emoji, bold, color and inline images on the call-to-action
-              button. Backwards-compatible: a plain string still saves; the
-              renderer's sanitizer accepts both. */}
-          <RichTextField
-            label="CTA label"
-            htmlFor="qq-settings-cta-label"
-            value={ctaLabel}
-            onChange={(next) => patch({ ctaLabel: next })}
-            placeholder='Click to override (default: "Get My Quote")'
-            infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
-            infoTestid="settings-cta"
-            infoRegion="sticky-footer"
-            testid="settings-input-cta-label"
-            // P2 UX — Settings panel; the next fieldset (Online booking)
-            // sits directly below. Inline mode pushes it down rather than
-            // covering it while the CTA copy is being edited.
-            expansionMode="inline"
-          />
-        </div>
-      </fieldset>
-
-      {/* ── Lead notification email ─────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="settings-group-lead-email">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. Title
-              text rendered inside the cue slot so it inherits the legend's
-              uppercase/muted typography rather than HelpCueRow's defaults. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-lead-email"
-                  text="How you'll be notified when someone submits a quote. Only the recipient changes — message format is fixed."
-                />
-                <span style={{ marginLeft: 6 }}>Lead notifications</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-          <FloatField
-            label="Lead notification email"
-            htmlFor="qq-settings-leademail"
-            infoText="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
-            infoTestid="settings-lead-email"
-          >
-            <input
-              id="qq-settings-leademail"
-              type="email"
-              className="premium-input"
-              placeholder=" "
-              value={leadEmail}
-              onChange={(e) => patch({ leadEmail: e.target.value })}
-              data-testid="settings-input-lead-email"
-              aria-invalid={
-                leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) ? 'true' : 'false'
-              }
-            />
-          </FloatField>
-          {leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) && (
-            <p
-              className="qq-settings-error"
-              data-testid="settings-lead-email-error"
-              style={{ fontSize: 11.5, color: p.colors.danger, margin: '6px 0 0' }}
-            >
-              Enter a valid email address.
-            </p>
-          )}
-        </div>
-      </fieldset>
+      {/* ── CTA label + Lead notification email — RELOCATED to ActionTab.
+       *  settings.ctaLabel (now the Action tab's "Open form button text"
+       *  inside the Lead-form CTA card) and settings.leadEmail (the Action
+       *  tab's Email-notifications sub-row) moved out of Settings. Same
+       *  state keys + testids, no duplication. */}
 
       {/* ── Deposit + Online booking pair (W2 #12) ───────────────────
        *  Alex: "booking and deposit should be on one row." Both fieldsets

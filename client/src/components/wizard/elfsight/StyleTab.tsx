@@ -45,7 +45,7 @@ import type {
   AdvResultEmphasis, AdvResultBorder,
   AdvStepTransition,
   AdvPremiumAnimations,
-  AdvDeposit, AdvDepositIconName, AdvBooking, AdvBranding, AdvBookingSource,
+  AdvBranding,
   AdvFloatingLauncher, AdvFloatingLauncherPosition,
   AdvButtonCopy,
   TemplateTiered, TemplateTier,
@@ -65,9 +65,6 @@ import {
   Shield, ShieldCheck, CheckCircle, Award,
   Star, ThumbsUp, BadgeCheck, Verified, ClipboardCheck, Clock,
   Leaf, FileBadge, Plus, X as XIcon, ChevronUp, ChevronDown,
-  /* P2 UX — deposit-badge icon picker glyphs (subset that wasn't already
-     pulled in by the trust-badge editor above). */
-  Check, Calendar, FileCheck,
 } from 'lucide-react';
 import { useFoldablePanels } from './useFoldablePanels';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
@@ -225,22 +222,8 @@ const CONTRAST_AA_NORMAL = 4.5;
 // consistently (data URL inflates ~33% on top of this).
 const LOGO_MAX_BYTES = 1024 * 1024;
 
-/* P2 UX — deposit-badge icon picker. 10 lucide glyphs whitelisted by
- * `AdvDepositIconName`; the same map is mirrored in `AdvancedCalculator`
- * so the renderer can resolve a saved name back to its component without
- * cross-importing the wizard's icon list. */
-const DEPOSIT_ICON_OPTIONS: ReadonlyArray<{ name: AdvDepositIconName; Icon: LucideIcon; label: string }> = [
-  { name: 'Lock',        Icon: Lock,        label: 'Lock' },
-  { name: 'Shield',      Icon: Shield,      label: 'Shield' },
-  { name: 'ShieldCheck', Icon: ShieldCheck, label: 'Shield + check' },
-  { name: 'Check',       Icon: Check,       label: 'Check' },
-  { name: 'CheckCircle', Icon: CheckCircle, label: 'Check circle' },
-  { name: 'Calendar',    Icon: Calendar,    label: 'Calendar' },
-  { name: 'Clock',       Icon: Clock,       label: 'Clock' },
-  { name: 'BadgeCheck',  Icon: BadgeCheck,  label: 'Badge check' },
-  { name: 'FileCheck',   Icon: FileCheck,   label: 'File check' },
-  { name: 'Award',       Icon: Award,       label: 'Award' },
-];
+/* P2 UX — deposit-badge icon picker RELOCATED to ActionTab (the deposit
+ * config now lives under the Action tab's Payment sub-row). */
 
 // W-AO-6b — sensible fallback colour tokens used by the new swatch row.
 // Mirror the conservative pan-theme defaults from widgetThemes.ts so the
@@ -258,7 +241,9 @@ export default function StyleTab({
   stepLayout, onStepLayoutChange,
   tiered, onTieredChange, templateCategory,
   trustBadges, onTrustBadgesChange,
-  currencySymbol = '$',
+  // currencySymbol — formerly labelled the deposit-amount input, which has
+  // moved to ActionTab. Kept on Props (callers still pass it) but no longer
+  // destructured here.
 }: Props) {
   // Wave 57 — UNLOCK the builder. Trust Badges, Brand Studio, Button copy,
   // Floating-launcher icon + label, AI chat visibility, Brand Kits, and the
@@ -310,56 +295,12 @@ export default function StyleTab({
   const bodyWeight: ShellBodyWeight = style.bodyWeight ?? 400;
   const fontSize: ShellFontSize = style.fontSize ?? 'medium';
 
-  // BD-3k — Inline preview features (deposit / online-booking / "Powered
-  // by WeFixTrades" badge). All three are optional renders on the widget;
-  // when the corresponding `enabled` flag is false / absent the surface
-  // does not appear. Free-tier patches that flip `branding.showPoweredBy`
-  // off are stripped server-side (BRAND_STUDIO_STYLE_KEYS), so the badge
-  // stays locked on for free. Deposit + Booking aren't tier-gated — they
-  // are owner-facing affordances that work in every plan.
-  const deposit: AdvDeposit = style.deposit ?? { enabled: false, amount: 200 };
-  const depositEnabled = deposit.enabled === true;
-  const depositAmount = (() => {
-    const raw = deposit.amount;
-    if (typeof raw !== 'number' || !Number.isFinite(raw)) return 200;
-    return Math.max(1, Math.min(100000, Math.round(raw)));
-  })();
-  const depositLabel = typeof deposit.label === 'string' ? deposit.label : '';
-  /* P2 UX — deposit badge icon. Whitelisted glyph names; the renderer
-     defaults unknown values back to `'Lock'` so older calculators that
-     never picked an icon keep their existing badge. */
-  const depositIconName: AdvDepositIconName = (
-    DEPOSIT_ICON_OPTIONS.some((o) => o.name === deposit.iconName)
-      ? (deposit.iconName as AdvDepositIconName)
-      : 'Lock'
-  );
-  const setDeposit = (next: Partial<AdvDeposit>) => {
-    patch({
-      deposit: {
-        enabled: depositEnabled,
-        amount: depositAmount,
-        ...(depositLabel ? { label: depositLabel } : null),
-        ...(style.deposit ?? {}),
-        ...next,
-      },
-    });
-  };
-
-  const booking: AdvBooking = style.booking ?? { enabled: false, source: 'wefixtrades-default' };
-  const bookingEnabled = booking.enabled === true;
-  const bookingSource: AdvBookingSource = booking.source ?? 'wefixtrades-default';
-  const bookingUrl = typeof booking.url === 'string' ? booking.url : '';
-  const setBooking = (next: Partial<AdvBooking>) => {
-    patch({
-      booking: {
-        enabled: bookingEnabled,
-        source: bookingSource,
-        ...(bookingUrl ? { url: bookingUrl } : null),
-        ...(style.booking ?? {}),
-        ...next,
-      },
-    });
-  };
+  // BD-3k — Inline preview features. Deposit (style.deposit) + Online
+  // booking (style.booking) have been RELOCATED to the Action tab; their
+  // derivations + setters now live in ActionTab.tsx. Only the "Powered by
+  // WeFixTrades" badge remains here (below). Free-tier patches that flip
+  // `branding.showPoweredBy` off are stripped server-side
+  // (BRAND_STUDIO_STYLE_KEYS), so the badge stays locked on for free.
 
   // Branding badge — default ON when undefined. Free-tier locks it ON
   // (server-side strip + renderer-side fallback in AdvancedCalculator).
@@ -1300,251 +1241,11 @@ export default function StyleTab({
         isProTier={isProTier}
       />
 
-      {/* ── BD-3k — Deposit preview ──────────────────────────────────
-        *
-        * Renders a small accent-tinted badge above the action buttons
-        * on the widget's result step ("$X deposit required to schedule").
-        * Tapping the badge opens a Stripe-style preview card (visual
-        * only — production checkout is wired elsewhere). Owner-facing
-        * surface; not Pro-gated. Schema region: 'result'. */}
-      <fieldset className="qq-style-group" data-testid="style-group-deposit">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-deposit"
-                  region="result"
-                  text="Show a 'Deposit required to schedule' badge above the action buttons on the result step. Tapping the badge opens a Stripe-style preview card so the owner can see what the customer experiences. The actual checkout flow is wired separately to Stripe — the preview never charges money."
-                />
-                <span style={{ marginLeft: 6 }}>Deposit</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-          <label
-            className="qq-style-label"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-          >
-            <input
-              type="checkbox"
-              checked={depositEnabled}
-              onChange={(e) => setDeposit({ enabled: e.target.checked })}
-              data-testid="style-deposit-enabled"
-              aria-label="Require deposit to schedule"
-            />
-            <span className="qq-style-label-text" style={{ margin: 0, fontWeight: 700 }}>
-              Require deposit to schedule
-            </span>
-          </label>
-
-          {depositEnabled && (
-            <div
-              style={{
-                marginTop: 10, paddingLeft: 12,
-                borderLeft: `2px solid ${p.colors.border}`,
-                display: 'flex', flexDirection: 'column', gap: 10,
-              }}
-              data-testid="style-deposit-sub-fields"
-            >
-              <FloatField label={`Deposit amount (${currencySymbol})`} htmlFor="qq-style-deposit-amount">
-                <input
-                  id="qq-style-deposit-amount"
-                  type="number"
-                  className="premium-input"
-                  min={1}
-                  max={100000}
-                  step={1}
-                  inputMode="numeric"
-                  placeholder=" "
-                  value={depositAmount}
-                  data-testid="style-deposit-amount"
-                  onChange={(e) => {
-                    const raw = Number(e.target.value);
-                    if (!Number.isFinite(raw)) return;
-                    setDeposit({ amount: Math.max(1, Math.min(100000, Math.round(raw))) });
-                  }}
-                />
-              </FloatField>
-              <FloatField label="Badge label (optional)" htmlFor="qq-style-deposit-label">
-                <input
-                  id="qq-style-deposit-label"
-                  type="text"
-                  className="premium-input"
-                  maxLength={120}
-                  placeholder=" "
-                  value={depositLabel}
-                  data-testid="style-deposit-label"
-                  onChange={(e) => setDeposit({ label: e.target.value })}
-                />
-              </FloatField>
-              {/* P2 UX — deposit badge icon picker. 10 lucide glyphs the
-                  owner can pick from; selected one shows a brand-blue
-                  ring. Horizontal scroll on narrow widths so the row
-                  never wraps into a multi-line block. Default Lock
-                  preserves legacy badge appearance. */}
-              <div className="qq-deposit-icon-row" data-testid="style-deposit-icon-row">
-                <div
-                  className="qq-deposit-icon-row-label"
-                  id="style-deposit-icon-label"
-                >
-                  Badge icon
-                </div>
-                <div
-                  className="qq-deposit-icon-scroll"
-                  role="radiogroup"
-                  aria-labelledby="style-deposit-icon-label"
-                >
-                  {DEPOSIT_ICON_OPTIONS.map(({ name, Icon, label }) => {
-                    const selected = depositIconName === name;
-                    return (
-                      <button
-                        key={name}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        aria-label={label}
-                        title={label}
-                        data-testid={`style-deposit-icon-${name}`}
-                        className={`qq-deposit-icon-btn${selected ? ' is-selected' : ''}`}
-                        onClick={() => setDeposit({ iconName: name })}
-                      >
-                        <Icon size={16} aria-hidden="true" />
-                      </button>
-                    );
-                  })}
-                </div>
-                <style>{`
-                  .qq-deposit-icon-row {
-                    display: flex; flex-direction: column; gap: 4px;
-                  }
-                  .qq-deposit-icon-row-label {
-                    font-size: 11px; font-weight: 600;
-                    letter-spacing: 0.04em; text-transform: uppercase;
-                    color: ${p.colors.subtle};
-                  }
-                  .qq-deposit-icon-scroll {
-                    display: flex; gap: 6px;
-                    overflow-x: auto; padding: 2px 0 4px;
-                    scrollbar-width: thin;
-                  }
-                  .qq-deposit-icon-btn {
-                    flex: 0 0 auto;
-                    width: 32px; height: 32px;
-                    display: inline-flex; align-items: center; justify-content: center;
-                    background: #fff;
-                    border: 1px solid ${p.colors.borderLight};
-                    border-radius: 8px;
-                    color: ${p.colors.body};
-                    cursor: pointer;
-                    transition: border-color 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
-                  }
-                  .qq-deposit-icon-btn:hover {
-                    border-color: ${p.colors.border};
-                  }
-                  .qq-deposit-icon-btn.is-selected {
-                    border-color: ${p.colors.accent};
-                    color: ${p.colors.accent};
-                    box-shadow: 0 0 0 2px rgba(13, 60, 252, 0.18);
-                  }
-                  .qq-deposit-icon-btn:focus-visible {
-                    outline: 2px solid ${p.colors.accent};
-                    outline-offset: 1px;
-                  }
-                `}</style>
-              </div>
-            </div>
-          )}
-        </div>
-      </fieldset>
-
-      {/* ── BD-3k — Online-booking calendar ────────────────────────
-        *
-        * Renders a mock 3-day slot picker beneath the result-step
-        * price headline. Default source uses built-in mock slots
-        * (delegates to BB-1's `book_appointment` customer tool when
-        * available); `cal.com-url` / `calendly-url` open an external
-        * scheduler in a new tab. Schema region: 'result'. */}
-      <fieldset className="qq-style-group" data-testid="style-group-booking">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-booking"
-                  region="result"
-                  text="Adds a 3-day appointment slot picker beneath the price on the result step. Default uses built-in mock slots in the preview (production wires to your scheduler). You can also point it at a Cal.com or Calendly URL — tapping a slot then opens the external scheduler in a new tab."
-                />
-                <span style={{ marginLeft: 6 }}>Online booking</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-          <label
-            className="qq-style-label"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-          >
-            <input
-              type="checkbox"
-              checked={bookingEnabled}
-              onChange={(e) => setBooking({ enabled: e.target.checked })}
-              data-testid="style-booking-enabled"
-              aria-label="Show calendar in widget"
-            />
-            <span className="qq-style-label-text" style={{ margin: 0, fontWeight: 700 }}>
-              Show calendar in widget
-            </span>
-          </label>
-
-          {bookingEnabled && (
-            <div
-              style={{
-                marginTop: 10, paddingLeft: 12,
-                borderLeft: `2px solid ${p.colors.border}`,
-                display: 'flex', flexDirection: 'column', gap: 10,
-              }}
-              data-testid="style-booking-sub-fields"
-            >
-              {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; migrated to
-                  StyledSelect so the OS sheet stops covering the wizard on
-                  mobile. */}
-              <FloatField label="Calendar source" htmlFor="qq-style-booking-source" variant="select">
-                <StyledSelect
-                  value={bookingSource}
-                  onChange={(next) => setBooking({ source: next as AdvBookingSource })}
-                  options={[
-                    { value: 'wefixtrades-default', label: 'WeFixTrades default (built-in slots)' },
-                    { value: 'cal.com-url', label: 'Cal.com URL' },
-                    { value: 'calendly-url', label: 'Calendly URL' },
-                  ]}
-                  title="Calendar source"
-                  ariaLabel="Calendar source"
-                  testId="style-booking-source"
-                />
-              </FloatField>
-              {(bookingSource === 'cal.com-url' || bookingSource === 'calendly-url') && (
-                <FloatField label="Scheduler URL" htmlFor="qq-style-booking-url">
-                  <input
-                    id="qq-style-booking-url"
-                    type="url"
-                    className="premium-input"
-                    placeholder=" "
-                    value={bookingUrl}
-                    data-testid="style-booking-url"
-                    onChange={(e) => setBooking({ url: e.target.value })}
-                  />
-                </FloatField>
-              )}
-            </div>
-          )}
-        </div>
-      </fieldset>
+      {/* ── Deposit + Online booking — RELOCATED to ActionTab.
+        *  style.deposit (AdvDeposit) is now the Action tab's Payment
+        *  sub-row and style.booking (AdvBooking) its Online-booking
+        *  sub-row. Same state keys + testids (style-deposit-*,
+        *  style-booking-*) — moved out of Style, not duplicated. */}
 
       {/* ── BD-3m — Floating launcher embed mode ───────────────────
        *
@@ -2640,11 +2341,6 @@ export default function StyleTab({
         .qq-editor-shell[data-theme="dark"] .qq-style-hex,
         .qq-editor-shell[data-theme="dark"] .qq-style-preset-card,
         .qq-editor-shell[data-theme="dark"] .qq-style-logo-upload {
-          background: #1e293b;
-          border-color: rgba(255,255,255,0.10);
-          color: #f5f7fa;
-        }
-        .qq-editor-shell[data-theme="dark"] .qq-deposit-icon-btn {
           background: #1e293b;
           border-color: rgba(255,255,255,0.10);
           color: #f5f7fa;
