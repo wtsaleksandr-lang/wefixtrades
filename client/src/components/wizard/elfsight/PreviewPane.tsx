@@ -29,6 +29,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus, Crosshair, Calculator, X } from 'lucide-react';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
@@ -259,6 +260,14 @@ export default function PreviewPane({
   floatingLauncherPosition = 'bottom-right',
 }: Props) {
   const selection = useSelection();
+  // Apple-mobile-clean (2026-06-05) — detect a REAL small viewport (≤768px),
+  // NOT the device-PREVIEW toggle (`device` prop). On a real phone the preview
+  // becomes a clean, full-width, vertically-scrollable Elfsight-style
+  // calculator: no browser/phone bezel, no dotted canvas grid, no zoom pill,
+  // no pinch/scroll/drag stage, and no per-field remove (−) badges. Desktop
+  // (and the desktop device-preview toggle) keep the full bezel/grid/zoom/drag
+  // machinery untouched. Gated solely on the viewport via useIsMobile().
+  const isMobileViewport = useIsMobile();
   // Track which field came from the live shell list — only those get the
   // per-field decorators. Placeholder seed fields (when `fields` is undefined)
   // are left alone since we can't reorder/remove them via the shell.
@@ -993,6 +1002,11 @@ export default function PreviewPane({
   useEffect(() => {
     const pane = paneRef.current;
     if (!pane) return;
+    // Apple-mobile-clean — pinch-to-zoom is desktop/device-preview only. On a
+    // real ≤768px viewport the clean preview is a fixed-100% scrollable
+    // calculator, so the pinch-zoom gesture is not bound (lets native
+    // vertical scroll own the touch surface).
+    if (isMobileViewport) return;
     let pinchActive = false;
     let pinchStartDist = 0;
     let pinchStartZoom = 1;
@@ -1042,7 +1056,7 @@ export default function PreviewPane({
     // setZoomManual is stable (useCallback deps: [clampZoom]); zoom read via
     // ref so we intentionally bind these listeners exactly once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setZoomManual]);
+  }, [setZoomManual, isMobileViewport]);
 
   // Drag the mockup from ANYWHERE with one finger — the EMPTY CANVAS and the
   // mockup bezel BODY alike (desktop keeps the explicit top-bar handle + corner
@@ -1056,6 +1070,11 @@ export default function PreviewPane({
   useEffect(() => {
     const pane = paneRef.current;
     if (!pane) return;
+    // Apple-mobile-clean — drag-to-move (one-finger drag-from-anywhere) is
+    // desktop/device-preview only. On a real ≤768px viewport the clean
+    // preview is a fixed-position scrollable calculator, so this listener is
+    // not bound — one-finger touches scroll the page naturally instead.
+    if (isMobileViewport) return;
     const isControlOrHandle = (t: EventTarget | null) =>
       t instanceof Element &&
       !!t.closest('input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos');
@@ -1094,7 +1113,7 @@ export default function PreviewPane({
       pane.removeEventListener('touchend', onEnd);
       pane.removeEventListener('touchcancel', onEnd);
     };
-  }, [device, applyAlignSnap]);
+  }, [device, applyAlignSnap, isMobileViewport]);
 
   /* BH-1 — Fit-to-canvas auto-zoom (Figma / Webflow / Builder.io pattern).
    *
@@ -1782,20 +1801,137 @@ export default function PreviewPane({
     return () => window.clearTimeout(t);
   }, [flpCollapsed]);
 
+  /* Apple-mobile-clean (2026-06-05) — clean Elfsight-style mobile preview.
+   *
+   * On a real ≤768px viewport we bypass the whole desktop "stage" (zoom
+   * transform + drag/resize handles + bezel chrome + dotted grid + zoom pill +
+   * fullscreen + floating-launcher lens) and render the live calculator
+   * DIRECTLY inside a simple full-width, vertically-scrollable container —
+   * matching Elfsight mobile. The widget still reflects every live edit
+   * (`renderPreviewWidget` uses the same `previewCalculatorData`), the title
+   * pencil-edit still works (selection overlays + onBezelClick delegation are
+   * preserved via `overlayHostRef`), and tapping a field still selects it —
+   * but the per-field remove (−) badges are HIDDEN (`hideRemove`), since field
+   * removal happens in the Build panel sheet on mobile. No stage transform is
+   * mounted, so zoom is implicitly locked at 100% and there is no
+   * drag-to-move / pinch-zoom / scroll-zoom. The swipe-to-delete touch
+   * listener on `overlayHostRef` (bound elsewhere) keeps working. */
+  const mobileCleanContent = (
+    <div
+      className="qq-preview-mobile-clean"
+      data-testid="preview-mobile-clean"
+    >
+      {/* Direct render of the live widget — no bezel, no browser chrome, no
+          phone bezel. The widget-scope class is preserved so the global
+          widget-scope touch-action / contrast rules still apply. */}
+      <div
+        className="widget-scope qq-preview-mobile-widget-scope"
+        style={{ width: '100%' }}
+      >
+        <div
+          ref={(el) => {
+            // Thread the same refs the desktop bezel uses so live editing,
+            // selection measurement, swipe-to-delete and title-edit keep
+            // working. bezelMeasureRef/stageRef aren't needed (no zoom/fit
+            // on mobile) so they're intentionally left unset here.
+            setBezelRef(el);
+            overlayHostRef.current = el;
+          }}
+          data-testid="preview-bezel-mobile-clean"
+          className="qq-bezel--mobile-clean"
+          onClick={onBezelClick}
+          style={{ position: 'relative', width: '100%', background: 'rgba(255,255,255,1)' }}
+        >
+          {renderPreviewWidget}
+          {/* Clean mobile preview — selection ring stays, but the per-field
+              remove (−) badge is hidden (removal moves to the Build panel). */}
+          {shellFields.length > 0 && onRemoveField && (
+            <PreviewOverlay
+              fields={shellFields}
+              containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+              onRemoveField={onRemoveField}
+              hideRemove
+            />
+          )}
+          {shellFields.length > 0 && onUpdateField && (
+            <InlineStyleToolbar
+              fields={shellFields}
+              containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+              onUpdateField={onUpdateField}
+            />
+          )}
+          {shellFields.length === 0 && onAddField && (
+            <PreviewEmptyState onAddField={onAddField} />
+          )}
+          {titleEditing && titleBox && onBusinessNameChange && (
+            <input
+              ref={titleInputRef}
+              type="text"
+              className="qq-preview-title-edit"
+              data-testid="preview-title-edit"
+              placeholder="Add your business name here"
+              value={businessName}
+              onChange={(e) => onBusinessNameChange(e.target.value)}
+              onBlur={() => setTitleEditing(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === 'Escape') {
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              style={{
+                position: 'absolute',
+                left: titleBox.left, top: titleBox.top,
+                width: titleBox.width, height: titleBox.height,
+              }}
+            />
+          )}
+          {resultsSel && (
+            <div ref={resultsRegisterRef} data-selected-in-preview="" data-testid="preview-selected-results" style={{ display: 'none' }} />
+          )}
+          {headerSel && (
+            <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
+          )}
+        </div>
+      </div>
+      {undo && (
+        <div
+          className="qq-preview-undo-toast"
+          role="status"
+          data-testid="preview-undo-toast"
+        >
+          <span>Field removed</span>
+          <button
+            type="button"
+            onClick={onUndo}
+            data-testid="preview-undo-button"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  // Desktop keeps the drag-from-anywhere + zoom pointer wiring. On real mobile
+  // the clean preview is a plain scrollable widget — no stage, no drag — so the
+  // pane-level pointer handlers are omitted.
   return (
     <div
       data-theme="light"
-      className={`qq-preview-pane${widgetSelected ? ' is-widget-selected' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
+      className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${widgetSelected ? ' is-widget-selected' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
       data-testid="editor-preview-pane"
+      data-mobile-clean={isMobileViewport ? 'true' : 'false'}
       data-floating-launcher-preview={flpActive ? 'true' : 'false'}
       data-floating-launcher-expanded={floatingLauncherExpanded ? 'true' : 'false'}
       data-flp-phase={flpPhase}
       ref={paneRef}
-      onPointerDown={onPaneBackgroundPointerDown}
-      onPointerMove={onHandlePointerMove}
-      onPointerUp={onHandlePointerUp}
-      onPointerCancel={onHandlePointerUp}
+      onPointerDown={isMobileViewport ? undefined : onPaneBackgroundPointerDown}
+      onPointerMove={isMobileViewport ? undefined : onHandlePointerMove}
+      onPointerUp={isMobileViewport ? undefined : onHandlePointerUp}
+      onPointerCancel={isMobileViewport ? undefined : onHandlePointerUp}
     >
+      {isMobileViewport ? mobileCleanContent : (
+       <>
       {(widgetOffset.x !== 0 || widgetOffset.y !== 0 || widgetSize) && (
         <button
           type="button"
@@ -2291,6 +2427,8 @@ export default function PreviewPane({
           </div>
         </div>
       )}
+       </>
+      )}
 
       <style>{`
         .qq-bezel.is-drop-target {
@@ -2317,6 +2455,40 @@ export default function PreviewPane({
         .qq-preview-pane[data-dragging="1"] { cursor: grabbing; }
         .qq-preview-pane .qq-preview-stage { cursor: auto; }
         .qq-preview-pane [data-testid^="preview-bezel"] { cursor: auto; }
+
+        /* Apple-mobile-clean (2026-06-05) — clean Elfsight-style mobile preview.
+         * Active only when PreviewPane mounts the .is-mobile-clean branch (real
+         * ≤768px viewport). The pane becomes a plain full-width, vertically
+         * scrollable column with NO stage transform, NO bezel, NO dotted grid,
+         * NO zoom pill and NO drag — just the live calculator. Desktop is
+         * unaffected (these rules are scoped to .is-mobile-clean). */
+        .qq-preview-pane.is-mobile-clean {
+          display: block;
+          padding: 0;
+          /* Vertical scroll only — the widget is natural-width and the column
+           * scrolls between the top bar and the bottom tab bar. Allow native
+           * vertical panning (the desktop pinch surface is not mounted here). */
+          touch-action: pan-y;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          background: transparent;
+        }
+        .qq-preview-mobile-clean {
+          width: 100%;
+          box-sizing: border-box;
+          /* Small side padding so the calculator doesn't touch the edges,
+           * matching Elfsight's mobile gutter. Bottom padding clears the
+           * persistent dark bottom tab bar + safe area. */
+          padding: 10px 10px calc(72px + env(safe-area-inset-bottom, 0px));
+        }
+        .qq-preview-mobile-widget-scope {
+          width: 100%;
+        }
+        .qq-bezel--mobile-clean {
+          width: 100%;
+          border-radius: 16px;
+          overflow: clip; /* sticky-safe (see project_overflow_clip_for_sticky) */
+        }
         /* Pinch-to-zoom fix — restore normal touch behavior INSIDE the live
          * widget so a one-finger tap / scroll on the calculator's own
          * inputs, selects, buttons and scrollable areas still works. The

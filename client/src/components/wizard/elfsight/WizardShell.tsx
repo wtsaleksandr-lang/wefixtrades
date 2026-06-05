@@ -2525,6 +2525,34 @@ export default function WizardShell({ embed = false }: Props) {
                is hidden (mobile is vertical-stack, no use for it). */
             @media (max-width: 768px) {
               .qq-editor-shell { padding: 8px; }
+              /* Apple-mobile-clean (2026-06-05) — on a real ≤768px viewport the
+               * preview renders the Elfsight-style CLEAN calculator (no editor
+               * canvas chrome). Strip the 24×24 dotted/square canvas grid so the
+               * preview reads as a plain scrollable widget, not a design canvas.
+               * Desktop keeps the grid via the unguarded .qq-preview-pane rule. */
+              .qq-preview-pane {
+                background-image: none !important;
+                padding: 0 !important;
+              }
+              /* ALWAYS-VISIBLE BOTTOM-SHEET FIX (2026-06-05) — the modal's own
+               * backdrop-filter ALSO establishes a fixed-positioning containing
+               * block (same spec rule as transform/filter). Because the modal
+               * is the scroll container (overflow-y:auto, content taller than
+               * the viewport), the sheet's open-state bottom offset was
+               * anchoring to the bottom of the SCROLLED content instead of
+               * the viewport bottom — so .qq-sheet.is-open rendered ~70vh BELOW
+               * the fold (the y≈929 bug). Dropping the blur on mobile removes
+               * the containing block; the opaque editor frame fills this fixed
+               * overlay anyway, so there is no visual change on phones. Desktop
+               * keeps its blur (its @media min-width:769px rules are untouched).
+               */
+              .wizard-shell-modal,
+              .wizard-shell-modal.is-entering,
+              .wizard-shell-modal.is-open,
+              .wizard-shell-modal.is-leaving {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+              }
               .qq-editor-frame {
                 min-height: calc(100vh - 16px);
                 /* ALWAYS-VISIBLE BOTTOM-SHEET FIX (2026-06-04) — root cause of

@@ -43,6 +43,14 @@ interface Props {
   containerRef: React.RefObject<HTMLDivElement | null>;
   /** Callback when a user removes a field from the preview (− icon). */
   onRemoveField: (fieldId: string) => void;
+  /**
+   * Apple-mobile-clean (2026-06-05) — on a real ≤768px viewport the preview
+   * is a clean Elfsight-style scrollable calculator with no editor chrome;
+   * field removal happens in the Build panel sheet instead. When true the
+   * per-field remove (−) badge is not rendered. The selection ring + select
+   * markers are kept so live selection / scroll-into-view still work. Desktop
+   * passes this falsey so the badge renders exactly as before. */
+  hideRemove?: boolean;
 }
 
 interface FieldBox {
@@ -98,7 +106,7 @@ function measureFields(
 }
 
 export default function PreviewOverlay({
-  fields, containerRef, onRemoveField,
+  fields, containerRef, onRemoveField, hideRemove = false,
 }: Props) {
   const [boxes, setBoxes] = useState<FieldBox[]>([]);
   const rafRef = useRef<number | null>(null);
@@ -169,6 +177,7 @@ export default function PreviewOverlay({
           key={b.fieldId}
           box={b}
           onRemove={() => onRemoveField(b.fieldId)}
+          hideRemove={hideRemove}
         />
       ))}
 
@@ -263,9 +272,11 @@ export default function PreviewOverlay({
 interface FieldDecoratorProps {
   box: FieldBox;
   onRemove: () => void;
+  /** Hide the remove (−) badge on real mobile — see Props.hideRemove. */
+  hideRemove?: boolean;
 }
 
-function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
+function FieldDecorator({ box, onRemove, hideRemove = false }: FieldDecoratorProps) {
   const selection = useSelection();
   const isSel = selection.isSelected({ kind: 'field', id: box.fieldId });
   const registerSel = selection.registerNode({ kind: 'field', id: box.fieldId }, 'preview');
@@ -288,15 +299,17 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
         data-testid={`preview-field-select-${box.fieldId}`}
         aria-hidden="true"
       />
-      <button
-        type="button"
-        className="qq-preview-field-deco-remove"
-        aria-label="Remove field"
-        data-testid={`preview-field-remove-${box.fieldId}`}
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-      >
-        <span className="qq-preview-field-deco-remove-glyph" aria-hidden="true">−</span>
-      </button>
+      {!hideRemove && (
+        <button
+          type="button"
+          className="qq-preview-field-deco-remove"
+          aria-label="Remove field"
+          data-testid={`preview-field-remove-${box.fieldId}`}
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        >
+          <span className="qq-preview-field-deco-remove-glyph" aria-hidden="true">−</span>
+        </button>
+      )}
     </div>
   );
 }
