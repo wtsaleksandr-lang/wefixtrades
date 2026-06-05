@@ -243,15 +243,25 @@ export default function WizardShell({ embed = false }: Props) {
 
   // BD-3a fix 1 — undo / redo stacks of prior ShellState snapshots. We use
   // refs so pushing to the stacks doesn't itself trigger a re-render; the
-  // `historyTick` counter is bumped after each push so EditorTopBar can read
-  // the up-to-date `canUndo` / `canRedo` flags via a stable selector.
+  // `histLen` state below mirrors the stack lengths and is the SOLE driver of
+  // the rendered canUndo / canRedo enabled-state (see BD-3a-fix2 below).
   const undoStackRef = useRef<ShellState[]>([]);
   const redoStackRef = useRef<ShellState[]>([]);
   // `isReplayingRef` guards setState() during undo/redo so the replay itself
   // doesn't get pushed back onto the undo stack (which would make undo a no-op
   // toggle between the two most recent states).
   const isReplayingRef = useRef(false);
-  const [historyTick, setHistoryTick] = useState(0);
+  // BD-3a-fix2 — real state that drives the Undo/Redo button enabled-state.
+  // `u` = undo stack length, `r` = redo stack length. Updated SYNCHRONOUSLY
+  // right after every stack mutation so the rendered enabled-state can never
+  // desync from the actual stacks.
+  const [histLen, setHistLen] = useState({ u: 0, r: 0 });
+  // `latestStateRef` always mirrors the committed `state` so the stable
+  // setState / undo / redo callbacks can read the freshest snapshot without
+  // relying on when React invokes a functional state updater. Kept in sync on
+  // every render below.
+  const latestStateRef = useRef(state);
+  latestStateRef.current = state;
 
   // Wrap setState so that every USER-INITIATED mutation pushes the previous
   // snapshot onto the undo stack and clears the redo stack (the classic
@@ -262,43 +272,45 @@ export default function WizardShell({ embed = false }: Props) {
       setStateInner(updater);
       return;
     }
-    setStateInner((prev) => {
-      const next = typeof updater === 'function'
-        ? (updater as (s: ShellState) => ShellState)(prev)
-        : updater;
-      if (next !== prev) {
-        const stack = undoStackRef.current;
-        stack.push(prev);
-        if (stack.length > HISTORY_LIMIT) stack.shift();
-        redoStackRef.current = [];
-        // Defer the tick bump so React doesn't warn about setting state
-        // during render — undoStackRef.current was just mutated synchronously
-        // but historyTick is a plain useState.
-        queueMicrotask(() => setHistoryTick((t) => t + 1));
-        // BD-3d Feature 2 — broadcast every user-initiated patch so the AI
-        // chat bubble can detect "5+ rapid edits without saving" (rapid-edit
-        // signal → proactive nudge).
-        if (typeof window !== 'undefined') {
-          try { window.dispatchEvent(new CustomEvent('quotequick:wizard-patch')); } catch { /* ignore */ }
-        }
-      }
-      return next;
-    });
+    // Compute `prev` and `next` HERE (outside the state updater) from the
+    // committed `state` snapshot held in the latest-state ref. User edits are
+    // one-at-a-time, so `prev` is the value being replaced. The updater passed
+    // to setStateInner stays PURE — it never writes refs — and the history
+    // push + counter update run synchronously here, never during render.
+    const prev = latestStateRef.current;
+    const next = typeof updater === 'function'
+      ? (updater as (s: ShellState) => ShellState)(prev)
+      : updater;
+    if (next === prev) return;
+    setStateInner(next);
+    const stack = undoStackRef.current;
+    stack.push(prev);
+    if (stack.length > HISTORY_LIMIT) stack.shift();
+    redoStackRef.current = [];
+    setHistLen({ u: stack.length, r: 0 });
+    // BD-3d Feature 2 — broadcast every user-initiated patch so the AI
+    // chat bubble can detect "5+ rapid edits without saving" (rapid-edit
+    // signal → proactive nudge).
+    if (typeof window !== 'undefined') {
+      try { window.dispatchEvent(new CustomEvent('quotequick:wizard-patch')); } catch { /* ignore */ }
+    }
   }, []);
 
   const undo = useCallback(() => {
     const stack = undoStackRef.current;
     if (stack.length === 0) return;
     const prev = stack.pop()!;
-    setStateInner((current) => {
-      redoStackRef.current.push(current);
-      if (redoStackRef.current.length > HISTORY_LIMIT) redoStackRef.current.shift();
-      return prev;
-    });
+    // Snapshot the CURRENT committed state onto the redo stack, then replay
+    // the popped snapshot. isReplayingRef guards setState() so this replay
+    // isn't re-pushed onto the undo stack.
+    const current = latestStateRef.current;
+    redoStackRef.current.push(current);
+    if (redoStackRef.current.length > HISTORY_LIMIT) redoStackRef.current.shift();
     isReplayingRef.current = true;
+    setStateInner(prev);
+    setHistLen({ u: undoStackRef.current.length, r: redoStackRef.current.length });
     queueMicrotask(() => {
       isReplayingRef.current = false;
-      setHistoryTick((t) => t + 1);
     });
   }, []);
 
@@ -306,23 +318,19 @@ export default function WizardShell({ embed = false }: Props) {
     const stack = redoStackRef.current;
     if (stack.length === 0) return;
     const next = stack.pop()!;
-    setStateInner((current) => {
-      undoStackRef.current.push(current);
-      if (undoStackRef.current.length > HISTORY_LIMIT) undoStackRef.current.shift();
-      return next;
-    });
+    const current = latestStateRef.current;
+    undoStackRef.current.push(current);
+    if (undoStackRef.current.length > HISTORY_LIMIT) undoStackRef.current.shift();
     isReplayingRef.current = true;
+    setStateInner(next);
+    setHistLen({ u: undoStackRef.current.length, r: redoStackRef.current.length });
     queueMicrotask(() => {
       isReplayingRef.current = false;
-      setHistoryTick((t) => t + 1);
     });
   }, []);
 
-  const canUndo = undoStackRef.current.length > 0;
-  const canRedo = redoStackRef.current.length > 0;
-  // Suppress unused-var lint — `historyTick` exists purely to re-render when
-  // the ref-backed stacks change.
-  void historyTick;
+  const canUndo = histLen.u > 0;
+  const canRedo = histLen.r > 0;
 
   // BD-3a fix 1 — keyboard shortcuts. Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z
   // (or Cmd/Ctrl+Y) = redo. We skip when the user is typing in a real text
@@ -816,6 +824,10 @@ export default function WizardShell({ embed = false }: Props) {
   const preDragStateRef = useRef<ShellState | null>(null);
   const dragOverThrottleRef = useRef<number | null>(null);
   const pendingDragOverRef = useRef<{ activeId: string; overId: string } | null>(null);
+  // True once any dragOver reorder has been applied during the current drag,
+  // so the same-id drop path can know the live preview actually moved (and a
+  // pre-drag snapshot is worth recording) without reading mid-flight state.
+  const dragMovedRef = useRef(false);
 
   const applyReorder = useCallback((s: ShellState, activeId: string, overId: string): ShellState => {
     if (activeId === overId) return s;
@@ -841,6 +853,7 @@ export default function WizardShell({ embed = false }: Props) {
     // Don't snapshot for cross-section adds from the AddFieldMenu — those
     // already enter the undo stack via the normal `addField` path on drop.
     if (activeId.startsWith('addfield:')) return;
+    dragMovedRef.current = false;
     setStateInner((s) => {
       preDragStateRef.current = s;
       return s;
@@ -854,7 +867,11 @@ export default function WizardShell({ embed = false }: Props) {
     if (!pending) return;
     // Apply directly via setStateInner so the undo stack isn't touched
     // — the live preview is transient until drag-end.
-    setStateInner((s) => applyReorder(s, pending.activeId, pending.overId));
+    setStateInner((s) => {
+      const moved = applyReorder(s, pending.activeId, pending.overId);
+      if (moved !== s) dragMovedRef.current = true;
+      return moved;
+    });
   }, [applyReorder]);
 
   const onDragOver = useCallback((event: DragOverEvent) => {
@@ -919,42 +936,47 @@ export default function WizardShell({ embed = false }: Props) {
     // recorded onto the undo stack via setState() — otherwise the user
     // can't undo a drag that visually reordered then snapped back.
     if (activeId === overId) {
-      if (snapshot) {
-        setStateInner((current) => {
-          if (current === snapshot) return current;
-          // Push the pre-drag snapshot onto the undo stack and keep
-          // `current` (which already reflects the dragOver moves).
-          const stack = undoStackRef.current;
-          stack.push(snapshot);
-          if (stack.length > HISTORY_LIMIT) stack.shift();
-          redoStackRef.current = [];
-          queueMicrotask(() => setHistoryTick((t) => t + 1));
-          return current;
-        });
-      }
-      return;
-    }
-
-    // ── (a) Reorder Fields — commit the FINAL order into the undo stack
-    // by manually pushing the pre-drag snapshot, then applying the move
-    // via setStateInner (so the standard setState() doesn't push the
-    // intermediate dragOver state onto the stack).
-    setStateInner((current) => {
-      const next = applyReorder(current, activeId, overId);
-      if (snapshot && snapshot !== next) {
+      // The live preview already reflects any dragOver moves (kept as-is).
+      // Record the pre-drag snapshot onto the undo stack ONLY if the drag
+      // actually reordered something (dragMovedRef), so a pure click-drag
+      // that snapped back to the same target doesn't create a no-op undo
+      // entry. The push + counter update run here, outside any updater.
+      if (snapshot && dragMovedRef.current) {
         const stack = undoStackRef.current;
         stack.push(snapshot);
         if (stack.length > HISTORY_LIMIT) stack.shift();
         redoStackRef.current = [];
-        queueMicrotask(() => setHistoryTick((t) => t + 1));
-        // Mirror setState()'s broadcast so the AIBubble rapid-edit
-        // counter still ticks for drag-driven reorders.
-        if (typeof window !== 'undefined') {
-          try { window.dispatchEvent(new CustomEvent('quotequick:wizard-patch')); } catch { /* ignore */ }
-        }
+        setHistLen({ u: stack.length, r: 0 });
       }
-      return next;
-    });
+      return;
+    }
+
+    // ── (a) Reorder Fields — commit the FINAL order into the undo stack.
+    // applyReorder is pure, so the final state is deterministic from the
+    // pre-drag snapshot + the active→over move; compute it here (outside any
+    // updater), push the snapshot + bump the counter synchronously, then apply
+    // the final order via setStateInner. This keeps the intermediate dragOver
+    // states out of the undo stack while recording exactly one entry.
+    const next = snapshot
+      ? applyReorder(snapshot, activeId, overId)
+      : null;
+    if (snapshot && next && snapshot !== next) {
+      const stack = undoStackRef.current;
+      stack.push(snapshot);
+      if (stack.length > HISTORY_LIMIT) stack.shift();
+      redoStackRef.current = [];
+      setHistLen({ u: stack.length, r: 0 });
+      setStateInner(next);
+      // Mirror setState()'s broadcast so the AIBubble rapid-edit
+      // counter still ticks for drag-driven reorders.
+      if (typeof window !== 'undefined') {
+        try { window.dispatchEvent(new CustomEvent('quotequick:wizard-patch')); } catch { /* ignore */ }
+      }
+    } else {
+      // No snapshot or no net change — still ensure the live preview reflects
+      // the final over-target (matches the prior setStateInner(applyReorder)).
+      setStateInner((current) => applyReorder(current, activeId, overId));
+    }
   }, [addField, applyReorder, flushDragOver]);
 
   const saveDraftMutation = useMutation({
@@ -1462,6 +1484,7 @@ export default function WizardShell({ embed = false }: Props) {
                 onTabChange={setActiveTab}
                 onResetTab={resetActiveTab}
                 onDone={() => saveDraftMutation.mutate()}
+                onHelp={() => setShowHelp(true)}
                 isBusy={saveDraftMutation.isPending}
               >
                 {activeTab === 'build' ? (

@@ -36,7 +36,7 @@
 import {
   useCallback, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
-import { ChevronUp, RotateCcw } from 'lucide-react';
+import { ChevronUp, HelpCircle, RotateCcw } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import { useLayoutGuard } from '@/lib/layoutGuard';
@@ -54,6 +54,10 @@ interface Props {
   onTabChange: (tab: EditorTab) => void;
   onResetTab: () => void;
   onDone: () => void;
+  /** Opens the editor help overlay. The mobile action bar (the only other
+   *  Help surface) is hidden whenever this bottom sheet is active, so this is
+   *  the reachable Help control on phones. */
+  onHelp?: () => void;
   /** Slot containing the active tab's body component (whichever Tab the
    *  top-chrome tab nav has selected). */
   children: ReactNode;
@@ -83,7 +87,7 @@ function loadSnap(initial: SheetSnap): SheetSnap {
 }
 
 export default function MobileBottomSheet({
-  activeTab, onTabChange, onResetTab, onDone,
+  activeTab, onTabChange, onResetTab, onDone, onHelp,
   children, isBusy = false, initialSnap = 'half',
 }: Props) {
   const [snap, setSnapInner] = useState<SheetSnap>(() => loadSnap(initialSnap));
@@ -297,6 +301,16 @@ export default function MobileBottomSheet({
 
         {/* ── Sticky action footer ───────────────────────────────── */}
         <div className="qq-sheet-footer" data-testid="wizard-sheet-footer">
+          <button
+            type="button"
+            className="qq-sheet-footer-help"
+            onClick={() => onHelp?.()}
+            data-testid="wizard-sheet-help"
+            aria-label="Editor help"
+            title="Editor help"
+          >
+            <HelpCircle size={16} aria-hidden="true" />
+          </button>
           <button
             type="button"
             className={`qq-sheet-footer-reset${showResetConfirm ? ' is-confirm' : ''}`}
@@ -612,6 +626,28 @@ export default function MobileBottomSheet({
           .qq-sheet-footer-reset:hover {
             background: ${p.colors.surfaceRaised};
           }
+          /* Icon-only Help control — mirrors the Reset button's surface so it
+           * reads as a secondary chrome action. The mobile action bar's Help
+           * is hidden while this sheet is active, so this is phones' reachable
+           * Help surface. */
+          .qq-sheet-footer-help {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 44px; min-height: 44px; padding: 0 10px;
+            background: var(--qq-surface, rgba(255,255,255,1));
+            border: 1px solid ${p.colors.border};
+            border-radius: 10px;
+            color: ${p.colors.heading};
+            cursor: pointer;
+            transition: background 0.12s ease, border-color 0.12s ease,
+                        color 0.12s ease;
+          }
+          .qq-sheet-footer-help:hover {
+            background: ${p.colors.surfaceRaised};
+          }
+          .qq-sheet-footer-help:focus-visible {
+            outline: 2px solid ${p.colors.accent};
+            outline-offset: -2px;
+          }
           .qq-sheet-footer-reset.is-confirm {
             background: ${p.colors.accentLighter};
             border-color: ${p.colors.accent};
@@ -644,7 +680,8 @@ export default function MobileBottomSheet({
             background: var(--qq-surface);
             border-top-color: var(--qq-border);
           }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-footer-reset {
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-footer-reset,
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-footer-help {
             background: rgba(255,255,255,0.04);
             border-color: var(--qq-border);
             color: var(--qq-text);
