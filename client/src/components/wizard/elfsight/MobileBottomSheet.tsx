@@ -245,8 +245,12 @@ export default function MobileBottomSheet({
             border-top-right-radius: ${AE.radius.lg};
             box-shadow: ${AE.shadow.pop};
             border-top: 1px solid ${AE.color.hairline};
-            /* Default = slid off-screen (closed). Opening slides it up. */
-            transform: translateY(100%);
+            /* Default = slid FULLY off-screen (closed). Because the sheet is
+               anchored bottom: BOTTOM_BAR_PX + safe-area (so the open sheet
+               clears the dark tab bar), a plain translateY(100%) would leave a
+               ~60px header peeking over the bar. Translate by its full height
+               PLUS that bottom offset so it clears the screen entirely. */
+            transform: translateY(calc(100% + ${BOTTOM_BAR_PX}px + env(safe-area-inset-bottom, 0px)));
             transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
             will-change: transform;
             touch-action: pan-y;
