@@ -29,6 +29,7 @@
 import {
   useCallback, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, HelpCircle, RotateCcw } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { AE } from './appleEditor';
@@ -120,7 +121,11 @@ export default function MobileBottomSheet({
   const activeTabLabel =
     EDITOR_TABS.find((t) => t.id === activeTab)?.label ?? 'Build';
 
-  return (
+  // Portal to document.body so the fixed-position sheet anchors to the
+  // VIEWPORT, not to any transformed/filtered/backdrop-filtered editor
+  // ancestor (those establish a containing block for position:fixed and
+  // were pinning the open sheet off-screen below the scrolled frame).
+  return createPortal(
     <>
       {/* Backdrop — only paints when the sheet is open. Tapping it closes
           the sheet (back to full preview). */}
@@ -397,6 +402,7 @@ export default function MobileBottomSheet({
           transition: none !important;
         }
       `}</style>
-    </>
+    </>,
+    document.body,
   );
 }

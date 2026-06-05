@@ -1350,7 +1350,10 @@ export default function WizardShell({ embed = false }: Props) {
                   Testids preserved: the tablist carries data-testid="editor-tabs"
                   and each button data-testid="editor-tab-${id}" so existing
                   checks/Playwright still pass. The same activeTab state +
-                  setActiveTab handler the top strip used drive the panel. */}
+                  setActiveTab handler the top strip used drive the panel.
+                  Gated to desktop only (!isMobile) so its tab buttons do NOT
+                  duplicate the BottomTabBar's testids in the mobile DOM. */}
+              {!isMobile && (
               <nav
                 className="qq-editor-rail"
                 role="tablist"
@@ -1403,6 +1406,7 @@ export default function WizardShell({ embed = false }: Props) {
                   <span className="qq-editor-rail-label">Help</span>
                 </button>
               </nav>
+              )}
               <div
                 className="qq-editor-left"
                 data-testid="editor-left-panel"
