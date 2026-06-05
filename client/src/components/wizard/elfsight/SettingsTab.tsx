@@ -905,7 +905,9 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         .qq-settings-pair {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 2px;
+          /* Audit W4 — 2px read as the two cards touching; 14px gives a clear
+             column separation while still fitting both on one row. */
+          gap: 14px;
           align-items: start;
         }
         .qq-settings-pair > .qq-style-group { margin: 0; }

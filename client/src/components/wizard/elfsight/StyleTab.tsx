@@ -1908,9 +1908,12 @@ export default function StyleTab({
           position: absolute;
           top: 100%; left: 50%; transform: translateX(-50%);
           margin-top: 4px;
-          font-size: 10px; font-weight: 600;
+          /* Audit W4 — was 10px which clipped the longest labels ("Background",
+             "Results bg") under the 48px cap. 9px + tighter tracking lets them
+             fit without widening the cap (52px+ re-introduces column bleed). */
+          font-size: 9px; font-weight: 600;
           color: ${p.colors.muted};
-          letter-spacing: -0.01em;
+          letter-spacing: -0.02em;
           /* W2 #13 — was 52px (wider than the 36px swatch), which let labels
              bleed under neighbouring columns. Capped to the column footprint
              so labels ellipsis-truncate instead of overlapping. */
