@@ -47,6 +47,15 @@ export interface AIBubbleProps {
   setLogo: (next: string | null) => void;
   applyTemplatePreset: (presetId: string) => void;
   replaceTemplate: (cfg: TemplateConfig) => void;
+  /**
+   * "Generate with AI" entry-point seed (Build-tab card). When `seedNonce`
+   * increments (and is > 0), the bubble opens, un-collapses, sets the input
+   * to `seedPrompt`, and auto-sends ONCE — so generation runs immediately and
+   * the user can refine via chat afterwards. Additive + optional: when no seed
+   * is sent the bubble behaves exactly as before.
+   */
+  seedPrompt?: string;
+  seedNonce?: number;
 }
 
 /* ─── Persisted state ─── */
@@ -350,8 +359,11 @@ function saveCollapsed(v: boolean): void {
 }
 
 export default function AIBubble(props: AIBubbleProps) {
-  const { conversationId = 'default', state } = props;
+  const { conversationId = 'default', state, seedPrompt, seedNonce } = props;
   const [open, setOpen] = useState(false);
+  /** "Generate with AI" auto-send latch. Set true when a new seed arrives;
+   *  the second effect below clears it after firing onSend exactly once. */
+  const autoSendRef = useRef(false);
   /** Wave 55 — fold/unfold the open chat panel down to just its header bar.
    *  Distinct from `open` (which controls the bubble↔panel toggle). When
    *  collapsed, the body + footer hide but the header (with the fold
@@ -772,6 +784,31 @@ export default function AIBubble(props: AIBubbleProps) {
       ));
     }
   }, [input, sending, capExceeded, pendingImage, messages, state, props, onImageToTemplate]);
+
+  /* ─── "Generate with AI" seed-and-autosend (Build-tab card entry point) ───
+   * Effect 1: when a NEW seed arrives (nonce changes, > 0) open + un-collapse
+   * the panel, drop the prompt into the input, and arm the auto-send latch.
+   * We set the input via state so the existing onSend (which reads `input`
+   * from its closure) picks it up on the next commit. */
+  useEffect(() => {
+    if (!seedNonce || seedNonce <= 0) return;
+    setOpen(true);
+    setCollapsed(false);
+    setInput(seedPrompt ?? '');
+    autoSendRef.current = true;
+  }, [seedNonce, seedPrompt]);
+
+  /* Effect 2: once the seeded input has committed (input matches the seed),
+   * fire onSend exactly once. Guards: latch armed, not already sending, the
+   * input is non-empty AND equals the current seed (so we never auto-send the
+   * user's own subsequent typing). The latch is cleared before onSend so it
+   * can only fire once per seed. */
+  useEffect(() => {
+    if (autoSendRef.current && !sending && input.trim() && input === (seedPrompt ?? '')) {
+      autoSendRef.current = false;
+      onSend();
+    }
+  }, [input, seedPrompt, sending, onSend]);
 
   /** Wave AR-1 — let the user bail out of a slow vision request. The
    *  AbortController already exists; this just exposes a button. */

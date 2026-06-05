@@ -486,6 +486,15 @@ export default function WizardShell({ embed = false }: Props) {
   // persisted across sessions — it's a transient preview lens.
   const [floatingLauncherPreview, setFloatingLauncherPreview] = useState(false);
   const [floatingLauncherExpanded, setFloatingLauncherExpanded] = useState(false);
+  /** "Generate with AI" Build-tab card → routes a prompt into the existing
+   *  floating AIBubble (seed + auto-send). `nonce` bumps per Generate click so
+   *  the bubble's seed effect re-fires even when the prompt text is unchanged. */
+  const [aiSeed, setAiSeed] = useState<{ prompt: string; nonce: number }>({ prompt: '', nonce: 0 });
+  const handleAIGenerate = useCallback((prompt: string) => {
+    const p = prompt.trim();
+    if (!p) return;
+    setAiSeed((s) => ({ prompt: p, nonce: s.nonce + 1 }));
+  }, []);
   const toggleFloatingLauncherPreview = useCallback(() => {
     setFloatingLauncherPreview((v) => {
       const next = !v;
@@ -1441,6 +1450,7 @@ export default function WizardShell({ embed = false }: Props) {
                          template ships explicit `steps[]`. */
                       steps={state.steps}
                       onStepsChange={setSteps}
+                      onGenerateWithAI={handleAIGenerate}
                     />
                   ) : activeTab === 'style' ? (
                     <StyleTab
@@ -1631,6 +1641,7 @@ export default function WizardShell({ embed = false }: Props) {
                     onApplyTemplate={applyTemplate}
                     steps={state.steps}
                     onStepsChange={setSteps}
+                    onGenerateWithAI={handleAIGenerate}
                   />
                 ) : activeTab === 'style' ? (
                   <StyleTab
@@ -1709,6 +1720,8 @@ export default function WizardShell({ embed = false }: Props) {
               setLogo={setLogo}
               applyTemplatePreset={applyTemplatePreset}
               replaceTemplate={applyTemplate}
+              seedPrompt={aiSeed.prompt}
+              seedNonce={aiSeed.nonce}
             />
 
             {showHelp && typeof document !== 'undefined' && createPortal(
