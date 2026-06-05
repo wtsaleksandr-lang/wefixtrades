@@ -1599,7 +1599,34 @@ export default function AdvancedCalculator({
    * step. The contact step is appended AFTER the user-defined / auto-derived
    * data steps so the final step always shows the quote + ContactStep.
    */
-  const stepLayoutMode: 'stepper' | 'single' = advanced.stepLayout ?? 'stepper';
+  // FIX #6 — few-field calculators should NOT paginate. A 1-field-per-step
+  // stepper with large blank areas reads as broken. So below this many
+  // INTERACTIVE fields we collapse to a single page (everything + the result
+  // together) UNLESS the owner has explicitly opted into the stepper.
+  const SINGLE_PAGE_FIELD_THRESHOLD = 4;
+
+  // Count only fields that actually take an answer — display-only blocks
+  // (heading / paragraph / divider / image) don't justify a step of their own.
+  const interactiveFieldCount = useMemo(
+    () => visibleFields.filter(
+      (f) => f.type !== 'heading' && f.type !== 'paragraph'
+        && f.type !== 'divider' && f.type !== 'image',
+    ).length,
+    [visibleFields],
+  );
+
+  // Resolve the effective layout:
+  //   - explicit 'stepper'  → always stepper (owner opt-in wins, even for 1 field).
+  //   - explicit 'single'   → always single.
+  //   - unset / auto        → single when few fields (≤ threshold), else stepper.
+  const explicitLayout = advanced.stepLayout; // 'stepper' | 'single' | undefined
+  const fewFields = interactiveFieldCount <= SINGLE_PAGE_FIELD_THRESHOLD;
+  const stepLayoutMode: 'stepper' | 'single' =
+    explicitLayout === 'stepper'
+      ? 'stepper'
+      : explicitLayout === 'single'
+        ? 'single'
+        : (fewFields ? 'single' : 'stepper');
 
   const dataSteps: { id: string; label: string; help?: string; description?: string; fieldIds: string[] }[] = useMemo(() => {
     if (stepLayoutMode === 'single') return [];
@@ -3279,13 +3306,29 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   // custom properties on the wrapper itself so the floating label respects
   // light / midnight / coral / sage / teal / blush themes (and any custom
   // Style-tab accent override).
+  // FIX #3 — title-in-field label MUST always contrast its field background.
+  // The floated label colour was raw `accent`; bright accents (e.g. the
+  // "lemon" theme's #fde047, or an owner-picked white accent) rendered
+  // invisible bright-on-white. Likewise an overridden `textBody` could land
+  // near-white on a light surface. Funnel BOTH label colours through the
+  // contrast guard against the SURFACE each one actually sits on:
+  //   - resting label sits over the visible field fill: c.bg when the field
+  //     is outline (input is transparent → body shows through), else c.surface.
+  //   - floated label sits over the punch-through chip (--qq-w-bg below),
+  //     which is c.bg (outline) / c.surface (filled) — same surface.
+  // Large-text floor (≥12px bold floated / ~14px resting) is appropriate here.
+  const labelChipBg = isOutline ? c.bg : c.surface;
+  const restingLabelColor = guardTextColor(c.textBody, labelChipBg, 'fieldLabelResting');
+  const floatedLabelColor = guardTextColor(accent, labelChipBg, 'fieldLabelFloated', { largeText: true });
   const floatVars: React.CSSProperties = {
     // CSS variables consumed by .qq-w-float in index.css.
     // Resting label uses textBody (not textMuted) so it stays readable — the
     // muted grey failed AA contrast on the dark themes (e.g. midnight).
-    ['--qq-w-label' as any]: c.textBody,
-    ['--qq-w-label-focus' as any]: accent,
-    ['--qq-w-bg' as any]: isOutline ? c.bg : c.surface,
+    // Both colours are contrast-guarded so they're never bright-on-bright /
+    // white-on-white regardless of theme, accent, or field style.
+    ['--qq-w-label' as any]: restingLabelColor,
+    ['--qq-w-label-focus' as any]: floatedLabelColor,
+    ['--qq-w-bg' as any]: labelChipBg,
   };
 
   if (f.type === 'heading') {

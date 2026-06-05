@@ -508,7 +508,12 @@
   top: 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #0d3cfc;
+  /* FIX #3 — floated colour comes from --qq-float-color (a contrast-guarded
+     value set inline by FloatField against the real field background). The
+     fallback is the legacy accent. !important is required because FloatField
+     sets an inline resting colour on the label, and an inline declaration
+     would otherwise beat this stylesheet rule in the floated state. */
+  color: var(--qq-float-color, #0d3cfc) !important;
 }
 
 /* Wave J — `select` variant. <select> doesn't honour :placeholder-shown,
@@ -526,7 +531,9 @@
   top: 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #0d3cfc;
+  /* FIX #3 — see the text/number rule above; select labels are always in the
+     floated state, so they too read the contrast-guarded --qq-float-color. */
+  color: var(--qq-float-color, #0d3cfc) !important;
 }
 /* Some inputs (number, email, password) hide the placeholder when focused
  * — :placeholder-shown handles those uniformly with text-type inputs. */
