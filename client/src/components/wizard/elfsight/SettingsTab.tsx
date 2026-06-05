@@ -172,12 +172,6 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       aria-label="Settings"
       role="tabpanel"
     >
-      {/* ── CORE: Business profile (trust signals) ─────────────────── */}
-      <BusinessProfileSection
-        profile={settings.businessProfile}
-        onChange={(next) => patch({ businessProfile: next })}
-      />
-
       {/* ── CORE: Number formatting ─────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
         <legend className="qq-style-legend">
@@ -262,11 +256,8 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       <AdvancedSection
         id="settings-advanced"
         label="Advanced settings"
-        hint="trade, pricing, lead capture, deposit, scheduling & more"
+        hint="pricing, deposit, scheduling, trade & business details"
       >
-      {/* ── Trade ────────────────────────────────────────────────── */}
-      <TradeSection tradeId={tradeId} onChange={(id) => patch({ tradeId: id })} />
-
       {/* ── Pricing model ───────────────────────────────────────── */}
       {/* W-AO-7 — restored section legend (top-left + InfoCue) per the
          help-cue placement audit. The segmented control still speaks for
@@ -754,6 +745,15 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </div>
         </div>
       </fieldset>
+
+      {/* ── Trade ────────────────────────────────────────────────── */}
+      <TradeSection tradeId={tradeId} onChange={(id) => patch({ tradeId: id })} />
+
+      {/* ── Business profile (trust signals) ─────────────────────── */}
+      <BusinessProfileSection
+        profile={settings.businessProfile}
+        onChange={(next) => patch({ businessProfile: next })}
+      />
       </AdvancedSection>
 
       <style>{`
