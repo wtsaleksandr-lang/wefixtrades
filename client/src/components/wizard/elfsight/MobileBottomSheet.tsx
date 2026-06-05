@@ -1,77 +1,67 @@
-// MobileBottomSheet — Wave BH-3 (simplified by BH-3-fix).
+// MobileBottomSheet — Elfsight-clone mobile editor panel sheet (2026-06-05
+// rebuild; supersedes the BH-3 3-snap collapsible sheet).
 //
-// Mobile-only (≤768px) replacement for the desktop side-panel. On phones the
-// wizard config panel becomes a bottom sheet à la Notion / Canva / Builder.io
-// / Framer / Figma's mobile editor — the canvas stays visible above, the
-// sheet slides up from the bottom and snaps between three heights.
+// Faithful structural replica of Elfsight's mobile editor: the default mobile
+// state is a FULL-SCREEN live preview with a persistent dark bottom tab bar
+// (BottomTabBar) and NO panel open. Tapping a panel tab (Build/Style/Settings/
+// Install) opens THAT tab's panel as a bottom SHEET overlaying the preview. The
+// bottom tab bar stays visible above-the-fold so the user can switch tabs; a
+// close chevron (and tapping the active tab again, handled by the parent)
+// dismisses the sheet back to the full preview.
 //
-// Snap heights:
-//   - collapsed: ~56px (just the handle + active-tab label)
-//   - half:      62vh
-//   - full:      88vh
+// This REPLACES the previous model (3-snap collapsible pill + the separate
+// qq-mobile-actionbar with Save/Reset). The Save capability is NOT lost — it
+// is relocated into this sheet's sticky footer ("Save draft"); autosave also
+// runs in the parent. Reset-to-default and Help are also reachable from the
+// footer.
 //
-// BH-3-fix removed two over-engineered features from the original BH-3 ship:
-//   1. The in-sheet search bar — not enough features to justify it.
-//   2. The in-sheet tab strip — duplicate of the top chrome's tabs (BH-2).
-// The sheet now simply renders the active tab's panel body. Tab switching
-// happens UP TOP in the unified chrome; the sheet just reflects whatever
-// the parent passes as `children` for the current `activeTab`.
-//
-// Features retained:
-//   1. Sliding sheet with drag handle + tap/swipe to expand/collapse.
-//   2. Sticky action footer (Reset / Done) honouring safe-area-inset-bottom.
-//   3. Canvas above stays interactive and re-renders live (parent owns the
-//      live-preview pane).
-//   4. Listens for `qq-wizard:focus-field` so PreviewPane taps can auto-open
-//      + switch tab. Section/field scroll is best-effort.
-//
-// Constraints:
-//   - Hidden above 768px via CSS — desktop side-panel stays the path.
-//   - GPU-accelerated `transform: translateY()`, 240ms ease-out.
-//   - prefers-reduced-motion → no transform animation, snap state changes.
-//   - Touch targets >= 44px.
-//   - No new deps; native CSS transitions only.
-//   - z-index 9998 (above canvas, below AIBubble).
+// Constraints / parity:
+//   - Mobile-only (≤768px); desktop continues to use the side-panel.
+//   - The sheet sits ABOVE the persistent dark bottom tab bar (~60px + safe
+//     area), so its body never hides behind it.
+//   - GPU-accelerated translateY slide; 240ms ease-out; reduced-motion safe.
+//   - Touch targets ≥ 44px.
+//   - z-index 9998 (above canvas + backdrop, below the bottom tab bar at 9999
+//     so tabs stay tappable while the sheet is open).
+//   - Listens for `qq-wizard:focus-field` so a PreviewPane tap auto-opens the
+//     sheet, switches tab, and scrolls the field into view.
 
 import {
   useCallback, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
-import { ChevronUp, HelpCircle, RotateCcw } from 'lucide-react';
+import { ChevronDown, HelpCircle, RotateCcw } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
-import { dashboardTheme } from '@/theme/dashboardTheme';
 import { AE } from './appleEditor';
 import { useLayoutGuard } from '@/lib/layoutGuard';
 import { EDITOR_TABS, type EditorTab } from './types';
 
 const p = platformTheme;
-const d = dashboardTheme;
 
-export type SheetSnap = 'collapsed' | 'half' | 'full';
+// Height of the persistent dark bottom tab bar (icon+label cell). The sheet's
+// footer + body clear this so nothing hides behind it.
+const BOTTOM_BAR_PX = 60;
 
 // ── Component ─────────────────────────────────────────────────────────
 
 interface Props {
+  /** Whether the panel sheet is open over the preview. When false the sheet
+   *  slides off-screen and the preview is fully visible (default state). */
+  open: boolean;
+  /** Dismiss the sheet back to the full preview. */
+  onClose: () => void;
   activeTab: EditorTab;
+  /** Switch tab + (re)open. Used by the focus-field listener. */
   onTabChange: (tab: EditorTab) => void;
   onResetTab: () => void;
-  onDone: () => void;
-  /** Opens the editor help overlay. The mobile action bar (the only other
-   *  Help surface) is hidden whenever this bottom sheet is active, so this is
-   *  the reachable Help control on phones. */
+  /** Save draft (relocated here from the removed action bar). */
+  onSave: () => void;
+  /** Opens the editor help overlay. */
   onHelp?: () => void;
-  /** Slot containing the active tab's body component (whichever Tab the
-   *  top-chrome tab nav has selected). */
+  /** The active tab's body component. */
   children: ReactNode;
-  /** When true, the parent indicates Save is busy. */
+  /** When true, Save is busy. */
   isBusy?: boolean;
-  /** Optional initial snap state (defaults to 'half' — BH-3-defaults
-   *  fix 2026-05-23 — first-time visitors land in the half state so the
-   *  config controls + footer CTA are immediately visible. The stored
-   *  preference in localStorage still wins for return visitors). */
-  initialSnap?: SheetSnap;
 }
-
-const STORAGE_KEY = 'qq_wizard_sheet_snap';
 
 function readPrefersReduced(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
@@ -79,87 +69,25 @@ function readPrefersReduced(): boolean {
   catch { return false; }
 }
 
-function loadSnap(initial: SheetSnap): SheetSnap {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === 'collapsed' || raw === 'half' || raw === 'full') return raw;
-  } catch { /* private mode */ }
-  return initial;
-}
-
 export default function MobileBottomSheet({
-  activeTab, onTabChange, onResetTab, onDone, onHelp,
-  children, isBusy = false, initialSnap = 'half',
+  open, onClose, activeTab, onTabChange, onResetTab, onSave, onHelp,
+  children, isBusy = false,
 }: Props) {
-  const [snap, setSnapInner] = useState<SheetSnap>(() => loadSnap(initialSnap));
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-
   const reduceMotion = useMemo(readPrefersReduced, []);
 
-  const setSnap = useCallback((next: SheetSnap) => {
-    setSnapInner(next);
-    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
-  }, []);
-
-  // ── Cycle on handle tap: collapsed → half → full → collapsed ──────
-  const cycleSnap = useCallback(() => {
-    setSnap(snap === 'collapsed' ? 'half' : snap === 'half' ? 'full' : 'collapsed');
-  }, [snap, setSnap]);
-
-  // ── Drag-to-resize (touch) ────────────────────────────────────────
-  const dragStartYRef = useRef<number | null>(null);
-  const dragStartSnapRef = useRef<SheetSnap>('collapsed');
-  const sheetRef = useRef<HTMLDivElement>(null);
-
-  const onHandlePointerDown = useCallback((ev: React.PointerEvent) => {
-    dragStartYRef.current = ev.clientY;
-    dragStartSnapRef.current = snap;
-    (ev.target as HTMLElement).setPointerCapture(ev.pointerId);
-  }, [snap]);
-
-  const onHandlePointerMove = useCallback((ev: React.PointerEvent) => {
-    if (dragStartYRef.current === null) return;
-    const delta = ev.clientY - dragStartYRef.current;
-    // Threshold-based snap selection. Up = expand, down = collapse.
-    if (Math.abs(delta) < 24) return;
-    const start = dragStartSnapRef.current;
-    if (delta < -48) {
-      // Drag UP
-      if (start === 'collapsed') setSnap('half');
-      else if (start === 'half') setSnap('full');
-    } else if (delta > 48) {
-      // Drag DOWN
-      if (start === 'full') setSnap('half');
-      else if (start === 'half') setSnap('collapsed');
-    }
-  }, [setSnap]);
-
-  const onHandlePointerUp = useCallback((ev: React.PointerEvent) => {
-    dragStartYRef.current = null;
-    try { (ev.target as HTMLElement).releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
-  }, []);
-
-  // Scroll container ref kept so `qq-wizard:focus-field` can scroll into view.
+  // Scroll container ref so `qq-wizard:focus-field` can scroll into view.
   const contentRef = useRef<HTMLDivElement>(null);
-  // LAYOUT-1 — dev-only overlap/crumple detector on the sheet's scrollable
-  // content area. Children here are whichever tab panel is mounted, so the
-  // checks apply to that panel's top-level children too.
   useLayoutGuard(contentRef, { maxGapPx: 24, label: 'wizard-sheet-content' });
 
-  // ── BH-3 — `qq-wizard:focus-field` listener ───────────────────────
-  //
-  // PreviewPane can dispatch `new CustomEvent('qq-wizard:focus-field', {
-  //   detail: { tabId, sectionId, fieldId } })` and we'll:
-  //   - switch active tab
-  //   - expand to 'half' snap (if currently collapsed)
-  //   - scroll the section / field into view + transient highlight
+  // ── `qq-wizard:focus-field` listener ──────────────────────────────
+  // A PreviewPane tap dispatches this to: switch active tab, OPEN the sheet,
+  // and scroll the section/field into view + transient highlight.
   useEffect(() => {
     const onFocus = (e: Event) => {
       const ev = e as CustomEvent<{ tabId?: EditorTab; sectionId?: string; fieldId?: string }>;
       const { tabId, sectionId, fieldId } = ev.detail ?? {};
       if (tabId) onTabChange(tabId);
-      setSnap(snap === 'collapsed' ? 'half' : snap);
-      // Defer scroll until the tab body re-renders.
       requestAnimationFrame(() => {
         const root = contentRef.current;
         if (!root) return;
@@ -176,7 +104,7 @@ export default function MobileBottomSheet({
     };
     window.addEventListener('qq-wizard:focus-field', onFocus as EventListener);
     return () => window.removeEventListener('qq-wizard:focus-field', onFocus as EventListener);
-  }, [onTabChange, setSnap, snap, reduceMotion]);
+  }, [onTabChange, reduceMotion]);
 
   // Reset confirm flow — show inline pill for ~3s; confirming fires onResetTab.
   const onResetClick = useCallback(() => {
@@ -190,108 +118,49 @@ export default function MobileBottomSheet({
   }, [onResetTab, showResetConfirm]);
 
   const activeTabLabel =
-    EDITOR_TABS.find((t) => t.id === activeTab)?.label ?? 'Style';
-
-  // Backdrop click — collapses to handle. Only intercepts taps on the
-  // backdrop element itself (not on the sheet or canvas above).
-  const onBackdropClick = useCallback(() => {
-    setSnap('collapsed');
-  }, [setSnap]);
+    EDITOR_TABS.find((t) => t.id === activeTab)?.label ?? 'Build';
 
   return (
     <>
-      {/* Backdrop — only paints when sheet is expanded. */}
-      {snap !== 'collapsed' && (
+      {/* Backdrop — only paints when the sheet is open. Tapping it closes
+          the sheet (back to full preview). */}
+      {open && (
         <div
           className="qq-sheet-backdrop"
           data-testid="wizard-sheet-backdrop"
-          onClick={onBackdropClick}
+          onClick={onClose}
           aria-hidden="true"
         />
       )}
 
       <div
-        ref={sheetRef}
         data-theme="light"
-        className={`qq-sheet qq-sheet--${snap}${reduceMotion ? ' is-reduced-motion' : ''}`}
+        className={`qq-sheet${open ? ' is-open' : ''}${reduceMotion ? ' is-reduced-motion' : ''}`}
         data-testid="wizard-bottom-sheet"
-        data-snap={snap}
+        data-open={open ? 'true' : 'false'}
         role="dialog"
-        aria-label="Wizard configuration"
-        /* AUDIT-MEDIUM — was toggled 'true' (full) / 'false' (half),
-         * which some screen readers don't honour gracefully on a
-         * single dialog node. Both half + full render the backdrop
-         * (snap !== 'collapsed') and intercept page interaction, so
-         * both are modal contexts. Collapsed is a 56px peek bar with
-         * no backdrop, but the dialog node remains in the tree —
-         * keep aria-modal stable as 'true' since role="dialog" is
-         * always set; expansion state is signalled via aria-expanded
-         * on the handle button. */
+        aria-label={`${activeTabLabel} settings`}
         aria-modal="true"
+        aria-hidden={open ? undefined : true}
       >
-        {/* ── Drag handle ────────────────────────────────────────── */}
-        <button
-          type="button"
-          className="qq-sheet-handle"
-          data-testid="wizard-sheet-handle"
-          aria-label={
-            snap === 'collapsed' ? 'Expand wizard panel'
-              : snap === 'half' ? 'Expand wizard panel further'
-                : 'Collapse wizard panel'
-          }
-          aria-expanded={snap !== 'collapsed'}
-          onClick={cycleSnap}
-          onPointerDown={onHandlePointerDown}
-          onPointerMove={onHandlePointerMove}
-          onPointerUp={onHandlePointerUp}
-          onPointerCancel={onHandlePointerUp}
-        >
-          <span className="qq-sheet-handle-bar" aria-hidden="true" />
-          {snap === 'collapsed' && (
-            <span className="qq-sheet-handle-label">
-              {activeTabLabel}
-              {/* BH-3-defaults (2026-05-23) — render an explicit
-               * ChevronUp inside the caret span so the collapsed
-               * affordance reads as "tap to open" instead of an empty
-               * gap. */}
-              <span className="qq-sheet-handle-caret" aria-hidden="true">
-                <ChevronUp size={14} aria-hidden="true" />
-              </span>
-            </span>
-          )}
-        </button>
-
-        {/* ── In-sheet tab switcher (BH-tabs 2026-06-04) ──────────
-         *  Compact segmented row mirroring the top-chrome tabs, wired to
-         *  the SAME activeTab state (onTabChange === WizardShell's
-         *  setActiveTab — the single source of truth shared with the top
-         *  bar). Switching here changes the sheet body AND the top tabs in
-         *  lockstep; no duplicated state. Hidden when collapsed (only the
-         *  pill handle shows there). */}
-        {snap !== 'collapsed' && (
-          <div
-            className="qq-sheet-tabs"
-            role="tablist"
-            aria-label="Configuration sections"
-            data-testid="wizard-sheet-tabs"
+        {/* ── Sheet header — title + close chevron ──────────────────── */}
+        <div className="qq-sheet-header">
+          <span className="qq-sheet-title" data-testid="wizard-sheet-title">
+            {activeTabLabel}
+          </span>
+          <button
+            type="button"
+            className="qq-sheet-close"
+            data-testid="wizard-sheet-close"
+            onClick={onClose}
+            aria-label="Close panel"
+            title="Close panel"
           >
-            {EDITOR_TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === t.id}
-                className={`qq-sheet-tab${activeTab === t.id ? ' is-active' : ''}`}
-                data-testid={`wizard-sheet-tab-${t.id}`}
-                onClick={() => onTabChange(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
+            <ChevronDown size={24} aria-hidden="true" />
+          </button>
+        </div>
 
-        {/* ── Scrollable content (active tab's panel only) ───────── */}
+        {/* ── Scrollable content (active tab's panel only) ───────────── */}
         <div
           ref={contentRef}
           className="qq-sheet-content"
@@ -300,7 +169,7 @@ export default function MobileBottomSheet({
           {children}
         </div>
 
-        {/* ── Sticky action footer ───────────────────────────────── */}
+        {/* ── Sticky action footer (Help · Reset · Save) ───────────── */}
         <div className="qq-sheet-footer" data-testid="wizard-sheet-footer">
           <button
             type="button"
@@ -310,7 +179,7 @@ export default function MobileBottomSheet({
             aria-label="Editor help"
             title="Editor help"
           >
-            <HelpCircle size={16} aria-hidden="true" />
+            <HelpCircle size={20} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -320,17 +189,17 @@ export default function MobileBottomSheet({
             aria-label={showResetConfirm ? 'Confirm reset to default' : 'Reset to default'}
             title="Reset this tab to default"
           >
-            <RotateCcw size={14} aria-hidden="true" />
+            <RotateCcw size={16} aria-hidden="true" />
             <span>{showResetConfirm ? 'Tap to confirm' : 'Reset'}</span>
           </button>
           <button
             type="button"
             className="qq-sheet-footer-done"
-            onClick={onDone}
+            onClick={onSave}
             data-testid="wizard-sheet-done"
             disabled={isBusy}
           >
-            {isBusy ? 'Saving…' : 'Done'}
+            {isBusy ? 'Saving…' : 'Save draft'}
           </button>
         </div>
       </div>
@@ -356,10 +225,14 @@ export default function MobileBottomSheet({
 
           .qq-sheet {
             display: flex; flex-direction: column;
-            position: fixed; left: 0; right: 0; bottom: 0;
+            position: fixed; left: 0; right: 0;
+            /* Sit ABOVE the persistent dark bottom tab bar so the bar's tabs
+               stay tappable while a panel is open. */
+            bottom: calc(${BOTTOM_BAR_PX}px + env(safe-area-inset-bottom, 0px));
+            height: 70vh; max-height: 70vh;
+            /* z-index 9998 — above canvas + backdrop (9997), below the bottom
+               tab bar (9999). */
             z-index: 9998;
-            /* Apple-clean (Phase 0) — white sheet, 14px top radius, hairline
-               top border, soft pop shadow, SF-system type. */
             background: ${AE.color.bg};
             font-family: ${AE.font.family};
             color: ${AE.color.text};
@@ -367,221 +240,42 @@ export default function MobileBottomSheet({
             border-top-right-radius: ${AE.radius.lg};
             box-shadow: ${AE.shadow.pop};
             border-top: 1px solid ${AE.color.hairline};
-            /* Snap transitions animate HEIGHT only — no snap state applies a
-             * translate, so the old transform:translate3d(0,0,0) +
-             * will-change:transform were dead weight that only risked
-             * compositing quirks around the always-fixed pill. Keep the height
-             * tween; drop the self-transform so the sheet stays a clean fixed
-             * box anchored to the viewport. */
-            transition: height 240ms cubic-bezier(0.22, 1, 0.36, 1);
-            will-change: height;
-            /* Touch action — let inner content scroll; the handle itself
-             * captures vertical pans for drag-resize. */
+            /* Default = slid off-screen (closed). Opening slides it up. */
+            transform: translateY(100%);
+            transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: transform;
             touch-action: pan-y;
+            pointer-events: none;
+          }
+          .qq-sheet.is-open {
+            transform: translateY(0);
+            pointer-events: auto;
           }
 
-          /* ── Three snap states ─────────────────────────────────── */
-          /* Collapsed = a slim FLOATING ROUNDED PILL (Alex: thinner + truly
-           * rounded, not a full-width bar with only top corners rounded). It
-           * detaches from the screen edges so there's no rectangular wrap.
-           * Half/full re-attach to the edges as a normal bottom sheet. */
-          .qq-sheet--collapsed {
-            height: 46px;
-            /* NARROWER + RECTANGULAR + LOWER (2026-06-04) — Alex: the
-             * collapsed button was ~full-width and floated too high. Now it's
-             * ~50% narrower (max-width 200px, centered via the symmetric
-             * left/right + margin:auto), more rectangular (border-radius 14px
-             * reads as a rounded rectangle, not a full pill), and sits just
-             * above the bottom action bar with a small gap instead of way up. */
-            left: 10px; right: 10px;
-            /* ALWAYS-VISIBLE FIX (2026-06-04) — sit the collapsed button just
-             * ABOVE the fixed mobile action bar (.qq-mobile-actionbar,
-             * bottom:0, ~64px tall incl. safe-area). Dropped from 72px to a
-             * tight 8px gap above the bar so it sits low, just above it,
-             * rather than floating high. The safe-area inset keeps it off the
-             * home indicator. This — plus the transform:none pin on
-             * .qq-editor-frame (WizardShell) so fixed descendants anchor to
-             * the viewport — keeps this button on screen at all times,
-             * including during page scroll. */
-            bottom: calc(64px + 8px + env(safe-area-inset-bottom, 0px));
-            margin: 0 auto;
-            max-width: 200px;
-            border-radius: ${AE.radius.lg};
-            border: 1px solid ${AE.color.hairline};
-            box-shadow: ${AE.shadow.pop};
-            overflow: hidden;
-            /* The collapsed button is a clean fixed box — no self-transform /
-             * will-change so nothing about it can detach from the viewport. */
-            transform: none;
-            will-change: auto;
-          }
-          .qq-sheet--half {
-            height: 62vh;
-          }
-          .qq-sheet--full {
-            height: 88vh;
-          }
-          /* Hide content / footer in collapsed state — only the handle remains. */
-          .qq-sheet--collapsed .qq-sheet-content,
-          .qq-sheet--collapsed .qq-sheet-footer {
-            display: none;
-          }
-
-          /* ── Drag handle ───────────────────────────────────────── */
-          .qq-sheet-handle {
-            position: relative;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center;
-            width: 100%; min-height: 44px;
-            padding: 8px 12px 4px;
-            background: transparent; border: none; cursor: grab;
-            touch-action: none;
-            font: inherit;
-          }
-          .qq-sheet-handle:active { cursor: grabbing; }
-          .qq-sheet-handle:focus-visible {
-            outline: 2px solid ${p.colors.accent};
-            outline-offset: -4px;
-            border-radius: 12px;
-          }
-          /* P2 UX (2026-05-22) — Drag-handle breathing animation.
-           *
-           * The small 40×4 handle bar was easy to miss, especially on
-           * first open when the sheet is collapsed (BH-3). A subtle
-           * scale + opacity pulse every 2.4s draws the eye without
-           * being obnoxious; a small outer glow gives it depth so it
-           * stands out from the surrounding chrome.
-           *
-           * Cancellation rules:
-           *  - During active drag (.qq-sheet-handle:active .bar) the
-           *    animation pauses so the bar reads as "I am being
-           *    handled" instead of "I am still attracting attention".
-           *  - When the sheet is in the half/full snap state the
-           *    animation is suppressed entirely — the bar's job is
-           *    discoverability when collapsed; once the user is in,
-           *    further pulsing is noise.
-           *  - prefers-reduced-motion disables the animation
-           *    (kept-in-place at rest size + opacity). */
-          .qq-sheet-handle-bar {
-            display: block;
-            /* BH-3-defaults (2026-05-23) — bolder bar + brand-tint
-             * background so the affordance reads even when the sheet
-             * is collapsed at the foot of a busy canvas. */
-            width: 40px; height: 5px; border-radius: ${AE.radius.pill};
-            background: ${AE.color.hairline};
-            margin-bottom: 2px;
-            opacity: 0.9;
-            transform-origin: center;
-            box-shadow: none;
-            will-change: transform, opacity;
-          }
-          /* Pulse only when collapsed — once open the bar has done its
-           * discoverability job. */
-          .qq-sheet--collapsed .qq-sheet-handle-bar {
-            animation: qq-sheet-handle-pulse 2.4s ease-in-out infinite;
-          }
-          @keyframes qq-sheet-handle-pulse {
-            0%, 100% { opacity: 0.6; transform: scaleY(1); }
-            50%      { opacity: 1;   transform: scaleY(1.2); }
-          }
-          /* Pause pulse while the user is actively dragging the
-           * handle (pointer captured). */
-          .qq-sheet-handle:active .qq-sheet-handle-bar {
-            animation-play-state: paused;
-            opacity: 1;
-            transform: scaleY(1);
-          }
-          /* Once the sheet is open the bar doesn't need to attract
-           * attention any more. Lock to a neutral rest state. */
-          .qq-sheet--half .qq-sheet-handle-bar,
-          .qq-sheet--full .qq-sheet-handle-bar {
-            animation: none;
-            opacity: 0.55;
-            transform: scaleY(1);
-            box-shadow: none;
-          }
-          @media (prefers-reduced-motion: reduce) {
-            .qq-sheet--collapsed .qq-sheet-handle-bar {
-              animation: none;
-              opacity: 1;
-            }
-          }
-          .qq-sheet-handle-label {
-            font-size: 13px; font-weight: 600;
-            color: ${AE.color.text};
-            display: inline-flex; align-items: center; gap: 4px;
-          }
-          .qq-sheet-handle-caret {
-            /* BH-3-defaults (2026-05-23) — caret span now hosts a real
-             * Lucide ChevronUp icon instead of a CSS border triangle. */
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-left: 2px;
-            color: ${AE.color.secondary};
-            line-height: 0;
-          }
-          /* Collapsed pill — compress the handle so the bar + label fit the
-           * slim 46px pill without clipping. */
-          .qq-sheet--collapsed .qq-sheet-handle {
-            min-height: 46px;
-            padding: 5px 18px 4px;
-          }
-
-          /* ── In-sheet tab switcher (BH-tabs 2026-06-04) ──────────
-           * Compact segmented row under the handle. Mirrors the top-chrome
-           * tabs and drives the SAME shared activeTab state, so the user can
-           * change section without reaching the top bar. Horizontally
-           * scrollable on very narrow phones so all four always reach. */
-          .qq-sheet-tabs {
-            display: flex; align-items: stretch; gap: 4px;
+          /* ── Sheet header ──────────────────────────────────────── */
+          .qq-sheet-header {
             flex-shrink: 0;
-            margin: 0 12px 6px;
-            padding: 3px;
-            border-radius: ${AE.radius.md};
-            background: ${AE.color.surface};
-            border: 1px solid ${AE.color.hairline};
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px;
+            padding: 12px 12px 8px 18px;
+            border-bottom: 1px solid ${AE.color.hairline};
           }
-          .qq-sheet-tabs::-webkit-scrollbar { display: none; }
-          .qq-sheet-tab {
-            flex: 1 1 0; min-width: 64px; min-height: 36px;
-            display: inline-flex; align-items: center; justify-content: center;
-            padding: 0 10px;
-            background: transparent; border: none; border-radius: ${AE.radius.sm};
-            font: inherit; font-size: 13px; font-weight: 500;
-            color: ${AE.color.secondary};
-            cursor: pointer; white-space: nowrap;
-            transition: background 0.12s ease, color 0.12s ease;
-          }
-          .qq-sheet-tab:hover { color: ${AE.color.text}; }
-          /* Apple-clean (Phase 0) — selected = white pill that lifts off the
-           * recessed grey track + near-black label (outline/elevation
-           * approach, NOT a bright accent fill — per the hard UI rules). */
-          .qq-sheet-tab.is-active {
-            background: ${AE.color.bg};
+          .qq-sheet-title {
+            font-size: 17px; font-weight: 600;
             color: ${AE.color.text};
-            box-shadow: ${AE.shadow.card};
+            letter-spacing: -0.01em;
           }
-          .qq-sheet-tab:focus-visible {
+          .qq-sheet-close {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 44px; min-height: 44px; padding: 0;
+            background: transparent; border: none; cursor: pointer;
+            color: ${AE.color.secondary};
+            border-radius: ${AE.radius.md};
+          }
+          .qq-sheet-close:active { background: ${AE.color.surface}; }
+          .qq-sheet-close:focus-visible {
             outline: 2px solid ${AE.color.accent};
             outline-offset: -2px;
-          }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-tabs {
-            background: rgba(255,255,255,0.04);
-            border-color: var(--qq-border);
-          }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-tab {
-            color: var(--qq-text-muted, rgba(255,255,255,0.65));
-          }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-tab:hover {
-            color: var(--qq-text, rgba(255,255,255,1));
-          }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-tab.is-active {
-            background: rgba(255,255,255,0.10);
-            color: var(--qq-text, rgba(255,255,255,1));
           }
 
           /* ── Scrollable content ────────────────────────────────── */
@@ -589,10 +283,9 @@ export default function MobileBottomSheet({
             flex: 1; min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding: 4px 12px 8px;
+            padding: 8px 12px;
             scroll-behavior: smooth;
           }
-          /* Section highlight after a focus-field event. */
           .qq-sheet-content [data-sheet-highlight="true"] {
             animation: qq-sheet-highlight 1.4s ease-out;
           }
@@ -606,7 +299,7 @@ export default function MobileBottomSheet({
           .qq-sheet-footer {
             position: sticky; bottom: 0;
             display: flex; align-items: center; gap: 8px;
-            padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+            padding: 10px 12px;
             border-top: 1px solid ${AE.color.hairline};
             background: ${AE.color.bg};
             flex-shrink: 0;
@@ -615,8 +308,6 @@ export default function MobileBottomSheet({
           .qq-sheet-footer-reset {
             display: inline-flex; align-items: center; gap: 6px;
             min-height: 44px; padding: 0 14px;
-            /* Apple-clean (Phase 0) — secondary action: recessed grey surface,
-             * hairline border, near-black label, 10px radius. */
             background: ${AE.color.surface};
             border: 1px solid ${AE.color.hairline};
             border-radius: ${AE.radius.md};
@@ -626,13 +317,7 @@ export default function MobileBottomSheet({
             transition: background 0.12s ease, border-color 0.12s ease,
                         color 0.12s ease;
           }
-          .qq-sheet-footer-reset:hover {
-            background: ${AE.color.surfaceHover};
-          }
-          /* Icon-only Help control — mirrors the Reset button's surface so it
-           * reads as a secondary chrome action. The mobile action bar's Help
-           * is hidden while this sheet is active, so this is phones' reachable
-           * Help surface. */
+          .qq-sheet-footer-reset:hover { background: ${AE.color.surfaceHover}; }
           .qq-sheet-footer-help {
             display: inline-flex; align-items: center; justify-content: center;
             min-width: 44px; min-height: 44px; padding: 0 10px;
@@ -644,9 +329,7 @@ export default function MobileBottomSheet({
             transition: background 0.12s ease, border-color 0.12s ease,
                         color 0.12s ease;
           }
-          .qq-sheet-footer-help:hover {
-            background: ${AE.color.surfaceHover};
-          }
+          .qq-sheet-footer-help:hover { background: ${AE.color.surfaceHover}; }
           .qq-sheet-footer-help:focus-visible {
             outline: 2px solid ${AE.color.accent};
             outline-offset: -2px;
@@ -679,6 +362,12 @@ export default function MobileBottomSheet({
             background: var(--qq-surface);
             border-top-color: var(--qq-border);
           }
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-header {
+            border-bottom-color: var(--qq-border);
+          }
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-title {
+            color: var(--qq-text, rgba(255,255,255,1));
+          }
           .qq-editor-shell[data-theme="dark"] .qq-sheet-footer {
             background: var(--qq-surface);
             border-top-color: var(--qq-border);
@@ -689,21 +378,9 @@ export default function MobileBottomSheet({
             border-color: var(--qq-border);
             color: var(--qq-text);
           }
-          /* Collapsed-pill title contrast — in dark editor mode the sheet
-           * surface flips dark, so the active-tab label + caret must go light
-           * (Alex: white font in dark mode, dark font in light mode). */
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-handle-label {
-            color: var(--qq-text, rgba(255,255,255,1));
-          }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-handle-caret {
-            color: var(--qq-text-muted, rgba(255,255,255,0.65));
-          }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet--collapsed {
-            border-color: var(--qq-border);
-          }
         }
 
-        /* prefers-reduced-motion — instant snap, no transitions. */
+        /* prefers-reduced-motion — instant open/close, no transitions. */
         @media (prefers-reduced-motion: reduce) {
           .qq-sheet, .qq-sheet-content {
             transition: none !important;
@@ -715,18 +392,7 @@ export default function MobileBottomSheet({
             outline: 2px solid ${p.colors.accent};
             outline-offset: 2px;
           }
-          /* P2 UX (2026-05-22) — kill the handle breathing pulse when
-           * the user prefers reduced motion. Handle stays at its
-           * resting opacity + scale + glow is dropped. */
-          .qq-sheet-handle-bar {
-            animation: none !important;
-            opacity: 0.55 !important;
-            transform: scaleX(1) !important;
-            box-shadow: none !important;
-          }
         }
-        /* Direct class-driven override (Web Animations API friendly) when
-         * the prefers-reduced-motion media query is unreliable. */
         .qq-sheet.is-reduced-motion {
           transition: none !important;
         }

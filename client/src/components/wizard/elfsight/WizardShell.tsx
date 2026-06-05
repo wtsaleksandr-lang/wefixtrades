@@ -50,6 +50,7 @@ import EditorTopBar from './EditorTopBar';
 // 2026-05-22 (revert of PR #535) — EditorBottomBar was deleted; the tab
 // strip lives back in the top chrome again. See EditorTopBar.tsx.
 import MobileBottomSheet from './MobileBottomSheet';
+import BottomTabBar from './BottomTabBar';
 // BH-2 — EditorTabs is no longer rendered as a standalone bar; the tab
 // strip is rendered inline inside EditorTopBar so the top chrome lives on
 // a single horizontal row. The component file is preserved for any future
@@ -80,11 +81,6 @@ const PANE_WIDTH_KEY = 'qq_editor_pane_width';
 const EDITOR_THEME_KEY = 'qq_editor_theme';
 // Wave M — fold/unfold preview pane. Persists across reloads.
 const PREVIEW_COLLAPSED_KEY = 'qq_preview_collapsed';
-// W-AO-1 — mobile sticky action bar extended-state. Collapsed = primary
-// CTA only (56px); extended = primary CTA + horizontally scrollable
-// secondary row (~140px). Persists across reloads so the user's stance
-// survives the wizard reopening.
-const ACTION_BAR_EXTENDED_KEY = 'qq_wizard_action_bar_extended';
 const PANE_WIDTH_MIN = 320;
 const PANE_WIDTH_MAX = 640;
 const PANE_WIDTH_DEFAULT = 420;
@@ -167,15 +163,6 @@ function loadPaneWidth(): number {
 function loadPreviewCollapsed(): boolean {
   try {
     return localStorage.getItem(PREVIEW_COLLAPSED_KEY) === '1';
-  } catch { return false; }
-}
-
-// W-AO-1 — bottom action-bar extended state. Defaults to collapsed (56px
-// primary-only) because most first-time mobile users only need the
-// primary Save CTA; secondary tools are surfaced via a chevron drag.
-function loadActionBarExtended(): boolean {
-  try {
-    return localStorage.getItem(ACTION_BAR_EXTENDED_KEY) === '1';
   } catch { return false; }
 }
 
@@ -502,18 +489,6 @@ export default function WizardShell({ embed = false }: Props) {
     });
   }, []);
 
-  // ── W-AO-1: mobile sticky action bar extended state ────────────────
-  const [actionBarExtended, setActionBarExtended] = useState<boolean>(
-    () => loadActionBarExtended(),
-  );
-  useEffect(() => {
-    try {
-      localStorage.setItem(ACTION_BAR_EXTENDED_KEY, actionBarExtended ? '1' : '0');
-    } catch {}
-  }, [actionBarExtended]);
-  const toggleActionBarExtended = useCallback(() => {
-    setActionBarExtended((v) => !v);
-  }, []);
 
   const onResizeStart = useCallback((startX: number, startWidth: number) => {
     setIsResizing(true);
@@ -1139,6 +1114,30 @@ export default function WizardShell({ embed = false }: Props) {
     };
   }, []);
 
+  // Elfsight-mobile rebuild (2026-06-05) — the mobile panel sheet is now an
+  // explicit open/closed overlay over the full-screen preview (NOT the old
+  // 3-snap collapsible). Default = closed (full preview). Tapping a bottom-bar
+  // panel tab opens that tab's sheet; tapping the ACTIVE tab again, the close
+  // chevron, or the backdrop closes it back to the preview.
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const closeMobileSheet = useCallback(() => setMobileSheetOpen(false), []);
+  const onMobileSelectTab = useCallback((tab: EditorTab) => {
+    setActiveTab((prev) => {
+      // Tap the already-active tab while its sheet is open → toggle closed.
+      if (prev === tab) {
+        setMobileSheetOpen((wasOpen) => !wasOpen);
+        return prev;
+      }
+      setMobileSheetOpen(true);
+      return tab;
+    });
+  }, []);
+  // If the viewport leaves the mobile breakpoint, drop the sheet-open flag so
+  // returning to mobile starts from the clean full-preview default.
+  useEffect(() => {
+    if (!isMobile) setMobileSheetOpen(false);
+  }, [isMobile]);
+
   // BH-3 — Reset-to-default for the currently active tab. Style + Settings
   // are the tabs with persistent customisations; Build / Install are
   // structural. Reset wipes the relevant ShellState slice back to defaults.
@@ -1318,6 +1317,15 @@ export default function WizardShell({ embed = false }: Props) {
               onTogglePreview={togglePreviewCollapsed}
               floatingLauncherPreview={floatingLauncherPreview}
               onToggleFloatingLauncherPreview={toggleFloatingLauncherPreview}
+              /* Elfsight-mobile rebuild (2026-06-05) — on phones the top bar
+                 renders a clean ✕ · name · autosave · Publish chrome. Publish
+                 maps to the existing save-draft commit; name to the editable
+                 business name + autosave indicator. Desktop is unchanged. */
+              mobile={isMobile}
+              businessName={state.businessName}
+              onBusinessNameChange={setBusinessName}
+              onPublish={() => saveDraftMutation.mutate()}
+              isPublishing={saveDraftMutation.isPending}
             />
 
             {/* BH-3 — Tab body content. Same tree on desktop and mobile;
@@ -1578,19 +1586,20 @@ export default function WizardShell({ embed = false }: Props) {
                  the top chrome. The mobile bottom sheet (BH-3) below is for
                  property panels, not tabs, and remains. */}
 
-            {/* ── BH-3 — Mobile bottom sheet (≤768px only).
-                 Replaces the desktop left-pane on phones. Hosts the same
-                 tab content components (BuildTab / StyleTab / SettingsTab
-                 / InstallTab) but inside a slide-up sheet with search
-                 across tabs, in-sheet tab strip, sticky Reset/Done footer,
-                 and auto-collapse-on-scroll chrome. Industry pattern:
-                 Notion / Canva / Builder.io / Framer / Figma mobile. */}
+            {/* ── Elfsight-mobile rebuild (2026-06-05) — panel sheet (≤768px).
+                 Default mobile state = full preview with NO sheet open. Tapping
+                 a panel tab in the persistent dark BottomTabBar opens THAT tab's
+                 body (BuildTab / StyleTab / SettingsTab / InstallTab) as a bottom
+                 sheet over the preview; a close chevron / backdrop / re-tapping
+                 the active tab dismisses it. Save lives in the sheet footer. */}
             {isMobile && (
               <MobileBottomSheet
+                open={mobileSheetOpen}
+                onClose={closeMobileSheet}
                 activeTab={activeTab}
-                onTabChange={setActiveTab}
+                onTabChange={(tab) => { setActiveTab(tab); setMobileSheetOpen(true); }}
                 onResetTab={resetActiveTab}
-                onDone={() => saveDraftMutation.mutate()}
+                onSave={() => saveDraftMutation.mutate()}
                 onHelp={() => setShowHelp(true)}
                 isBusy={saveDraftMutation.isPending}
               >
@@ -1657,96 +1666,23 @@ export default function WizardShell({ embed = false }: Props) {
               </MobileBottomSheet>
             )}
 
-            {/* ── W-AO-1: mobile sticky bottom action bar.
-                 Fixed to the viewport bottom on `max-width: 768px`, hidden
-                 above that breakpoint (where the in-pane sticky Save
-                 footer already does the job). Collapsed: 56px primary
-                 CTA. Extended: chevron flip + a horizontally-scrollable
-                 row of secondary actions (theme, preview, help, close).
-                 State persists in localStorage via toggleActionBarExtended. */}
-            <div
-              className={`qq-mobile-actionbar${actionBarExtended ? ' is-extended' : ''}`}
-              data-testid="wizard-mobile-actionbar"
-              data-extended={actionBarExtended ? 'true' : 'false'}
-              role="toolbar"
-              aria-label="Wizard quick actions"
-            >
-              <button
-                type="button"
-                className="qq-mobile-actionbar-handle"
-                data-testid="wizard-mobile-actionbar-handle"
-                aria-label={actionBarExtended ? 'Collapse quick actions' : 'Expand quick actions'}
-                aria-expanded={actionBarExtended}
-                onClick={toggleActionBarExtended}
-              >
-                <span aria-hidden="true" className="qq-mobile-actionbar-chevron" />
-              </button>
-              <div className="qq-mobile-actionbar-primary">
-                <button
-                  type="button"
-                  className="qq-mobile-actionbar-cta"
-                  data-testid="wizard-mobile-actionbar-save"
-                  onClick={() => saveDraftMutation.mutate()}
-                  disabled={saveDraftMutation.isPending || !state.businessName.trim()}
-                >
-                  {saveDraftMutation.isPending ? 'Saving…' : (justSaved ? 'Saved ✓' : 'Save draft')}
-                </button>
-              </div>
-              {actionBarExtended && (
-                <div
-                  className="qq-mobile-actionbar-secondary"
-                  data-testid="wizard-mobile-actionbar-secondary"
-                >
-                  <button
-                    type="button"
-                    className="qq-mobile-actionbar-sbtn"
-                    onClick={togglePreviewCollapsed}
-                    data-testid="wizard-mobile-actionbar-preview"
-                  >
-                    {previewCollapsed ? 'Show preview' : 'Hide preview'}
-                  </button>
-                  <button
-                    type="button"
-                    className="qq-mobile-actionbar-sbtn"
-                    onClick={() => setEditorTheme(editorTheme === 'dark' ? 'light' : 'dark')}
-                    data-testid="wizard-mobile-actionbar-theme"
-                  >
-                    {editorTheme === 'dark' ? 'Light theme' : 'Dark theme'}
-                  </button>
-                  <button
-                    type="button"
-                    className="qq-mobile-actionbar-sbtn"
-                    /* BH-1 — cycle desktop → tablet → mobile → desktop. */
-                    onClick={() => setDevice(
-                      device === 'desktop' ? 'tablet'
-                        : device === 'tablet' ? 'mobile'
-                        : 'desktop',
-                    )}
-                    data-testid="wizard-mobile-actionbar-device"
-                  >
-                    {device === 'desktop' ? 'Tablet preview'
-                      : device === 'tablet' ? 'Mobile preview'
-                      : 'Desktop preview'}
-                  </button>
-                  <button
-                    type="button"
-                    className="qq-mobile-actionbar-sbtn"
-                    onClick={() => setShowHelp(true)}
-                    data-testid="wizard-mobile-actionbar-help"
-                  >
-                    Help
-                  </button>
-                  <button
-                    type="button"
-                    className="qq-mobile-actionbar-sbtn is-danger"
-                    onClick={handleClose}
-                    data-testid="wizard-mobile-actionbar-close"
-                  >
-                    Close
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* ── Elfsight-mobile rebuild (2026-06-05) — persistent dark 5-tab
+                 bottom bar. REPLACES the old W-AO-1 collapsible action bar
+                 (Save/Reset/theme/preview/close pill). Save now lives in the
+                 panel-sheet footer + autosave; theme/preview/device live in
+                 state (the desktop top bar + keyboard shortcuts still drive
+                 them). The 5 items map to the four EDITOR_TABS + Help; tapping
+                 a panel tab opens its sheet over the preview. Mobile-only
+                 (hidden ≥768px via the component's own CSS), and only rendered
+                 when isMobile so desktop is wholly unaffected. */}
+            {isMobile && (
+              <BottomTabBar
+                activeTab={activeTab}
+                sheetOpen={mobileSheetOpen}
+                onSelectTab={onMobileSelectTab}
+                onHelp={() => setShowHelp(true)}
+              />
+            )}
 
             {/* Wave K — floating AI assistant. Lives inside the frame so it
                  inherits data-theme. The bubble is fixed-position so it
@@ -2673,19 +2609,13 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-body.is-mobile-sheet .qq-editor-right {
                 flex: 1 1 auto;
                 order: 0;
-                /* W-CP-1 (2026-05-23) — iOS Safari requires a concrete
-                 * height for overflow-y:auto to enable touch-pan. Without
-                 * this the canvas refuses finger scroll. Compute as:
-                 *   100dvh
-                 *   - topbar (~40px; may grow to ~48px when W-MT-1 wraps
-                 *     the tab strip to a second row but the wrapping
-                 *     happens INSIDE the topbar, not below it, so the
-                 *     visible chrome height is still bounded ~40-72px —
-                 *     err generous via a px-stable 40px baseline)
-                 *   - collapsed sheet handle (~56px)
-                 *   - safe-area-inset-bottom */
-                height: calc(100dvh - 40px - 56px - env(safe-area-inset-bottom, 0px));
-                max-height: calc(100dvh - 40px - 56px - env(safe-area-inset-bottom, 0px));
+                /* Elfsight-mobile rebuild (2026-06-05) — the preview fills the
+                 * FULL screen between the clean mobile top bar (~64px) and the
+                 * persistent dark bottom tab bar (~60px + safe-area). iOS Safari
+                 * needs a concrete height for overflow-y:auto to enable
+                 * touch-pan, so we compute it explicitly. */
+                height: calc(100dvh - 64px - 60px - env(safe-area-inset-bottom, 0px));
+                max-height: calc(100dvh - 64px - 60px - env(safe-area-inset-bottom, 0px));
                 padding-bottom: 12px;
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
@@ -2695,22 +2625,15 @@ export default function WizardShell({ embed = false }: Props) {
                  * provides the visual separator. */
                 border-bottom: none;
               }
-              /* W-AO-1 action bar is redundant once the sheet's sticky
-               * footer carries the primary CTA. Hide it whenever the sheet
-               * layout is active. */
-              .qq-editor-body.is-mobile-sheet ~ .qq-mobile-actionbar {
-                display: none !important;
-              }
-              /* AIBubble — ensure it floats above the sheet (z-index 9998).
-               * The bubble itself is z-index 1100 by default; bump above
-               * the sheet on mobile so the assistant remains reachable
-               * even when the sheet is in 'full' state. */
+              /* AIBubble — keep it reachable over the panel sheet. The bubble
+               * is z-index 1100 by default; lift it to 9999 so it floats above
+               * the open sheet (9998) on mobile. */
               .qq-editor-body.is-mobile-sheet ~ .qq-ai-bubble,
               .qq-editor-body.is-mobile-sheet ~ .qq-ai-panel {
                 z-index: 9999 !important;
               }
-              /* Bottom-anchor the bubble above the collapsed sheet so it
-               * doesn't sit behind the handle. */
+              /* Bottom-anchor the bubble above the persistent dark bottom tab
+               * bar (~60px + safe-area) so it never sits behind the tabs. */
               .qq-editor-body.is-mobile-sheet ~ .qq-ai-bubble {
                 bottom: calc(72px + env(safe-area-inset-bottom, 0px));
               }
@@ -2802,155 +2725,24 @@ export default function WizardShell({ embed = false }: Props) {
               }
             }
 
-            /* ── W-AO-1 — mobile sticky bottom action bar ──────────────
-             *
-             * Hidden by default; shown only at the mobile breakpoint via the
-             * @media block below. The bar is position:fixed to the bottom
-             * of the viewport so it survives in-pane scroll. Backdrop blur
-             * keeps the underlying content visible but de-emphasised. */
-            .qq-mobile-actionbar {
-              display: none;
-            }
+            /* ── Elfsight-mobile rebuild (2026-06-05) ──────────────────
+             * The old W-AO-1 collapsible action bar was removed; its CSS goes
+             * with it. The persistent dark bottom tab bar (BottomTabBar) carries
+             * its own scoped styles. Below: only the still-needed mobile chrome
+             * — keep the bottom of the editor frame clear of the ~60px bottom
+             * tab bar, and hide the in-pane sticky Save footer (Save now lives
+             * in the panel-sheet footer + autosave). */
             @media (max-width: 768px) {
-              .qq-mobile-actionbar {
-                display: flex; flex-direction: column;
-                position: fixed; left: 0; right: 0; bottom: 0;
-                z-index: 60;
-                background: rgba(255, 255, 255, 0.92);
-                backdrop-filter: blur(10px);
-                -webkit-backdrop-filter: blur(10px);
-                border-top: 1px solid ${AE.color.hairline};
-                box-shadow: 0 -6px 18px rgba(15,23,42,0.06);
-                padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
-                gap: 8px;
-                transition: max-height 220ms cubic-bezier(0.22, 1, 0.36, 1);
-                max-height: 60vh;
-              }
-              .qq-mobile-actionbar-handle {
-                position: absolute; top: -10px; left: 50%;
-                transform: translateX(-50%);
-                width: 56px; height: 20px; padding: 0;
-                background: rgba(255,255,255,0.95);
-                border: 1px solid ${d.colors.borderLight};
-                border-radius: 999px;
-                box-shadow: 0 2px 6px rgba(15,23,42,0.08);
-                cursor: pointer;
-                display: inline-flex; align-items: center; justify-content: center;
-              }
-              .qq-mobile-actionbar-handle:focus-visible {
-                outline: none;
-                box-shadow: 0 0 0 3px ${p.colors.accentLighter};
-              }
-              .qq-mobile-actionbar-chevron {
-                width: 12px; height: 12px;
-                border-right: 2px solid ${p.colors.muted};
-                border-bottom: 2px solid ${p.colors.muted};
-                transform: rotate(-135deg) translate(-2px, -2px);
-                transition: transform 200ms ease;
-              }
-              .qq-mobile-actionbar.is-extended .qq-mobile-actionbar-chevron {
-                transform: rotate(45deg) translate(-2px, -2px);
-              }
-              .qq-mobile-actionbar-primary {
-                display: flex; align-items: stretch; gap: 8px; width: 100%;
-              }
-              .qq-mobile-actionbar-cta {
-                flex: 1;
-                min-height: 44px;
-                padding: 0 16px;
-                font-size: 14px; font-weight: 700;
-                background: ${p.colors.accent}; color: #fff;
-                border: none; border-radius: 10px;
-                cursor: pointer;
-                box-shadow: ${p.shadows.button};
-                transition: box-shadow 0.12s ease, background 0.12s ease;
-              }
-              .qq-mobile-actionbar-cta:hover:not(:disabled) {
-                box-shadow: ${p.shadows.buttonHover};
-              }
-              .qq-mobile-actionbar-cta:disabled {
-                opacity: 0.55; cursor: not-allowed;
-              }
-              .qq-mobile-actionbar-secondary {
-                display: flex; gap: 8px;
-                overflow-x: auto;
-                scroll-snap-type: x mandatory;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: none;
-                padding: 2px 0 4px;
-              }
-              .qq-mobile-actionbar-secondary::-webkit-scrollbar { display: none; }
-              .qq-mobile-actionbar-sbtn {
-                scroll-snap-align: start;
-                flex: 0 0 auto;
-                min-height: 38px;
-                padding: 0 14px;
-                font-size: 12.5px; font-weight: 600;
-                background: #fff; color: ${p.colors.heading};
-                border: 1px solid ${p.colors.border};
-                border-radius: 999px;
-                cursor: pointer;
-                white-space: nowrap;
-                transition: background 0.12s ease, border-color 0.12s ease;
-              }
-              .qq-mobile-actionbar-sbtn:hover {
-                background: ${p.colors.accentLighter};
-                border-color: ${p.colors.accent};
-              }
-              .qq-mobile-actionbar-sbtn.is-danger {
-                color: ${p.colors.danger};
-                border-color: ${p.colors.danger};
-              }
-              .qq-mobile-actionbar-sbtn.is-danger:hover {
-                background: rgba(220, 38, 38, 0.08);
-              }
-              /* Dark editor theme — flip surface colors. */
-              .qq-editor-shell[data-theme="dark"] .qq-mobile-actionbar {
-                background: rgba(15, 23, 42, 0.92);
-                border-top-color: var(--qq-border);
-              }
-              .qq-editor-shell[data-theme="dark"] .qq-mobile-actionbar-handle {
-                background: rgba(15, 23, 42, 0.95);
-                border-color: var(--qq-border);
-              }
-              .qq-editor-shell[data-theme="dark"] .qq-mobile-actionbar-sbtn {
-                background: var(--qq-surface);
-                color: var(--qq-text);
-                border-color: var(--qq-border);
-              }
-              /* Leave room at the bottom of the editor frame so the fixed
-               * action bar doesn't cover the last few rows of the form.
-               * Extended adds extra clearance for the secondary row. */
+              /* Clear the persistent dark bottom tab bar (~60px + safe-area)
+               * so the editor-only (preview-collapsed) view never hides its
+               * last rows behind the bar. */
               .qq-editor-frame {
-                padding-bottom: 64px;
+                padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
               }
-              .qq-mobile-actionbar.is-extended ~ .qq-editor-frame,
-              .qq-editor-shell:has(.qq-mobile-actionbar.is-extended) .qq-editor-frame {
-                padding-bottom: 140px;
-              }
-              /* The in-pane sticky Save footer (.qq-editor-actions) is
-               * redundant once the fixed mobile action bar carries the
-               * primary CTA — hide it on mobile to avoid two save
-               * buttons fighting for attention. */
+              /* The in-pane sticky Save footer (.qq-editor-actions) is hidden on
+               * mobile — Save lives in the panel-sheet footer + autosave. */
               .qq-editor-actions {
                 display: none !important;
-              }
-              /* Wave X #17 / BH-2 — sticky single-row topbar with backdrop
-               * blur so it reads as a true app-style sticky header rather
-               * than an opaque slab. */
-              .qq-editor-topbar {
-                background: rgba(255, 255, 255, 0.94);
-                backdrop-filter: blur(10px);
-                -webkit-backdrop-filter: blur(10px);
-              }
-              .qq-editor-shell[data-theme="dark"] .qq-editor-topbar {
-                background: rgba(15, 23, 42, 0.88);
-              }
-            }
-            @media (prefers-reduced-motion: reduce) {
-              .qq-mobile-actionbar,
-              .qq-mobile-actionbar-chevron {
-                transition: none !important;
               }
             }
           `}</style>

@@ -1,0 +1,176 @@
+// BottomTabBar — Elfsight-clone mobile editor bottom tab bar (2026-06-05).
+//
+// Faithful structural replica of Elfsight's mobile editor bottom bar (see
+// tools/design-teardown/out/elfsight-builder/cap/mobile/03-editor-default.png):
+// a PERSISTENT, fixed-to-bottom dark bar with FIVE evenly-spaced items, each an
+// icon above a small label. Inactive items read muted light-grey; the active
+// item is highlighted with the brand accent.
+//
+// This is mobile-only (≤768px). On desktop the section nav lives in the left
+// icon rail (WizardShell), so this component is hidden entirely at that
+// breakpoint via the parent's mobile gate (it is only RENDERED when isMobile).
+//
+// Mapping (our features, Elfsight's layout):
+//   Build · Style · Settings · Install  → the four EDITOR_TABS
+//   Help                                → opens the editor help overlay
+//
+// Tapping a panel tab (Build/Style/Settings/Install) tells the parent to open
+// that tab's bottom sheet over the preview; tapping the ACTIVE panel tab again
+// toggles the sheet closed (back to full preview). Help always opens the help
+// overlay (never a sheet). The bar stays visible at all times so the user can
+// switch sections without dismissing first.
+//
+// Testids preserved for Playwright / guards: the tablist carries
+// data-testid="editor-tabs" and each panel button data-testid="editor-tab-${id}"
+// — identical to the desktop rail, so existing checks keep passing on mobile.
+//
+// Colour note: the dark bar hexes (#1d1d1f surface, #a1a1a6 inactive) are
+// intentional literals per the brief (they are NOT the banned bare
+// white/black). The accent + font come from the AE token module.
+
+import {
+  SlidersHorizontal, Palette, Settings as SettingsIcon, Code2, HelpCircle,
+} from 'lucide-react';
+import { AE } from './appleEditor';
+import { EDITOR_TABS, type EditorTab } from './types';
+
+interface Props {
+  /** The currently-selected panel tab (drives the active highlight). */
+  activeTab: EditorTab;
+  /** True when the panel sheet is open over the preview. The active highlight
+   *  only paints when the sheet is actually open — in the default full-preview
+   *  state nothing is highlighted, matching Elfsight's default capture. */
+  sheetOpen: boolean;
+  /** Tap a panel tab → open (or toggle) that tab's sheet. */
+  onSelectTab: (tab: EditorTab) => void;
+  /** Tap Help → open the editor help overlay. */
+  onHelp: () => void;
+}
+
+const TAB_ICON: Record<EditorTab, typeof SlidersHorizontal> = {
+  build: SlidersHorizontal,
+  style: Palette,
+  settings: SettingsIcon,
+  install: Code2,
+};
+
+export default function BottomTabBar({
+  activeTab, sheetOpen, onSelectTab, onHelp,
+}: Props) {
+  return (
+    <nav
+      className="qq-bottom-tabbar"
+      role="tablist"
+      aria-label="Editor sections"
+      data-testid="editor-tabs"
+    >
+      {EDITOR_TABS.map(({ id, label }) => {
+        const Icon = TAB_ICON[id];
+        // Highlight only while the sheet is open on this tab — the default
+        // full-preview state shows no active item (Elfsight parity).
+        const isActive = sheetOpen && id === activeTab;
+        return (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            data-testid={`editor-tab-${id}`}
+            className={`qq-bottom-tab${isActive ? ' is-active' : ''}`}
+            onClick={() => onSelectTab(id)}
+            title={label}
+          >
+            <Icon
+              className="qq-bottom-tab-icon"
+              style={{ width: 24, height: 24 }}
+              aria-hidden="true"
+            />
+            <span className="qq-bottom-tab-label">{label}</span>
+          </button>
+        );
+      })}
+
+      {/* Help — 5th item. Opens the help overlay rather than a sheet. */}
+      <button
+        type="button"
+        className="qq-bottom-tab qq-bottom-tab-help"
+        data-testid="editor-tab-help"
+        onClick={onHelp}
+        aria-label="Help"
+        title="Help"
+      >
+        <HelpCircle
+          className="qq-bottom-tab-icon"
+          style={{ width: 24, height: 24 }}
+          aria-hidden="true"
+        />
+        <span className="qq-bottom-tab-label">Help</span>
+      </button>
+
+      <style>{`
+        /* Mobile-only — desktop uses the left icon rail, so this bar is never
+           rendered above the breakpoint (parent gates on isMobile) and is also
+           hidden defensively here. */
+        .qq-bottom-tabbar { display: none; }
+
+        @media (max-width: 768px) {
+          .qq-bottom-tabbar {
+            display: flex;
+            position: fixed; left: 0; right: 0; bottom: 0;
+            z-index: 9999;
+            /* Dark persistent bar — Elfsight parity. The #1d1d1f / #a1a1a6
+               hexes are intentional dark-chrome literals (not banned
+               bare white/black). */
+            background: #1d1d1f;
+            font-family: ${AE.font.family};
+            /* Clear the iOS home indicator. */
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            /* Hairline top edge so it reads as a distinct zone over the
+               white preview above. */
+            box-shadow: 0 -0.5px 0 rgba(255,255,255,0.08);
+          }
+          .qq-bottom-tab {
+            flex: 1 1 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 3px;
+            min-height: 60px;
+            padding: 8px 2px 6px;
+            background: transparent; border: none; cursor: pointer;
+            font: inherit;
+            /* Inactive = muted light-grey icon + label. */
+            color: #a1a1a6;
+            transition: color 0.12s ease;
+            -webkit-tap-highlight-color: transparent;
+          }
+          .qq-bottom-tab-icon { display: block; }
+          .qq-bottom-tab-label {
+            font-size: 11px; font-weight: 500; line-height: 1;
+            letter-spacing: -0.01em;
+          }
+          .qq-bottom-tab:active { color: rgba(255,255,255,0.85); }
+          /* Active = white label + accent icon, with a top accent indicator
+             bar so the selected section is unmistakable. */
+          .qq-bottom-tab.is-active {
+            color: rgba(255,255,255,1);
+            position: relative;
+          }
+          .qq-bottom-tab.is-active .qq-bottom-tab-icon {
+            color: ${AE.color.accent};
+          }
+          .qq-bottom-tab.is-active::before {
+            content: "";
+            position: absolute; top: 0; left: 22%; right: 22%;
+            height: 2px; border-radius: 0 0 2px 2px;
+            background: ${AE.color.accent};
+          }
+          .qq-bottom-tab:focus-visible {
+            outline: 2px solid ${AE.color.accent};
+            outline-offset: -2px;
+            border-radius: 8px;
+          }
+        }
+      `}</style>
+    </nav>
+  );
+}

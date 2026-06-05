@@ -33,8 +33,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  HelpCircle, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen,
-  Redo2, Smartphone, Sun, Tablet, Undo2, X,
+  CheckCircle2, CloudUpload, HelpCircle, Minimize2, Monitor, Moon,
+  PanelRightClose, PanelRightOpen, Redo2, Smartphone, Sun, Tablet, Undo2, X,
 } from 'lucide-react';
 import { AE } from './appleEditor';
 // Phase 0b — EDITOR_TABS is no longer rendered here; the section nav moved to
@@ -83,6 +83,18 @@ interface Props {
   /** Revert of PR #535 — wizard tab strip lives in the top chrome again. */
   activeTab: EditorTab;
   onTabChange: (tab: EditorTab) => void;
+  /** Elfsight-mobile rebuild (2026-06-05) — when true, the top bar renders a
+   *  STRIPPED mobile chrome (close ✕ + editable name + autosave indicator +
+   *  Publish) and nothing else. Desktop (false/undefined) renders the full
+   *  chrome below, unchanged. */
+  mobile?: boolean;
+  /** Mobile top bar — the editable calculator/business name. */
+  businessName?: string;
+  onBusinessNameChange?: (v: string) => void;
+  /** Mobile top bar — the primary commit action (mapped to Save draft). */
+  onPublish?: () => void;
+  /** Mobile top bar — Publish busy state (shows "Publishing…"). */
+  isPublishing?: boolean;
 }
 
 export default function EditorTopBar({
@@ -97,6 +109,9 @@ export default function EditorTopBar({
   // floatingLauncherPreview / onToggleFloatingLauncherPreview intentionally
   // NOT destructured — the "Preview as bubble" button was removed (2026-06-04).
   activeTab, onTabChange,
+  mobile = false,
+  businessName, onBusinessNameChange,
+  onPublish, isPublishing = false,
 }: Props) {
   const nextTheme: EditorTheme = editorTheme === 'dark' ? 'light' : 'dark';
   const ThemeIcon = editorTheme === 'dark' ? Sun : Moon;
@@ -127,6 +142,144 @@ export default function EditorTopBar({
   const isMac = typeof navigator !== 'undefined'
     && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
   const modKey = isMac ? '⌘' : 'Ctrl';
+
+  // ── Elfsight-mobile rebuild (2026-06-05) — clean mobile top bar ──────
+  // Exactly three things, far-left → far-right: close ✕ · editable name +
+  // autosave indicator · Publish. No tabs, no undo/redo, no theme/fold/device
+  // icons — those move to the bottom tab bar (nav) or stay in state only. The
+  // desktop chrome below is untouched; this branch only fires when mobile.
+  if (mobile) {
+    return (
+      <div
+        className="qq-editor-topbar--mobile"
+        data-testid="editor-top-bar"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="qq-mtopbar-close"
+          data-testid="quotequick-close"
+          aria-label="Close QuoteQuick"
+          title="Close"
+        >
+          <X style={{ width: 24, height: 24 }} aria-hidden="true" />
+        </button>
+
+        <div className="qq-mtopbar-name">
+          <input
+            type="text"
+            className="qq-mtopbar-name-input"
+            data-testid="editor-mobile-name"
+            value={businessName ?? ''}
+            placeholder="Untitled calculator"
+            onChange={(e) => onBusinessNameChange?.(e.target.value)}
+            aria-label="Calculator name"
+            spellCheck={false}
+          />
+          {/* Autosave indicator — cloud when idle, check when just saved. The
+              existing `justSaved` flag drives the swap. */}
+          <span
+            className="qq-mtopbar-autosave"
+            data-testid="editor-saved-state"
+            data-saved={justSaved ? 'true' : 'false'}
+            aria-label={justSaved ? 'Saved' : 'Autosave on'}
+            title={justSaved ? 'Saved' : 'Changes save automatically'}
+          >
+            {justSaved
+              ? <CheckCircle2 style={{ width: 20, height: 20 }} aria-hidden="true" />
+              : <CloudUpload style={{ width: 20, height: 20 }} aria-hidden="true" />}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onPublish?.()}
+          disabled={isPublishing}
+          className="qq-mtopbar-publish"
+          data-testid="quotequick-publish"
+        >
+          {isPublishing ? 'Publishing…' : 'Publish'}
+        </button>
+
+        <style>{`
+          @media (max-width: 768px) {
+            .qq-editor-topbar--mobile {
+              display: flex; align-items: center; gap: 10px;
+              padding: 6px 12px;
+              min-height: 64px;
+              background: ${AE.color.bg};
+              border-bottom: 1px solid ${AE.color.hairline};
+              font-family: ${AE.font.family};
+              /* Stays pinned to the top of the editor frame above the preview.
+                 z-index above the sheet (9998) + backdrop (9997) so the close
+                 ✕ / name / Publish stay reachable while a panel is open. */
+              position: sticky; top: 0;
+              z-index: 10000;
+              flex-shrink: 0;
+            }
+            .qq-mtopbar-close {
+              flex-shrink: 0;
+              display: inline-flex; align-items: center; justify-content: center;
+              width: 40px; height: 40px; padding: 0;
+              background: transparent; border: none; cursor: pointer;
+              color: ${AE.color.text};
+              border-radius: ${AE.radius.md};
+            }
+            .qq-mtopbar-close:active { background: ${AE.color.surface}; }
+            .qq-mtopbar-name {
+              flex: 1 1 auto; min-width: 0;
+              display: flex; align-items: center; gap: 6px;
+            }
+            .qq-mtopbar-name-input {
+              flex: 0 1 auto; min-width: 0;
+              max-width: 100%;
+              border: none; background: transparent;
+              font-family: ${AE.font.family};
+              font-size: 17px; font-weight: 600;
+              color: ${AE.color.text};
+              padding: 4px 2px;
+              text-overflow: ellipsis;
+            }
+            .qq-mtopbar-name-input::placeholder { color: ${AE.color.secondary}; }
+            .qq-mtopbar-name-input:focus {
+              outline: none;
+              box-shadow: ${AE.shadow.focus};
+              border-radius: ${AE.radius.sm};
+            }
+            .qq-mtopbar-autosave {
+              flex-shrink: 0;
+              display: inline-flex; align-items: center; justify-content: center;
+              color: ${AE.color.secondary};
+            }
+            .qq-mtopbar-autosave[data-saved="true"] { color: ${AE.color.success}; }
+            .qq-mtopbar-publish {
+              flex-shrink: 0;
+              min-height: 44px; padding: 0 22px;
+              background: ${AE.color.accent};
+              color: ${AE.color.publishText};
+              border: none; border-radius: ${AE.radius.md};
+              font-family: ${AE.font.family};
+              font-size: 15px; font-weight: 600;
+              cursor: pointer;
+              transition: background 0.12s ease;
+            }
+            .qq-mtopbar-publish:active:not(:disabled) { background: ${AE.color.accentHover}; }
+            .qq-mtopbar-publish:disabled { opacity: 0.6; cursor: not-allowed; }
+            /* Dark editor chrome — flip the mobile top bar surfaces. */
+            .qq-editor-shell[data-theme="dark"] .qq-editor-topbar--mobile {
+              background: var(--qq-surface);
+              border-bottom-color: var(--qq-border);
+            }
+            .qq-editor-shell[data-theme="dark"] .qq-mtopbar-close,
+            .qq-editor-shell[data-theme="dark"] .qq-mtopbar-name-input {
+              color: var(--qq-text, rgba(255,255,255,1));
+            }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div className="qq-editor-topbar" data-testid="editor-top-bar">
       <a href="/" className="qq-editor-brand" aria-label="WeFixTrades home">
