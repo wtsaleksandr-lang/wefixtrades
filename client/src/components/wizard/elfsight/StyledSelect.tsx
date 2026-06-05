@@ -349,8 +349,8 @@ export function StyledSelect({
               gap: 8px;
               text-align: left;
               cursor: pointer;
-              background: #ffffff;
-              color: #111827;
+              background: #f5f5f7;
+              color: #1d1d1f;
             }
             [data-theme="light"] .qq-styled-select-trigger[disabled] {
               opacity: 0.55;
@@ -366,7 +366,7 @@ export function StyledSelect({
               gap: 6px;
             }
             [data-theme="light"] .qq-styled-select-trigger-label.is-placeholder {
-              color: #9CA3AF;
+              color: #6e6e73;
             }
             [data-theme="light"] .qq-styled-select-trigger-icon {
               display: inline-flex;
@@ -374,7 +374,7 @@ export function StyledSelect({
             }
             [data-theme="light"] .qq-styled-select-trigger-caret {
               flex: 0 0 auto;
-              color: #6B7280;
+              color: #6e6e73;
             }
             [data-theme="light"] .qq-styled-select-backdrop {
               position: fixed; inset: 0;
@@ -386,51 +386,51 @@ export function StyledSelect({
               position: relative;
               width: 100%; max-width: 440px;
               max-height: min(80vh, calc(100vh - 120px));
-              background: #ffffff;
-              border: 1px solid #E5E7EB;
-              border-radius: 14px;
-              box-shadow: 0 18px 48px rgba(15, 23, 42, 0.24);
+              background: rgba(255, 255, 255, 1);
+              border: 1px solid #d2d2d7;
+              border-radius: 10px;
+              box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
               display: flex; flex-direction: column;
               overflow: hidden;
             }
             [data-theme="light"] .qq-styled-select-head {
               display: flex; align-items: center; justify-content: space-between;
               gap: 8px;
-              padding: 12px 12px 10px;
-              border-bottom: 1px solid #E5E7EB;
-              background: #ffffff;
+              padding: 12px 14px 10px;
+              border-bottom: 1px solid #d2d2d7;
+              background: rgba(255, 255, 255, 1);
             }
             [data-theme="light"] .qq-styled-select-head-title {
               font-size: 13px;
-              font-weight: 700;
-              color: #111827;
+              font-weight: 600;
+              color: #1d1d1f;
               text-align: left;
             }
             [data-theme="light"] .qq-styled-select-close {
               flex: 0 0 auto;
               width: 32px; height: 32px;
               display: inline-flex; align-items: center; justify-content: center;
-              border: 1px solid #E5E7EB;
-              background: #ffffff;
+              border: 1px solid #d2d2d7;
+              background: rgba(255, 255, 255, 1);
               border-radius: 8px;
               cursor: pointer;
-              color: #4B5563;
+              color: #6e6e73;
             }
             [data-theme="light"] .qq-styled-select-close:hover {
-              background: #F3F4F6;
-              color: #111827;
+              background: #f5f5f7;
+              color: #1d1d1f;
             }
             [data-theme="light"] .qq-styled-select-search-wrap {
               position: relative;
-              padding: 8px 12px 4px;
-              background: #ffffff;
+              padding: 8px 14px 4px;
+              background: rgba(255, 255, 255, 1);
             }
             [data-theme="light"] .qq-styled-select-search-icon {
               position: absolute;
-              left: 22px;
+              left: 24px;
               top: 50%;
               transform: translateY(-30%);
-              color: #9CA3AF;
+              color: #6e6e73;
               pointer-events: none;
             }
             [data-theme="light"] .qq-styled-select-search {
@@ -447,9 +447,10 @@ export function StyledSelect({
               align-items: center;
               width: 100%;
               gap: 10px;
+              min-height: 40px;
               padding: 10px 12px;
-              font-size: 13px;
-              color: #111827;
+              font-size: 14px;
+              color: #1d1d1f;
               text-align: left;
               background: transparent;
               border: 1px solid transparent;
@@ -458,7 +459,7 @@ export function StyledSelect({
               transition: background 0.12s ease, border-color 0.12s ease;
             }
             [data-theme="light"] .qq-styled-select-row:hover {
-              background: #F3F4F6;
+              background: #f5f5f7;
             }
             [data-theme="light"] .qq-styled-select-row:focus-visible {
               outline: 2px solid #0d3cfc;
@@ -466,7 +467,7 @@ export function StyledSelect({
             }
             /* Selected = outline + tinted bg, NOT a bright fill (Rule 4). */
             [data-theme="light"] .qq-styled-select-row[data-current="true"] {
-              background: rgba(13, 60, 252, 0.06);
+              background: rgba(13, 60, 252, 0.08);
               border-color: #0d3cfc;
               color: #0d3cfc;
               font-weight: 600;
@@ -475,7 +476,7 @@ export function StyledSelect({
               flex: 0 0 auto;
               display: inline-flex;
               align-items: center;
-              color: #6B7280;
+              color: #6e6e73;
             }
             [data-theme="light"] .qq-styled-select-row[data-current="true"] .qq-styled-select-row-icon {
               color: #0d3cfc;
@@ -486,19 +487,19 @@ export function StyledSelect({
               min-width: 0;
             }
             [data-theme="light"] .qq-styled-select-row-label {
-              font-size: 13px;
+              font-size: 14px;
               line-height: 1.3;
             }
             [data-theme="light"] .qq-styled-select-row-hint {
-              font-size: 11.5px;
-              color: #6B7280;
+              font-size: 12px;
+              color: #6e6e73;
               line-height: 1.3;
               margin-top: 2px;
             }
             [data-theme="light"] .qq-styled-select-empty {
               padding: 16px 12px;
               font-size: 12px;
-              color: #6B7280;
+              color: #6e6e73;
               margin: 0;
               text-align: center;
             }

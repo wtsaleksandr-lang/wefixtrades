@@ -1696,6 +1696,148 @@
   border-color: rgba(13, 60, 252, 0.45);
 }
 
+/* ==========================================================================
+   APPLE-CLEAN EDITOR — Phase 2a (panel CONTENTS: section cards / rows / inputs)
+   ==========================================================================
+   Editor-SCOPED restyle. Every selector is prefixed with
+   .qq-editor-shell[data-theme="light"] so these refinements win over the
+   component-level <style> base rules (StyleTab.tsx / SettingsTab.tsx, which
+   carry the legacy radius/border/fill) by specificity, and NEVER bleed into
+   the global widget / marketing / portal / admin surfaces or the dark editor
+   theme. Values mirror the AE token module
+   (client/src/components/wizard/elfsight/appleEditor.ts) exactly.
+
+   Palette mirrored from AE:
+     card bg .......... rgba(255,255,255,1)   (AE.color.bg — never a bare #fff)
+     recessed/input ... #f5f5f7               (AE.color.surface)
+     hover ............ #ececef               (AE.color.surfaceHover)
+     text primary ..... #1d1d1f               (AE.color.text)
+     text secondary ... #6e6e73               (AE.color.secondary)
+     hairline ......... #d2d2d7               (AE.color.hairline)
+     accent ........... #0d3cfc               (AE.color.accent)
+     accent tint ...... rgba(13,60,252,0.08)  (AE.color.accentTint)
+     focus ring ....... 0 0 0 4px rgba(13,60,252,0.14)  (AE.shadow.focus)
+     radius md/sm ..... 10px / 8px            (AE.radius)
+   -------------------------------------------------------------------------- */
+
+/* --- Section cards (StyleTab + SettingsTab fieldsets) -------------------- */
+.qq-editor-shell[data-theme="light"] .qq-style-group {
+  background: rgba(255, 255, 255, 1);
+  border: 1px solid #d2d2d7;
+  border-radius: 10px;
+  box-shadow: none;
+}
+/* Comfortable gap between stacked cards (panels render groups in a column). */
+.qq-editor-shell[data-theme="light"] .qq-style-group + .qq-style-group,
+.qq-editor-shell[data-theme="light"] .qq-settings-panel > .qq-style-group + .qq-style-group {
+  margin-top: 12px;
+}
+/* Group caption / legend: UPPERCASE 12px / 600, secondary grey, wide track,
+   hairline divider — the Apple "FIELDS" / "CALCULATIONS" caption treatment. */
+.qq-editor-shell[data-theme="light"] .qq-style-legend {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6e6e73;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #d2d2d7;
+}
+.qq-editor-shell[data-theme="light"] .qq-style-group-body {
+  padding: 14px;
+}
+/* Row label: primary near-black, 14px / 500 (was 12px / 700 heavy). */
+.qq-editor-shell[data-theme="light"] .qq-style-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+}
+/* Value read-out caption: secondary grey. */
+.qq-editor-shell[data-theme="light"] .qq-style-value {
+  color: #6e6e73;
+}
+/* Section hint / helper copy: secondary grey, 12px. */
+.qq-editor-shell[data-theme="light"] .qq-style-sectionhint {
+  font-size: 12px;
+  color: #6e6e73;
+}
+
+/* --- Settings rows ------------------------------------------------------- */
+.qq-editor-shell[data-theme="light"] .qq-settings-row {
+  color: #1d1d1f;
+}
+
+/* --- Field / calc rows (label-left, control-right cards) ----------------- */
+.qq-editor-shell[data-theme="light"] .qq-field-row,
+.qq-editor-shell[data-theme="light"] .qq-calc-row {
+  background: rgba(255, 255, 255, 1);
+  border: 1px solid #d2d2d7;
+  border-radius: 10px;
+}
+.qq-editor-shell[data-theme="light"] .qq-field-row-label,
+.qq-editor-shell[data-theme="light"] .qq-calc-row-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+}
+
+/* --- Inputs: FloatField + .premium-input (editor scope only) ------------- */
+.qq-editor-shell[data-theme="light"] .premium-input,
+.qq-editor-shell[data-theme="light"] .qq-style-hex,
+.qq-editor-shell[data-theme="light"] .qq-headres-input,
+.qq-editor-shell[data-theme="light"] .qq-field-input {
+  background: #f5f5f7;
+  border: 1px solid #d2d2d7;
+  border-radius: 10px;
+  color: #1d1d1f;
+  min-height: 40px;
+}
+.qq-editor-shell[data-theme="light"] .premium-input:hover:not(:focus),
+.qq-editor-shell[data-theme="light"] .qq-style-hex:hover:not(:focus),
+.qq-editor-shell[data-theme="light"] .qq-field-input:hover:not(:focus) {
+  background: #ececef;
+  border-color: #d2d2d7;
+}
+.qq-editor-shell[data-theme="light"] .premium-input:focus,
+.qq-editor-shell[data-theme="light"] .qq-style-hex:focus,
+.qq-editor-shell[data-theme="light"] .qq-headres-input:focus,
+.qq-editor-shell[data-theme="light"] .qq-field-input:focus {
+  background: rgba(255, 255, 255, 1);
+  border-color: #0d3cfc;
+  box-shadow: 0 0 0 4px rgba(13, 60, 252, 0.14);
+}
+.qq-editor-shell[data-theme="light"] .premium-input::placeholder {
+  color: #6e6e73;
+}
+/* FloatField floating label: secondary grey at rest, accent on float. */
+.qq-editor-shell[data-theme="light"] .float-field > label {
+  color: #6e6e73;
+}
+.qq-editor-shell[data-theme="light"] .float-field > .premium-input:focus + label,
+.qq-editor-shell[data-theme="light"] .float-field > .premium-input:not(:placeholder-shown) + label,
+.qq-editor-shell[data-theme="light"] .float-field > select.premium-input + label,
+.qq-editor-shell[data-theme="light"] .float-field--select > select.premium-input + label {
+  color: #0d3cfc;
+}
+
+/* --- Segmented controls: selected = tint + accent text, NOT a bright fill
+       (Alex-locked Rule 4). Overrides StyleTab's bright accent-fill default. - */
+.qq-editor-shell[data-theme="light"] .qq-style-seg {
+  background: #f5f5f7;
+  border: 1px solid #d2d2d7;
+  border-radius: 10px;
+}
+.qq-editor-shell[data-theme="light"] .qq-style-seg-btn {
+  color: #6e6e73;
+  border-radius: 8px;
+}
+.qq-editor-shell[data-theme="light"] .qq-style-seg-btn:hover {
+  color: #1d1d1f;
+}
+.qq-editor-shell[data-theme="light"] .qq-style-seg-btn[aria-checked="true"] {
+  background: rgba(13, 60, 252, 0.08);
+  color: #0d3cfc;
+  box-shadow: inset 0 0 0 1px #0d3cfc;
+}
+
 /* CTA "Button text" field — styled to look like the live action button. */
 .cta-button-input::placeholder {
   color: rgba(255, 255, 255, 0.72);
