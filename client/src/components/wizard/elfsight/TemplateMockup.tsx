@@ -14,12 +14,13 @@
 //   4. Result panel      ~28% — themed results panel; result label + sample
 //                              price + CTA bar in the template's CTA colour.
 //
-// Colour parity with the WEBSITE: the marketing template pages render every
-// catalogue thumbnail through `defaultComboForTemplate(id)` (see
-// pages/marketing/template-detail.tsx), NOT each preset's own `style.*`. So the
-// wizard thumbnail mirrors that same mapping — Black · Yellow for car_towing,
-// Sky-Tint for every other template — over a white left body. The same template
-// is therefore recognisably the same in both surfaces.
+// Colour parity with the WEBSITE: the marketing template pages and this wizard
+// thumbnail BOTH source per-template colours from the shared
+// `defaultThemeForTemplate(id, category)` (@shared/templatePresets), so each
+// template shows its OWN category theme. Bespoke-styled presets (car_towing,
+// junk_removal_quote, …) prefer their explicit `style.*` so the thumbnail
+// matches their LIVE look. The same template is therefore recognisably the same
+// across the gallery thumbnail, the website preview, and the live widget.
 //
 // Performance:
 //   - Pure render, no state, no effects (the IntersectionObserver lazy-load
@@ -30,8 +31,8 @@
 //
 // Data sources used:
 //   - `template.name` / `template.header.title` — header text
-//   - `template.id` → `websiteComboForTemplate(id)` — the two-zone palette
-//     (panel / accent / CTA), mirroring the website's `defaultComboForTemplate`.
+//   - `template.id`/`category` → `defaultThemeForTemplate()` — the two-zone
+//     palette (panel / accent / CTA); `template.style` wins when present.
 //   - `template.category` + `getCategoryStyle()` — category icon id only
 //   - `resolveCategoryIcon(template.category, template.categoryIcon)` —
 //     header icon (lucide).
@@ -44,7 +45,11 @@
 //     fields. No real formula evaluation — just a plausible figure.
 
 import { useEffect, useRef, useState } from 'react';
-import type { TemplateConfig, TemplateField } from '@shared/templatePresets';
+import {
+  defaultThemeForTemplate,
+  type TemplateConfig,
+  type TemplateField,
+} from '@shared/templatePresets';
 import { getCategoryStyle } from '@/lib/categoryStyles';
 import { resolveCategoryIcon } from '@/components/quote-widget/CategoryIcon';
 
@@ -115,55 +120,40 @@ function formatCurrency(n: number): string {
   return `$${n.toLocaleString('en-US')}`;
 }
 
-/* ─── Website-parity theme combinations ───────────────────────────────────
+/* ─── Website-parity theming ───────────────────────────────────────────────
  * The marketing template pages (client/src/pages/marketing/template-detail.tsx)
- * render every catalogue thumbnail through `defaultComboForTemplate(id)`, NOT
- * through each preset's own `style.*` colours. That function returns the bold
- * Black · Yellow combo for `car_towing` and the clean Sky-Tint combo for every
- * other template. To make the WIZARD gallery thumbnail recognisably the SAME
- * template as the website preview, we mirror that exact mapping here.
+ * and this wizard thumbnail BOTH source per-template colours from the shared
+ * `defaultThemeForTemplate(id, category)` in `@shared/templatePresets`, so each
+ * template shows its OWN category theme and the thumbnail == website preview ==
+ * live widget. Every combo keeps a WHITE left body + dark body text; the two-
+ * zone identity comes from the results panel (resultsBg) + the left-side accents
+ * (accent) + the CTA-only colour (ctaColor).
  *
- * These three colours come verbatim from `THEME_COMBINATIONS` in
- * template-detail.tsx (the website's source of truth). Keep them in sync if the
- * website's default combos ever change. Every combo keeps a WHITE left body +
- * dark body text; only the two-zone treatment (results panel + accents + CTA)
- * differs — exactly the two-zone model the website uses.
- *   - panel  → resultsBg  (the right/result zone background)
- *   - accent → left-side accents (icon, first step dot, field tint)
- *   - cta    → CTA-button-only colour (Colour A) */
-const WEBSITE_BODY = {
-  surface: '#f6f7f9',
-  text: '#171717',
-} as const;
-const WEBSITE_COMBO_BLACK_YELLOW = { panel: '#0d0d0d', accent: '#0d0d0d', cta: '#ffd60a' } as const;
-const WEBSITE_COMBO_SKY_TINT = { panel: '#eaf1fb', accent: '#2563eb', cta: '#2563eb' } as const;
-
-/** Mirror of the website's `defaultComboForTemplate(id)` — car_towing leads
- *  with Black · Yellow; every other template defaults to the Sky-Tint combo. */
-function websiteComboForTemplate(templateId: string) {
-  return templateId === 'car_towing'
-    ? WEBSITE_COMBO_BLACK_YELLOW
-    : WEBSITE_COMBO_SKY_TINT;
-}
+ * Parity for bespoke-styled templates: when a preset ships its OWN explicit
+ * `style.*` (car_towing, junk_removal_quote, window_replacement_quote,
+ * carpet_cleaning_quote, mold_remediation_quote, …), we PREFER that style so the
+ * thumbnail matches the template's LIVE look; everything else falls back to the
+ * shared category combo. */
 
 /**
  * Resolve effective colours so the wizard thumbnail matches the WEBSITE preview
- * for the same template. The body is always white (Elfsight-clean), with the
- * two-zone treatment (results panel + accents + CTA) driven by the website's
- * default combo for this template. Result-panel text contrast is derived from
- * the panel's own luminance so a dark panel keeps light text and a light tinted
- * panel keeps dark text (never bright-on-bright / dark-on-dark).
+ * for the same template. The body is white (Elfsight-clean), with the two-zone
+ * treatment (results panel + accents + CTA) driven by the template's OWN
+ * explicit style when it has one, else the shared default combo for its
+ * category. Result-panel + CTA text contrast is derived from each colour's own
+ * luminance so a dark surface keeps light text and a light tinted surface keeps
+ * dark text (never bright-on-bright / dark-on-dark).
  */
 function resolveColours(template: TemplateConfig) {
   const cat = getCategoryStyle(template.category);
-  const combo = websiteComboForTemplate(template.id);
-  // White left body (matches the website's COMBO_LIGHT_BODY); surface + text
-  // are the neutral light-body tokens the website uses.
-  const surface = WEBSITE_BODY.surface;
-  const text = WEBSITE_BODY.text;
-  const accent = combo.accent;
-  const resultsBg = combo.panel;
-  const cta = combo.cta;
+  const c = defaultThemeForTemplate(template.id, template.category);
+  const sty = template.style; // AdvStyle | undefined — bespoke templates ship one
+  // Prefer the template's explicit style; otherwise the shared category combo.
+  const resultsBg = sty?.resultsBg ?? c.resultsBg;
+  const accent = sty?.accent ?? c.accent;
+  const cta = sty?.ctaColor ?? c.ctaColor;
+  const surface = sty?.surface ?? c.surface;
+  const text = sty?.text ?? c.text;
   // CTA label contrast: dark text on a light CTA, light text on a dark CTA.
   const ctaText = isDarkHex(cta) ? 'rgba(255,255,255,1)' : '#0f172a';
   return { cat, surface, accent, resultsBg, cta, ctaText, text };

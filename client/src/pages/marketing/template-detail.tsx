@@ -25,9 +25,12 @@ import {
   getTemplatePreset,
   toAdvancedConfig,
   TEMPLATE_PRESETS,
+  THEME_COMBOS,
+  defaultThemeForTemplate,
   type AdvStyle,
   type BusinessProfile,
   type TemplateConfig,
+  type ThemeCombo,
 } from "@shared/templatePresets";
 import type { CalculatorData } from "@/components/quote-widget/types";
 import { getCategoryStyle } from "@/lib/categoryStyles";
@@ -100,7 +103,7 @@ function buildPreviewCalculator(
   template: TemplateConfig,
   accent?: string,
   forceLayout?: "single-column",
-  combo?: ThemeCombination,
+  combo?: ThemeCombo,
 ): CalculatorData {
   const base = toAdvancedConfig(template);
   // The standalone accent swatch overrides the combo's accent when set; with no
@@ -359,71 +362,15 @@ function useTemplateJsonLd(template: TemplateConfig) {
   }, [template.id, template.name, template.description, url]);
 }
 
-/* ─── Full theme COMBINATIONS — a pre-balanced palette (background + text +
-   surface + border + result panel + accent) the live preview can switch
-   between, beyond the single-accent swatches above. Each combo is contrast-
-   safe by construction: a dark `bg` always pairs a light `text`, a light `bg`
-   always pairs a dark `text` — never bright-on-bright or dark-on-dark. The
-   standalone accent swatch still overrides `accent` within the chosen combo. ─── */
-type ThemeCombination = {
-  id: string;
-  name: string;
-  bg: string;
-  text: string;
-  surface: string;
-  border: string;
-  resultsBg: string;
-  accent: string;
-  /**
-   * Colour A — the CTA button colour ONLY. For single-colour combos this
-   * equals `accent` (no behaviour change). For the two-zone black-yellow
-   * combo it is the distinct yellow CTA while `accent` (Colour B) drives the
-   * left accents + the dark result panel.
-   */
-  ctaColor: string;
-};
-
-/* EVERY combo keeps the SAME light body (bg white, dark text, light surface +
-   border). A theme sets THREE independent colours: the right panel
-   (resultsBg), the left-side accents (accent — slider/toggle/checkbox/
-   selector), and the CTA (ctaColor). They are NOT locked together. The left
-   body background is ALWAYS white. Panel text contrast is automatic via
-   comboLuminance (white on dark/saturated panels, dark on light tinted
-   panels). LIGHT panels: 'mortgage' (Sky Tint) and 'bmi' (Mint Tint). */
-const COMBO_LIGHT_BODY = {
-  bg: "rgba(255,255,255,1)",
-  text: "#171717",
-  surface: "#f6f7f9",
-  border: "#e5e7eb",
-} as const;
-
-const THEME_COMBINATIONS: ThemeCombination[] = [
-  { id: "black-yellow", name: "Black · Yellow", ...COMBO_LIGHT_BODY, resultsBg: "#0d0d0d", accent: "#0d0d0d", ctaColor: "#ffd60a" },
-  { id: "car-rental", name: "Crimson", ...COMBO_LIGHT_BODY, resultsBg: "#d83a3d", accent: "#d83a3d", ctaColor: "#141414" },
-  { id: "mortgage", name: "Sky Tint", ...COMBO_LIGHT_BODY, resultsBg: "#eaf1fb", accent: "#2563eb", ctaColor: "#2563eb" },
-  { id: "loan", name: "Onyx · Red", ...COMBO_LIGHT_BODY, resultsBg: "#1a1a1a", accent: "#ed3237", ctaColor: "#ed3237" },
-  { id: "emi", name: "Azure", ...COMBO_LIGHT_BODY, resultsBg: "#29abe2", accent: "#29abe2", ctaColor: "#141414" },
-  { id: "bmi", name: "Mint Tint", ...COMBO_LIGHT_BODY, resultsBg: "#e8f3e9", accent: "#2e9e3f", ctaColor: "#2e9e3f" },
-  { id: "profit", name: "Forest", ...COMBO_LIGHT_BODY, resultsBg: "#4a7a4e", accent: "#4a7a4e", ctaColor: "#141414" },
-  { id: "fees", name: "Navy", ...COMBO_LIGHT_BODY, resultsBg: "#1e2a44", accent: "#2f6be0", ctaColor: "#2f6be0" },
-  { id: "reno", name: "Olive · Orange", ...COMBO_LIGHT_BODY, resultsBg: "#4a5240", accent: "#e8821e", ctaColor: "#e8821e" },
-  { id: "tshirt", name: "Violet", ...COMBO_LIGHT_BODY, resultsBg: "#7c5cc4", accent: "#7c5cc4", ctaColor: "#141414" },
-  { id: "wedding", name: "Royal · Orange", ...COMBO_LIGHT_BODY, resultsBg: "#1e6fd4", accent: "#1e6fd4", ctaColor: "#e8821e" },
-  { id: "carbon", name: "Teal", ...COMBO_LIGHT_BODY, resultsBg: "#1a9b8e", accent: "#1a9b8e", ctaColor: "#141414" },
-  { id: "cake", name: "Blush", ...COMBO_LIGHT_BODY, resultsBg: "#fce7f0", accent: "#ec4899", ctaColor: "#ec4899" },
-];
-
-const DEFAULT_COMBO =
-  THEME_COMBINATIONS.find((c) => c.id === "mortgage") ?? THEME_COMBINATIONS[0];
-
-/* Per-template default combo. car_towing leads with the bold Black · Yellow
-   reference; every other template defaults to the clean light Sky Tint. */
-function defaultComboForTemplate(templateId: string): ThemeCombination {
-  if (templateId === "car_towing") {
-    return THEME_COMBINATIONS.find((c) => c.id === "black-yellow") ?? DEFAULT_COMBO;
-  }
-  return DEFAULT_COMBO;
-}
+/* ─── Theme combinations now come from the shared source of truth
+   (`@shared/templatePresets`): `THEME_COMBOS` (the 13 selectable themes),
+   `DEFAULT_THEME_COMBO` (mortgage / Sky Tint), and `defaultThemeForTemplate(id)`
+   (per-template default — so every template shows its OWN category theme, and
+   the website preview, the wizard thumbnail, and the live widget all agree).
+   The previous LOCAL combo data + the car_towing/sky-tint hardcode lived here;
+   they were deleted in favour of the shared exports. `ThemeCombo` has the
+   identical field names (resultsBg / ctaColor / accent / bg / text / surface /
+   border), so `buildPreviewCalculator` + the swatch rail keep working. ─── */
 
 /* Relative luminance of a colour token (hex or rgba(...) literal). Used to
    pick light vs dark widget theme + readable chip text. < 0.5 ⇒ dark. */
@@ -455,12 +402,12 @@ const TemplateThumb = memo(function TemplateThumb({
   /** When set (the currently-selected card) the thumbnail live-recolours to the
       user's chosen theme; otherwise it renders in the template's OWN default
       combo so the catalogue keeps its variety. */
-  combo?: ThemeCombination;
+  combo?: ThemeCombo;
 }) {
   // Selected card → the chosen combo (live theme sync); every other card →
   // its OWN default combo (car_towing → Black · Yellow, others → Sky Tint).
   const calc = useMemo(
-    () => buildPreviewCalculator(template, undefined, undefined, combo ?? defaultComboForTemplate(template.id)),
+    () => buildPreviewCalculator(template, undefined, undefined, combo ?? defaultThemeForTemplate(template.id, template.category)),
     [template, combo],
   );
   return (
@@ -488,8 +435,8 @@ function TemplateRail({
   selectedSlug: string;
   onSelect: (slug: string) => void;
   accent: string;
-  combo: ThemeCombination;
-  setCombo: (combo: ThemeCombination) => void;
+  combo: ThemeCombo;
+  setCombo: (combo: ThemeCombo) => void;
 }) {
   const [category, setCategory] = useState<string>("All");
   const [page, setPage] = useState(0);
@@ -553,7 +500,7 @@ function TemplateRail({
         <div className="tpl-color-scroll">
         <button type="button" className="tpl-scroll-arrow tpl-scroll-arrow-l" aria-label="Scroll themes left" onClick={() => scrollColorRow(-1)}>‹</button>
         <div className="tpl-color-row" data-testid="template-combo-tabs" ref={colorRowRef}>
-          {THEME_COMBINATIONS.map((c) => {
+          {THEME_COMBOS.map((c) => {
             const sel = combo.id === c.id;
             return (
               <button
@@ -757,22 +704,26 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
   );
   useBreadcrumbSchema(breadcrumbs);
 
-  // Full theme combination for the preview. Defaults per-template (car_towing →
-  // Black · Yellow, others → Light · Blue) and re-derives when the selected
-  // template changes, so swapping templates resets to that template's combo.
-  const [selectedCombo, setSelectedCombo] = useState<ThemeCombination>(() =>
-    defaultComboForTemplate(template.id),
+  // Full theme combination for the preview. Defaults per-template to that
+  // template's OWN category theme (via the shared `defaultThemeForTemplate`)
+  // and re-derives when the selected template changes, so swapping templates
+  // resets to the newly-shown template's combo.
+  const [selectedCombo, setSelectedCombo] = useState<ThemeCombo>(() =>
+    defaultThemeForTemplate(template.id, template.category),
   );
   // Accent defaults to the active combo's accent. A manual swatch pick overrides
   // it (and persists until the combo changes). Picking a combo chip re-syncs the
   // accent to that combo's accent via setCombo below.
   const [accent, setAccent] = useState<string>(selectedCombo.accent);
-  const setCombo = (c: ThemeCombination) => {
+  const setCombo = (c: ThemeCombo) => {
     setSelectedCombo(c);
     setAccent(c.accent);
   };
   useEffect(() => {
-    const next = defaultComboForTemplate(selectedSlug);
+    const next = defaultThemeForTemplate(
+      selectedSlug,
+      getTemplatePreset(selectedSlug)?.category,
+    );
     setSelectedCombo(next);
     setAccent(next.accent);
   }, [selectedSlug]);
