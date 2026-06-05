@@ -2488,21 +2488,14 @@ export default function WizardShell({ embed = false }: Props) {
                  scrolling right column, so sticky was redundant. */
               display: flex; align-items: flex-start; justify-content: center;
               padding: 24px 20px; box-sizing: border-box; min-height: 100%;
-              /* BD-3a fix 2 — square 1px grid (was a dotted radial-gradient).
-                 Alex called out the day-mode grid as barely visible. Two
-                 perpendicular linear-gradients render a clean 24×24 square
-                 grid that's subtle but always perceptible on the light
-                 canvas. Dark mode flips to a faint white grid for parity. */
-              background-image:
-                linear-gradient(to right, rgba(15,23,42,0.08) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(15,23,42,0.08) 1px, transparent 1px);
-              background-size: 24px 24px;
-              background-position: 0 0;
+              /* Elfsight-clean (desktop) — no canvas grid. The preview sits on
+                 a plain light surface like Elfsight's editor, not a design-tool
+                 dotted/grid canvas. Dark mode keeps the dark surface, no grid. */
+              background-image: none;
+              background-color: rgba(255,255,255,1);
             }
             .qq-editor-shell[data-theme="dark"] .qq-preview-pane {
-              background-image:
-                linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
+              background-image: none;
             }
             .qq-preview-stage {
               width: 100%; max-width: 920px;
