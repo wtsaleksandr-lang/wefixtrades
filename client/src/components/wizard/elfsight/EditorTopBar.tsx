@@ -191,6 +191,49 @@ export default function EditorTopBar({
           </span>
         </div>
 
+        {/* Restore (2026-06-05) — subtle undo / redo + day-night editor-theme
+            toggle. Quiet icon buttons sit BETWEEN the autosave indicator and
+            the prominent Publish action. Same handlers / aria-labels as the
+            desktop branch; disabled (greyed + aria-disabled) when the history
+            stack is empty. */}
+        <div className="qq-mtopbar-tools" role="group" aria-label="Editor tools">
+          <button
+            type="button"
+            onClick={() => onUndo && onUndo()}
+            disabled={!canUndo}
+            aria-disabled={!canUndo}
+            className="qq-mtopbar-tool-btn"
+            data-testid="editor-undo"
+            aria-label="Undo"
+            title={`Undo (${modKey}Z)`}
+          >
+            <Undo2 style={{ width: 19, height: 19 }} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onRedo && onRedo()}
+            disabled={!canRedo}
+            aria-disabled={!canRedo}
+            className="qq-mtopbar-tool-btn"
+            data-testid="editor-redo"
+            aria-label="Redo"
+            title={`Redo (${modKey}⇧Z)`}
+          >
+            <Redo2 style={{ width: 19, height: 19 }} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onEditorThemeChange(nextTheme)}
+            className="qq-mtopbar-tool-btn"
+            data-testid="editor-theme-toggle"
+            data-theme-state={editorTheme}
+            aria-label={`Switch editor to ${nextTheme} mode`}
+            title={`Switch to ${nextTheme} mode`}
+          >
+            <ThemeIcon style={{ width: 19, height: 19 }} aria-hidden="true" />
+          </button>
+        </div>
+
         <button
           type="button"
           onClick={() => onPublish?.()}
@@ -252,6 +295,29 @@ export default function EditorTopBar({
               color: ${AE.color.secondary};
             }
             .qq-mtopbar-autosave[data-saved="true"] { color: ${AE.color.success}; }
+            .qq-mtopbar-tools {
+              flex-shrink: 0;
+              display: inline-flex; align-items: center; gap: 2px;
+            }
+            .qq-mtopbar-tool-btn {
+              flex-shrink: 0;
+              display: inline-flex; align-items: center; justify-content: center;
+              width: 32px; height: 32px; padding: 0;
+              background: transparent; border: none; cursor: pointer;
+              color: ${AE.color.secondary};
+              border-radius: ${AE.radius.sm};
+              transition: background 0.12s ease;
+            }
+            .qq-mtopbar-tool-btn:hover:not(:disabled) { background: ${AE.color.surface}; }
+            .qq-mtopbar-tool-btn:active:not(:disabled) { background: ${AE.color.surfaceHover}; }
+            .qq-mtopbar-tool-btn:disabled {
+              opacity: 0.4; cursor: not-allowed;
+            }
+            /* Narrow phones — shrink the tap target so the trio never
+               overlaps the Publish button. */
+            @media (max-width: 380px) {
+              .qq-mtopbar-tool-btn { width: 28px; height: 28px; }
+            }
             .qq-mtopbar-publish {
               flex-shrink: 0;
               min-height: 44px; padding: 0 22px;
@@ -273,6 +339,12 @@ export default function EditorTopBar({
             .qq-editor-shell[data-theme="dark"] .qq-mtopbar-close,
             .qq-editor-shell[data-theme="dark"] .qq-mtopbar-name-input {
               color: var(--qq-text, rgba(255,255,255,1));
+            }
+            .qq-editor-shell[data-theme="dark"] .qq-mtopbar-tool-btn {
+              color: var(--qq-text-secondary, ${AE.color.secondary});
+            }
+            .qq-editor-shell[data-theme="dark"] .qq-mtopbar-tool-btn:hover:not(:disabled) {
+              background: var(--qq-surface-hover, rgba(255,255,255,0.08));
             }
           }
         `}</style>
