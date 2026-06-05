@@ -37,6 +37,7 @@ import type { BusinessProfile } from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import RichTextField from './RichTextField';
+import AdvancedSection from './AdvancedSection';
 import { useFoldablePanels } from './useFoldablePanels';
 import { useLayoutGuard } from '@/lib/layoutGuard';
 import { HelpCueRow } from '@/components/primitives';
@@ -174,65 +175,100 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       aria-label="Settings"
       role="tabpanel"
     >
-      {/* ── Trade ────────────────────────────────────────────────── */}
-      <TradeSection tradeId={tradeId} onChange={(id) => patch({ tradeId: id })} />
+      {/* ── CORE: Business profile (trust signals) ─────────────────── */}
+      <BusinessProfileSection
+        profile={settings.businessProfile}
+        onChange={(next) => patch({ businessProfile: next })}
+      />
 
-      {/* ── Lead notification email ─────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="settings-group-lead-email">
+      {/* ── CORE: Number formatting ─────────────────────────────── */}
+      <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
         <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. Title
-              text rendered inside the cue slot so it inherits the legend's
-              uppercase/muted typography rather than HelpCueRow's defaults. */}
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
           <HelpCueRow
             className="!mb-0"
             cue={
               <>
                 <InfoCue
-                  testid="settings-section-lead-email"
-                  text="How you'll be notified when someone submits a quote. Only the recipient changes — message format is fixed."
+                  testid="settings-section-numberformat"
+                  region="result"
+                  text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
                 />
-                <span style={{ marginLeft: 6 }}>Lead notifications</span>
+                <span style={{ marginLeft: 6 }}>Number formatting</span>
               </>
             }
           />
         </legend>
         <div className="qq-style-group-body">
+        <div className="qq-style-grid">
           <FloatField
-            label="Lead notification email"
-            htmlFor="qq-settings-leademail"
-            infoText="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
-            infoTestid="settings-lead-email"
+            label="Thousands separator"
+            htmlFor="qq-settings-thousands"
+            variant="select"
+            infoText="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+            infoTestid="settings-numberformat"
           >
+            <select
+              id="qq-settings-thousands"
+              className="premium-input"
+              value={numberFormat.thousands}
+              onChange={(e) =>
+                patchNumberFormat({ thousands: e.target.value as ShellThousandsSep })
+              }
+              data-testid="settings-select-thousands"
+            >
+              {THOUSANDS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </FloatField>
+          <FloatField label="Decimal separator" htmlFor="qq-settings-decimal" variant="select">
+            <select
+              id="qq-settings-decimal"
+              className="premium-input"
+              value={numberFormat.decimal}
+              onChange={(e) =>
+                patchNumberFormat({ decimal: e.target.value as ShellDecimalSep })
+              }
+              data-testid="settings-select-decimal"
+            >
+              {DECIMAL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </FloatField>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <FloatField label="Currency code" htmlFor="qq-settings-currency">
             <input
-              id="qq-settings-leademail"
-              type="email"
+              id="qq-settings-currency"
+              type="text"
+              maxLength={3}
               className="premium-input"
               placeholder=" "
-              value={leadEmail}
-              onChange={(e) => patch({ leadEmail: e.target.value })}
-              data-testid="settings-input-lead-email"
-              aria-invalid={
-                leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) ? 'true' : 'false'
+              style={{ textTransform: 'uppercase' }}
+              value={numberFormat.currency}
+              onChange={(e) =>
+                patchNumberFormat({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })
               }
+              data-testid="settings-input-currency"
+              aria-invalid={!CURRENCY_RE.test(numberFormat.currency) ? 'true' : 'false'}
             />
           </FloatField>
-          {leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) && (
-            <p
-              className="qq-settings-error"
-              data-testid="settings-lead-email-error"
-              style={{ fontSize: 11.5, color: p.colors.danger, margin: '6px 0 0' }}
-            >
-              Enter a valid email address.
-            </p>
-          )}
+        </div>
         </div>
       </fieldset>
 
-      {/* ── BD-2b — Business profile (trust signals) ───────────────── */}
-      <BusinessProfileSection
-        profile={settings.businessProfile}
-        onChange={(next) => patch({ businessProfile: next })}
-      />
+      {/* ── Progressive disclosure: everything non-core lives here,
+       *  collapsed by default for an Apple-clean minimal panel. Nothing
+       *  is removed — each fieldset is moved intact, wiring unchanged. */}
+      <AdvancedSection
+        id="settings-advanced"
+        label="Advanced settings"
+        hint="trade, pricing, lead capture, deposit, scheduling & more"
+      >
+      {/* ── Trade ────────────────────────────────────────────────── */}
+      <TradeSection tradeId={tradeId} onChange={(id) => patch({ tradeId: id })} />
 
       {/* ── Pricing model ───────────────────────────────────────── */}
       {/* W-AO-7 — restored section legend (top-left + InfoCue) per the
@@ -335,6 +371,98 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             </div>
           </div>
         )}
+        </div>
+      </fieldset>
+
+      {/* ── Custom CTA label ────────────────────────────────────── */}
+      <fieldset className="qq-style-group" data-testid="settings-group-cta">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-cta"
+                  region="sticky-footer"
+                  text="The button text shown on the result panel after the quote is calculated."
+                />
+                <span style={{ marginLeft: 6 }}>Call to action</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+          {/* BF-11 — CTA label is now rich-text editable so owners can stamp
+              emoji, bold, color and inline images on the call-to-action
+              button. Backwards-compatible: a plain string still saves; the
+              renderer's sanitizer accepts both. */}
+          <RichTextField
+            label="CTA label"
+            htmlFor="qq-settings-cta-label"
+            value={ctaLabel}
+            onChange={(next) => patch({ ctaLabel: next })}
+            placeholder='Click to override (default: "Get My Quote")'
+            infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
+            infoTestid="settings-cta"
+            infoRegion="sticky-footer"
+            testid="settings-input-cta-label"
+            // P2 UX — Settings panel; the next fieldset (Online booking)
+            // sits directly below. Inline mode pushes it down rather than
+            // covering it while the CTA copy is being edited.
+            expansionMode="inline"
+          />
+        </div>
+      </fieldset>
+
+      {/* ── Lead notification email ─────────────────────────────── */}
+      <fieldset className="qq-style-group" data-testid="settings-group-lead-email">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. Title
+              text rendered inside the cue slot so it inherits the legend's
+              uppercase/muted typography rather than HelpCueRow's defaults. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-lead-email"
+                  text="How you'll be notified when someone submits a quote. Only the recipient changes — message format is fixed."
+                />
+                <span style={{ marginLeft: 6 }}>Lead notifications</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+          <FloatField
+            label="Lead notification email"
+            htmlFor="qq-settings-leademail"
+            infoText="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
+            infoTestid="settings-lead-email"
+          >
+            <input
+              id="qq-settings-leademail"
+              type="email"
+              className="premium-input"
+              placeholder=" "
+              value={leadEmail}
+              onChange={(e) => patch({ leadEmail: e.target.value })}
+              data-testid="settings-input-lead-email"
+              aria-invalid={
+                leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) ? 'true' : 'false'
+              }
+            />
+          </FloatField>
+          {leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) && (
+            <p
+              className="qq-settings-error"
+              data-testid="settings-lead-email-error"
+              style={{ fontSize: 11.5, color: p.colors.danger, margin: '6px 0 0' }}
+            >
+              Enter a valid email address.
+            </p>
+          )}
         </div>
       </fieldset>
 
@@ -644,125 +772,6 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       </fieldset>
       </div>
 
-      {/* ── Number formatting ───────────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-numberformat"
-                  region="result"
-                  text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
-                />
-                <span style={{ marginLeft: 6 }}>Number formatting</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        <div className="qq-style-grid">
-          <FloatField
-            label="Thousands separator"
-            htmlFor="qq-settings-thousands"
-            variant="select"
-            infoText="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
-            infoTestid="settings-numberformat"
-          >
-            <select
-              id="qq-settings-thousands"
-              className="premium-input"
-              value={numberFormat.thousands}
-              onChange={(e) =>
-                patchNumberFormat({ thousands: e.target.value as ShellThousandsSep })
-              }
-              data-testid="settings-select-thousands"
-            >
-              {THOUSANDS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </FloatField>
-          <FloatField label="Decimal separator" htmlFor="qq-settings-decimal" variant="select">
-            <select
-              id="qq-settings-decimal"
-              className="premium-input"
-              value={numberFormat.decimal}
-              onChange={(e) =>
-                patchNumberFormat({ decimal: e.target.value as ShellDecimalSep })
-              }
-              data-testid="settings-select-decimal"
-            >
-              {DECIMAL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </FloatField>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <FloatField label="Currency code" htmlFor="qq-settings-currency">
-            <input
-              id="qq-settings-currency"
-              type="text"
-              maxLength={3}
-              className="premium-input"
-              placeholder=" "
-              style={{ textTransform: 'uppercase' }}
-              value={numberFormat.currency}
-              onChange={(e) =>
-                patchNumberFormat({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })
-              }
-              data-testid="settings-input-currency"
-              aria-invalid={!CURRENCY_RE.test(numberFormat.currency) ? 'true' : 'false'}
-            />
-          </FloatField>
-        </div>
-        </div>
-      </fieldset>
-
-      {/* ── Custom CTA label ────────────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="settings-group-cta">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-cta"
-                  region="sticky-footer"
-                  text="The button text shown on the result panel after the quote is calculated."
-                />
-                <span style={{ marginLeft: 6 }}>Call to action</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-          {/* BF-11 — CTA label is now rich-text editable so owners can stamp
-              emoji, bold, color and inline images on the call-to-action
-              button. Backwards-compatible: a plain string still saves; the
-              renderer's sanitizer accepts both. */}
-          <RichTextField
-            label="CTA label"
-            htmlFor="qq-settings-cta-label"
-            value={ctaLabel}
-            onChange={(next) => patch({ ctaLabel: next })}
-            placeholder='Click to override (default: "Get My Quote")'
-            infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
-            infoTestid="settings-cta"
-            infoRegion="sticky-footer"
-            testid="settings-input-cta-label"
-            // P2 UX — Settings panel; the next fieldset (Online booking)
-            // sits directly below. Inline mode pushes it down rather than
-            // covering it while the CTA copy is being edited.
-            expansionMode="inline"
-          />
-        </div>
-      </fieldset>
-
       {/* Wave Q-E — Brand badge toggle. Free users see the toggle as
        *  read-only with an "Upgrade to Pro" call-to-action; Pro / Business
        *  users can flip it. Client-side tier detection is not yet wired,
@@ -834,6 +843,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </div>
         </div>
       </fieldset>
+      </AdvancedSection>
 
       <style>{`
         /* Reuse the Style tab's spacing rhythm — see StyleTab.tsx for the
