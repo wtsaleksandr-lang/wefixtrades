@@ -24,7 +24,7 @@ import {
   SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronUp, ChevronDown, X, CornerUpLeft } from 'lucide-react';
+import { ChevronUp, ChevronDown, X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField, TemplateOption } from '@shared/templatePresets';
 import { FIELD_TYPE_TO_PUBLIC } from './types';
@@ -32,6 +32,8 @@ import { useEditorDndSensors, DND_CONTAINERS, DragHandleGlyph } from './dnd';
 import { useSelection } from './selection';
 import FloatField from './FloatField';
 import RichTextField from './RichTextField';
+import RowKebab from './RowKebab';
+import { AE } from './appleEditor';
 
 const p = platformTheme;
 
@@ -96,7 +98,6 @@ export default function FieldRow({
   field, index, total, onChange, onRemove, onMoveUp, onMoveDown,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(false);
   // Wave J item 4 — exposes hover state as a data attribute so the spec can
   // assert "row gets a hover outline" without sniffing computed CSS.
   const [hoverOutline, setHoverOutline] = useState(false);
@@ -192,6 +193,9 @@ export default function FieldRow({
       }}
     >
       <div className="qq-field-row-head">
+        {/* Elfsight-clean — quiet drag affordance: a low-opacity 6-dot handle
+         * that only surfaces on row hover / focus-within. Drag wiring (dnd-kit
+         * attributes + listeners) and the testid are preserved exactly. */}
         <button
           type="button"
           className="qq-field-row-handle"
@@ -217,59 +221,28 @@ export default function FieldRow({
           <span className="qq-field-row-label" data-testid={`field-row-label-${field.id}`}>
             {field.label || <em style={{ color: p.colors.subtle }}>Untitled {publicType}</em>}
           </span>
+          {/* Quiet type caption — visible only on row hover/focus so it never
+           * dominates the clean single-line row. */}
           <span className="qq-field-row-typename">{TYPE_LABEL[field.type]}</span>
         </button>
 
+        {/* Elfsight-clean — the old inline ▲ ▼ ✕ cluster is relocated into a
+         * single overflow menu. Move up / Move down / Delete are wired to the
+         * exact same handlers (onMoveUp / onMoveDown / onRemove) the inline
+         * buttons used, with the same first/last disabled logic. */}
         <div className="qq-field-row-actions">
-          <button
-            type="button"
-            className="qq-iconbtn qq-field-row-iconbtn"
-            onClick={onMoveUp}
-            disabled={index === 0}
-            aria-label="Move up"
-            data-testid={`field-row-up-${field.id}`}
-          >
-            <ChevronUp aria-hidden="true" width={14} height={14} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className="qq-iconbtn qq-field-row-iconbtn"
-            onClick={onMoveDown}
-            disabled={index === total - 1}
-            aria-label="Move down"
-            data-testid={`field-row-down-${field.id}`}
-          >
-            <ChevronDown aria-hidden="true" width={14} height={14} strokeWidth={2} />
-          </button>
-          {!confirmRemove ? (
-            <button
-              type="button"
-              className="qq-iconbtn qq-field-row-iconbtn is-danger"
-              onClick={() => setConfirmRemove(true)}
-              aria-label="Remove field"
-              data-testid={`field-row-remove-${field.id}`}
-            >
-              <X aria-hidden="true" width={14} height={14} strokeWidth={2} />
-            </button>
-          ) : (
-            <span className="qq-field-row-confirm">
-              <button
-                type="button"
-                className="qq-iconbtn qq-field-row-iconbtn is-danger-solid"
-                onClick={onRemove}
-                data-testid={`field-row-remove-confirm-${field.id}`}
-              >Remove</button>
-              <button
-                type="button"
-                className="qq-iconbtn qq-field-row-iconbtn"
-                onClick={() => setConfirmRemove(false)}
-                data-testid={`field-row-remove-cancel-${field.id}`}
-                aria-label="Cancel remove"
-              >
-                <CornerUpLeft aria-hidden="true" width={14} height={14} strokeWidth={2} />
-              </button>
-            </span>
-          )}
+          <RowKebab
+            testidBase={`field-row-${field.id}`}
+            label={`Actions for ${field.label || 'field'}`}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onDelete={onRemove}
+            disableUp={index === 0}
+            disableDown={index === total - 1}
+            upTestid={`field-row-up-${field.id}`}
+            downTestid={`field-row-down-${field.id}`}
+            deleteTestid={`field-row-remove-${field.id}`}
+          />
         </div>
       </div>
 
@@ -695,89 +668,85 @@ export default function FieldRow({
         @media (prefers-reduced-motion: reduce) {
           .qq-field-row.qq-selection-flash { animation: none; }
         }
+        /* Elfsight-clean — airy single-line row: [icon][name][spacer][kebab].
+         * Comfortable ~54px min height, generous horizontal padding (14px). */
         .qq-field-row-head {
-          display: flex; align-items: center; gap: 6px;
-          padding: 8px 10px;
+          display: flex; align-items: center; gap: 8px;
+          min-height: 54px; padding: 7px 14px;
         }
-        /* Wave J item 4 — persistent drag-handle. Always visible (no
-         * hover-only opacity), more contrasted base colour, and a tinted
-         * background so mobile users can see it without hovering. */
+        /* Elfsight-clean — quiet drag handle: hidden at rest, fades in (low
+         * opacity) only on row hover / keyboard focus so it never clutters the
+         * row. Plain glyph — no boxed/tinted chrome. Drag wiring is unchanged. */
         .qq-field-row-handle {
           display: inline-flex; align-items: center; justify-content: center;
-          width: 22px; height: 26px; padding: 0; border-radius: 6px;
-          border: 1px solid ${p.colors.borderLight};
-          background: ${p.colors.surfaceRaised};
-          color: ${p.colors.muted};
+          width: 16px; height: 28px; padding: 0; border-radius: 6px;
+          border: none; background: transparent;
+          color: ${AE.color.secondary};
           cursor: grab; touch-action: none;
-          flex-shrink: 0;
-          transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+          flex-shrink: 0; margin-left: -4px;
+          opacity: 0;
+          transition: opacity 0.12s ease, color 0.12s ease;
         }
-        .qq-field-row-handle:hover {
-          background: ${p.colors.accentLighter};
-          color: ${p.colors.accent};
-          border-color: ${p.colors.accent};
+        .qq-field-row:hover .qq-field-row-handle,
+        .qq-field-row:focus-within .qq-field-row-handle,
+        .qq-field-row-handle:focus-visible {
+          opacity: 0.55;
+        }
+        .qq-field-row:hover .qq-field-row-handle:hover {
+          opacity: 1; color: ${AE.color.text};
         }
         .qq-field-row-handle:active { cursor: grabbing; }
-        /* Wave J item 4 — subtle outlined border on row hover. */
+        /* Elfsight-clean — gentle surface tint on row hover (no hard outline). */
         .qq-field-row:hover,
         .qq-field-row[data-hover-outline="true"] {
-          border-color: rgba(13, 60, 252, 0.40);
+          border-color: ${AE.color.hairline};
+          background: ${AE.color.surface};
         }
         .qq-field-row-toggle {
           flex: 1; min-width: 0;
-          display: flex; align-items: center; gap: 9px;
-          padding: 4px 2px; border: none; background: transparent;
+          display: flex; align-items: center; gap: 12px;
+          padding: 6px 0; border: none; background: transparent;
           font: inherit; cursor: pointer; text-align: left;
         }
         .qq-field-type-badge {
-          width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+          width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
           background: ${p.colors.accentLighter}; color: ${p.colors.accent};
           display: inline-flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 700;
+          font-size: 14px; font-weight: 700;
         }
         .qq-field-row-label {
-          font-size: 13px; font-weight: 600; color: ${p.colors.heading};
+          font-size: 14px; font-weight: 500; color: ${AE.color.text};
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
           flex: 1; min-width: 0;
         }
+        /* Quiet type caption — small, secondary, surfaces only on row hover /
+         * focus so the resting row reads as just [icon][name][kebab]. */
         .qq-field-row-typename {
-          font-size: 11px; font-weight: 600; color: ${p.colors.subtle};
-          text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0;
+          font-size: 12px; font-weight: 500; color: ${AE.color.secondary};
+          letter-spacing: 0.02em; flex-shrink: 0;
+          opacity: 0; transition: opacity 0.12s ease;
+        }
+        .qq-field-row:hover .qq-field-row-typename,
+        .qq-field-row:focus-within .qq-field-row-typename {
+          opacity: 1;
         }
         .qq-field-row-actions {
           display: flex; align-items: center; gap: 4px; flex-shrink: 0;
         }
         /* Premium-SaaS icon button (shared) — Linear / Stripe / Vercel
-         * aesthetic. See full rules at the bottom of this style block.
-         * The .qq-field-row-iconbtn modifier is retained for backwards-compat
-         * (existing testids / DOM hooks) but the shared .qq-iconbtn class is
-         * the source of truth for the look. */
-        .qq-field-row-iconbtn.is-danger-solid {
-          background: ${p.colors.danger}; color: #fff; border-color: ${p.colors.danger};
-          padding: 0 10px; font-size: 11.5px;
-          width: auto; min-width: 24px;
-        }
-        .qq-field-row-iconbtn.is-danger-solid:hover:not(:disabled) {
-          background: ${p.colors.danger}; color: #fff; border-color: ${p.colors.danger};
-        }
-        .qq-field-row-confirm {
-          display: inline-flex; align-items: center; gap: 4px;
-        }
+         * aesthetic. Still used by the nested per-option editor (option
+         * up/down/remove inside the expanded body). See full rules at the
+         * bottom of this style block. */
         /* Wave N — on narrow viewports, free horizontal space so long
          * labels like "Local Incentives" / "Professional installation"
          * don't ellipsis-clamp inside the row. We drop the redundant
-         * trailing typename badge (the icon-badge already conveys the
-         * field type), tighten the row padding, and shrink the action
-         * iconbtns from 26 → 22 px. */
+         * trailing typename caption (the icon-badge already conveys the
+         * field type) and tighten the row padding. */
         @media (max-width: 480px) {
-          .qq-field-row-head { padding: 7px 7px; gap: 4px; }
-          .qq-field-row-handle { width: 18px; height: 24px; }
-          .qq-field-row-toggle { gap: 6px; padding: 3px 0; }
+          .qq-field-row-head { padding: 6px 10px; gap: 6px; min-height: 50px; }
+          .qq-field-row-toggle { gap: 10px; padding: 4px 0; }
           .qq-field-row-typename { display: none; }
-          .qq-field-type-badge { width: 22px; height: 22px; font-size: 12px; }
-          .qq-field-row-actions { gap: 2px; }
-          .qq-iconbtn.qq-field-row-iconbtn { width: 22px; height: 22px; min-width: 22px; }
-          .qq-field-row-iconbtn.is-danger-solid { padding: 0 8px; font-size: 10.5px; width: auto; }
+          .qq-field-type-badge { width: 26px; height: 26px; font-size: 13px; }
         }
         .qq-field-row-body {
           padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 8px;

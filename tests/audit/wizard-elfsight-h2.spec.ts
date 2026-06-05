@@ -132,9 +132,10 @@ test.describe('wizard H2 — Build > Fields panel', () => {
     await page.getByTestId(`field-row-input-label-${id}`).fill(distinct);
     await expect(page.getByTestId('advanced-calculator')).toContainText(distinct, { timeout: 1500 });
 
-    // Remove (two-step confirm).
+    // Remove via the row overflow (kebab) menu — Elfsight-clean rows relocate
+    // the inline actions into a `⋯` menu; Delete is a single confirmed action.
+    await page.getByTestId(`field-row-${id}-menu-trigger`).click();
     await page.getByTestId(`field-row-remove-${id}`).click();
-    await page.getByTestId(`field-row-remove-confirm-${id}`).click();
 
     await expect(page.locator(`[data-testid="field-row-${id}"]`)).toHaveCount(0);
     // Preview no longer carries the distinct label.
@@ -162,6 +163,8 @@ test.describe('wizard H2 — Build > Fields panel', () => {
 
     // Move the SECOND row up — swaps positions 0 and 1.
     const secondId = (await page.locator('[data-testid^="field-row-"][data-field-type]').nth(1).getAttribute('data-testid'))!.replace(/^field-row-/, '');
+    // Move up now lives in the row overflow (kebab) menu.
+    await page.getByTestId(`field-row-${secondId}-menu-trigger`).click();
     await page.getByTestId(`field-row-up-${secondId}`).click();
     await page.waitForTimeout(150);
 

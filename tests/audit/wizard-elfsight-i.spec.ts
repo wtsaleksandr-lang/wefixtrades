@@ -50,9 +50,11 @@ test.describe('wizard I — Wave I editor UX (desktop)', () => {
       await expect(page.getByTestId(`field-row-handle-${id}`)).toBeVisible();
     }
 
-    // Arrow fallback is still wired (Wave H2 contract preserved).
+    // Arrow fallback is still wired (Wave H2 contract preserved) — now reached
+    // through the row overflow (kebab) menu on Elfsight-clean rows.
     const secondId = (await rows.nth(1).getAttribute('data-testid'))!.replace(/^field-row-/, '');
     const firstLabel = (await page.locator(`[data-testid="field-row-label-${(await rows.nth(0).getAttribute('data-testid'))!.replace(/^field-row-/, '')}"]`).innerText()).trim();
+    await page.getByTestId(`field-row-${secondId}-menu-trigger`).click();
     await page.getByTestId(`field-row-up-${secondId}`).click();
     await page.waitForTimeout(150);
     // The previously-second row is now first.
@@ -254,7 +256,9 @@ test.describe('wizard I — mobile parity 390×844', () => {
     // Sanity: handle has touch-action: none so the page doesn't scroll on drag.
     const touchAction = await handle.evaluate((el) => getComputedStyle(el as HTMLElement).touchAction);
     expect(touchAction).toBe('none');
-    // Arrow fallback still present on mobile for a11y.
+    // Arrow fallback still present on mobile for a11y — now inside the row
+    // overflow (kebab) menu on Elfsight-clean rows.
+    await page.getByTestId(`field-row-${id}-menu-trigger`).click();
     await expect(page.getByTestId(`field-row-down-${id}`)).toBeVisible();
     void browserName;
   });

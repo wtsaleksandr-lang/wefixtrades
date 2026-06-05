@@ -147,8 +147,10 @@ test.describe('wizard H3 — Build > Calculations panel', () => {
     const idsBefore = await calcRowIds(page);
     expect(idsBefore.length).toBeGreaterThanOrEqual(2);
 
-    // Move the SECOND row UP — swaps positions 0 and 1.
+    // Move the SECOND row UP — swaps positions 0 and 1. Move up now lives in
+    // the row overflow (kebab) menu (Elfsight-clean rows).
     const secondId = idsBefore[1].replace(/^calc-row-/, '');
+    await page.getByTestId(`calc-row-${secondId}-menu-trigger`).click();
     await page.getByTestId(`calc-row-up-${secondId}`).click();
     await page.waitForTimeout(150);
 
@@ -157,7 +159,7 @@ test.describe('wizard H3 — Build > Calculations panel', () => {
     expect(idsAfter[1]).toBe(idsBefore[0]);
   });
 
-  test('two-step Remove confirm removes the calculation', async ({ page }) => {
+  test('overflow-menu Delete removes the calculation', async ({ page }) => {
     await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1200);
 
@@ -170,11 +172,11 @@ test.describe('wizard H3 — Build > Calculations panel', () => {
 
     const beforeCount = ids.length;
 
-    // Two-step confirm: first click reveals the "Remove" button.
-    await page.getByTestId(`calc-row-remove-${id}`).click();
-    const confirmBtn = page.getByTestId(`calc-row-remove-confirm-${id}`);
-    await expect(confirmBtn).toBeVisible();
-    await confirmBtn.click();
+    // Elfsight-clean rows: Delete lives in the row overflow (kebab) menu.
+    await page.getByTestId(`calc-row-${id}-menu-trigger`).click();
+    const deleteBtn = page.getByTestId(`calc-row-remove-${id}`);
+    await expect(deleteBtn).toBeVisible();
+    await deleteBtn.click();
 
     await page.waitForTimeout(150);
     const afterIds = await calcRowIds(page);

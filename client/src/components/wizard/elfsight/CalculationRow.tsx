@@ -13,13 +13,14 @@
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronUp, ChevronDown, X, CornerUpLeft } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation, TemplateField } from '@shared/templatePresets';
 import FormulaEditor from './FormulaEditor';
 import { DragHandleGlyph } from './dnd';
 import { useSelection } from './selection';
 import InfoCue from './InfoCue';
+import RowKebab from './RowKebab';
+import { AE } from './appleEditor';
 
 const p = platformTheme;
 
@@ -56,7 +57,6 @@ export default function CalculationRow({
   onChange, onRemove, onMoveUp, onMoveDown, defaultExpanded,
 }: Props) {
   const [expanded, setExpanded] = useState(Boolean(defaultExpanded));
-  const [confirmRemove, setConfirmRemove] = useState(false);
   // Wave J item 4 — hover outline mirror of FieldRow.
   const [hoverOutline, setHoverOutline] = useState(false);
   const selection = useSelection();
@@ -95,6 +95,9 @@ export default function CalculationRow({
       }}
     >
       <div className="qq-calc-row-head">
+        {/* Elfsight-clean — quiet drag affordance: low-opacity 6-dot handle
+         * that only surfaces on row hover / focus-within. Drag wiring (dnd-kit
+         * attributes + listeners) and the testid are preserved exactly. */}
         <button
           type="button"
           className="qq-calc-row-handle"
@@ -124,58 +127,26 @@ export default function CalculationRow({
           <span className="qq-calc-row-name" data-testid={`calc-row-name-${calc.id}`}>
             {calc.name || <em style={{ color: p.colors.subtle }}>Untitled calculation</em>}
           </span>
+          {/* Quiet format caption — surfaces only on row hover/focus. */}
           <span className="qq-calc-row-format">{FORMAT_LABEL[calc.format]}</span>
         </button>
+        {/* Elfsight-clean — the old inline ▲ ▼ ✕ cluster is relocated into a
+         * single overflow menu. Move up / Move down / Delete are wired to the
+         * exact same handlers (onMoveUp / onMoveDown / onRemove) the inline
+         * buttons used, with the same first/last disabled logic. */}
         <div className="qq-calc-row-actions">
-          <button
-            type="button"
-            className="qq-iconbtn qq-calc-row-iconbtn"
-            onClick={onMoveUp}
-            disabled={index === 0}
-            aria-label="Move calculation up"
-            data-testid={`calc-row-up-${calc.id}`}
-          >
-            <ChevronUp aria-hidden="true" width={14} height={14} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className="qq-iconbtn qq-calc-row-iconbtn"
-            onClick={onMoveDown}
-            disabled={index === total - 1}
-            aria-label="Move calculation down"
-            data-testid={`calc-row-down-${calc.id}`}
-          >
-            <ChevronDown aria-hidden="true" width={14} height={14} strokeWidth={2} />
-          </button>
-          {!confirmRemove ? (
-            <button
-              type="button"
-              className="qq-iconbtn qq-calc-row-iconbtn is-danger"
-              onClick={() => setConfirmRemove(true)}
-              aria-label="Remove calculation"
-              data-testid={`calc-row-remove-${calc.id}`}
-            >
-              <X aria-hidden="true" width={14} height={14} strokeWidth={2} />
-            </button>
-          ) : (
-            <span className="qq-calc-row-confirm">
-              <button
-                type="button"
-                className="qq-iconbtn qq-calc-row-iconbtn is-danger-solid"
-                onClick={onRemove}
-                data-testid={`calc-row-remove-confirm-${calc.id}`}
-              >Remove</button>
-              <button
-                type="button"
-                className="qq-iconbtn qq-calc-row-iconbtn"
-                onClick={() => setConfirmRemove(false)}
-                aria-label="Cancel remove"
-                data-testid={`calc-row-remove-cancel-${calc.id}`}
-              >
-                <CornerUpLeft aria-hidden="true" width={14} height={14} strokeWidth={2} />
-              </button>
-            </span>
-          )}
+          <RowKebab
+            testidBase={`calc-row-${calc.id}`}
+            label={`Actions for ${calc.name || 'calculation'}`}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onDelete={onRemove}
+            disableUp={index === 0}
+            disableDown={index === total - 1}
+            upTestid={`calc-row-up-${calc.id}`}
+            downTestid={`calc-row-down-${calc.id}`}
+            deleteTestid={`calc-row-remove-${calc.id}`}
+          />
         </div>
       </div>
 
@@ -309,69 +280,67 @@ export default function CalculationRow({
         @media (prefers-reduced-motion: reduce) {
           .qq-calc-row.qq-selection-flash { animation: none; }
         }
+        /* Elfsight-clean — airy single-line row: [icon][name][spacer][kebab]. */
         .qq-calc-row-head {
-          display: flex; align-items: center; gap: 6px;
-          padding: 8px 10px;
+          display: flex; align-items: center; gap: 8px;
+          min-height: 54px; padding: 7px 14px;
         }
-        /* Wave J item 4 — persistent drag-handle. Mirrors FieldRow. */
+        /* Elfsight-clean — quiet drag handle: hidden at rest, fades in (low
+         * opacity) only on row hover / keyboard focus. Drag wiring unchanged. */
         .qq-calc-row-handle {
           display: inline-flex; align-items: center; justify-content: center;
-          width: 22px; height: 26px; padding: 0; border-radius: 6px;
-          border: 1px solid ${p.colors.borderLight};
-          background: ${p.colors.surfaceRaised};
-          color: ${p.colors.muted};
+          width: 16px; height: 28px; padding: 0; border-radius: 6px;
+          border: none; background: transparent;
+          color: ${AE.color.secondary};
           cursor: grab; touch-action: none;
-          flex-shrink: 0;
-          transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+          flex-shrink: 0; margin-left: -4px;
+          opacity: 0;
+          transition: opacity 0.12s ease, color 0.12s ease;
         }
-        .qq-calc-row-handle:hover {
-          background: ${p.colors.accentLighter};
-          color: ${p.colors.accent};
-          border-color: ${p.colors.accent};
+        .qq-calc-row:hover .qq-calc-row-handle,
+        .qq-calc-row:focus-within .qq-calc-row-handle,
+        .qq-calc-row-handle:focus-visible {
+          opacity: 0.55;
+        }
+        .qq-calc-row:hover .qq-calc-row-handle:hover {
+          opacity: 1; color: ${AE.color.text};
         }
         .qq-calc-row-handle:active { cursor: grabbing; }
+        /* Elfsight-clean — gentle surface tint on row hover (no hard outline). */
         .qq-calc-row:hover,
         .qq-calc-row[data-hover-outline="true"] {
-          border-color: rgba(13, 60, 252, 0.40);
+          border-color: ${AE.color.hairline};
+          background: ${AE.color.surface};
         }
         .qq-calc-row-toggle {
           flex: 1; min-width: 0;
-          display: flex; align-items: center; gap: 9px;
-          padding: 4px 2px; border: none; background: transparent;
+          display: flex; align-items: center; gap: 12px;
+          padding: 6px 0; border: none; background: transparent;
           font: inherit; cursor: pointer; text-align: left;
         }
         .qq-calc-row-badge {
-          width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+          width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
           background: #E6F7F1; color: #0E8a5f;
           display: inline-flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 700;
+          font-size: 14px; font-weight: 700;
         }
         .qq-calc-row-name {
-          font-size: 13px; font-weight: 600; color: ${p.colors.heading};
+          font-size: 14px; font-weight: 500; color: ${AE.color.text};
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
           flex: 1; min-width: 0;
         }
+        /* Quiet format caption — surfaces only on row hover / focus. */
         .qq-calc-row-format {
-          font-size: 11px; font-weight: 600; color: ${p.colors.subtle};
-          text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0;
+          font-size: 12px; font-weight: 500; color: ${AE.color.secondary};
+          letter-spacing: 0.02em; flex-shrink: 0;
+          opacity: 0; transition: opacity 0.12s ease;
+        }
+        .qq-calc-row:hover .qq-calc-row-format,
+        .qq-calc-row:focus-within .qq-calc-row-format {
+          opacity: 1;
         }
         .qq-calc-row-actions {
           display: flex; align-items: center; gap: 4px; flex-shrink: 0;
-        }
-        /* Premium-SaaS arrow buttons — see qq-iconbtn rules at bottom of
-         * this style block. The .qq-calc-row-iconbtn modifier is retained
-         * for backwards-compat (existing testids / DOM hooks) but the
-         * shared .qq-iconbtn class is the source of truth for the look. */
-        .qq-calc-row-iconbtn.is-danger-solid {
-          background: ${p.colors.danger}; color: #fff; border-color: ${p.colors.danger};
-          padding: 0 10px; font-size: 11.5px;
-          width: auto; min-width: 24px;
-        }
-        .qq-calc-row-iconbtn.is-danger-solid:hover:not(:disabled) {
-          background: ${p.colors.danger}; color: #fff; border-color: ${p.colors.danger};
-        }
-        .qq-calc-row-confirm {
-          display: inline-flex; align-items: center; gap: 4px;
         }
         .qq-calc-row-body {
           padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 10px;
@@ -451,69 +420,6 @@ export default function CalculationRow({
         }
         .qq-calc-toggle.is-on .qq-calc-toggle-swatch { background: ${p.colors.accent}; }
         .qq-calc-toggle.is-on .qq-calc-toggle-swatch::after { left: 14px; }
-
-        /* ── Premium-SaaS icon button (shared)
-         *
-         * Linear / Stripe / Vercel-style 24px square arrow buttons. Applied
-         * to every standalone chevron/×/undo button in the wizard's row
-         * action clusters (CalculationRow up/down/×, FieldRow up/down/×,
-         * FieldOptionRow option up/down/×). Replaces the old "Windows 98"
-         * look (filled #fff square with text glyphs ▲▼×).
-         *
-         * Defaults are tuned for the editor's dark chrome; the
-         * [data-theme="light"] overrides flip border tones for the light
-         * editor chrome. The :active state takes on the brand-blue accent
-         * (matches the rest of the wizard's interactive surfaces) and
-         * adds a subtle scale(0.96) for tactile feedback. */
-        .qq-iconbtn {
-          width: 24px;
-          height: 24px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: transparent;
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 6px;
-          color: ${p.colors.muted};
-          cursor: pointer;
-          padding: 0;
-          font: inherit;
-          transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 80ms ease;
-        }
-        .qq-iconbtn:hover:not(:disabled) {
-          background: rgba(255,255,255,0.06);
-          border-color: rgba(255,255,255,0.16);
-          color: ${p.colors.heading};
-        }
-        .qq-iconbtn:active:not(:disabled) {
-          background: rgba(13,60,252,0.08);
-          border-color: #0d3cfc;
-          color: #0d3cfc;
-          transform: scale(0.96);
-        }
-        .qq-iconbtn:disabled {
-          opacity: 0.35;
-          cursor: not-allowed;
-        }
-        .qq-iconbtn.is-danger:hover:not(:disabled) {
-          background: ${p.colors.dangerLight};
-          color: ${p.colors.danger};
-          border-color: ${p.colors.danger};
-        }
-        /* Light-editor-theme variant: editor chrome on light theme reads
-         * better with dark-tinted borders rather than the white-on-white
-         * baseline. Targets both the [data-theme="light"] explicit attr and
-         * any ancestor that doesn't carry data-theme="dark". */
-        .qq-editor-shell[data-theme="light"] .qq-iconbtn,
-        :root:not([data-theme="dark"]) .qq-iconbtn {
-          border-color: rgba(0,0,0,0.08);
-        }
-        .qq-editor-shell[data-theme="light"] .qq-iconbtn:hover:not(:disabled),
-        :root:not([data-theme="dark"]) .qq-iconbtn:hover:not(:disabled) {
-          background: rgba(0,0,0,0.04);
-          border-color: rgba(0,0,0,0.16);
-        }
-        .qq-iconbtn svg { display: block; }
       `}</style>
     </div>
   );
