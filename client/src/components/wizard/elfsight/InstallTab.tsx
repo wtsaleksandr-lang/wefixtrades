@@ -724,7 +724,8 @@ export default function InstallTab({
         onClose={() => setInstallCheckoutOpen(false)}
         items={['quotequick-install']}
         bundleName="QuoteQuick Install Service"
-        priceLabel="$75 one-time"
+        priceLabel="$75"
+        billingNote="one-time payment. No subscription."
       />
 
       <div className="qq-install-divider" />

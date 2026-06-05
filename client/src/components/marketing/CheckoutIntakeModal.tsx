@@ -33,6 +33,10 @@ export interface CheckoutIntakeModalProps {
   bundleName?: string;
   /** Headline price (display-only). */
   priceLabel?: string;
+  /** Billing descriptor shown after the price. Defaults to monthly-subscription
+   *  language. Pass a one-time note (e.g. "One-time payment · No subscription")
+   *  for one-time SKUs so the copy never contradicts the price. */
+  billingNote?: string;
 }
 
 interface FormState {
@@ -56,6 +60,7 @@ export default function CheckoutIntakeModal({
   bundleId,
   bundleName,
   priceLabel,
+  billingNote = "billed monthly. Cancel anytime.",
 }: CheckoutIntakeModalProps) {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
@@ -196,7 +201,7 @@ export default function CheckoutIntakeModal({
         </h2>
         {priceLabel && (
           <p style={{ margin: "4px 0 0", fontSize: 14, color: "#6B7280" }}>
-            {priceLabel} — billed monthly. Cancel anytime.
+            {priceLabel} — {billingNote}
           </p>
         )}
 
