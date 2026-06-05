@@ -239,11 +239,21 @@ export default function PreviewOverlay({
          * via the parent button. */
         .qq-preview-field-deco-remove-glyph {
           width: 18px; height: 18px; border-radius: 50%;
-          background: #fff; color: ${p.colors.danger};
-          border: 1px solid ${p.colors.danger};
+          background: rgba(255,255,255,1); color: ${p.colors.muted};
+          border: 1px solid ${p.colors.border};
           display: inline-flex; align-items: center; justify-content: center;
           font-size: 12px; font-weight: 800; line-height: 1;
           box-shadow: 0 1px 4px rgba(15,23,42,0.18);
+          transition: color 0.12s ease, border-color 0.12s ease;
+        }
+        /* Destructive intent is revealed on intent only: the resting glyph is a
+         * neutral grey outline (reads as a plain control, not an error), and it
+         * turns red on hover/focus or when its field is the selected one. */
+        .qq-preview-field-deco-remove:hover .qq-preview-field-deco-remove-glyph,
+        .qq-preview-field-deco-remove:focus-visible .qq-preview-field-deco-remove-glyph,
+        .qq-preview-field-deco.is-selected .qq-preview-field-deco-remove-glyph {
+          color: ${p.colors.danger};
+          border-color: ${p.colors.danger};
         }
       `}</style>
     </div>

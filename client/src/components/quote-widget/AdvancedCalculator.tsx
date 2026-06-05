@@ -1208,51 +1208,10 @@ function BookingCalendarPreview({
   );
 }
 
-/**
- * BD-3k — "Powered by WeFixTrades" footer badge.
- *
- * Small text-only badge centred inside the sticky bottom action bar,
- * directly beneath the action buttons / trust block. Renders a discreet
- * 10px label that links to the WeFixTrades home page in a new tab.
- * Free-tier widgets always show this badge (server-side strip prevents
- * `branding.showPoweredBy = false` from being persisted); Pro+ tiers
- * can opt out via the StyleTab toggle.
- */
-function PoweredByWeFixTradesBadge({
-  theme, fontFamily,
-}: {
-  theme: WidgetTheme;
-  fontFamily: string;
-}) {
-  return (
-    <div
-      data-testid="advanced-powered-by"
-      data-component-name="Powered by WeFixTrades"
-      style={{
-        marginTop: 6,
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        fontFamily,
-      }}
-    >
-      <a
-        href="https://wefixtrades.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        data-testid="advanced-powered-by-link"
-        style={{
-          fontSize: 10, fontWeight: 600, color: theme.textBody,
-          letterSpacing: '0.02em',
-          textDecoration: 'none',
-          padding: '2px 4px',
-          borderRadius: 4,
-        }}
-      >
-        Powered by{' '}
-        <span style={{ color: guardTextColor(theme.accent, theme.surface, 'poweredByBrand') }}>WeFixTrades</span>
-      </a>
-    </div>
-  );
-}
+/* BD-3k — The "Powered by WeFixTrades" sticky-bar footer badge component was
+ * removed: the attribution now renders exactly once at the widget root
+ * (`advanced-powered-by-root`) so it can't duplicate on desktop and stays
+ * visible on mobile when the sticky bar folds. See the root badge below. */
 
 export default function AdvancedCalculator({
   businessName, logoUrl, advanced, accentColor, editableTitle = false,
@@ -3028,12 +2987,14 @@ export default function AdvancedCalculator({
                 testid="trust-block-sticky"
               />
             }
-            // BD-3k — "Powered by WeFixTrades" badge. Default ON for free
-            // tier (locked via server-side strip + renderer fallback);
-            // Pro+ can opt out via StyleTab → Branding section.
-            footerSlot={showPoweredByBadge
-              ? <PoweredByWeFixTradesBadge theme={cc} fontFamily={fontFamily} />
-              : null}
+            // BD-3k — "Powered by WeFixTrades" badge is NO LONGER emitted from
+            // the sticky bar. It is rendered once, persistently, at the widget
+            // root (`advanced-powered-by-root`, below) so it can't duplicate on
+            // desktop (where the sticky detail rows are also visible) and stays
+            // present on mobile when the sticky bar is folded. Gate logic
+            // (showPoweredByBadge, free-tier forced ON) is unchanged — it now
+            // governs only the single root badge.
+            footerSlot={null}
           >
             <StepperControls
               current={stepIdx}
