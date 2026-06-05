@@ -2528,7 +2528,23 @@ export default function WizardShell({ embed = false }: Props) {
             /* Mobile — preview stacks below the editor column. Resize handle
                is hidden (mobile is vertical-stack, no use for it). */
             @media (max-width: 768px) {
-              .qq-editor-shell { padding: 8px; }
+              /* Edge-to-edge full-screen (issue #5, 2026-06-05) — the editor
+               * must fill the entire phone viewport like the Elfsight mobile
+               * builder: no rounded card, no grey page gutter, no shadow. The
+               * shell wrapper drops its 8px page padding so the frame can reach
+               * every edge. */
+              .qq-editor-shell { padding: 0; }
+              /* The modal IS the full-bleed surface on mobile — kill the grey
+               * page backdrop + any gutters so the white editor goes edge to
+               * edge with no visible margin. (Mobile backdrop-filter stays off,
+               * handled by the existing always-visible-sheet block below.) */
+              .wizard-shell-modal,
+              .wizard-shell-modal.is-entering,
+              .wizard-shell-modal.is-open,
+              .wizard-shell-modal.is-leaving {
+                padding: 0 !important;
+                background: rgba(255, 255, 255, 1) !important;
+              }
               /* Apple-mobile-clean (2026-06-05) — on a real ≤768px viewport the
                * preview renders the Elfsight-style CLEAN calculator (no editor
                * canvas chrome). Strip the 24×24 dotted/square canvas grid so the
@@ -2558,7 +2574,18 @@ export default function WizardShell({ embed = false }: Props) {
                 -webkit-backdrop-filter: none !important;
               }
               .qq-editor-frame {
-                min-height: calc(100vh - 16px);
+                /* Edge-to-edge full-screen (issue #5) — fill the whole phone
+                 * viewport: no rounded corners, no shadow, no margin. The frame
+                 * becomes the screen, anchored to all four edges. 100dvh tracks
+                 * the dynamic viewport (mobile browser chrome show/hide). */
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                inset: 0;
+                width: 100vw;
+                max-width: 100vw;
+                height: 100dvh;
+                min-height: 100dvh;
                 /* ALWAYS-VISIBLE BOTTOM-SHEET FIX (2026-06-04) — root cause of
                  * the collapsed sheet pill vanishing on scroll. On mobile the
                  * frame is taller than the viewport and scrolls inside
