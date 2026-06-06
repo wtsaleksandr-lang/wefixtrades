@@ -12,6 +12,7 @@
 import { db } from "../db";
 import {
   leads,
+  calculators,
   missedCallLeads,
   demoQuoteLeads,
   salesLeads,
@@ -24,7 +25,8 @@ import {
   type SalesLead,
   type InsertSalesLead,
 } from "@shared/schema";
-import { and, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
+import { isPaidTier, startOfMonthUTC } from "@shared/quotequickQuota";
 
 // ─── QuoteQuick leads (calculator widget) ───
 
@@ -60,6 +62,64 @@ export async function getLeadCountSince(calculatorId: number, since: Date): Prom
     .from(leads)
     .where(and(eq(leads.calculator_id, calculatorId), gte(leads.created_date, since)));
   return result?.count || 0;
+}
+
+/**
+ * Free-tier quota counting (account-scoped, current calendar month).
+ *
+ * Counts quote/lead captures across EVERY calculator owned by `userId` whose
+ * `created_date` falls in the current calendar month (UTC). Aggregate query
+ * over the existing `leads` table — no counter column / migration needed.
+ * Also returns the account's plan tiers so the caller can classify free vs
+ * paid via `isPaidTier()`.
+ *
+ * Returns `{ used: 0, isPaid: false }` for an account that owns no
+ * calculators (a brand-new free account).
+ */
+export async function getAccountMonthlyQuoteUsage(
+  userId: number,
+  now: Date = new Date(),
+): Promise<{ used: number; isPaid: boolean }> {
+  // Owned calculators + their plan tiers in one round-trip.
+  const calcs = await db
+    .select({ id: calculators.id, plan_tier: calculators.plan_tier })
+    .from(calculators)
+    .where(eq(calculators.user_id, userId));
+
+  if (calcs.length === 0) {
+    return { used: 0, isPaid: false };
+  }
+
+  const isPaid = isPaidTier(calcs.map((c) => c.plan_tier));
+  const calcIds = calcs.map((c) => c.id);
+  const monthStart = startOfMonthUTC(now);
+
+  const [result] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(leads)
+    .where(and(inArray(leads.calculator_id, calcIds), gte(leads.created_date, monthStart)));
+
+  return { used: result?.count ?? 0, isPaid };
+}
+
+/**
+ * Capture-time variant: given the calculator a lead was just submitted to,
+ * resolve its owning account and return that account's current-month usage.
+ * Returns null when the calculator has no owner (anonymous portal calcs) —
+ * the quota only applies to owned accounts.
+ */
+export async function getAccountMonthlyQuoteUsageByCalculator(
+  calculatorId: number,
+  now: Date = new Date(),
+): Promise<{ used: number; isPaid: boolean } | null> {
+  const [calc] = await db
+    .select({ user_id: calculators.user_id })
+    .from(calculators)
+    .where(eq(calculators.id, calculatorId))
+    .limit(1);
+
+  if (!calc || calc.user_id == null) return null;
+  return getAccountMonthlyQuoteUsage(calc.user_id, now);
 }
 
 export async function getQuoteQuickLeadTrend(days: number): Promise<Array<{ date: string; count: number }>> {
