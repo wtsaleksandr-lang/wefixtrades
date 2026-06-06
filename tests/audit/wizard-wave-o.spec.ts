@@ -1,18 +1,29 @@
 /**
- * QuoteQuick wizard — Wave O Install tab refresh.
+ * QuoteQuick wizard — Wave O hosted-link + platform-guide cards.
  *
- *   1. Hosted-link section is the first section on the Install tab.
+ * IA REDESIGN (2026-06, editor IA / Elfsight-parity) — the standalone
+ * **Install tab** was removed; the tab strip is now Build · Action · Style ·
+ * Settings (+ Help). Everything the Install tab used to host (hosted link,
+ * embed snippet, platform guides, done-for-you CTA) was folded VERBATIM into a
+ * **Publish modal** that opens from the top-bar `quotequick-publish` button.
+ * The modal renders the same <InstallTab> component, so every install-* testid
+ * is preserved — only the navigation changed: instead of clicking
+ * `editor-tab-install`, we click `quotequick-publish` and assert against
+ * `editor-publish-overlay`.
+ *
+ * What this spec asserts (Wave O behaviour, now inside the Publish modal):
+ *   1. Hosted-link section is the first section in the Publish modal.
  *   2. Hosted URL display reflects the business name from the wizard
  *      (slugified via shared/slugUtils.slugify).
- *   3. "Reserved — activates after publish" badge appears when the
- *      calculator isn't published yet.
- *   4. Copy-link button copies the full hosted URL to the clipboard.
- *   5. Open button is disabled while the calculator is unpublished.
+ *   3. "Live" badge appears (Wave P — auto-publish on save).
+ *   4. Copy-link button + hosted URL controls render.
+ *   5. Open button is an unconditional <a href> to the hosted URL (Wave P).
  *   6. Platform install guides render as clickable cards (Wave O grid),
  *      NOT the legacy inline 3-line tab list. Clicking a card opens the
  *      detailed modal with numbered steps.
  *   7. Mobile (390×844) — hosted-link card stacks cleanly; tap targets
  *      on Copy/Open ≥44px.
+ *   8. Publish modal close (`editor-publish-close`) dismisses the overlay.
  *
  * Runs under audit.config.ts (vite preview on :5000, no API).
  */
@@ -36,28 +47,35 @@ async function openWizard(page: Page) {
   await expect(page.getByTestId('quotequick-editor-shell')).toBeVisible();
 }
 
-async function gotoInstallTab(page: Page) {
+/**
+ * IA redesign — the Install tab is gone. Open the Publish modal instead; it
+ * renders the same InstallTab content, so all install-* testids resolve inside
+ * the `editor-publish-overlay` portal.
+ */
+async function openPublishModal(page: Page) {
   await openWizard(page);
-  await page.getByTestId('editor-tab-install').click();
-  await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 2000 });
+  await page.getByTestId('quotequick-publish').click();
+  await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 2000 });
+  await expect(page.getByTestId('install-section-hosted')).toBeVisible({ timeout: 2000 });
 }
 
 async function setBusinessName(page: Page, name: string) {
-  // Open Build tab to expose the business-name input, then return to Install.
-  await page.getByTestId('editor-tab-build').click();
+  // The business-name input lives on the Build tab (left pane). Set it, then
+  // open the Publish modal so the hosted link reflects the slugified name.
+  await openWizard(page);
   const input = page.getByTestId('input-business-name');
   if (await input.isVisible().catch(() => false)) {
     await input.fill(name);
   }
-  await page.getByTestId('editor-tab-install').click();
-  await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 2000 });
+  await page.getByTestId('quotequick-publish').click();
+  await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 2000 });
 }
 
-test.describe('wizard Wave O — Install tab refresh', () => {
+test.describe('wizard Wave O — Publish modal hosted link', () => {
   test.beforeEach(async ({ page }) => { await clearShellState(page); });
 
-  test('Hosted-link section renders at the top of the Install tab', async ({ page }) => {
-    await gotoInstallTab(page);
+  test('Hosted-link section renders at the top of the Publish modal', async ({ page }) => {
+    await openPublishModal(page);
 
     const hosted = page.getByTestId('install-section-hosted');
     await expect(hosted).toBeVisible();
@@ -67,7 +85,6 @@ test.describe('wizard Wave O — Install tab refresh', () => {
   });
 
   test('Hosted URL reflects the business name (slugified)', async ({ page }) => {
-    await gotoInstallTab(page);
     await setBusinessName(page, "Joe's Plumbing & Heating");
 
     const url = page.getByTestId('install-hosted-url');
@@ -78,18 +95,18 @@ test.describe('wizard Wave O — Install tab refresh', () => {
   test('Live badge is shown (Wave P — auto-publish on save)', async ({ page }) => {
     // Wave P removed the misleading "Reserved" badge — every save
     // auto-publishes server-side, so the hosted link is live as soon as
-    // the user lands on Install. The badge now reads 'Live'.
-    await gotoInstallTab(page);
+    // the user opens the Publish modal. The badge reads 'Live'.
+    await openPublishModal(page);
     const badge = page.getByTestId('install-hosted-badge');
     await expect(badge).toBeVisible();
     await expect(badge).toContainText(/live/i);
     await expect(badge).toHaveAttribute('data-state', 'live');
   });
 
-  test('Open button is always clickable on the hosted link card (Wave P)', async ({ page }) => {
-    // Wave P dropped the unpublished-disable gate. The Open link is now
+  test('Open button is an unconditional link to the hosted URL (Wave P)', async ({ page }) => {
+    // Wave P dropped the unpublished-disable gate. The Open control is now
     // an unconditional `<a href>` to the hosted URL.
-    await gotoInstallTab(page);
+    await openPublishModal(page);
     const open = page.getByTestId('install-hosted-open');
     await expect(open).toBeVisible();
     await expect(open).not.toHaveAttribute('aria-disabled', 'true');
@@ -97,7 +114,7 @@ test.describe('wizard Wave O — Install tab refresh', () => {
   });
 
   test('Platform guides render as clickable cards (not inline tabs)', async ({ page }) => {
-    await gotoInstallTab(page);
+    await openPublishModal(page);
 
     // Grid is the new pattern; the old `install-guide-tabs` element no
     // longer exists, and the old `install-guide-list-*` lists are gone.
@@ -109,8 +126,8 @@ test.describe('wizard Wave O — Install tab refresh', () => {
     expect(await cards.count()).toBeGreaterThanOrEqual(6);
   });
 
-  test('Clicking a card opens the detailed modal', async ({ page }) => {
-    await gotoInstallTab(page);
+  test('Clicking a guide card opens the detailed modal', async ({ page }) => {
+    await openPublishModal(page);
 
     await page.getByTestId('install-guide-card-shopify').click();
     const modal = page.getByTestId('install-guide-modal');
@@ -122,6 +139,15 @@ test.describe('wizard Wave O — Install tab refresh', () => {
     await page.getByTestId('install-guide-modal-done').click();
     await expect(modal).not.toBeVisible();
   });
+
+  test('Publish modal closes via the Done/close control', async ({ page }) => {
+    // IA redesign — the modal is dismissible via `editor-publish-close`
+    // (the "Done" button in the modal header). This replaces the old
+    // tab-navigation-away path the Install tab relied on.
+    await openPublishModal(page);
+    await page.getByTestId('editor-publish-close').click();
+    await expect(page.getByTestId('editor-publish-overlay')).toHaveCount(0);
+  });
 });
 
 test.describe('wizard Wave O — mobile', () => {
@@ -129,7 +155,7 @@ test.describe('wizard Wave O — mobile', () => {
   test.beforeEach(async ({ page }) => { await clearShellState(page); });
 
   test('Hosted-link card stacks and has ≥44px tap targets', async ({ page }) => {
-    await gotoInstallTab(page);
+    await openPublishModal(page);
     await expect(page.getByTestId('install-section-hosted')).toBeVisible();
 
     const copyBox = await page.getByTestId('install-hosted-copy').boundingBox();

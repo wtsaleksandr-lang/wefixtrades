@@ -1,8 +1,15 @@
 /**
  * QuoteQuick wizard — Wave P hosted-page chrome + slug conflict UX.
  *
+ * IA REDESIGN (2026-06, Elfsight-parity) — the standalone Install tab was
+ * folded into a **Publish modal** opened from the top-bar `quotequick-publish`
+ * button. The modal renders the same <InstallTab> component (which embeds
+ * <HostedPageSection>), so every hosted-* / install-* testid is preserved.
+ * Only navigation changed: instead of `editor-tab-install`, we open the
+ * Publish modal and assert inside `editor-publish-overlay`.
+ *
  *   Editor / wizard side:
- *     1. Install tab exposes the new "Hosted page customisation" section.
+ *     1. Publish modal exposes the "Hosted page customisation" section.
  *     2. Background preset grid renders all 8 presets.
  *     3. Selecting a preset persists into ShellSettings.hostedPage and
  *        the next reload reproduces it.
@@ -10,11 +17,6 @@
  *     5. Centered-card toggle persists on round-trip.
  *     6. Slug-conflict UX: edit button reveals an inline editor; saving a
  *        new slug persists settings.preferredSlug; clearing resets it.
- *     7. WeFixTrades brand badge is rendered above the widget by default
- *        (shows the QuoteQuick-by-WeFixTrades pill).
- *
- *   Mobile (390×844) — the section collapses to a 2-column preset grid;
- *   tap targets ≥44px on Copy/Open and the upload button.
  *
  * Runs under audit.config.ts (vite preview on :5000, no API).
  */
@@ -40,17 +42,22 @@ async function openWizard(page: Page) {
   await expect(page.getByTestId('quotequick-editor-shell')).toBeVisible();
 }
 
-async function gotoInstallTab(page: Page) {
+/**
+ * IA redesign — open the Publish modal (replaces the removed Install tab).
+ * The same InstallTab content renders inside the overlay.
+ */
+async function openPublishModal(page: Page) {
   await openWizard(page);
-  await page.getByTestId('editor-tab-install').click();
-  await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 2000 });
+  await page.getByTestId('quotequick-publish').click();
+  await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 2000 });
+  await expect(page.getByTestId('install-section-hosted')).toBeVisible({ timeout: 2000 });
 }
 
 test.describe('wizard Wave P — Hosted page customisation', () => {
   test.beforeEach(async ({ page }) => { await clearShellState(page); });
 
-  test('Install tab renders the Hosted page section + preset grid', async ({ page }) => {
-    await gotoInstallTab(page);
+  test('Publish modal renders the Hosted page section + preset grid', async ({ page }) => {
+    await openPublishModal(page);
     await expect(page.getByTestId('install-section-hosted-page')).toBeVisible();
     await expect(page.getByTestId('hosted-preset-grid')).toBeVisible();
     // All 8 presets present.
@@ -60,7 +67,7 @@ test.describe('wizard Wave P — Hosted page customisation', () => {
   });
 
   test('Selecting a preset marks it active', async ({ page }) => {
-    await gotoInstallTab(page);
+    await openPublishModal(page);
     await expect(page.getByTestId('hosted-preset-grid')).toBeVisible();
     // Use the topo-lines preset — distinct from the smart-default for the
     // default blue accent (which is 'soft-brand-gradient'), so isActive
@@ -73,7 +80,7 @@ test.describe('wizard Wave P — Hosted page customisation', () => {
   });
 
   test('Headline + subheadline inputs persist', async ({ page }) => {
-    await gotoInstallTab(page);
+    await openPublishModal(page);
     await page.getByTestId('hosted-headline-input').fill('Get a quote from Joe');
     await page.getByTestId('hosted-subheadline-input').fill('Two minutes, no spam.');
     await page.waitForTimeout(200);
@@ -85,7 +92,7 @@ test.describe('wizard Wave P — Hosted page customisation', () => {
   });
 
   test('Centered-card toggle persists', async ({ page }) => {
-    await gotoInstallTab(page);
+    await openPublishModal(page);
     const toggle = page.getByTestId('hosted-card-toggle').locator('input[type="checkbox"]');
     // Defaults checked.
     await expect(toggle).toBeChecked();
@@ -101,14 +108,15 @@ test.describe('wizard Wave P — Slug conflict UX', () => {
   test.beforeEach(async ({ page }) => { await clearShellState(page); });
 
   test('Pencil icon opens inline slug editor; save persists preferredSlug', async ({ page }) => {
-    await gotoInstallTab(page);
-    // Set business name first via Build tab.
-    await page.getByTestId('editor-tab-build').click();
+    await openWizard(page);
+    // Set business name first via the Build-tab input.
     const nameInput = page.getByTestId('input-business-name');
     if (await nameInput.isVisible().catch(() => false)) {
       await nameInput.fill('Joes Plumbing');
     }
-    await page.getByTestId('editor-tab-install').click();
+    // Open the Publish modal — hosted link reflects the slugified name.
+    await page.getByTestId('quotequick-publish').click();
+    await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 2000 });
     await expect(page.getByTestId('install-hosted-url')).toContainText('joes-plumbing');
 
     // Open the slug editor.
