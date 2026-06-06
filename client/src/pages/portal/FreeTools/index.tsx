@@ -7,6 +7,8 @@ import {
   MapPin,
   PhoneCall,
   Star,
+  SplitSquareHorizontal,
+  TrendingUp,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -110,6 +112,24 @@ const TOOLS: Tool[] = [
     status: "available",
     href: "/portal/free-tools/review-link",
     previewImage: "/free-tools/previews/review-link.png",
+  },
+  {
+    slug: "before-after",
+    title: "Before / After Slider",
+    description:
+      "A draggable image comparison — show off a re-roof, repaint, or cleaned driveway.",
+    icon: SplitSquareHorizontal,
+    status: "available",
+    href: "/portal/free-tools/before-after",
+  },
+  {
+    slug: "stats",
+    title: "Stats / Trust Counter",
+    description:
+      "An animated credibility strip — years, jobs completed, 24/7, service radius.",
+    icon: TrendingUp,
+    status: "available",
+    href: "/portal/free-tools/stats",
   },
 ];
 
