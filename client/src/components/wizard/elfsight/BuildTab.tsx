@@ -20,6 +20,7 @@ import CalculationsPanel from './CalculationsPanel';
 import HeaderResultsPanel from './HeaderResultsPanel';
 import StepContentPanel from './StepContentPanel';
 import TemplateStrip, { type ApplyTemplatePayload } from './TemplateGallery';
+import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
 import type { ShellHeader, ShellResults } from './types';
 
@@ -114,6 +115,18 @@ export default function BuildTab({
       data-section
       role="tabpanel"
     >
+      {/* Decluttered default view — once the calculator already has fields,
+          the heavy "Generate with AI" card + full template strip dominate
+          screen 1. Tuck them behind a collapsed AdvancedSection so a
+          populated calculator opens lean; keep it OPEN when blank so a new
+          user lands directly on the start-here affordances. Everything stays
+          fully reachable; testids/behavior are untouched. */}
+      <AdvancedSection
+        id="build-start"
+        label="Start from a template / AI"
+        hint="generate with AI or pick a template"
+        defaultOpen={fields.length === 0}
+      >
       {/* Generate with AI — discoverable entry point that routes into the
           existing floating AI assistant (seed + auto-send). The bubble stays
           the chat surface for refinement; this card is just the front door. */}
@@ -173,6 +186,7 @@ export default function BuildTab({
         activeTemplateId={activeTemplateId}
         onApplyTemplate={onApplyTemplate}
       />
+      </AdvancedSection>
 
       <div className="qq-build-divider" />
 
@@ -255,14 +269,18 @@ export default function BuildTab({
         </>
       )}
 
-      <div className="qq-build-divider" />
-
-      <HeaderResultsPanel
-        header={header}
-        onHeaderChange={onHeaderChange}
-        results={results}
-        onResultsChange={onResultsChange}
-      />
+      <AdvancedSection
+        id="build-titles"
+        label="Titles & result text"
+        hint="headline, subtext, result labels & CTA copy"
+      >
+        <HeaderResultsPanel
+          header={header}
+          onHeaderChange={onHeaderChange}
+          results={results}
+          onResultsChange={onResultsChange}
+        />
+      </AdvancedSection>
 
       <style>{`
         .qq-build-tab {
