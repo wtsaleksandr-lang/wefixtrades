@@ -882,7 +882,15 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
             <Reveal
               key={t.quote}
               delay={i * 0.04}
-              style={{ flex: "0 0 clamp(280px, 80vw, 340px)", scrollSnapAlign: "start" }}
+              style={{
+                // Cap basis at the viewport (minus the section's 24px side
+                // padding ×2) so a card's layout box can never report past the
+                // viewport right edge — desktop sweep flagged one at +98px.
+                flex: "0 0 clamp(280px, 80vw, 340px)",
+                maxWidth: "calc(100vw - 48px)",
+                minWidth: 0,
+                scrollSnapAlign: "start",
+              }}
             >
               <div
                 className="review-card"
