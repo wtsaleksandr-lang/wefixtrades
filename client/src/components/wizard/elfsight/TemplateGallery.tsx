@@ -24,7 +24,7 @@ import { X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
-  TEMPLATE_PRESETS as STATIC_TEMPLATE_PRESETS, type TemplateConfig,
+  TEMPLATE_PRESETS as STATIC_TEMPLATE_PRESETS, collapseLayoutVariants, type TemplateConfig,
 } from '@shared/templatePresets';
 import TemplateMockup from './TemplateMockup';
 
@@ -100,7 +100,11 @@ function useMergedTemplates(): TemplateConfig[] {
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
-  return data?.templates ?? STATIC_TEMPLATE_PRESETS;
+  // Collapse per-layout variants (…_single_col/_two_col/_multi_col sharing a
+  // name) so the same template title never renders as multiple cards. Layout
+  // is chosen in-editor, not in the gallery. Covers the full browse modal AND
+  // the Build-tab strip (both call this hook).
+  return collapseLayoutVariants(data?.templates ?? STATIC_TEMPLATE_PRESETS);
 }
 
 /** Derive the unique categories from the merged template list (sorted). */

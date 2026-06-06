@@ -21,6 +21,7 @@ import { mkt } from "@/theme/tokens";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import {
   TEMPLATE_PRESETS,
+  collapseLayoutVariants,
   type TemplateConfig,
 } from "@shared/templatePresets";
 import {
@@ -63,20 +64,26 @@ export default function TemplatesPage() {
 
   // Title + meta tags handled by <PageMeta> below.
 
+  // Collapse per-layout variants (…_single_col/_two_col/_multi_col sharing a
+  // display name) so the same template title shows as ONE card. Counts,
+  // filtering and search all operate on this collapsed catalogue. Layout is an
+  // in-editor choice, not a separate listing entry.
+  const templates = useMemo(() => collapseLayoutVariants(TEMPLATE_PRESETS), []);
+
   // Per-family counts (excluding "all")
   const familyCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const t of TEMPLATE_PRESETS) {
+    for (const t of templates) {
       const f = familyOf(t);
       counts[f] = (counts[f] ?? 0) + 1;
     }
     return counts;
-  }, []);
+  }, [templates]);
 
   // Filter + search
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return TEMPLATE_PRESETS.filter((t) => {
+    return templates.filter((t) => {
       if (activeFilter !== "all" && familyOf(t) !== activeFilter) return false;
       if (!q) return true;
       return (
@@ -85,9 +92,9 @@ export default function TemplatesPage() {
         t.category.toLowerCase().includes(q)
       );
     });
-  }, [activeFilter, search]);
+  }, [activeFilter, search, templates]);
 
-  const totalCount = TEMPLATE_PRESETS.length;
+  const totalCount = templates.length;
 
   return (
     <MarketingLayout>

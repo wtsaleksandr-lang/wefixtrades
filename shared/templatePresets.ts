@@ -3609,6 +3609,60 @@ export function getTemplateCategories(): string[] {
   return seen;
 }
 
+/** Layout-variant id suffixes. A template whose id ends in one of these is a
+ *  per-layout VARIANT of a logical template (they share the same `name`); only
+ *  the layout differs. Layout is chosen in-editor, so these must collapse to a
+ *  single gallery card. */
+const LAYOUT_VARIANT_SUFFIXES = ['_single_col', '_two_col', '_multi_col'] as const;
+
+function hasLayoutSuffix(id: string): boolean {
+  return LAYOUT_VARIANT_SUFFIXES.some((s) => id.endsWith(s));
+}
+
+/** Collapse layout variants (…_single_col/_two_col/_multi_col that share a
+ *  display name) to ONE representative per template name, preserving
+ *  catalogue order. Used by the gallery + marketing listing so the same
+ *  title never appears as multiple cards. Layout itself is chosen in-editor.
+ *
+ *  Per-name representative preference (best kept id):
+ *    (a) an id WITHOUT a layout suffix (the base/canonical, e.g.
+ *        `junk_removal_quote`), else
+ *    (b) the `_two_col` variant (sensible default layout), else
+ *    (c) the first occurrence seen.
+ *  The kept representatives appear in original catalogue order (first-seen
+ *  position of each name). Pure — never mutates the input. */
+export function collapseLayoutVariants(list: TemplateConfig[]): TemplateConfig[] {
+  // first-seen order of names → preserves catalogue order of representatives.
+  const order: string[] = [];
+  const chosen = new Map<string, TemplateConfig>();
+
+  for (const t of list) {
+    const name = t.name.trim();
+    const current = chosen.get(name);
+    if (!current) {
+      order.push(name);
+      chosen.set(name, t);
+      continue;
+    }
+    // A representative is already chosen — only replace it if `t` is strictly
+    // more canonical (preference (a) base > (b) _two_col > (c) first seen).
+    const currentIsBase = !hasLayoutSuffix(current.id);
+    if (currentIsBase) continue; // (a) already held — nothing beats it.
+    const tIsBase = !hasLayoutSuffix(t.id);
+    if (tIsBase) {
+      chosen.set(name, t); // upgrade to canonical base.
+      continue;
+    }
+    // Neither is base: prefer _two_col over the first-seen suffixed variant.
+    const currentIsTwoCol = current.id.endsWith('_two_col');
+    if (!currentIsTwoCol && t.id.endsWith('_two_col')) {
+      chosen.set(name, t);
+    }
+  }
+
+  return order.map((name) => chosen.get(name)!);
+}
+
 /* ─── Runtime config bridge ─── */
 
 /**
