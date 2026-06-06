@@ -1153,6 +1153,102 @@ export default function WizardShell({ embed = false }: Props) {
     if (!isMobile) setMobileSheetOpen(false);
   }, [isMobile]);
 
+  // ── Click-to-edit (2026-06-06) — tapping a spot on the live preview jumps
+  // the editor to the control that edits it. PreviewPane fires
+  // `onPreviewSpotEdit(tab, targetKey)`; we switch to `tab`, then scroll-to +
+  // pulse the matching editor control. On mobile we also pulse the tab in the
+  // bottom bar and defer the in-sheet highlight until the sheet opens.
+  //
+  // `targetKey` → DOM resolver. Most keys map to a `[data-edit-key]` anchor on
+  // the panels (added minimally to the section wrappers); fields use the
+  // existing `[data-testid="field-row-<id>"]` rows. Returns the first match in
+  // the live editor DOM (desktop left pane OR mobile sheet — both share these
+  // attributes since the same panel components render in each).
+  const resolveEditTarget = useCallback((targetKey: string): HTMLElement | null => {
+    if (typeof document === 'undefined') return null;
+    if (targetKey.startsWith('field:')) {
+      const id = targetKey.slice('field:'.length);
+      return document.querySelector<HTMLElement>(`[data-testid="field-row-${CSS.escape(id)}"]`);
+    }
+    return document.querySelector<HTMLElement>(`[data-edit-key="${CSS.escape(targetKey)}"]`);
+  }, []);
+
+  // Transient highlight timer so re-firing clears the previous pulse cleanly.
+  const editHighlightTimerRef = useRef<number | null>(null);
+  const applyEditHighlight = useCallback((targetKey: string) => {
+    // Defer one frame so the freshly-switched tab's panel has mounted.
+    requestAnimationFrame(() => {
+      const el = resolveEditTarget(targetKey);
+      if (!el) return;
+      // If the target sits inside a collapsed AdvancedSection, expand it first
+      // so the control is actually visible (the toggle owns its own state).
+      const collapsed = el.closest<HTMLElement>('[data-testid^="advanced-section-"][data-open="false"]');
+      if (collapsed) {
+        const toggle = collapsed.querySelector<HTMLButtonElement>('[data-testid^="advanced-toggle-"]');
+        toggle?.click();
+      }
+      // Scroll-to + pulse on the next frame (after any expand reflow).
+      requestAnimationFrame(() => {
+        const node = resolveEditTarget(targetKey) ?? el;
+        node.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+        // Restart the animation cleanly if it's already highlighted.
+        node.classList.remove('qq-edit-highlight');
+        // Force reflow so removing + re-adding restarts the keyframes.
+        void node.offsetWidth;
+        node.classList.add('qq-edit-highlight');
+        if (editHighlightTimerRef.current != null) {
+          window.clearTimeout(editHighlightTimerRef.current);
+        }
+        editHighlightTimerRef.current = window.setTimeout(() => {
+          node.classList.remove('qq-edit-highlight');
+          editHighlightTimerRef.current = null;
+        }, 1500);
+      });
+    });
+  }, [resolveEditTarget, reduceMotion]);
+
+  // Mobile: which bottom-bar tab to pulse, and the highlight to apply once
+  // that tab's sheet is opened by the user. `pulseTab` is cleared after the
+  // hint animation (BottomTabBar also self-clears on a timer / open).
+  const [pulseTab, setPulseTab] = useState<EditorTab | null>(null);
+  const pendingMobileHighlightRef = useRef<string | null>(null);
+  const clearPulseTimerRef = useRef<number | null>(null);
+
+  const onPreviewSpotEdit = useCallback((tab: EditorTab, targetKey: string) => {
+    setActiveTab(tab);
+    if (isMobile) {
+      // Sheet is folded — pulse the tab to hint, and stash the highlight to
+      // run when the user opens that tab's sheet.
+      pendingMobileHighlightRef.current = targetKey;
+      setPulseTab(tab);
+      if (clearPulseTimerRef.current != null) window.clearTimeout(clearPulseTimerRef.current);
+      clearPulseTimerRef.current = window.setTimeout(() => {
+        setPulseTab(null);
+        clearPulseTimerRef.current = null;
+      }, 2400);
+    } else {
+      // Desktop — the panel is visible; switch tab then scroll-to + pulse.
+      applyEditHighlight(targetKey);
+    }
+  }, [isMobile, applyEditHighlight]);
+
+  // Mobile — when the sheet opens (for the pulsed tab), run the deferred
+  // highlight on the control inside the sheet, then clear the pending state.
+  useEffect(() => {
+    if (!isMobile || !mobileSheetOpen) return;
+    const key = pendingMobileHighlightRef.current;
+    if (!key) return;
+    pendingMobileHighlightRef.current = null;
+    setPulseTab(null);
+    applyEditHighlight(key);
+  }, [isMobile, mobileSheetOpen, activeTab, applyEditHighlight]);
+
+  // Cleanup transient timers on unmount.
+  useEffect(() => () => {
+    if (editHighlightTimerRef.current != null) window.clearTimeout(editHighlightTimerRef.current);
+    if (clearPulseTimerRef.current != null) window.clearTimeout(clearPulseTimerRef.current);
+  }, []);
+
   // BH-3 — Reset-to-default for the currently active tab. Style + Settings
   // are the tabs with persistent customisations; Build / Install are
   // structural. Reset wipes the relevant ShellState slice back to defaults.
@@ -1583,6 +1679,9 @@ export default function WizardShell({ embed = false }: Props) {
                   }
                   onRemoveField={removeField}
                   onAddField={addField}
+                  /* Click-to-edit (2026-06-06) — tapping a preview spot jumps
+                     the editor to the control that edits it. */
+                  onPreviewSpotEdit={onPreviewSpotEdit}
                   /* Wave 61 — wires the floating <InlineStyleToolbar /> to
                      the existing setFields-based undo stack. */
                   onUpdateField={updateField}
@@ -1706,6 +1805,9 @@ export default function WizardShell({ embed = false }: Props) {
                 sheetOpen={mobileSheetOpen}
                 onSelectTab={onMobileSelectTab}
                 onHelp={() => setShowHelp(true)}
+                /* Click-to-edit — pulse this tab to hint the tapped preview
+                   spot is editable here; cleared when its sheet opens. */
+                pulseTab={pulseTab}
               />
             )}
 
@@ -1879,6 +1981,32 @@ export default function WizardShell({ embed = false }: Props) {
           </div>
 
           <style>{`
+            /* ── Click-to-edit (2026-06-06) — transient highlight ─────
+             *
+             * When the user taps a spot on the live preview, WizardShell
+             * switches to the editing tab and adds .qq-edit-highlight to
+             * the responsible control (a field row, the header section, the
+             * pricing/result section, the CTA panel, …) for ~1.5s. The pulse
+             * is a soft accent outline that breathes once — Apple-like, never
+             * jarring — and auto-removes. Uses the AE brand-accent token (no
+             * bare colour literal). Reduced-motion users get the steady
+             * outline without the pulse keyframe. */
+            .qq-edit-highlight {
+              outline: 2px solid ${AE.color.accent};
+              outline-offset: 2px;
+              border-radius: 10px;
+              animation: qq-edit-pulse 1.2s ease-out;
+              scroll-margin: 24px;
+            }
+            @keyframes qq-edit-pulse {
+              0%   { box-shadow: 0 0 0 0 ${AE.color.accentTint};   outline-color: ${AE.color.accent}; }
+              45%  { box-shadow: 0 0 0 6px ${AE.color.accentTint}; }
+              100% { box-shadow: 0 0 0 0 transparent;             outline-color: ${AE.color.accent}; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .qq-edit-highlight { animation: none; }
+            }
+
             /* ── BD-3g Item 2 — fold/unfold panels ──────────────────
              *
              * useFoldablePanels (DOM enhancer) decorates every

@@ -165,7 +165,7 @@ export default function ActionTab({
       data-cue-allowed-multiple
     >
       {/* ── 1. Mode segmented control ─────────────────────────────── */}
-      <div className="qq-action-card" data-testid="action-group-mode">
+      <div className="qq-action-card" data-testid="action-group-mode" data-edit-key="action">
         <div className="qq-action-card-head">
           <span className="qq-action-card-title">When the quote is ready</span>
           <InfoCue

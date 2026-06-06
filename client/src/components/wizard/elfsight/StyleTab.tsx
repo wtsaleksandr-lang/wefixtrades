@@ -1246,6 +1246,7 @@ export default function StyleTab({
       <div
         className="qq-bs-sub"
         data-testid="style-sub-trust-badges-visibility"
+        data-edit-key="trust-badges"
         style={{ marginTop: 12 }}
       >
         <p className="qq-bs-sub-title">
@@ -3859,6 +3860,7 @@ function PricingTiersSubsection({
   return (
     <div
       data-testid="style-pricing-tiers"
+      data-edit-key="tiered"
       style={{
         marginTop: 16, paddingTop: 12,
         borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))',

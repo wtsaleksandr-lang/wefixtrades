@@ -190,7 +190,7 @@ export default function BuildTab({
 
       <div className="qq-build-divider" />
 
-      <section className="qq-build-section" data-testid="editor-business-section">
+      <section className="qq-build-section" data-testid="editor-business-section" data-edit-key="business">
         {/* Wave J item 5 — composite logo + business-name field. */}
         <div className="qq-business-composite" data-testid="editor-business-composite">
           {/* AUDIT-LOW — wrap the logo-upload square so the clear pill can
