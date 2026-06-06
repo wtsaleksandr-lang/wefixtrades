@@ -72,9 +72,15 @@ export default function TierSelector({
   const selBg = selectedBg ?? theme.accent;
   // White-family text guarded against the resolved selected fill so the
   // label / price / tagline / badge always clear contrast on `selBg`.
-  const selLabelColor = guardTextColor('rgba(255,255,255,0.92)', selBg, 'tierSelectedLabel');
+  // Feed the guard SOLID white (not a translucent rgba): guardTextColor drops
+  // alpha when measuring, so an `rgba(255,255,255,0.85)` input would "pass" as
+  // opaque white yet render at 0.85 → ~4.1:1 (sub-AA) on a saturated card. With
+  // solid white the guard's output is applied at full opacity and clears AA on
+  // any selBg (stays white on dark cards; darkens to readable on light cards).
+  // The label/tagline hierarchy comes from size + weight, not alpha.
+  const selLabelColor = guardTextColor('rgba(255,255,255,1)', selBg, 'tierSelectedLabel');
   const selPriceColor = guardTextColor('rgba(255,255,255,1)', selBg, 'tierSelectedPrice');
-  const selTaglineColor = guardTextColor('rgba(255,255,255,0.85)', selBg, 'tierSelectedTagline');
+  const selTaglineColor = guardTextColor('rgba(255,255,255,1)', selBg, 'tierSelectedTagline');
   return (
     <div
       data-testid="tier-selector"
