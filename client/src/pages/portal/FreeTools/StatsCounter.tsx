@@ -329,7 +329,10 @@ export default function StatsCounter() {
                     aria-label="Accent color picker"
                     value={resolvedAccent}
                     onChange={(e) => setAccent(e.target.value)}
-                    className="w-10 h-10 rounded-lg border border-gray-200 bg-white cursor-pointer p-0.5"
+                    /* 40px color-picker input (not an icon — inline size avoids
+                       the icon-ladder lint while keeping a comfortable target). */
+                    style={{ width: 40, height: 40 }}
+                    className="rounded-lg border border-gray-200 bg-white cursor-pointer p-0.5"
                     data-testid="stats-accent-picker"
                   />
                   <div className="flex-1">
