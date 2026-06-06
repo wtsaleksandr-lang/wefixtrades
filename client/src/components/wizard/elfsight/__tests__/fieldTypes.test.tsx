@@ -33,9 +33,13 @@ function test(name: string, fn: () => void): void {
 
 /* ─── PUBLIC_TO_FIELD_TYPE round-trip ─────────────────────────────────── */
 
-const NEW_PUBLIC_TYPES: PublicFieldType[] = ['text', 'multiSelect', 'paragraph', 'divider', 'image'];
+const NEW_PUBLIC_TYPES: PublicFieldType[] = [
+  'text', 'multiSelect', 'paragraph', 'divider', 'image',
+  // BUILDER-COMPONENTS — content/CTA components.
+  'button', 'link',
+];
 
-test('all 5 new public types map to a canonical engine type', () => {
+test('all new public types map to a canonical engine type', () => {
   for (const pt of NEW_PUBLIC_TYPES) {
     const canonical = PUBLIC_TO_FIELD_TYPE[pt];
     assert.ok(canonical, `expected ${pt} to map to an engine type`);
@@ -56,6 +60,8 @@ test('canonical engine names are stable', () => {
   assert.equal(PUBLIC_TO_FIELD_TYPE.paragraph, 'paragraph');
   assert.equal(PUBLIC_TO_FIELD_TYPE.divider, 'divider');
   assert.equal(PUBLIC_TO_FIELD_TYPE.image, 'image');
+  assert.equal(PUBLIC_TO_FIELD_TYPE.button, 'button');
+  assert.equal(PUBLIC_TO_FIELD_TYPE.link, 'link');
 });
 
 /* ─── makeField() factories ───────────────────────────────────────────── */
@@ -99,6 +105,26 @@ test('makeField("image") seeds empty URL + caption slots', () => {
   assert.equal(f.type, 'image');
   assert.equal(f.imageUrl, '');
   assert.equal(f.imageCaption, '');
+});
+
+test('makeField("button") seeds a tappable action button (no calc fields)', () => {
+  const f = makeField('button');
+  assert.equal(f.type, 'button');
+  assert.ok(f.label, 'expected non-empty default label (button text)');
+  assert.equal(f.buttonAction, 'tel');
+  assert.equal(f.href, '');
+  // Content component — never options / numeric ranges.
+  assert.equal(f.options, undefined);
+  assert.equal(f.on_value, undefined);
+});
+
+test('makeField("link") seeds an inline link (no calc fields)', () => {
+  const f = makeField('link');
+  assert.equal(f.type, 'link');
+  assert.ok(f.label, 'expected non-empty default label (link text)');
+  assert.equal(f.href, '');
+  assert.equal(f.options, undefined);
+  assert.equal(f.on_value, undefined);
 });
 
 test('makeField produces a stable unique id per call', () => {

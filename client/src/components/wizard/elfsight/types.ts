@@ -67,7 +67,11 @@ export type PublicFieldType =
   //  - `divider`     → display-only horizontal rule
   //  - `image`       → display-only inline image
   | 'text' | 'multiSelect'
-  | 'paragraph' | 'divider' | 'image';
+  | 'paragraph' | 'divider' | 'image'
+  // BUILDER-COMPONENTS — content/CTA components (no calc contribution):
+  //  - `button` → canonical 'button' (tappable action button)
+  //  - `link`   → canonical 'link' (inline text anchor)
+  | 'button' | 'link';
 
 export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']> = {
   slider: 'slider',
@@ -81,6 +85,8 @@ export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']
   paragraph: 'paragraph',
   divider: 'divider',
   image: 'image',
+  button: 'button',
+  link: 'link',
 };
 
 export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicFieldType>> = {
@@ -95,6 +101,8 @@ export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicF
   paragraph: 'paragraph',
   divider: 'divider',
   image: 'image',
+  button: 'button',
+  link: 'link',
 };
 
 /** Header overrides — Wave H4. Both optional; blank values fall back to
