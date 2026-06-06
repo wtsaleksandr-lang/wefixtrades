@@ -1175,13 +1175,54 @@ export default function WizardShell({ embed = false }: Props) {
 
   // Transient highlight timer so re-firing clears the previous pulse cleanly.
   const editHighlightTimerRef = useRef<number | null>(null);
+  // Scroll a resolved control into view + restart the transient pulse.
+  const highlightNode = useCallback((node: HTMLElement) => {
+    node.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+    node.classList.remove('qq-edit-highlight');
+    // Force reflow so removing + re-adding restarts the keyframes.
+    void node.offsetWidth;
+    node.classList.add('qq-edit-highlight');
+    if (editHighlightTimerRef.current != null) {
+      window.clearTimeout(editHighlightTimerRef.current);
+    }
+    editHighlightTimerRef.current = window.setTimeout(() => {
+      node.classList.remove('qq-edit-highlight');
+      editHighlightTimerRef.current = null;
+    }, 1500);
+  }, [reduceMotion]);
   const applyEditHighlight = useCallback((targetKey: string) => {
+    // Some edit anchors live inside an AdvancedSection that UNMOUNTS its
+    // children when collapsed (header/results under "Titles & result text";
+    // trust-badges/tiered under Style "Advanced settings"). When the section
+    // is closed the anchor isn't in the DOM, so resolveEditTarget returns null.
+    // Map those keys → their owning section id so we can expand-then-retry.
+    const SECTION_FOR_KEY: Record<string, string> = {
+      header: 'build-titles',
+      results: 'build-titles',
+      'trust-badges': 'style-advanced',
+      tiered: 'style-advanced',
+    };
     // Defer one frame so the freshly-switched tab's panel has mounted.
     requestAnimationFrame(() => {
       const el = resolveEditTarget(targetKey);
-      if (!el) return;
-      // If the target sits inside a collapsed AdvancedSection, expand it first
-      // so the control is actually visible (the toggle owns its own state).
+      if (!el) {
+        // Anchor may be hidden inside a collapsed (child-unmounting) section —
+        // open it via its toggle, then retry on the next frame.
+        const sectionId = SECTION_FOR_KEY[targetKey];
+        const section = sectionId
+          ? document.querySelector<HTMLElement>(`[data-testid="advanced-section-${sectionId}"]`)
+          : null;
+        if (section && section.getAttribute('data-open') === 'false') {
+          section.querySelector<HTMLButtonElement>(`[data-testid="advanced-toggle-${sectionId}"]`)?.click();
+          requestAnimationFrame(() => {
+            const node = resolveEditTarget(targetKey);
+            if (node) highlightNode(node);
+          });
+        }
+        return;
+      }
+      // If the target sits inside a collapsed AdvancedSection (mounted but
+      // closed), expand it first so the control is actually visible.
       const collapsed = el.closest<HTMLElement>('[data-testid^="advanced-section-"][data-open="false"]');
       if (collapsed) {
         const toggle = collapsed.querySelector<HTMLButtonElement>('[data-testid^="advanced-toggle-"]');
@@ -1189,23 +1230,10 @@ export default function WizardShell({ embed = false }: Props) {
       }
       // Scroll-to + pulse on the next frame (after any expand reflow).
       requestAnimationFrame(() => {
-        const node = resolveEditTarget(targetKey) ?? el;
-        node.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
-        // Restart the animation cleanly if it's already highlighted.
-        node.classList.remove('qq-edit-highlight');
-        // Force reflow so removing + re-adding restarts the keyframes.
-        void node.offsetWidth;
-        node.classList.add('qq-edit-highlight');
-        if (editHighlightTimerRef.current != null) {
-          window.clearTimeout(editHighlightTimerRef.current);
-        }
-        editHighlightTimerRef.current = window.setTimeout(() => {
-          node.classList.remove('qq-edit-highlight');
-          editHighlightTimerRef.current = null;
-        }, 1500);
+        highlightNode(resolveEditTarget(targetKey) ?? el);
       });
     });
-  }, [resolveEditTarget, reduceMotion]);
+  }, [resolveEditTarget, highlightNode]);
 
   // Mobile: which bottom-bar tab to pulse, and the highlight to apply once
   // that tab's sheet is opened by the user. `pulseTab` is cleared after the
