@@ -62,6 +62,89 @@ export function normalizeLayout(value: unknown): TemplateLayout {
   }
 }
 
+/* ─── Video embed parsing (FIELD-PALETTE) ─── */
+
+/**
+ * FIELD-PALETTE — parse an owner-pasted video URL into a sandboxed embed src.
+ *
+ * Accepts:
+ *  - YouTube watch URLs (`https://www.youtube.com/watch?v=<id>`)
+ *  - YouTube short links (`https://youtu.be/<id>`)
+ *  - YouTube `/embed/<id>` / `/shorts/<id>` / `/live/<id>` URLs
+ *  - Vimeo URLs (`https://vimeo.com/<id>`, `https://player.vimeo.com/video/<id>`)
+ *  - A bare YouTube id (11 chars) or bare numeric Vimeo id.
+ *
+ * SECURITY: only YouTube + Vimeo hosts are ever produced — an arbitrary or
+ * unparseable URL returns `null` so the renderer can show a placeholder
+ * instead of injecting an attacker-controlled iframe (no XSS via host).
+ *
+ * @returns the embed src (`https://www.youtube.com/embed/<id>` or
+ *   `https://player.vimeo.com/video/<id>`), or `null` when nothing matched.
+ */
+export function parseVideoEmbedSrc(raw: string | undefined | null): string | null {
+  const input = (raw ?? '').trim();
+  if (input === '') return null;
+
+  // Bare YouTube id (exactly 11 url-safe chars, no scheme/slash/dot).
+  if (/^[A-Za-z0-9_-]{11}$/.test(input)) {
+    return `https://www.youtube.com/embed/${input}`;
+  }
+  // Bare numeric Vimeo id.
+  if (/^\d{6,12}$/.test(input)) {
+    return `https://player.vimeo.com/video/${input}`;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(input.includes('://') ? input : `https://${input}`);
+  } catch {
+    return null;
+  }
+  // Only http(s) — block javascript:, data:, etc.
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+
+  const host = url.hostname.toLowerCase().replace(/^www\./, '');
+
+  // ── YouTube ──────────────────────────────────────────────────────────
+  if (host === 'youtu.be') {
+    const id = url.pathname.split('/').filter(Boolean)[0];
+    if (id && /^[A-Za-z0-9_-]{11}$/.test(id)) {
+      return `https://www.youtube.com/embed/${id}`;
+    }
+    return null;
+  }
+  if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+    // /watch?v=<id>
+    const v = url.searchParams.get('v');
+    if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) {
+      return `https://www.youtube.com/embed/${v}`;
+    }
+    // /embed/<id>, /shorts/<id>, /live/<id>, /v/<id>
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length >= 2 && ['embed', 'shorts', 'live', 'v'].includes(parts[0])) {
+      const id = parts[1];
+      if (/^[A-Za-z0-9_-]{11}$/.test(id)) {
+        return `https://www.youtube.com/embed/${id}`;
+      }
+    }
+    return null;
+  }
+
+  // ── Vimeo ────────────────────────────────────────────────────────────
+  if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+    // player.vimeo.com/video/<id>  OR  vimeo.com/<id>
+    const parts = url.pathname.split('/').filter(Boolean);
+    const id = parts[parts.length - 1];
+    if (id && /^\d{6,12}$/.test(id)) {
+      return `https://player.vimeo.com/video/${id}`;
+    }
+    return null;
+  }
+
+  // Any other host is rejected (no arbitrary iframe injection).
+  return null;
+}
+
 /* ─── Field / calculation / header / result types ─── */
 
 export type FieldType =
@@ -77,7 +160,11 @@ export type FieldType =
   // anchor. Both are display-only — they carry NO answer and contribute
   // nothing to the quote formula (handled alongside the display-only types
   // everywhere `heading`/`paragraph`/`divider`/`image` are excluded).
-  | 'button' | 'link';
+  | 'button' | 'link'
+  // FIELD-PALETTE — `video` is a display-only embed (YouTube / Vimeo). Like
+  // the other content types it carries NO answer and is excluded from the
+  // quote formula everywhere the display-only types are.
+  | 'video';
 
 export interface TemplateOption {
   id: string;
@@ -187,6 +274,16 @@ export interface TemplateField {
    */
   href?: string;
   buttonAction?: 'url' | 'tel' | 'mailto';
+  /**
+   * FIELD-PALETTE — `video` content component. `videoUrl` is the raw URL the
+   * owner pastes (a YouTube watch / youtu.be / Vimeo URL, or a bare id); the
+   * renderer parses it into a sandboxed youtube.com/embed or
+   * player.vimeo.com/video src. `videoCaption` renders muted beneath the
+   * 16:9 frame. Both optional; an empty / unparseable URL renders a small
+   * placeholder rather than a broken iframe.
+   */
+  videoUrl?: string;
+  videoCaption?: string;
   /**
    * Wave 61 — per-element inline cosmetic style overrides driven by the
    * floating <InlineStyleToolbar />. Optional; absent → no override (the

@@ -116,6 +116,8 @@ const TYPE_ICON: Record<TemplateField['type'], string> = {
   // BUILDER-COMPONENTS — content/CTA components.
   button: '⬢',
   link: '↗',
+  // FIELD-PALETTE — video embed.
+  video: '▷',
 };
 
 const TYPE_LABEL: Record<TemplateField['type'], string> = {
@@ -133,6 +135,7 @@ const TYPE_LABEL: Record<TemplateField['type'], string> = {
   image: 'Image',
   button: 'Button',
   link: 'Link',
+  video: 'Video',
 };
 
 export default function FieldRow({
@@ -176,13 +179,15 @@ export default function FieldRow({
   // BUILDER-COMPONENTS — content/CTA components.
   const isButton = field.type === 'button';
   const isLink = field.type === 'link';
+  // FIELD-PALETTE — video embed content component.
+  const isVideo = field.type === 'video';
   // COMPONENTS-1 — display-only field types (heading / paragraph / divider
   // / image) don't read the customer-facing `label` the same way an input
   // does — heading uses it as the rendered title, paragraph stores body in
   // `content`, divider/image don't render the label at all. Suppress the
   // Width toggle for display-only types since they always span full row.
   // BUILDER-COMPONENTS — button / link are inline content too: no Width toggle.
-  const showsWidthToggle = !isDivider && !isImage && !isParagraph && !isButton && !isLink;
+  const showsWidthToggle = !isDivider && !isImage && !isParagraph && !isButton && !isLink && !isVideo;
   const publicType = FIELD_TYPE_TO_PUBLIC[field.type] ?? field.type;
 
   const update = (patch: Partial<TemplateField>) => onChange({ ...field, ...patch });
@@ -688,6 +693,42 @@ export default function FieldRow({
                 data-testid={`field-row-input-href-${field.id}`}
               />
             </FloatField>
+          )}
+
+          {/* FIELD-PALETTE — Video config. The owner pastes a YouTube / Vimeo
+              URL (or a bare id); the renderer parses it into a sandboxed embed
+              src. An optional caption renders beneath the 16:9 frame. */}
+          {isVideo && (
+            <>
+              <FloatField
+                label="Video URL"
+                htmlFor={`field-row-input-video-url-${field.id}`}
+                infoText="Paste a YouTube or Vimeo link — a watch URL, youtu.be short link, or the raw video id all work. Only YouTube and Vimeo are supported."
+                infoTestid={`field-row-input-video-url-${field.id}-info`}
+              >
+                <input
+                  id={`field-row-input-video-url-${field.id}`}
+                  type="url"
+                  inputMode="url"
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.videoUrl ?? ''}
+                  onChange={(e) => update({ videoUrl: e.target.value })}
+                  data-testid={`field-row-input-video-url-${field.id}`}
+                />
+              </FloatField>
+              <FloatField label="Caption (optional)" htmlFor={`field-row-input-video-caption-${field.id}`}>
+                <input
+                  id={`field-row-input-video-caption-${field.id}`}
+                  type="text"
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.videoCaption ?? ''}
+                  onChange={(e) => update({ videoCaption: e.target.value })}
+                  data-testid={`field-row-input-video-caption-${field.id}`}
+                />
+              </FloatField>
+            </>
           )}
 
           {/* COMPONENTS-1 — multi_select selection-count guardrails. Pure

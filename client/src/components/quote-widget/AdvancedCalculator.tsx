@@ -20,6 +20,7 @@ import {
   type TemplateStep,
   resolveTieredConfig,
   inlineElementStyleToCss,
+  parseVideoEmbedSrc,
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -234,7 +235,10 @@ interface AdvField {
     | 'paragraph' | 'divider' | 'image'
     // BUILDER-COMPONENTS — content/CTA components (button / link). No answer;
     // emitted as inline JSX and excluded from the formula context.
-    | 'button' | 'link';
+    | 'button' | 'link'
+    // FIELD-PALETTE — video embed (YouTube / Vimeo). No answer; emitted as an
+    // inline 16:9 iframe and excluded from the formula context.
+    | 'video';
   help?: string;
   required?: boolean;
   default_value?: number;
@@ -278,6 +282,11 @@ interface AdvField {
   // the renderer reads them straight off the persisted config.
   href?: string;
   buttonAction?: 'url' | 'tel' | 'mailto';
+  // FIELD-PALETTE — video embed source + caption. See `TemplateField` in
+  // shared/templatePresets.ts for the authoring docs. Echoed onto AdvField so
+  // the renderer reads them straight off the persisted config.
+  videoUrl?: string;
+  videoCaption?: string;
   /**
    * Wave 61 — per-element cosmetic style overrides. Authored via the
    * floating <InlineStyleToolbar /> in the wizard preview. The renderer
@@ -575,7 +584,9 @@ function rawFieldValue(f: AdvField, answers: Record<string, Answer>): FormulaCon
   if (f.type === 'heading' || f.type === 'paragraph'
       || f.type === 'divider' || f.type === 'image'
       // BUILDER-COMPONENTS — button / link are content-only; never feed the calc.
-      || f.type === 'button' || f.type === 'link') return 0;
+      || f.type === 'button' || f.type === 'link'
+      // FIELD-PALETTE — video embed is content-only; never feeds the calc.
+      || f.type === 'video') return 0;
   if (f.type === 'number' || f.type === 'slider') return Number(v) || 0;
   if (f.type === 'text') return String(v ?? '');
   if (f.type === 'toggle') return v ? (f.on_value ?? 1) : 0;
@@ -1758,7 +1769,9 @@ export default function AdvancedCalculator({
       (f) => f.type !== 'heading' && f.type !== 'paragraph'
         && f.type !== 'divider' && f.type !== 'image'
         // BUILDER-COMPONENTS — button / link are display-only; no own step.
-        && f.type !== 'button' && f.type !== 'link',
+        && f.type !== 'button' && f.type !== 'link'
+        // FIELD-PALETTE — video embed is display-only; no own step.
+        && f.type !== 'video',
     ).length,
     [visibleFields],
   );
@@ -3716,6 +3729,67 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     return (
       <a href={raw} target="_blank" rel="noopener noreferrer"
         data-testid={`adv-link-${f.id}`} style={linkStyle}>{text}</a>
+    );
+  }
+
+  // FIELD-PALETTE — video embed. Display-only; persists no answer. The owner
+  // pastes a YouTube/Vimeo URL which is parsed into a sandboxed embed src
+  // (only those two hosts are ever produced — no arbitrary-iframe injection).
+  // Renders a responsive 16:9 iframe; an empty / unparseable URL shows a
+  // small placeholder so owners can SEE the slot before pasting a link.
+  if (f.type === 'video') {
+    const embedSrc = parseVideoEmbedSrc(f.videoUrl);
+    const caption = (f.videoCaption ?? '').trim();
+    const title = (f.label ?? '').trim() || 'Embedded video';
+    if (!embedSrc) {
+      return (
+        <div
+          data-testid={`adv-video-${f.id}`}
+          style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', gap: 4,
+            padding: '24px 12px',
+            border: `1px dashed ${c.border}`, borderRadius: radiusPx,
+            color: c.textMuted, fontSize: '12px', fontFamily,
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: '22px' }}>▷</span>
+          <span>Add a YouTube or Vimeo URL in the field settings.</span>
+        </div>
+      );
+    }
+    return (
+      <figure
+        data-testid={`adv-video-${f.id}`}
+        style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}
+      >
+        <div
+          style={{
+            position: 'relative', width: '100%', aspectRatio: '16 / 9',
+            borderRadius: radiusPx, overflow: 'hidden',
+            background: c.surface,
+          }}
+        >
+          <iframe
+            src={embedSrc}
+            title={title}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              border: 'none',
+            }}
+          />
+        </div>
+        {caption ? (
+          <figcaption style={{
+            fontSize: '12px', color: c.textMuted, lineHeight: 1.45,
+            fontFamily,
+          }}>{caption}</figcaption>
+        ) : null}
+      </figure>
     );
   }
 

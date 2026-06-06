@@ -71,7 +71,10 @@ export type PublicFieldType =
   // BUILDER-COMPONENTS — content/CTA components (no calc contribution):
   //  - `button` → canonical 'button' (tappable action button)
   //  - `link`   → canonical 'link' (inline text anchor)
-  | 'button' | 'link';
+  | 'button' | 'link'
+  // FIELD-PALETTE — `toggle` (already an engine type, now surfaced in the
+  // picker) + new `video` content type (YouTube / Vimeo embed).
+  | 'toggle' | 'video';
 
 export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']> = {
   slider: 'slider',
@@ -87,6 +90,8 @@ export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']
   image: 'image',
   button: 'button',
   link: 'link',
+  toggle: 'toggle',
+  video: 'video',
 };
 
 export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicFieldType>> = {
@@ -103,6 +108,8 @@ export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicF
   image: 'image',
   button: 'button',
   link: 'link',
+  toggle: 'toggle',
+  video: 'video',
 };
 
 /** Header overrides — Wave H4. Both optional; blank values fall back to

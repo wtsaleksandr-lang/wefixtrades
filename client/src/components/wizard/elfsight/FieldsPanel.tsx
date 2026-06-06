@@ -96,6 +96,17 @@ export function makeField(publicType: PublicFieldType): TemplateField {
         id, name: 'Link', label: 'Visit our website', type: 'link',
         href: '',
       };
+    // FIELD-PALETTE — surface the existing engine types in the picker.
+    case 'toggle':
+      return {
+        id, name: 'Toggle', label: 'Yes / no option', type: 'toggle',
+        on_value: 0, default_value: 0,
+      };
+    case 'video':
+      return {
+        id, name: 'Video', label: 'Video', type: 'video',
+        videoUrl: '', videoCaption: '',
+      };
   }
 }
 
