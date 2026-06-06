@@ -631,6 +631,10 @@ export default function StyleTab({
           />
         </legend>
         <div className="qq-style-group-body">
+        {/* Apple/Tesla minimalism — only the three colours that matter most
+            (Accent, Background, Text) show by default. The other five live
+            behind a single "More colours" disclosure below. Every swatch
+            stays fully editable; theme presets already cover most users. */}
         <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-row">
           {/* CONTRAST-3 — every readable-by-design swatch declares its
               expected pair so the popover surfaces a live ratio + a
@@ -660,17 +664,6 @@ export default function StyleTab({
             pairRole="bg"
           />
           <ColourSwatch
-            icon={Box}
-            label="Surface"
-            testid="style-input-surface"
-            value={surface}
-            fallback={TOKEN_FALLBACKS.surface}
-            onChange={(v) => patch({ surface: v })}
-            pairColour={text}
-            pairLabel="body text"
-            pairRole="bg"
-          />
-          <ColourSwatch
             icon={Type}
             label="Text"
             testid="style-input-text"
@@ -681,54 +674,72 @@ export default function StyleTab({
             pairLabel="surface"
             pairRole="fg"
           />
-          <ColourSwatch
-            icon={Receipt}
-            label="Results bg"
-            testid="style-input-resultsbg"
-            value={resultsBg}
-            fallback={DEFAULT_SHELL_STYLE.resultsBg}
-            onChange={(v) => patch({ resultsBg: v })}
-            pairColour={text}
-            pairLabel="result text"
-            pairRole="bg"
-          />
-          {/* Row 2 — secondary tokens. 4 items: Border, Success, Error,
-              and a placeholder slot (intentionally empty for now —
-              keeps the 5+4 grid balanced. Future colour tokens slot in
-              here without re-flowing the layout). */}
-          <ColourSwatch
-            icon={Frame}
-            label="Border"
-            testid="style-input-border"
-            value={borderColour}
-            fallback={TOKEN_FALLBACKS.border}
-            onChange={(v) => patch({ border: v })}
-          />
-          <ColourSwatch
-            icon={CheckCircle2}
-            label="Success"
-            testid="style-input-success"
-            value={success}
-            fallback={TOKEN_FALLBACKS.success}
-            onChange={(v) => patch({ success: v })}
-            onOpen={() => setGhost('success')}
-            pairColour="#ffffff"
-            pairLabel="badge text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={XCircle}
-            label="Error"
-            testid="style-input-error"
-            value={errorColour}
-            fallback={TOKEN_FALLBACKS.error}
-            onChange={(v) => patch({ error: v })}
-            onOpen={() => setGhost('error')}
-            pairColour="#ffffff"
-            pairLabel="badge text"
-            pairRole="bg"
-          />
         </div>
+        {/* The remaining five tokens (Surface, Border, Success, Error,
+            Results bg) are advanced — hidden by default behind one
+            disclosure, but unchanged in rendering / testids / handlers. */}
+        <AdvancedSection
+          id="style-colours-more"
+          label="More colours"
+          hint="surface, border, success, error, result panel"
+        >
+          <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-more-row">
+            <ColourSwatch
+              icon={Box}
+              label="Surface"
+              testid="style-input-surface"
+              value={surface}
+              fallback={TOKEN_FALLBACKS.surface}
+              onChange={(v) => patch({ surface: v })}
+              pairColour={text}
+              pairLabel="body text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={Frame}
+              label="Border"
+              testid="style-input-border"
+              value={borderColour}
+              fallback={TOKEN_FALLBACKS.border}
+              onChange={(v) => patch({ border: v })}
+            />
+            <ColourSwatch
+              icon={CheckCircle2}
+              label="Success"
+              testid="style-input-success"
+              value={success}
+              fallback={TOKEN_FALLBACKS.success}
+              onChange={(v) => patch({ success: v })}
+              onOpen={() => setGhost('success')}
+              pairColour="#ffffff"
+              pairLabel="badge text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={XCircle}
+              label="Error"
+              testid="style-input-error"
+              value={errorColour}
+              fallback={TOKEN_FALLBACKS.error}
+              onChange={(v) => patch({ error: v })}
+              onOpen={() => setGhost('error')}
+              pairColour="#ffffff"
+              pairLabel="badge text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={Receipt}
+              label="Results bg"
+              testid="style-input-resultsbg"
+              value={resultsBg}
+              fallback={DEFAULT_SHELL_STYLE.resultsBg}
+              onChange={(v) => patch({ resultsBg: v })}
+              pairColour={text}
+              pairLabel="result text"
+              pairRole="bg"
+            />
+          </div>
+        </AdvancedSection>
         </div>
       </fieldset>
 
