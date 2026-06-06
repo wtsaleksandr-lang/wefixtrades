@@ -76,7 +76,7 @@ import { sanitizeRichHtml, richHtmlToPlainText } from '@/components/wizard/elfsi
 // is self-healing against bright-on-bright Brand Studio picks. The
 // original user-saved tokens are NOT mutated — only the final rendered
 // colour is corrected. See `client/src/lib/contrastGuard.ts`.
-import { guardTextColor, getRelativeLuminance } from '@/lib/contrastGuard';
+import { guardTextColor, getRelativeLuminance, darkenBgForWhiteText } from '@/lib/contrastGuard';
 
 /**
  * BD-3d — owner-configured heading/footer/title/subtitle may be rich HTML
@@ -1814,10 +1814,22 @@ export default function AdvancedCalculator({
   // white. `guardTextColor` (applied below as `ctaFgGuarded`) enforces the
   // contrast floor on top. Templates that DON'T set `ctaColor` fall through
   // to the exact legacy derivation — no regression.
-  const ctaBg = style.ctaColor ?? (resultTinted && resultIsDark ? '#ffffff' : accent);
+  const ctaBgRaw = style.ctaColor ?? (resultTinted && resultIsDark ? '#ffffff' : accent);
   const ctaFg = style.ctaColor !== undefined
     ? (getRelativeLuminance(style.ctaColor) >= 0.5 ? 'rgb(17,17,17)' : 'rgb(255,255,255)')
     : (resultTinted && resultIsDark ? c.result : '#ffffff');
+  // CONTRAST — when the resolved CTA foreground is WHITE (the legacy
+  // white-on-accent path, or a custom DARK `ctaColor` that derived white text),
+  // mid-tone accent fills (orange #E8821E, green #2E9E3F, red #ED3237) leave
+  // white below WCAG AA (≈2.7–4.1:1). Deepen the rendered button background just
+  // until white clears 4.5:1, preserving the "white on brand colour" button.
+  // `darkenBgForWhiteText` is a no-op when the fill is already dark enough, so
+  // dark accents / dark custom ctaColors are unchanged. The dark-text-on-bright
+  // path (e.g. yellow ctaColor → rgb(17,17,17)) is NOT touched — those pass and
+  // the condition below excludes them. `ctaFgGuarded` (computed later) derives
+  // against this darkened `ctaBg`, so the label is evaluated on the final fill.
+  const ctaFgIsWhite = ctaFg === '#ffffff' || ctaFg === 'rgb(255,255,255)';
+  const ctaBg = ctaFgIsWhite ? darkenBgForWhiteText(ctaBgRaw, 4.5) : ctaBgRaw;
   const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail.trim());
   const leadReady = leadName.trim() !== '' && leadEmailOk;
   const leadInputStyle: React.CSSProperties = {
@@ -1873,7 +1885,22 @@ export default function AdvancedCalculator({
   // through to the existing renderer default when absent. We compute the
   // tokens here so the JSX block below stays readable.
   const rpAccent = bsResultPanel?.accentOverride ?? accent;
-  const rpBg = bsResultPanel?.bgOverride ?? c.result;
+  // CONTRAST — result-panel background. When the panel intends WHITE text (a
+  // DARK-classified tint, per `resultTinted && resultIsDark` below — the same
+  // branch that drives the white dividers / white CTA), mid-tone brand colours
+  // (light-blue #29ABE2, teal #1A9B8E, green #4A7A4E) classify as "dark" but
+  // aren't dark enough for white text to clear WCAG AA (≈2.6–4.0:1). We deepen
+  // the RENDERED panel background just until white reaches 4.5:1, keeping the
+  // "white on brand colour" look — only a touch richer. `darkenBgForWhiteText`
+  // returns the input UNCHANGED when it already passes (navy/charcoal/olive →
+  // no change). LIGHT tints with DARK text (resultIsDark false) are untouched.
+  // Critically, this runs BEFORE the text tokens below derive against `rpBg`,
+  // so resultText/resultMuted/resultValueColor/headlineTotalColor are all
+  // evaluated against — and stay white on — the darkened surface.
+  const rpBgRaw = bsResultPanel?.bgOverride ?? c.result;
+  const rpBg = resultTinted && resultIsDark
+    ? darkenBgForWhiteText(rpBgRaw, 4.5)
+    : rpBgRaw;
   const rpEmphasis: AdvResultEmphasis = bsResultPanel?.emphasis ?? 'normal';
   const rpBorderMode: AdvResultBorder = bsResultPanel?.border ?? 'subtle';
   const rpHeadlineWeight = rpEmphasis === 'bold' ? 900

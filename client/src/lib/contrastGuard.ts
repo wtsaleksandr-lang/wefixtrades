@@ -225,6 +225,56 @@ export function ensureReadableText(
 }
 
 /**
+ * Darken a BACKGROUND colour toward black just until WHITE text (#ffffff)
+ * reaches `ratio` contrast against it. Returns `bg` UNCHANGED when it already
+ * passes, so callers can apply it unconditionally with zero visual change for
+ * backgrounds that are already dark enough.
+ *
+ * This is the inverse strategy of `ensureReadableText`: instead of moving the
+ * TEXT colour, we keep the text white and deepen the brand-coloured panel/CTA
+ * surface a touch. The hue is preserved as well as RGB-space scaling allows —
+ * each step multiplies the channels toward 0, so a mid-tone blue stays blue,
+ * just richer. Unparseable input is returned untouched (the caller's existing
+ * fallback chain handles it). Pure — no mutation, no side effects.
+ *
+ * The reference colour is the same `#ffffff` white the guard already uses as a
+ * contrast target throughout this module — it is the measurement reference, not
+ * a UI literal.
+ */
+const DARKEN_REFERENCE_WHITE = '#ffffff';
+/** Multiplicative darkening step — channels scale by this factor per pass.
+ *  ~0.92 keeps each step subtle so we stop close to the minimum passing shade
+ *  rather than overshooting into near-black. */
+const DARKEN_FACTOR = 0.92;
+/** Iteration cap — convergence to ~black happens well before this; the cap is
+ *  a paranoia bound mirroring MAX_ITERATIONS. */
+const DARKEN_MAX_ITERATIONS = 40;
+
+export function darkenBgForWhiteText(bg: string, ratio = 4.5): string {
+  const rgb = parseColor(bg);
+  // Unparseable — leave it to the caller's fallback chain.
+  if (!rgb) return bg;
+
+  // Already passes — no visual change.
+  if (getContrastRatio(DARKEN_REFERENCE_WHITE, bg) >= ratio) return bg;
+
+  let current: Rgb = { ...rgb };
+  for (let i = 0; i < DARKEN_MAX_ITERATIONS; i++) {
+    current = {
+      r: clamp255(current.r * DARKEN_FACTOR),
+      g: clamp255(current.g * DARKEN_FACTOR),
+      b: clamp255(current.b * DARKEN_FACTOR),
+    };
+    const hex = rgbToHex(current);
+    if (getContrastRatio(DARKEN_REFERENCE_WHITE, hex) >= ratio) return hex;
+    // Converged to pure black — can't get darker; return it.
+    if (current.r === 0 && current.g === 0 && current.b === 0) return hex;
+  }
+  // Cap hit (shouldn't happen — black clears any ratio) — return darkest step.
+  return rgbToHex(current);
+}
+
+/**
  * Dev-mode logger: warns once per (fg, bg, corrected) tuple when a
  * correction happens in non-production. The Set lives at module scope so
  * repeated renders of the same widget instance don't spam the console.
