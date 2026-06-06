@@ -722,7 +722,10 @@ const groupHeaderStyle = (c: WidgetTheme, bodyIsDark: boolean): React.CSSPropert
     'groupHeader',
   ),
   display: 'block',
-  marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em',
+  // Sentence case (natural config casing) to MATCH the stacked select labels —
+  // every field/group caption in the widget now uses one consistent treatment
+  // (was uppercase here, sentence-case on selects → inconsistent).
+  marginBottom: '8px', letterSpacing: '0.02em',
   textAlign: 'center',
 });
 
@@ -2413,12 +2416,18 @@ export default function AdvancedCalculator({
           only signal not already covered by the per-template trustBadges
           array, hence the synthesis. Wraps to multiple rows on narrow
           widths; absent + no profile data → renders null. */}
-      <TrustBadgeRow
-        badges={advanced.trustBadges}
-        businessProfile={advanced.businessProfile}
-        theme={cc}
-        fontFamily={fontFamily}
-      />
+      {/* Only render the trust strip when the owner hasn't disabled it.
+          `showTrustBadges` is defined on AdvStyle by the editor (sibling); read
+          loosely so this compiles regardless of when that field lands, and
+          treat `!== false` as "show" (default-on). */}
+      {(style as { showTrustBadges?: boolean }).showTrustBadges !== false && (
+        <TrustBadgeRow
+          badges={advanced.trustBadges}
+          businessProfile={advanced.businessProfile}
+          theme={cc}
+          fontFamily={fontFamily}
+        />
+      )}
       {/* BD-2a — stepper progress indicator. Rendered when the multi-step
           renderer is active (default for every template; owner can opt to
           single-form via Style tab → Step layout). The indicator sits
@@ -2715,6 +2724,10 @@ export default function AdvancedCalculator({
                 theme={cc}
                 fontFamily={fontFamily}
                 radiusPx={radiusInnerPx}
+                // Selected tier card paints with the SAME darkened/guarded
+                // colour the CTA button uses, so the chosen tier matches the
+                // CTA instead of the raw (brighter) accent.
+                selectedBg={ctaBg}
                 formatPrice={(value) =>
                   effectiveRangeMode?.enabled
                     ? formatResultRange(
@@ -3626,7 +3639,8 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             // The stacked branch reuses stackedLabelStyle, already guarded.
             fontSize: '11px', fontWeight: 600,
             color: guardTextColor(c.textMuted, c.bg, 'sliderLabelResting'),
-            textTransform: 'uppercase', letterSpacing: '0.04em',
+            // Sentence case to match every other field/group label (was uppercase).
+            letterSpacing: '0.02em',
           }}>{f.label}</span>
           <span style={stacked ? {
             fontSize: '13px', fontWeight: 700, color: c.text, fontFamily: eff.fontMono,
@@ -3682,7 +3696,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
           background: isOutline ? 'transparent' : c.surface,
           border: isOutline ? `2px solid ${c.border}` : `1px solid ${c.border}`,
         }}>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: c.text }}>{on ? 'Included' : 'Not included'}</span>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: c.text, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{on ? 'Included' : 'Not included'}</span>
           <button type="button" onClick={() => onChange(!on)} aria-pressed={on}
           style={{
             width: '44px', height: '26px', borderRadius: '13px', border: 'none', flexShrink: 0,
@@ -3776,9 +3790,16 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
                   // Outline → c.bg (transparent shows body through), else surface.
                   const optBg = isOutline ? c.bg : c.surface;
                   const optColor = guardTextColor(c.text, optBg, 'radioOptionLabel');
+                  // One clean line — ellipsis instead of wrapping to 2 rows.
+                  // minWidth:0 lets the span shrink so ellipsis engages and the
+                  // control + label row stays aligned.
+                  const optLabelStyle: React.CSSProperties = {
+                    fontSize: '14px', color: optColor,
+                    minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  };
                   return rp.__html
-                    ? <span style={{ fontSize: '14px', color: optColor }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '14px', color: optColor }}>{rp.text}</span>;
+                    ? <span style={optLabelStyle} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={optLabelStyle}>{rp.text}</span>;
                 })()}
               </button>
             );
@@ -3839,9 +3860,14 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
                   // white text invisible on the near-white fill).
                   const cardBg = isOutline ? c.bg : c.surface;
                   const cardColor = guardTextColor(c.text, cardBg, 'imageChoiceCardLabel');
+                  // One clean line — ellipsis if the label is too long for the card.
+                  const cardLabelStyle: React.CSSProperties = {
+                    fontSize: '13px', fontWeight: 600, color: cardColor,
+                    maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  };
                   return rp.__html
-                    ? <span style={{ fontSize: '13px', fontWeight: 600, color: cardColor }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '13px', fontWeight: 600, color: cardColor }}>{rp.text}</span>;
+                    ? <span style={cardLabelStyle} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={cardLabelStyle}>{rp.text}</span>;
                 })()}
               </button>
             );
@@ -3924,9 +3950,14 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
                   // c.bg (body shows through), else c.surface.
                   const optBg = isOutline ? c.bg : c.surface;
                   const optColor = guardTextColor(c.text, optBg, 'multiSelectOptionLabel');
+                  // Single line + ellipsis (parent column already minWidth:0).
+                  const msLabelStyle: React.CSSProperties = {
+                    fontSize: '14px', color: optColor,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  };
                   return rp.__html
-                    ? <span style={{ fontSize: '14px', color: optColor }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '14px', color: optColor }}>{rp.text}</span>;
+                    ? <span style={msLabelStyle} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={msLabelStyle}>{rp.text}</span>;
                 })()}
                 {(o as any).description && (() => {
                   const rp = richTextRenderProps((o as any).description as string);

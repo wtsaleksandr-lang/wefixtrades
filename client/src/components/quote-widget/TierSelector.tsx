@@ -17,6 +17,7 @@
 import type { CSSProperties } from 'react';
 import type { TemplateTier } from '@shared/templatePresets';
 import type { WidgetTheme } from './widgetThemes';
+import { guardTextColor } from '@/lib/contrastGuard';
 
 interface Props {
   /** Resolved tier list (3 entries by default — Essential / Standard / Premium). */
@@ -40,6 +41,13 @@ interface Props {
    * `numberFormat` or `band_pct`.
    */
   formatPrice: (value: number) => string;
+  /**
+   * The EXACT resolved background colour the CTA button uses (the darkened,
+   * WCAG-guarded accent from AdvancedCalculator's `ctaBg`). The selected tier
+   * card paints with this so it visually matches the CTA instead of the raw
+   * bright accent. Falls back to `theme.accent` when not provided.
+   */
+  selectedBg?: string;
 }
 
 /** Round `n` to the nearest $25 — matches the W-BB-3 range-mode rounding. */
@@ -56,7 +64,17 @@ export default function TierSelector({
   fontFamily,
   radiusPx = '10px',
   formatPrice,
+  selectedBg,
 }: Props) {
+  // Selected card fill = the EXACT colour the CTA button uses, so the chosen
+  // tier matches the CTA (was raw theme.accent → brighter than the darkened
+  // CTA + sub-AA white text). Fall back to accent when no CTA colour is passed.
+  const selBg = selectedBg ?? theme.accent;
+  // White-family text guarded against the resolved selected fill so the
+  // label / price / tagline / badge always clear contrast on `selBg`.
+  const selLabelColor = guardTextColor('rgba(255,255,255,0.92)', selBg, 'tierSelectedLabel');
+  const selPriceColor = guardTextColor('rgba(255,255,255,1)', selBg, 'tierSelectedPrice');
+  const selTaglineColor = guardTextColor('rgba(255,255,255,0.85)', selBg, 'tierSelectedTagline');
   return (
     <div
       data-testid="tier-selector"
@@ -65,10 +83,16 @@ export default function TierSelector({
       data-theme="light"
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        // ONE column on narrow widgets (the min(100%,200px) forces a single
+        // full-width track when the container is < ~400px) and up to 3 across
+        // on wide containers — fixes the 2+1 orphan on ~330px mobile.
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
         gap: 10,
         width: '100%',
         marginTop: 4,
+        // Clearance so the -10px "Most Popular" badge is never clipped at the
+        // top by the result panel above.
+        paddingTop: 14,
         fontFamily,
       }}
     >
@@ -83,22 +107,23 @@ export default function TierSelector({
           gap: 4,
           padding: '14px 12px 12px',
           borderRadius: radiusPx,
-          // Selected tier = solid accent fill so it's clearly chosen AND keeps
-          // white text high-contrast on any result-panel colour (the old faint
-          // accentTint went blue-on-blue on the premium dark-blue panel).
-          background: isSelected ? theme.accent : theme.surface,
+          // Selected tier = the EXACT CTA fill (selBg) so the chosen card
+          // matches the CTA button; guarded white text keeps it high-contrast.
+          background: isSelected ? selBg : theme.surface,
           border: isSelected
-            ? `2px solid ${theme.accent}`
+            ? `2px solid ${selBg}`
             : `1px solid ${theme.border}`,
-          // BD-2b — middle / "Most Popular" tier slightly elevated so it
-          // anchors choice. Subtle shadow boost when not also selected.
+          // BD-2b — middle / "Most Popular" tier elevated so it anchors choice.
+          // Emphasis is carried by border + a deeper shadow only (the old
+          // scale(1.04) was removed — it overflowed the grid cell and clipped
+          // the badge). Slightly stronger shadow on the popular card replaces
+          // the lost lift.
           boxShadow: isMostPopular && !isSelected
-            ? '0 6px 16px rgba(13, 60, 252, 0.10)'
+            ? '0 8px 20px rgba(13, 60, 252, 0.14)'
             : isSelected
               ? '0 8px 20px rgba(13, 60, 252, 0.16)'
               : '0 1px 2px rgba(0,0,0,0.04)',
-          transform: isMostPopular ? 'scale(1.04)' : 'scale(1)',
-          transition: 'transform 150ms ease-out, box-shadow 150ms ease-out, border-color 150ms ease-out',
+          transition: 'box-shadow 150ms ease-out, border-color 150ms ease-out',
           cursor: 'pointer',
           textAlign: 'left',
           color: theme.text,
@@ -125,8 +150,8 @@ export default function TierSelector({
                   top: -10,
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  background: theme.accent,
-                  color: '#ffffff',
+                  background: selBg,
+                  color: guardTextColor('#ffffff', selBg, 'tierPopularBadge'),
                   fontSize: 10,
                   fontWeight: 800,
                   letterSpacing: '0.04em',
@@ -144,7 +169,7 @@ export default function TierSelector({
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: isSelected ? "rgba(255,255,255,0.92)" : theme.textMuted,
+                color: isSelected ? selLabelColor : theme.textMuted,
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
                 marginTop: isMostPopular ? 4 : 0,
@@ -157,7 +182,7 @@ export default function TierSelector({
               style={{
                 fontSize: 18,
                 fontWeight: 800,
-                color: isSelected ? "rgba(255,255,255,1)" : theme.text,
+                color: isSelected ? selPriceColor : theme.text,
                 lineHeight: 1.15,
                 wordBreak: 'break-word',
               }}
@@ -168,7 +193,7 @@ export default function TierSelector({
               <span
                 style={{
                   fontSize: 11,
-                  color: isSelected ? "rgba(255,255,255,0.85)" : theme.textMuted,
+                  color: isSelected ? selTaglineColor : theme.textMuted,
                   lineHeight: 1.4,
                 }}
               >
