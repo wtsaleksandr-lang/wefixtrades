@@ -22,8 +22,7 @@ export default function RankFlowIllustration({ size = 480 }: Props) {
     <svg
       viewBox="0 0 480 360"
       width="100%"
-      height="auto"
-      style={{ display: "block", maxWidth: size }}
+      style={{ display: "block", height: "auto", maxWidth: size }}
       role="img"
       aria-label="RankFlow"
     >

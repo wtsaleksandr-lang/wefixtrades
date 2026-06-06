@@ -49,8 +49,7 @@ export default function AdFlowIllustration({ size = 480 }: Props) {
     <svg
       viewBox={`0 0 ${VW} ${VH}`}
       width="100%"
-      height="auto"
-      style={{ display: "block", maxWidth: size }}
+      style={{ display: "block", height: "auto", maxWidth: size }}
       role="img"
       aria-label="AdFlow"
     >
