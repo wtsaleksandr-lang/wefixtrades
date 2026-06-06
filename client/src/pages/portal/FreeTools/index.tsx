@@ -9,6 +9,8 @@ import {
   Star,
   SplitSquareHorizontal,
   TrendingUp,
+  Camera,
+  CalendarClock,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -130,6 +132,24 @@ const TOOLS: Tool[] = [
     icon: TrendingUp,
     status: "available",
     href: "/portal/free-tools/stats",
+  },
+  {
+    slug: "photo-quote",
+    title: "Photo-quote Intake",
+    description:
+      "A job-intake form where customers attach photos so you can quote without a site visit.",
+    icon: Camera,
+    status: "available",
+    href: "/portal/free-tools/photo-quote",
+  },
+  {
+    slug: "booking",
+    title: "Appointment Booking",
+    description:
+      "Let customers request a service slot — pick a day, time window and service type.",
+    icon: CalendarClock,
+    status: "available",
+    href: "/portal/free-tools/booking",
   },
 ];
 
