@@ -238,6 +238,21 @@ export interface ShellSettings {
    */
   ctaLabel?: string;
   /**
+   * Action tab — Submit-button card. Success line shown after the lead form
+   * is submitted (maps to `results.submit_success` → LeadModal's success
+   * copy). Absent → the LeadModal default
+   * ("Thanks — we'll be in touch shortly."). The button TEXT itself is NOT a
+   * separate key — it reuses `ctaLabel` above (no duplicate state).
+   */
+  submitSuccessText?: string;
+  /**
+   * Action tab — Spam protection. Client-side honeypot on the lead form.
+   * `true`/undefined → ON (protect by default); `false` → OFF. When ON the
+   * LeadModal renders an off-screen, aria-hidden honeypot input; a filled
+   * value silently drops the submission. Maps to `advanced.spamProtection`.
+   */
+  spamProtection?: boolean;
+  /**
    * Action tab — follow-up behaviour after the customer sees their quote.
    *   'lead-form' (default) — collect Name / Email / Phone and notify.
    *   'redirect'            — send the customer to `redirectUrl`.

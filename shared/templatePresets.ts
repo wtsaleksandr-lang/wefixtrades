@@ -330,6 +330,11 @@ export interface TemplateResults {
    */
   cta_heading?: string;
   cta_sub?: string;
+  /**
+   * Action tab — success line shown in the lead-capture modal after a
+   * successful submit. Absent → the modal's built-in default copy.
+   */
+  submit_success?: string;
 }
 
 /* ─── Stepper (BD-2a — multi-step renderer) ─── */
@@ -4454,6 +4459,12 @@ export interface AdvancedConfigShape {
    *  through verbatim by `toAdvancedConfig`; rendered as a pill row by the
    *  widget header. Absent → no badge row. */
   trustBadges?: readonly TrustBadge[];
+  /**
+   * Action tab — client-side spam honeypot on the lead-capture modal.
+   * Absent / `true` → ON (protect by default); explicit `false` → OFF.
+   * No backend involvement.
+   */
+  spamProtection?: boolean;
 }
 
 /* ─── W-BB-2 — Per-category visual identity (derived at load time) ───

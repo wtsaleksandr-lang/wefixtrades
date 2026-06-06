@@ -1379,6 +1379,19 @@ export default function PreviewPane({
           results: { ...(merged.results ?? {}), cta_label: cta },
         };
       }
+      // Action tab — Submit-button success copy + Spam-protection honeypot flag.
+      const submitSuccess = (settings?.submitSuccessText ?? '').trim();
+      if (submitSuccess !== '') {
+        merged = {
+          ...merged,
+          results: { ...(merged.results ?? {}), submit_success: submitSuccess },
+        };
+      }
+      // spamProtection defaults ON; only thread an explicit `false` (the
+      // renderer treats absent as ON) so a disabled honeypot is previewed too.
+      if (settings?.spamProtection === false) {
+        merged = { ...merged, spamProtection: false };
+      }
     }
     return {
       id: -1,

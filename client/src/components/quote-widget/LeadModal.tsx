@@ -124,6 +124,22 @@ export interface LeadModalProps {
   subcopy?: string;
   /** Optional submit-button label override; defaults to "Send my request". */
   submitLabel?: string;
+  /**
+   * Action tab — owner-configured success line shown after a successful
+   * submit. When absent, the built-in default copy ("We've got your request…")
+   * is used. (Named `successMessage` to avoid colliding with the internal
+   * `successText` colour token computed below.)
+   */
+  successMessage?: string;
+  /**
+   * Action tab — client-side spam honeypot. When `true` (default), an
+   * off-screen, aria-hidden, non-tabbable input is rendered; if a bot fills
+   * it, `handleSubmit` silently drops the submission (no network call, no
+   * error shown — the modal just flips to the success state so the bot can't
+   * tell it was blocked). Real customers never see or focus the field, so it
+   * never interferes with genuine submissions. No backend / no captcha.
+   */
+  honeypot?: boolean;
   /** Async callback fired with captured lead data. The parent is responsible
    *  for the actual POST to `/api/leads`. When absent (preview / wizard) the
    *  form flips to the success state without a network call. */
@@ -135,11 +151,16 @@ export default function LeadModal({
   heading = 'Almost there \u2014 where should we reach you?',
   subcopy = "Drop your details and we'll get back to you shortly.",
   submitLabel = 'Send my request',
+  successMessage,
+  honeypot = true,
   onSubmit,
 }: LeadModalProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  // Action tab \u2014 spam honeypot. A real user never sees or focuses this field,
+  // so a non-empty value means a bot auto-filled it \u2192 drop on submit.
+  const [hpValue, setHpValue] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -173,7 +194,7 @@ export default function LeadModal({
 
   // Reset to a clean form each time the modal is (re)opened.
   useEffect(() => {
-    if (open) { setSubmitted(false); setSubmitting(false); setSubmitError(null); setShowErrors(false); }
+    if (open) { setSubmitted(false); setSubmitting(false); setSubmitError(null); setShowErrors(false); setHpValue(''); }
   }, [open]);
 
   if (!open) return null;
@@ -196,6 +217,14 @@ export default function LeadModal({
 
   async function handleSubmit() {
     if (!ready) { setShowErrors(true); return; }
+    // Action tab — honeypot trip. A non-empty value means a bot auto-filled the
+    // hidden field (humans never see it). Silently flip to success WITHOUT
+    // calling onSubmit — the bot can't distinguish a drop from a real success,
+    // and no lead reaches the backend.
+    if (honeypot && hpValue.trim() !== '') {
+      setSubmitted(true);
+      return;
+    }
     const lead: Lead = { name: name.trim(), phone: phone.trim(), email: email.trim() };
     if (onSubmit) {
       setSubmitting(true);
@@ -287,7 +316,9 @@ export default function LeadModal({
               Thanks, {name.trim().split(' ')[0] || 'there'} — we'll be in touch.
             </p>
             <p style={{ fontSize: 13, color: successSub, margin: 0, lineHeight: 1.5 }}>
-              We've got your request and a team member will reach out shortly.
+              {successMessage && successMessage.trim() !== ''
+                ? successMessage
+                : "We've got your request and a team member will reach out shortly."}
             </p>
           </div>
         ) : (
@@ -326,6 +357,31 @@ export default function LeadModal({
                 invalid={showErrors && !emailOk}
               />
             </div>
+
+            {/* Action tab — spam honeypot. Off-screen + aria-hidden + tabIndex
+                -1 so humans never see, focus, or tab into it; bots that fill
+                every input trip it and the submission is silently dropped.
+                Deliberately NOT display:none (some bots skip those). */}
+            {honeypot && (
+              <input
+                type="text"
+                name="company_website"
+                data-testid="lead-modal-honeypot"
+                value={hpValue}
+                onChange={(e) => setHpValue(e.target.value)}
+                tabIndex={-1}
+                aria-hidden="true"
+                autoComplete="off"
+                style={{
+                  position: 'absolute',
+                  width: 1, height: 1,
+                  padding: 0, margin: -1, border: 0,
+                  left: '-9999px', top: 'auto',
+                  overflow: 'hidden', opacity: 0,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
 
             {showErrors && !ready && (
               <p

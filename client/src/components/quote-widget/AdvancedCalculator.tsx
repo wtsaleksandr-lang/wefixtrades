@@ -288,7 +288,10 @@ interface AdvCalc {
   divider?: boolean;
 }
 interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'center' | 'right'; }
-interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; cta_heading?: string; cta_sub?: string; }
+interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; cta_heading?: string; cta_sub?: string;
+  /** Action tab — success line shown in the lead modal after submit. Absent →
+   *  LeadModal's built-in default copy. */
+  submit_success?: string; }
 /**
  * Wave H6 — Settings tab number-format slot. Drives the renderer's
  * currency / number formatting independent of the user's browser locale.
@@ -368,6 +371,12 @@ export interface AdvancedConfig {
    * owner can override via the Style tab.
    */
   trustBadges?: readonly import('@shared/templatePresets').TrustBadge[];
+  /**
+   * Action tab — Spam protection. Client-side honeypot on the lead modal.
+   * Absent / `true` → ON (protect by default); `false` → OFF. Drives the
+   * LeadModal `honeypot` prop. No backend involvement.
+   */
+  spamProtection?: boolean;
 }
 
 interface Props {
@@ -3328,6 +3337,11 @@ export default function AdvancedCalculator({
         ctaFg={ctaFgGuarded}
         fontFamily={fontFamily}
         radiusPx={radiusInnerPx}
+        /* Action tab — owner success copy (absent → LeadModal default). */
+        successMessage={(results.submit_success || '').trim() || undefined}
+        /* Action tab — spam honeypot. Default ON (protect by default); only
+           an explicit `false` disables it. */
+        honeypot={advanced.spamProtection !== false}
         onSubmit={analyticsCalcId ? async (lead: Lead) => {
           const resp = await fetch('/api/leads', {
             method: 'POST',

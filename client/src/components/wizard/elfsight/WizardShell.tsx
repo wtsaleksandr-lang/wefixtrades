@@ -1024,8 +1024,19 @@ export default function WizardShell({ embed = false }: Props) {
       const advanced: Record<string, unknown> = {
         numberFormat: toAdvNumberFormat(settings.numberFormat),
       };
-      if (ctaLabel !== '') {
-        advanced.results = { cta_label: ctaLabel };
+      // Action tab — Submit-button card. CTA label reuses settings.ctaLabel
+      // (no duplicate state); the success line maps to results.submit_success.
+      const submitSuccess = (settings.submitSuccessText ?? '').trim();
+      if (ctaLabel !== '' || submitSuccess !== '') {
+        advanced.results = {
+          ...(ctaLabel !== '' ? { cta_label: ctaLabel } : {}),
+          ...(submitSuccess !== '' ? { submit_success: submitSuccess } : {}),
+        };
+      }
+      // Action tab — Spam protection honeypot. Default ON; persist only an
+      // explicit `false` (the renderer treats absent as ON).
+      if (settings.spamProtection === false) {
+        advanced.spamProtection = false;
       }
 
       // Wave H7 — surface the language pick as both a top-level

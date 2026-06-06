@@ -106,6 +106,10 @@ export default function ActionTab({
   const ctaLabel = settings.ctaLabel ?? '';
   const leadEmail = settings.leadEmail ?? '';
   const redirectUrl = settings.redirectUrl ?? '';
+  // Action tab — Submit button success line + Spam protection (default ON:
+  // absent honeypot flag is treated as enabled).
+  const submitSuccessText = settings.submitSuccessText ?? '';
+  const spamProtection = settings.spamProtection !== false;
 
   // ── Payment (relocated from StyleTab — style.deposit, AdvDeposit) ──
   const deposit: AdvDeposit = style.deposit ?? { enabled: false, amount: 200 };
@@ -513,11 +517,92 @@ export default function ActionTab({
               </div>
             </div>
 
-            {/* Coming-soon drill rows — layout parity only; not yet shipped. */}
+            {/* Submit button — real config (reuses settings.ctaLabel; adds
+                the post-submit success line). */}
+            <div className="qq-action-card" data-testid="action-group-submit">
+              <div className="qq-action-card-head">
+                <span className="qq-action-card-headicon" aria-hidden="true">
+                  <MousePointerClick size={16} />
+                </span>
+                <span className="qq-action-card-title">Submit button</span>
+                <InfoCue
+                  testid="action-section-submit"
+                  region="result"
+                  text="Customise the lead form's submit step. The button text reuses the call-to-action label above; the success message shows once the customer submits their details."
+                />
+              </div>
+              <div className="qq-action-card-body">
+                {/* Button text — wired to the SAME key the result CTA uses
+                    (settings.ctaLabel). No duplicate state. */}
+                <RichTextField
+                  label="Submit button text"
+                  htmlFor="qq-action-submit-label"
+                  value={ctaLabel}
+                  onChange={(next) => patch({ ctaLabel: next })}
+                  placeholder='Click to override (default: "Get My Quote")'
+                  infoText='The lead form / result button text. Shared with the call-to-action label — editing it here updates it everywhere. Leave blank for the default ("Get My Quote").'
+                  infoTestid="action-submit-label"
+                  infoRegion="sticky-footer"
+                  testid="action-input-submit-label"
+                  expansionMode="inline"
+                />
+                <div style={{ marginTop: 12 }}>
+                  <FloatField
+                    label="Success message"
+                    htmlFor="qq-action-submit-success"
+                    infoText="Shown after the customer submits the lead form. Leave blank to use the default (“Thanks — we'll be in touch shortly.”)."
+                    infoTestid="action-submit-success"
+                  >
+                    <input
+                      id="qq-action-submit-success"
+                      type="text"
+                      className="premium-input"
+                      maxLength={160}
+                      placeholder=" "
+                      value={submitSuccessText}
+                      onChange={(e) => patch({ submitSuccessText: e.target.value })}
+                      data-testid="action-input-submit-success"
+                    />
+                  </FloatField>
+                </div>
+              </div>
+            </div>
+
+            {/* Spam protection — real client-side honeypot (no backend). */}
+            <div className="qq-action-card" data-testid="action-group-spam">
+              <div className="qq-action-card-head">
+                <span className="qq-action-card-headicon" aria-hidden="true">
+                  <ShieldCheck size={16} />
+                </span>
+                <span className="qq-action-card-title">Spam protection</span>
+                <InfoCue
+                  testid="action-section-spam"
+                  region="result"
+                  text="Blocks spam bots with an invisible honeypot field — no captcha, no friction for real customers. Bots that auto-fill the hidden field are silently dropped; genuine submissions are never affected."
+                />
+              </div>
+              <div className="qq-action-card-body">
+                <label className="qq-action-toggle">
+                  <input
+                    type="checkbox"
+                    checked={spamProtection}
+                    onChange={(e) => patch({ spamProtection: e.target.checked })}
+                    data-testid="action-spam-enabled"
+                    aria-label="Enable spam protection"
+                  />
+                  <span className="qq-action-toggle-title">Block spam bots (honeypot)</span>
+                </label>
+                <p className="qq-action-seg-hint" data-testid="action-spam-hint">
+                  Adds an invisible field your customers never see. Bots fill it
+                  in and get silently dropped — no captcha, no extra step.
+                </p>
+              </div>
+            </div>
+
+            {/* Integrations genuinely needs a backend (webhook delivery
+                worker) — left as coming-soon. */}
             <div className="qq-action-soonrows" data-testid="action-group-soon">
-              <ComingSoonRow icon={MousePointerClick} label="Submit button" testid="action-row-submit" />
               <ComingSoonRow icon={Plug} label="Integrations" testid="action-row-integrations" />
-              <ComingSoonRow icon={ShieldCheck} label="Spam protection" testid="action-row-spam" />
             </div>
           </AdvancedSection>
         </>
