@@ -48,7 +48,7 @@ import ComponentPicker, { type ComponentPickerAnchor } from './ComponentPicker';
 import InlineStyleToolbar from './InlineStyleToolbar';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
-  ShellSettings, ShellNumberFormat, PublicFieldType,
+  ShellSettings, ShellNumberFormat, PublicFieldType, EditorTab,
 } from './types';
 import { DEFAULT_SHELL_NUMBER_FORMAT, DEVICE_PRESET_WIDTH } from './types';
 
@@ -107,6 +107,16 @@ interface Props {
    * scope-spectrum default. Optional; pass-through.
    */
   category?: string;
+  /**
+   * Click-to-edit (2026-06-06) — Apple/Tesla direct-manipulation. When the
+   * user taps a spot on the live preview mock-up that maps to an editor
+   * control, this fires with the editor TAB that edits it plus a `targetKey`
+   * locating the specific control to scroll-to + highlight. WizardShell
+   * switches to `tab`, then (desktop) scrolls/pulses the matching control, or
+   * (mobile) pulses that tab in the bottom bar and highlights the control once
+   * its sheet opens. Additive — never hijacks a drag / pencil-edit / resize.
+   */
+  onPreviewSpotEdit?: (tab: EditorTab, targetKey: string) => void;
   /** Wave I (f): remove a field from inside the preview overlay. */
   onRemoveField?: (fieldId: string) => void;
   /** Wave I (f): add a field via the in-preview +Add slot.
@@ -255,10 +265,68 @@ function loadZoom(sessionId: string): number {
 /** Resize handle directions. */
 type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
+/**
+ * Click-to-edit (2026-06-06) — map a clicked preview element to the editor
+ * {tab, targetKey} that edits it.
+ *
+ * Walks up from the click target to the nearest `[data-component-type]` the
+ * rendered widget stamps on its parts (see AdvancedCalculator / TierSelector /
+ * TrustBadgeRow / CTA …). `targetKey` is a stable string the WizardShell
+ * highlight logic resolves to a DOM node via `[data-edit-key="<key>"]` (anchors
+ * added to the panels we own) or, for fields, the existing
+ * `[data-testid="field-row-<id>"]` rows (passed through `field:<id>`).
+ *
+ * Field components are handled by the caller (it has the field-index → id
+ * mapping); this helper covers the non-field structural parts. Returns null
+ * when nothing confident matches — the caller then falls back to a tab-only
+ * switch so a stray click never errors.
+ */
+const COMPONENT_EDIT_MAP: Record<string, { tab: EditorTab; targetKey: string }> = {
+  // Header zone — title / subtitle / logo all live in Build (Titles & business).
+  header:   { tab: 'build', targetKey: 'header' },
+  title:    { tab: 'build', targetKey: 'header' },
+  subtitle: { tab: 'build', targetKey: 'header' },
+  logo:     { tab: 'build', targetKey: 'business' },
+  'category-icon': { tab: 'build', targetKey: 'business' },
+  // Result / pricing zone — Build > Titles & result text + Pricing.
+  results:  { tab: 'build', targetKey: 'results' },
+  // Tier (Good/Better/Best) cards are configured in Style > Pricing tiers.
+  'tier-selector': { tab: 'style', targetKey: 'tiered' },
+  // Stepper chrome — step content lives in Build.
+  stepper:  { tab: 'build', targetKey: 'fields' },
+  // CTA / contact step → Action tab.
+  cta:      { tab: 'action', targetKey: 'action' },
+  'contact-step': { tab: 'action', targetKey: 'action' },
+  'contact-step-container': { tab: 'action', targetKey: 'action' },
+  // Trust visuals → Style (badge editor).
+  'trust-badges': { tab: 'style', targetKey: 'trust-badges' },
+  'trust-strip':  { tab: 'style', targetKey: 'trust-badges' },
+  'trust-block':  { tab: 'style', targetKey: 'trust-badges' },
+  // Generic body click (not a field) → Build.
+  body:     { tab: 'build', targetKey: 'fields' },
+};
+
+/**
+ * Resolve a clicked element to its {tab, targetKey}. Fields (`field-*`
+ * component types) return `{ tab:'build', targetKey:'__field__' }` so the
+ * caller substitutes the precise `field:<id>` key from its index map.
+ */
+function mapPreviewSpot(
+  el: HTMLElement,
+): { tab: EditorTab; targetKey: string } | null {
+  const node = el.closest<HTMLElement>('[data-component-type]');
+  if (!node) return null;
+  const type = node.dataset.componentType ?? '';
+  // Per-field inputs are stamped `field-<type>` (e.g. field-slider). Defer the
+  // precise field id to the caller, which owns the index→id mapping.
+  if (type.startsWith('field-')) return { tab: 'build', targetKey: '__field__' };
+  return COMPONENT_EDIT_MAP[type] ?? null;
+}
+
 export default function PreviewPane({
   businessName, onBusinessNameChange, onHeaderTitleChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category,
-  onRemoveField, onAddField, onUpdateField,
+  onRemoveField, onAddField, onUpdateField, onPreviewSpotEdit,
   hostedFrame = false,
   sessionId = 'draft',
   floatingLauncherPreview = false,
@@ -1456,6 +1524,36 @@ export default function PreviewPane({
     previewBezelRef.current = el;
   };
 
+  // Click-to-edit (2026-06-06) — resolve a clicked preview element to the
+  // editor {tab, targetKey} and notify WizardShell so it can switch tab +
+  // scroll-to/pulse the responsible control. Field clicks resolve to the
+  // precise `field:<id>` key via the same data-colspan index logic the
+  // selection code uses; non-field parts go through the structural map.
+  // Returns true once a callback fired so the caller can avoid a duplicate.
+  const fireSpotEdit = useCallback((target: HTMLElement): boolean => {
+    if (!onPreviewSpotEdit) return false;
+    const spot = mapPreviewSpot(target);
+    if (!spot) return false;
+    let targetKey = spot.targetKey;
+    if (targetKey === '__field__') {
+      // Resolve the exact field id from the clicked cell's index (mirrors the
+      // selection logic). data-colspan cells are the field grid items.
+      const fieldCell = target.closest('[data-colspan]') as HTMLElement | null;
+      let fieldId: string | null = null;
+      if (fieldCell && fieldCell.parentElement) {
+        const cells = Array.from(
+          fieldCell.parentElement.querySelectorAll<HTMLElement>('[data-colspan]'),
+        );
+        const idx = cells.indexOf(fieldCell);
+        if (idx >= 0 && idx < shellFields.length) fieldId = shellFields[idx].id;
+      }
+      // Fall back to the Fields section when we can't pin the exact field.
+      targetKey = fieldId ? `field:${fieldId}` : 'fields';
+    }
+    onPreviewSpotEdit(spot.tab, targetKey);
+    return true;
+  }, [onPreviewSpotEdit, shellFields]);
+
   // Header and results regions overlay over the AdvancedCalculator. They're
   // identified by data-testid="advanced-title" and the result-panel container.
   // We attach click handlers via event delegation on the bezel.
@@ -1470,6 +1568,8 @@ export default function PreviewPane({
     if (target.closest('[data-testid="advanced-title-edit-hint"]')) {
       selection.select({ kind: 'header', id: '__header' });
       openTitleEditor();
+      // Click-to-edit — jump the editor to the header/title controls too.
+      fireSpotEdit(target);
       return;
     }
 
@@ -1491,6 +1591,11 @@ export default function PreviewPane({
           }
         }
       }
+      // Click-to-edit — a control click (field input, CTA button, tier radio,
+      // …) still maps to its editor spot. This is additive: the control's own
+      // interaction (typing, picking a tier) is unaffected — we only ALSO tell
+      // the shell which editor control governs it.
+      fireSpotEdit(target);
       return;
     }
     // Bezel chrome click also selects the widget so resize handles surface.
@@ -1501,6 +1606,9 @@ export default function PreviewPane({
       || target.closest('.qq-result-block');
     if (resultBlock) {
       selection.select({ kind: 'results', id: '__results' });
+      // Click-to-edit — jump to the result/pricing editor (falls back to the
+      // structural map's `results` key → Build > Titles & result text).
+      if (!fireSpotEdit(target) && onPreviewSpotEdit) onPreviewSpotEdit('build', 'results');
       return;
     }
     // Header region.
@@ -1508,6 +1616,7 @@ export default function PreviewPane({
     if (headerBlock) {
       selection.select({ kind: 'header', id: '__header' });
       openTitleEditor();
+      if (!fireSpotEdit(target) && onPreviewSpotEdit) onPreviewSpotEdit('build', 'header');
       return;
     }
     // Field region.
@@ -1519,6 +1628,10 @@ export default function PreviewPane({
         selection.select({ kind: 'field', id: shellFields[idx].id });
       }
     }
+    // Click-to-edit — any remaining mappable spot (tier cards, trust badges,
+    // CTA region, stepper chrome) routes to its tab. Falls through harmlessly
+    // when nothing maps.
+    fireSpotEdit(target);
   };
 
   // Wave L M1 — auto-zoom-out on mobile so the whole mockup fits.

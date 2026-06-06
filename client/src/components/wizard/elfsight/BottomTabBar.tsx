@@ -45,6 +45,13 @@ interface Props {
   onSelectTab: (tab: EditorTab) => void;
   /** Tap Help → open the editor help overlay. */
   onHelp: () => void;
+  /**
+   * Click-to-edit (2026-06-06) — when set, this tab briefly PULSES (accent
+   * glow) to hint that a spot the user just tapped on the preview is editable
+   * in that tab. The parent clears it on a timer / when the sheet opens. The
+   * pulse is purely a visual hint; it doesn't change which tab is active.
+   */
+  pulseTab?: EditorTab | null;
 }
 
 const TAB_ICON: Record<EditorTab, typeof SlidersHorizontal> = {
@@ -55,7 +62,7 @@ const TAB_ICON: Record<EditorTab, typeof SlidersHorizontal> = {
 };
 
 export default function BottomTabBar({
-  activeTab, sheetOpen, onSelectTab, onHelp,
+  activeTab, sheetOpen, onSelectTab, onHelp, pulseTab = null,
 }: Props) {
   return (
     <nav
@@ -69,6 +76,9 @@ export default function BottomTabBar({
         // Highlight only while the sheet is open on this tab — the default
         // full-preview state shows no active item (Elfsight parity).
         const isActive = sheetOpen && id === activeTab;
+        // Click-to-edit — pulse this tab when the parent flags it (and it's
+        // not the already-open active tab, where the pulse would be moot).
+        const isPulsing = pulseTab === id && !isActive;
         return (
           <button
             key={id}
@@ -76,7 +86,8 @@ export default function BottomTabBar({
             role="tab"
             aria-selected={isActive}
             data-testid={`editor-tab-${id}`}
-            className={`qq-bottom-tab${isActive ? ' is-active' : ''}`}
+            data-pulsing={isPulsing ? 'true' : undefined}
+            className={`qq-bottom-tab${isActive ? ' is-active' : ''}${isPulsing ? ' is-pulsing' : ''}`}
             onClick={() => onSelectTab(id)}
             title={label}
           >
@@ -168,6 +179,27 @@ export default function BottomTabBar({
             outline: 2px solid ${AE.color.accent};
             outline-offset: -2px;
             border-radius: 8px;
+          }
+          /* Click-to-edit — accent pulse hinting "the spot you tapped is
+             editable in this tab". Subtle (Apple-like): the icon brightens to
+             accent and a soft glow breathes a few times, then the parent
+             clears the flag. Disabled under prefers-reduced-motion (a steady
+             accent tint is shown instead so the hint still reads). */
+          .qq-bottom-tab.is-pulsing { color: rgba(255,255,255,0.95); }
+          .qq-bottom-tab.is-pulsing .qq-bottom-tab-icon {
+            color: ${AE.color.accent};
+            animation: qq-tab-pulse 0.9s ease-out 3;
+            border-radius: 10px;
+          }
+          @keyframes qq-tab-pulse {
+            0%   { transform: scale(1);    filter: drop-shadow(0 0 0 ${AE.color.accent}); }
+            35%  { transform: scale(1.18); filter: drop-shadow(0 0 6px ${AE.color.accent}); }
+            100% { transform: scale(1);    filter: drop-shadow(0 0 0 ${AE.color.accent}); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .qq-bottom-tab.is-pulsing .qq-bottom-tab-icon {
+              animation: none;
+            }
           }
         }
       `}</style>

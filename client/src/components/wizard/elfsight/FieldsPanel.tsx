@@ -119,6 +119,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
       data-theme="light"
       className="qq-fields-panel"
       data-testid="editor-fields-panel"
+      data-edit-key="fields"
       aria-label="Calculator fields"
     >
       <header className="qq-fields-header">
