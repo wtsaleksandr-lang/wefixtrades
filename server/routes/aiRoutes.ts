@@ -216,7 +216,7 @@ CALCULATIONS — named formulas, computed top to bottom (a later one may referen
 Formula syntax:
 - reference any field or earlier calculation by name in [square brackets]: [Number of rooms]
 - operators + - * / ^ and parentheses
-- functions: SUM, MIN, MAX, ROUND, ROUNDUP, ROUNDDOWN, ABS, IF, AND, OR, NOT, CONTAINS
+- functions: SUM, MIN, MAX, ROUND, ROUNDUP, ROUNDDOWN, ABS, IF, AND, OR, NOT, CONTAINS, MROUND (nearest multiple), CEILING (round up to multiple), FLOOR (round down to multiple), RAND (random 0-1), RANDBETWEEN (random integer in range)
 - comparisons inside IF: = != < > <= >=
 
 Rules:
@@ -286,7 +286,7 @@ What this formula should do: ${description}
 Formula syntax:
 - reference a field or earlier calculation by its exact name in [square brackets]
 - operators: + - * / ^ and parentheses
-- functions: SUM, MIN, MAX, ROUND, ROUNDUP, ROUNDDOWN, ABS, IF, AND, OR, NOT, CONTAINS
+- functions: SUM, MIN, MAX, ROUND, ROUNDUP, ROUNDDOWN, ABS, IF, AND, OR, NOT, CONTAINS, MROUND (nearest multiple), CEILING (round up to multiple), FLOOR (round down to multiple), RAND (random 0-1), RANDBETWEEN (random integer in range)
 - comparisons inside IF: = != < > <= >=
 
 Rules:

@@ -504,7 +504,48 @@ export const calculatorSettingsSchema = z.object({
     // persistence. `.passthrough()` keeps forward-compat for future Style
     // tokens without forcing a schema bump per wave.
     style: z.object({}).passthrough().optional(),
-  }).default({}),
+
+    // P0 data-loss fix (fix/wizard-persistence) — the editor authors all of
+    // these in the wizard, and the live preview renders them, but until now
+    // the SAVE payload omitted them AND this schema lacked explicit fields, so
+    // Zod's strip-unknown-keys behaviour silently dropped any that did get
+    // sent. They are now persisted by buildAdvancedConfig() and must survive
+    // parse() so the published widget renders the owner's real config.
+    //
+    // Shapes are intentionally permissive (.passthrough() per object / z.any()
+    // items) so they round-trip the rich `AdvancedConfigShape` slots
+    // (TemplateTiered, TrustBadge, TemplateStep, BusinessProfile) without this
+    // schema having to mirror every nested field — matching the `style`
+    // passthrough precedent above. The renderer is the source of truth for
+    // their shape.
+
+    // Fix 3 — stable headline-calc id. Resolved id → current calc name at
+    // render/load time so renaming the headline calc never re-points the
+    // result.
+    resultCalcId: z.string().optional(),
+    // BD-2b — Good/Better/Best 3-tier pricing config.
+    tiered: z.object({}).passthrough().optional(),
+    // BF-9 / BG-7 — owner-edited trust-badge pill row.
+    trustBadges: z.array(z.any()).optional(),
+    // BG-7 — owner-edited per-step content (descriptions).
+    steps: z.array(z.any()).optional(),
+    // BD-2a — owner override for the multi-step renderer.
+    stepLayout: z.enum(['stepper', 'single']).optional(),
+    // BD-2b — derived template category (drives tier/category defaults).
+    category: z.string().optional(),
+    // BD-2b — business profile (license #, rating, etc.) for the trust strip.
+    businessProfile: z.object({}).passthrough().optional(),
+    // BD-2c — render Google Places address autocomplete on the contact step.
+    requireAddress: z.boolean().optional(),
+    // W-AH-2 / BD-2a — header logo + category icon fallbacks.
+    defaultIcon: z.string().optional(),
+    categoryIcon: z.string().optional(),
+    // Action tab — client-side spam honeypot. Absent / true → ON; explicit
+    // false → OFF.
+    spamProtection: z.boolean().optional(),
+    // Forward-compat safety net — never silently drop a future authored slot
+    // the renderer adds to AdvancedConfigShape before this schema is bumped.
+  }).passthrough().default({}),
 
   ai_employee: z.object({
     enabled: z.boolean().default(false),

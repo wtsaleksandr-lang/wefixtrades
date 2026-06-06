@@ -35,7 +35,6 @@ import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import {
-  buildBlankPreviewConfig,
   type TemplateLayout, type TemplateField, type TemplateCalculation,
   type TemplateTiered,
 } from '@shared/templatePresets';
@@ -46,11 +45,12 @@ import PreviewOverlay from './PreviewOverlay';
 import AddFieldMenu from './AddFieldMenu';
 import ComponentPicker, { type ComponentPickerAnchor } from './ComponentPicker';
 import InlineStyleToolbar from './InlineStyleToolbar';
+import { buildAdvancedConfig } from './buildAdvancedConfig';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
-  ShellSettings, ShellNumberFormat, PublicFieldType, EditorTab,
+  ShellSettings, PublicFieldType, EditorTab,
 } from './types';
-import { DEFAULT_SHELL_NUMBER_FORMAT, DEVICE_PRESET_WIDTH } from './types';
+import { DEVICE_PRESET_WIDTH } from './types';
 
 const p = platformTheme;
 
@@ -153,13 +153,6 @@ interface Props {
   /** Corner the floating launcher docks to (matches BD-3m style config).
    *  Defaults to bottom-right when undefined. */
   floatingLauncherPosition?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
-}
-
-function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
-  return sep === 'comma' ? ',' : sep === 'space' ? ' ' : '';
-}
-function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
-  return sep === 'comma' ? ',' : '.';
 }
 
 /**
@@ -1304,95 +1297,18 @@ export default function PreviewPane({
   }, [onHandlePointerDown]);
 
   const previewCalculatorData = useMemo<CalculatorData>(() => {
-    const advanced = buildBlankPreviewConfig(layout, businessName);
-    let merged = fields !== undefined ? { ...advanced, fields } : advanced;
-    if (calculations && calculations.length > 0) {
-      const stillHasHeadline = calculations.some((c) => c.name === merged.result_calc);
-      merged = {
-        ...merged,
-        calculations,
-        result_calc: stillHasHeadline ? merged.result_calc : calculations[calculations.length - 1].name,
-      };
-    }
-    if (resultCalcId) {
-      const hit = merged.calculations.find((c) => c.id === resultCalcId);
-      if (hit) merged = { ...merged, result_calc: hit.name };
-    }
-    if (header) {
-      const titleOverride = (header.title ?? '').trim();
-      const subtitleOverride = (header.subtitle ?? '').trim();
-      const mergedHeader = { ...(merged.header || { title: '', align: 'left' as const }) };
-      if (titleOverride !== '') mergedHeader.title = header.title!;
-      if (subtitleOverride !== '') mergedHeader.subtitle = header.subtitle;
-      merged = { ...merged, header: mergedHeader };
-    }
-    if (results) {
-      const headingOverride = (results.heading ?? '').trim();
-      const footnoteOverride = (results.footnote ?? '').trim();
-      const mergedResults = { ...(merged.results || {}) };
-      if (headingOverride !== '') mergedResults.heading = results.heading;
-      if (footnoteOverride !== '') mergedResults.footnote = results.footnote;
-      merged = { ...merged, results: mergedResults };
-    }
-    if (style) {
-      merged = {
-        ...merged,
-        style: { ...(merged.style ?? {}), ...style },
-      };
-    }
-    if (stepLayout) {
-      merged = { ...merged, stepLayout };
-    }
-    if (tiered) {
-      merged = { ...merged, tiered };
-    }
-    if (trustBadges) {
-      // BG-7 Item 1 — owner-edited trust badges win over the template
-      // seed. Empty array clears the row entirely (renderer hides it).
-      merged = { ...merged, trustBadges };
-    }
-    if (steps && steps.length > 0) {
-      // BG-7 Item 4 — owner-edited step content (descriptions). Wins
-      // over the template's seeded steps[] so descriptions render in
-      // the live preview as the owner types them.
-      merged = { ...merged, steps };
-    }
-    if (category && category.trim() !== '') {
-      merged = { ...merged, category };
-    }
-    if (settings?.businessProfile) {
-      merged = { ...merged, businessProfile: settings.businessProfile };
-    }
-    {
-      const nf = settings?.numberFormat ?? DEFAULT_SHELL_NUMBER_FORMAT;
-      const numberFormat = {
-        thousands: thousandsLiteral(nf.thousands),
-        decimal: decimalLiteral(nf.decimal),
-        currency: (nf.currency || 'USD').toUpperCase(),
-      };
-      merged = { ...merged, numberFormat };
-
-      const cta = (settings?.ctaLabel ?? '').trim();
-      if (cta !== '') {
-        merged = {
-          ...merged,
-          results: { ...(merged.results ?? {}), cta_label: cta },
-        };
-      }
-      // Action tab — Submit-button success copy + Spam-protection honeypot flag.
-      const submitSuccess = (settings?.submitSuccessText ?? '').trim();
-      if (submitSuccess !== '') {
-        merged = {
-          ...merged,
-          results: { ...(merged.results ?? {}), submit_success: submitSuccess },
-        };
-      }
-      // spamProtection defaults ON; only thread an explicit `false` (the
-      // renderer treats absent as ON) so a disabled honeypot is previewed too.
-      if (settings?.spamProtection === false) {
-        merged = { ...merged, spamProtection: false };
-      }
-    }
+    // P0 data-loss fix (fix/wizard-persistence) — the full authored `advanced`
+    // config is now assembled by the SHARED buildAdvancedConfig() helper, which
+    // saveDraftMutation also calls. This guarantees the preview and the
+    // persisted/published widget render from byte-identical config. The merge
+    // logic that used to live inline here is unchanged — it just lives in one
+    // place now. `forSave` is omitted so the preview keeps its `__preview`
+    // marker (preview behaviour is untouched).
+    const merged = buildAdvancedConfig({
+      layout, businessName, fields, calculations, header, results,
+      resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps,
+      category,
+    });
     return {
       id: -1,
       slug: 'preview',

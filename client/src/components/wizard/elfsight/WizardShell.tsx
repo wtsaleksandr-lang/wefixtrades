@@ -32,9 +32,12 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { apiRequest } from '@/lib/queryClient';
+import { toast } from '@/hooks/use-toast';
+import { validateFormula } from '@shared/formulaEngine';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import { AE } from './appleEditor';
+import { buildAdvancedConfig } from './buildAdvancedConfig';
 import {
   buildBlankPreviewConfig, getTemplatePreset, deriveStyleFromCategory,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
@@ -71,7 +74,7 @@ import {
   DEVICE_PRESET_STORAGE_KEY, EDITOR_TABS,
   type EditorTab, type EditorTheme, type PreviewDevice, type ShellState,
   type ShellHeader, type ShellResults, type ShellStyle,
-  type ShellSettings, type ShellNumberFormat, type ShellPricing,
+  type ShellSettings, type ShellPricing,
   type PublicFieldType,
 } from './types';
 
@@ -168,22 +171,6 @@ function loadPreviewCollapsed(): boolean {
   } catch { return false; }
 }
 
-function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
-  return sep === 'comma' ? ',' : sep === 'space' ? ' ' : '';
-}
-function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
-  return sep === 'comma' ? ',' : '.';
-}
-
-function toAdvNumberFormat(nf: ShellNumberFormat | undefined) {
-  const resolved = nf ?? DEFAULT_SHELL_NUMBER_FORMAT;
-  return {
-    thousands: thousandsLiteral(resolved.thousands),
-    decimal: decimalLiteral(resolved.decimal),
-    currency: resolved.currency || 'USD',
-  };
-}
-
 function toPricingConfig(pricing: ShellPricing | undefined) {
   if (!pricing) {
     return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 } as const;
@@ -199,6 +186,76 @@ function toPricingConfig(pricing: ShellPricing | undefined) {
   const unitName = (pricing.label ?? '').trim() || 'unit';
   const rate = typeof pricing.rate === 'number' && pricing.rate >= 0 ? pricing.rate : 1;
   return { pricingType: 'per_unit', unitName, rate } as const;
+}
+
+/**
+ * Thrown by saveDraftMutation when a calc formula fails validation, so the
+ * mutation rejects (no POST) and onError can show the named, specific reason.
+ */
+class FormulaValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FormulaValidationError';
+  }
+}
+
+/**
+ * P0 data-loss fix (fix/wizard-persistence) — Fix 2: validate every calc
+ * formula BEFORE saving so a broken formula never gets persisted (it would
+ * render as a silent $0 at quote time).
+ *
+ * For each calculation, in order:
+ *   1. Syntax check via the shared `validateFormula` (parse-only).
+ *   2. Reference check — every `[name]` must resolve to a field name OR a
+ *      PRECEDING calc name (case-insensitive), matching FormulaEditor's live
+ *      validator (FormulaEditor.tsx ~375-399). A calc may reference any calc
+ *      defined before it, so subtotals can chain into a total.
+ *
+ * Returns the first failure as `{ calcName, error }`, or null when all valid.
+ * Empty / no calcs → null (saving an empty calculator is fine).
+ */
+function firstInvalidFormula(
+  calculations: TemplateCalculation[],
+  fields: TemplateField[],
+): { calcName: string; error: string } | null {
+  const fieldNames = fields.map((f) => f.name);
+  const seenCalcNames: string[] = [];
+  const resolves = (ref: string, calcNames: string[]): boolean => {
+    const lower = ref.toLowerCase();
+    return (
+      fieldNames.includes(ref) ||
+      calcNames.includes(ref) ||
+      fieldNames.some((n) => n.toLowerCase() === lower) ||
+      calcNames.some((n) => n.toLowerCase() === lower)
+    );
+  };
+  for (const calc of calculations) {
+    const formula = calc.formula ?? '';
+    const displayName = (calc.name ?? '').trim() || 'Unnamed calculation';
+    if (formula.trim() !== '') {
+      const syntax = validateFormula(formula);
+      if (!syntax.valid) {
+        return { calcName: displayName, error: syntax.error || 'Invalid formula' };
+      }
+      const refs: string[] = [];
+      const re = /\[([^\]]+)\]/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(formula))) refs.push(m[1].trim());
+      const missing = refs.filter((r) => !resolves(r, seenCalcNames));
+      if (missing.length > 0) {
+        const list = missing.map((r) => `[${r}]`).join(', ');
+        return {
+          calcName: displayName,
+          error: missing.length === 1
+            ? `references an unknown field or calculation: ${list}`
+            : `references unknown fields or calculations: ${list}`,
+        };
+      }
+    }
+    // This calc is now available as a reference for the calcs that follow it.
+    if ((calc.name ?? '').trim() !== '') seenCalcNames.push(calc.name);
+  }
+  return null;
 }
 
 interface Props {
@@ -1019,25 +1076,47 @@ export default function WizardShell({ embed = false }: Props) {
       const leadEmail = (settings.leadEmail ?? '').trim();
       const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail);
       const tradeId = (settings.tradeId ?? '').trim();
-      const ctaLabel = (settings.ctaLabel ?? '').trim();
 
-      const advanced: Record<string, unknown> = {
-        numberFormat: toAdvNumberFormat(settings.numberFormat),
-      };
-      // Action tab — Submit-button card. CTA label reuses settings.ctaLabel
-      // (no duplicate state); the success line maps to results.submit_success.
-      const submitSuccess = (settings.submitSuccessText ?? '').trim();
-      if (ctaLabel !== '' || submitSuccess !== '') {
-        advanced.results = {
-          ...(ctaLabel !== '' ? { cta_label: ctaLabel } : {}),
-          ...(submitSuccess !== '' ? { submit_success: submitSuccess } : {}),
-        };
+      // P0 data-loss fix (fix/wizard-persistence) — Fix 2: BLOCK the save if any
+      // calc formula is invalid or references an unknown field/calc. A broken
+      // formula otherwise saves silently and renders as $0 at quote time. A
+      // valid (or empty) calculator is never blocked.
+      const badFormula = firstInvalidFormula(
+        state.calculations ?? [],
+        state.fields ?? [],
+      );
+      if (badFormula) {
+        const msg = `"${badFormula.calcName}" ${badFormula.error}`;
+        throw new FormulaValidationError(msg);
       }
-      // Action tab — Spam protection honeypot. Default ON; persist only an
-      // explicit `false` (the renderer treats absent as ON).
-      if (settings.spamProtection === false) {
-        advanced.spamProtection = false;
-      }
+
+      // P0 data-loss fix (fix/wizard-persistence) — persist the FULL authored
+      // config, not just numberFormat/results/spamProtection. The SAME shared
+      // buildAdvancedConfig() helper the live preview uses assembles the
+      // complete `advanced` shape: fields, calculations, result_calc (resolved
+      // rename-safe from resultCalcId), style, tiered, trustBadges, steps,
+      // header, results, numberFormat, businessProfile, spamProtection. Without
+      // this, a published widget lost the owner's custom fields/calcs/style.
+      // `forSave: true` strips the synthetic `__preview` marker.
+      const advanced = buildAdvancedConfig({
+        layout: state.layout,
+        businessName: state.businessName,
+        fields: state.fields,
+        calculations: state.calculations,
+        header: state.header,
+        results: state.results,
+        resultCalcId: state.resultCalcId,
+        style: state.style,
+        settings,
+        stepLayout: state.stepLayout,
+        tiered: state.tiered,
+        trustBadges: state.trustBadges,
+        steps: state.steps,
+        category: state.activeTemplateId
+          ? getTemplatePreset(state.activeTemplateId)?.category
+          : undefined,
+        forSave: true,
+      });
 
       // Wave H7 — surface the language pick as both a top-level
       // `calculator_settings.language` (explicit, easy for server consumers)
@@ -1109,6 +1188,25 @@ export default function WizardShell({ embed = false }: Props) {
       if (typeof window !== 'undefined') {
         try { window.dispatchEvent(new CustomEvent('quotequick:wizard-save')); } catch { /* ignore */ }
       }
+    },
+    onError: (err) => {
+      // Fix 2 — surface a clear, specific error. Formula-validation failures
+      // name the offending calc + reason so the owner can fix it; any other
+      // save failure gets a generic message. Either way the broken config was
+      // NOT persisted (the throw happened before the POST).
+      if (err instanceof FormulaValidationError) {
+        toast({
+          variant: 'destructive',
+          title: "Can't save — formula error",
+          description: err.message,
+        });
+        return;
+      }
+      toast({
+        variant: 'destructive',
+        title: "Couldn't save your calculator",
+        description: 'Something went wrong saving. Please try again.',
+      });
     },
   });
 
