@@ -87,7 +87,7 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
       <header className="qq-calcs-header">
         <div>
           <h3 className="qq-calcs-title">
-            Calculations
+            Pricing
             <InfoCue
               testid="build-section-calcs"
               region="result"
