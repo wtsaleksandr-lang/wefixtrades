@@ -76,7 +76,7 @@ import { sanitizeRichHtml, richHtmlToPlainText } from '@/components/wizard/elfsi
 // is self-healing against bright-on-bright Brand Studio picks. The
 // original user-saved tokens are NOT mutated — only the final rendered
 // colour is corrected. See `client/src/lib/contrastGuard.ts`.
-import { guardTextColor, getRelativeLuminance, darkenBgForWhiteText } from '@/lib/contrastGuard';
+import { guardTextColor, getRelativeLuminance, darkenBgForWhiteText, darkenBgForTextColor } from '@/lib/contrastGuard';
 
 /**
  * BD-3d — owner-configured heading/footer/title/subtitle may be rich HTML
@@ -1898,8 +1898,15 @@ export default function AdvancedCalculator({
   // so resultText/resultMuted/resultValueColor/headlineTotalColor are all
   // evaluated against — and stay white on — the darkened surface.
   const rpBgRaw = bsResultPanel?.bgOverride ?? c.result;
+  // Darken for the WORST-CASE panel text — the muted caption token, which is
+  // typically translucent white (e.g. rgba(255,255,255,0.82)). Solid-white
+  // headline/values clear AA at a lighter shade, but the translucent caption
+  // needs the bg a touch darker; `darkenBgForTextColor` composites the muted
+  // token's alpha and deepens the bg just until the COMPOSITED caption clears
+  // 4.5:1 — which also satisfies the solid-white text. Already-dark panels and
+  // light (dark-text) panels are returned unchanged.
   const rpBg = resultTinted && resultIsDark
-    ? darkenBgForWhiteText(rpBgRaw, 4.5)
+    ? darkenBgForTextColor(rpBgRaw, c.resultMuted, 4.5)
     : rpBgRaw;
   const rpEmphasis: AdvResultEmphasis = bsResultPanel?.emphasis ?? 'normal';
   const rpBorderMode: AdvResultBorder = bsResultPanel?.border ?? 'subtle';

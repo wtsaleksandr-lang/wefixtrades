@@ -275,6 +275,66 @@ export function darkenBgForWhiteText(bg: string, ratio = 4.5): string {
 }
 
 /**
+ * Extract the alpha (0..1) from an `rgba(...)` / `hsla(...)` string. Hex and
+ * `rgb(...)` are fully opaque → 1. Unparseable → 1. `parseColor` deliberately
+ * drops alpha, so this is the companion that recovers it for compositing.
+ */
+function parseAlpha(input: string): number {
+  if (typeof input !== 'string') return 1;
+  const m = input.trim().toLowerCase().match(
+    /^(?:rgba|hsla)\(\s*[^,]+[\s,]+[^,]+[\s,]+[^,/]+[\s,/]+([0-9]*\.?[0-9]+)\s*\)/,
+  );
+  if (!m) return 1;
+  const a = Number(m[1]);
+  return Number.isFinite(a) ? Math.max(0, Math.min(1, a)) : 1;
+}
+
+/** Composite a (possibly translucent) foreground over an opaque background. */
+function compositeOver(fg: Rgb, fgAlpha: number, bg: Rgb): Rgb {
+  return {
+    r: fg.r * fgAlpha + bg.r * (1 - fgAlpha),
+    g: fg.g * fgAlpha + bg.g * (1 - fgAlpha),
+    b: fg.b * fgAlpha + bg.b * (1 - fgAlpha),
+  };
+}
+
+/**
+ * Darken `bg` toward black just until `textColor` — composited over the bg at
+ * its own alpha — reaches `ratio` contrast against the bg. Returns `bg`
+ * unchanged when it already passes. This is the alpha-aware sibling of
+ * `darkenBgForWhiteText`: a panel that paints translucent white captions
+ * (e.g. `rgba(255,255,255,0.82)`) needs the bg dark enough for the COMPOSITED
+ * caption — not opaque white — to clear the floor. Darkening for the
+ * worst-case (most translucent) text also satisfies any solid text on the
+ * same panel. Pure; no mutation of inputs.
+ */
+export function darkenBgForTextColor(bg: string, textColor: string, ratio = 4.5): string {
+  const bgRgb = parseColor(bg);
+  const fgRgb = parseColor(textColor);
+  if (!bgRgb || !fgRgb) return bg;
+  const fgAlpha = parseAlpha(textColor);
+
+  const passes = (b: Rgb): boolean => {
+    const eff = compositeOver(fgRgb, fgAlpha, b);
+    return getContrastRatio(rgbToHex(eff), rgbToHex(b)) >= ratio;
+  };
+
+  if (passes(bgRgb)) return bg;
+
+  let current: Rgb = { ...bgRgb };
+  for (let i = 0; i < DARKEN_MAX_ITERATIONS; i++) {
+    current = {
+      r: clamp255(current.r * DARKEN_FACTOR),
+      g: clamp255(current.g * DARKEN_FACTOR),
+      b: clamp255(current.b * DARKEN_FACTOR),
+    };
+    if (passes(current)) return rgbToHex(current);
+    if (current.r === 0 && current.g === 0 && current.b === 0) return rgbToHex(current);
+  }
+  return rgbToHex(current);
+}
+
+/**
  * Dev-mode logger: warns once per (fg, bg, corrected) tuple when a
  * correction happens in non-production. The Set lives at module scope so
  * repeated renders of the same widget instance don't spam the console.
