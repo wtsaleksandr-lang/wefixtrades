@@ -8,7 +8,7 @@
  *  - arithmetic `+ - * / ^` with PEMDAS and parentheses
  *  - comparison operators `=  ==  !=  <>  <  <=  >  >=` (yield booleans)
  *  - functions: SUM MAX MIN ROUND ROUNDUP ROUNDDOWN ABS IF AND OR NOT
- *    CONTAINS RAND RANDBETWEEN
+ *    CONTAINS RAND RANDBETWEEN MROUND CEILING FLOOR
  *  - field references as bare identifiers (`rooms`) or bracketed names
  *    with spaces (`[Room count]`), resolved from the supplied context
  *  - `true` / `false` literals, string literals in `'` or `"`
@@ -360,6 +360,26 @@ function evalNode(node: Node, ctx: FormulaContext): Val {
           const hi = Math.trunc(toNum(ev(args[1])));
           if (hi < lo) throw new FormulaError('RANDBETWEEN: high < low');
           return lo + Math.floor(Math.random() * (hi - lo + 1));
+        }
+        case 'MROUND': {
+          // round to the nearest multiple (e.g. MROUND(137, 25) = 125).
+          const value = toNum(ev(args[0]));
+          const mult = Math.abs(toNum(ev(args[1] ?? { k: 'num', v: 0 })));
+          return mult === 0 ? 0 : Math.round(value / mult) * mult;
+        }
+        case 'CEILING': {
+          // round UP to the nearest multiple (e.g. CEILING(137, 25) = 150);
+          // a single argument rounds up to the nearest integer.
+          const value = toNum(ev(args[0]));
+          const mult = args[1] ? Math.abs(toNum(ev(args[1]))) : 1;
+          return mult === 0 ? 0 : Math.ceil(value / mult) * mult;
+        }
+        case 'FLOOR': {
+          // round DOWN to the nearest multiple (e.g. FLOOR(137, 25) = 125);
+          // a single argument rounds down to the nearest integer.
+          const value = toNum(ev(args[0]));
+          const mult = args[1] ? Math.abs(toNum(ev(args[1]))) : 1;
+          return mult === 0 ? 0 : Math.floor(value / mult) * mult;
         }
         default:
           throw new FormulaError(`Unknown function "${node.name}"`);

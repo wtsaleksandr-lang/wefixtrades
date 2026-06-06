@@ -36,6 +36,7 @@ const CALC_TOKEN_FG = '#0E8a5f';
 const FUNCTIONS = [
   'SUM', 'MAX', 'MIN', 'ROUND', 'ROUNDUP', 'ROUNDDOWN', 'ABS',
   'IF', 'AND', 'OR', 'NOT', 'CONTAINS', 'RAND', 'RANDBETWEEN',
+  'MROUND', 'CEILING', 'FLOOR',
 ] as const;
 
 interface Props {
@@ -414,6 +415,9 @@ export default function FormulaEditor({
     items.push({ kind: 'fn', label: 'ROUND',     insertion: 'ROUND(', signature: 'ROUND(n, places)' });
     items.push({ kind: 'fn', label: 'ROUNDUP',   insertion: 'ROUNDUP(', signature: 'ROUNDUP(n, places)' });
     items.push({ kind: 'fn', label: 'ROUNDDOWN', insertion: 'ROUNDDOWN(', signature: 'ROUNDDOWN(n, places)' });
+    items.push({ kind: 'fn', label: 'MROUND',    insertion: 'MROUND(', signature: 'MROUND(value, step) — round to nearest step (e.g. $25)' });
+    items.push({ kind: 'fn', label: 'CEILING',   insertion: 'CEILING(', signature: 'CEILING(value, step) — round UP to nearest step' });
+    items.push({ kind: 'fn', label: 'FLOOR',     insertion: 'FLOOR(', signature: 'FLOOR(value, step) — round DOWN to nearest step' });
     items.push({ kind: 'fn', label: 'ABS',       insertion: 'ABS(', signature: 'ABS(n)' });
     items.push({ kind: 'fn', label: 'IF',        insertion: 'IF(', signature: 'IF(cond, then, else)' });
     items.push({ kind: 'fn', label: 'AND',       insertion: 'AND(', signature: 'AND(a, b, …)' });
