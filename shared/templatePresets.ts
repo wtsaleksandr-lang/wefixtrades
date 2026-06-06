@@ -71,7 +71,13 @@ export type FieldType =
   // image) persist no answer but render JSX inline alongside inputs. `text`
   // is also surfaced in the picker now (single-line input, was always in
   // the enum but unsurfaced in the new editor).
-  | 'paragraph' | 'divider' | 'image';
+  | 'paragraph' | 'divider' | 'image'
+  // BUILDER-COMPONENTS — content/CTA components. `button` is a tappable
+  // action button (opens a URL / tel: / mailto:); `link` is an inline text
+  // anchor. Both are display-only — they carry NO answer and contribute
+  // nothing to the quote formula (handled alongside the display-only types
+  // everywhere `heading`/`paragraph`/`divider`/`image` are excluded).
+  | 'button' | 'link';
 
 export interface TemplateOption {
   id: string;
@@ -166,6 +172,21 @@ export interface TemplateField {
   imageUrl?: string;
   imageCaption?: string;
   imageAlt?: string;
+  /**
+   * BUILDER-COMPONENTS — `button` + `link` content components. Both use
+   * `label` for the visible text the customer taps/clicks. `href` is the
+   * destination; for a `button` the `buttonAction` discriminator picks how
+   * `href` is interpreted:
+   *   - 'url'    → open the URL (new tab, rel=noopener).
+   *   - 'tel'    → dial — the renderer prefixes `tel:`.
+   *   - 'mailto' → compose — the renderer prefixes `mailto:`.
+   * A `link` is always treated as a URL (new tab). All optional so an
+   * in-flight edit can partial-update; the renderer no-ops a button/link
+   * with an empty href (renders a disabled-looking control in the editor
+   * preview, harmless live).
+   */
+  href?: string;
+  buttonAction?: 'url' | 'tel' | 'mailto';
   /**
    * Wave 61 — per-element inline cosmetic style overrides driven by the
    * floating <InlineStyleToolbar />. Optional; absent → no override (the

@@ -76,6 +76,10 @@ const ENGINE_TO_PUBLIC: Record<FieldType, PublicFieldType | null> = {
   paragraph: 'paragraph',
   divider: 'divider',
   image: 'image',
+  // BUILDER-COMPONENTS — content/CTA components. First-class public types so
+  // the AI tool applier can hydrate them via makeField.
+  button: 'button',
+  link: 'link',
 };
 
 function uid(prefix: string): string {

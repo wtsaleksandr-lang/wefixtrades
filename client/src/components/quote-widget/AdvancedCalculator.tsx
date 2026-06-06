@@ -231,7 +231,10 @@ interface AdvField {
   type: 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text' | 'image_choice' | 'heading'
     // COMPONENTS-1 — Wave U-F1. Display-only types (paragraph / divider /
     // image) carry no answer; the renderer emits inline JSX for them.
-    | 'paragraph' | 'divider' | 'image';
+    | 'paragraph' | 'divider' | 'image'
+    // BUILDER-COMPONENTS — content/CTA components (button / link). No answer;
+    // emitted as inline JSX and excluded from the formula context.
+    | 'button' | 'link';
   help?: string;
   required?: boolean;
   default_value?: number;
@@ -270,6 +273,11 @@ interface AdvField {
   imageUrl?: string;
   imageCaption?: string;
   imageAlt?: string;
+  // BUILDER-COMPONENTS — button / link destination. See `TemplateField` in
+  // shared/templatePresets.ts for the authoring docs. Echoed onto AdvField so
+  // the renderer reads them straight off the persisted config.
+  href?: string;
+  buttonAction?: 'url' | 'tel' | 'mailto';
   /**
    * Wave 61 — per-element cosmetic style overrides. Authored via the
    * floating <InlineStyleToolbar /> in the wizard preview. The renderer
@@ -565,7 +573,9 @@ function rawFieldValue(f: AdvField, answers: Record<string, Answer>): FormulaCon
   // Text inputs flow through as their string value (formula engine
   // already coerces strings to 0 when summed).
   if (f.type === 'heading' || f.type === 'paragraph'
-      || f.type === 'divider' || f.type === 'image') return 0;
+      || f.type === 'divider' || f.type === 'image'
+      // BUILDER-COMPONENTS — button / link are content-only; never feed the calc.
+      || f.type === 'button' || f.type === 'link') return 0;
   if (f.type === 'number' || f.type === 'slider') return Number(v) || 0;
   if (f.type === 'text') return String(v ?? '');
   if (f.type === 'toggle') return v ? (f.on_value ?? 1) : 0;
@@ -1746,7 +1756,9 @@ export default function AdvancedCalculator({
   const interactiveFieldCount = useMemo(
     () => visibleFields.filter(
       (f) => f.type !== 'heading' && f.type !== 'paragraph'
-        && f.type !== 'divider' && f.type !== 'image',
+        && f.type !== 'divider' && f.type !== 'image'
+        // BUILDER-COMPONENTS — button / link are display-only; no own step.
+        && f.type !== 'button' && f.type !== 'link',
     ).length,
     [visibleFields],
   );
@@ -3637,6 +3649,73 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
           }}>{caption}</figcaption>
         ) : null}
       </figure>
+    );
+  }
+
+  // BUILDER-COMPONENTS — content/CTA components. Neither persists an answer.
+  // The owner's `label` is the visible text; `href` is the destination.
+  if (f.type === 'button') {
+    const text = (f.label ?? '').trim() || 'Button';
+    const action = f.buttonAction ?? 'url';
+    const raw = (f.href ?? '').trim();
+    // Build the resolved href per action type. `tel:` / `mailto:` strip an
+    // accidental scheme the owner may have typed so we never double-prefix.
+    const href = raw === '' ? ''
+      : action === 'tel' ? `tel:${raw.replace(/^tel:/i, '')}`
+      : action === 'mailto' ? `mailto:${raw.replace(/^mailto:/i, '')}`
+      : raw;
+    // Reuse the CTA styling pattern (accent fill, guarded contrast). The
+    // button text colour is contrast-guarded against the accent fill so a
+    // bright/owner-picked accent never renders unreadable text.
+    const btnFg = guardTextColor('#ffffff', accent, 'componentButtonText', { largeText: true });
+    const shared: React.CSSProperties = {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      gap: 8, maxWidth: '100%', boxSizing: 'border-box',
+      minHeight: 44, padding: '0 18px', borderRadius: radiusPx,
+      background: accent, color: btnFg, border: 'none',
+      fontSize: '14px', fontWeight: 700, fontFamily, letterSpacing: '0.01em',
+      cursor: href ? 'pointer' : 'not-allowed', textDecoration: 'none',
+      lineHeight: 1.2,
+    };
+    const label = <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text}</span>;
+    // URL action opens in a new tab; tel/mailto navigate the current context.
+    if (!href) {
+      return (
+        <button type="button" disabled data-testid={`adv-button-${f.id}`}
+          aria-disabled="true" style={{ ...shared, opacity: 0.6 }}>{label}</button>
+      );
+    }
+    if (action === 'url') {
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer"
+          data-testid={`adv-button-${f.id}`} data-button-action="url" style={shared}>{label}</a>
+      );
+    }
+    return (
+      <a href={href} data-testid={`adv-button-${f.id}`} data-button-action={action} style={shared}>{label}</a>
+    );
+  }
+
+  if (f.type === 'link') {
+    const text = (f.label ?? '').trim() || 'Link';
+    const raw = (f.href ?? '').trim();
+    // Themed inline anchor. The link colour is the widget accent, contrast-
+    // guarded against the body background so it stays readable on any theme.
+    const linkColor = guardTextColor(accent, c.bg, 'componentLink');
+    const linkStyle: React.CSSProperties = {
+      color: linkColor, fontFamily, fontSize: '14px', fontWeight: 600,
+      textDecoration: 'underline', textUnderlineOffset: '2px',
+      cursor: raw ? 'pointer' : 'not-allowed', overflowWrap: 'anywhere',
+    };
+    if (!raw) {
+      return (
+        <span data-testid={`adv-link-${f.id}`} aria-disabled="true"
+          style={{ ...linkStyle, opacity: 0.6, textDecorationStyle: 'dashed' }}>{text}</span>
+      );
+    }
+    return (
+      <a href={raw} target="_blank" rel="noopener noreferrer"
+        data-testid={`adv-link-${f.id}`} style={linkStyle}>{text}</a>
     );
   }
 

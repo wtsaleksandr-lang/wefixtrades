@@ -83,6 +83,19 @@ export function makeField(publicType: PublicFieldType): TemplateField {
         id, name: 'Image', label: 'Image', type: 'image',
         imageUrl: '', imageCaption: '',
       };
+    // BUILDER-COMPONENTS — content/CTA factories. Both ship a sensible
+    // default so the component reads as a real, working control the instant
+    // it's dropped in (before the owner sets the destination).
+    case 'button':
+      return {
+        id, name: 'Button', label: 'Call us', type: 'button',
+        buttonAction: 'tel', href: '',
+      };
+    case 'link':
+      return {
+        id, name: 'Link', label: 'Visit our website', type: 'link',
+        href: '',
+      };
   }
 }
 

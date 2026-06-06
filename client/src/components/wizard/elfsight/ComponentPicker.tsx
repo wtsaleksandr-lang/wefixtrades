@@ -109,15 +109,21 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
     label: 'Logic',
     entries: [
       { id: 'conditional', label: 'Conditional section', hint: 'Show / hide based on answers', Icon: GitBranch, disabled: true },
-      { id: 'calc', label: 'Calculation formula', hint: 'Math formula on field values', Icon: CalcIcon, disabled: true },
+      // BUILDER-COMPONENTS — `calc` stays disabled by design: adding a
+      // calculation is already fully supported by the Build > Pricing
+      // (Calculations) panel + FormulaEditor. Surfacing a second insert
+      // path here would create a parallel calc system. The hint now points
+      // owners to the canonical location instead.
+      { id: 'calc', label: 'Calculation formula', hint: 'Add these in the Pricing panel →', Icon: CalcIcon, disabled: true },
     ],
   },
   {
     id: 'cta',
     label: 'CTA',
     entries: [
-      { id: 'button', label: 'Button', hint: 'Action / submit', Icon: MousePointerClick, disabled: true },
-      { id: 'link', label: 'Link', hint: 'External anchor', Icon: LinkIcon, disabled: true },
+      // BUILDER-COMPONENTS — Button + Link went live (publicType wired).
+      { id: 'button', label: 'Button', hint: 'Tappable call / link button', Icon: MousePointerClick, publicType: 'button' },
+      { id: 'link', label: 'Link', hint: 'Inline text link', Icon: LinkIcon, publicType: 'link' },
       { id: 'contact', label: 'Contact form', hint: 'Name + email + message', Icon: MailIcon, disabled: true },
     ],
   },

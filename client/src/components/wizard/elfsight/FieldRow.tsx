@@ -113,6 +113,9 @@ const TYPE_ICON: Record<TemplateField['type'], string> = {
   paragraph: '¶',
   divider: '—',
   image: '◫',
+  // BUILDER-COMPONENTS — content/CTA components.
+  button: '⬢',
+  link: '↗',
 };
 
 const TYPE_LABEL: Record<TemplateField['type'], string> = {
@@ -128,6 +131,8 @@ const TYPE_LABEL: Record<TemplateField['type'], string> = {
   paragraph: 'Paragraph',
   divider: 'Divider',
   image: 'Image',
+  button: 'Button',
+  link: 'Link',
 };
 
 export default function FieldRow({
@@ -168,12 +173,16 @@ export default function FieldRow({
   const isParagraph = field.type === 'paragraph';
   const isDivider = field.type === 'divider';
   const isImage = field.type === 'image';
+  // BUILDER-COMPONENTS — content/CTA components.
+  const isButton = field.type === 'button';
+  const isLink = field.type === 'link';
   // COMPONENTS-1 — display-only field types (heading / paragraph / divider
   // / image) don't read the customer-facing `label` the same way an input
   // does — heading uses it as the rendered title, paragraph stores body in
   // `content`, divider/image don't render the label at all. Suppress the
   // Width toggle for display-only types since they always span full row.
-  const showsWidthToggle = !isDivider && !isImage && !isParagraph;
+  // BUILDER-COMPONENTS — button / link are inline content too: no Width toggle.
+  const showsWidthToggle = !isDivider && !isImage && !isParagraph && !isButton && !isLink;
   const publicType = FIELD_TYPE_TO_PUBLIC[field.type] ?? field.type;
 
   const update = (patch: Partial<TemplateField>) => onChange({ ...field, ...patch });
@@ -614,6 +623,71 @@ export default function FieldRow({
                 />
               </FloatField>
             </>
+          )}
+
+          {/* BUILDER-COMPONENTS — Button config. The top "Label" field above
+              is the button TEXT. Here the owner picks the action (open a URL
+              / call a number / send an email) and the destination. */}
+          {isButton && (
+            <>
+              <div className="qq-field-required-cluster">
+                <span className="qq-field-width-label">Action</span>
+                <div className="qq-field-width-segmented" role="group" aria-label="Button action">
+                  {([
+                    { id: 'url', label: 'Link' },
+                    { id: 'tel', label: 'Call' },
+                    { id: 'mailto', label: 'Email' },
+                  ] as const).map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      className={`qq-field-width-btn${(field.buttonAction ?? 'url') === a.id ? ' is-active' : ''}`}
+                      aria-pressed={(field.buttonAction ?? 'url') === a.id}
+                      onClick={() => update({ buttonAction: a.id })}
+                      data-testid={`field-row-button-action-${a.id}-${field.id}`}
+                    >{a.label}</button>
+                  ))}
+                </div>
+              </div>
+              <FloatField
+                label={
+                  (field.buttonAction ?? 'url') === 'tel' ? 'Phone number'
+                  : (field.buttonAction ?? 'url') === 'mailto' ? 'Email address'
+                  : 'URL'
+                }
+                htmlFor={`field-row-input-href-${field.id}`}
+              >
+                <input
+                  id={`field-row-input-href-${field.id}`}
+                  type={(field.buttonAction ?? 'url') === 'tel' ? 'tel'
+                    : (field.buttonAction ?? 'url') === 'mailto' ? 'email' : 'url'}
+                  inputMode={(field.buttonAction ?? 'url') === 'tel' ? 'tel'
+                    : (field.buttonAction ?? 'url') === 'mailto' ? 'email' : 'url'}
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.href ?? ''}
+                  onChange={(e) => update({ href: e.target.value })}
+                  data-testid={`field-row-input-href-${field.id}`}
+                />
+              </FloatField>
+            </>
+          )}
+
+          {/* BUILDER-COMPONENTS — Link config. The top "Label" field is the
+              link TEXT; this is the destination URL (opens in a new tab). */}
+          {isLink && (
+            <FloatField label="URL" htmlFor={`field-row-input-href-${field.id}`}>
+              <input
+                id={`field-row-input-href-${field.id}`}
+                type="url"
+                inputMode="url"
+                className="premium-input qq-field-input"
+                placeholder=" "
+                value={field.href ?? ''}
+                onChange={(e) => update({ href: e.target.value })}
+                data-testid={`field-row-input-href-${field.id}`}
+              />
+            </FloatField>
           )}
 
           {/* COMPONENTS-1 — multi_select selection-count guardrails. Pure
