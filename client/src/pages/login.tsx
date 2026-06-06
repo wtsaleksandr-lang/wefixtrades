@@ -357,7 +357,13 @@ export default function LoginPage() {
               * `pointer-events:none` + `aria-hidden` on the inactive
               * panel keeps focus + clicks scoped to the active one. */}
             <div
-              aria-hidden={!(mode === "email-link" && !requires2fa)}
+              // `inert` (native, applied only when collapsed) removes the
+              // hidden panel's inputs/links/buttons from BOTH the tab order and
+              // the a11y tree. aria-hidden alone left them keyboard-focusable
+              // inside an aria-hidden subtree → axe `aria-hidden-focus`. Applied
+              // as a raw attribute so the active panel never receives it (React
+              // 18 has no typed `inert` prop and would emit inert="false").
+              {...(!(mode === "email-link" && !requires2fa) ? { inert: "" } : {})}
               style={{
                 display: "grid",
                 gridTemplateRows: mode === "email-link" && !requires2fa ? "1fr" : "0fr",
@@ -432,7 +438,10 @@ export default function LoginPage() {
 
             {/* ─── Password mode ─── (same grid-collapse pattern as above) */}
             <div
-              aria-hidden={!(mode === "password" || requires2fa)}
+              // See the email-link panel above — `inert` (collapsed only)
+              // keeps the inactive password/2FA fields out of the tab order and
+              // a11y tree, fixing axe `aria-hidden-focus`.
+              {...(!(mode === "password" || requires2fa) ? { inert: "" } : {})}
               style={{
                 display: "grid",
                 gridTemplateRows: mode === "password" || requires2fa ? "1fr" : "0fr",

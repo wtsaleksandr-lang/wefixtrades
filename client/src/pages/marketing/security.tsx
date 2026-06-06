@@ -113,9 +113,9 @@ export default function SecurityPage() {
         <ul style={ulStyle}>
           <li>A <strong>Data Processing Agreement (DPA)</strong> is available on request for business customers.</li>
           <li>See our{" "}
-            <Link href="/privacy" style={{ color: mkt.accent, textDecoration: "none" }}>Privacy Policy</Link>,{" "}
-            <Link href="/cookies" style={{ color: mkt.accent, textDecoration: "none" }}>Cookie Policy</Link>, and{" "}
-            <Link href="/terms" style={{ color: mkt.accent, textDecoration: "none" }}>Terms of Service</Link>.
+            <Link href="/privacy" style={{ color: mkt.accent, textDecoration: "underline" }}>Privacy Policy</Link>,{" "}
+            <Link href="/cookies" style={{ color: mkt.accent, textDecoration: "underline" }}>Cookie Policy</Link>, and{" "}
+            <Link href="/terms" style={{ color: mkt.accent, textDecoration: "underline" }}>Terms of Service</Link>.
           </li>
         </ul>
       </LegalSection>
@@ -133,7 +133,7 @@ export default function SecurityPage() {
       <LegalSection id="disclosure" title="Reporting a vulnerability">
         <p>
           Found a security issue? We want to know. Email{" "}
-          <a href="mailto:security@wefixtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>
+          <a href="mailto:security@wefixtrades.com" style={{ color: mkt.accent, textDecoration: "underline" }}>
             security@wefixtrades.com
           </a>{" "}
           with the details and steps to reproduce. We'll acknowledge your report and keep
@@ -145,7 +145,7 @@ export default function SecurityPage() {
       <p style={{ fontSize: 13, color: mkt.textFaint, lineHeight: 1.6, marginTop: 8 }}>
         This page describes our current practices and may evolve as the product grows.
         For questions, contact{" "}
-        <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent, textDecoration: "none" }}>support@wefixtrades.com</a>.
+        <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent, textDecoration: "underline" }}>support@wefixtrades.com</a>.
       </p>
     </LegalShell>
   );

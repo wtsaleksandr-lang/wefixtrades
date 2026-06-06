@@ -283,7 +283,7 @@ export default function LocalSerpChecker() {
         </FreeToolFormSelect>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }} role="tablist" aria-label="Search engine">
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }} role="group" aria-label="Search engine">
         <EnginePill value="search" label="Google Search" icon={<Search size={14} />} />
         <EnginePill value="maps" label="Google Maps" icon={<MapPin size={14} />} />
       </div>
