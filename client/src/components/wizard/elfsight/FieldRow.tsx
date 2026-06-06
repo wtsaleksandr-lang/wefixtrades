@@ -39,6 +39,12 @@ const p = platformTheme;
 
 interface Props {
   field: TemplateField;
+  /**
+   * CONDITIONAL-FIELDS-1 — the full field list, so the "Show only when…"
+   * editor can offer every OTHER field as the controlling field and pull
+   * the controller's options for the value picker.
+   */
+  allFields?: TemplateField[];
   index: number;
   total: number;
   onChange: (next: TemplateField) => void;
@@ -57,6 +63,36 @@ function _optionIdFromLabel_unused(label: string, fallback: string): string {
   const base = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   return base || fallback;
 }
+
+// CONDITIONAL-FIELDS-1 — option / field labels may carry sanitized rich-text
+// HTML; strip tags for the plain-text dropdowns in the "Show only when…"
+// editor so the picker reads cleanly.
+function plainText(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+}
+
+// CONDITIONAL-FIELDS-1 — field types that contribute a real, testable answer
+// (so they can act as a controlling field). Display-only blocks never can.
+const SHOWIF_ELIGIBLE_TYPES: ReadonlyArray<TemplateField['type']> = [
+  'number', 'slider', 'select', 'radio', 'image_choice', 'multi_select',
+  'toggle', 'text',
+];
+
+// CONDITIONAL-FIELDS-1 — controllers whose value picker should be an option
+// dropdown (the value is an option id) rather than a free text/number input.
+const SHOWIF_OPTION_TYPES: ReadonlyArray<TemplateField['type']> = [
+  'select', 'radio', 'image_choice', 'multi_select',
+];
+
+const SHOWIF_OPS: ReadonlyArray<{ op: NonNullable<TemplateField['show_if']>['op']; label: string }> = [
+  { op: 'eq', label: 'is' },
+  { op: 'ne', label: 'is not' },
+  { op: 'gt', label: '>' },
+  { op: 'lt', label: '<' },
+  { op: 'gte', label: '≥' },
+  { op: 'lte', label: '≤' },
+  { op: 'contains', label: 'contains' },
+];
 
 function newOption(prev: TemplateOption[]): TemplateOption {
   const n = prev.length + 1;
@@ -95,7 +131,7 @@ const TYPE_LABEL: Record<TemplateField['type'], string> = {
 };
 
 export default function FieldRow({
-  field, index, total, onChange, onRemove, onMoveUp, onMoveDown,
+  field, allFields, index, total, onChange, onRemove, onMoveUp, onMoveDown,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   // Wave J item 4 — exposes hover state as a data attribute so the spec can
@@ -141,6 +177,47 @@ export default function FieldRow({
   const publicType = FIELD_TYPE_TO_PUBLIC[field.type] ?? field.type;
 
   const update = (patch: Partial<TemplateField>) => onChange({ ...field, ...patch });
+
+  // CONDITIONAL-FIELDS-1 — candidate controlling fields = every OTHER field
+  // that actually carries an answer (display-only blocks excluded).
+  const showIfCandidates = (allFields ?? []).filter(
+    (f) => f.id !== field.id && SHOWIF_ELIGIBLE_TYPES.includes(f.type),
+  );
+  const showIfEnabled = !!field.show_if;
+  const controller = field.show_if
+    ? showIfCandidates.find((f) => f.id === field.show_if!.field)
+    : undefined;
+  // The value picker is an option dropdown when the controller is a
+  // select-like field; otherwise a free text/number input.
+  const controllerUsesOptions = controller
+    ? SHOWIF_OPTION_TYPES.includes(controller.type)
+    : false;
+
+  const setShowIfEnabled = (on: boolean) => {
+    if (!on) { update({ show_if: undefined }); return; }
+    // Default to the first eligible controller; pick a sensible default value.
+    const first = showIfCandidates[0];
+    if (!first) { update({ show_if: undefined }); return; }
+    const firstVal = SHOWIF_OPTION_TYPES.includes(first.type)
+      ? (first.options?.[0]?.id ?? '')
+      : '';
+    update({ show_if: { field: first.id, op: 'eq', value: firstVal } });
+  };
+
+  const patchShowIf = (patch: Partial<NonNullable<TemplateField['show_if']>>) => {
+    if (!field.show_if) return;
+    update({ show_if: { ...field.show_if, ...patch } });
+  };
+
+  // When the controlling field changes, reset the value to that field's first
+  // option (select-like) or empty (free input) so we never carry a stale id.
+  const changeShowIfController = (id: string) => {
+    const next = showIfCandidates.find((f) => f.id === id);
+    const nextVal = next && SHOWIF_OPTION_TYPES.includes(next.type)
+      ? (next.options?.[0]?.id ?? '')
+      : '';
+    update({ show_if: { field: id, op: field.show_if?.op ?? 'eq', value: nextVal } });
+  };
 
   const updateOption = (id: string, patch: Partial<TemplateOption>) => {
     update({
@@ -631,6 +708,104 @@ export default function FieldRow({
               >+ Add option</button>
             </div>
           )}
+
+          {/* CONDITIONAL-FIELDS-1 — "Show this field only when…". Progressive
+              disclosure: a single Always / When toggle; the rule editor (field
+              · operator · value) only appears once "When" is chosen. Writes
+              `show_if` onto the field; "Always show" clears it back to
+              undefined (the default → field always renders, no regression). */}
+          <div className="qq-field-showif" data-testid={`field-showif-${field.id}`}>
+            <div className="qq-field-required-cluster">
+              <span className="qq-field-width-label">Visibility</span>
+              <div className="qq-field-width-segmented" role="group" aria-label="Field visibility">
+                <button
+                  type="button"
+                  className={`qq-field-width-btn${!showIfEnabled ? ' is-active' : ''}`}
+                  aria-pressed={!showIfEnabled}
+                  onClick={() => setShowIfEnabled(false)}
+                  data-testid={`field-showif-always-${field.id}`}
+                >Always show</button>
+                <button
+                  type="button"
+                  className={`qq-field-width-btn${showIfEnabled ? ' is-active' : ''}`}
+                  aria-pressed={showIfEnabled}
+                  onClick={() => setShowIfEnabled(true)}
+                  disabled={showIfCandidates.length === 0}
+                  data-testid={`field-showif-conditional-${field.id}`}
+                >Show only when…</button>
+              </div>
+            </div>
+
+            {showIfEnabled && field.show_if && (
+              <div className="qq-field-showif-rule" data-testid={`field-showif-rule-${field.id}`}>
+                <FloatField label="Field" htmlFor={`field-showif-field-${field.id}`} variant="select">
+                  <select
+                    id={`field-showif-field-${field.id}`}
+                    className="premium-input qq-field-input"
+                    value={field.show_if.field}
+                    onChange={(e) => changeShowIfController(e.target.value)}
+                    data-testid={`field-showif-field-${field.id}`}
+                  >
+                    {showIfCandidates.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {plainText(c.label) || c.name || c.id}
+                      </option>
+                    ))}
+                  </select>
+                </FloatField>
+                <FloatField label="Condition" htmlFor={`field-showif-op-${field.id}`} variant="select">
+                  <select
+                    id={`field-showif-op-${field.id}`}
+                    className="premium-input qq-field-input"
+                    value={field.show_if.op}
+                    onChange={(e) => patchShowIf({ op: e.target.value as NonNullable<TemplateField['show_if']>['op'] })}
+                    data-testid={`field-showif-op-${field.id}`}
+                  >
+                    {SHOWIF_OPS.map((o) => (
+                      <option key={o.op} value={o.op}>{o.label}</option>
+                    ))}
+                  </select>
+                </FloatField>
+                {controllerUsesOptions ? (
+                  <FloatField label="Value" htmlFor={`field-showif-value-${field.id}`} variant="select">
+                    <select
+                      id={`field-showif-value-${field.id}`}
+                      className="premium-input qq-field-input"
+                      value={String(field.show_if.value)}
+                      onChange={(e) => patchShowIf({ value: e.target.value })}
+                      data-testid={`field-showif-value-${field.id}`}
+                    >
+                      {(controller?.options ?? []).map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {plainText(o.label) || o.id}
+                        </option>
+                      ))}
+                    </select>
+                  </FloatField>
+                ) : (
+                  <FloatField label="Value" htmlFor={`field-showif-value-${field.id}`}>
+                    <input
+                      id={`field-showif-value-${field.id}`}
+                      type={controller?.type === 'text' ? 'text' : 'number'}
+                      inputMode={controller?.type === 'text' ? 'text' : 'numeric'}
+                      className="premium-input qq-field-input"
+                      placeholder=" "
+                      value={String(field.show_if.value ?? '')}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const next: string | number =
+                          controller?.type === 'text'
+                            ? raw
+                            : (raw.trim() === '' ? '' : (Number(raw) || 0));
+                        patchShowIf({ value: next });
+                      }}
+                      data-testid={`field-showif-value-${field.id}`}
+                    />
+                  </FloatField>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -878,6 +1053,23 @@ export default function FieldRow({
         .qq-field-required-cluster {
           display: flex; flex-direction: column; gap: 4px;
           min-width: 0;
+        }
+        /* CONDITIONAL-FIELDS-1 — "Show only when…" block. Sits under the
+         * options editor; the Always/When segmented control reuses the
+         * shared .qq-field-width-segmented styling. The rule row tiles the
+         * field · operator · value selects across 3 columns (collapses to a
+         * single column on narrow viewports). */
+        .qq-field-showif {
+          display: flex; flex-direction: column; gap: 8px;
+          margin-top: 2px; padding-top: 8px;
+          border-top: 1px solid ${p.colors.borderLight};
+        }
+        .qq-field-showif-rule {
+          display: grid; grid-template-columns: 1.2fr 0.9fr 1fr; gap: 8px;
+          align-items: end;
+        }
+        @media (max-width: 480px) {
+          .qq-field-showif-rule { grid-template-columns: 1fr; }
         }
 
         /* ── Premium-SaaS icon button (shared)

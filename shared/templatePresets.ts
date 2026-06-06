@@ -183,6 +183,32 @@ export interface TemplateField {
    * handles other cosmetic overrides, then re-attached on load.
    */
   inlineStyle?: InlineElementStyle;
+  /**
+   * CONDITIONAL-FIELDS-1 — conditional visibility. When present, this field
+   * is rendered ONLY while the rule evaluates true against the current
+   * answers; otherwise it is removed from the layout AND treated as
+   * unanswered in the formula engine (contributes 0 / [] — never a stale
+   * value). Absent → the field is always shown (no behaviour change for
+   * every existing template).
+   *
+   *  - `field` — the `id` of the CONTROLLING field whose answer is tested.
+   *  - `op`    — the comparison: `eq` / `ne` (equality, string or number),
+   *              `gt` / `lt` / `gte` / `lte` (numeric), or `contains`
+   *              (substring for text, membership for a multi_select array).
+   *  - `value` — the value to compare against. For a select / radio /
+   *              image_choice controller this is the OPTION ID (e.g.
+   *              `'premium'`); for a number / slider it's the number; for a
+   *              toggle use `1` / `0` (on / off).
+   *
+   * Single condition only (v1) — one clean "show when" rule per field.
+   * Serializable plain JSON so it round-trips through `toAdvancedConfig`
+   * and the persisted `calculator_settings.advanced` untouched.
+   */
+  show_if?: {
+    field: string;
+    op: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains';
+    value: string | number;
+  };
 }
 
 /**

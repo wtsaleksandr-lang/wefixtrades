@@ -155,6 +155,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
               <li key={f.id} className="qq-fields-li" data-first={i === 0 ? '1' : '0'}>
                 <FieldRow
                   field={f}
+                  allFields={fields}
                   index={i}
                   total={fields.length}
                   onChange={(next) => handleRowChange(i, next)}

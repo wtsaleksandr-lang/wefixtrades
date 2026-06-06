@@ -242,6 +242,18 @@ interface AdvField {
   on_value?: number;
   options?: AdvOption[];
   visible_when?: { field: string; op: string; value: number };
+  /**
+   * CONDITIONAL-FIELDS-1 — conditional visibility. See `TemplateField.show_if`
+   * in shared/templatePresets.ts for the authoring docs. When set, the field
+   * renders only while the rule passes against the current answers; when it
+   * fails the field is dropped from the layout AND contributes a neutral value
+   * to the formula context (never a stale answer). Absent → always shown.
+   */
+  show_if?: {
+    field: string;
+    op: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains';
+    value: string | number;
+  };
   /** Optional grid column span (1 = half width, 2 = full width). */
   colSpan?: 1 | 2;
   // COMPONENTS-1 — see `TemplateField` in shared/templatePresets.ts for full
@@ -578,6 +590,97 @@ function rulePasses(rule: { op: string; value: number }, controlValue: number): 
     case 'lte': return controlValue <= rule.value;
     default: return true;
   }
+}
+
+/**
+ * CONDITIONAL-FIELDS-1 — evaluate a field's `show_if` rule against the
+ * current answers. Pure + side-effect-free so it re-runs cleanly on every
+ * answer change (the renderer already re-derives on state change).
+ *
+ * The rule's `field` is the CONTROLLING field's `id`; we resolve it to the
+ * answer (keyed by the controlling field's `name`). Comparison reads the
+ * RAW answer, not the formula contribution:
+ *   - select / radio / image_choice → the selected OPTION ID (string)
+ *   - number / slider               → the number
+ *   - toggle                        → coerced to 1 / 0 so a `value: 1` rule works
+ *   - multi_select                  → the array of selected option ids
+ *
+ * Semantics:
+ *   - No `show_if`            → visible.
+ *   - Controller not found    → visible (fail-open; a dangling ref must not
+ *                               permanently hide a field the owner can see in
+ *                               the editor).
+ *   - Controller unanswered   → eq/gt/lt/gte/lte/contains are FALSE (hidden);
+ *                               `ne` is TRUE (an absent answer is "not equal").
+ *
+ * `eq` / `ne` compare loosely-by-string so `'premium' === 'premium'` and
+ * `value: 1` matches a numeric `1`. `gt/lt/gte/lte` are numeric. `contains`
+ * is substring (string answer) or membership (multi_select array answer).
+ */
+function isFieldVisible(
+  field: AdvField,
+  fieldsById: Map<string, AdvField>,
+  answers: Record<string, Answer>,
+): boolean {
+  const rule = field.show_if;
+  if (!rule) return true;
+  const ctrl = fieldsById.get(rule.field);
+  if (!ctrl) return true; // dangling reference → fail open.
+
+  const answer = answers[ctrl.name];
+  const unanswered =
+    answer === undefined || answer === null || answer === ''
+    || (Array.isArray(answer) && answer.length === 0);
+
+  switch (rule.op) {
+    case 'eq':
+      if (unanswered) return false;
+      return looseEquals(answer, rule.value);
+    case 'ne':
+      if (unanswered) return true;
+      return !looseEquals(answer, rule.value);
+    case 'gt':
+    case 'lt':
+    case 'gte':
+    case 'lte': {
+      if (unanswered) return false;
+      const a = answerToNumber(answer);
+      const b = Number(rule.value);
+      if (!isFinite(a) || !isFinite(b)) return false;
+      if (rule.op === 'gt') return a > b;
+      if (rule.op === 'lt') return a < b;
+      if (rule.op === 'gte') return a >= b;
+      return a <= b;
+    }
+    case 'contains': {
+      if (unanswered) return false;
+      const needle = String(rule.value);
+      if (Array.isArray(answer)) return answer.map(String).includes(needle);
+      return String(answer).includes(needle);
+    }
+    default:
+      return true;
+  }
+}
+
+/** Loose equality for show_if eq/ne — compares by string so `1` == `'1'`
+ *  and `true`/toggle answers coerce predictably. */
+function looseEquals(answer: Answer, value: string | number): boolean {
+  if (typeof answer === 'boolean') {
+    // Toggle answers compare against 1/0 (or 'true'/'false').
+    const n = answer ? 1 : 0;
+    return String(n) === String(value) || String(answer) === String(value);
+  }
+  return String(answer) === String(value);
+}
+
+/** Coerce a raw answer to a number for the numeric show_if operators. */
+function answerToNumber(answer: Answer): number {
+  if (typeof answer === 'number') return answer;
+  if (typeof answer === 'boolean') return answer ? 1 : 0;
+  if (Array.isArray(answer)) return answer.length;
+  const n = parseFloat(String(answer));
+  return isFinite(n) ? n : NaN;
 }
 
 /** P2 UX — deposit-badge icon name → lucide component. Mirrors the
@@ -1526,14 +1629,28 @@ export default function AdvancedCalculator({
     return ctx;
   }, [fields, answers]);
 
+  // CONDITIONAL-FIELDS-1 — id→field map so `show_if.field` (a controlling
+  // field id) resolves to that field (and its answer key, `name`).
+  const fieldsById = useMemo(() => {
+    const m = new Map<string, AdvField>();
+    for (const f of fields) m.set(f.id, f);
+    return m;
+  }, [fields]);
+
   const visibleIds = useMemo(() => {
     const s = new Set<string>();
     for (const f of fields) {
-      if (!f.visible_when) { s.add(f.id); continue; }
-      if (rulePasses(f.visible_when, asNumber(raw[f.visible_when.field] ?? 0))) s.add(f.id);
+      // Legacy numeric `visible_when` rule (kept for back-compat).
+      if (f.visible_when
+        && !rulePasses(f.visible_when, asNumber(raw[f.visible_when.field] ?? 0))) {
+        continue;
+      }
+      // CONDITIONAL-FIELDS-1 — `show_if` rule (string-or-number aware).
+      if (!isFieldVisible(f, fieldsById, answers)) continue;
+      s.add(f.id);
     }
     return s;
-  }, [fields, raw]);
+  }, [fields, raw, fieldsById, answers]);
 
   const ctx = useMemo(() => {
     const m: FormulaContext = {};
