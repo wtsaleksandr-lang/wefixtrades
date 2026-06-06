@@ -31,7 +31,7 @@ client/src/components/ui/pagination.tsx:100:5	rule-c	square w-9 h-9
 client/src/components/ui/radio-group.tsx:35:17	rule-c	square w-2.5 h-2.5
 client/src/components/ui/resizable.tsx:39:23	rule-c	square w-2.5 h-2.5
 client/src/components/ui/sidebar.tsx:269:7	rule-c	square w-7 h-7
-client/src/components/wizard/elfsight/AIBubble.tsx:979:42	rule-c	size={36}
+client/src/components/wizard/elfsight/AIBubble.tsx:975:42	rule-c	size={36}
 client/src/components/wizard/elfsight/HeaderResultsPanel.tsx:55:5	rule-b	<section> contains 2 cues
 client/src/components/wizard/elfsight/HostedPageSection.tsx:108:5	rule-b	<section> contains 4 cues
 client/src/components/wizard/elfsight/InstallTab.tsx:218:57	rule-b	<div> contains 4 cues
@@ -41,12 +41,11 @@ client/src/components/wizard/elfsight/RichTextField.tsx:266:5	rule-b	<div> conta
 client/src/components/wizard/elfsight/RichTextField.tsx:402:24	rule-c	size={13}
 client/src/components/wizard/elfsight/RichTextField.tsx:457:24	rule-c	size={13}
 client/src/components/wizard/elfsight/SettingsTab.tsx:155:49	rule-b	<fieldset> contains 10 cues
-client/src/components/wizard/elfsight/StyleTab.tsx:411:58	rule-b	<fieldset> contains 21 cues
-client/src/components/wizard/elfsight/StyleTab.tsx:1141:31	rule-c	size={10}
-client/src/components/wizard/elfsight/StyleTab.tsx:3640:23	rule-c	size={10}
-client/src/components/wizard/elfsight/StyleTab.tsx:4340:30	rule-c	size={13}
-client/src/components/wizard/elfsight/StyleTab.tsx:4350:32	rule-c	size={13}
-client/src/components/wizard/elfsight/StyleTab.tsx:4363:26	rule-c	size={13}
+client/src/components/wizard/elfsight/StyleTab.tsx:410:58	rule-b	<fieldset> contains 21 cues
+client/src/components/wizard/elfsight/StyleTab.tsx:1134:31	rule-c	size={10}
+client/src/components/wizard/elfsight/StyleTab.tsx:4271:30	rule-c	size={13}
+client/src/components/wizard/elfsight/StyleTab.tsx:4281:32	rule-c	size={13}
+client/src/components/wizard/elfsight/StyleTab.tsx:4294:26	rule-c	size={13}
 client/src/components/wizard/elfsight/TemplateGallery.tsx:816:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:228:17	rule-c	size={11}
 client/src/pages/Blog.tsx:239:19	rule-c	size={120}
