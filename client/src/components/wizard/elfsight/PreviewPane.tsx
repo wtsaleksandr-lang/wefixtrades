@@ -59,6 +59,13 @@ interface Props {
   /** Wave L E5 — two-way bind. When the user inline-edits the preview header
    *  title, this fires; the Build-tab business-name field stays in sync. */
   onBusinessNameChange?: (v: string) => void;
+  /** fix/tmpl-editor-mobile (B) — two-way bind for the widget HEADER TITLE
+   *  (the headline, e.g. "Get Your … Quote in 60 Seconds"), distinct from the
+   *  business name. Fired when the user inline-edits the header title via the
+   *  pencil affordance in the preview; commits to `header.title`. When wired,
+   *  the inline title editor binds to the header title; when absent it falls
+   *  back to the legacy business-name binding. */
+  onHeaderTitleChange?: (v: string) => void;
   /** Wave J item 5 — business logo (data URL or null). Surfaces in the
    *  preview header alongside the business name. */
   logo?: string | null;
@@ -249,7 +256,7 @@ function loadZoom(sessionId: string): number {
 type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
 export default function PreviewPane({
-  businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
+  businessName, onBusinessNameChange, onHeaderTitleChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category,
   onRemoveField, onAddField, onUpdateField,
   hostedFrame = false,
@@ -272,6 +279,20 @@ export default function PreviewPane({
   // per-field decorators. Placeholder seed fields (when `fields` is undefined)
   // are left alone since we can't reorder/remove them via the shell.
   const shellFields = fields ?? [];
+
+  // fix/tmpl-editor-mobile (A) — preview surface background.
+  //
+  // The bezel / overlay-host / mobile-clean container previously painted a
+  // hardcoded white. On a DARK template (e.g. apple-clean dark) that white
+  // showed through BELOW the widget content — a white band above the bottom
+  // tab bar in the mobile preview. Derive the surface colour from the live
+  // widget body background (`style.background`, which a dark template sets to
+  // a dark value) so the area behind/below the widget matches the widget.
+  // When the widget has no explicit background we fall back to the editor
+  // surface TOKEN (theme-aware — dark in dark editor mode), never a bare
+  // #fff/#000 literal. Light templates keep `#ffffff` from DEFAULT_ADV_STYLE,
+  // so the light preview is unchanged.
+  const previewBodyBg = style?.background ?? p.colors.surface;
 
   // Wave AC-2 — drag entire widget within canvas. Offset is per-device,
   // persisted to localStorage. BD-3b — initiates via a top-bar drag handle
@@ -1566,11 +1587,31 @@ export default function PreviewPane({
   }, [titleEditing, measureTitle, businessName, header]);
 
   const openTitleEditor = useCallback(() => {
-    if (!onBusinessNameChange) return;
+    // fix/tmpl-editor-mobile (B) — the inline editor edits the HEADER TITLE
+    // when `onHeaderTitleChange` is wired, falling back to the legacy
+    // business-name binding otherwise. Open only when at least one commit
+    // path exists.
+    if (!onHeaderTitleChange && !onBusinessNameChange) return;
     measureTitle();
     setTitleEditing(true);
     setTimeout(() => { titleInputRef.current?.focus(); titleInputRef.current?.select(); }, 0);
-  }, [onBusinessNameChange, measureTitle]);
+  }, [onHeaderTitleChange, onBusinessNameChange, measureTitle]);
+
+  // fix/tmpl-editor-mobile (B) — inline title-editor bindings. When
+  // `onHeaderTitleChange` is wired the editor reads/writes the HEADER TITLE
+  // (`header.title`); otherwise it falls back to the legacy business-name
+  // binding so older mount sites keep working. A single gate + value + commit
+  // is shared by all three render paths (mobile-clean / mobile-bezel /
+  // desktop) so they stay in lock-step.
+  const titleEditEnabled = !!onHeaderTitleChange || !!onBusinessNameChange;
+  const titleEditValue = onHeaderTitleChange ? (header?.title ?? '') : businessName;
+  const titleEditPlaceholder = onHeaderTitleChange
+    ? 'Add your header title here'
+    : 'Add your business name here';
+  const commitTitleEdit = useCallback((v: string) => {
+    if (onHeaderTitleChange) onHeaderTitleChange(v);
+    else onBusinessNameChange?.(v);
+  }, [onHeaderTitleChange, onBusinessNameChange]);
 
   // Wave L E3 — swipe-to-delete on mobile.
   const [undo, setUndo] = useState<null | { field: TemplateField; index: number }>(null);
@@ -1858,7 +1899,10 @@ export default function PreviewPane({
           data-testid="preview-bezel-mobile-clean"
           className="qq-bezel--mobile-clean"
           onClick={onBezelClick}
-          style={{ position: 'relative', width: '100%', background: 'rgba(255,255,255,1)' }}
+          /* fix/tmpl-editor-mobile (A) — surface matches the widget body bg
+             (token-derived) so a dark template shows no white band below the
+             widget; light templates keep their white. */
+          style={{ position: 'relative', width: '100%', background: previewBodyBg }}
         >
           {renderPreviewWidget}
           {/* Clean mobile preview — selection ring stays, but the per-field
@@ -1881,15 +1925,15 @@ export default function PreviewPane({
           {shellFields.length === 0 && onAddField && (
             <PreviewEmptyState onAddField={onAddField} />
           )}
-          {titleEditing && titleBox && onBusinessNameChange && (
+          {titleEditing && titleBox && titleEditEnabled && (
             <input
               ref={titleInputRef}
               type="text"
               className="qq-preview-title-edit"
               data-testid="preview-title-edit"
-              placeholder="Add your business name here"
-              value={businessName}
-              onChange={(e) => onBusinessNameChange(e.target.value)}
+              placeholder={titleEditPlaceholder}
+              value={titleEditValue}
+              onChange={(e) => commitTitleEdit(e.target.value)}
               onBlur={() => setTitleEditing(false)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === 'Escape') {
@@ -2024,7 +2068,7 @@ export default function PreviewPane({
             >
               {dragHandle}
               <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px', flexShrink: 0 }} />
-              <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', background: '#fff', flex: 1, position: 'relative' }}>
+              <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', background: previewBodyBg, flex: 1, position: 'relative' }}>
                 {renderPreviewWidget}
                 {shellFields.length > 0 && onRemoveField && (
                   <PreviewOverlay
@@ -2058,15 +2102,15 @@ export default function PreviewPane({
                 {shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
                 )}
-                {titleEditing && titleBox && onBusinessNameChange && (
+                {titleEditing && titleBox && titleEditEnabled && (
                   <input
                     ref={titleInputRef}
                     type="text"
                     className="qq-preview-title-edit"
                     data-testid="preview-title-edit"
-                    placeholder="Add your business name here"
-                    value={businessName}
-                    onChange={(e) => onBusinessNameChange(e.target.value)}
+                    placeholder={titleEditPlaceholder}
+                    value={titleEditValue}
+                    onChange={(e) => commitTitleEdit(e.target.value)}
                     onBlur={() => setTitleEditing(false)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === 'Escape') {
@@ -2126,7 +2170,10 @@ export default function PreviewPane({
                 // descendants inside the widget anchor to the page / iframe
                 // scroll container instead of being trapped by this bezel.
                 // See memory/project_overflow_clip_for_sticky.md
-                borderRadius: 16, overflow: 'clip', background: '#fff',
+                /* fix/tmpl-editor-mobile (A) — bezel body matches widget bg
+                   (token-derived) so no white band shows below a dark-template
+                   widget; light templates resolve to white as before. */
+                borderRadius: 16, overflow: 'clip', background: previewBodyBg,
                 border: `1px solid ${p.colors.borderLight}`,
                 display: 'flex', flexDirection: 'column',
                 boxShadow: '0 20px 48px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.06)',
@@ -2188,15 +2235,15 @@ export default function PreviewPane({
                 {shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
                 )}
-                {titleEditing && titleBox && onBusinessNameChange && (
+                {titleEditing && titleBox && titleEditEnabled && (
                   <input
                     ref={titleInputRef}
                     type="text"
                     className="qq-preview-title-edit"
                     data-testid="preview-title-edit"
-                    placeholder="Add your business name here"
-                    value={businessName}
-                    onChange={(e) => onBusinessNameChange(e.target.value)}
+                    placeholder={titleEditPlaceholder}
+                    value={titleEditValue}
+                    onChange={(e) => commitTitleEdit(e.target.value)}
                     onBlur={() => setTitleEditing(false)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === 'Escape') {

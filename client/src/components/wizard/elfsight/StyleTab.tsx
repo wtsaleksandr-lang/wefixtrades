@@ -318,6 +318,12 @@ export default function StyleTab({
     });
   };
 
+  // fix/tmpl-editor-mobile (D) — trust-badge visibility toggle. Default ON:
+  // the row shows when the flag is undefined or true; only an explicit
+  // `false` hides it. The widget renderer gates on the same
+  // `showTrustBadges !== false` predicate.
+  const showTrustBadges = style.showTrustBadges !== false;
+
   // BD-3m — Floating launcher embed mode. `enabled` + `position` are
   // free-tier allowed; `customIconUrl` + `label` are Pro-only (the server
   // route strips them on save, see calculatorRoutes.ts). The StyleTab
@@ -1224,6 +1230,53 @@ export default function StyleTab({
         onChange={(next) => patch({ buttonCopy: next })}
         isProTier={isProTier}
       />
+
+      {/* ── fix/tmpl-editor-mobile (D) — Trust-badge visibility toggle ──
+       *
+       * Master on/off switch for the widget's trust-badge line, sitting
+       * directly above the badge editor so the show/hide control and the
+       * per-badge edits live together. Mirrors the "WeFixTrades badge"
+       * toggle pattern (qq-bs-sub + qq-style-label checkbox). Sets
+       * `style.showTrustBadges`; the widget renderer gates the row on
+       * `showTrustBadges !== false`, so undefined/true = shown. */}
+      <div
+        className="qq-bs-sub"
+        data-testid="style-sub-trust-badges-visibility"
+        style={{ marginTop: 12 }}
+      >
+        <p className="qq-bs-sub-title">
+          <span className="qq-bs-sub-title-text">Trust badges</span>
+          <InfoCue
+            testid="style-trust-badges-visibility-info"
+            region="trust-strip"
+            text="Show or hide the small trust-badge line in the widget. Turn it off to hide the badges entirely; turn it on to show them (and edit them in the section below)."
+          />
+        </p>
+        <p className="qq-bs-sub-hint">
+          Show the trust-badge line in the widget. Turn off to hide the badges entirely.
+        </p>
+        <label
+          className="qq-style-label"
+          style={{
+            marginTop: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={showTrustBadges}
+            onChange={(e) => patch({ showTrustBadges: e.target.checked })}
+            data-testid="style-trust-badges-visibility"
+            aria-label="Show trust badges"
+          />
+          <span className="qq-style-label-text" style={{ margin: 0 }}>
+            Show trust badges
+          </span>
+        </label>
+      </div>
 
       {/* ── BG-7 Item 1 — Trust badge editor ────────────────────────
        *

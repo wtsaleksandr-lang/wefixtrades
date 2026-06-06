@@ -115,8 +115,15 @@ export interface ShellResults {
  * state, the PreviewPane merge, and the persisted `advanced.style` slot all
  * speak the same shape. Every field stays optional so an in-flight edit can
  * partial-update without forcing every field.
+ *
+ * `showTrustBadges` — fix/tmpl-editor-mobile: owner toggle for the widget's
+ * trust-badge line. Default semantics = SHOWN when undefined or true; the
+ * widget renderer gates the row on `style.showTrustBadges !== false`. Optional
+ * so an in-flight partial edit never has to set it.
  */
-export type ShellStyle = AdvStyle;
+export type ShellStyle = AdvStyle & {
+  showTrustBadges?: boolean;
+};
 export type {
   AdvFontFamily as ShellFontFamily,
   AdvFieldStyle as ShellFieldStyle,

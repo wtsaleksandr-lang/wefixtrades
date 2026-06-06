@@ -1551,6 +1551,10 @@ export default function WizardShell({ embed = false }: Props) {
                 <PreviewPane
                   businessName={state.businessName}
                   onBusinessNameChange={setBusinessName}
+                  /* fix/tmpl-editor-mobile (B) — pencil-driven inline edit of
+                     the preview HEADER TITLE commits to state.header.title via
+                     setHeader, keeping the BuildTab header field in sync. */
+                  onHeaderTitleChange={(v) => setHeader({ ...(state.header ?? {}), title: v })}
                   logo={state.logo ?? null}
                   layout={state.layout}
                   device={device}
@@ -2821,10 +2825,30 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-body.is-mobile-sheet ~ .qq-ai-panel {
                 z-index: 9999 !important;
               }
-              /* Bottom-anchor the bubble above the persistent dark bottom tab
-               * bar (~60px + safe-area) so it never sits behind the tabs. */
+              /* fix/tmpl-editor-mobile (C) — keep the floating AI bubble OFF
+               * the widget's primary CTA / card on mobile. The default pill
+               * (label + icon, right:18 bottom:76) sat over the "Get My Quote"
+               * button and the card content. On mobile we:
+               *   • shrink it to a compact icon-only circle (label hidden),
+               *   • tuck it tight into the bottom-right corner, and
+               *   • lift it clear above the persistent dark bottom tab bar
+               *     (~60px) + safe-area, with extra clearance so it floats
+               *     beside — not over — the CTA.
+               * The widget CTA stays fully reachable/unobscured. */
               .qq-editor-body.is-mobile-sheet ~ .qq-ai-bubble {
-                bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+                right: 10px;
+                bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+                padding: 0;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                justify-content: center;
+                gap: 0;
+              }
+              /* Icon-only on mobile — drop the "AI" text so the footprint is a
+               * small circle that doesn't span across the CTA. */
+              .qq-editor-body.is-mobile-sheet ~ .qq-ai-bubble .qq-ai-bubble-label {
+                display: none;
               }
               .qq-preview-stage { max-width: 100%; }
               .qq-preview-pane > .qq-preview-stage > .widget-scope { padding: 0 !important; }
