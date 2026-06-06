@@ -345,7 +345,6 @@ export default function StyleTab({
   };
   const floatingIconFileRef = useRef<HTMLInputElement | null>(null);
   const onFloatingIconFile = useCallback((file: File | null) => {
-    if (!isProTier) return;
     if (!file) { setFloatingLauncher({ customIconUrl: undefined }); return; }
     if (file.size > LOGO_MAX_BYTES) return; // silently skip — UI hint shown
     const reader = new FileReader();
@@ -910,11 +909,6 @@ export default function StyleTab({
           <label className="qq-style-label">
             <span className="qq-style-label-text">
               AI chat visibility
-              {!isProTier && (
-                <span className="qq-style-pro-pill">
-                  PRO
-                </span>
-              )}
               <InfoCue
                 testid="style-ai-chat-visibility-info"
                 region="chat-bubble"
@@ -931,7 +925,6 @@ export default function StyleTab({
               { value: 'always', label: 'Always visible' },
             ]}
             onChange={(v) => {
-              if (!isProTier) return;
               patch({ aiChatVisibility: v });
             }}
           />
@@ -1404,7 +1397,6 @@ export default function StyleTab({
                   accept="image/png,image/svg+xml,image/jpeg,image/webp"
                   className="premium-input"
                   data-testid="style-floating-launcher-icon-file"
-                  disabled={!isProTier}
                   onChange={(e) => onFloatingIconFile(e.target.files?.[0] ?? null)}
                   aria-label="Upload custom launcher icon"
                 />
@@ -1443,20 +1435,6 @@ export default function StyleTab({
                   </button>
                 </div>
               )}
-              {!isProTier && (
-                <p
-                  className="qq-style-pro-pill-row"
-                  style={{
-                    fontSize: 11,
-                    margin: 0, lineHeight: 1.4,
-                  }}
-                  data-testid="style-floating-launcher-icon-locked"
-                >
-                  <strong className="qq-style-pro-pill" style={{ marginRight: 4, marginLeft: 0 }}>PRO</strong>
-                  Custom icon + screen-reader label are part of the Pro plan.
-                </p>
-              )}
-
               <FloatField
                 label="Screen-reader label (optional)"
                 htmlFor="qq-style-floating-launcher-label"
@@ -1469,7 +1447,6 @@ export default function StyleTab({
                   placeholder=" "
                   value={floatingLabel}
                   data-testid="style-floating-launcher-label"
-                  disabled={!isProTier}
                   onChange={(e) => setFloatingLauncher({ label: e.target.value })}
                 />
               </FloatField>
@@ -2643,29 +2620,6 @@ function BrandStudioGroup({
 
       {open && (
         <div className="qq-style-group-body qq-bs-body">
-          {!isProTier && (
-            <div className="qq-bs-upsell" data-testid="style-bs-upsell">
-              <span className="qq-bs-upsell-icon" aria-hidden="true">
-                <Sparkles size={16} />
-              </span>
-              <div className="qq-bs-upsell-body">
-                <p className="qq-bs-upsell-title">Brand Studio is a Pro feature</p>
-                <p className="qq-bs-upsell-sub">
-                  Preview the controls below — your saved settings keep their existing look.
-                  Upgrade to Pro ($29/mo) to publish custom CSS, image / gradient backgrounds,
-                  and result-panel styling on your widget.
-                </p>
-                <a
-                  href="/pricing/quotequick"
-                  className="qq-bs-upsell-cta"
-                  data-testid="style-bs-upgrade"
-                >
-                  Upgrade to Pro →
-                </a>
-              </div>
-            </div>
-          )}
-
           {/* 1. Custom CSS */}
           <div className="qq-bs-sub" data-testid="style-bs-sub-customcss">
             {/* BD-3e Fix 4 — help cue added (was previously missing). */}
@@ -2674,11 +2628,11 @@ function BrandStudioGroup({
               <InfoCue
                 testid="style-bs-customcss-info"
                 region="background"
-                text="Pro-tier custom CSS scoped to .qq-widget-<id> on your live calculator. Invalid CSS won't break the widget but won't be applied either — the runtime silently drops unparseable rules."
+                text="Custom CSS scoped to .qq-widget-<id> on your live calculator. Invalid CSS won't break the widget but won't be applied either — the runtime silently drops unparseable rules."
               />
             </p>
             <p className="qq-bs-sub-hint">
-              Advanced. Inject custom CSS scoped to your widget. Pro plan required.
+              Advanced. Inject custom CSS scoped to your widget.
             </p>
             <textarea
               className="qq-bs-css"
@@ -2701,12 +2655,12 @@ function BrandStudioGroup({
               <InfoCue
                 testid="style-bs-background-info"
                 region="background"
-                text="Override the widget body background. Solid uses the Colours-tab swatch; Gradient and Image are Pro-only and ship custom CSS to the live widget. Invalid CSS or unreachable image URLs are silently ignored at render time."
+                text="Override the widget body background. Solid uses the Colours-tab swatch; Gradient and Image ship custom CSS to the live widget. Invalid CSS or unreachable image URLs are silently ignored at render time."
               />
             </p>
             <p className="qq-bs-sub-hint">
               Override the widget body background. Solid keeps the picker in Colours;
-              Gradient and Image are Pro-only and render only on Pro plans.
+              Gradient and Image render custom CSS to the live widget.
             </p>
             <SegmentedControl<AdvBgMode>
               name="bs-bg-mode"
@@ -3629,34 +3583,11 @@ function BrandKitGroup({
     setPickerOpen(false);
   }, [onApply]);
 
-  // Free-tier rendering: lock + upsell. Match BrandStudioGroup styling.
-  if (!isProTier || loadState === 'pro-required') {
-    return (
-      <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="false">
-        <legend className="qq-style-legend">
-          <Lock size={12} aria-hidden="true" />
-          Brand Kit
-          <span className="qq-bs-pill" aria-label="Pro plan feature">
-            <Sparkles size={10} aria-hidden="true" /> Pro
-          </span>
-        </legend>
-        <div className="qq-style-group-body">
-          <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
-            Save your widget's look as a reusable Brand Kit and apply it across every
-            calculator you own. Upgrade to Pro ($29/mo) to unlock.
-          </p>
-          <a
-            href="/pricing/quotequick"
-            className="qq-bs-upsell-cta"
-            data-testid="style-bk-upgrade"
-          >
-            Upgrade to Pro →
-          </a>
-        </div>
-      </fieldset>
-    );
-  }
-
+  // Wave 58 — Brand Kit is now a free-tier builder feature. The former
+  // lock + "Upgrade to Pro" upsell variant has been removed; everyone sees
+  // the real save/apply controls. A server 403 (pro_tier_required) now
+  // falls through to the standard non-ready rendering below (buttons stay
+  // disabled until the list loads) instead of a tier upsell.
   if (loadState === 'unauthenticated') {
     return (
       <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="true">

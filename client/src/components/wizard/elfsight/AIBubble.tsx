@@ -297,10 +297,6 @@ async function streamChat(
       handlers.onError('auth:required');
       return;
     }
-    if (res.status === 402 && parsed?.error === 'business_tier_required') {
-      handlers.onError('tier:business_required');
-      return;
-    }
     handlers.onError(parsed?.error || `HTTP ${res.status}`);
     return;
   }
@@ -1089,9 +1085,7 @@ export default function AIBubble(props: AIBubbleProps) {
                 ? 'AI budget reached for this calculator.'
                 : streamErr === 'auth:required'
                   ? 'Sign in to use the AI assistant. Open this calculator from your dashboard, or refresh the page.'
-                  : streamErr === 'tier:business_required'
-                    ? 'The AI assistant is a Business-plan feature. Upgrade to unlock it.'
-                    : `Something went wrong: ${streamErr}`}
+                  : `Something went wrong: ${streamErr}`}
             </div>
           )}
 
