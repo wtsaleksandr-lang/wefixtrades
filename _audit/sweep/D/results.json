@@ -1,0 +1,376 @@
+[
+  {
+    "tag": "/products/quickquotepro/build-with-ai [desktop]",
+    "route": "/products/quickquotepro/build-with-ai",
+    "vp": "desktop",
+    "defects": [
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[A11Y] color-contrast (serious) nodes=12"
+    ]
+  },
+  {
+    "tag": "/products/quickquotepro/build-with-ai [mobile]",
+    "route": "/products/quickquotepro/build-with-ai",
+    "vp": "mobile",
+    "defects": [
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[A11Y] color-contrast (serious) nodes=13"
+    ]
+  },
+  {
+    "tag": "/products/quickquotepro/build-with-ai/preview [desktop]",
+    "route": "/products/quickquotepro/build-with-ai/preview",
+    "vp": "desktop",
+    "defects": [
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[A11Y] color-contrast (serious) nodes=12"
+    ]
+  },
+  {
+    "tag": "/products/quickquotepro/build-with-ai/preview [mobile]",
+    "route": "/products/quickquotepro/build-with-ai/preview",
+    "vp": "mobile",
+    "defects": [
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[A11Y] color-contrast (serious) nodes=13"
+    ]
+  },
+  {
+    "tag": "/products/quickquotepro/demo [desktop]",
+    "route": "/products/quickquotepro/demo",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=9"
+    ]
+  },
+  {
+    "tag": "/products/quickquotepro/demo [mobile]",
+    "route": "/products/quickquotepro/demo",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=10"
+    ]
+  },
+  {
+    "tag": "/sitemap [desktop]",
+    "route": "/sitemap",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=5"
+    ]
+  },
+  {
+    "tag": "/sitemap [mobile]",
+    "route": "/sitemap",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=6"
+    ]
+  },
+  {
+    "tag": "/sms-consent-disclosure [desktop]",
+    "route": "/sms-consent-disclosure",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=8"
+    ]
+  },
+  {
+    "tag": "/sms-consent-disclosure [mobile]",
+    "route": "/sms-consent-disclosure",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=8"
+    ]
+  },
+  {
+    "tag": "/solutions/visibility [desktop]",
+    "route": "/solutions/visibility",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=7"
+    ]
+  },
+  {
+    "tag": "/solutions/visibility [mobile]",
+    "route": "/solutions/visibility",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=7"
+    ]
+  },
+  {
+    "tag": "/templates [desktop]",
+    "route": "/templates",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=20"
+    ]
+  },
+  {
+    "tag": "/templates [mobile]",
+    "route": "/templates",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=18",
+      "[OVERFLOW] button right=450 (+75px past 375) | screenshot: overflow__templates_mobile.png",
+      "[OVERFLOW] span right=438 (+63px past 375) | screenshot: overflow__templates_mobile.png",
+      "[OVERFLOW] button right=539 (+164px past 375) | screenshot: overflow__templates_mobile.png",
+      "[OVERFLOW] span right=527 (+152px past 375) | screenshot: overflow__templates_mobile.png",
+      "[OVERFLOW] button right=644 (+269px past 375) | screenshot: overflow__templates_mobile.png",
+      "[OVERFLOW] span right=632 (+257px past 375) | screenshot: overflow__templates_mobile.png",
+      "[OVERFLOW] button right=753 (+378px past 375) | screenshot: overflow__templates_mobile.png",
+      "[OVERFLOW] span right=741 (+366px past 375) | screenshot: overflow__templates_mobile.png"
+    ]
+  },
+  {
+    "tag": "/terms [desktop]",
+    "route": "/terms",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=8"
+    ]
+  },
+  {
+    "tag": "/terms [mobile]",
+    "route": "/terms",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=7"
+    ]
+  },
+  {
+    "tag": "/tools [desktop]",
+    "route": "/tools",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=3"
+    ]
+  },
+  {
+    "tag": "/tools [mobile]",
+    "route": "/tools",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=3"
+    ]
+  },
+  {
+    "tag": "/tools/build-with-ai [desktop]",
+    "route": "/tools/build-with-ai",
+    "vp": "desktop",
+    "defects": [
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[A11Y] color-contrast (serious) nodes=12"
+    ]
+  },
+  {
+    "tag": "/tools/build-with-ai [mobile]",
+    "route": "/tools/build-with-ai",
+    "vp": "mobile",
+    "defects": [
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[A11Y] color-contrast (serious) nodes=13"
+    ]
+  },
+  {
+    "tag": "/tools/build-with-ai/preview [desktop]",
+    "route": "/tools/build-with-ai/preview",
+    "vp": "desktop",
+    "defects": [
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[A11Y] color-contrast (serious) nodes=12"
+    ]
+  },
+  {
+    "tag": "/tools/build-with-ai/preview [mobile]",
+    "route": "/tools/build-with-ai/preview",
+    "vp": "mobile",
+    "defects": [
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute x2: Expected length, \"undefined\".",
+      "[CONSOLE] Error: <line> attribute y2: Expected length, \"undefined\".",
+      "[A11Y] color-contrast (serious) nodes=13"
+    ]
+  },
+  {
+    "tag": "/tools/citation-checker [desktop]",
+    "route": "/tools/citation-checker",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=6"
+    ]
+  },
+  {
+    "tag": "/tools/citation-checker [mobile]",
+    "route": "/tools/citation-checker",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=6"
+    ]
+  },
+  {
+    "tag": "/tools/electrical-ai-content-prompts [desktop]",
+    "route": "/tools/electrical-ai-content-prompts",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/electrical-ai-content-prompts [mobile]",
+    "route": "/tools/electrical-ai-content-prompts",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/free-audit [desktop]",
+    "route": "/tools/free-audit",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=3"
+    ]
+  },
+  {
+    "tag": "/tools/free-audit [mobile]",
+    "route": "/tools/free-audit",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=3"
+    ]
+  },
+  {
+    "tag": "/tools/google-review-link-generator [desktop]",
+    "route": "/tools/google-review-link-generator",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/google-review-link-generator [mobile]",
+    "route": "/tools/google-review-link-generator",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/hvac-ai-content-prompts [desktop]",
+    "route": "/tools/hvac-ai-content-prompts",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/hvac-ai-content-prompts [mobile]",
+    "route": "/tools/hvac-ai-content-prompts",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/landscaping-ai-content-prompts [desktop]",
+    "route": "/tools/landscaping-ai-content-prompts",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/landscaping-ai-content-prompts [mobile]",
+    "route": "/tools/landscaping-ai-content-prompts",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/local-rank-grid [desktop]",
+    "route": "/tools/local-rank-grid",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=6"
+    ]
+  },
+  {
+    "tag": "/tools/local-rank-grid [mobile]",
+    "route": "/tools/local-rank-grid",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=6"
+    ]
+  },
+  {
+    "tag": "/tools/local-rank-tracker [desktop]",
+    "route": "/tools/local-rank-tracker",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=7"
+    ]
+  },
+  {
+    "tag": "/tools/local-rank-tracker [mobile]",
+    "route": "/tools/local-rank-tracker",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=7"
+    ]
+  },
+  {
+    "tag": "/tools/local-rankflux [desktop]",
+    "route": "/tools/local-rankflux",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/local-rankflux [mobile]",
+    "route": "/tools/local-rankflux",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] color-contrast (serious) nodes=4"
+    ]
+  },
+  {
+    "tag": "/tools/local-search-checker [desktop]",
+    "route": "/tools/local-search-checker",
+    "vp": "desktop",
+    "defects": [
+      "[A11Y] aria-required-children (critical) nodes=1",
+      "[A11Y] color-contrast (serious) nodes=6"
+    ]
+  },
+  {
+    "tag": "/tools/local-search-checker [mobile]",
+    "route": "/tools/local-search-checker",
+    "vp": "mobile",
+    "defects": [
+      "[A11Y] aria-required-children (critical) nodes=1",
+      "[A11Y] color-contrast (serious) nodes=6"
+    ]
+  }
+]

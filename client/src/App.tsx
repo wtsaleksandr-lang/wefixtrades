@@ -296,6 +296,7 @@ const BeforeAfterSlider = lazy(() => import("@/pages/portal/FreeTools/BeforeAfte
 const StatsCounter = lazy(() => import("@/pages/portal/FreeTools/StatsCounter"));
 const PhotoQuoteIntake = lazy(() => import("@/pages/portal/FreeTools/PhotoQuoteIntake"));
 const BookingWidget = lazy(() => import("@/pages/portal/FreeTools/BookingWidget"));
+const PhotoGallery = lazy(() => import("@/pages/portal/FreeTools/PhotoGallery"));
 
 // ── Public / shareable artifacts ───────────────────────────────────────────
 const OnboardingForm = lazy(() => import("@/pages/OnboardingForm"));
@@ -572,6 +573,7 @@ function Router() {
       <Route path="/portal/free-tools/stats">{() => <RequireClient><StatsCounter /></RequireClient>}</Route>
       <Route path="/portal/free-tools/photo-quote">{() => <RequireClient><PhotoQuoteIntake /></RequireClient>}</Route>
       <Route path="/portal/free-tools/booking">{() => <RequireClient><BookingWidget /></RequireClient>}</Route>
+      <Route path="/portal/free-tools/gallery">{() => <RequireClient><PhotoGallery /></RequireClient>}</Route>
       <Route path="/portal/free-tools">{() => <RequireClient><FreeToolsIndex /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>

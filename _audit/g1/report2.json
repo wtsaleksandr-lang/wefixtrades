@@ -1,0 +1,52 @@
+{
+  "car_towing": {
+    "rendered": {
+      "desktop": true,
+      "mobile": true
+    },
+    "contrast": [],
+    "overflow": [],
+    "steps": {},
+    "notes": []
+  },
+  "driveway_paving": {
+    "rendered": {
+      "desktop": true,
+      "mobile": true
+    },
+    "contrast": [],
+    "overflow": [],
+    "steps": {},
+    "notes": []
+  },
+  "property_cleaning": {
+    "rendered": {
+      "desktop": true,
+      "mobile": true
+    },
+    "contrast": [],
+    "overflow": [],
+    "steps": {},
+    "notes": []
+  },
+  "energy_upgrade": {
+    "rendered": {
+      "desktop": true,
+      "mobile": true
+    },
+    "contrast": [],
+    "overflow": [],
+    "steps": {},
+    "notes": []
+  },
+  "landscaping": {
+    "rendered": {
+      "desktop": true,
+      "mobile": true
+    },
+    "contrast": [],
+    "overflow": [],
+    "steps": {},
+    "notes": []
+  }
+}

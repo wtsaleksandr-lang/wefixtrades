@@ -1,0 +1,602 @@
+{
+  "tree_service": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Trim / prune",
+          "fg": "rgb(243, 243, 243)",
+          "bg": "rgb(237, 242, 237)",
+          "ratio": 1.02,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Easy (truck access)",
+          "fg": "rgb(243, 243, 243)",
+          "bg": "rgb(237, 242, 237)",
+          "ratio": 1.02,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Your Tree Service Quote",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 11,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Tree Work",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Access Surcharge",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Debris Haul-away",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "ISA-certified arborists, fully insured to $2M. Free on-",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 11,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_tree_service_desktop_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_tree_service_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Trim / prune",
+          "fg": "rgb(243, 243, 243)",
+          "bg": "rgb(237, 242, 237)",
+          "ratio": 1.02,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Easy (truck access)",
+          "fg": "rgb(243, 243, 243)",
+          "bg": "rgb(237, 242, 237)",
+          "ratio": 1.02,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Your Tree Service Quote",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 11,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Tree Work",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Access Surcharge",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Debris Haul-away",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "ISA-certified arborists, fully insured to $2M. Free on-",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "rgb(74, 122, 78)",
+          "ratio": 3.97,
+          "threshold": 4.5,
+          "fontSize": 11,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_tree_service_mobile_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_tree_service_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  },
+  "pressure_washing_quote": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Your Pressure Washing Quote",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 11,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Surface Cleaning",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Access Surcharge",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Add-on Treatments",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Surface-safe soft-wash and pressure-wash methods. Fully",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 11,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "✓",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 12,
+          "hasBgImg": false,
+          "viewport": "desktop-filled"
+        },
+        {
+          "txt": "$435.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "desktop-filled"
+        },
+        {
+          "txt": "$395.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "desktop-filled"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_pressure_washing_quote_desktop_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_pressure_washing_quote_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Your Pressure Washing Quote",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 11,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Surface Cleaning",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Access Surcharge",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Add-on Treatments",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Surface-safe soft-wash and pressure-wash methods. Fully",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 11,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "✓",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 12,
+          "hasBgImg": false,
+          "viewport": "mobile-filled"
+        },
+        {
+          "txt": "$435.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "mobile-filled"
+        },
+        {
+          "txt": "$395.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(26, 155, 142)",
+          "ratio": 3.43,
+          "threshold": 4.5,
+          "fontSize": 13,
+          "hasBgImg": false,
+          "viewport": "mobile-filled"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_pressure_washing_quote_mobile_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_pressure_washing_quote_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  },
+  "mobile_car_detail": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Sedan / coupe",
+          "fg": "rgb(123, 123, 123)",
+          "bg": "rgb(231, 231, 231)",
+          "ratio": 3.42,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Light (regular cleaning)",
+          "fg": "rgb(123, 123, 123)",
+          "bg": "rgb(231, 231, 231)",
+          "ratio": 3.42,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_mobile_car_detail_desktop_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_mobile_car_detail_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Sedan / coupe",
+          "fg": "rgb(123, 123, 123)",
+          "bg": "rgb(231, 231, 231)",
+          "ratio": 3.42,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Light (regular cleaning)",
+          "fg": "rgb(123, 123, 123)",
+          "bg": "rgb(231, 231, 231)",
+          "ratio": 3.42,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_mobile_car_detail_mobile_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_mobile_car_detail_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  },
+  "locksmith_service": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Within a few days",
+          "fg": "rgb(123, 123, 123)",
+          "bg": "rgb(231, 231, 231)",
+          "ratio": 3.42,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Business hours",
+          "fg": "rgb(123, 123, 123)",
+          "bg": "rgb(231, 231, 231)",
+          "ratio": 3.42,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_locksmith_service_desktop_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_locksmith_service_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Within a few days",
+          "fg": "rgb(123, 123, 123)",
+          "bg": "rgb(231, 231, 231)",
+          "ratio": 3.42,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Business hours",
+          "fg": "rgb(123, 123, 123)",
+          "bg": "rgb(231, 231, 231)",
+          "ratio": 3.42,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_locksmith_service_mobile_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_locksmith_service_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  },
+  "water_damage_restoration": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Class 1 (clean, minor)",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(253, 235, 235)",
+          "ratio": 1.15,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "Get Emergency Help",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(237, 50, 55)",
+          "ratio": 4.11,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "→",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(237, 50, 55)",
+          "ratio": 4.11,
+          "threshold": 4.5,
+          "fontSize": 16,
+          "hasBgImg": false,
+          "viewport": "desktop"
+        },
+        {
+          "txt": "✓",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(237, 50, 55)",
+          "ratio": 4.11,
+          "threshold": 4.5,
+          "fontSize": 12,
+          "hasBgImg": false,
+          "viewport": "desktop-filled"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_water_damage_restoration_desktop_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_water_damage_restoration_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "txt": "Class 1 (clean, minor)",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(253, 235, 235)",
+          "ratio": 1.15,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "Get Emergency Help",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(237, 50, 55)",
+          "ratio": 4.11,
+          "threshold": 4.5,
+          "fontSize": 14,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "→",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(237, 50, 55)",
+          "ratio": 4.11,
+          "threshold": 4.5,
+          "fontSize": 16,
+          "hasBgImg": false,
+          "viewport": "mobile"
+        },
+        {
+          "txt": "✓",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "rgb(237, 50, 55)",
+          "ratio": 4.11,
+          "threshold": 4.5,
+          "fontSize": 12,
+          "hasBgImg": false,
+          "viewport": "mobile-filled"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_water_damage_restoration_mobile_initial.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/W_water_damage_restoration_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  }
+}

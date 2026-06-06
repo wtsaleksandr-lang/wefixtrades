@@ -1,0 +1,408 @@
+{
+  "roof_repair": {
+    "pass": true,
+    "measured": [
+      {
+        "grp": 0,
+        "label": "Medium Slope",
+        "color": "rgb(23, 23, 23)",
+        "compositedBg": "rgb(253,235,235)",
+        "ratio": 15.55,
+        "pass": true
+      },
+      {
+        "grp": 1,
+        "label": "✓Gutter Replacement",
+        "color": "rgb(15, 23, 42)",
+        "compositedBg": "rgb(246,247,249)",
+        "ratio": 16.65,
+        "pass": true
+      }
+    ],
+    "screenshot": "C:UsersOwner.codexwt-preview_vr6A_roof_repair_desktop.png",
+    "groups": 2,
+    "log": [
+      {
+        "radioGroups": 2,
+        "groups": [
+          {
+            "n": 3,
+            "labels": [
+              "Low Slope",
+              "Medium Slope",
+              "High Slope"
+            ]
+          },
+          {
+            "n": 2,
+            "labels": [
+              "Skylights",
+              "Gutter Replacement"
+            ]
+          }
+        ]
+      },
+      {
+        "measured": [
+          {
+            "grp": 0,
+            "label": "Medium Slope",
+            "color": "rgb(23, 23, 23)",
+            "compositedBg": "rgb(253,235,235)",
+            "ratio": 15.55,
+            "pass": true
+          },
+          {
+            "grp": 1,
+            "label": "✓Gutter Replacement",
+            "color": "rgb(15, 23, 42)",
+            "compositedBg": "rgb(246,247,249)",
+            "ratio": 16.65,
+            "pass": true
+          }
+        ]
+      }
+    ]
+  },
+  "office_cleaning": {
+    "pass": true,
+    "measured": [
+      {
+        "grp": 0,
+        "label": "After hours",
+        "color": "rgb(23, 23, 23)",
+        "compositedBg": "rgb(234,240,252)",
+        "ratio": 15.71,
+        "pass": true
+      },
+      {
+        "grp": 1,
+        "label": "✓Trash removal",
+        "color": "rgb(15, 23, 42)",
+        "compositedBg": "rgb(246,247,249)",
+        "ratio": 16.65,
+        "pass": true
+      }
+    ],
+    "screenshot": "C:UsersOwner.codexwt-preview_vr6A_office_cleaning_desktop.png",
+    "groups": 2,
+    "log": [
+      {
+        "radioGroups": 2,
+        "groups": [
+          {
+            "n": 3,
+            "labels": [
+              "Business hours",
+              "After hours",
+              "Weekends only"
+            ]
+          },
+          {
+            "n": 4,
+            "labels": [
+              "Restroom sanitation",
+              "Trash removal",
+              "Floor buffing",
+              "Window interior"
+            ]
+          }
+        ]
+      },
+      {
+        "measured": [
+          {
+            "grp": 0,
+            "label": "After hours",
+            "color": "rgb(23, 23, 23)",
+            "compositedBg": "rgb(234,240,252)",
+            "ratio": 15.71,
+            "pass": true
+          },
+          {
+            "grp": 1,
+            "label": "✓Trash removal",
+            "color": "rgb(15, 23, 42)",
+            "compositedBg": "rgb(246,247,249)",
+            "ratio": 16.65,
+            "pass": true
+          }
+        ]
+      }
+    ]
+  },
+  "water_damage_restoration": {
+    "pass": true,
+    "measured": [
+      {
+        "grp": 0,
+        "label": "Class 2 (gray water)",
+        "color": "rgb(23, 23, 23)",
+        "compositedBg": "rgb(253,235,235)",
+        "ratio": 15.55,
+        "pass": true
+      },
+      {
+        "grp": 1,
+        "label": "✓Structural drying",
+        "color": "rgb(15, 23, 42)",
+        "compositedBg": "rgb(246,247,249)",
+        "ratio": 16.65,
+        "pass": true
+      }
+    ],
+    "screenshot": "C:UsersOwner.codexwt-preview_vr6A_water_damage_restoration_desktop.png",
+    "groups": 2,
+    "log": [
+      {
+        "radioGroups": 2,
+        "groups": [
+          {
+            "n": 4,
+            "labels": [
+              "Class 1 (clean, minor)",
+              "Class 2 (gray water)",
+              "Class 3 (extensive saturation)",
+              "Class 4 (sewage / hazardous)"
+            ]
+          },
+          {
+            "n": 5,
+            "labels": [
+              "Water extraction",
+              "Structural drying",
+              "Mold prevention",
+              "Contents pack-out",
+              "Reconstruction estimate"
+            ]
+          }
+        ]
+      },
+      {
+        "measured": [
+          {
+            "grp": 0,
+            "label": "Class 2 (gray water)",
+            "color": "rgb(23, 23, 23)",
+            "compositedBg": "rgb(253,235,235)",
+            "ratio": 15.55,
+            "pass": true
+          },
+          {
+            "grp": 1,
+            "label": "✓Structural drying",
+            "color": "rgb(15, 23, 42)",
+            "compositedBg": "rgb(246,247,249)",
+            "ratio": 16.65,
+            "pass": true
+          }
+        ]
+      }
+    ]
+  },
+  "lawn_care_subscription": {
+    "pass": true,
+    "measured": [
+      {
+        "grp": 0,
+        "label": "✓Edge + trim",
+        "color": "rgb(15, 23, 42)",
+        "compositedBg": "rgb(246,247,249)",
+        "ratio": 16.65,
+        "pass": true
+      },
+      {
+        "grp": 1,
+        "label": "Spring + summer (5 months)",
+        "color": "rgb(23, 23, 23)",
+        "compositedBg": "rgb(237,242,237)",
+        "ratio": 15.78,
+        "pass": true
+      }
+    ],
+    "screenshot": "C:UsersOwner.codexwt-preview_vr6A_lawn_care_subscription_desktop.png",
+    "groups": 2,
+    "log": [
+      {
+        "radioGroups": 2,
+        "groups": [
+          {
+            "n": 5,
+            "labels": [
+              "Mow",
+              "Edge + trim",
+              "Blow-off cleanup",
+              "Fertilizer",
+              "Weed control"
+            ]
+          },
+          {
+            "n": 3,
+            "labels": [
+              "Full season (8 months)",
+              "Spring + summer (5 months)",
+              "Maintenance-only (3 months)"
+            ]
+          }
+        ]
+      },
+      {
+        "measured": [
+          {
+            "grp": 0,
+            "label": "✓Edge + trim",
+            "color": "rgb(15, 23, 42)",
+            "compositedBg": "rgb(246,247,249)",
+            "ratio": 16.65,
+            "pass": true
+          },
+          {
+            "grp": 1,
+            "label": "Spring + summer (5 months)",
+            "color": "rgb(23, 23, 23)",
+            "compositedBg": "rgb(237,242,237)",
+            "ratio": 15.78,
+            "pass": true
+          }
+        ]
+      }
+    ]
+  },
+  "moving_service": {
+    "pass": true,
+    "measured": [
+      {
+        "grp": 0,
+        "label": "3-person crew (faster)",
+        "color": "rgb(23, 23, 23)",
+        "compositedBg": "rgb(234,240,252)",
+        "ratio": 15.71,
+        "pass": true
+      },
+      {
+        "grp": 1,
+        "label": "✓Specialty item (piano / safe)",
+        "color": "rgb(15, 23, 42)",
+        "compositedBg": "rgb(246,247,249)",
+        "ratio": 16.65,
+        "pass": true
+      }
+    ],
+    "screenshot": "C:UsersOwner.codexwt-preview_vr6A_moving_service_desktop.png",
+    "groups": 2,
+    "log": [
+      {
+        "radioGroups": 2,
+        "groups": [
+          {
+            "n": 3,
+            "labels": [
+              "2-person crew",
+              "3-person crew (faster)",
+              "4-person crew (large homes)"
+            ]
+          },
+          {
+            "n": 5,
+            "labels": [
+              "Full packing service",
+              "Specialty item (piano / safe)",
+              "Storage (1 month)",
+              "Disassembly + reassembly",
+              "Insurance bump (full value)"
+            ]
+          }
+        ]
+      },
+      {
+        "measured": [
+          {
+            "grp": 0,
+            "label": "3-person crew (faster)",
+            "color": "rgb(23, 23, 23)",
+            "compositedBg": "rgb(234,240,252)",
+            "ratio": 15.71,
+            "pass": true
+          },
+          {
+            "grp": 1,
+            "label": "✓Specialty item (piano / safe)",
+            "color": "rgb(15, 23, 42)",
+            "compositedBg": "rgb(246,247,249)",
+            "ratio": 16.65,
+            "pass": true
+          }
+        ]
+      }
+    ]
+  },
+  "home_inspection_quote": {
+    "pass": true,
+    "measured": [
+      {
+        "grp": 0,
+        "label": "✓Mold inspection",
+        "color": "rgb(15, 23, 42)",
+        "compositedBg": "rgb(246,247,249)",
+        "ratio": 16.65,
+        "pass": true
+      },
+      {
+        "grp": 1,
+        "label": "Rush (next business day)",
+        "color": "rgb(23, 23, 23)",
+        "compositedBg": "rgb(234,240,252)",
+        "ratio": 15.71,
+        "pass": true
+      }
+    ],
+    "screenshot": "C:UsersOwner.codexwt-preview_vr6A_home_inspection_quote_desktop.png",
+    "groups": 2,
+    "log": [
+      {
+        "radioGroups": 2,
+        "groups": [
+          {
+            "n": 6,
+            "labels": [
+              "Radon test",
+              "Mold inspection",
+              "Termite / pest",
+              "Sewer scope camera",
+              "Pool / spa inspection",
+              "Thermal imaging scan"
+            ]
+          },
+          {
+            "n": 3,
+            "labels": [
+              "Standard (48 hours)",
+              "Rush (next business day)",
+              "Same-day report"
+            ]
+          }
+        ]
+      },
+      {
+        "measured": [
+          {
+            "grp": 0,
+            "label": "✓Mold inspection",
+            "color": "rgb(15, 23, 42)",
+            "compositedBg": "rgb(246,247,249)",
+            "ratio": 16.65,
+            "pass": true
+          },
+          {
+            "grp": 1,
+            "label": "Rush (next business day)",
+            "color": "rgb(23, 23, 23)",
+            "compositedBg": "rgb(234,240,252)",
+            "ratio": 15.71,
+            "pass": true
+          }
+        ]
+      }
+    ]
+  }
+}

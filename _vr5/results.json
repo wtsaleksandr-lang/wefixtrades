@@ -1,0 +1,104 @@
+{
+  "desktop": {
+    "name": "desktop",
+    "results": [],
+    "checks": {
+      "cardExists": true,
+      "aboveTemplate": true,
+      "cardBox": {
+        "x": 90,
+        "y": 82,
+        "width": 383,
+        "height": 281.984375
+      },
+      "build-ai-prompt": true,
+      "build-ai-chip-0": true,
+      "build-ai-chip-1": true,
+      "build-ai-chip-2": true,
+      "build-ai-generate": true,
+      "titleText": "Generate with AI\n\nDescribe your job and we'll build the calculator for you.\n\nMobile car detailing quote\nPlumbing call-out estimate\nEvent catering per head\nGenerate",
+      "contrast": [
+        "OK 16.83:1  card title  fg=rgb(29, 29, 31) bg=rgb(255, 255, 255)",
+        "OK 4.66:1  textarea placeholder  fg=rgb(110, 110, 115) bg=rgb(245, 245, 247)",
+        "OK 4.66:1  chip-0 label  fg=rgb(110, 110, 115) bg=rgb(245, 245, 247)",
+        "OK 6.84:1  generate button label  fg=rgb(255, 255, 255) bg=rgb(13, 60, 252)",
+        "OK 5.07:1  subtitle (first p)  fg=rgb(110, 110, 115) bg=rgb(255, 255, 255)"
+      ],
+      "chipStyle": {
+        "bg": "rgb(245, 245, 247)",
+        "border": "rgb(210, 210, 215)",
+        "borderWidth": "1px",
+        "color": "rgb(110, 110, 115)"
+      },
+      "btnStyle": {
+        "bg": "rgb(13, 60, 252)",
+        "color": "rgb(255, 255, 255)",
+        "disabled": true,
+        "ariaDisabled": null
+      },
+      "overflow": {
+        "scrollW": 381,
+        "clientW": 381,
+        "overflowsX": false
+      },
+      "genDisabledWhenEmpty": true,
+      "chip0Text": "Mobile car detailing quote",
+      "promptAfterChip": "Mobile car detailing quote",
+      "chipFillsPrompt": true,
+      "genEnabledAfterFill": true,
+      "assistantOpened": true,
+      "panelText": "AI assistant\nMobile car detailing quote\nReset conversation"
+    }
+  },
+  "mobile": {
+    "name": "mobile",
+    "results": [],
+    "checks": {
+      "cardExists": true,
+      "aboveTemplate": true,
+      "cardBox": {
+        "x": 12,
+        "y": 288.5,
+        "width": 388,
+        "height": 281.984375
+      },
+      "build-ai-prompt": true,
+      "build-ai-chip-0": true,
+      "build-ai-chip-1": true,
+      "build-ai-chip-2": true,
+      "build-ai-generate": true,
+      "titleText": "Generate with AI\n\nDescribe your job and we'll build the calculator for you.\n\nMobile car detailing quote\nPlumbing call-out estimate\nEvent catering per head\nGenerate",
+      "contrast": [
+        "OK 16.83:1  card title  fg=rgb(29, 29, 31) bg=rgb(255, 255, 255)",
+        "OK 4.66:1  textarea placeholder  fg=rgb(110, 110, 115) bg=rgb(245, 245, 247)",
+        "OK 4.66:1  chip-0 label  fg=rgb(110, 110, 115) bg=rgb(245, 245, 247)",
+        "OK 6.84:1  generate button label  fg=rgb(255, 255, 255) bg=rgb(13, 60, 252)",
+        "OK 5.07:1  subtitle (first p)  fg=rgb(110, 110, 115) bg=rgb(255, 255, 255)"
+      ],
+      "chipStyle": {
+        "bg": "rgb(245, 245, 247)",
+        "border": "rgb(210, 210, 215)",
+        "borderWidth": "1px",
+        "color": "rgb(110, 110, 115)"
+      },
+      "btnStyle": {
+        "bg": "rgb(13, 60, 252)",
+        "color": "rgb(255, 255, 255)",
+        "disabled": true,
+        "ariaDisabled": null
+      },
+      "overflow": {
+        "scrollW": 386,
+        "clientW": 386,
+        "overflowsX": false
+      },
+      "genDisabledWhenEmpty": true,
+      "chip0Text": "Mobile car detailing quote",
+      "promptAfterChip": "Mobile car detailing quote",
+      "chipFillsPrompt": true,
+      "genEnabledAfterFill": true,
+      "assistantOpened": true,
+      "panelText": "AI assistant\nMobile car detailing quote\nReset conversation"
+    }
+  }
+}

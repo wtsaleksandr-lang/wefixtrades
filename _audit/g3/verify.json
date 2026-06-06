@@ -1,0 +1,542 @@
+{
+  "house_renovation": {
+    "desktop": [
+      {
+        "text": "Schedule My Walk-through",
+        "testid": "advanced-cta",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(232,130,30)",
+        "ratio": 2.75,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 800
+      },
+      {
+        "text": "→",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(232,130,30)",
+        "ratio": 2.75,
+        "need": 4.5,
+        "fontSize": 16,
+        "weight": 800
+      },
+      {
+        "text": "Send my request",
+        "testid": "lead-modal-submit",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(232,130,30)",
+        "ratio": 2.75,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 800
+      }
+    ],
+    "mobile": [
+      {
+        "text": "Schedule My Walk-through",
+        "testid": "advanced-cta",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(232,130,30)",
+        "ratio": 2.75,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 800
+      },
+      {
+        "text": "→",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(232,130,30)",
+        "ratio": 2.75,
+        "need": 4.5,
+        "fontSize": 16,
+        "weight": 800
+      },
+      {
+        "text": "Send my request",
+        "testid": "lead-modal-submit",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(232,130,30)",
+        "ratio": 2.75,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 800
+      },
+      {
+        "text": "→",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(232,130,30)",
+        "ratio": 2.75,
+        "need": 4.5,
+        "fontSize": 16,
+        "weight": 800
+      }
+    ]
+  },
+  "deep_home_cleaning": {
+    "desktop": [
+      {
+        "text": "Your Deep Clean Quote",
+        "testid": "advanced-result-heading",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 11,
+        "weight": 700
+      },
+      {
+        "text": "Home Size Base",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$324.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Bedrooms & Bathrooms",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$285.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Condition Surcharge",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$0.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Add-ons",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$0.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Final price confirmed after a 5-minute walk-throug",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 11,
+        "weight": 400
+      }
+    ],
+    "mobile": [
+      {
+        "text": "Your Deep Clean Quote",
+        "testid": "advanced-result-heading",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 11,
+        "weight": 700
+      },
+      {
+        "text": "Home Size Base",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$324.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Bedrooms & Bathrooms",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$285.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Condition Surcharge",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$0.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Add-ons",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$0.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Final price confirmed after a 5-minute walk-throug",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(26,155,142)",
+        "ratio": 3.43,
+        "need": 4.5,
+        "fontSize": 11,
+        "weight": 400
+      }
+    ]
+  },
+  "move_out_cleaning": {
+    "desktop": [
+      {
+        "text": "Book My Move-Out Clean",
+        "testid": "advanced-cta",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(46,158,63)",
+        "ratio": 3.45,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 800
+      },
+      {
+        "text": "→",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(46,158,63)",
+        "ratio": 3.45,
+        "need": 4.5,
+        "fontSize": 16,
+        "weight": 800
+      },
+      {
+        "text": "Send my request",
+        "testid": "lead-modal-submit",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(46,158,63)",
+        "ratio": 3.45,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 800
+      },
+      {
+        "text": "→",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(46,158,63)",
+        "ratio": 3.45,
+        "need": 4.5,
+        "fontSize": 16,
+        "weight": 800
+      }
+    ],
+    "mobile": [
+      {
+        "text": "Book My Move-Out Clean",
+        "testid": "advanced-cta",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(46,158,63)",
+        "ratio": 3.45,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 800
+      },
+      {
+        "text": "→",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(46,158,63)",
+        "ratio": 3.45,
+        "need": 4.5,
+        "fontSize": 16,
+        "weight": 800
+      },
+      {
+        "text": "Send my request",
+        "testid": "lead-modal-submit",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(46,158,63)",
+        "ratio": 3.45,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 800
+      },
+      {
+        "text": "→",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(46,158,63)",
+        "ratio": 3.45,
+        "need": 4.5,
+        "fontSize": 16,
+        "weight": 800
+      }
+    ]
+  },
+  "office_cleaning": {
+    "desktop": [
+      {
+        "text": "Business hours",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(234,240,252)",
+        "ratio": 1.14,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 400
+      }
+    ],
+    "mobile": [
+      {
+        "text": "Business hours",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(234,240,252)",
+        "ratio": 1.14,
+        "need": 4.5,
+        "fontSize": 14,
+        "weight": 400
+      }
+    ]
+  },
+  "window_cleaning_quote": {
+    "desktop": [
+      {
+        "text": "Your Window Cleaning Quote",
+        "testid": "advanced-result-heading",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 11,
+        "weight": 700
+      },
+      {
+        "text": "$144.00",
+        "testid": "advanced-result",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 3,
+        "fontSize": 34,
+        "weight": 800
+      },
+      {
+        "text": "Window Cleaning",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$144.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Screens & Tracks",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$0.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Streak-free guarantee — find a smudge in the first",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 11,
+        "weight": 400
+      }
+    ],
+    "mobile": [
+      {
+        "text": "Your Window Cleaning Quote",
+        "testid": "advanced-result-heading",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 11,
+        "weight": 700
+      },
+      {
+        "text": "$144.00",
+        "testid": "advanced-result",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 3,
+        "fontSize": 26,
+        "weight": 800
+      },
+      {
+        "text": "Window Cleaning",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$144.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Screens & Tracks",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 400
+      },
+      {
+        "text": "$0.00",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 13,
+        "weight": 700
+      },
+      {
+        "text": "Streak-free guarantee — find a smudge in the first",
+        "testid": "",
+        "fg": "rgb(255,255,255)",
+        "bg": "rgb(41,171,226)",
+        "ratio": 2.62,
+        "need": 4.5,
+        "fontSize": 11,
+        "weight": 400
+      }
+    ]
+  }
+}

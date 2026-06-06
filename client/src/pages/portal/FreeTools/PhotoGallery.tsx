@@ -803,7 +803,8 @@ function GalleryPreview({
             data-lb-close
             onClick={close}
             aria-label="Close"
-            className="absolute top-4 right-4 w-11 h-11 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+            style={{ width: 44, height: 44 }}
+            className="absolute top-4 right-4 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
           >
             <X className="w-5 h-5" />
           </button>
@@ -812,7 +813,8 @@ function GalleryPreview({
               type="button"
               onClick={prev}
               aria-label="Previous image"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+              style={{ width: 44, height: 44 }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
@@ -834,7 +836,8 @@ function GalleryPreview({
               type="button"
               onClick={next}
               aria-label="Next image"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+              style={{ width: 44, height: 44 }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
             >
               <ChevronRight className="w-6 h-6" />
             </button>

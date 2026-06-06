@@ -1,0 +1,164 @@
+[
+  {
+    "id": "driveway_paving",
+    "tiers": "yes (3)",
+    "tierLayout": "PASS",
+    "badge": "PASS",
+    "tierContrast": "FAIL",
+    "tierEqCta": "PASS",
+    "options1Line": "PASS",
+    "casing": "PASS",
+    "trustScroll": "PASS",
+    "whiteBand": "FAIL",
+    "panelContrast": "PASS",
+    "measures": {
+      "tierCards": "#0 x=38 w=314 y=503 h=89 | #1 x=38 w=314 y=601 h=95 | #2 x=38 w=314 y=706 h=89",
+      "badge": "x=145 w=100 right=245 vpW=390",
+      "selectedTierIdx": 1,
+      "tierContrast": "cardBg=rgb(166,93,22) | price \"$2,700 – $3,150\" rgb(255, 255, 255) ratio=5.00 | name \"STANDARD\" ratio=4.50 | worst \"Recommended for most hom\"(fs11) ratio=4.10",
+      "tierEqCta": "tierBg=rgb(166,93,22) ctaBg=rgb(166,93,22) equal=true",
+      "options": "sampled 3; wrapped=0 (badWrap=0)",
+      "casing": "3 labels; allcaps=0 sentence=3",
+      "trust": "docW=390 innerW=390 (Δ0); rowScrollW=589 clientW=384 overflowX=auto; fade=true",
+      "belowWidget": "widgetBottom~1042px in pane; samples=15 whitePx=15/15 avg=rgb(254,254,255)",
+      "panelContrast": "panelBg=rgb(74,82,64) heading=rgb(255,255,255) a=0.82/6.15 | worstText=\"→\" col=rgb(255,255,255) onBg=rgb(166,93,22) ratio=5.00 (fs 16)"
+    },
+    "notes": [
+      "tier worst text \"Recommended for most hom\" contrast 4.10 < 4.5 (fs 11)",
+      "WHITE BAND below widget on dark template: widgetBottom~1042px in pane; samples=15 whitePx=15/15 avg=rgb(254,254,255)"
+    ]
+  },
+  {
+    "id": "house_renovation",
+    "tiers": "yes (3)",
+    "tierLayout": "PASS",
+    "badge": "PASS",
+    "tierContrast": "FAIL",
+    "tierEqCta": "PASS",
+    "options1Line": "PASS",
+    "casing": "PASS",
+    "trustScroll": "PASS",
+    "whiteBand": "FAIL",
+    "panelContrast": "PASS",
+    "measures": {
+      "tierCards": "#0 x=38 w=314 y=547 h=89 | #1 x=38 w=314 y=646 h=95 | #2 x=38 w=314 y=750 h=89",
+      "badge": "x=145 w=100 right=245 vpW=390",
+      "selectedTierIdx": 1,
+      "tierContrast": "cardBg=rgb(166,93,22) | price \"$45,550 – $53,450\" rgb(255, 255, 255) ratio=5.00 | name \"STANDARD\" ratio=4.50 | worst \"Recommended for most hom\"(fs11) ratio=4.10",
+      "tierEqCta": "tierBg=rgb(166,93,22) ctaBg=rgb(166,93,22) equal=true",
+      "options": "sampled 2; wrapped=0 (badWrap=0)",
+      "casing": "2 labels; allcaps=0 sentence=2",
+      "trust": "docW=390 innerW=390 (Δ0); rowScrollW=617 clientW=384 overflowX=auto; fade=true",
+      "belowWidget": "widgetBottom~1074px in pane; samples=15 whitePx=15/15 avg=rgb(254,254,255)",
+      "panelContrast": "panelBg=rgb(74,82,64) heading=rgb(255,255,255) a=0.82/6.15 | worstText=\"→\" col=rgb(255,255,255) onBg=rgb(166,93,22) ratio=5.00 (fs 16)"
+    },
+    "notes": [
+      "tier worst text \"Recommended for most hom\" contrast 4.10 < 4.5 (fs 11)",
+      "WHITE BAND below widget on dark template: widgetBottom~1074px in pane; samples=15 whitePx=15/15 avg=rgb(254,254,255)"
+    ]
+  },
+  {
+    "id": "window_replacement_quote",
+    "tiers": "yes (3)",
+    "tierLayout": "PASS",
+    "badge": "PASS",
+    "tierContrast": "PASS",
+    "tierEqCta": "PASS",
+    "options1Line": "PASS",
+    "casing": "PASS",
+    "trustScroll": "PASS",
+    "whiteBand": "FAIL",
+    "panelContrast": "PASS",
+    "measures": {
+      "tierCards": "#0 x=39 w=312 y=1434 h=89 | #1 x=39 w=312 y=1532 h=95 | #2 x=39 w=312 y=1637 h=89",
+      "badge": "x=143 w=105 right=247 vpW=390",
+      "selectedTierIdx": 1,
+      "tierContrast": "cardBg=rgb(255,255,255) | price \"$2,000.00\" rgb(115, 115, 115) ratio=4.74 | name \"STANDARD\" ratio=4.74 | worst \"MOST POPULAR\"(fs10) ratio=4.74",
+      "tierEqCta": "tierBg=rgb(255,255,255) ctaBg=rgb(255,255,255) equal=true",
+      "options": "sampled 2; wrapped=1 (badWrap=0); wrapped:[\"Number of windows (windows)\"(2L,other)]",
+      "casing": "2 labels; allcaps=0 sentence=2",
+      "trust": "docW=390 innerW=390 (Δ0); rowScrollW=631 clientW=384 overflowX=auto; fade=true",
+      "belowWidget": "widgetBottom~1986px in pane; samples=15 whitePx=15/15 avg=rgb(246,247,249)",
+      "panelContrast": "panelBg=rgb(15,74,82) heading=rgb(255,255,255) a=0.82/7.24 | worstText=\"YOUR WINDOW REPLACEM\" col=rgb(255,255,255) a=0.82 onBg=rgb(15,74,82) ratio=7.24 (fs 11)"
+    },
+    "notes": [
+      "WHITE BAND below widget on dark template: widgetBottom~1986px in pane; samples=15 whitePx=15/15 avg=rgb(246,247,249)"
+    ]
+  },
+  {
+    "id": "deep_home_cleaning",
+    "tiers": "no tiers",
+    "tierLayout": "n-a",
+    "badge": "n-a",
+    "tierContrast": "n-a",
+    "tierEqCta": "n-a",
+    "options1Line": "PASS",
+    "casing": "PASS",
+    "trustScroll": "PASS",
+    "whiteBand": "FAIL",
+    "panelContrast": "PASS",
+    "measures": {
+      "options": "sampled 2; wrapped=0 (badWrap=0)",
+      "casing": "2 labels; allcaps=0 sentence=2",
+      "trust": "docW=390 innerW=390 (Δ0); rowScrollW=725 clientW=384 overflowX=auto; fade=true",
+      "belowWidget": "widgetBottom~826px in pane; samples=15 whitePx=15/15 avg=rgb(255,255,255)",
+      "panelContrast": "panelBg=rgb(18,111,102) heading=rgb(255,255,255) a=0.82/4.62 | worstText=\"YOUR DEEP CLEAN QUOT\" col=rgb(255,255,255) a=0.82 onBg=rgb(18,111,102) ratio=4.62 (fs 11)"
+    },
+    "notes": [
+      "WHITE BAND below widget on dark template: widgetBottom~826px in pane; samples=15 whitePx=15/15 avg=rgb(255,255,255)"
+    ]
+  },
+  {
+    "id": "web_design_quote",
+    "tiers": "no tiers",
+    "tierLayout": "n-a",
+    "badge": "n-a",
+    "tierContrast": "n-a",
+    "tierEqCta": "n-a",
+    "options1Line": "PASS",
+    "casing": "PASS",
+    "trustScroll": "PASS",
+    "whiteBand": "FAIL",
+    "panelContrast": "PASS",
+    "measures": {
+      "options": "sampled 3; wrapped=0 (badWrap=0)",
+      "casing": "3 labels; allcaps=0 sentence=3",
+      "trust": "docW=390 innerW=390 (Δ0); rowScrollW=534 clientW=384 overflowX=auto; fade=true",
+      "belowWidget": "widgetBottom~1167px in pane; samples=15 whitePx=10/15 avg=rgb(220,226,229)",
+      "panelContrast": "panelBg=rgb(105,78,166) heading=rgb(255,255,255) a=0.82/4.97 | worstText=\"YOUR WEB DESIGN ESTI\" col=rgb(255,255,255) a=0.82 onBg=rgb(105,78,166) ratio=4.97 (fs 11)"
+    },
+    "notes": [
+      "WHITE BAND below widget on dark template: widgetBottom~1167px in pane; samples=15 whitePx=10/15 avg=rgb(220,226,229)"
+    ]
+  },
+  {
+    "id": "energy_upgrade",
+    "tiers": "yes (3)",
+    "tierLayout": "PASS",
+    "badge": "PASS",
+    "tierContrast": "FAIL",
+    "tierEqCta": "PASS",
+    "options1Line": "PASS",
+    "casing": "PASS",
+    "trustScroll": "PASS",
+    "whiteBand": "PASS (light)",
+    "panelContrast": "PASS",
+    "measures": {
+      "tierCards": "#0 x=38 w=314 y=603 h=89 | #1 x=38 w=314 y=702 h=95 | #2 x=38 w=314 y=806 h=89",
+      "badge": "x=142 w=105 right=248 vpW=390",
+      "selectedTierIdx": 1,
+      "tierContrast": "cardBg=rgb(39,133,53) | price \"$3,300 – $3,900\" rgb(255, 255, 255) ratio=4.67 | name \"STANDARD\" ratio=4.22 | worst \"Recommended for most hom\"(fs11) ratio=3.85",
+      "tierEqCta": "tierBg=rgb(39,133,53) ctaBg=rgb(39,133,53) equal=true",
+      "options": "sampled 4; wrapped=1 (badWrap=0); wrapped:[\"Which upgrade are you considering?\"(2L,other,Q)]",
+      "casing": "4 labels; allcaps=0 sentence=4",
+      "trust": "docW=390 innerW=390 (Δ0); rowScrollW=642 clientW=384 overflowX=auto; fade=true",
+      "belowWidget": "widgetBottom~1159px in pane; samples=15 whitePx=15/15 avg=rgb(254,254,255)",
+      "panelContrast": "panelBg=rgb(232,243,233) heading=rgb(38,38,38)/13.28 | worstText=\"→\" col=rgb(255,255,255) onBg=rgb(39,133,53) ratio=4.67 (fs 16)"
+    },
+    "notes": [
+      "tier name \"STANDARD\" contrast 4.22 < 4.5",
+      "tier worst text \"Recommended for most hom\" contrast 3.85 < 4.5 (fs 11)",
+      "light template (white/light below widget is expected): widgetBottom~1159px in pane; samples=15 whitePx=15/15 avg=rgb(254,254,255)"
+    ]
+  }
+]

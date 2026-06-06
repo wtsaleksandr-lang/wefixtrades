@@ -1,0 +1,904 @@
+{
+  "emergency_hvac": {
+    "desktop": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 780,
+        "h": 736,
+        "title": "Dispatch an HVAC Tech Now — Same-Day Service",
+        "nButtons": 11,
+        "nInputs": 0,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "AC / cooling",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(255,255,255)",
+          "bgFrom": "DIV.advcalc-hlowwp",
+          "ratio": 1,
+          "fontSize": 14,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 543,
+            "y": 280,
+            "w": 81,
+            "h": 21
+          }
+        },
+        {
+          "text": "Dispatch a Technician →",
+          "tag": "BUTTON",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(237,50,55)",
+          "bgFrom": "BUTTON.",
+          "ratio": 4.11,
+          "fontSize": 14,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 801,
+            "w": 301,
+            "h": 46
+          }
+        },
+        {
+          "text": "→",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(237,50,55)",
+          "bgFrom": "BUTTON.",
+          "ratio": 4.11,
+          "fontSize": 16,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 1178,
+            "y": 812,
+            "w": 14,
+            "h": 24
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 499,
+          "y": 164,
+          "w": 780,
+          "h": 736
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/emergency_hvac_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/emergency_hvac_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 363,
+        "h": 1147,
+        "title": "Dispatch an HVAC Tech Now — Same-Day Service",
+        "nButtons": 11,
+        "nInputs": 0,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "AC / cooling",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(255,255,255)",
+          "bgFrom": "DIV.advcalc-oh688l",
+          "ratio": 1,
+          "fontSize": 14,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 64,
+            "y": -254,
+            "w": 81,
+            "h": 21
+          }
+        },
+        {
+          "text": "Dispatch a Technician →",
+          "tag": "BUTTON",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(237,50,55)",
+          "bgFrom": "BUTTON.",
+          "ratio": 4.11,
+          "fontSize": 14,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 634,
+            "w": 285,
+            "h": 46
+          }
+        },
+        {
+          "text": "→",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(237,50,55)",
+          "bgFrom": "BUTTON.",
+          "ratio": 4.11,
+          "fontSize": 16,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 262,
+            "y": 645,
+            "w": 14,
+            "h": 24
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 6,
+          "y": -399,
+          "w": 363,
+          "h": 1147
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/emergency_hvac_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/emergency_hvac_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  },
+  "web_design_quote": {
+    "desktop": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 780,
+        "h": 818,
+        "title": "Get a Custom Website Quote in 60 Seconds",
+        "nButtons": 11,
+        "nInputs": 1,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "Template-based",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(243,243,243)",
+          "bg": "rgb(255,255,255)",
+          "bgFrom": "DIV.advcalc-yavm0w",
+          "ratio": 1.11,
+          "fontSize": 14,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 543,
+            "y": 282,
+            "w": 108,
+            "h": 21
+          }
+        },
+        {
+          "text": "Your Web Design Estimate",
+          "tag": "P",
+          "cls": "",
+          "fg": "rgb(231,226,244)",
+          "bg": "rgb(124,92,196)",
+          "bgFrom": "DIV.advcalc-yavm0w-result",
+          "ratio": 3.96,
+          "fontSize": 11,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 182,
+            "w": 301,
+            "h": 14
+          }
+        },
+        {
+          "text": "Design & Build",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(231,226,244)",
+          "bg": "rgb(124,92,196)",
+          "bgFrom": "DIV.advcalc-yavm0w-result",
+          "ratio": 3.96,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 287,
+            "w": 89,
+            "h": 20
+          }
+        },
+        {
+          "text": "Custom Features",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(231,226,244)",
+          "bg": "rgb(124,92,196)",
+          "bgFrom": "DIV.advcalc-yavm0w-result",
+          "ratio": 3.96,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 316,
+            "w": 104,
+            "h": 20
+          }
+        },
+        {
+          "text": "Includes design, build, mobile responsive, 1 year of ho",
+          "tag": "P",
+          "cls": "",
+          "fg": "rgb(231,226,244)",
+          "bg": "rgb(124,92,196)",
+          "bgFrom": "DIV.advcalc-yavm0w-result",
+          "ratio": 3.96,
+          "fontSize": 11,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 359,
+            "w": 301,
+            "h": 50
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 499,
+          "y": 82,
+          "w": 780,
+          "h": 818
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/web_design_quote_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/web_design_quote_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 363,
+        "h": 1201,
+        "title": "Get a Custom Website Quote in 60 Seconds",
+        "nButtons": 11,
+        "nInputs": 1,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "Template-based",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(243,243,243)",
+          "bg": "rgb(255,255,255)",
+          "bgFrom": "DIV.advcalc-1wks8d",
+          "ratio": 1.11,
+          "fontSize": 14,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 64,
+            "y": -157,
+            "w": 108,
+            "h": 21
+          }
+        },
+        {
+          "text": "Your Web Design Estimate",
+          "tag": "P",
+          "cls": "",
+          "fg": "rgb(231,226,244)",
+          "bg": "rgb(124,92,196)",
+          "bgFrom": "DIV.advcalc-1wks8d-result",
+          "ratio": 3.96,
+          "fontSize": 11,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 459,
+            "w": 285,
+            "h": 14
+          }
+        },
+        {
+          "text": "Design & Build",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(231,226,244)",
+          "bg": "rgb(124,92,196)",
+          "bgFrom": "DIV.advcalc-1wks8d-result",
+          "ratio": 3.96,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 555,
+            "w": 89,
+            "h": 20
+          }
+        },
+        {
+          "text": "Custom Features",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(231,226,244)",
+          "bg": "rgb(124,92,196)",
+          "bgFrom": "DIV.advcalc-1wks8d-result",
+          "ratio": 3.96,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 583,
+            "w": 104,
+            "h": 20
+          }
+        },
+        {
+          "text": "Includes design, build, mobile responsive, 1 year of ho",
+          "tag": "P",
+          "cls": "",
+          "fg": "rgb(231,226,244)",
+          "bg": "rgb(124,92,196)",
+          "bgFrom": "DIV.advcalc-1wks8d-result",
+          "ratio": 3.96,
+          "fontSize": 11,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 627,
+            "w": 285,
+            "h": 50
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 6,
+          "y": -387,
+          "w": 363,
+          "h": 1201
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/web_design_quote_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/web_design_quote_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  },
+  "photography_package": {
+    "desktop": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 780,
+        "h": 652,
+        "title": "Get a Photography Package Quote",
+        "nButtons": 10,
+        "nInputs": 1,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "Your Photography Quote",
+          "tag": "P",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-8wep4u-result",
+          "ratio": 3.84,
+          "fontSize": 11,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 348,
+            "w": 301,
+            "h": 14
+          }
+        },
+        {
+          "text": "Session Base",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-8wep4u-result",
+          "ratio": 3.84,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 453,
+            "w": 82,
+            "h": 20
+          }
+        },
+        {
+          "text": "Deliverables",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-8wep4u-result",
+          "ratio": 3.84,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 482,
+            "w": 76,
+            "h": 20
+          }
+        },
+        {
+          "text": "Second Photographer",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-8wep4u-result",
+          "ratio": 3.84,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 510,
+            "w": 134,
+            "h": 20
+          }
+        },
+        {
+          "text": "Includes shoot, hand-edited gallery, and online deliver",
+          "tag": "P",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-8wep4u-result",
+          "ratio": 3.84,
+          "fontSize": 11,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 554,
+            "w": 301,
+            "h": 50
+          }
+        },
+        {
+          "text": "Reserve My Date →",
+          "tag": "BUTTON",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(232,130,30)",
+          "bgFrom": "BUTTON.",
+          "ratio": 2.75,
+          "fontSize": 14,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 953,
+            "y": 801,
+            "w": 301,
+            "h": 46
+          }
+        },
+        {
+          "text": "→",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(232,130,30)",
+          "bgFrom": "BUTTON.",
+          "ratio": 2.75,
+          "fontSize": 16,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 1160,
+            "y": 812,
+            "w": 14,
+            "h": 24
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 499,
+          "y": 248,
+          "w": 780,
+          "h": 652
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/photography_package_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/photography_package_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 363,
+        "h": 1063,
+        "title": "Get a Photography Package Quote",
+        "nButtons": 10,
+        "nInputs": 1,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "Your Photography Quote",
+          "tag": "P",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-y6bn9u-result",
+          "ratio": 3.84,
+          "fontSize": 11,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 287,
+            "w": 285,
+            "h": 14
+          }
+        },
+        {
+          "text": "Session Base",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-y6bn9u-result",
+          "ratio": 3.84,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 383,
+            "w": 82,
+            "h": 20
+          }
+        },
+        {
+          "text": "Deliverables",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-y6bn9u-result",
+          "ratio": 3.84,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 412,
+            "w": 76,
+            "h": 20
+          }
+        },
+        {
+          "text": "Second Photographer",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-y6bn9u-result",
+          "ratio": 3.84,
+          "fontSize": 13,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 440,
+            "w": 134,
+            "h": 20
+          }
+        },
+        {
+          "text": "Includes shoot, hand-edited gallery, and online deliver",
+          "tag": "P",
+          "cls": "",
+          "fg": "rgb(215,229,247)",
+          "bg": "rgb(30,111,212)",
+          "bgFrom": "DIV.advcalc-y6bn9u-result",
+          "ratio": 3.84,
+          "fontSize": 11,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 484,
+            "w": 285,
+            "h": 50
+          }
+        },
+        {
+          "text": "Reserve My Date →",
+          "tag": "BUTTON",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(232,130,30)",
+          "bgFrom": "BUTTON.",
+          "ratio": 2.75,
+          "fontSize": 14,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 45,
+            "y": 557,
+            "w": 285,
+            "h": 46
+          }
+        },
+        {
+          "text": "→",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(232,130,30)",
+          "bgFrom": "BUTTON.",
+          "ratio": 2.75,
+          "fontSize": 16,
+          "bold": true,
+          "threshold": 4.5,
+          "rect": {
+            "x": 244,
+            "y": 568,
+            "w": 14,
+            "h": 24
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 6,
+          "y": -392,
+          "w": 363,
+          "h": 1063
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/photography_package_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/photography_package_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  },
+  "moving_service": {
+    "desktop": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 780,
+        "h": 829,
+        "title": "Get a Door-to-Door Moving Quote in 60 Seconds",
+        "nButtons": 11,
+        "nInputs": 1,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "2-person crew",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(255,255,255)",
+          "bgFrom": "DIV.advcalc-2nmx27",
+          "ratio": 1,
+          "fontSize": 14,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 543,
+            "y": 342,
+            "w": 97,
+            "h": 21
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 499,
+          "y": 71,
+          "w": 780,
+          "h": 829
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/moving_service_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/moving_service_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 363,
+        "h": 1212,
+        "title": "Get a Door-to-Door Moving Quote in 60 Seconds",
+        "nButtons": 11,
+        "nInputs": 1,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "2-person crew",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(255,255,255)",
+          "bgFrom": "DIV.advcalc-0nrf17",
+          "ratio": 1,
+          "fontSize": 14,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 64,
+            "y": -113,
+            "w": 97,
+            "h": 21
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 6,
+          "y": -413,
+          "w": 363,
+          "h": 1212
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/moving_service_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/moving_service_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  },
+  "home_inspection_quote": {
+    "desktop": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 780,
+        "h": 818,
+        "title": "Book an Independent Home Inspection",
+        "nButtons": 11,
+        "nInputs": 1,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "Standard (48 hours)",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(255,255,255)",
+          "bgFrom": "DIV.advcalc-a2dw5l",
+          "ratio": 1,
+          "fontSize": 14,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 543,
+            "y": 733,
+            "w": 133,
+            "h": 21
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 499,
+          "y": 82,
+          "w": 780,
+          "h": 818
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/home_inspection_quote_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/home_inspection_quote_desktop_filled.png"
+      ],
+      "notes": []
+    },
+    "mobile": {
+      "rendered": true,
+      "widget": {
+        "found": true,
+        "w": 363,
+        "h": 1229,
+        "title": "Book an Independent Home Inspection",
+        "nButtons": 11,
+        "nInputs": 1,
+        "scopeCount": 5
+      },
+      "contrast": [
+        {
+          "text": "Standard (48 hours)",
+          "tag": "SPAN",
+          "cls": "",
+          "fg": "rgb(255,255,255)",
+          "bg": "rgb(255,255,255)",
+          "bgFrom": "DIV.advcalc-ytilb2",
+          "ratio": 1,
+          "fontSize": 14,
+          "bold": false,
+          "threshold": 4.5,
+          "rect": {
+            "x": 64,
+            "y": 292,
+            "w": 133,
+            "h": 21
+          }
+        }
+      ],
+      "align": {
+        "widgetRect": {
+          "x": 6,
+          "y": -387,
+          "w": 363,
+          "h": 1229
+        },
+        "defects": []
+      },
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/home_inspection_quote_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g7/home_inspection_quote_mobile_filled.png"
+      ],
+      "notes": []
+    }
+  }
+}

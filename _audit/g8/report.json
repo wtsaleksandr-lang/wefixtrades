@@ -1,0 +1,1142 @@
+{
+  "solar_panel_install": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "8.5",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "kW",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Your Solar System Estimate",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading"
+        },
+        {
+          "text": "$23,800.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 3,
+          "fontSize": 34,
+          "weight": "800",
+          "testid": "advanced-result"
+        },
+        {
+          "text": "Panel System",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "$23,800.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Battery Storage",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Optional Extras",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Eligible for the 30% federal tax credit + state an",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Your Solar System Estimate",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading",
+          "where": "result-panel"
+        },
+        {
+          "text": "$23,800.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 3,
+          "fontSize": 34,
+          "weight": "800",
+          "testid": "advanced-result",
+          "where": "result-panel"
+        },
+        {
+          "text": "Panel System",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "$23,800.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Battery Storage",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Optional Extras",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Eligible for the 30% federal tax credit ",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/solar_panel_install__desktop__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/solar_panel_install__desktop__result.png"
+      ],
+      "note": "widget idx 4/5 w=780"
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "8.5",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "kW",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Your Solar System Estimate",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading"
+        },
+        {
+          "text": "$23,800.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 3,
+          "fontSize": 26,
+          "weight": "800",
+          "testid": "advanced-result"
+        },
+        {
+          "text": "Panel System",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "$23,800.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Battery Storage",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Optional Extras",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Eligible for the 30% federal tax credit + state an",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226 (advanced-result-panel)",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Your Solar System Estimate",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading",
+          "where": "result-panel"
+        },
+        {
+          "text": "$23,800.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 3,
+          "fontSize": 26,
+          "weight": "800",
+          "testid": "advanced-result",
+          "where": "result-panel"
+        },
+        {
+          "text": "Panel System",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "$23,800.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Battery Storage",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Optional Extras",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Eligible for the 30% federal tax credit ",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "41,171,226",
+          "ratio": 2.62,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/solar_panel_install__mobile__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/solar_panel_install__mobile__result.png"
+      ],
+      "note": "widget idx 4/5 w=363"
+    }
+  },
+  "pool_service_quote": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "Your Per-Visit Pool Quote",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading"
+        },
+        {
+          "text": "Service & Cleaning",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Chemicals",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "CPO-certified techs, all equipment included. Pre-p",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Your Per-Visit Pool Quote",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading",
+          "where": "result-panel"
+        },
+        {
+          "text": "Service & Cleaning",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Chemicals",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "CPO-certified techs, all equipment inclu",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/pool_service_quote__desktop__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/pool_service_quote__desktop__result.png"
+      ],
+      "note": "widget idx 4/5 w=780"
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "Your Per-Visit Pool Quote",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading"
+        },
+        {
+          "text": "Service & Cleaning",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Chemicals",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "CPO-certified techs, all equipment included. Pre-p",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142 (advanced-result-panel)",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Your Per-Visit Pool Quote",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading",
+          "where": "result-panel"
+        },
+        {
+          "text": "Service & Cleaning",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "$0.00",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Chemicals",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "CPO-certified techs, all equipment inclu",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "26,155,142",
+          "ratio": 3.43,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/pool_service_quote__mobile__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/pool_service_quote__mobile__result.png"
+      ],
+      "note": "widget idx 4/5 w=363"
+    }
+  },
+  "pest_control_quote": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "2000",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "sqft",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Your Pest Control Quote",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading"
+        },
+        {
+          "text": "Treatment Base",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Target Pests",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Treatment Scope",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Family- and pet-safe products. Quarterly plans inc",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Your Pest Control Quote",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading",
+          "where": "result-panel"
+        },
+        {
+          "text": "Treatment Base",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Target Pests",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Treatment Scope",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Family- and pet-safe products. Quarterly",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/pest_control_quote__desktop__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/pest_control_quote__desktop__result.png"
+      ],
+      "note": "widget idx 4/5 w=780"
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "2000",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "sqft",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Your Pest Control Quote",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading"
+        },
+        {
+          "text": "Treatment Base",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Target Pests",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Treatment Scope",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Family- and pet-safe products. Quarterly plans inc",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78 (advanced-result-panel)",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Your Pest Control Quote",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "700",
+          "testid": "advanced-result-heading",
+          "where": "result-panel"
+        },
+        {
+          "text": "Treatment Base",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Target Pests",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Treatment Scope",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        },
+        {
+          "text": "Family- and pet-safe products. Quarterly",
+          "fg": "rgba(255, 255, 255, 0.82)",
+          "bg": "74,122,78",
+          "ratio": 3.97,
+          "thresh": 4.5,
+          "fontSize": 11,
+          "weight": "400",
+          "testid": "",
+          "where": "result-panel"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/pest_control_quote__mobile__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/pest_control_quote__mobile__result.png"
+      ],
+      "note": "widget idx 4/5 w=363"
+    }
+  },
+  "roof_replacement": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "2200",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "sqft",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Simple (gable / hip)",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "237,50,55 (image-radio-option-simple_gable_hip_)",
+          "ratio": 4.36,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "600",
+          "testid": ""
+        },
+        {
+          "text": "No (overlay)",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55 (BUTTON)",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 14,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Schedule My Free Inspection",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55 (advanced-cta)",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 14,
+          "weight": "800",
+          "testid": "advanced-cta"
+        },
+        {
+          "text": "→",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55 (advanced-cta)",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 16,
+          "weight": "800",
+          "testid": ""
+        },
+        {
+          "text": "Schedule My Free Inspection",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 14,
+          "weight": "800",
+          "testid": "advanced-cta",
+          "where": "result-panel"
+        },
+        {
+          "text": "→",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 16,
+          "weight": "800",
+          "testid": "",
+          "where": "result-panel"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/roof_replacement__desktop__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/roof_replacement__desktop__result.png"
+      ],
+      "note": "widget idx 4/5 w=780"
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "2200",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "sqft",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "15,23,42 (SPAN)",
+          "ratio": 1,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "700",
+          "testid": ""
+        },
+        {
+          "text": "Simple (gable / hip)",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "237,50,55 (image-radio-option-simple_gable_hip_)",
+          "ratio": 4.36,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "600",
+          "testid": ""
+        },
+        {
+          "text": "No (overlay)",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55 (BUTTON)",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 14,
+          "weight": "400",
+          "testid": ""
+        },
+        {
+          "text": "Schedule My Free Inspection",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55 (advanced-cta)",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 14,
+          "weight": "800",
+          "testid": "advanced-cta"
+        },
+        {
+          "text": "→",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55 (advanced-cta)",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 16,
+          "weight": "800",
+          "testid": ""
+        },
+        {
+          "text": "Schedule My Free Inspection",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 14,
+          "weight": "800",
+          "testid": "advanced-cta",
+          "where": "result-panel"
+        },
+        {
+          "text": "→",
+          "fg": "rgb(255, 255, 255)",
+          "bg": "237,50,55",
+          "ratio": 4.11,
+          "thresh": 4.5,
+          "fontSize": 16,
+          "weight": "800",
+          "testid": "",
+          "where": "result-panel"
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/roof_replacement__mobile__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/roof_replacement__mobile__result.png"
+      ],
+      "note": "widget idx 4/5 w=363"
+    }
+  },
+  "garage_door_service": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "Repair only",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "47,107,224 (image-radio-option-repair_only)",
+          "ratio": 3.67,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "600",
+          "testid": ""
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/garage_door_service__desktop__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/garage_door_service__desktop__result.png"
+      ],
+      "note": "widget idx 4/5 w=780"
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [
+        {
+          "text": "Repair only",
+          "fg": "rgb(23, 23, 23)",
+          "bg": "47,107,224 (image-radio-option-repair_only)",
+          "ratio": 3.67,
+          "thresh": 4.5,
+          "fontSize": 13,
+          "weight": "600",
+          "testid": ""
+        }
+      ],
+      "alignment": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/garage_door_service__mobile__widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g8/garage_door_service__mobile__result.png"
+      ],
+      "note": "widget idx 4/5 w=363"
+    }
+  }
+}

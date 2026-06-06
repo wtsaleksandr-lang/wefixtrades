@@ -1,0 +1,314 @@
+[
+  {
+    "profile": "desktop",
+    "tab": "style",
+    "core": {
+      "style-group-theme": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-typography": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-colours": {
+        "count": 1,
+        "visible": true
+      }
+    },
+    "advCollapsed": {
+      "style-group-layout": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-shape": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-branding": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-brand-kit": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-brand-studio": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-button-copy": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-trust-badges": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-floating-launcher": {
+        "count": 0,
+        "visible": false
+      }
+    },
+    "advExpanded": {
+      "style-group-layout": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-shape": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-branding": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-brand-kit": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-brand-studio": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-button-copy": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-trust-badges": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-floating-launcher": {
+        "count": 1,
+        "visible": true
+      }
+    },
+    "notes": [],
+    "console": [],
+    "panelExists": true,
+    "toggleFound": true
+  },
+  {
+    "profile": "desktop",
+    "tab": "settings",
+    "core": {
+      "settings-group-numberformat": {
+        "count": 1,
+        "visible": true
+      }
+    },
+    "advCollapsed": {
+      "settings-group-pricing": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-deposit": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-scheduling": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-brand-badge": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-trade": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-business-profile": {
+        "count": 0,
+        "visible": false
+      }
+    },
+    "advExpanded": {
+      "settings-group-pricing": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-deposit": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-scheduling": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-brand-badge": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-trade": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-business-profile": {
+        "count": 1,
+        "visible": true
+      }
+    },
+    "notes": [],
+    "console": [],
+    "panelExists": true,
+    "toggleFound": true
+  },
+  {
+    "profile": "mobile",
+    "tab": "style",
+    "core": {
+      "style-group-theme": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-typography": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-colours": {
+        "count": 1,
+        "visible": true
+      }
+    },
+    "advCollapsed": {
+      "style-group-layout": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-shape": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-branding": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-brand-kit": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-brand-studio": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-button-copy": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-trust-badges": {
+        "count": 0,
+        "visible": false
+      },
+      "style-group-floating-launcher": {
+        "count": 0,
+        "visible": false
+      }
+    },
+    "advExpanded": {
+      "style-group-layout": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-shape": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-branding": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-brand-kit": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-brand-studio": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-button-copy": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-trust-badges": {
+        "count": 1,
+        "visible": true
+      },
+      "style-group-floating-launcher": {
+        "count": 1,
+        "visible": true
+      }
+    },
+    "notes": [],
+    "console": [],
+    "panelExists": true,
+    "toggleFound": true
+  },
+  {
+    "profile": "mobile",
+    "tab": "settings",
+    "core": {
+      "settings-group-numberformat": {
+        "count": 1,
+        "visible": true
+      }
+    },
+    "advCollapsed": {
+      "settings-group-pricing": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-deposit": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-scheduling": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-brand-badge": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-trade": {
+        "count": 0,
+        "visible": false
+      },
+      "settings-group-business-profile": {
+        "count": 0,
+        "visible": false
+      }
+    },
+    "advExpanded": {
+      "settings-group-pricing": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-deposit": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-scheduling": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-brand-badge": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-trade": {
+        "count": 1,
+        "visible": true
+      },
+      "settings-group-business-profile": {
+        "count": 1,
+        "visible": true
+      }
+    },
+    "notes": [],
+    "console": [],
+    "panelExists": true,
+    "toggleFound": true
+  }
+]

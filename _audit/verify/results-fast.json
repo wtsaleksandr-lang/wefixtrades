@@ -1,0 +1,174 @@
+[
+  {
+    "item": 1,
+    "route": "/design-showcase",
+    "status": "RESOLVED",
+    "evidence": "no matching error"
+  },
+  {
+    "item": 2,
+    "route": "/tools/build-with-ai",
+    "status": "RESOLVED",
+    "evidence": "no matching error"
+  },
+  {
+    "item": 3,
+    "route": "/services",
+    "status": "STILL-PRESENT",
+    "evidence": "imgs=0 emptySrc=0 svgs=0"
+  },
+  {
+    "item": 4,
+    "route": "/products/quotequick",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0)"
+  },
+  {
+    "item": "5a",
+    "route": "/docs/api",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0)"
+  },
+  {
+    "item": "5b",
+    "route": "/docs/domain",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0) worst DIV.+230"
+  },
+  {
+    "item": "5c",
+    "route": "/docs/webhooks",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0) worst DIV.+109"
+  },
+  {
+    "item": "5d",
+    "route": "/docs/embed",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0) worst DIV.+87"
+  },
+  {
+    "item": 6,
+    "route": "/demos/rankflow",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0) worst DIV.+113"
+  },
+  {
+    "item": "7-ai-employee-d",
+    "route": "/features/ai-employee",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "sw 1440 vs iw 1440 (+0) worst DIV.+60"
+  },
+  {
+    "item": "7-ai-employee-m",
+    "route": "/features/ai-employee",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0) worst DIV.+60"
+  },
+  {
+    "item": "7-booking-d",
+    "route": "/features/booking",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "sw 1440 vs iw 1440 (+0) worst DIV.+60"
+  },
+  {
+    "item": "7-booking-m",
+    "route": "/features/booking",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0) worst DIV.+60"
+  },
+  {
+    "item": "7-calculator-engine-d",
+    "route": "/features/calculator-engine",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "sw 1440 vs iw 1440 (+0) worst DIV.+60"
+  },
+  {
+    "item": "7-calculator-engine-m",
+    "route": "/features/calculator-engine",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0) worst DIV.+60"
+  },
+  {
+    "item": "7-instant-quotes-d",
+    "route": "/features/instant-quotes",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "sw 1440 vs iw 1440 (+0) worst DIV.+60"
+  },
+  {
+    "item": "7-instant-quotes-m",
+    "route": "/features/instant-quotes",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0) worst DIV.+60"
+  },
+  {
+    "item": "7-sms-d",
+    "route": "/features/sms",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "sw 1440 vs iw 1440 (+0) worst DIV.+60"
+  },
+  {
+    "item": "7-sms-m",
+    "route": "/features/sms",
+    "vp": "mobile",
+    "status": "RESOLVED",
+    "evidence": "sw 375 vs iw 375 (+0) worst DIV.+60"
+  },
+  {
+    "item": 8,
+    "route": "/demos/socialsync",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "axe 'select-name': 0 nodes"
+  },
+  {
+    "item": 9,
+    "route": "/tools/local-serp-checker",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "axe 'aria-required-children': 0 nodes"
+  },
+  {
+    "item": 10,
+    "route": "/wefixtrades-vs-jobber",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "axe 'aria-prohibited-attr': 0 nodes"
+  },
+  {
+    "item": 11,
+    "route": "/security",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "axe 'link-in-text-block': 0 nodes"
+  },
+  {
+    "item": 12,
+    "route": "/login",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "axe 'aria-hidden-focus': 0 nodes"
+  },
+  {
+    "item": 13,
+    "route": "/compare/reputationshield-vs-nicejob",
+    "vp": "desktop",
+    "status": "RESOLVED",
+    "evidence": "axe 'scrollable-region-focusable': 0 nodes"
+  }
+]

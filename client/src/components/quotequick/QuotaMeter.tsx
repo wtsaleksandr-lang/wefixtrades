@@ -66,7 +66,7 @@ export function QuotaMeter() {
   if (data.tier === "paid" || data.limit === null) {
     return (
       <Card className="flex items-center gap-3 p-4" data-testid="qq-quota-meter-unlimited">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[hsl(var(--chart-2)/0.12)]">
+        <span style={{ height: 36, width: 36 }} className="flex items-center justify-center rounded-full bg-[hsl(var(--chart-2)/0.12)]">
           <InfinityIcon className="h-4 w-4 text-[hsl(var(--chart-2))]" aria-hidden="true" />
         </span>
         <div className="flex flex-col">

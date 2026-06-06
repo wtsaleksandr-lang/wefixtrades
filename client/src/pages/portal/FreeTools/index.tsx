@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Camera,
   CalendarClock,
+  Images,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -150,6 +151,15 @@ const TOOLS: Tool[] = [
     icon: CalendarClock,
     status: "available",
     href: "/portal/free-tools/booking",
+  },
+  {
+    slug: "gallery",
+    title: "Our Work — Photo Gallery",
+    description:
+      "A responsive grid + lightbox to show off finished jobs — re-roofs, driveways, refits.",
+    icon: Images,
+    status: "available",
+    href: "/portal/free-tools/gallery",
   },
 ];
 

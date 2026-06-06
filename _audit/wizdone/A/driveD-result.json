@@ -1,0 +1,7 @@
+{
+  "steps": [
+    "[OK] preview has clickable field",
+    "[OK] CLICK-TO-EDIT highlight pulse appears",
+    "[OK] CLICK-TO-EDIT switches tab to build :: before=false after=true"
+  ]
+}

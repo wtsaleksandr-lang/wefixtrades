@@ -1,0 +1,164 @@
+ROUTE /tools/local-serp-checker [DESKTOP]:
+  - [A11Y] aria-required-children (critical, 1 nodes)
+  - [A11Y] color-contrast (serious, 6 nodes)
+ROUTE /tools/local-serp-checker [MOBILE]:
+  - [A11Y] aria-required-children (critical, 1 nodes)
+  - [A11Y] color-contrast (serious, 6 nodes)
+ROUTE /tools/map-snapshot [DESKTOP]:
+  - [A11Y] color-contrast (serious, 3 nodes)
+ROUTE /tools/map-snapshot [MOBILE]:
+  - [A11Y] color-contrast (serious, 3 nodes)
+ROUTE /tools/missed-call-calculator [DESKTOP]:
+  - [A11Y] color-contrast (serious, 3 nodes)
+ROUTE /tools/missed-call-calculator [MOBILE]:
+  - [A11Y] color-contrast (serious, 3 nodes)
+ROUTE /tools/plumbing-ai-content-prompts [DESKTOP]:
+  - [A11Y] color-contrast (serious, 4 nodes)
+ROUTE /tools/plumbing-ai-content-prompts [MOBILE]:
+  - [A11Y] color-contrast (serious, 4 nodes)
+ROUTE /tools/quote-demo [DESKTOP]:
+  - [A11Y] color-contrast (serious, 9 nodes)
+ROUTE /tools/quote-demo [MOBILE]:
+  - [A11Y] color-contrast (serious, 10 nodes)
+ROUTE /tools/roofing-ai-content-prompts [DESKTOP]:
+  - [A11Y] color-contrast (serious, 4 nodes)
+ROUTE /tools/roofing-ai-content-prompts [MOBILE]:
+  - [A11Y] color-contrast (serious, 4 nodes)
+ROUTE /wefixtrades-vs-housecall-pro [DESKTOP]:
+  - [A11Y] aria-prohibited-attr (serious, 44 nodes)
+  - [A11Y] color-contrast (serious, 4 nodes)
+ROUTE /wefixtrades-vs-housecall-pro [MOBILE]:
+  - [A11Y] aria-prohibited-attr (serious, 44 nodes)
+  - [A11Y] color-contrast (serious, 3 nodes)
+ROUTE /wefixtrades-vs-jobber [DESKTOP]:
+  - [A11Y] aria-prohibited-attr (serious, 44 nodes)
+  - [A11Y] color-contrast (serious, 4 nodes)
+ROUTE /wefixtrades-vs-jobber [MOBILE]:
+  - [A11Y] aria-prohibited-attr (serious, 44 nodes)
+  - [A11Y] color-contrast (serious, 3 nodes)
+ROUTE /wefixtrades-vs-servicetitan [DESKTOP]:
+  - [A11Y] aria-prohibited-attr (serious, 46 nodes)
+  - [A11Y] color-contrast (serious, 4 nodes)
+ROUTE /wefixtrades-vs-servicetitan [MOBILE]:
+  - [A11Y] aria-prohibited-attr (serious, 46 nodes)
+  - [A11Y] color-contrast (serious, 3 nodes)
+  - [A11Y] scrollable-region-focusable (serious, 2 nodes)
+  - [OVERFLOW] div right=383 (+8px)
+    shot: C:\Users\Owner\.codex\wt-preview\_audit\sweep\E\_wefixtrades_vs_servicetitan__MOBILE.png
+ROUTE /wizard [DESKTOP]:
+  - [A11Y] aria-required-children (critical, 1 nodes)
+  - [OVERFLOW] div.qq-tg-card-hover-wrap right=1600 (+160px)
+  - [OVERFLOW] button.qq-tg-card right=1600 (+160px)
+  - [OVERFLOW] div.qq-tg-mockup right=1591 (+151px)
+  - [OVERFLOW] div right=1591 (+151px)
+  - [OVERFLOW] div.qq-tm-skeleton right=1591 (+151px)
+  - [OVERFLOW] div.qq-tg-card-body right=1591 (+151px)
+    shot: C:\Users\Owner\.codex\wt-preview\_audit\sweep\E\_wizard__DESKTOP.png
+ROUTE /wizard [MOBILE]:
+  - [A11Y] aria-prohibited-attr (serious, 1 nodes)
+  - [A11Y] aria-required-children (critical, 1 nodes)
+  - [A11Y] color-contrast (serious, 1 nodes)
+  - [OVERFLOW] div.qq-tg-card-hover-wrap right=512 (+137px)
+  - [OVERFLOW] button.qq-tg-card right=512 (+137px)
+  - [OVERFLOW] div.qq-tg-mockup right=503 (+128px)
+  - [OVERFLOW] div right=503 (+128px)
+  - [OVERFLOW] div.qq-tm-card right=503 (+128px)
+  - [OVERFLOW] div.qq-tm-header right=495 (+120px)
+    shot: C:\Users\Owner\.codex\wt-preview\_audit\sweep\E\_wizard__MOBILE.png
+ROUTE /contact [DESKTOP]:
+  - [A11Y] color-contrast (serious, 8 nodes)
+ROUTE /contact [MOBILE]:
+  - [A11Y] color-contrast (serious, 8 nodes)
+ROUTE /login [DESKTOP]:
+  - [A11Y] aria-hidden-focus (serious, 1 nodes)
+  - [A11Y] color-contrast (serious, 6 nodes)
+ROUTE /login [MOBILE]:
+  - [A11Y] aria-hidden-focus (serious, 1 nodes)
+  - [A11Y] color-contrast (serious, 7 nodes)
+ROUTE /signup [DESKTOP]:
+  - [A11Y] color-contrast (serious, 11 nodes)
+ROUTE /signup [MOBILE]:
+  - [A11Y] color-contrast (serious, 12 nodes)
+ROUTE /demos/rankflow [DESKTOP]:
+  - [A11Y] color-contrast (serious, 3 nodes)
+ROUTE /demos/rankflow [MOBILE]:
+  - [A11Y] color-contrast (serious, 3 nodes)
+  - [OVERFLOW] div right=488 (+113px)
+    shot: C:\Users\Owner\.codex\wt-preview\_audit\sweep\E\_demos_rankflow__MOBILE.png
+ROUTE /design-showcase [DESKTOP]:
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [A11Y] color-contrast (serious, 23 nodes)
+ROUTE /design-showcase [MOBILE]:
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [CONSOLE] Error: <svg> attribute height: Expected length, "auto".
+  - [A11Y] color-contrast (serious, 22 nodes)
+  - [OVERFLOW] div.eo-left right=426 (+45px)
+  - [OVERFLOW] div.eo-stages right=398 (+17px)
+  - [OVERFLOW] div.eo-stage.eo-stage-next right=398 (+17px)
+  - [OVERFLOW] span.eo-stage-num right=398 (+17px)
+  - [OVERFLOW] div.eo-stage-tile right=398 (+17px)
+  - [OVERFLOW] div.eo-rail right=398 (+17px)
+    shot: C:\Users\Owner\.codex\wt-preview\_audit\sweep\E\_design_showcase__MOBILE.png
+ROUTE /free-tools [DESKTOP]:
+  - [A11Y] color-contrast (serious, 7 nodes)
+ROUTE /free-tools [MOBILE]:
+  - [A11Y] color-contrast (serious, 7 nodes)
+ROUTE /citation-tracker [DESKTOP]:
+  - [A11Y] color-contrast (serious, 11 nodes)
+ROUTE /citation-tracker [MOBILE]:
+  - [A11Y] color-contrast (serious, 11 nodes)
+ROUTE /docs/api [DESKTOP]:
+  - [A11Y] color-contrast (serious, 156 nodes)
+  - [A11Y] link-in-text-block (serious, 3 nodes)
+ROUTE /docs/api [MOBILE]:
+  - [A11Y] color-contrast (serious, 109 nodes)
+  - [A11Y] link-in-text-block (serious, 3 nodes)
+  - [A11Y] scrollable-region-focusable (serious, 17 nodes)
+  - [OVERFLOW] table right=377 (+2px)
+  - [OVERFLOW] code right=436 (+61px)
+  - [OVERFLOW] code right=504 (+129px)
+  - [OVERFLOW] code right=539 (+164px)
+  - [OVERFLOW] table right=447 (+72px)
+  - [OVERFLOW] thead right=446 (+71px)
+    shot: C:\Users\Owner\.codex\wt-preview\_audit\sweep\E\_docs_api__MOBILE.png
+ROUTE /products/quotequick [DESKTOP]:
+  - [A11Y] color-contrast (serious, 12 nodes)
+  - [OVERFLOW] div right=1538 (+98px)
+  - [OVERFLOW] div.review-card right=1538 (+98px)
+  - [OVERFLOW] div right=1515 (+75px)
+  - [OVERFLOW] p right=1515 (+75px)
+  - [OVERFLOW] div right=1515 (+75px)
+  - [OVERFLOW] div right=1515 (+75px)
+    shot: C:\Users\Owner\.codex\wt-preview\_audit\sweep\E\_products_quotequick__DESKTOP.png
+ROUTE /products/quotequick [MOBILE]:
+  - [A11Y] color-contrast (serious, 11 nodes)
+  - [OVERFLOW] button.qq-trust-chip right=378 (+3px)
+  - [OVERFLOW] button.qq-trust-chip right=537 (+162px)
+  - [OVERFLOW] svg right=408 (+33px)
+  - [OVERFLOW] path right=407 (+32px)
+  - [OVERFLOW] path right=403 (+28px)
+  - [OVERFLOW] button.qq-trust-chip right=671 (+296px)
+    shot: C:\Users\Owner\.codex\wt-preview\_audit\sweep\E\_products_quotequick__MOBILE.png
+ROUTE /pricing [DESKTOP]:
+  - [A11Y] color-contrast (serious, 13 nodes)
+ROUTE /pricing [MOBILE]:
+  - [A11Y] button-name (critical, 1 nodes)
+  - [A11Y] color-contrast (serious, 19 nodes)
+ROUTE /templates [DESKTOP]:
+  - [A11Y] color-contrast (serious, 20 nodes)
+ROUTE /templates [MOBILE]:
+  - [A11Y] color-contrast (serious, 18 nodes)
+  - [OVERFLOW] button right=450 (+75px)
+  - [OVERFLOW] span right=438 (+63px)
+  - [OVERFLOW] button right=539 (+164px)
+  - [OVERFLOW] span right=527 (+152px)
+  - [OVERFLOW] button right=644 (+269px)
+  - [OVERFLOW] span right=632 (+257px)
+    shot: C:\Users\Owner\.codex\wt-preview\_audit\sweep\E\_templates__MOBILE.png

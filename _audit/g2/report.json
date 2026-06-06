@@ -1,0 +1,532 @@
+{
+  "gutter_cleaning": {
+    "desktop": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-45yr6i",
+          "w": 774,
+          "h": 327,
+          "yAbs": 557,
+          "area": 253025
+        },
+        {
+          "cls": "advcalc-36k5qa",
+          "w": 141,
+          "h": 186,
+          "yAbs": 596,
+          "area": 26259
+        },
+        {
+          "cls": "advcalc-tmszny",
+          "w": 141,
+          "h": 128,
+          "yAbs": 751,
+          "area": 18105
+        },
+        {
+          "cls": "advcalc-7l4muf",
+          "w": 141,
+          "h": 122,
+          "yAbs": 600,
+          "area": 17279
+        },
+        {
+          "cls": "advcalc-lindma",
+          "w": 141,
+          "h": 120,
+          "yAbs": 747,
+          "area": 16961
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/gutter_cleaning_desktop_full.png",
+      "liveWidget": {
+        "cls": "advcalc-45yr6i",
+        "w": 774,
+        "h": 327,
+        "yAbs": 557,
+        "area": 253025
+      },
+      "widgetSel": ".advcalc-45yr6i",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/gutter_cleaning_desktop_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/gutter_cleaning_desktop_afterclick.png"
+    },
+    "mobile": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-tiqcyd",
+          "w": 357,
+          "h": 856,
+          "yAbs": 667,
+          "area": 305503
+        },
+        {
+          "cls": "advcalc-x3ltf0",
+          "w": 165,
+          "h": 335,
+          "yAbs": 1828,
+          "area": 55184
+        },
+        {
+          "cls": "advcalc-41rpew",
+          "w": 165,
+          "h": 223,
+          "yAbs": 1979,
+          "area": 36673
+        },
+        {
+          "cls": "advcalc-xr0tnz",
+          "w": 165,
+          "h": 211,
+          "yAbs": 1979,
+          "area": 34721
+        },
+        {
+          "cls": "advcalc-09jm9b",
+          "w": 165,
+          "h": 209,
+          "yAbs": 1828,
+          "area": 34342
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/gutter_cleaning_mobile_full.png",
+      "liveWidget": {
+        "cls": "advcalc-tiqcyd",
+        "w": 357,
+        "h": 856,
+        "yAbs": 667,
+        "area": 305503
+      },
+      "widgetSel": ".advcalc-tiqcyd",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/gutter_cleaning_mobile_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/gutter_cleaning_mobile_afterclick.png"
+    }
+  },
+  "fence_installation": {
+    "desktop": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-h6w6ug",
+          "w": 774,
+          "h": 339,
+          "yAbs": 557,
+          "area": 262313
+        },
+        {
+          "cls": "advcalc-fhiov9",
+          "w": 141,
+          "h": 186,
+          "yAbs": 596,
+          "area": 26259
+        },
+        {
+          "cls": "advcalc-06juoc",
+          "w": 141,
+          "h": 128,
+          "yAbs": 751,
+          "area": 18105
+        },
+        {
+          "cls": "advcalc-2gca7s",
+          "w": 141,
+          "h": 122,
+          "yAbs": 600,
+          "area": 17279
+        },
+        {
+          "cls": "advcalc-kmhmyc",
+          "w": 141,
+          "h": 120,
+          "yAbs": 747,
+          "area": 16961
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/fence_installation_desktop_full.png",
+      "liveWidget": {
+        "cls": "advcalc-h6w6ug",
+        "w": 774,
+        "h": 339,
+        "yAbs": 557,
+        "area": 262313
+      },
+      "widgetSel": ".advcalc-h6w6ug",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/fence_installation_desktop_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/fence_installation_desktop_afterclick.png"
+    },
+    "mobile": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-dtaykx",
+          "w": 357,
+          "h": 704,
+          "yAbs": 667,
+          "area": 251161
+        },
+        {
+          "cls": "advcalc-yjqb9o",
+          "w": 165,
+          "h": 335,
+          "yAbs": 1676,
+          "area": 55184
+        },
+        {
+          "cls": "advcalc-odeen9",
+          "w": 165,
+          "h": 223,
+          "yAbs": 1827,
+          "area": 36673
+        },
+        {
+          "cls": "advcalc-knbwqt",
+          "w": 165,
+          "h": 211,
+          "yAbs": 1827,
+          "area": 34721
+        },
+        {
+          "cls": "advcalc-iq7d8l",
+          "w": 165,
+          "h": 209,
+          "yAbs": 1676,
+          "area": 34342
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/fence_installation_mobile_full.png",
+      "liveWidget": {
+        "cls": "advcalc-dtaykx",
+        "w": 357,
+        "h": 704,
+        "yAbs": 667,
+        "area": 251161
+      },
+      "widgetSel": ".advcalc-dtaykx",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/fence_installation_mobile_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/fence_installation_mobile_afterclick.png"
+    }
+  },
+  "roof_repair": {
+    "desktop": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-to0wp8",
+          "w": 774,
+          "h": 456,
+          "yAbs": 557,
+          "area": 352751
+        },
+        {
+          "cls": "advcalc-opfs2s",
+          "w": 141,
+          "h": 186,
+          "yAbs": 596,
+          "area": 26259
+        },
+        {
+          "cls": "advcalc-164l94",
+          "w": 141,
+          "h": 128,
+          "yAbs": 751,
+          "area": 18105
+        },
+        {
+          "cls": "advcalc-zlfzb2",
+          "w": 141,
+          "h": 122,
+          "yAbs": 600,
+          "area": 17279
+        },
+        {
+          "cls": "advcalc-nid2hd",
+          "w": 141,
+          "h": 120,
+          "yAbs": 747,
+          "area": 16961
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/roof_repair_desktop_full.png",
+      "liveWidget": {
+        "cls": "advcalc-to0wp8",
+        "w": 774,
+        "h": 456,
+        "yAbs": 557,
+        "area": 352751
+      },
+      "widgetSel": ".advcalc-to0wp8",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/roof_repair_desktop_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/roof_repair_desktop_afterclick.png"
+    },
+    "mobile": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-85ush2",
+          "w": 357,
+          "h": 852,
+          "yAbs": 631,
+          "area": 304064
+        },
+        {
+          "cls": "advcalc-k44ha8",
+          "w": 165,
+          "h": 335,
+          "yAbs": 1789,
+          "area": 55184
+        },
+        {
+          "cls": "advcalc-0x4tah",
+          "w": 165,
+          "h": 223,
+          "yAbs": 1940,
+          "area": 36673
+        },
+        {
+          "cls": "advcalc-3xl345",
+          "w": 165,
+          "h": 211,
+          "yAbs": 1940,
+          "area": 34721
+        },
+        {
+          "cls": "advcalc-bmduo6",
+          "w": 165,
+          "h": 209,
+          "yAbs": 1789,
+          "area": 34342
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/roof_repair_mobile_full.png",
+      "liveWidget": {
+        "cls": "advcalc-85ush2",
+        "w": 357,
+        "h": 852,
+        "yAbs": 631,
+        "area": 304064
+      },
+      "widgetSel": ".advcalc-85ush2",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/roof_repair_mobile_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/roof_repair_mobile_afterclick.png"
+    }
+  },
+  "solar_panels": {
+    "desktop": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-0y8c8v",
+          "w": 774,
+          "h": 472,
+          "yAbs": 557,
+          "area": 365618
+        },
+        {
+          "cls": "advcalc-atcjcu",
+          "w": 141,
+          "h": 186,
+          "yAbs": 596,
+          "area": 26259
+        },
+        {
+          "cls": "advcalc-l93lpg",
+          "w": 141,
+          "h": 128,
+          "yAbs": 751,
+          "area": 18105
+        },
+        {
+          "cls": "advcalc-f5m33q",
+          "w": 141,
+          "h": 122,
+          "yAbs": 600,
+          "area": 17279
+        },
+        {
+          "cls": "advcalc-ktf3mh",
+          "w": 141,
+          "h": 120,
+          "yAbs": 747,
+          "area": 16961
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/solar_panels_desktop_full.png",
+      "liveWidget": {
+        "cls": "advcalc-0y8c8v",
+        "w": 774,
+        "h": 472,
+        "yAbs": 557,
+        "area": 365618
+      },
+      "widgetSel": ".advcalc-0y8c8v",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/solar_panels_desktop_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/solar_panels_desktop_afterclick.png"
+    },
+    "mobile": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-n19ytt",
+          "w": 357,
+          "h": 868,
+          "yAbs": 667,
+          "area": 309999
+        },
+        {
+          "cls": "advcalc-dmnapk",
+          "w": 165,
+          "h": 335,
+          "yAbs": 1841,
+          "area": 55184
+        },
+        {
+          "cls": "advcalc-g2nybh",
+          "w": 165,
+          "h": 223,
+          "yAbs": 1992,
+          "area": 36673
+        },
+        {
+          "cls": "advcalc-k968a8",
+          "w": 165,
+          "h": 211,
+          "yAbs": 1992,
+          "area": 34721
+        },
+        {
+          "cls": "advcalc-wj5y4h",
+          "w": 165,
+          "h": 209,
+          "yAbs": 1841,
+          "area": 34342
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/solar_panels_mobile_full.png",
+      "liveWidget": {
+        "cls": "advcalc-n19ytt",
+        "w": 357,
+        "h": 868,
+        "yAbs": 667,
+        "area": 309999
+      },
+      "widgetSel": ".advcalc-n19ytt",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/solar_panels_mobile_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/solar_panels_mobile_afterclick.png"
+    }
+  },
+  "interior_painting": {
+    "desktop": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-bcorp1",
+          "w": 774,
+          "h": 426,
+          "yAbs": 557,
+          "area": 329966
+        },
+        {
+          "cls": "advcalc-8l0sw7",
+          "w": 141,
+          "h": 186,
+          "yAbs": 596,
+          "area": 26259
+        },
+        {
+          "cls": "advcalc-17ykhs",
+          "w": 141,
+          "h": 128,
+          "yAbs": 751,
+          "area": 18105
+        },
+        {
+          "cls": "advcalc-yzpvbe",
+          "w": 141,
+          "h": 122,
+          "yAbs": 600,
+          "area": 17279
+        },
+        {
+          "cls": "advcalc-b6y79w",
+          "w": 141,
+          "h": 120,
+          "yAbs": 747,
+          "area": 16961
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/interior_painting_desktop_full.png",
+      "liveWidget": {
+        "cls": "advcalc-bcorp1",
+        "w": 774,
+        "h": 426,
+        "yAbs": 557,
+        "area": 329966
+      },
+      "widgetSel": ".advcalc-bcorp1",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/interior_painting_desktop_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/interior_painting_desktop_afterclick.png"
+    },
+    "mobile": {
+      "consoleErrors": [],
+      "widgetsFound": [
+        {
+          "cls": "advcalc-uhkdgj",
+          "w": 357,
+          "h": 1018,
+          "yAbs": 667,
+          "area": 363471
+        },
+        {
+          "cls": "advcalc-ip98o4",
+          "w": 165,
+          "h": 335,
+          "yAbs": 1990,
+          "area": 55184
+        },
+        {
+          "cls": "advcalc-8kdujs",
+          "w": 165,
+          "h": 223,
+          "yAbs": 2141,
+          "area": 36673
+        },
+        {
+          "cls": "advcalc-b80e6a",
+          "w": 165,
+          "h": 211,
+          "yAbs": 2141,
+          "area": 34721
+        },
+        {
+          "cls": "advcalc-772o0e",
+          "w": 165,
+          "h": 209,
+          "yAbs": 1990,
+          "area": 34342
+        }
+      ],
+      "fullScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/interior_painting_mobile_full.png",
+      "liveWidget": {
+        "cls": "advcalc-uhkdgj",
+        "w": 357,
+        "h": 1018,
+        "yAbs": 667,
+        "area": 363471
+      },
+      "widgetSel": ".advcalc-uhkdgj",
+      "widgetScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/interior_painting_mobile_widget.png",
+      "contrastErr": "Cannot read properties of undefined (reading 'items')",
+      "afterClickScreenshot": "C:/Users/Owner/.codex/wt-preview/_audit/g2/interior_painting_mobile_afterclick.png"
+    }
+  }
+}

@@ -1,0 +1,170 @@
+[
+  {
+    "surface": "/wizard editor",
+    "viewport": "desktop",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "21 interactions performed"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click tab action (mobile)",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "tab \"action\" click failed: locator.click: Timeout 2500ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"editor-tab-action\"]').first()\u001b[22m\n\u001b[2m    - locator resolved to <button role=\"tab\" type=\"button\" title=\"Action\" aria-selected=\"false\" class=\"qq-bottom-tab\" data-testid=\"editor-tab-action\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div aria-hidden=\"tr"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click tab action (mobile)",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "tab \"action\" not present"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click tab style (mobile)",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "tab \"style\" click failed: locator.click: Timeout 2500ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"editor-tab-style\"]').first()\u001b[22m\n\u001b[2m    - locator resolved to <button role=\"tab\" type=\"button\" title=\"Style\" aria-selected=\"false\" class=\"qq-bottom-tab\" data-testid=\"editor-tab-style\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div aria-hidden=\"true\" "
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click tab style (mobile)",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "tab \"style\" not present"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click tab settings (mobile)",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "tab \"settings\" click failed: locator.click: Timeout 2500ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"editor-tab-settings\"]').first()\u001b[22m\n\u001b[2m    - locator resolved to <button role=\"tab\" type=\"button\" title=\"Settings\" aria-selected=\"false\" class=\"qq-bottom-tab\" data-testid=\"editor-tab-settings\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div aria-hi"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click tab settings (mobile)",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "tab \"settings\" not present"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click tab help (mobile)",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "tab \"help\" click failed: locator.click: Timeout 2500ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"editor-tab-help\"]').first()\u001b[22m\n\u001b[2m    - locator resolved to <button title=\"Help\" type=\"button\" aria-label=\"Help\" data-testid=\"editor-tab-help\" class=\"qq-bottom-tab qq-bottom-tab-help\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div aria-hidden=\"true\" "
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click tab help (mobile)",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "tab \"help\" not present"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click Publish (quotequick-publish)",
+    "tag": "JS-EXCEPTION",
+    "message": "locator.click: Timeout 2500ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"quotequick-publish\"]').first()\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" class=\"qq-mtopbar-publish\" data-testid=\"quotequick-publish\">Publish</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div aria-hidden=\"true\" class=\"qq-sheet-backdrop\" data-testid=\"wizard-sheet-backdr"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "click Publish (quotequick-publish)",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "quotequick-publish not clickable"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "open Help overlay",
+    "tag": "JS-EXCEPTION",
+    "message": "locator.click: Timeout 2500ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"editor-tab-help\"]').first()\u001b[22m\n\u001b[2m    - locator resolved to <button title=\"Help\" type=\"button\" aria-label=\"Help\" data-testid=\"editor-tab-help\" class=\"qq-bottom-tab qq-bottom-tab-help\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div aria-hidden=\"true\" class=\"qq-sheet-backdrop\""
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "open Help overlay",
+    "tag": "BROKEN-BEHAVIOR",
+    "message": "help control ([data-testid=\"editor-tab-help\"]) not clickable"
+  },
+  {
+    "surface": "/wizard editor",
+    "viewport": "mobile",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "14 interactions performed"
+  },
+  {
+    "surface": "widget /templates/car_towing",
+    "viewport": "desktop",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "2 interactions performed; NaN/undefined seen=false"
+  },
+  {
+    "surface": "widget /templates/car_towing",
+    "viewport": "mobile",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "2 interactions performed; NaN/undefined seen=false"
+  },
+  {
+    "surface": "widget /templates/plumbing_service",
+    "viewport": "desktop",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "2 interactions performed; NaN/undefined seen=false"
+  },
+  {
+    "surface": "widget /templates/plumbing_service",
+    "viewport": "mobile",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "2 interactions performed; NaN/undefined seen=false"
+  },
+  {
+    "surface": "widget /templates/mobile_car_detail",
+    "viewport": "desktop",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "2 interactions performed; NaN/undefined seen=false"
+  },
+  {
+    "surface": "widget /templates/mobile_car_detail",
+    "viewport": "mobile",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "2 interactions performed; NaN/undefined seen=false"
+  },
+  {
+    "surface": "/pricing",
+    "viewport": "desktop",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "5 interactions performed"
+  },
+  {
+    "surface": "/pricing",
+    "viewport": "mobile",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "10 interactions performed"
+  },
+  {
+    "surface": "/products/quotequick",
+    "viewport": "desktop",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "12 interactions performed"
+  },
+  {
+    "surface": "/products/tradeline-complete",
+    "viewport": "desktop",
+    "step": "TOTAL",
+    "tag": "INFO",
+    "message": "12 interactions performed"
+  }
+]

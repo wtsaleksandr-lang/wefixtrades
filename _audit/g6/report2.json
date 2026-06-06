@@ -1,0 +1,112 @@
+{
+  "tree_service": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/tree_service_desktop_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/tree_service_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/tree_service_desktop_result.png"
+      ]
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/tree_service_mobile_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/tree_service_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/tree_service_mobile_result.png"
+      ]
+    }
+  },
+  "pressure_washing_quote": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/pressure_washing_quote_desktop_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/pressure_washing_quote_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/pressure_washing_quote_desktop_result.png"
+      ]
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/pressure_washing_quote_mobile_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/pressure_washing_quote_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/pressure_washing_quote_mobile_result.png"
+      ]
+    }
+  },
+  "mobile_car_detail": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/mobile_car_detail_desktop_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/mobile_car_detail_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/mobile_car_detail_desktop_result.png"
+      ]
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/mobile_car_detail_mobile_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/mobile_car_detail_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/mobile_car_detail_mobile_result.png"
+      ]
+    }
+  },
+  "locksmith_service": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/locksmith_service_desktop_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/locksmith_service_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/locksmith_service_desktop_result.png"
+      ]
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/locksmith_service_mobile_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/locksmith_service_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/locksmith_service_mobile_result.png"
+      ]
+    }
+  },
+  "water_damage_restoration": {
+    "desktop": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/water_damage_restoration_desktop_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/water_damage_restoration_desktop_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/water_damage_restoration_desktop_result.png"
+      ]
+    },
+    "mobile": {
+      "rendered": true,
+      "contrast": [],
+      "notes": [],
+      "shots": [
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/water_damage_restoration_mobile_full.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/water_damage_restoration_mobile_widget.png",
+        "C:/Users/Owner/.codex/wt-preview/_audit/g6/water_damage_restoration_mobile_result.png"
+      ]
+    }
+  }
+}

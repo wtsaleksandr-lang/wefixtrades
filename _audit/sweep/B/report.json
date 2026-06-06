@@ -1,0 +1,902 @@
+{
+  "/docs": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=4",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=3",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/docs/ai": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=70",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=62",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/docs/api": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=156",
+        "vp": "DESKTOP"
+      },
+      {
+        "type": "A11Y",
+        "detail": "link-in-text-block (serious) nodes=3",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=109",
+        "vp": "MOBILE"
+      },
+      {
+        "type": "A11Y",
+        "detail": "link-in-text-block (serious) nodes=3",
+        "vp": "MOBILE"
+      },
+      {
+        "type": "A11Y",
+        "detail": "scrollable-region-focusable (serious) nodes=17",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/docs/booking": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=68",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=60",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/docs/domain": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=55",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +230px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_domain__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +230px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_domain__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +230px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_domain__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +230px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_domain__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +230px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_domain__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "button +214px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_domain__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "svg +173px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_domain__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "rect +172px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_domain__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "path +169px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_domain__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=45",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/docs/embed": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=47",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +87px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_embed__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +87px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_embed__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +87px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_embed__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +87px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_embed__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +87px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_embed__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "button +71px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_embed__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "svg +30px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_embed__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "rect +29px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_embed__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "path +26px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_embed__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=38",
+        "vp": "MOBILE"
+      },
+      {
+        "type": "A11Y",
+        "detail": "scrollable-region-focusable (serious) nodes=3",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/docs/mapguard": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=65",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=57",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/docs/reputationshield": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=61",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=53",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/docs/troubleshooting": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=41",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=33",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/docs/webhooks": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=60",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +109px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_webhooks__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +109px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_webhooks__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +109px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_webhooks__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +109px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_webhooks__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +109px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_webhooks__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "button +93px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_webhooks__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "svg +51px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_webhooks__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "rect +50px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_webhooks__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "path +47px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "docs_webhooks__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=51",
+        "vp": "MOBILE"
+      },
+      {
+        "type": "A11Y",
+        "detail": "scrollable-region-focusable (serious) nodes=1",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/features/ai-employee": {
+    "DESKTOP": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "DESKTOP",
+        "overflow": true,
+        "shot": "features_ai-employee__DESKTOP__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=11",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_ai-employee__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_ai-employee__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_ai-employee__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "h2 +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_ai-employee__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "p +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_ai-employee__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_ai-employee__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_ai-employee__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "span +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_ai-employee__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_ai-employee__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=7",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/features/booking": {
+    "DESKTOP": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "DESKTOP",
+        "overflow": true,
+        "shot": "features_booking__DESKTOP__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=16",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_booking__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_booking__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_booking__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "h2 +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_booking__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "p +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_booking__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_booking__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_booking__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "span +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_booking__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_booking__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=7",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/features/calculator-engine": {
+    "DESKTOP": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "DESKTOP",
+        "overflow": true,
+        "shot": "features_calculator-engine__DESKTOP__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=7",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_calculator-engine__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_calculator-engine__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_calculator-engine__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "h2 +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_calculator-engine__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "p +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_calculator-engine__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_calculator-engine__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_calculator-engine__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "span +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_calculator-engine__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_calculator-engine__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=7",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/features/instant-quotes": {
+    "DESKTOP": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "DESKTOP",
+        "overflow": true,
+        "shot": "features_instant-quotes__DESKTOP__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=7",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_instant-quotes__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_instant-quotes__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_instant-quotes__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "h2 +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_instant-quotes__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "p +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_instant-quotes__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_instant-quotes__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_instant-quotes__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_instant-quotes__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "span +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_instant-quotes__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=6",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/features/sms": {
+    "DESKTOP": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "DESKTOP",
+        "overflow": true,
+        "shot": "features_sms__DESKTOP__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=5",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "OVERFLOW",
+        "detail": "div +60px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_sms__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_sms__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_sms__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "h2 +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_sms__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "p +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_sms__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_sms__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_sms__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "span +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_sms__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "OVERFLOW",
+        "detail": "div +4px",
+        "vp": "MOBILE",
+        "overflow": true,
+        "shot": "features_sms__MOBILE__OVERFLOW.png"
+      },
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=5",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/for-agencies": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=4",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=4",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/for-franchises": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=4",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=4",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/for-solo-traders": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=4",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=3",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/free-audit": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=3",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=3",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/free-tools": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=7",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=7",
+        "vp": "MOBILE"
+      }
+    ]
+  },
+  "/mapguard-suite": {
+    "DESKTOP": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=9",
+        "vp": "DESKTOP"
+      }
+    ],
+    "MOBILE": [
+      {
+        "type": "A11Y",
+        "detail": "color-contrast (serious) nodes=5",
+        "vp": "MOBILE"
+      }
+    ]
+  }
+}

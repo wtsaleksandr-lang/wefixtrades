@@ -1,0 +1,611 @@
+
+========== [desktop] /templates ==========
+doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+no overflow offenders
+auto-detected grid: {"selector":"div.templates-grid","count":62,"cls":"templates-grid"}
+grid analysis (div.templates-grid): {
+ "found": true,
+ "display": "grid",
+ "gridTemplateColumns": "272px 272px 272px 272px",
+ "gap": "24px",
+ "cardCount": 62,
+ "columnLefts": {
+  "140": 16,
+  "436": 16,
+  "732": 15,
+  "1028": 15
+ },
+ "distinctWidths": [
+  272
+ ],
+ "minWidth": 272,
+ "maxWidth": 272,
+ "distinctHeights": 1,
+ "minHeight": 300,
+ "maxHeight": 300,
+ "sampleRects": [
+  {
+   "left": 140,
+   "right": 412,
+   "top": 719,
+   "bottom": 1019,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 436,
+   "right": 708,
+   "top": 719,
+   "bottom": 1019,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 732,
+   "right": 1004,
+   "top": 719,
+   "bottom": 1019,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 1028,
+   "right": 1300,
+   "top": 719,
+   "bottom": 1019,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 140,
+   "right": 412,
+   "top": 1043,
+   "bottom": 1343,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 436,
+   "right": 708,
+   "top": 1043,
+   "bottom": 1343,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 732,
+   "right": 1004,
+   "top": 1043,
+   "bottom": 1343,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 1028,
+   "right": 1300,
+   "top": 1043,
+   "bottom": 1343,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 140,
+   "right": 412,
+   "top": 1367,
+   "bottom": 1667,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 436,
+   "right": 708,
+   "top": 1367,
+   "bottom": 1667,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 732,
+   "right": 1004,
+   "top": 1367,
+   "bottom": 1667,
+   "width": 272,
+   "height": 300
+  },
+  {
+   "left": 1028,
+   "right": 1300,
+   "top": 1367,
+   "bottom": 1667,
+   "width": 272,
+   "height": 300
+  }
+ ]
+}
+heading-like titles count=63, unique=63
+card-link titles count=62, unique=1
+DUPLICATE card titles: [["Try",62]]
+screenshot: templates_desktop.png
+
+---------- [desktop] /templates/car_towing ----------
+status=200 doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+no overflow offenders
+screenshot: detail_car_towing_desktop.png
+
+---------- [desktop] /templates/kitchen_renovation ----------
+status=200 doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+no overflow offenders
+screenshot: detail_kitchen_renovation_desktop.png
+
+---------- [desktop] /templates/web_design_quote ----------
+status=200 doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+no overflow offenders
+screenshot: detail_web_design_quote_desktop.png
+
+---------- [desktop] /templates/moving_service ----------
+status=200 doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+no overflow offenders
+screenshot: detail_moving_service_desktop.png
+
+---------- [desktop] /templates/house_renovation ----------
+status=200 doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+no overflow offenders
+screenshot: detail_house_renovation_desktop.png
+
+---------- [desktop] /templates/solar_panel_install ----------
+status=200 doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+no overflow offenders
+screenshot: detail_solar_panel_install_desktop.png
+
+---------- [desktop] /templates/junk_removal_quote ----------
+status=200 doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+no overflow offenders
+screenshot: detail_junk_removal_quote_desktop.png
+
+---------- [desktop] /templates/mold_remediation_quote ----------
+status=200 doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+no overflow offenders
+screenshot: detail_mold_remediation_quote_desktop.png
+
+========== [desktop] /wizard ==========
+doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":1420,"right":1600,"width":180,"overR":160,"overL":-1420}
+  {"tag":"button","cls":"qq-tg-card","left":1420,"right":1600,"width":180,"overR":160,"overL":-1420}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":1610,"right":1790,"width":180,"overR":350,"overL":-1610}
+  {"tag":"button","cls":"qq-tg-card","left":1610,"right":1790,"width":180,"overR":350,"overL":-1610}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":1800,"right":1980,"width":180,"overR":540,"overL":-1800}
+  {"tag":"button","cls":"qq-tg-card","left":1800,"right":1980,"width":180,"overR":540,"overL":-1800}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":1990,"right":2170,"width":180,"overR":730,"overL":-1990}
+  {"tag":"button","cls":"qq-tg-card","left":1990,"right":2170,"width":180,"overR":730,"overL":-1990}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":2180,"right":2360,"width":180,"overR":920,"overL":-2180}
+  {"tag":"button","cls":"qq-tg-card","left":2180,"right":2360,"width":180,"overR":920,"overL":-2180}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":2370,"right":2550,"width":180,"overR":1110,"overL":-2370}
+  {"tag":"button","cls":"qq-tg-card","left":2370,"right":2550,"width":180,"overR":1110,"overL":-2370}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":2560,"right":2740,"width":180,"overR":1300,"overL":-2560}
+  {"tag":"button","cls":"qq-tg-card","left":2560,"right":2740,"width":180,"overR":1300,"overL":-2560}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":2750,"right":2930,"width":180,"overR":1490,"overL":-2750}
+screenshot: wizard_initial_desktop.png
+Build tab clicked: "BuildActionStyleSettings"
+screenshot: wizard_build_desktop.png
+Browse-all clicked: "Browse all"
+gallery doc scrollWidth=1440 innerWidth=1440 horizontalScroll=0
+gallery grid auto: {"selector":"div.qq-tg-strip","count":63,"inModal":true}
+gallery grid analysis: {
+ "found": true,
+ "display": "flex",
+ "gridTemplateColumns": "none",
+ "gap": "10px",
+ "cardCount": 63,
+ "columnLefts": {
+  "90": 1,
+  "280": 1,
+  "470": 1,
+  "660": 1,
+  "850": 1,
+  "1040": 1,
+  "1230": 1,
+  "1420": 1,
+  "1610": 1,
+  "1800": 1,
+  "1990": 1,
+  "2180": 1,
+  "2370": 1,
+  "2560": 1,
+  "2750": 1,
+  "2940": 1,
+  "3130": 1,
+  "3320": 1,
+  "3510": 1,
+  "3700": 1,
+  "3890": 1,
+  "4080": 1,
+  "4270": 1,
+  "4460": 1,
+  "4650": 1,
+  "4840": 1,
+  "5030": 1,
+  "5220": 1,
+  "5410": 1,
+  "5600": 1,
+  "5790": 1,
+  "5980": 1,
+  "6170": 1,
+  "6360": 1,
+  "6550": 1,
+  "6740": 1,
+  "6930": 1,
+  "7120": 1,
+  "7310": 1,
+  "7500": 1,
+  "7690": 1,
+  "7880": 1,
+  "8070": 1,
+  "8260": 1,
+  "8450": 1,
+  "8640": 1,
+  "8830": 1,
+  "9020": 1,
+  "9210": 1,
+  "9400": 1,
+  "9590": 1,
+  "9780": 1,
+  "9970": 1,
+  "10160": 1,
+  "10350": 1,
+  "10540": 1,
+  "10730": 1,
+  "10920": 1,
+  "11110": 1,
+  "11300": 1,
+  "11490": 1,
+  "11680": 1,
+  "11870": 1
+ },
+ "distinctWidths": [
+  180
+ ],
+ "minWidth": 180,
+ "maxWidth": 180,
+ "distinctHeights": 1,
+ "minHeight": 225,
+ "maxHeight": 225,
+ "sampleRects": [
+  {
+   "left": 90,
+   "right": 270,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 280,
+   "right": 460,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 470,
+   "right": 650,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 660,
+   "right": 840,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 850,
+   "right": 1030,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 1040,
+   "right": 1220,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 1230,
+   "right": 1410,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 1420,
+   "right": 1600,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 1610,
+   "right": 1790,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 1800,
+   "right": 1980,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 1990,
+   "right": 2170,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  },
+  {
+   "left": 2180,
+   "right": 2360,
+   "top": 409,
+   "bottom": 634,
+   "width": 180,
+   "height": 225
+  }
+ ]
+}
+gallery titles count=16 unique=15
+gallery DUPLICATE titles: [["Dispatch a Tow Truck…",2]]
+screenshot: wizard_gallery_desktop.png
+
+========== [mobile] /templates ==========
+doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"button","cls":"","left":650,"right":753,"width":103,"overR":378,"overL":-650}
+  {"tag":"button","cls":"","left":759,"right":862,"width":104,"overR":487,"overL":-759}
+  {"tag":"button","cls":"","left":545,"right":644,"width":99,"overR":269,"overL":-545}
+  {"tag":"button","cls":"","left":361,"right":450,"width":89,"overR":75,"overL":-361}
+  {"tag":"button","cls":"","left":456,"right":539,"width":83,"overR":164,"overL":-456}
+  {"tag":"span","cls":"","left":428,"right":438,"width":10,"overR":63,"overL":-428}
+  {"tag":"span","cls":"","left":731,"right":741,"width":10,"overR":366,"overL":-731}
+  {"tag":"span","cls":"","left":520,"right":527,"width":7,"overR":152,"overL":-520}
+  {"tag":"span","cls":"","left":625,"right":632,"width":7,"overR":257,"overL":-625}
+  {"tag":"span","cls":"","left":844,"right":850,"width":7,"overR":475,"overL":-844}
+auto-detected grid: {"selector":"div.templates-grid","count":62,"cls":"templates-grid"}
+grid analysis (div.templates-grid): {
+ "found": true,
+ "display": "grid",
+ "gridTemplateColumns": "343px",
+ "gap": "12px",
+ "cardCount": 62,
+ "columnLefts": {
+  "16": 62
+ },
+ "distinctWidths": [
+  343
+ ],
+ "minWidth": 343,
+ "maxWidth": 343,
+ "distinctHeights": 1,
+ "minHeight": 300,
+ "maxHeight": 300,
+ "sampleRects": [
+  {
+   "left": 16,
+   "right": 359,
+   "top": 817,
+   "bottom": 1117,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 1129,
+   "bottom": 1429,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 1441,
+   "bottom": 1741,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 1753,
+   "bottom": 2053,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 2065,
+   "bottom": 2365,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 2377,
+   "bottom": 2677,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 2689,
+   "bottom": 2989,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 3001,
+   "bottom": 3301,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 3313,
+   "bottom": 3613,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 3625,
+   "bottom": 3925,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 3937,
+   "bottom": 4237,
+   "width": 343,
+   "height": 300
+  },
+  {
+   "left": 16,
+   "right": 359,
+   "top": 4249,
+   "bottom": 4549,
+   "width": 343,
+   "height": 300
+  }
+ ]
+}
+heading-like titles count=63, unique=63
+card-link titles count=62, unique=1
+DUPLICATE card titles: [["Try",62]]
+screenshot: templates_mobile.png
+
+---------- [mobile] /templates/car_towing ----------
+status=200 doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":384,"right":416,"width":32,"overR":41,"overL":-384}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":424,"right":456,"width":32,"overR":81,"overL":-424}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":464,"right":496,"width":32,"overR":121,"overL":-464}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":504,"right":536,"width":32,"overR":161,"overL":-504}
+screenshot: detail_car_towing_mobile.png
+
+---------- [mobile] /templates/kitchen_renovation ----------
+status=200 doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":384,"right":416,"width":32,"overR":41,"overL":-384}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":424,"right":456,"width":32,"overR":81,"overL":-424}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":464,"right":496,"width":32,"overR":121,"overL":-464}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":504,"right":536,"width":32,"overR":161,"overL":-504}
+screenshot: detail_kitchen_renovation_mobile.png
+
+---------- [mobile] /templates/web_design_quote ----------
+status=200 doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":384,"right":416,"width":32,"overR":41,"overL":-384}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":424,"right":456,"width":32,"overR":81,"overL":-424}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":464,"right":496,"width":32,"overR":121,"overL":-464}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":504,"right":536,"width":32,"overR":161,"overL":-504}
+  {"tag":"svg","cls":"","left":393,"right":407,"width":14,"overR":32,"overL":-393}
+  {"tag":"path","cls":"","left":395,"right":405,"width":9,"overR":30,"overL":-395}
+screenshot: detail_web_design_quote_mobile.png
+
+---------- [mobile] /templates/moving_service ----------
+status=200 doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":384,"right":416,"width":32,"overR":41,"overL":-384}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":424,"right":456,"width":32,"overR":81,"overL":-424}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":464,"right":496,"width":32,"overR":121,"overL":-464}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":504,"right":536,"width":32,"overR":161,"overL":-504}
+screenshot: detail_moving_service_mobile.png
+
+---------- [mobile] /templates/house_renovation ----------
+status=200 doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":384,"right":416,"width":32,"overR":41,"overL":-384}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":424,"right":456,"width":32,"overR":81,"overL":-424}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":464,"right":496,"width":32,"overR":121,"overL":-464}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":504,"right":536,"width":32,"overR":161,"overL":-504}
+screenshot: detail_house_renovation_mobile.png
+
+---------- [mobile] /templates/solar_panel_install ----------
+status=200 doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":384,"right":416,"width":32,"overR":41,"overL":-384}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":424,"right":456,"width":32,"overR":81,"overL":-424}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":464,"right":496,"width":32,"overR":121,"overL":-464}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":504,"right":536,"width":32,"overR":161,"overL":-504}
+screenshot: detail_solar_panel_install_mobile.png
+
+---------- [mobile] /templates/junk_removal_quote ----------
+status=200 doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":384,"right":416,"width":32,"overR":41,"overL":-384}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":424,"right":456,"width":32,"overR":81,"overL":-424}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":464,"right":496,"width":32,"overR":121,"overL":-464}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":504,"right":536,"width":32,"overR":161,"overL":-504}
+screenshot: detail_junk_removal_quote_mobile.png
+
+---------- [mobile] /templates/mold_remediation_quote ----------
+status=200 doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":384,"right":416,"width":32,"overR":41,"overL":-384}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":424,"right":456,"width":32,"overR":81,"overL":-424}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":464,"right":496,"width":32,"overR":121,"overL":-464}
+  {"tag":"button","cls":"tpl-swatch tpl-swatch-split","left":504,"right":536,"width":32,"overR":161,"overL":-504}
+screenshot: detail_mold_remediation_quote_mobile.png
+
+========== [mobile] /wizard ==========
+doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+OVERFLOW offenders:
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":352,"right":512,"width":160,"overR":137,"overL":-352}
+  {"tag":"button","cls":"qq-tg-card","left":352,"right":512,"width":160,"overR":137,"overL":-352}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":522,"right":682,"width":160,"overR":307,"overL":-522}
+  {"tag":"button","cls":"qq-tg-card","left":522,"right":682,"width":160,"overR":307,"overL":-522}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":692,"right":852,"width":160,"overR":477,"overL":-692}
+  {"tag":"button","cls":"qq-tg-card","left":692,"right":852,"width":160,"overR":477,"overL":-692}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":862,"right":1022,"width":160,"overR":647,"overL":-862}
+  {"tag":"button","cls":"qq-tg-card","left":862,"right":1022,"width":160,"overR":647,"overL":-862}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":1032,"right":1192,"width":160,"overR":817,"overL":-1032}
+  {"tag":"button","cls":"qq-tg-card","left":1032,"right":1192,"width":160,"overR":817,"overL":-1032}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":1202,"right":1362,"width":160,"overR":987,"overL":-1202}
+  {"tag":"button","cls":"qq-tg-card","left":1202,"right":1362,"width":160,"overR":987,"overL":-1202}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":1372,"right":1532,"width":160,"overR":1157,"overL":-1372}
+  {"tag":"button","cls":"qq-tg-card","left":1372,"right":1532,"width":160,"overR":1157,"overL":-1372}
+  {"tag":"div","cls":"qq-tg-card-hover-wrap","left":1542,"right":1702,"width":160,"overR":1327,"overL":-1542}
+screenshot: wizard_initial_mobile.png
+Build tab clicked: "Build"
+screenshot: wizard_build_mobile.png
+Browse-all clicked: "Browse all"
+gallery doc scrollWidth=375 innerWidth=375 horizontalScroll=0
+gallery grid auto: null
+gallery titles count=0 unique=0
+gallery DUPLICATE titles: []
+screenshot: wizard_gallery_mobile.png
