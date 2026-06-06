@@ -206,6 +206,8 @@ export interface IStorage {
   searchLeads(calculatorId: number, query: string): Promise<Lead[]>;
   deleteLead(id: number, calculatorId: number): Promise<void>;
   getLeadCountSince(calculatorId: number, since: Date): Promise<number>;
+  getAccountMonthlyQuoteUsage(userId: number, now?: Date): Promise<{ used: number; isPaid: boolean }>;
+  getAccountMonthlyQuoteUsageByCalculator(calculatorId: number, now?: Date): Promise<{ used: number; isPaid: boolean } | null>;
 
   trackEvent(data: InsertAnalyticsEvent): Promise<AnalyticsEvent>;
   getEventCounts(calculatorId: number, since: Date): Promise<{ views: number; leads: number; quotes: number }>;
@@ -654,6 +656,8 @@ export class DatabaseStorage implements IStorage {
   searchLeads(calculatorId: number, query: string): Promise<Lead[]> { return leadsImpl.searchLeads(calculatorId, query); }
   deleteLead(id: number, calculatorId: number): Promise<void> { return leadsImpl.deleteLead(id, calculatorId); }
   getLeadCountSince(calculatorId: number, since: Date): Promise<number> { return leadsImpl.getLeadCountSince(calculatorId, since); }
+  getAccountMonthlyQuoteUsage(userId: number, now?: Date): Promise<{ used: number; isPaid: boolean }> { return leadsImpl.getAccountMonthlyQuoteUsage(userId, now); }
+  getAccountMonthlyQuoteUsageByCalculator(calculatorId: number, now?: Date): Promise<{ used: number; isPaid: boolean } | null> { return leadsImpl.getAccountMonthlyQuoteUsageByCalculator(calculatorId, now); }
 
   // ─── Analytics methods (impl in ./storage/analytics.ts) ───
   trackEvent(data: InsertAnalyticsEvent): Promise<AnalyticsEvent> { return analyticsImpl.trackEvent(data); }
