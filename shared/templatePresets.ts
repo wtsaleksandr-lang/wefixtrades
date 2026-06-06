@@ -3851,6 +3851,13 @@ export interface AdvStyle {
   booking?: AdvBooking;
 
   /**
+   * Owner toggle for the widget's trust-badge strip. Absent / true → the row
+   * shows; false → hidden. Mirrored on ShellStyle so the editor toggle
+   * round-trips through save into the persisted advanced style.
+   */
+  showTrustBadges?: boolean;
+
+  /**
    * BD-3k — "Powered by WeFixTrades" footer badge. Optional. Absent →
    * defaults to ON (badge shown). When `showPoweredBy === false` the
    * badge is hidden. Free-tier calculators have this locked ON regardless
@@ -4197,6 +4204,8 @@ type AdvStyleOptionalOnly =
   | 'secondary' | 'surface' | 'border' | 'success' | 'error'
   | 'logoPlacement' | 'logoSize'
   | 'headingWeight' | 'bodyWeight' | 'fontSize'
+  // Owner toggle, optional — absent/true → trust-badge strip shows.
+  | 'showTrustBadges'
   // W-AO-6c — Brand Studio fields. All Pro-tier only, all optional and
   // intentionally absent from `DEFAULT_ADV_STYLE` so a fresh calculator
   // renders identically to the pre-AO-6c build.
