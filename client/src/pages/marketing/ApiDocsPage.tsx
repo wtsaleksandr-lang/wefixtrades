@@ -550,6 +550,10 @@ function CodeBlock({ code, lang = "bash" }: { code: string; lang?: string }) {
         margin: "14px 0",
         fontSize: 13,
         border: "1px solid rgba(255,255,255,0.04)",
+        // Cap to the content column so a long code line scrolls inside the
+        // <pre> instead of widening the document (mobile overflowed +61–164px).
+        maxWidth: "100%",
+        minWidth: 0,
       }}
     >
       <div
@@ -623,6 +627,10 @@ function Tabs({ tabs }: { tabs: { label: string; lang: string; code: string }[] 
         overflow: "hidden",
         margin: "14px 0",
         border: "1px solid rgba(255,255,255,0.04)",
+        // Cap to the content column so a long line scrolls inside the <pre>
+        // rather than widening the document on mobile.
+        maxWidth: "100%",
+        minWidth: 0,
       }}
     >
       <div
@@ -791,10 +799,13 @@ function Table({
   rows: (string | React.ReactNode)[][];
 }) {
   return (
-    <div style={{ overflowX: "auto", margin: "16px 0" }}>
+    <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, margin: "16px 0" }}>
       <table
         style={{
           width: "100%",
+          // Min-content cells can exceed 100%; with the wrapper capped above,
+          // the table scrolls inside it instead of widening the page (+72px).
+          minWidth: "max-content",
           borderCollapse: "collapse",
           fontSize: 13.5,
           border: `1px solid ${C.border}`,
