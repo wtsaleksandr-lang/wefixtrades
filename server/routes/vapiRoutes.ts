@@ -358,8 +358,18 @@ export function registerVapiRoutes(app: Express): void {
       const authHeader = req.headers["authorization"] as string | undefined;
       const pathSecret = (req.params as any)?.secret as string | undefined;
       if (!verifyConversationAuth(rawBody, signature, authHeader, pathSecret)) {
-        log.warn("[vapi] Conversation auth failed");
-        return res.status(401).json({ error: "Unauthorized" });
+        // SAFE-ROLLOUT GRACE: already-provisioned Vapi assistants POST to the
+        // bare /api/vapi/conversation URL (no secret) until they are re-pushed
+        // to the new /s/<secret> model.url. Enforcing 401 immediately on
+        // redeploy would break live TradeLine voice for existing clients. So
+        // we GRACE (log-but-allow) until VAPI_CONVERSATION_ENFORCE=true. Rollout:
+        // (1) deploy permissive, (2) re-push all assistants to the secret URL,
+        // (3) confirm logs show no more bare-path hits, (4) set the flag true.
+        if (process.env.VAPI_CONVERSATION_ENFORCE === "true") {
+          log.warn("[vapi] Conversation auth failed — rejected (enforce on)");
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+        log.warn("[vapi] Conversation auth failed — GRACE allowed (set VAPI_CONVERSATION_ENFORCE=true after re-pushing assistants)");
       }
 
       const vapiMessages: VapiTranscriptMessage[] = Array.isArray(messages)
