@@ -79,7 +79,25 @@ const dayHoursSchema = z.object({
 
 const hoursBody = z.object({
   hours: z.object({
-    tz: z.string().min(1).max(64).optional(),
+    tz: z
+      .string()
+      .min(1)
+      .max(64)
+      // Must be a real IANA zone — the free-text field used to accept "EST",
+      // "GMT+1", typos like "America/Torontoo", any of which throw at compute
+      // time and 500 the public widget. Reject at save with a 400 instead.
+      .refine(
+        (zone) => {
+          try {
+            new Intl.DateTimeFormat(undefined, { timeZone: zone });
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        { message: "Invalid timezone" },
+      )
+      .optional(),
     sun: dayHoursSchema.optional(),
     mon: dayHoursSchema.optional(),
     tue: dayHoursSchema.optional(),
