@@ -107,6 +107,14 @@ export function makeField(publicType: PublicFieldType): TemplateField {
         id, name: 'Video', label: 'Video', type: 'video',
         videoUrl: '', videoCaption: '',
       };
+    // WIZARD-GAPS — contact-form factory. Ships a sensible heading + the
+    // default required set (name + email). Submits via the existing /api/leads
+    // path at render time (see AdvancedCalculator FieldInput contact_form case).
+    case 'contact_form':
+      return {
+        id, name: 'Contact form', label: 'Get in touch', type: 'contact_form',
+        contactRequire: ['name', 'email'],
+      };
   }
 }
 

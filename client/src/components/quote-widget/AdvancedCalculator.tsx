@@ -238,7 +238,11 @@ interface AdvField {
     | 'button' | 'link'
     // FIELD-PALETTE — video embed (YouTube / Vimeo). No answer; emitted as an
     // inline 16:9 iframe and excluded from the formula context.
-    | 'video';
+    | 'video'
+    // WIZARD-GAPS — contact form. No quote answer; renders an inline
+    // name + email + message block that submits via the existing /api/leads
+    // path and is excluded from the formula context.
+    | 'contact_form';
   help?: string;
   required?: boolean;
   default_value?: number;
@@ -287,6 +291,10 @@ interface AdvField {
   // the renderer reads them straight off the persisted config.
   videoUrl?: string;
   videoCaption?: string;
+  // WIZARD-GAPS — contact form. Which of name/email/message are required.
+  // See `TemplateField.contactRequire` in shared/templatePresets.ts. Echoed
+  // onto AdvField so the renderer reads it straight off the persisted config.
+  contactRequire?: Array<'name' | 'email' | 'message'>;
   /**
    * Wave 61 — per-element cosmetic style overrides. Authored via the
    * floating <InlineStyleToolbar /> in the wizard preview. The renderer
@@ -586,7 +594,9 @@ function rawFieldValue(f: AdvField, answers: Record<string, Answer>): FormulaCon
       // BUILDER-COMPONENTS — button / link are content-only; never feed the calc.
       || f.type === 'button' || f.type === 'link'
       // FIELD-PALETTE — video embed is content-only; never feeds the calc.
-      || f.type === 'video') return 0;
+      || f.type === 'video'
+      // WIZARD-GAPS — contact form is content-only; never feeds the calc.
+      || f.type === 'contact_form') return 0;
   if (f.type === 'number' || f.type === 'slider') return Number(v) || 0;
   if (f.type === 'text') return String(v ?? '');
   if (f.type === 'toggle') return v ? (f.on_value ?? 1) : 0;
@@ -1771,7 +1781,9 @@ export default function AdvancedCalculator({
         // BUILDER-COMPONENTS — button / link are display-only; no own step.
         && f.type !== 'button' && f.type !== 'link'
         // FIELD-PALETTE — video embed is display-only; no own step.
-        && f.type !== 'video',
+        && f.type !== 'video'
+        // WIZARD-GAPS — contact form is content-only; no own step.
+        && f.type !== 'contact_form',
     ).length,
     [visibleFields],
   );
@@ -2716,6 +2728,10 @@ export default function AdvancedCalculator({
                     fontFamily={fontFamily}
                     labelLayout={labelLayout}
                     onChange={(v) => setAnswer(f.name, v)}
+                    /* WIZARD-GAPS — plumb the lead path into the contact_form
+                       content component (POSTs to the same /api/leads as the CTA). */
+                    calculatorId={analyticsCalcId}
+                    onLeadSubmitted={trackSubmit}
                   />
                 </div>
               ))}
@@ -3471,7 +3487,220 @@ function prefixRuleBlock(block: string, scope: string): string {
 
 /* ─── One field ─── */
 
-function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusPx, fieldStyle, fontFamily, labelLayout = 'float' }: {
+/**
+ * WIZARD-GAPS — `contact_form` content component.
+ *
+ * Renders an inline name + email + message block the owner can place anywhere
+ * in the widget. On submit it POSTs to the SAME `/api/leads` endpoint the CTA
+ * LeadModal / ContactStep use (reuse, not a parallel path) with the canonical
+ * payload (`calculator_id`, `name`, `email`, optional message folded into
+ * `answers`). When no `calculatorId` exists (preview / unsaved draft) the form
+ * still renders + validates but the submit is disabled, mirroring the LeadModal
+ * pattern (which only POSTs when an id is present).
+ *
+ * Required fields come from `field.contactRequire` (defaults to name + email).
+ * The block carries NO quote answer — it is excluded from the formula context
+ * alongside the other content components.
+ */
+function ContactFormField({
+  field, theme, accent, fontFamily, radiusPx, fieldStyle, calculatorId, onLeadSubmitted,
+}: {
+  field: AdvField;
+  theme: WidgetTheme;
+  accent: string;
+  fontFamily: string;
+  radiusPx: string;
+  fieldStyle: AdvFieldStyle;
+  calculatorId?: number;
+  onLeadSubmitted?: () => void;
+}) {
+  const c = theme;
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
+  const [errorText, setErrorText] = useState('');
+
+  const require = field.contactRequire ?? ['name', 'email'];
+  const heading = (field.label ?? '').trim() || 'Get in touch';
+  const isOutline = fieldStyle === 'outline';
+  const idBase = `adv-contact-form-${field.id}`;
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box',
+    minHeight: 44, borderRadius: radiusPx,
+    border: isOutline ? `2px solid ${c.border}` : `1px solid ${c.border}`,
+    padding: '0 14px', fontSize: '14px',
+    color: c.text, background: isOutline ? 'transparent' : c.surface,
+    fontFamily, outline: 'none',
+  };
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '12px', fontWeight: 600,
+    color: guardTextColor(c.textMuted, c.bg, 'contactFormLabel'),
+    margin: '0 0 4px', fontFamily,
+  };
+
+  // Mirror the CTA button: accent fill with contrast-guarded text.
+  const btnFg = guardTextColor('#ffffff', accent, 'contactFormButtonText', { largeText: true });
+
+  const emailValid = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+  const validate = (): string | null => {
+    if (require.includes('name') && name.trim() === '') return 'Please enter your name.';
+    if (require.includes('email') && email.trim() === '') return 'Please enter your email.';
+    if (email.trim() !== '' && !emailValid(email)) return 'Please enter a valid email.';
+    if (require.includes('message') && message.trim() === '') return 'Please enter a message.';
+    return null;
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (status === 'submitting') return;
+    const err = validate();
+    if (err) { setErrorText(err); setStatus('error'); return; }
+    // No id (preview / unsaved) → can't POST. Surface a gentle note instead of
+    // faking success.
+    if (typeof calculatorId !== 'number') {
+      setErrorText('Save your calculator to start collecting these messages.');
+      setStatus('error');
+      return;
+    }
+    setStatus('submitting');
+    setErrorText('');
+    try {
+      // Reuse the EXISTING lead-capture endpoint + payload shape. The message
+      // rides in `answers` so the lead record keeps it without a schema change.
+      const resp = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calculator_id: calculatorId,
+          name: name.trim(),
+          email: email.trim(),
+          phone: null,
+          quote_amount: null,
+          answers: message.trim() !== '' ? { message: message.trim() } : null,
+        }),
+      });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed (${resp.status})`);
+      }
+      setStatus('done');
+      onLeadSubmitted?.();
+    } catch (err2) {
+      setErrorText(err2 instanceof Error ? err2.message : 'Something went wrong. Please try again.');
+      setStatus('error');
+    }
+  };
+
+  if (status === 'done') {
+    return (
+      <div
+        data-testid={idBase}
+        data-contact-form-state="done"
+        style={{
+          display: 'flex', flexDirection: 'column', gap: 4,
+          padding: '16px 14px', borderRadius: radiusPx,
+          border: `1px solid ${c.border}`, background: c.surface,
+          color: c.text, fontFamily, fontSize: '14px',
+        }}
+      >
+        <strong style={{ fontWeight: 700 }}>Thanks — message sent.</strong>
+        <span style={{ color: c.textMuted, fontSize: '13px' }}>We&apos;ll be in touch shortly.</span>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      data-testid={idBase}
+      data-contact-form-state={status}
+      onSubmit={onSubmit}
+      noValidate
+      style={{ display: 'flex', flexDirection: 'column', gap: 10, fontFamily }}
+    >
+      {heading ? (
+        <div style={{
+          fontSize: '15px', fontWeight: 700,
+          color: guardTextColor(c.text, c.bg, 'contactFormHeading', { largeText: true }),
+        }}>{heading}</div>
+      ) : null}
+
+      <div>
+        <label htmlFor={`${idBase}-name`} style={labelStyle}>
+          Name{require.includes('name') ? ' *' : ''}
+        </label>
+        <input
+          id={`${idBase}-name`}
+          type="text"
+          autoComplete="name"
+          value={name}
+          required={require.includes('name')}
+          onChange={(e) => setName(e.target.value)}
+          data-testid={`${idBase}-name`}
+          style={inputStyle}
+        />
+      </div>
+
+      <div>
+        <label htmlFor={`${idBase}-email`} style={labelStyle}>
+          Email{require.includes('email') ? ' *' : ''}
+        </label>
+        <input
+          id={`${idBase}-email`}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          required={require.includes('email')}
+          onChange={(e) => setEmail(e.target.value)}
+          data-testid={`${idBase}-email`}
+          style={inputStyle}
+        />
+      </div>
+
+      <div>
+        <label htmlFor={`${idBase}-message`} style={labelStyle}>
+          Message{require.includes('message') ? ' *' : ''}
+        </label>
+        <textarea
+          id={`${idBase}-message`}
+          rows={3}
+          value={message}
+          required={require.includes('message')}
+          onChange={(e) => setMessage(e.target.value)}
+          data-testid={`${idBase}-message`}
+          style={{ ...inputStyle, minHeight: 76, padding: '10px 14px', resize: 'vertical', lineHeight: 1.4 }}
+        />
+      </div>
+
+      {status === 'error' && errorText ? (
+        <p
+          role="alert"
+          data-testid={`${idBase}-error`}
+          style={{ margin: 0, fontSize: '12.5px', color: guardTextColor('#dc2626', c.bg, 'contactFormError'), fontFamily }}
+        >{errorText}</p>
+      ) : null}
+
+      <button
+        type="submit"
+        disabled={status === 'submitting'}
+        data-testid={`${idBase}-submit`}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          minHeight: 44, padding: '0 18px', borderRadius: radiusPx,
+          background: accent, color: btnFg, border: 'none',
+          fontSize: '14px', fontWeight: 700, fontFamily, letterSpacing: '0.01em',
+          cursor: status === 'submitting' ? 'default' : 'pointer',
+          opacity: status === 'submitting' ? 0.7 : 1,
+        }}
+      >{status === 'submitting' ? 'Sending…' : 'Send message'}</button>
+    </form>
+  );
+}
+
+function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusPx, fieldStyle, fontFamily, labelLayout = 'float', calculatorId, onLeadSubmitted }: {
   field: AdvField;
   value: Answer;
   accent: string;
@@ -3487,6 +3716,16 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   fontFamily: string;
   /** `float` (title-in-field) vs `stacked` (Elfsight title-above + help-below). */
   labelLayout?: 'float' | 'stacked';
+  /**
+   * WIZARD-GAPS — numeric calculator id, plumbed from the outer
+   * `analyticsCalcId`. Required for the `contact_form` content component to
+   * POST to /api/leads. When absent (preview / unsaved), the contact form
+   * still renders + validates but its submit is disabled (same pattern as the
+   * CTA LeadModal, which only POSTs when an id exists).
+   */
+  calculatorId?: number;
+  /** WIZARD-GAPS — fired after a contact_form lead POST succeeds (→ trackSubmit). */
+  onLeadSubmitted?: () => void;
 }) {
   const f = field;
   const c = theme;
@@ -3790,6 +4029,26 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
           }}>{caption}</figcaption>
         ) : null}
       </figure>
+    );
+  }
+
+  // WIZARD-GAPS — contact form content component. Persists no quote answer;
+  // renders an inline name + email + message block that submits to the EXISTING
+  // /api/leads endpoint (same path as the CTA LeadModal / ContactStep). Hooks
+  // live in the dedicated ContactFormField component so they're never called
+  // conditionally inside FieldInput.
+  if (f.type === 'contact_form') {
+    return (
+      <ContactFormField
+        field={f}
+        theme={c}
+        accent={accent}
+        fontFamily={fontFamily}
+        radiusPx={radiusPx}
+        fieldStyle={fieldStyle}
+        calculatorId={calculatorId}
+        onLeadSubmitted={onLeadSubmitted}
+      />
     );
   }
 

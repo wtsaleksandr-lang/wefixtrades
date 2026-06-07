@@ -21,7 +21,7 @@ import { createPortal } from 'react-dom';
 import { useDraggable } from '@dnd-kit/core';
 import {
   Sliders, Hash, ChevronDown, CircleDot, Image as ImageIcon, Heading2,
-  Type as TypeIcon, ToggleLeft as ToggleIcon, Layers,
+  Type as TypeIcon, ToggleLeft as ToggleIcon, Layers, Mail as MailIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -120,6 +120,15 @@ const TYPES: ReadonlyArray<TypeMeta> = [
     description: 'Customer picks several options. Each chosen option adds its own price.',
     recommendedFor: 'add-on bundles',
     Icon: Layers,
+  },
+  // WIZARD-GAPS — contact form content component. Submits via /api/leads.
+  {
+    id: 'contact_form',
+    label: 'Contact form',
+    hint: 'Name + email + message',
+    description: 'An inline contact block. Submissions arrive as leads, just like the quote form.',
+    recommendedFor: 'extra enquiries',
+    Icon: MailIcon,
   },
 ];
 

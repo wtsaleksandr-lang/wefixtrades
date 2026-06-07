@@ -69,6 +69,18 @@ interface ComponentEntry {
   publicType?: PublicFieldType;
   /** When true, surface as coming-soon (not insertable). */
   disabled?: boolean;
+  /**
+   * WIZARD-GAPS — when true, this entry is an INFORMATIONAL affordance rather
+   * than an inserter. It carries no `publicType` (so it inserts nothing) but
+   * stays enabled and surfaces an "info" pill + a longer guidance line. Used by
+   * the "Conditional section" entry to point owners at the per-field "Show only
+   * when…" control (field-level `show_if`) — the canonical, already-shipped way
+   * to author conditional visibility. We deliberately DON'T build a parallel
+   * section-grouping engine.
+   */
+  info?: boolean;
+  /** Extra guidance line shown (info entries only) under the hint. */
+  detail?: string;
 }
 
 interface CategoryDef {
@@ -112,7 +124,17 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
     id: 'logic',
     label: 'Logic',
     entries: [
-      { id: 'conditional', label: 'Conditional section', hint: 'Show / hide based on answers', Icon: GitBranch, disabled: true },
+      // WIZARD-GAPS — repurposed from disabled coming-soon into an enabled
+      // INFORMATIONAL entry. Field-level conditional visibility already ships
+      // end-to-end via each field's "Show only when…" control (`show_if`); this
+      // entry teaches owners where it lives instead of inserting a parallel
+      // section construct. Clicking it just closes the picker (no insert).
+      {
+        id: 'conditional', label: 'Conditional visibility',
+        hint: 'Show / hide a field based on answers',
+        detail: 'Add any field, then open its settings and switch Visibility to "Show only when…" to reveal it based on another answer.',
+        Icon: GitBranch, info: true,
+      },
       // BUILDER-COMPONENTS — `calc` stays disabled by design: adding a
       // calculation is already fully supported by the Build > Pricing
       // (Calculations) panel + FormulaEditor. Surfacing a second insert
@@ -128,7 +150,9 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
       // BUILDER-COMPONENTS — Button + Link went live (publicType wired).
       { id: 'button', label: 'Button', hint: 'Tappable call / link button', Icon: MousePointerClick, publicType: 'button' },
       { id: 'link', label: 'Link', hint: 'Inline text link', Icon: LinkIcon, publicType: 'link' },
-      { id: 'contact', label: 'Contact form', hint: 'Name + email + message', Icon: MailIcon, disabled: true },
+      // WIZARD-GAPS — Contact form went live (publicType wired). Name + email
+      // + message block that submits via the existing /api/leads lead path.
+      { id: 'contact', label: 'Contact form', hint: 'Name + email + message', Icon: MailIcon, publicType: 'contact_form' },
     ],
   },
 ];
@@ -244,7 +268,11 @@ export default function ComponentPicker({ anchor, onPick, onClose }: Props) {
   };
 
   const handlePick = (entry: ComponentEntry) => {
-    if (entry.disabled || !entry.publicType) return;
+    if (entry.disabled) return;
+    // WIZARD-GAPS — info entries (e.g. "Conditional visibility") insert
+    // nothing; they exist purely to teach where the per-field control lives.
+    // Clicking just dismisses the picker so the owner can go set it up.
+    if (entry.info || !entry.publicType) { onClose(); return; }
     onPick(entry.publicType);
     onClose();
   };
@@ -323,12 +351,13 @@ export default function ComponentPicker({ anchor, onPick, onClose }: Props) {
                       <button
                         key={e.id}
                         type="button"
-                        className={`qq-comppicker-item${e.disabled ? ' is-disabled' : ''}`}
+                        className={`qq-comppicker-item${e.disabled ? ' is-disabled' : ''}${e.info ? ' is-info' : ''}`}
                         onClick={() => handlePick(e)}
                         disabled={e.disabled}
                         title={e.disabled ? 'Coming soon' : e.hint}
                         data-testid={`component-picker-item-${e.id}`}
                         data-disabled={e.disabled ? 'true' : 'false'}
+                        data-info={e.info ? 'true' : 'false'}
                       >
                         <span className="qq-comppicker-item-icon" aria-hidden="true">
                           <Icon size={16} strokeWidth={2} />
@@ -336,9 +365,15 @@ export default function ComponentPicker({ anchor, onPick, onClose }: Props) {
                         <span className="qq-comppicker-item-text">
                           <span className="qq-comppicker-item-label">{e.label}</span>
                           <span className="qq-comppicker-item-hint">{e.hint}</span>
+                          {e.info && e.detail && (
+                            <span className="qq-comppicker-item-detail">{e.detail}</span>
+                          )}
                         </span>
                         {e.disabled && (
                           <span className="qq-comppicker-soon">SOON</span>
+                        )}
+                        {e.info && (
+                          <span className="qq-comppicker-info-pill">INFO</span>
                         )}
                       </button>
                     );
@@ -515,6 +550,27 @@ export default function ComponentPicker({ anchor, onPick, onClose }: Props) {
           letter-spacing: 0.04em;
           padding: 2px 5px; border-radius: 999px;
           background: ${p.colors.surfaceRaised};
+          color: ${p.colors.muted};
+        }
+        /* WIZARD-GAPS — informational entry (e.g. Conditional visibility). It
+           inserts nothing; it spans the full grid width so the longer guidance
+           line reads cleanly, and carries an accent "INFO" pill instead of
+           the muted "SOON" pill. Items stay keyboard / pointer interactive. */
+        .qq-comppicker-item.is-info {
+          grid-column: 1 / -1;
+          align-items: flex-start;
+        }
+        .qq-comppicker-info-pill {
+          font-size: 9px; font-weight: 700;
+          letter-spacing: 0.04em;
+          padding: 2px 5px; border-radius: 999px;
+          background: ${p.colors.accentLighter};
+          color: ${p.colors.accent};
+          flex-shrink: 0;
+        }
+        .qq-comppicker-item-detail {
+          margin-top: 2px;
+          font-size: 10.5px; line-height: 1.4;
           color: ${p.colors.muted};
         }
         .qq-comppicker-empty {

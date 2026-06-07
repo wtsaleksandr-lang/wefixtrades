@@ -310,3 +310,6 @@ client/src/pages/portal/PortalAiReceptionists.tsx
 # selection routes to the wizard. No fillable form.
 client/src/pages/portal/PortalCalculatorTemplates.tsx
 client/src/pages/portal/FreeTools/MarginCalculator.tsx
+# Invoice / Quote PDF builder — fields feed a client-side print-to-PDF preview,
+# not a copilot-fillable lead form. No backend submission.
+client/src/pages/portal/FreeTools/InvoicePdf.tsx

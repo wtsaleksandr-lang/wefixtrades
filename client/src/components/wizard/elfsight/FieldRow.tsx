@@ -118,6 +118,8 @@ const TYPE_ICON: Record<TemplateField['type'], string> = {
   link: '↗',
   // FIELD-PALETTE — video embed.
   video: '▷',
+  // WIZARD-GAPS — contact form.
+  contact_form: '✉',
 };
 
 const TYPE_LABEL: Record<TemplateField['type'], string> = {
@@ -136,6 +138,7 @@ const TYPE_LABEL: Record<TemplateField['type'], string> = {
   button: 'Button',
   link: 'Link',
   video: 'Video',
+  contact_form: 'Contact form',
 };
 
 export default function FieldRow({
@@ -181,13 +184,17 @@ export default function FieldRow({
   const isLink = field.type === 'link';
   // FIELD-PALETTE — video embed content component.
   const isVideo = field.type === 'video';
+  // WIZARD-GAPS — contact-form content component. Inline name/email/message
+  // block; submits via the existing /api/leads path. Full-width like the other
+  // content components, so it gets no Width toggle.
+  const isContactForm = field.type === 'contact_form';
   // COMPONENTS-1 — display-only field types (heading / paragraph / divider
   // / image) don't read the customer-facing `label` the same way an input
   // does — heading uses it as the rendered title, paragraph stores body in
   // `content`, divider/image don't render the label at all. Suppress the
   // Width toggle for display-only types since they always span full row.
   // BUILDER-COMPONENTS — button / link are inline content too: no Width toggle.
-  const showsWidthToggle = !isDivider && !isImage && !isParagraph && !isButton && !isLink && !isVideo;
+  const showsWidthToggle = !isDivider && !isImage && !isParagraph && !isButton && !isLink && !isVideo && !isContactForm;
   const publicType = FIELD_TYPE_TO_PUBLIC[field.type] ?? field.type;
 
   const update = (patch: Partial<TemplateField>) => onChange({ ...field, ...patch });
@@ -729,6 +736,40 @@ export default function FieldRow({
                 />
               </FloatField>
             </>
+          )}
+
+          {/* WIZARD-GAPS — Contact form config. The top "Label" field above is
+              the form HEADING shown to customers. Here the owner picks which of
+              the three inputs (name / email / message) are required. Name +
+              email validate as required when listed; an unlisted field is
+              optional. The form posts to the existing /api/leads path at
+              render time. */}
+          {isContactForm && (
+            <div className="qq-field-required-cluster" data-testid={`field-row-contact-require-${field.id}`}>
+              <span className="qq-field-width-label">Required fields</span>
+              <div className="qq-field-width-segmented" role="group" aria-label="Required contact fields">
+                {(['name', 'email', 'message'] as const).map((key) => {
+                  const current = field.contactRequire ?? ['name', 'email'];
+                  const on = current.includes(key);
+                  const label = key.charAt(0).toUpperCase() + key.slice(1);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`qq-field-width-btn${on ? ' is-active' : ''}`}
+                      aria-pressed={on}
+                      onClick={() => {
+                        const next = on
+                          ? current.filter((k) => k !== key)
+                          : [...current, key];
+                        update({ contactRequire: next });
+                      }}
+                      data-testid={`field-row-contact-require-${key}-${field.id}`}
+                    >{label}</button>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {/* COMPONENTS-1 — multi_select selection-count guardrails. Pure

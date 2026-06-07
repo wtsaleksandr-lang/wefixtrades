@@ -40,6 +40,8 @@ const NEW_PUBLIC_TYPES: PublicFieldType[] = [
   'button', 'link',
   // FIELD-PALETTE — newly-surfaced toggle + new video content type.
   'toggle', 'video',
+  // WIZARD-GAPS — contact form content type.
+  'contact_form',
 ];
 
 test('all new public types map to a canonical engine type', () => {
@@ -67,6 +69,7 @@ test('canonical engine names are stable', () => {
   assert.equal(PUBLIC_TO_FIELD_TYPE.link, 'link');
   assert.equal(PUBLIC_TO_FIELD_TYPE.toggle, 'toggle');
   assert.equal(PUBLIC_TO_FIELD_TYPE.video, 'video');
+  assert.equal(PUBLIC_TO_FIELD_TYPE.contact_form, 'contact_form');
 });
 
 /* ─── makeField() factories ───────────────────────────────────────────── */
@@ -145,6 +148,17 @@ test('makeField("video") seeds empty URL + caption slots (no calc fields)', () =
   assert.equal(f.videoUrl, '');
   assert.equal(f.videoCaption, '');
   assert.equal(f.options, undefined);
+  assert.equal(f.on_value, undefined);
+});
+
+test('makeField("contact_form") seeds heading + default required set (no calc fields)', () => {
+  const f = makeField('contact_form');
+  assert.equal(f.type, 'contact_form');
+  assert.ok(f.label, 'expected non-empty default heading');
+  assert.deepEqual(f.contactRequire, ['name', 'email']);
+  // Content component — no options / numeric ranges / on_value.
+  assert.equal(f.options, undefined);
+  assert.equal(f.min, undefined);
   assert.equal(f.on_value, undefined);
 });
 

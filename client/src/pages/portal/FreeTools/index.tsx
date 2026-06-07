@@ -14,6 +14,9 @@ import {
   Images,
   MessagesSquare,
   Percent,
+  FileText,
+  PencilLine,
+  QrCode,
   Lock,
   Sparkles,
   ArrowRight,
@@ -182,6 +185,33 @@ const TOOLS: Tool[] = [
     icon: Percent,
     status: "available",
     href: "/portal/free-tools/margin-calc",
+  },
+  {
+    slug: "invoice",
+    title: "Invoice / Quote PDF",
+    description:
+      "Build a clean, branded invoice or quote and save it as a PDF — no design software.",
+    icon: FileText,
+    status: "available",
+    href: "/portal/free-tools/invoice",
+  },
+  {
+    slug: "quote-writer",
+    title: "AI Quote Writer",
+    description:
+      "Turn a few job notes into a polished quote description and a ready-to-send email.",
+    icon: PencilLine,
+    status: "available",
+    href: "/portal/free-tools/quote-writer",
+  },
+  {
+    slug: "review-qr",
+    title: "Review QR + Card",
+    description:
+      "Generate a scannable QR + printable card so customers can leave a Google review on the spot.",
+    icon: QrCode,
+    status: "available",
+    href: "/portal/free-tools/review-qr",
   },
 ];
 
