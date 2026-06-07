@@ -311,7 +311,15 @@ export default function FieldRow({
           aria-expanded={expanded}
           aria-label={`${expanded ? 'Collapse' : 'Expand'} ${field.label}`}
           data-testid={`field-row-toggle-${field.id}`}
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => {
+            // Expand/collapse AND set the shared selection so menu→preview
+            // sync fires on a normal click (the label lives inside this button,
+            // so the row-root's select guard `closest('button')` would
+            // otherwise veto it). Guard on !isSel so collapsing an already-
+            // selected row doesn't toggle its selection off.
+            setExpanded((v) => !v);
+            if (!isSel) selection.select({ kind: 'field', id: field.id });
+          }}
         >
           <span className="qq-field-type-badge" data-testid={`field-row-type-${field.id}`} aria-label={TYPE_LABEL[field.type]}>
             <span aria-hidden="true">{TYPE_ICON[field.type] ?? '?'}</span>
