@@ -66,6 +66,11 @@ interface Props {
    *  the inline title editor binds to the header title; when absent it falls
    *  back to the legacy business-name binding. */
   onHeaderTitleChange?: (v: string) => void;
+  /** BUG-3 fix (fix/inline-title-edit): fired (debounced) when the user COMMITS
+   *  an inline title edit (Enter / blur). Lets the shell persist the draft so a
+   *  title typed inline survives navigation without a separate "Save draft"
+   *  click. Optional — when absent, inline edits behave as before. */
+  onCommitTitle?: () => void;
   /** Wave J item 5 — business logo (data URL or null). Surfaces in the
    *  preview header alongside the business name. */
   logo?: string | null;
@@ -317,7 +322,7 @@ function mapPreviewSpot(
 }
 
 export default function PreviewPane({
-  businessName, onBusinessNameChange, onHeaderTitleChange, logo, layout, device, fields, calculations,
+  businessName, onBusinessNameChange, onHeaderTitleChange, onCommitTitle, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category,
   onRemoveField, onAddField, onUpdateField, onPreviewSpotEdit,
   hostedFrame = false,
@@ -1586,19 +1591,26 @@ export default function PreviewPane({
   const [titleBox, setTitleBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
-  const measureTitle = useCallback(() => {
+  // BUG-2 fix (fix/inline-title-edit): returns the title node when a usable
+  // box was measured (so callers can scroll-into-view / bail), else null.
+  const measureTitle = useCallback((): HTMLElement | null => {
     const host = overlayHostRef.current;
-    if (!host) return;
+    if (!host) return null;
     const t = host.querySelector<HTMLElement>('[data-testid="advanced-title"]');
-    if (!t) { setTitleBox(null); return; }
+    if (!t) { setTitleBox(null); return null; }
     const hostRect = host.getBoundingClientRect();
     const r = t.getBoundingClientRect();
+    // A zero/empty/negative box means the title is off-screen or not laid out
+    // yet (common on mobile after scroll/zoom). Don't paint an invisible input
+    // at a stale offset — clear the box so the caller can recover.
+    if (r.width <= 0 || r.height <= 0) { setTitleBox(null); return t; }
     setTitleBox({
       left: r.left - hostRect.left,
       top: r.top - hostRect.top,
       width: Math.max(r.width, 200),
       height: r.height,
     });
+    return t;
   }, []);
 
   useEffect(() => {
@@ -1620,11 +1632,22 @@ export default function PreviewPane({
     const hostEl = overlayHostRef.current;
     paneEl?.addEventListener('scroll', onScroll, { passive: true });
     if (hostEl && hostEl !== paneEl) hostEl.addEventListener('scroll', onScroll, { passive: true });
+    // BUG-2 fix (fix/inline-title-edit): layout can shift WHILE editing (font
+    // load, the title text growing as the user types, mobile reflow). A
+    // ResizeObserver on the title node keeps `titleBox` pinned over the title
+    // so the absolutely-positioned input never drifts off the live title.
+    let ro: ResizeObserver | null = null;
+    const titleNode = hostEl?.querySelector<HTMLElement>('[data-testid="advanced-title"]') ?? null;
+    if (titleNode && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measureTitle());
+      ro.observe(titleNode);
+    }
     return () => {
       cancelAnimationFrame(id1);
       window.removeEventListener('resize', onResize);
       paneEl?.removeEventListener('scroll', onScroll);
       if (hostEl && hostEl !== paneEl) hostEl.removeEventListener('scroll', onScroll);
+      ro?.disconnect();
     };
   }, [titleEditing, measureTitle, businessName, header]);
 
@@ -1634,10 +1657,25 @@ export default function PreviewPane({
     // business-name binding otherwise. Open only when at least one commit
     // path exists.
     if (!onHeaderTitleChange && !onBusinessNameChange) return;
-    measureTitle();
+    const node = measureTitle();
+    // BUG-2 fix (fix/inline-title-edit): if the title couldn't be measured to a
+    // visible box (off-screen after a mobile scroll/zoom, or not laid out yet),
+    // scroll it into view and re-measure on the next frame instead of opening
+    // an invisible input at a stale offset ("nothing happens"). Bail if the
+    // node truly isn't there.
+    if (!titleBox && node) {
+      node.scrollIntoView({ block: 'center', inline: 'nearest' });
+      requestAnimationFrame(() => {
+        measureTitle();
+        setTitleEditing(true);
+        setTimeout(() => { titleInputRef.current?.focus(); titleInputRef.current?.select(); }, 0);
+      });
+      return;
+    }
+    if (!node) return;
     setTitleEditing(true);
     setTimeout(() => { titleInputRef.current?.focus(); titleInputRef.current?.select(); }, 0);
-  }, [onHeaderTitleChange, onBusinessNameChange, measureTitle]);
+  }, [onHeaderTitleChange, onBusinessNameChange, measureTitle, titleBox]);
 
   // fix/tmpl-editor-mobile (B) — inline title-editor bindings. When
   // `onHeaderTitleChange` is wired the editor reads/writes the HEADER TITLE
@@ -1654,6 +1692,32 @@ export default function PreviewPane({
     if (onHeaderTitleChange) onHeaderTitleChange(v);
     else onBusinessNameChange?.(v);
   }, [onHeaderTitleChange, onBusinessNameChange]);
+
+  // BUG-3 fix (fix/inline-title-edit): autosave the draft when the user commits
+  // an inline title edit, so the title survives navigation without a separate
+  // "Save draft" click. Debounced (700ms) so rapid Enter/blur cycles or fast
+  // re-edits don't spam the save endpoint, and skipped entirely when the value
+  // is unchanged from the value at editor-open time (no needless write).
+  const titleValueAtOpenRef = useRef<string>('');
+  const saveDebounceRef = useRef<number | null>(null);
+  // Snapshot the title value when the editor opens, so commit can skip the save
+  // when the user opened and closed without changing anything.
+  useEffect(() => {
+    if (titleEditing) titleValueAtOpenRef.current = titleEditValue;
+  }, [titleEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => {
+    if (saveDebounceRef.current) window.clearTimeout(saveDebounceRef.current);
+  }, []);
+  const commitTitleAndSave = useCallback(() => {
+    setTitleEditing(false);
+    if (!onCommitTitle) return;
+    if (titleEditValue === titleValueAtOpenRef.current) return; // unchanged → no save
+    if (saveDebounceRef.current) window.clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = window.setTimeout(() => {
+      saveDebounceRef.current = null;
+      onCommitTitle();
+    }, 700);
+  }, [onCommitTitle, titleEditValue]);
 
   // Wave L E3 — swipe-to-delete on mobile.
   const [undo, setUndo] = useState<null | { field: TemplateField; index: number }>(null);
@@ -1976,7 +2040,7 @@ export default function PreviewPane({
               placeholder={titleEditPlaceholder}
               value={titleEditValue}
               onChange={(e) => commitTitleEdit(e.target.value)}
-              onBlur={() => setTitleEditing(false)}
+              onBlur={commitTitleAndSave}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === 'Escape') {
                   (e.target as HTMLInputElement).blur();
@@ -2153,7 +2217,7 @@ export default function PreviewPane({
                     placeholder={titleEditPlaceholder}
                     value={titleEditValue}
                     onChange={(e) => commitTitleEdit(e.target.value)}
-                    onBlur={() => setTitleEditing(false)}
+                    onBlur={commitTitleAndSave}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === 'Escape') {
                         (e.target as HTMLInputElement).blur();
@@ -2286,7 +2350,7 @@ export default function PreviewPane({
                     placeholder={titleEditPlaceholder}
                     value={titleEditValue}
                     onChange={(e) => commitTitleEdit(e.target.value)}
-                    onBlur={() => setTitleEditing(false)}
+                    onBlur={commitTitleAndSave}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === 'Escape') {
                         (e.target as HTMLInputElement).blur();
@@ -3226,7 +3290,13 @@ export default function PreviewPane({
           border-radius: 6px;
           padding: 0 6px;
           box-sizing: border-box;
-          z-index: 3;
+          /* BUG-2 fix (fix/inline-title-edit): the inline title input must sit
+           * ABOVE every other preview overlay or it is painted under them and
+           * reads as "nothing happens" — especially on mobile. In-host overlays
+           * top out at z-index 13 (resize-dims) and the floating
+           * InlineStyleToolbar is position:fixed at z-index 8000. 8001 clears
+           * all of them while staying below app-level modals. */
+          z-index: 8001;
         }
         .qq-preview-title-edit::placeholder {
           color: #94a3b8; font-weight: 600;
