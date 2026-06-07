@@ -7,13 +7,17 @@
 // ABOVE the sheet and scrolls independently — there is no blur and no dim
 // scrim, so the preview is never obscured.
 //
-// Resize model:
-//   - Snap points: collapsed (~64px peek = drag handle + active-tab title),
-//     half (~50vh), full (clamped so the preview keeps ≥140px visible).
-//   - Dragging the handle tracks the finger continuously (live pixel height);
-//     releasing snaps to the NEAREST snap point and persists it to
-//     localStorage ('qq_wizard_sheet_snap'). A tap (movement < 6px) cycles
-//     collapsed → half → full → collapsed.
+// Resize model (FREE resize — 2026-06-07):
+//   - The sheet rests at ANY height the user drags it to. There are no discrete
+//     snap points anymore. Dragging the handle tracks the finger continuously
+//     (live pixel height); on release the sheet STAYS at the released height
+//     (clamped to [MIN_OPEN_PX, maxPx]) and that height is persisted as a
+//     FRACTION of the work area (localStorage 'qq_wizard_sheet_height_frac') so
+//     it restores proportionally across viewports/orientations.
+//   - A tap (movement < 6px) TOGGLES between a collapsed peek (~64px =
+//     drag handle + active-tab title) and the last open height.
+//   - The "full" extent is clamped so the preview keeps ≥ MIN_PREVIEW_PX (280)
+//     visible at all times — the template/result never gets squeezed away.
 //   - The sheet publishes its current visible height as the
 //     `--qq-sheet-h` CSS custom property on <html>; WizardShell's preview
 //     height calc subtracts it so the preview shrinks/grows live. Closing the
@@ -55,15 +59,28 @@ const TOPBAR_PX = 64;
 const COLLAPSED_PX = 64;
 
 // Minimum preview height that must remain visible above the sheet even at the
-// "full" snap. The sheet's max height is clamped to workArea − this.
-const MIN_PREVIEW_PX = 140;
+// largest sheet height. The sheet's max height is clamped to workArea − this,
+// so the template's fields stay visible (and the pane scrolls to the CTA).
+const MIN_PREVIEW_PX = 280;
+
+// Smallest persisted *open* resting height. Dragging below this is still
+// allowed (down to COLLAPSED_PX as a peek), but the sheet never RESTS open
+// below this — so reopening is never a useless sliver.
+const MIN_OPEN_PX = 120;
+
+// Default resting height as a fraction of the work area for a first-time /
+// unpersisted open. ~0.42 → sheet ≈ 42% so the template/preview gets ≈ 58%.
+const DEFAULT_HEIGHT_FRAC = 0.42;
 
 // Tap vs drag threshold (px of total movement).
 const TAP_THRESHOLD_PX = 6;
 
-export type SheetSnap = 'collapsed' | 'half' | 'full';
+const STORAGE_KEY = 'qq_wizard_sheet_height_frac';
 
-const STORAGE_KEY = 'qq_wizard_sheet_snap';
+// Legacy key (3-value snap enum) — ignored/migrated to the default fraction.
+const LEGACY_SNAP_KEY = 'qq_wizard_sheet_snap';
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 // ── Component ─────────────────────────────────────────────────────────
 
@@ -93,25 +110,37 @@ function readPrefersReduced(): boolean {
   catch { return false; }
 }
 
-function loadSnap(initial: SheetSnap): SheetSnap {
+// Load the persisted resting height as a fraction (0..1) of the work area.
+// A legacy 3-value snap enum under the old key is ignored — we just fall back
+// to the default fraction rather than crashing or mis-reading it.
+function loadHeightFrac(initial: number): number {
   if (typeof window === 'undefined') return initial;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw === 'collapsed' || raw === 'half' || raw === 'full') return raw;
+    if (raw !== null) {
+      const n = parseFloat(raw);
+      if (Number.isFinite(n) && n > 0 && n <= 1) return n;
+    }
+    // Migrate away from the legacy 3-value snap enum: if present, drop it and
+    // use the default fraction (never crash on the old shape).
+    if (window.localStorage.getItem(LEGACY_SNAP_KEY) !== null) {
+      window.localStorage.removeItem(LEGACY_SNAP_KEY);
+    }
   } catch (err) {
     // localStorage may throw in private mode / sandboxed iframes — fall back
-    // to the default snap rather than crashing the editor.
-    if (typeof console !== 'undefined') console.warn('[wizard-sheet] loadSnap failed', err);
+    // to the default fraction rather than crashing the editor.
+    if (typeof console !== 'undefined') console.warn('[wizard-sheet] loadHeightFrac failed', err);
   }
   return initial;
 }
 
-function persistSnap(next: SheetSnap): void {
+function persistHeightFrac(frac: number): void {
   if (typeof window === 'undefined') return;
+  if (!Number.isFinite(frac) || frac <= 0) return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, next);
+    window.localStorage.setItem(STORAGE_KEY, String(clamp(frac, 0.05, 1)));
   } catch (err) {
-    if (typeof console !== 'undefined') console.warn('[wizard-sheet] persistSnap failed', err);
+    if (typeof console !== 'undefined') console.warn('[wizard-sheet] persistHeightFrac failed', err);
   }
 }
 
@@ -138,8 +167,15 @@ export default function MobileBottomSheet({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const reduceMotion = useMemo(readPrefersReduced, []);
 
-  const [snap, setSnapState] = useState<SheetSnap>(() => loadSnap('half'));
-  // Live pixel height during/after a drag. When null we render the snap height.
+  // Persisted resting height as a fraction of the work area (0..1).
+  const heightFracRef = useRef<number>(loadHeightFrac(DEFAULT_HEIGHT_FRAC));
+  // The current OPEN resting height in px (derived from the fraction, clamped
+  // to the live geometry). This is the source of truth for the open height.
+  const [openHeightPx, setOpenHeightPx] = useState<number>(0);
+  // When true the sheet rests at a collapsed peek (COLLAPSED_PX) instead of its
+  // open height. Toggled by a tap on the handle; cleared by a drag/expand.
+  const [peeked, setPeeked] = useState(false);
+  // Live pixel height during a drag. When null we render the resting height.
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -148,34 +184,37 @@ export default function MobileBottomSheet({
   useLayoutGuard(contentRef, { maxGapPx: 24, label: 'wizard-sheet-content' });
 
   // ── Geometry helpers ──────────────────────────────────────────────
-  // workAreaPx = innerHeight − topbar − bottombar − safeArea. maxPx (full
-  // snap) is clamped so the preview keeps ≥ MIN_PREVIEW_PX visible.
-  const geomRef = useRef({ workAreaPx: 0, maxPx: 0, halfPx: 0 });
+  // workAreaPx = innerHeight − topbar − bottombar − safeArea. maxPx is clamped
+  // so the preview keeps ≥ MIN_PREVIEW_PX visible at the largest sheet height.
+  const geomRef = useRef({ workAreaPx: 0, maxPx: 0 });
   const computeGeom = useCallback(() => {
     const vh = typeof window !== 'undefined' ? window.innerHeight : 0;
     const safe = readSafeAreaBottom();
     const workAreaPx = Math.max(0, vh - TOPBAR_PX - BOTTOM_BAR_PX - safe);
-    // Full snap leaves at least MIN_PREVIEW_PX of preview; never below half.
+    // Largest sheet height leaves at least MIN_PREVIEW_PX of preview.
     const maxPx = Math.max(COLLAPSED_PX, workAreaPx - MIN_PREVIEW_PX);
-    // Half ≈ 50vh, but clamped within [collapsed, max].
-    const halfPx = Math.min(maxPx, Math.max(COLLAPSED_PX, Math.round(vh * 0.5)));
-    geomRef.current = { workAreaPx, maxPx, halfPx };
+    geomRef.current = { workAreaPx, maxPx };
     return geomRef.current;
   }, []);
 
-  const snapToPx = useCallback((s: SheetSnap): number => {
-    const { maxPx, halfPx } = geomRef.current;
-    if (s === 'collapsed') return COLLAPSED_PX;
-    if (s === 'full') return maxPx;
-    return halfPx;
+  // Derive the open resting height (px) from the persisted fraction, clamped to
+  // the current geometry. The open upper bound is maxPx (preview floor honored).
+  const openPxFromFrac = useCallback((): number => {
+    const { workAreaPx, maxPx } = geomRef.current;
+    const upper = Math.max(MIN_OPEN_PX, maxPx);
+    return clamp(heightFracRef.current * workAreaPx, MIN_OPEN_PX, upper);
   }, []);
 
-  // Recompute geometry on mount + resize/orientation change.
+  // Recompute geometry on mount + resize/orientation change, then re-derive the
+  // open height from the persisted fraction so it stays proportional.
   useEffect(() => {
     computeGeom();
+    setOpenHeightPx(openPxFromFrac());
     const onResize = () => {
       computeGeom();
-      // Keep the live height in sync when not actively dragging.
+      // Re-derive the resting open height proportionally to the new geometry.
+      setOpenHeightPx(openPxFromFrac());
+      // Keep any live drag height within the new max.
       setDragHeight((cur) => (cur === null ? null : Math.min(cur, geomRef.current.maxPx)));
     };
     window.addEventListener('resize', onResize);
@@ -184,7 +223,13 @@ export default function MobileBottomSheet({
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', onResize);
     };
-  }, [computeGeom]);
+  }, [computeGeom, openPxFromFrac]);
+
+  // Reopening the sheet always shows its open resting height, never a stale
+  // peek left over from a previous session.
+  useEffect(() => {
+    if (open) setPeeked(false);
+  }, [open]);
 
   // ── Publish current visible height to <html> as --qq-sheet-h ───────
   // The preview's height calc subtracts this var so it shrinks/grows live.
@@ -197,12 +242,16 @@ export default function MobileBottomSheet({
     document.documentElement.style.setProperty('--qq-sheet-h', '0px');
   }, []);
 
-  // The current rendered height (drag override else snap height).
+  // The current rendered height: live drag override → collapsed peek → open
+  // resting height. Clamped to maxPx so --qq-sheet-h never starves the preview
+  // below MIN_PREVIEW_PX; a live drag may peek down to COLLAPSED_PX.
   const currentHeightPx = useMemo(() => {
     if (!open) return 0;
-    if (dragHeight !== null) return dragHeight;
-    return snapToPx(snap);
-  }, [open, dragHeight, snap, snapToPx]);
+    const { maxPx } = geomRef.current;
+    if (dragHeight !== null) return clamp(dragHeight, COLLAPSED_PX, maxPx || dragHeight);
+    if (peeked) return COLLAPSED_PX;
+    return Math.min(openHeightPx, maxPx || openHeightPx);
+  }, [open, dragHeight, peeked, openHeightPx]);
 
   // Sync the CSS var whenever the rendered height changes; zero on close.
   useEffect(() => {
@@ -216,35 +265,28 @@ export default function MobileBottomSheet({
   // Always zero the var on unmount so a stale value can't shrink the preview.
   useEffect(() => () => { clearSheetHeight(); }, [clearSheetHeight]);
 
-  // ── Snap helpers ──────────────────────────────────────────────────
-  const setSnap = useCallback((next: SheetSnap) => {
-    setSnapState(next);
-    persistSnap(next);
+  // ── Open-height helpers ────────────────────────────────────────────
+  // Set the resting open height (px) and persist it as a fraction of work area.
+  const setOpenHeight = useCallback((px: number) => {
+    const { workAreaPx, maxPx } = geomRef.current;
+    const upper = Math.max(MIN_OPEN_PX, maxPx);
+    const rested = clamp(px, MIN_OPEN_PX, upper);
+    setOpenHeightPx(rested);
+    if (workAreaPx > 0) {
+      const frac = rested / workAreaPx;
+      heightFracRef.current = frac;
+      persistHeightFrac(frac);
+    }
   }, []);
 
   // Set true when a pointer sequence resolved to a real drag, so the synthetic
-  // click that follows pointerup doesn't ALSO cycle the snap.
+  // click that follows pointerup doesn't ALSO toggle.
   const suppressClickRef = useRef(false);
-  const cycleSnap = useCallback(() => {
+  // Tap toggles between a collapsed peek and the last open height. The peek
+  // does NOT disturb the persisted open height — reopening restores it exactly.
+  const toggleCollapsed = useCallback(() => {
     if (suppressClickRef.current) { suppressClickRef.current = false; return; }
-    setSnap(snap === 'collapsed' ? 'half' : snap === 'half' ? 'full' : 'collapsed');
-  }, [snap, setSnap]);
-
-  // Nearest snap to a pixel height (for snap-on-release).
-  const nearestSnap = useCallback((px: number): SheetSnap => {
-    const { maxPx, halfPx } = geomRef.current;
-    const candidates: Array<[SheetSnap, number]> = [
-      ['collapsed', COLLAPSED_PX],
-      ['half', halfPx],
-      ['full', maxPx],
-    ];
-    let best: SheetSnap = 'half';
-    let bestDist = Infinity;
-    for (const [s, h] of candidates) {
-      const d = Math.abs(px - h);
-      if (d < bestDist) { bestDist = d; best = s; }
-    }
-    return best;
+    setPeeked((cur) => !cur);
   }, []);
 
   // ── Drag-to-resize (pointer) ──────────────────────────────────────
@@ -252,12 +294,13 @@ export default function MobileBottomSheet({
 
   const onHandlePointerDown = useCallback((ev: React.PointerEvent) => {
     computeGeom();
-    const startH = snapToPx(snap);
+    // Start from whatever is currently rendered (peek or open resting height).
+    const startH = peeked ? COLLAPSED_PX : Math.min(openHeightPx, geomRef.current.maxPx || openHeightPx);
     dragRef.current = { startY: ev.clientY, startH, moved: 0 };
     setIsDragging(true);
     setDragHeight(startH);
     try { (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId); } catch { /* capture unsupported */ }
-  }, [computeGeom, snap, snapToPx]);
+  }, [computeGeom, peeked, openHeightPx]);
 
   const onHandlePointerMove = useCallback((ev: React.PointerEvent) => {
     const drag = dragRef.current;
@@ -277,19 +320,26 @@ export default function MobileBottomSheet({
     try { (ev.currentTarget as HTMLElement).releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
     if (!drag) { setDragHeight(null); return; }
     if (drag.moved < TAP_THRESHOLD_PX) {
-      // Treated as a tap → let the synthetic click cycle the snap; just drop
-      // the live height so the snap height renders.
+      // Treated as a tap → let the synthetic click toggle the peek; just drop
+      // the live height so the resting height renders.
       setDragHeight(null);
       return;
     }
-    // Real drag → snap to nearest + persist, and suppress the trailing click
-    // so it doesn't cycle on top of the snap. Drop the live override so the
-    // snap height (with its settle transition) takes over.
+    // Real drag → REST at the released height (free resize, no snap-back).
+    // Clamp into [MIN_OPEN_PX, maxPx] and persist it as a fraction. If the user
+    // dragged down to a peek, collapse instead of resting at a useless sliver.
     suppressClickRef.current = true;
-    const target = nearestSnap(dragHeight ?? drag.startH);
-    setSnap(target);
+    const live = dragHeight ?? drag.startH;
+    const { maxPx } = geomRef.current;
+    if (live <= MIN_OPEN_PX) {
+      // Dragged below the usable open minimum → treat as a collapse peek.
+      setPeeked(true);
+    } else {
+      setOpenHeight(clamp(live, MIN_OPEN_PX, maxPx));
+      setPeeked(false);
+    }
     setDragHeight(null);
-  }, [dragHeight, nearestSnap, setSnap]);
+  }, [dragHeight, setOpenHeight]);
 
   // ── `qq-wizard:focus-field` listener ──────────────────────────────
   useEffect(() => {
@@ -297,8 +347,10 @@ export default function MobileBottomSheet({
       const ev = e as CustomEvent<{ tabId?: EditorTab; sectionId?: string; fieldId?: string }>;
       const { tabId, sectionId, fieldId } = ev.detail ?? {};
       if (tabId) onTabChange(tabId);
-      // Ensure the panel is at least half-open so the field is reachable.
-      setSnap((cur => (cur === 'collapsed' ? 'half' : cur))(snap));
+      // Ensure the panel is open at a usable height so the field is reachable
+      // (un-peek + guarantee the resting height is at least MIN_OPEN_PX).
+      setPeeked(false);
+      setOpenHeightPx((cur) => Math.max(cur, openPxFromFrac(), MIN_OPEN_PX));
       requestAnimationFrame(() => {
         const root = contentRef.current;
         if (!root) return;
@@ -315,7 +367,7 @@ export default function MobileBottomSheet({
     };
     window.addEventListener('qq-wizard:focus-field', onFocus as EventListener);
     return () => window.removeEventListener('qq-wizard:focus-field', onFocus as EventListener);
-  }, [onTabChange, reduceMotion, setSnap, snap]);
+  }, [onTabChange, reduceMotion, openPxFromFrac]);
 
   // Reset confirm flow — show inline pill for ~3s; confirming fires onResetTab.
   const onResetClick = useCallback(() => {
@@ -331,7 +383,9 @@ export default function MobileBottomSheet({
   const activeTabLabel =
     EDITOR_TABS.find((t) => t.id === activeTab)?.label ?? 'Build';
 
-  const isCollapsed = snap === 'collapsed' && dragHeight === null;
+  // Collapsed-peek visual state: resting at the peek (not mid-drag). At this
+  // height the body + footer hide and only the handle + title row show.
+  const isCollapsed = peeked && dragHeight === null;
 
   // Portal to document.body so the fixed-position sheet anchors to the
   // VIEWPORT, not to any transformed/filtered editor ancestor.
@@ -346,7 +400,7 @@ export default function MobileBottomSheet({
         className={`qq-sheet${open ? ' is-open' : ''}${isDragging ? ' is-dragging' : ''}${isCollapsed ? ' is-collapsed' : ''}${reduceMotion ? ' is-reduced-motion' : ''}`}
         data-testid="wizard-bottom-sheet"
         data-open={open ? 'true' : 'false'}
-        data-snap={snap}
+        data-collapsed={isCollapsed ? 'true' : 'false'}
         role="dialog"
         aria-label={`${activeTabLabel} settings`}
         aria-hidden={open ? undefined : true}
@@ -358,13 +412,9 @@ export default function MobileBottomSheet({
             type="button"
             className="qq-sheet-grabber"
             data-testid="wizard-sheet-handle"
-            aria-label={
-              snap === 'collapsed' ? 'Expand panel'
-                : snap === 'half' ? 'Expand panel further'
-                  : 'Collapse panel'
-            }
-            aria-expanded={snap !== 'collapsed'}
-            onClick={cycleSnap}
+            aria-label={isCollapsed ? 'Expand panel' : 'Collapse panel'}
+            aria-expanded={!isCollapsed}
+            onClick={toggleCollapsed}
             onPointerDown={onHandlePointerDown}
             onPointerMove={onHandlePointerMove}
             onPointerUp={endDrag}
