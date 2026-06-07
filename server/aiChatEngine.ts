@@ -3,8 +3,73 @@ import { calculateEstimate, type EstimateInputs } from "@shared/calculateEstimat
 import { storage } from "./storage";
 import type { Calculator } from "@shared/schema";
 import { createLogger } from "./lib/logger";
+import { aiGateAllowed, recordAiSpend } from "./services/aiSystemGate";
+import { aiChannelGateOn } from "./services/aiChannelGate";
+import { logUsage } from "./services/usageTracker";
+import { estimateCostMicroCents } from "./services/aiPricing";
+import { noisyCatch } from "./lib/silentFailureGuard";
+import { AI_SURFACES, type AiSurface } from "./services/aiSurfaces";
 
 const log = createLogger("AIChatEngine");
+
+const CHAT_MODEL = "gpt-4o-mini";
+
+/**
+ * P2-gating — map an agent type to the AI surface whose system-gate
+ * (kill switch + monthly budget cap) and usage log it accrues against.
+ * Every chat surface here is customer-facing, so a sensible default is
+ * always available even if a caller omits an explicit surface.
+ */
+const AGENT_SURFACE: Record<AgentType, AiSurface> = {
+  demo_ai_employee: AI_SURFACES.demo,
+  platform_support_ai: AI_SURFACES.wft_sales,
+  client_ai_employee: AI_SURFACES.quotequick_widget_ai,
+};
+
+/** Graceful copy returned when a gate (kill switch / budget / channel) blocks
+ *  the call. Mirrors the customer-facing "AI offline" message used by the
+ *  tradeline widget chat route so the contract (a `reply` string) is stable. */
+const AI_UNAVAILABLE_REPLY =
+  "AI is temporarily unavailable. Please try again shortly.";
+
+/**
+ * Meter one completed OpenAI chat call: log it to ai_usage_logs and add its
+ * estimated cost to the surface's monthly spend so the gate can cap future
+ * calls. Best-effort and noisy-on-failure (never throws into the chat flow,
+ * but never silently swallows either — a drift in spend accounting is a real
+ * cost-control bug).
+ */
+function meterChatCall(
+  surface: AiSurface,
+  usage: OpenAI.CompletionUsage | undefined,
+  opts: { sessionId?: string; latencyMs: number; success: boolean; errorMessage?: string },
+): void {
+  const inputTokens = usage?.prompt_tokens ?? 0;
+  const outputTokens = usage?.completion_tokens ?? 0;
+  noisyCatch(
+    logUsage({
+      model: CHAT_MODEL,
+      surface: surface as any,
+      provider: "openai",
+      channel: "chat",
+      sessionId: opts.sessionId,
+      inputTokens: inputTokens || undefined,
+      outputTokens: outputTokens || undefined,
+      latencyMs: opts.latencyMs,
+      success: opts.success,
+      errorMessage: opts.errorMessage,
+    }),
+    { op: "aiChatEngine.logUsage", meta: { surface, success: opts.success } },
+  );
+  if (opts.success && (inputTokens || outputTokens)) {
+    const microCents = estimateCostMicroCents(CHAT_MODEL, inputTokens, outputTokens);
+    // micro-cents (× 1,000,000) → cents: divide by 10,000.
+    noisyCatch(recordAiSpend(surface, microCents / 10_000), {
+      op: "aiChatEngine.recordSpend",
+      meta: { surface, cents: microCents / 10_000 },
+    });
+  }
+}
 
 const ALLOWED_TOOLS = {
   demo_ai_employee: ["demo_generate_estimate", "demo_show_slots"] as string[],
@@ -479,19 +544,59 @@ export async function runChatCompletion(
     calculator?: Calculator;
     tradeCategory?: string;
     sessionId?: string;
+    /** P2-gating — which AI surface this call accrues against (kill switch +
+     *  monthly budget cap + usage log). Defaults to the agent type's mapped
+     *  surface when omitted, so legacy call sites are gated too. */
+    surface?: AiSurface;
   }
 ): Promise<{ reply: string; toolResults?: any[] }> {
+  const surface = context?.surface ?? AGENT_SURFACE[agentType];
+  const sessionId = context?.sessionId;
+
+  // P2-gating — system gate (per-surface kill switch + monthly budget cap).
+  // Fails OPEN on infra error (see aiSystemGate). When denied, return the
+  // graceful unavailable copy instead of calling the model for free compute.
+  const gate = await aiGateAllowed(surface);
+  if (!gate.allowed) {
+    log.warn("chat completion blocked by system gate", { surface, reason: gate.reason });
+    return { reply: AI_UNAVAILABLE_REPLY };
+  }
+
+  // P2-gating — channel emergency kill switch. Fails CLOSED on infra error
+  // (the whole point of an emergency switch). When OFF, do not invoke the AI.
+  if (!(await aiChannelGateOn("chat"))) {
+    log.warn("chat completion blocked by channel gate", { surface, channel: "chat" });
+    return { reply: AI_UNAVAILABLE_REPLY };
+  }
+
   const toolDefs = getToolDefs(agentType);
   const allMessages: OpenAI.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
     ...messages,
   ];
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: allMessages,
-    tools: toolDefs.length > 0 ? toolDefs : undefined,
-    tool_choice: toolDefs.length > 0 ? "auto" : undefined,
+  const tStart = Date.now();
+  let response: OpenAI.Chat.Completions.ChatCompletion;
+  try {
+    response = await openai.chat.completions.create({
+      model: CHAT_MODEL,
+      messages: allMessages,
+      tools: toolDefs.length > 0 ? toolDefs : undefined,
+      tool_choice: toolDefs.length > 0 ? "auto" : undefined,
+    });
+  } catch (err: any) {
+    meterChatCall(surface, undefined, {
+      sessionId,
+      latencyMs: Date.now() - tStart,
+      success: false,
+      errorMessage: err?.message?.slice(0, 500),
+    });
+    throw err;
+  }
+  meterChatCall(surface, response.usage, {
+    sessionId,
+    latencyMs: Date.now() - tStart,
+    success: true,
   });
 
   const choice = response.choices[0];
@@ -527,9 +632,26 @@ export async function runChatCompletion(
       });
     }
 
-    const followUp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: toolCallMessages,
+    const tFollowUp = Date.now();
+    let followUp: OpenAI.Chat.Completions.ChatCompletion;
+    try {
+      followUp = await openai.chat.completions.create({
+        model: CHAT_MODEL,
+        messages: toolCallMessages,
+      });
+    } catch (err: any) {
+      meterChatCall(surface, undefined, {
+        sessionId,
+        latencyMs: Date.now() - tFollowUp,
+        success: false,
+        errorMessage: err?.message?.slice(0, 500),
+      });
+      throw err;
+    }
+    meterChatCall(surface, followUp.usage, {
+      sessionId,
+      latencyMs: Date.now() - tFollowUp,
+      success: true,
     });
 
     const reply = followUp.choices[0]?.message?.content || "I'm here to help. What can I assist you with?";

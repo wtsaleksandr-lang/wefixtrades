@@ -11,6 +11,10 @@ import { validateFormula } from "@shared/formulaEngine";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { createLogger } from "../lib/logger";
 import { aiChatRateLimiter } from "../services/rateLimiter";
+import { aiGateAllowed, recordAiSpend } from "../services/aiSystemGate";
+import { logUsage } from "../services/usageTracker";
+import { estimateCostMicroCents } from "../services/aiPricing";
+import { noisyCatch } from "../lib/silentFailureGuard";
 // W-BB-1 — customer-widget multi-step agent loop wiring.
 // Importing customerWidgetTools registers the 6 customer-widget actions
 // into the shared copilotActionRegistry at module load.
@@ -37,6 +41,91 @@ function getOpenAI(): OpenAI {
     });
   }
   return _openai;
+}
+
+const GEN_MODEL = "gpt-4o-mini";
+
+/**
+ * P2-gating — the calculator-authoring routes below (generate-pricing,
+ * generate-advanced-calculator, generate-formula, quote-to-calculator) live
+ * on the PUBLIC try-it wizard (`/wizard`, `/wizard/legacy` — both mounted
+ * without an auth guard so an anonymous visitor can build a calculator to
+ * trial the product; all wizard features are free). They are therefore kept
+ * public but every direct OpenAI call now runs through this wrapper, which:
+ *   1. checks the per-surface kill switch + monthly budget cap BEFORE the
+ *      call (so the global kill switch can actually stop them), and
+ *   2. logs the call to ai_usage_logs + records spend AFTER, so the budget
+ *      cap can throttle future calls.
+ * The routes are additionally IP-rate-limited via aiChatRateLimiter. They
+ * accrue against the `quotequick` surface (the wizard's authoring surface).
+ *
+ * Throws a gated-denial Error when the gate is closed; callers turn that into
+ * a clean 503 for the wizard UI.
+ */
+class AiGateDeniedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "AiGateDeniedError";
+  }
+}
+
+async function gatedCompletion(
+  surface: string,
+  params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+  meta: { sessionId?: string },
+): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+  const gate = await aiGateAllowed(surface);
+  if (!gate.allowed) {
+    log.warn("AI generation blocked by system gate", { surface, reason: gate.reason });
+    throw new AiGateDeniedError(gate.reason || `AI surface "${surface}" is paused.`);
+  }
+
+  const tStart = Date.now();
+  let response: OpenAI.Chat.Completions.ChatCompletion;
+  try {
+    response = await getOpenAI().chat.completions.create(params);
+  } catch (err: any) {
+    noisyCatch(
+      logUsage({
+        model: GEN_MODEL,
+        surface: surface as any,
+        provider: "openai",
+        channel: "chat",
+        sessionId: meta.sessionId,
+        latencyMs: Date.now() - tStart,
+        success: false,
+        errorMessage: err?.message?.slice(0, 500),
+      }),
+      { op: "aiRoutes.gatedCompletion.logUsage.error", meta: { surface } },
+    );
+    throw err;
+  }
+
+  const usage = response.usage;
+  const inputTokens = usage?.prompt_tokens ?? 0;
+  const outputTokens = usage?.completion_tokens ?? 0;
+  noisyCatch(
+    logUsage({
+      model: GEN_MODEL,
+      surface: surface as any,
+      provider: "openai",
+      channel: "chat",
+      sessionId: meta.sessionId,
+      inputTokens: inputTokens || undefined,
+      outputTokens: outputTokens || undefined,
+      latencyMs: Date.now() - tStart,
+      success: true,
+    }),
+    { op: "aiRoutes.gatedCompletion.logUsage.success", meta: { surface } },
+  );
+  if (inputTokens || outputTokens) {
+    const microCents = estimateCostMicroCents(GEN_MODEL, inputTokens, outputTokens);
+    noisyCatch(recordAiSpend(surface, microCents / 10_000), {
+      op: "aiRoutes.gatedCompletion.recordSpend",
+      meta: { surface, cents: microCents / 10_000 },
+    });
+  }
+  return response;
 }
 
 const generatePricingBody = z.object({
@@ -122,6 +211,9 @@ const chatMessageSchema = z.object({
 export function registerAiRoutes(app: Express): void {
   app.post("/api/ai/generate-pricing", async (req, res) => {
     try {
+      if (!(await aiChatRateLimiter.check(getClientIp(req)))) {
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
+      }
       const parsed = generatePricingBody.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
@@ -156,11 +248,11 @@ Rules:
 
 Return ONLY the JSON pricing config object.`;
 
-      const completion = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+      const completion = await gatedCompletion("quotequick", {
+        model: GEN_MODEL,
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-      });
+      }, {});
 
       const content = completion.choices[0]?.message?.content || "{}";
       let pricing;
@@ -177,6 +269,9 @@ Return ONLY the JSON pricing config object.`;
 
       res.json({ success: true, pricing_config: validation.config, validation_errors: validation.valid ? [] : validation.errors });
     } catch (error: any) {
+      if (error instanceof AiGateDeniedError) {
+        return res.status(503).json({ error: "AI is temporarily unavailable. Please try again shortly." });
+      }
       log.error("AI pricing generation error:", error);
       res.status(500).json({ error: "Failed to generate pricing configuration" });
     }
@@ -189,6 +284,9 @@ Return ONLY the JSON pricing config object.`;
    */
   app.post("/api/ai/generate-advanced-calculator", async (req, res) => {
     try {
+      if (!(await aiChatRateLimiter.check(getClientIp(req)))) {
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
+      }
       const parsed = generateAdvancedBody.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
@@ -225,11 +323,11 @@ Rules:
 - Use realistic numbers for the trade.
 Return ONLY the JSON object.`;
 
-      const completion = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+      const completion = await gatedCompletion("quotequick", {
+        model: GEN_MODEL,
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-      });
+      }, {});
 
       let raw: any;
       try {
@@ -244,6 +342,9 @@ Return ONLY the JSON object.`;
       }
       res.json({ success: true, advanced: { enabled: true, ...advanced } });
     } catch (error: any) {
+      if (error instanceof AiGateDeniedError) {
+        return res.status(503).json({ error: "AI is temporarily unavailable. Please try again shortly." });
+      }
       log.error("AI advanced calculator generation error:", error);
       res.status(500).json({ error: "Failed to generate calculator" });
     }
@@ -256,6 +357,9 @@ Return ONLY the JSON object.`;
    */
   app.post("/api/ai/generate-formula", async (req, res) => {
     try {
+      if (!(await aiChatRateLimiter.check(getClientIp(req)))) {
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
+      }
       const parsed = z.object({
         description: z.string().min(2).max(600),
         fields: z.array(z.object({ name: z.string(), type: z.string().optional() })).max(40).optional(),
@@ -295,11 +399,11 @@ Rules:
 
 Return JSON: { "formula": "<the formula expression>" }`;
 
-      const completion = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+      const completion = await gatedCompletion("quotequick", {
+        model: GEN_MODEL,
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-      });
+      }, {});
 
       let raw: any;
       try {
@@ -317,6 +421,9 @@ Return JSON: { "formula": "<the formula expression>" }`;
       }
       res.json({ success: true, formula });
     } catch (error: any) {
+      if (error instanceof AiGateDeniedError) {
+        return res.status(503).json({ error: "AI is temporarily unavailable. Please try again shortly." });
+      }
       log.error("AI formula generation error:", error);
       res.status(500).json({ error: "Failed to generate formula" });
     }
@@ -342,6 +449,9 @@ Return JSON: { "formula": "<the formula expression>" }`;
     },
     async (req: Request, res: Response) => {
       try {
+        if (!(await aiChatRateLimiter.check(getClientIp(req)))) {
+          return res.status(429).json({ error: "Too many requests, please try again shortly" });
+        }
         const file = (req as any).file as { buffer: Buffer; mimetype: string } | undefined;
         if (!file || !file.buffer || file.buffer.length === 0) {
           return res.status(400).json({ error: "Upload a clear image of the quote (PNG, JPG or WEBP)." });
@@ -372,8 +482,8 @@ Rules:
 - If the image is not a quote or price list, return empty "fields" and "calculations" arrays.
 Return ONLY the JSON object.`;
 
-        const completion = await getOpenAI().chat.completions.create({
-          model: "gpt-4o-mini",
+        const completion = await gatedCompletion("quotequick", {
+          model: GEN_MODEL,
           messages: [{
             role: "user",
             content: [
@@ -382,7 +492,7 @@ Return ONLY the JSON object.`;
             ],
           }],
           response_format: { type: "json_object" },
-        });
+        }, {});
 
         let raw: any;
         try {
@@ -403,6 +513,9 @@ Return ONLY the JSON object.`;
           notes: typeof raw?.notes === "string" ? raw.notes.slice(0, 400) : "",
         });
       } catch (error: any) {
+        if (error instanceof AiGateDeniedError) {
+          return res.status(503).json({ error: "AI is temporarily unavailable. Please try again shortly." });
+        }
         log.error("AI quote-to-calculator error:", error);
         res.status(500).json({ error: "Failed to analyse the quote" });
       }
@@ -416,6 +529,18 @@ Return ONLY the JSON object.`;
 
   app.post("/api/ai/pricing-config-draft", async (req, res) => {
     try {
+      if (!(await aiChatRateLimiter.check(getClientIp(req)))) {
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
+      }
+      // P2-gating — kill switch / budget cap check before dispatching the
+      // background draft job. The job's OpenAI call happens inside
+      // aiPricingAgent (not gated/metered here — out of this task's file
+      // scope), but the gate still lets the global kill switch stop it.
+      const gate = await aiGateAllowed("quotequick");
+      if (!gate.allowed) {
+        log.warn("pricing-config-draft blocked by system gate", { reason: gate.reason });
+        return res.status(503).json({ error: "AI is temporarily unavailable. Please try again shortly." });
+      }
       const parsed = pricingDraftBody.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
@@ -485,6 +610,17 @@ Return ONLY the JSON object.`;
 
   app.post("/api/ai/generate-pricing-draft", async (req, res) => {
     try {
+      if (!(await aiChatRateLimiter.check(getClientIp(req)))) {
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
+      }
+      // P2-gating — kill switch / budget cap check before the synchronous
+      // draft generation. The OpenAI call runs inside aiPricingAgent (out of
+      // this file's scope to meter); the gate still enforces the kill switch.
+      const gate = await aiGateAllowed("quotequick");
+      if (!gate.allowed) {
+        log.warn("generate-pricing-draft blocked by system gate", { reason: gate.reason });
+        return res.status(503).json({ error: "AI is temporarily unavailable. Please try again shortly." });
+      }
       const body = z.object({
         custom_trade_data: z.record(z.any()),
         business_name: z.string().min(1),
@@ -544,7 +680,7 @@ Return ONLY the JSON object.`;
         "demo_ai_employee",
         messages as any,
         systemPrompt,
-        { tradeCategory: trade_category, sessionId }
+        { tradeCategory: trade_category, sessionId, surface: AI_SURFACES.demo }
       );
 
       try {
@@ -610,7 +746,7 @@ Return ONLY the JSON object.`;
         "platform_support_ai",
         messages as any,
         systemPrompt,
-        { calculator, sessionId: session_id }
+        { calculator, sessionId: session_id, surface: AI_SURFACES.wft_sales }
       );
 
       const sessionIdFinal = session_id || randomBytes(12).toString("hex");
@@ -832,7 +968,7 @@ Return ONLY the JSON object.`;
         "client_ai_employee",
         messages as any,
         systemPrompt,
-        { calculatorId: calculator_id, calculator, sessionId: session_id }
+        { calculatorId: calculator_id, calculator, sessionId: session_id, surface: AI_SURFACES.quotequick_widget_ai }
       );
 
       try {
