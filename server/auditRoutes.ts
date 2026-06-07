@@ -2922,7 +2922,7 @@ ${JSON.stringify(auditData, null, 2)}`;
               system: systemPrompt,
               messages: [{ role: "user", content: userPrompt }],
               maxTokens: 4096,
-              modelOverride: "claude-sonnet-4-5",
+              modelOverride: "claude-sonnet-4-6",
               // audit/ai 2026-05-24: audit narrative generation — gate
               // under wft_audit (same surface as webfixAuditService).
               surface: "wft_audit",

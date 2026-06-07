@@ -631,6 +631,22 @@ export async function logTradeLineCall(clientServiceId: number, report: VapiCall
 const LEAD_EXTRACTION_SYSTEM_PROMPT = `Extract the following from this phone call transcript: caller_name, caller_phone, caller_address, job_type, urgency (low/medium/high/emergency), job_description, preferred_date. Return JSON only. If a field cannot be determined from the transcript, omit it. Do not include any markdown formatting or explanation.`;
 
 /**
+ * Schema for the model's lead-extraction JSON. Every field optional (the model
+ * omits what it can't determine) and length-capped so a hallucinated or
+ * adversarial transcript can't persist oversized/garbage values. Unknown keys
+ * are stripped (zod default), so only the expected shape reaches storage.
+ */
+const leadExtractionSchema = z.object({
+  caller_name: z.string().max(120).optional(),
+  caller_phone: z.string().max(40).optional(),
+  caller_address: z.string().max(300).optional(),
+  job_type: z.string().max(120).optional(),
+  urgency: z.string().max(20).optional(),
+  job_description: z.string().max(2000).optional(),
+  preferred_date: z.string().max(120).optional(),
+});
+
+/**
  * Extract structured lead data from a call transcript using Claude.
  * Fail-safe: never throws, returns null on failure.
  */
@@ -650,7 +666,18 @@ export async function extractLeadFromTranscript(transcript: string): Promise<Tra
     // Parse JSON from response — handle potential markdown wrapping
     const jsonStr = response.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim();
     const parsed = JSON.parse(jsonStr);
-    return parsed as TradelineLeadData;
+
+    // Validate against the expected lead shape before any caller persists it.
+    // On a malformed object (wrong types, oversized fields), skip rather than
+    // store garbage — the call is still logged; only the structured lead drops.
+    const result = leadExtractionSchema.safeParse(parsed);
+    if (!result.success) {
+      log.warn("Lead extraction returned an invalid shape — skipping lead persist", {
+        issues: result.error.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`),
+      });
+      return null;
+    }
+    return result.data as TradelineLeadData;
   } catch (err) {
     log.error("Lead extraction from transcript failed", { error: (err as Error).message });
     return null;
