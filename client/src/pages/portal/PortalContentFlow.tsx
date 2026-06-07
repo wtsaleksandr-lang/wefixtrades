@@ -600,7 +600,7 @@ export default function PortalContentFlow() {
         {/* ─── Result count ──────────────────────────────────────── */}
         <div className="mb-3 text-xs text-muted-foreground" data-testid="prompt-library-result-count">
           {listQuery.data
-            ? `${listQuery.data.filtered_count} of ${listQuery.data.total} prompts`
+            ? `${listQuery.data.filtered_count ?? 0} of ${listQuery.data.total ?? 0} prompts`
             : "Loading…"}
         </div>
 
