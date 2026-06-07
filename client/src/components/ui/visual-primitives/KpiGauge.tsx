@@ -355,10 +355,14 @@ export function KpiGauge({
         />
         {/* Target marker (rendered above arc) */}
         {targetMarker}
-        {/* Needle — animates with the same timing as the arc. */}
+        {/* Needle — animates with the same timing as the arc. `initial`
+            seeds finite x2/y2 so the first paint never emits an SVG
+            `<line> attribute x2: Expected length, "undefined"` console
+            error before framer-motion applies the animated values. */}
         <motion.line
           x1={cx}
           y1={cy}
+          initial={{ x2: displayedNeedleTip.x, y2: displayedNeedleTip.y }}
           animate={{ x2: displayedNeedleTip.x, y2: displayedNeedleTip.y }}
           transition={{
             duration: shouldAnimate ? 0.6 : 0,

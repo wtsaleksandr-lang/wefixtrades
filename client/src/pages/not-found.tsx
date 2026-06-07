@@ -1,10 +1,16 @@
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
 
 export default function NotFound() {
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Page not found"
+        description="The page you're looking for doesn't exist or has been moved."
+        noIndex
+      />
       <div
         style={{
           display: "flex",

@@ -113,7 +113,7 @@ export default function QuoteCalculatorDemo() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="See how QuoteQuick works | WeFixTrades"
+        title="See how QuoteQuick works"
         description="Watch a 60-second tour of QuoteQuick — the online quote calculator that captures leads and bookings while you sleep."
         canonical="/products/quickquotepro/demo"
         keywords={["quotequick tour", "quote calculator tour", "how quotequick works"]}
