@@ -9,7 +9,7 @@
  * Resolves a business name + city to its Google Place ID, then renders:
  *   - the canonical /local/writereview?placeid=... review URL
  *   - a QR code (api.qrserver.com — free, no key)
- *   - Place ID + CID + Ludocid (Google's local listing codes) — small
+ *   - Place ID (Google's stable local listing identifier) — small
  *     monospace text, copyable
  *   - copy buttons for everything
  *   - light-green/teal disclaimer card per the BrightLocal screenshot
@@ -64,31 +64,6 @@ interface ResultPayload {
   qrUrl: string;
   name: string;
   formattedAddress?: string | null;
-}
-
-/**
- * Decode the CID (Customer ID / FID) from a Google Place ID where
- * possible. Google's Place IDs come in two formats:
- *   - prefix "ChIJ" → opaque base64-ish; no client-side CID derivation
- *   - prefix "0x..:0x.." → "<hex feature-id>:<hex CID>" — CID is the
- *     decimal version of the second hex part.
- * If we can derive a CID we return both the canonical maps URL
- * (?cid=<decimal>) and the Ludocid (hex form). Otherwise we render dashes.
- */
-function deriveLocalCodes(placeId: string): { cid: string | null; ludocid: string | null; cidUrl: string | null } {
-  const m = placeId.match(/0x[0-9a-fA-F]+:0x([0-9a-fA-F]+)/);
-  if (!m) return { cid: null, ludocid: null, cidUrl: null };
-  const hex = m[1];
-  try {
-    const decimal = BigInt("0x" + hex).toString(10);
-    return {
-      cid: decimal,
-      ludocid: hex,
-      cidUrl: `https://www.google.com/maps?cid=${decimal}`,
-    };
-  } catch {
-    return { cid: null, ludocid: hex, cidUrl: null };
-  }
 }
 
 function CopyButton({ value, label, small }: { value: string; label: string; small?: boolean }) {
@@ -192,8 +167,6 @@ export default function GoogleReviewLinkGenerator() {
       setLoading(false);
     }
   }
-
-  const codes = result ? deriveLocalCodes(result.placeId) : null;
 
   const form = (
     <form onSubmit={submit}>
@@ -322,28 +295,11 @@ export default function GoogleReviewLinkGenerator() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 150px", gap: 16, alignItems: "start" }}>
         <div>
-          {/* IDs row — Place ID + CID + Ludocid in monospace. */}
+          {/* IDs row — Place ID in monospace. CID/Ludocid were removed: the
+              Places provider returns opaque ChIJ… Place IDs only, so those
+              rows were always blank and read as broken. Place ID is the stable,
+              always-present identifier customers actually need. */}
           <IdRow label="Place ID" value={result.placeId} testId="text-review-place-id" />
-          <IdRow label="CID (Customer ID)" value={codes?.cid ?? "—"} testId="text-review-cid" />
-          <IdRow label="Ludocid (hex)" value={codes?.ludocid ?? "—"} testId="text-review-ludocid" />
-          {codes?.cidUrl && (
-            <a
-              href={codes.cidUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              style={{
-                fontSize: 12,
-                color: "rgb(13,60,252)",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                marginTop: 4,
-              }}
-            >
-              Open canonical maps?cid URL <ArrowRight size={12} />
-            </a>
-          )}
         </div>
         <div style={{ textAlign: "center" }}>
           <img
@@ -366,7 +322,7 @@ export default function GoogleReviewLinkGenerator() {
     <MarketingLayout>
       <PageMeta
         title="Free Google Review Link Generator — get your review URL + QR code"
-        description="Instantly generate your Google review link and QR code. Type your business name + city — we'll look up your Place ID, CID, and build a one-click review URL you can share with customers."
+        description="Instantly generate your Google review link and QR code. Type your business name + city — we'll look up your Place ID and build a one-click review URL you can share with customers."
         canonical={TOOL_PATH}
         keywords={["google review link generator", "google review url", "review link", "review qr code", "google place id finder"]}
       />
@@ -374,7 +330,7 @@ export default function GoogleReviewLinkGenerator() {
       <FreeToolLayout
         eyebrow="Free Tool"
         title="Google Review Link Generator"
-        subtitle="Turn your business name into a one-click Google review URL + QR code + Place ID / CID / Ludocid in seconds."
+        subtitle="Turn your business name into a one-click Google review URL + QR code + Place ID in seconds."
         path={TOOL_PATH}
         breadcrumbLabel="Google Review Link Generator"
         heroImageSrc="/ai-thumbnails/tools/google-review-link-generator-hero.png"
@@ -396,10 +352,9 @@ export default function GoogleReviewLinkGenerator() {
         <p>
           You enter your business name and city in a single search field. We
           call the official Google Places API with that query, take the top
-          match, and return four things: your unique Place ID, the CID /
-          Ludocid local listing codes, the canonical review URL (the same
-          one Google would generate), and a QR code that points at the
-          review URL. No tracking, no redirect, no signup wall.
+          match, and return three things: your unique Place ID, the canonical
+          review URL (the same one Google would generate), and a QR code that
+          points at the review URL. No tracking, no redirect, no signup wall.
         </p>
 
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>Where to share your review link</h2>
