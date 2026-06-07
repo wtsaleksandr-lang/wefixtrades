@@ -23,6 +23,7 @@ import {
 } from "../services/inboundSmsConcierge";
 import { aiChannelGateOn } from "../services/aiChannelGate";
 import { aiGateAllowed } from "../services/aiSystemGate";
+import { brandLineInboundRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("Twilio");
 
@@ -251,6 +252,22 @@ export function registerTwilioRoutes(app: Express): void {
         // sent to the operating brand's own line (e.g. +1 915 615 3280)
         // rather than to a TradeLine customer's number.
         //
+        // Per-sender volume cap BEFORE the LLM classify. The matched-lead
+        // path has checkRateLimit; this no-lead branch had none, so one
+        // sender could drive unbounded Haiku spend + ticket creation. Keyed
+        // on the inbound From number, 15/hour. Past the cap we ack Twilio
+        // quietly (empty TwiML) and skip the classifier entirely.
+        const withinBrandLineLimit = await brandLineInboundRateLimiter.check(
+          `twilio:brandline:${cleanFrom}`,
+        );
+        if (!withinBrandLineLimit) {
+          log.warn("[Twilio] brand-line inbound rate limit hit — skipping classify", {
+            from: cleanFrom,
+          });
+          res.set("Content-Type", "text/xml");
+          return res.send("<Response></Response>");
+        }
+
         // Run it through the inbound classifier so spam is silently dropped,
         // out-of-scope messages get a polite decline, legitimate inquiries
         // get a confirm-receipt reply, and complex/availability-off cases
@@ -455,6 +472,15 @@ export function registerTwilioRoutes(app: Express): void {
    * a warning so on-call can see when this path fires.
    */
   app.post("/api/twilio/voice-fallback", (req, res) => {
+    // Twilio fallback POSTs are signed with the same auth token as every
+    // other webhook. Reject anything unsigned/forged before emitting TwiML —
+    // this is the only Twilio route that was missing the guard its siblings
+    // (e.g. /api/twilio/inbound) all apply.
+    if (!verifyTwilioSignature(req)) {
+      res.set("Content-Type", "text/xml");
+      return res.status(403).send("<Response/>");
+    }
+
     const callSid = typeof req.body?.CallSid === "string" ? req.body.CallSid : "(unknown)";
     const errorCode = typeof req.body?.ErrorCode === "string" ? req.body.ErrorCode : null;
     const errorUrl = typeof req.body?.ErrorUrl === "string" ? req.body.ErrorUrl : null;

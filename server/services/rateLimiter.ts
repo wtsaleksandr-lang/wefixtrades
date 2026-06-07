@@ -284,3 +284,19 @@ export const inboundEmailRateLimiter = new RateLimiter(
   60,
   60_000,
 );
+
+/**
+ * Per-sender cap on the brand-line inbound SMS classify path
+ * (POST /api/twilio/inbound, no-lead branch). Every signed inbound that
+ * doesn't match a lead runs an LLM classifier (Claude Haiku) and may create
+ * a support ticket. The matched-lead path already has checkRateLimit; the
+ * no-lead branch had none, so a single sender could drive unbounded Haiku
+ * spend + unbounded ticket creation. Keyed on the inbound `From` number,
+ * 15 / hour is generous for a real prospect texting back-and-forth while
+ * bounding a spam/abuse loop. Past the cap we ack Twilio quietly and skip
+ * the classify entirely. */
+export const brandLineInboundRateLimiter = new RateLimiter(
+  defaultStore,
+  15,
+  60 * 60_000,
+);

@@ -153,24 +153,43 @@ export async function isSmsOptedOut(
 ): Promise<boolean> {
   if (!to) return false;
   const e164 = toE164(to);
-  try {
-    const phoneMatch = eq(smsOptOuts.phone_e164, e164);
-    const scopeMatch =
-      scopeClientId == null
-        ? isNull(smsOptOuts.scope_client_id)
-        : or(
-            isNull(smsOptOuts.scope_client_id),
-            eq(smsOptOuts.scope_client_id, scopeClientId),
-          );
+  const phoneMatch = eq(smsOptOuts.phone_e164, e164);
+  const scopeMatch =
+    scopeClientId == null
+      ? isNull(smsOptOuts.scope_client_id)
+      : or(
+          isNull(smsOptOuts.scope_client_id),
+          eq(smsOptOuts.scope_client_id, scopeClientId),
+        );
+
+  const runLookup = async (): Promise<boolean> => {
     const [row] = await db
       .select({ id: smsOptOuts.id })
       .from(smsOptOuts)
       .where(and(phoneMatch, scopeMatch))
       .limit(1);
     return !!row;
-  } catch (err: any) {
-    smsLog.warn(`[opt-out] lookup failed for ${e164}: ${err.message}`);
-    return false; // fail-open on read errors — better to send than block valid traffic
+  };
+
+  try {
+    return await runLookup();
+  } catch (firstErr: any) {
+    // TCPA: a recipient who texted STOP must NEVER be texted again. A
+    // transient DB error here previously failed OPEN (returned false) which
+    // would let an opted-out number be messaged = a per-message violation.
+    // Retry once for transient blips, then fail CLOSED — treat the recipient
+    // as opted-out so the only caller (sendSMS) blocks the send.
+    smsLog.warn(
+      `[opt-out] lookup failed for ${e164}, retrying once: ${firstErr?.message}`,
+    );
+    try {
+      return await runLookup();
+    } catch (retryErr: any) {
+      smsLog.error(
+        `[opt-out] lookup failed twice for ${e164}; failing CLOSED (treating as opted-out to honor TCPA): ${retryErr?.message}`,
+      );
+      return true; // fail-closed: better to skip one send than text a STOP'd number
+    }
   }
 }
 
