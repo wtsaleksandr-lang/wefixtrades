@@ -3053,15 +3053,12 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-body.is-mobile-sheet .qq-editor-left {
                 display: none !important;
               }
-              /* Wave 10 fix — when the mobile bottom-sheet is open (half/full),
-               * its backdrop (.qq-sheet-backdrop, z-index: 9997) covers the
-               * entire viewport including the editor chrome above. That blocks
-               * pointer events on the editor topbar — tabs (editor-tab-*),
-               * fold-toggle, theme/help/close icons — even though they remain
-               * visually unobscured. Lift the sticky topbar above the backdrop
-               * so the chrome stays interactive while the sheet is visible.
-               * Backdrop click still collapses the sheet (taps below the
-               * topbar continue to hit it). */
+              /* Keep the sticky editor topbar above the docked sheet (9998)
+               * and bottom tab bar so its chrome — tabs (editor-tab-*),
+               * fold-toggle, theme/help/close icons — stays interactive while
+               * the sheet is open. (The old tap-catching, blurring backdrop was
+               * removed; the sheet is now docked, not modal, so the preview
+               * stays fully visible + scrollable above it.) */
               .qq-editor-topbar {
                 z-index: 9999;
               }
@@ -3072,13 +3069,17 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-body.is-mobile-sheet .qq-editor-right {
                 flex: 1 1 auto;
                 order: 0;
-                /* Elfsight-mobile rebuild (2026-06-05) — the preview fills the
-                 * FULL screen between the clean mobile top bar (~64px) and the
-                 * persistent dark bottom tab bar (~60px + safe-area). iOS Safari
+                /* Elfsight-mobile rebuild — the preview fills the work area
+                 * between the clean mobile top bar (~64px) and the persistent
+                 * dark bottom tab bar (~60px + safe-area), MINUS the docked
+                 * sheet's current visible height (--qq-sheet-h, published live
+                 * by MobileBottomSheet on every drag/snap; 0px when closed). So
+                 * the preview shrinks/grows as the sheet resizes and always
+                 * stays visible + independently scrollable above it. iOS Safari
                  * needs a concrete height for overflow-y:auto to enable
                  * touch-pan, so we compute it explicitly. */
-                height: calc(100dvh - 64px - 60px - env(safe-area-inset-bottom, 0px));
-                max-height: calc(100dvh - 64px - 60px - env(safe-area-inset-bottom, 0px));
+                height: calc(100dvh - 64px - 60px - var(--qq-sheet-h, 0px) - env(safe-area-inset-bottom, 0px));
+                max-height: calc(100dvh - 64px - 60px - var(--qq-sheet-h, 0px) - env(safe-area-inset-bottom, 0px));
                 padding-bottom: 12px;
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
