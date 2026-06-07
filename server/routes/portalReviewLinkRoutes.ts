@@ -122,7 +122,16 @@ export function registerPortalReviewLinkRoutes(app: Express): void {
   /* ─────────────── Review link config ─────────────── */
   app.get("/api/portal/free-tools/review-link", requireClient, async (req, res) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, {
+        slug: "",
+        google_url: null,
+        facebook_url: null,
+        yelp_url: null,
+        threshold: 4,
+        heading: null,
+        widgetToken: "",
+        publicUrl: "",
+      });
       if (!clientId) return;
       const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
       const cfg = await ensureReviewLinkConfig(clientId, client?.business_name ?? null);
@@ -202,7 +211,7 @@ export function registerPortalReviewLinkRoutes(app: Express): void {
   /* ─── Feedback inbox ─── */
   app.get("/api/portal/free-tools/review-link/feedback", requireClient, async (req, res) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, { items: [] });
       if (!clientId) return;
       const rows = await db
         .select()
@@ -225,7 +234,12 @@ export function registerPortalReviewLinkRoutes(app: Express): void {
   /* ─── Funnel stats strip ─── */
   app.get("/api/portal/free-tools/review-link/stats", requireClient, async (req, res) => {
     try {
-      const clientId = await withClientId(req, res);
+      const clientId = await withClientId(req, res, {
+        visits: 0,
+        routed: 0,
+        feedback: 0,
+        stars: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
+      });
       if (!clientId) return;
 
       const monthStart = new Date();

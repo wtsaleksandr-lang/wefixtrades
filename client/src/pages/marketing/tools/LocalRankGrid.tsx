@@ -43,6 +43,11 @@ import {
 
 const TOOL_PATH = "/tools/local-rank-grid";
 
+/** Neutral grey for points/badges that have NO rank data (unavailable /
+ *  couldn't be checked, or an undefined average) — must not read as red
+ *  (a loss) or green (a win). */
+const NEUTRAL_PIN = "#94a3b8";
+
 const FAQ_ITEMS = [
   {
     question: "What is a geo-grid rank scan?",
@@ -85,6 +90,14 @@ interface GridPoint {
   rank: number | null;
   /** 1-N if found in the Local Pack / Maps results, null otherwise. */
   mapRank: number | null;
+  /**
+   * Per-point check state:
+   *  - "ranked"      → business found (rank/mapRank set)
+   *  - "not-found"   → checked OK but business not in top 20 (a real dead zone)
+   *  - "unavailable" → provider throttle/error, point couldn't be checked
+   * `unavailable` points are rendered neutral grey and excluded from dead zones.
+   */
+  status?: "ranked" | "not-found" | "unavailable";
   /** Top 3 businesses Serper returned for this exact lat/lng. */
   topResults: GridPointTopResult[];
 }
@@ -103,6 +116,11 @@ interface RankGridResult {
     avgRank: number | null;
     top3Count: number;
     missedCount: number;
+    /** Points that couldn't be checked (provider throttle/error). */
+    unavailableCount?: number;
+    /** Points successfully checked (totalPoints − unavailableCount). */
+    checkedCount?: number;
+    totalPoints?: number;
   };
   center: { lat: number; lng: number; address?: string };
   competitors: Competitor[];
@@ -143,7 +161,7 @@ export default function LocalRankGrid() {
       if (!r.ok || !data?.ok) throw new Error(data?.error || "Scan failed.");
       setResult({
         gridPoints: data.gridPoints || [],
-        summary: data.summary || { avgRank: null, top3Count: 0, missedCount: 0 },
+        summary: data.summary || { avgRank: null, top3Count: 0, missedCount: 0, unavailableCount: 0 },
         center: data.center || { lat: 0, lng: 0 },
         competitors: data.competitors || [],
       });
@@ -243,6 +261,35 @@ export default function LocalRankGrid() {
         </div>
       </div>
 
+      {/* Honest partial-result banner — some grid points couldn't be checked
+          (provider throttling on 25 parallel calls). We surface that instead of
+          silently folding them into "dead zones". */}
+      {(result.summary.unavailableCount ?? 0) > 0 && (
+        <div
+          data-testid="rankgrid-unavailable-banner"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 12,
+            padding: "10px 14px",
+            borderRadius: 12,
+            background: "rgba(148,163,184,0.12)",
+            border: "1px solid rgba(148,163,184,0.35)",
+            fontSize: 13,
+            color: "rgba(0,0,0,0.7)",
+          }}
+        >
+          <AlertCircle size={14} style={{ flexShrink: 0, color: NEUTRAL_PIN }} />
+          <span>
+            <strong>{result.summary.unavailableCount}</strong> of{" "}
+            {result.summary.totalPoints ?? result.gridPoints.length} points couldn&rsquo;t be
+            checked (search provider was rate-limited). They&rsquo;re shown in grey and
+            excluded from the dead-zone count — re-run in a minute for full coverage.
+          </span>
+        </div>
+      )}
+
       {/* Wave 6A layout — desktop: avg-rank + grid (2fr) | competitor sidebar (1fr).
           Mobile: stacks. The avg-rank widget sits to the left/above the grid
           per the BrightLocal screenshot — a single "Average rank" card with the
@@ -307,7 +354,7 @@ export default function LocalRankGrid() {
                     top: 10,
                     left: 10,
                     zIndex: 3,
-                    background: rankPinColor(result.summary.avgRank ?? 1),
+                    background: result.summary.avgRank != null ? rankPinColor(result.summary.avgRank) : NEUTRAL_PIN,
                     borderRadius: 12,
                     padding: "8px 12px",
                     color: "rgb(255,255,255)",
@@ -354,6 +401,10 @@ export default function LocalRankGrid() {
                 {result.gridPoints.map((p, i) => {
                   // mapRank preferred (Local Pack) — fall back to organic rank.
                   const display = p.mapRank ?? p.rank;
+                  // Unavailable points (provider throttle/error) render neutral
+                  // grey — NOT red, which would falsely read as a ranking gap.
+                  const isUnavailable = p.status === "unavailable";
+                  const pinColor = isUnavailable ? NEUTRAL_PIN : rankPinColor(display);
                   const px = fit.project(p.lat, p.lng);
                   const isHovered = hoveredCell === i;
                   return (
@@ -372,7 +423,7 @@ export default function LocalRankGrid() {
                         width: "clamp(22px, 4.6vw, 30px)",
                         height: "clamp(22px, 4.6vw, 30px)",
                         borderRadius: 999,
-                        background: rankPinColor(display),
+                        background: pinColor,
                         color: "rgb(255,255,255)",
                         display: "flex",
                         alignItems: "center",
@@ -669,8 +720,12 @@ function GridPinPopover({
         cursor: "default",
       }}
     >
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(13,60,252)", marginBottom: 4 }}>
-        Found at {displayRank != null ? `#${displayRank}` : "—"}
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: point.status === "unavailable" ? "rgb(100,116,139)" : "rgb(13,60,252)", marginBottom: 4 }}>
+        {point.status === "unavailable"
+          ? "Not checked (rate-limited)"
+          : displayRank != null
+            ? `Found at #${displayRank}`
+            : "Not in top 20 here"}
       </div>
       <div style={{ fontSize: 11, color: "rgba(0,0,0,0.55)", marginBottom: 6 }}>
         Top 3 at this point

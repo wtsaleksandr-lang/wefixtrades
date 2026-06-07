@@ -430,6 +430,7 @@ export default function AiQuoteWriter() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="min-h-11 sm:min-h-0"
                       onClick={() => handleCopy("description")}
                       aria-label="Copy quote description"
                       data-testid="copy-description"
@@ -476,6 +477,7 @@ export default function AiQuoteWriter() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="min-h-11 sm:min-h-0"
                       onClick={() => handleCopy("email")}
                       aria-label="Copy estimate email"
                       data-testid="copy-email"

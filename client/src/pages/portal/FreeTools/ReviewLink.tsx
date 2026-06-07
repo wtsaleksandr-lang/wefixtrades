@@ -227,7 +227,7 @@ export default function ReviewLink() {
               <div className="flex items-end gap-1 h-8">
                 {[1, 2, 3, 4, 5].map((n) => {
                   const count = statsQuery.data?.stars?.[String(n)] ?? 0;
-                  const max = Math.max(1, ...(statsQuery.data ? [1, 2, 3, 4, 5].map(k => statsQuery.data!.stars[String(k)] ?? 0) : [1]));
+                  const max = Math.max(1, ...[1, 2, 3, 4, 5].map(k => statsQuery.data?.stars?.[String(k)] ?? 0));
                   const h = Math.max(2, Math.round((count / max) * 28));
                   return (
                     <div key={n} className="flex-1 flex flex-col items-center gap-0.5">
@@ -331,7 +331,7 @@ export default function ReviewLink() {
                 />
                 {feedbackQuery.isLoading ? (
                   <p className="text-xs text-gray-500">Loading…</p>
-                ) : !feedbackQuery.data?.items.length ? (
+                ) : !feedbackQuery.data?.items?.length ? (
                   <p className="text-xs text-gray-500">No private feedback yet. When unhappy customers fill the form, you'll see their notes here.</p>
                 ) : (
                   <ul className="space-y-2">
@@ -374,7 +374,7 @@ export default function ReviewLink() {
                   onClick={handleCopy}
                   disabled={!slug}
                   variant="outline"
-                  className="w-full"
+                  className="w-full min-h-11 sm:min-h-0"
                   data-testid="review-link-copy"
                 >
                   {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy link</>}

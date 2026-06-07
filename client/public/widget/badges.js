@@ -85,8 +85,11 @@
       var label = '<div class="wft-badge-label">' + esc(b.label) + '</div>';
       var val = b.valueText ? '<div class="wft-badge-value">' + esc(b.valueText) + '</div>' : '';
       var body = svg + label + val;
-      if (b.proofUrl) {
-        inner += '<a class="wft-badge" href="' + esc(b.proofUrl) + '" target="_blank" rel="noopener" aria-label="' + esc(b.label) + ' (view proof)">' + body + '</a>';
+      // Defense-in-depth: only allow http(s) proof URLs — reject
+      // javascript:/data:/vbscript: schemes that would become click-to-XSS.
+      var safeProof = b.proofUrl && /^https?:\/\//i.test(b.proofUrl) ? b.proofUrl : '';
+      if (safeProof) {
+        inner += '<a class="wft-badge" href="' + esc(safeProof) + '" target="_blank" rel="noopener" aria-label="' + esc(b.label) + ' (view proof)">' + body + '</a>';
       } else {
         inner += '<div class="wft-badge" role="img" aria-label="' + esc(b.label) + '">' + body + '</div>';
       }

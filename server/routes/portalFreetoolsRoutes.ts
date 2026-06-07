@@ -79,7 +79,25 @@ const dayHoursSchema = z.object({
 
 const hoursBody = z.object({
   hours: z.object({
-    tz: z.string().min(1).max(64).optional(),
+    tz: z
+      .string()
+      .min(1)
+      .max(64)
+      // Must be a real IANA zone — the free-text field used to accept "EST",
+      // "GMT+1", typos like "America/Torontoo", any of which throw at compute
+      // time and 500 the public widget. Reject at save with a 400 instead.
+      .refine(
+        (zone) => {
+          try {
+            new Intl.DateTimeFormat(undefined, { timeZone: zone });
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        { message: "Invalid timezone" },
+      )
+      .optional(),
     sun: dayHoursSchema.optional(),
     mon: dayHoursSchema.optional(),
     tue: dayHoursSchema.optional(),
@@ -99,7 +117,14 @@ const hoursBody = z.object({
 const badgeSchema = z.object({
   slug: z.string().min(1).max(64),
   label: z.string().min(1).max(120),
-  proofUrl: z.string().url().max(500).optional(),
+  proofUrl: z
+    .string()
+    .url()
+    .max(500)
+    .refine((u) => /^https?:\/\//i.test(u), {
+      message: "Proof URL must start with http:// or https://",
+    })
+    .optional(),
   valueText: z.string().max(120).optional(),
 });
 

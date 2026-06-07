@@ -105,12 +105,32 @@ interface DaySpec { open: boolean; opens?: string; closes?: string }
 interface HoursMap { tz?: string; sun?: DaySpec; mon?: DaySpec; tue?: DaySpec; wed?: DaySpec; thu?: DaySpec; fri?: DaySpec; sat?: DaySpec }
 interface SpecialDay { date: string; closed?: boolean; opens?: string; closes?: string }
 
+// A span is "overnight" when it wraps past midnight, i.e. closes is at or
+// before opens as wall-clock strings ("18:00" → "02:00"). "00:00" → "00:00"
+// is treated as a 24h span (always open) below, not as a zero-length window.
+function isOvernight(opens: string, closes: string): boolean {
+  return closes <= opens;
+}
+
+// Is `nowHM` within [opens, closes), accounting for overnight wrap?
+//  - same-day:  opens <= now < closes
+//  - overnight: now >= opens (evening side) OR now < closes (early-morning side)
+//  - 24h ("00:00"→"00:00", or opens===closes): always open
+function withinSpan(nowHM: string, opens: string, closes: string): boolean {
+  if (opens === closes) return true; // 24h
+  if (isOvernight(opens, closes)) return nowHM >= opens || nowHM < closes;
+  return nowHM >= opens && nowHM < closes;
+}
+
 function computeOpenStatus(hours: HoursMap | null, special: SpecialDay[] | null, now: Date) {
   if (!hours) return { status: "closed" as const };
   const tz = hours.tz || "UTC";
-  // Format current date + day-of-week in the configured tz.
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
+  // Format current date + day-of-week in the configured tz. A bad/legacy tz
+  // (free-text field, e.g. "EST" or a typo) makes Intl.DateTimeFormat throw
+  // "Invalid time zone". We must NOT let that 500 the public widget, so fall
+  // back to UTC and log the fallback (no silent catch).
+  let fmt: Intl.DateTimeFormat;
+  const fmtOpts: Intl.DateTimeFormatOptions = {
     weekday: "short",
     year: "numeric",
     month: "2-digit",
@@ -118,7 +138,16 @@ function computeOpenStatus(hours: HoursMap | null, special: SpecialDay[] | null,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-  });
+  };
+  try {
+    fmt = new Intl.DateTimeFormat("en-US", { ...fmtOpts, timeZone: tz });
+  } catch (err: any) {
+    log.warn("[widget/hours] invalid timezone, falling back to UTC", {
+      tz,
+      error: err?.message,
+    });
+    fmt = new Intl.DateTimeFormat("en-US", { ...fmtOpts, timeZone: "UTC" });
+  }
   const parts = fmt.formatToParts(now);
   const get = (t: string) => parts.find(p => p.type === t)?.value || "";
   const dayShort = get("weekday").toLowerCase().slice(0, 3) as DayKey;
@@ -132,18 +161,46 @@ function computeOpenStatus(hours: HoursMap | null, special: SpecialDay[] | null,
     const sp = special.find(s => s.date === isoDate);
     if (sp) {
       if (sp.closed || !sp.opens || !sp.closes) return { status: "closed" as const };
-      return nowHM >= sp.opens && nowHM < sp.closes
-        ? { status: "open" as const, closesAt: sp.closes }
-        : { status: "closed" as const, opensAt: nowHM < sp.opens ? sp.opens : undefined };
+      if (withinSpan(nowHM, sp.opens, sp.closes)) {
+        return { status: "open" as const, closesAt: sp.closes };
+      }
+      // Only surface opensAt when we're before the (same-day) opening time.
+      const opensAt = !isOvernight(sp.opens, sp.closes) && nowHM < sp.opens ? sp.opens : undefined;
+      return { status: "closed" as const, opensAt };
+    }
+  }
+
+  // ── Previous-day overnight carry ──
+  // If yesterday's span runs overnight (e.g. opens 18:00 → closes 02:00) and
+  // right now it's still before that span's closing time (e.g. 01:00 < 02:00),
+  // the business is still open from YESTERDAY's row — today's row hasn't opened
+  // yet. Check this BEFORE today's row so the carry takes priority in the small
+  // hours. DAY_KEYS is sun..sat; previous index wraps with +6 % 7.
+  const todayIdx = DAY_KEYS.indexOf(dayShort);
+  if (todayIdx >= 0) {
+    const prevKey = DAY_KEYS[(todayIdx + 6) % 7];
+    const prev = hours[prevKey];
+    if (
+      prev && prev.open && prev.opens && prev.closes &&
+      isOvernight(prev.opens, prev.closes) &&
+      nowHM < prev.closes
+    ) {
+      return { status: "open" as const, closesAt: prev.closes };
     }
   }
 
   const day = hours[dayShort];
   if (!day || !day.open || !day.opens || !day.closes) return { status: "closed" as const };
-  if (nowHM >= day.opens && nowHM < day.closes) {
+  if (withinSpan(nowHM, day.opens, day.closes)) {
     return { status: "open" as const, closesAt: day.closes };
   }
-  return { status: "closed" as const, opensAt: nowHM < day.opens ? day.opens : undefined };
+  // We're closed for today's span. Surface "opens at" only when the next event
+  // is today's opening time — i.e. a same-day span we haven't reached yet.
+  // (For an overnight span, now < closes was already handled by withinSpan, and
+  // now >= opens would be open; so a closed overnight day means now is between
+  // closes and opens, and the next open is still today's `opens`.)
+  const opensAt = nowHM < day.opens ? day.opens : undefined;
+  return { status: "closed" as const, opensAt };
 }
 
 /* ─── Routes ─── */

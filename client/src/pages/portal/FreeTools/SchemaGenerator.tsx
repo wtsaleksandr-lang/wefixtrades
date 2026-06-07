@@ -189,11 +189,19 @@ export default function SchemaGenerator() {
     ]
   );
 
+  // Escape `<`, `>` and `&` so user input containing `</script>` (e.g. in the
+  // sameAs/social field) can't break out of the <script> element when the
+  // snippet is pasted into a customer's site — mirrors PhotoGallery's JSON-LD
+  // escaping. The React <pre> preview is rendered as a text node, so it's
+  // already safe; only this copyable/emitted string needs the escape.
   const snippet = `<script type="application/ld+json">\n${JSON.stringify(
     schema,
     null,
     2
-  )}\n</script>`;
+  )
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")}\n</script>`;
 
   // Wire Copilot form-fill — address + price range can be auto-filled by the
   // AI assistant. Hours and sameAs URLs stay user-driven.

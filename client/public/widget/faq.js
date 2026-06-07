@@ -95,7 +95,9 @@
     };
     var s = document.createElement("script");
     s.type = "application/ld+json";
-    s.appendChild(document.createTextNode(JSON.stringify(schema)));
+    // Escape `<` so a question/answer containing `</script>` can't break out
+    // of the JSON-LD <script> element on re-parse (crawler / view-source / SSR).
+    s.appendChild(document.createTextNode(JSON.stringify(schema).replace(/</g, "\\u003c")));
     target.parentNode.insertBefore(s, target.nextSibling);
   }
 

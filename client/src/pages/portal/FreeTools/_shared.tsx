@@ -178,7 +178,7 @@ export function TitleInField({
         {placeholder && (
           <span
             aria-hidden="true"
-            className="absolute right-3 top-2.5 text-[11px] text-gray-300 peer-focus:hidden peer-[:not(:placeholder-shown)]:hidden pointer-events-none"
+            className="absolute right-3 top-2.5 text-[11px] text-gray-300 opacity-100 peer-placeholder-shown:opacity-0 peer-focus:opacity-100 transition-opacity pointer-events-none"
           >
             {placeholder}
           </span>
@@ -251,7 +251,7 @@ export function TitleInFieldTextarea({
         {placeholder && (
           <span
             aria-hidden="true"
-            className="absolute right-3 top-2.5 text-[11px] text-gray-300 peer-focus:hidden peer-[:not(:placeholder-shown)]:hidden pointer-events-none"
+            className="absolute right-3 top-2.5 text-[11px] text-gray-300 opacity-100 peer-placeholder-shown:opacity-0 peer-focus:opacity-100 transition-opacity pointer-events-none"
           >
             {placeholder}
           </span>

@@ -117,14 +117,17 @@ interface LocalPackRow {
 }
 
 interface SerpResponse {
+  query: string;
   organic: OrganicRow[];
   localPack?: LocalPackRow[];
   provider: string;
   cached: boolean;
   country: string;
   language: string;
+  location: string;
   engine: Engine;
   totalResults?: number;
+  lowConfidence?: boolean;
 }
 
 export default function LocalSerpChecker() {
@@ -175,14 +178,17 @@ export default function LocalSerpChecker() {
       const data = await r.json();
       if (!r.ok || !data?.ok) throw new Error(data?.error || "Search failed.");
       setResult({
+        query: data.query || query,
         organic: data.organic || [],
         localPack: data.localPack || [],
         provider: data.provider || "unknown",
         cached: !!data.cached,
         country: data.country || country,
         language: data.language || language,
+        location: data.location || location,
         engine: data.engine || engine,
         totalResults: data.totalResults,
+        lowConfidence: !!data.lowConfidence,
       });
     } catch (err: any) {
       setError(err?.message || "Search failed. Please try again.");
@@ -315,8 +321,41 @@ export default function LocalSerpChecker() {
     </form>
   );
 
+  const locationLabel = (result?.location || location || "").trim();
+  const lowConfidence = !!result?.lowConfidence;
+
   const resultPanel = result ? (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Low-confidence empty state — backend flagged the query as a generic
+          non-result (no meaningful token overlap with the returned set), so we
+          do NOT show a count banner / KPI for fabricated filler. */}
+      {lowConfidence ? (
+        <div
+          data-testid="serp-low-confidence"
+          style={{
+            background: "rgba(0,0,0,0.02)",
+            border: "1px solid rgba(0,0,0,0.10)",
+            borderRadius: 12,
+            padding: "16px 18px",
+            fontSize: 14,
+            color: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 10,
+          }}
+        >
+          <AlertCircle size={16} style={{ marginTop: 1, flexShrink: 0, color: "rgba(0,0,0,0.45)" }} />
+          <div>
+            <div style={{ fontWeight: 700, color: "rgb(17,24,39)", marginBottom: 4 }}>
+              No relevant results for “{result.query}”
+            </div>
+            We didn’t find organic results that genuinely match this search term
+            for {locationLabel || countryLabel}. Try a real customer keyword like
+            “emergency plumber” or “roof repair {locationLabel || "Chicago"}”.
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Count banner */}
       <div
         data-testid="result-count-banner"
@@ -334,7 +373,15 @@ export default function LocalSerpChecker() {
         }}
       >
         <Globe size={14} />
-        {resultCount} {result.engine === "maps" ? "local pack" : "organic"} results in {countryLabel} · {languageLabel}
+        {resultCount} {result.engine === "maps" ? "local pack" : "organic"} results
+        {result.engine === "maps"
+          ? ` for ${locationLabel || countryLabel}`
+          : ` in ${countryLabel}`} · {languageLabel}
+        {result.engine === "search" && locationLabel && (
+          <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 500, opacity: 0.8 }}>
+            (you entered “{locationLabel}”)
+          </span>
+        )}
         {result.cached && (
           <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 500, opacity: 0.7 }}>cached</span>
         )}
@@ -456,6 +503,8 @@ export default function LocalSerpChecker() {
           )}
         </div>
       )}
+      </>
+      )}
 
       {/* Honest provider attribution */}
       <div
@@ -502,8 +551,13 @@ export default function LocalSerpChecker() {
           Google's local SERPs change <em>per neighbourhood</em>. Searching
           "emergency plumber" from 90210 (Beverly Hills) returns completely
           different businesses than searching from 90019 (Mid-City LA), 7 miles
-          away. If you're optimising for a service area, the only honest signal
-          is what someone in that area actually sees. This tool gives you that.
+          away. The <strong>Google Maps</strong> tab here is localized to the
+          exact city/ZIP you enter — that's the Local Pack a nearby customer
+          actually sees. The <strong>Google Search</strong> tab is localized to
+          the <em>country and language</em> you pick (it's not pinned to the
+          street-level coordinates of your city string), so use it for
+          national/organic visibility and use the Maps tab for true
+          neighbourhood-level local results.
         </p>
 
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>How we keep it free</h2>

@@ -217,7 +217,8 @@ export default function MarginCalculator() {
 
   const fmtMoney = (n: number | null): string => {
     if (n == null || !Number.isFinite(n)) return "—";
-    return `${sym}${n.toLocaleString(undefined, {
+    // Sign before the symbol: -$83.33, never $-83.33.
+    return `${n < 0 ? "-" : ""}${sym}${Math.abs(n).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
