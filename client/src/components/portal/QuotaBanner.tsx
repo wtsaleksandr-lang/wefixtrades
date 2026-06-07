@@ -95,7 +95,7 @@ export default function QuotaBanner() {
     );
   }
 
-  if (isError || !data) {
+  if (isError || !data || !data.used || !data.limit) {
     return (
       <Card className="p-4 mb-4" data-testid="quota-banner-error">
         <div className="text-sm text-muted-foreground">

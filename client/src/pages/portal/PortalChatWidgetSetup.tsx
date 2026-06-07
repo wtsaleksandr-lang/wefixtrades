@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Copy, Check, ExternalLink, Wrench, Power, Eye } from "lucide-react";
+import { Copy, Check, ExternalLink, Wrench, Power, Eye, MessageSquare } from "lucide-react";
 import {
   TRADELINE_WIDGET_STYLES,
   type TradelineWidgetStyle,
@@ -155,6 +155,20 @@ export default function PortalChatWidgetSetup() {
     return (
       <PortalLayout>
         <div className="max-w-3xl text-sm text-rose-700">Failed to load widget settings.</div>
+      </PortalLayout>
+    );
+  }
+
+  if (!state.data.site) {
+    return (
+      <PortalLayout>
+        <div className="max-w-3xl text-center py-16">
+          <MessageSquare className="w-8 h-8 text-muted-foreground/50 mx-auto mb-3" />
+          <p className="text-muted-foreground font-medium">Your chat widget isn't set up yet</p>
+          <p className="text-sm text-muted-foreground/70 mt-1">
+            Once your chat widget is provisioned, your install snippet will appear here.
+          </p>
+        </div>
       </PortalLayout>
     );
   }

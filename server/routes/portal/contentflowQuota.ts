@@ -18,9 +18,21 @@ import { requireClient } from "../../auth";
 import { db } from "../../db";
 import { clients } from "@shared/schema";
 import { getQuotaState } from "../../services/contentflow/quotaService";
+import {
+  getQuotaForTier,
+  emptyUsage,
+  nextMonthlyResetAt,
+} from "@shared/contentflow/quotas";
 import { createLogger } from "../../lib/logger";
 
 const log = createLogger("PortalContentflowQuota");
+
+/** YYYY-MM-01 in UTC (mirrors quotaService.utcPeriodStart). */
+function utcPeriodStart(d: Date = new Date()): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
+}
 
 /** Resolve client_id from the authenticated user's id. */
 async function resolveClientId(userId: number): Promise<number | null> {
@@ -43,15 +55,16 @@ export function registerPortalContentflowQuotaRoutes(app: Express) {
           // Wave 12C: admin previewing the portal — return zero-quota envelope
           // so QuotaBanner renders an empty state instead of a 403 red error.
           if (req.user!.role === "admin") {
+            // Return the SAME QuotaState shape the real client path returns
+            // (tier / limit / used / resetAt / period_start) so QuotaBanner
+            // renders a clean empty state instead of crashing on data.used.
             return res.json({
               previewMode: true,
-              persisted: false,
-              tier: "starter",
-              cycle_start: null,
-              cycle_end: null,
-              usage: { posts: 0, articles: 0, videos: 0 },
-              caps: { posts: 0, articles: 0, videos: 0 },
-              remaining: { posts: 0, articles: 0, videos: 0 },
+              tier: "contentflow-starter",
+              limit: getQuotaForTier("contentflow-starter"),
+              used: emptyUsage(),
+              resetAt: nextMonthlyResetAt(),
+              period_start: utcPeriodStart(),
             });
           }
           return res

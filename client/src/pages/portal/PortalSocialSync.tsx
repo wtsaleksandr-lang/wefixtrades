@@ -162,7 +162,7 @@ export default function PortalSocialSync() {
     );
   }
 
-  if (!data) {
+  if (!data || !data.summary) {
     return (
       <PortalLayout>
         <div className="max-w-3xl text-center py-16">

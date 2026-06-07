@@ -151,7 +151,7 @@ export default function PortalOnboarding() {
     e.preventDefault();
     if (!data) return;
 
-    const missing = data.steps.filter(
+    const missing = (data.steps || []).filter(
       (s) => s.required && !responses[s.key] && responses[s.key] !== true
     );
     if (missing.length > 0) {
@@ -168,8 +168,8 @@ export default function PortalOnboarding() {
   const isSaving = draftMutation.isPending || submitMutation.isPending;
 
   // Split steps into required and optional
-  const requiredSteps = data?.steps.filter((s) => s.required) ?? [];
-  const optionalSteps = data?.steps.filter((s) => !s.required) ?? [];
+  const requiredSteps = data?.steps?.filter((s) => s.required) ?? [];
+  const optionalSteps = data?.steps?.filter((s) => !s.required) ?? [];
 
   // Phase 1b: register the onboarding form with the copilot form registry.
   // Q23: when the assistant proposes form fills and the customer clicks Apply,
@@ -182,7 +182,7 @@ export default function PortalOnboarding() {
     values: responses,
     onApply: (fills) => {
       if (!data) return;
-      const allowedKeys = new Set(data.steps.map((s) => s.key));
+      const allowedKeys = new Set((data.steps || []).map((s) => s.key));
       const patch: Record<string, any> = {};
       for (const f of fills) {
         if (!allowedKeys.has(f.field_key)) continue;
