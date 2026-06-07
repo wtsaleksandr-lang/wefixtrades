@@ -84,6 +84,8 @@ const ENGINE_TO_PUBLIC: Record<FieldType, PublicFieldType | null> = {
   link: 'link',
   // FIELD-PALETTE — video embed (YouTube / Vimeo).
   video: 'video',
+  // WIZARD-GAPS — contact form content component.
+  contact_form: 'contact_form',
 };
 
 function uid(prefix: string): string {
