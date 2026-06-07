@@ -284,3 +284,15 @@ export const inboundEmailRateLimiter = new RateLimiter(
   60,
   60_000,
 );
+
+/**
+ * Vapi voice webhooks (POST /api/vapi/webhook and POST /api/vapi/conversation).
+ * Both are signature/secret-gated, but a flood of even rejected requests (or a
+ * replayed signed payload) burns CPU + LLM spend, and per-call duration caps
+ * don't bound aggregate volume. 120 / min keyed on IP and/or call.id is an
+ * order of magnitude above real Vapi traffic while blunting a flood. */
+export const vapiRateLimiter = new RateLimiter(
+  defaultStore,
+  120,
+  60_000,
+);
