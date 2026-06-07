@@ -54,6 +54,7 @@ import { registerWidgetRoutes } from "./widgetRoutes";
 import { registerWidgetFreetoolsRoutes } from "./widgetFreetoolsRoutes";
 import { registerPortalFreetoolsRoutes } from "./portalFreetoolsRoutes";
 import { registerPortalReviewReplyRoutes } from "./portalReviewReplyRoutes";
+import { registerPortalQuoteWriterRoutes } from "./portalQuoteWriterRoutes";
 import { registerReviewFunnelRoutes } from "./reviewFunnelRoutes";
 import { registerPortalReviewLinkRoutes } from "./portalReviewLinkRoutes";
 import { registerServiceAreaMapRoutes } from "./serviceAreaMapRoutes";
@@ -214,6 +215,10 @@ export async function registerRoutes(
   // budget cap (getUserBudgetSnapshot/gateDecision/recordSpend) + shared
   // Anthropic client. Client route: /portal/free-tools/review-responder.
   registerPortalReviewReplyRoutes(app);
+  // AI Quote Writer — interactive free tool. Reuses the QuoteQuick AI budget
+  // cap (getUserBudgetSnapshot/gateDecision/recordSpend) + shared Anthropic
+  // client. Client route: /portal/free-tools/quote-writer.
+  registerPortalQuoteWriterRoutes(app);
   registerReviewFunnelRoutes(app);
   registerPortalReviewLinkRoutes(app);
   registerServiceAreaMapRoutes(app);
