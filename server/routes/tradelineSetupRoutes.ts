@@ -354,6 +354,25 @@ export function registerTradelineSetupRoutes(app: Express) {
         const parsed = provisionBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
+        // IDEMPOTENCY GUARD (P1): incomingPhoneNumbers.create below is a REAL
+        // paid purchase. A double-submit would buy a SECOND number (a second
+        // recurring charge) and orphan the first. If this client already has a
+        // provisioned number, return it instead of buying again. Mirrors the
+        // admin path's `provisioning_status === "provisioned"` guard, but keys
+        // off the assigned number itself so it holds even if status drifted.
+        const existingSetup = await getSetupRow(clientId);
+        if (existingSetup?.assigned_number_sid || existingSetup?.assigned_number) {
+          log.info("provision-new short-circuited — number already assigned", {
+            clientId,
+            hasSid: !!existingSetup.assigned_number_sid,
+          });
+          return res.json({
+            setup: existingSetup,
+            queued: false,
+            alreadyProvisioned: true,
+          });
+        }
+
         const result = await provisionNumber(
           parsed.data.countryCode,
           parsed.data.preference,
@@ -450,7 +469,11 @@ export function registerTradelineSetupRoutes(app: Express) {
           provisioned_at: Date | null;
         }> = {};
 
-        if (!existing?.assigned_number) {
+        // Idempotency (P1): only buy a hidden number if none is already
+        // assigned. Check BOTH the number and its SID so a row mid-provision
+        // (SID written, number not yet) still short-circuits and we never
+        // double-buy. Aligns with the /provision-new guard above.
+        if (!existing?.assigned_number && !existing?.assigned_number_sid) {
           const provision = await provisionNumber(result.market === "CA" ? "CA" : "US", "local");
           if (provision.ok && !provision.queued) {
             provisionStatus = "provisioned";

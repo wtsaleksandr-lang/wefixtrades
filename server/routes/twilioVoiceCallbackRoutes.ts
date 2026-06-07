@@ -31,6 +31,7 @@ import { sql } from "drizzle-orm";
 import { db } from "../db";
 import { mobileCallRecords } from "@shared/schema";
 import { verifyTwilioSignature, getTwilioFromNumber } from "../twilioClient";
+import { resolveVoiceEntitlement, consumeOutboundCall } from "../lib/voiceEntitlement";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("TwilioVoiceCallback");
@@ -47,6 +48,42 @@ function escapeXml(s: string): string {
 
 /** Phone numbers: digits, leading +, optional spaces/dashes/parens. */
 const PHONE_RE = /^\+?[0-9 ()\-.]{4,32}$/;
+
+/**
+ * NANP restriction (P0 toll-fraud guard). By default we ONLY dial North
+ * American Numbering Plan destinations (+1, 10 national digits). International
+ * / premium-rate numbers are the cheapest, highest-loss toll-fraud vector, so
+ * they are rejected unless an entitlement explicitly opts in.
+ *
+ * Returns the canonical E.164 NANP form (+1XXXXXXXXXX) when the input is a
+ * valid NANP number after stripping spaces / dashes / parens, else null.
+ * NANP rule: area code (NXX) and exchange (NXX) first digit must be 2-9.
+ */
+function toNanpE164(raw: string): string | null {
+  const digits = raw.replace(/[^\d+]/g, "");
+  let national: string;
+  if (digits.startsWith("+1")) {
+    national = digits.slice(2);
+  } else if (digits.startsWith("+")) {
+    return null; // some other country code → not NANP
+  } else if (digits.startsWith("1") && digits.length === 11) {
+    national = digits.slice(1);
+  } else {
+    national = digits;
+  }
+  // Exactly 10 national digits, with NXX area code + NXX exchange (N = 2-9).
+  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(national)) return null;
+  return `+1${national}`;
+}
+
+/**
+ * Whether this entitlement is permitted to dial outside the NANP. Today no
+ * tier grants international dialling — kept as an explicit hook so enabling it
+ * is a deliberate, auditable change rather than the current implicit default.
+ */
+function allowsInternational(_entitlement: "active" | "trial"): boolean {
+  return false;
+}
 
 /** Status values Twilio reports that we treat as terminal. */
 const TERMINAL_STATUSES = new Set(["completed", "busy", "failed", "no-answer", "canceled"]);
@@ -85,16 +122,54 @@ export function registerTwilioVoiceCallbackRoutes(app: Express): void {
       return rejectTwiml(res, 503, "Outbound calling is not configured.");
     }
 
-    const to = typeof req.body?.To === "string" ? req.body.To.trim() : "";
-    if (!to || !PHONE_RE.test(to)) {
-      log.warn("Outbound call rejected: invalid To", { to });
-      return rejectTwiml(res, 400, "Invalid destination number.");
-    }
-
     const from = typeof req.body?.From === "string" ? req.body.From : "";
     const callSid = typeof req.body?.CallSid === "string" ? req.body.CallSid : null;
     const userId = parseUserIdFromIdentity(from);
-    log.info("Outbound TwiML issued", { from, to, callerId, callSid });
+
+    // P0 ENTITLEMENT RE-CHECK (defence in depth — the access token is
+    // long-lived, so a token minted while entitled must not keep dialling
+    // after the subscription lapses). The caller identity is `client:user_N`;
+    // if we can't resolve it to an entitled user, refuse the dial.
+    if (userId === null) {
+      log.warn("Outbound call rejected: unrecognised caller identity", { from });
+      return rejectTwiml(res, 403, "Calling is not enabled for this account.");
+    }
+    const entitlement = await resolveVoiceEntitlement(userId);
+    if (!entitlement) {
+      log.warn("Outbound call rejected: no voice entitlement", { userId });
+      return rejectTwiml(res, 403, "Your plan does not include outbound calling.");
+    }
+
+    // P0 NANP restriction — by default only North American destinations.
+    const rawTo = typeof req.body?.To === "string" ? req.body.To.trim() : "";
+    if (!rawTo || !PHONE_RE.test(rawTo)) {
+      log.warn("Outbound call rejected: invalid To", { to: rawTo });
+      return rejectTwiml(res, 400, "Invalid destination number.");
+    }
+    const nanp = toNanpE164(rawTo);
+    if (!nanp && !allowsInternational(entitlement)) {
+      log.warn("Outbound call rejected: non-NANP destination blocked", { userId });
+      return rejectTwiml(res, 403, "International calling is not enabled on your plan.");
+    }
+    // Dial the canonical NANP form when we have it; otherwise (only reachable
+    // if international is ever allowed) fall back to the validated raw input.
+    const to = nanp ?? rawTo;
+
+    // P0 USAGE CAP — consume one outbound-call unit against the user's daily
+    // AND monthly ceiling. Bounds a runaway / compromised client's bill.
+    const usage = await consumeOutboundCall(userId, entitlement);
+    if (!usage.allowed) {
+      log.warn("Outbound call rejected: usage cap reached", { userId, scope: usage.scope });
+      return rejectTwiml(
+        res,
+        429,
+        usage.scope === "daily"
+          ? "You've reached your daily calling limit. Try again tomorrow."
+          : "You've reached your monthly calling limit.",
+      );
+    }
+
+    log.info("Outbound TwiML issued", { from, to, callerId, callSid, entitlement });
 
     // Seed the call-record row so the status webhook can update it. We
     // ignore failures here — the record is a UX nicety, not a critical
@@ -150,6 +225,14 @@ export function registerTwilioVoiceCallbackRoutes(app: Express): void {
     const errorMsg = typeof req.body?.ErrorMessage === "string" ? req.body.ErrorMessage : null;
     const isTerminal = TERMINAL_STATUSES.has(status);
 
+    // Build the error note in JS and pass it as a single BOUND parameter
+    // (Drizzle parameterises `${value}` placeholders). Previously this used
+    // sql.raw(errorCode)/sql.raw(errorMsg) which spliced webhook-supplied
+    // strings straight into SQL — an injection sink. Coerce to string safely.
+    const errorNote = errorCode
+      ? ` Twilio error ${String(errorCode)}: ${String(errorMsg ?? "n/a")}`
+      : null;
+
     try {
       await db
         .insert(mobileCallRecords)
@@ -160,15 +243,15 @@ export function registerTwilioVoiceCallbackRoutes(app: Express): void {
           from_number: typeof req.body?.From === "string" ? req.body.From : null,
           to_number: typeof req.body?.To === "string" ? req.body.To : null,
           duration_sec: Number.isFinite(duration) ? duration : undefined,
-          notes: errorCode ? `Twilio error ${errorCode}: ${errorMsg ?? "n/a"}` : undefined,
+          notes: errorNote ? errorNote.trimStart() : undefined,
         })
         .onConflictDoUpdate({
           target: mobileCallRecords.call_sid,
           set: {
             status,
             duration_sec: Number.isFinite(duration) ? duration : sql`mobile_call_records.duration_sec`,
-            notes: errorCode
-              ? sql`COALESCE(mobile_call_records.notes, '') || ' Twilio error ${sql.raw(errorCode)}: ${sql.raw(errorMsg ?? "n/a")}'`
+            notes: errorNote
+              ? sql`COALESCE(mobile_call_records.notes, '') || ${errorNote}`
               : sql`mobile_call_records.notes`,
             ended_at: isTerminal ? sql`NOW()` : sql`mobile_call_records.ended_at`,
           },
