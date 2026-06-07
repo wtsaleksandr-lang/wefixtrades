@@ -1587,28 +1587,56 @@ export default function PreviewPane({
   }, [device]);
 
   // Wave L E5 — editable preview header title.
+  // Desktop-regression fix (fix/inline-title-edit): when the title can't be
+  // measured to a real rect on the first frame (it lands empty inside the
+  // zoomed desktop stage), we mount the input at this fallback position so it
+  // ALWAYS appears in the DOM; the rAF re-measure + ResizeObserver then snap it
+  // onto the live title. Top-left of the overlay host, comfortable defaults.
+  const FALLBACK_TITLE_BOX = { left: 16, top: 16, width: 240, height: 32 } as const;
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleBox, setTitleBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
-  // BUG-2 fix (fix/inline-title-edit): returns the title node when a usable
-  // box was measured (so callers can scroll-into-view / bail), else null.
+  // BUG-2 fix (fix/inline-title-edit): returns the title node when one exists
+  // (so callers can scroll-into-view), else null. Always RE-MEASURES into
+  // `titleBox` when the box is valid; when it's zero/empty (off-screen, not yet
+  // laid out, or measured inside a collapsed ancestor) it leaves the previous
+  // box in place rather than clearing it — clearing would unmount the input
+  // (the render gate requires `titleBox`), which is exactly the desktop
+  // regression we're fixing. The rAF re-measure + ResizeObserver below correct
+  // the position once the title has a real box.
+  //
+  // Desktop-zoom math: on desktop the overlay host lives inside the
+  // `.qq-preview-stage`, which carries `transform: scale(zoom)`. Both
+  // getBoundingClientRect() calls return POST-transform (scaled) screen
+  // coordinates, but the absolutely-positioned input is a child of the host
+  // and therefore lives in the host's UNSCALED local coordinate space. So the
+  // scaled rect deltas must be divided by the host's effective scale to land
+  // on the title. We derive the scale empirically from the host itself
+  // (getBoundingClientRect().width ÷ offsetWidth) so it's exactly 1 on the
+  // mobile-clean path (no transformed ancestor) and equals `zoom` on desktop —
+  // no hardcoded dependency on the zoom state, and mobile stays untouched.
   const measureTitle = useCallback((): HTMLElement | null => {
     const host = overlayHostRef.current;
     if (!host) return null;
     const t = host.querySelector<HTMLElement>('[data-testid="advanced-title"]');
-    if (!t) { setTitleBox(null); return null; }
+    if (!t) return null;
     const hostRect = host.getBoundingClientRect();
     const r = t.getBoundingClientRect();
-    // A zero/empty/negative box means the title is off-screen or not laid out
-    // yet (common on mobile after scroll/zoom). Don't paint an invisible input
-    // at a stale offset — clear the box so the caller can recover.
-    if (r.width <= 0 || r.height <= 0) { setTitleBox(null); return t; }
+    // A zero/empty box means the title isn't laid out yet (font load, mobile
+    // reflow, or measured before the widget painted). Don't overwrite a good
+    // box with a stale/invalid one and DON'T clear it (clearing unmounts the
+    // input) — just return the node so the caller can scroll + re-measure.
+    if (r.width <= 0 || r.height <= 0) return t;
+    // Effective scale of the host (1 when no transformed ancestor; `zoom` on
+    // the desktop scaled stage). offsetWidth is the unscaled layout width.
+    const scale = host.offsetWidth > 0 ? hostRect.width / host.offsetWidth : 1;
+    const s = scale > 0 ? scale : 1;
     setTitleBox({
-      left: r.left - hostRect.left,
-      top: r.top - hostRect.top,
-      width: Math.max(r.width, 200),
-      height: r.height,
+      left: (r.left - hostRect.left) / s,
+      top: (r.top - hostRect.top) / s,
+      width: Math.max(r.width / s, 200),
+      height: r.height / s,
     });
     return t;
   }, []);
@@ -1657,24 +1685,33 @@ export default function PreviewPane({
     // business-name binding otherwise. Open only when at least one commit
     // path exists.
     if (!onHeaderTitleChange && !onBusinessNameChange) return;
+    // Desktop-regression fix (fix/inline-title-edit): ALWAYS mount the input
+    // when the pencil is clicked, as long as the title NODE exists — never
+    // bail-to-never-mount on an invalid/empty initial measurement. The earlier
+    // guard ("don't open if the box couldn't be measured") fired on the desktop
+    // scaled-canvas path: the title sometimes measures to an empty box on the
+    // first frame inside the zoomed `.qq-preview-stage`, so `titleBox` stayed
+    // null and the render gate (`titleEditing && titleBox`) kept the input out
+    // of the DOM entirely. We now seed a sensible fallback box when the initial
+    // measurement is missing, set `titleEditing = true` unconditionally, then
+    // let the rAF re-measure + ResizeObserver + scroll-into-view correct the
+    // position on the next frame(s).
     const node = measureTitle();
-    // BUG-2 fix (fix/inline-title-edit): if the title couldn't be measured to a
-    // visible box (off-screen after a mobile scroll/zoom, or not laid out yet),
-    // scroll it into view and re-measure on the next frame instead of opening
-    // an invisible input at a stale offset ("nothing happens"). Bail if the
-    // node truly isn't there.
-    if (!titleBox && node) {
+    if (!node) return; // title element genuinely not rendered — nothing to edit
+    setTitleBox((prev) => prev ?? FALLBACK_TITLE_BOX);
+    if (!titleBox) {
+      // No valid box yet — bring the title into view so the next measure
+      // lands a real rect, but mount the input now regardless.
       node.scrollIntoView({ block: 'center', inline: 'nearest' });
-      requestAnimationFrame(() => {
-        measureTitle();
-        setTitleEditing(true);
-        setTimeout(() => { titleInputRef.current?.focus(); titleInputRef.current?.select(); }, 0);
-      });
-      return;
     }
-    if (!node) return;
     setTitleEditing(true);
-    setTimeout(() => { titleInputRef.current?.focus(); titleInputRef.current?.select(); }, 0);
+    // Re-measure on the next frame so the fallback box is replaced by the real
+    // title rect (origin- and scale-corrected) before the user sees it.
+    requestAnimationFrame(() => {
+      measureTitle();
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    });
   }, [onHeaderTitleChange, onBusinessNameChange, measureTitle, titleBox]);
 
   // fix/tmpl-editor-mobile (B) — inline title-editor bindings. When
