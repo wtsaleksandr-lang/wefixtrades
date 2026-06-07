@@ -45,6 +45,7 @@ import LoginPage from "@/pages/login";
 // ── Auth wrappers (small, used widely; keep static) ────────────────────────
 import RequirePortal from "@/components/auth/RequirePortal";
 import RequireClient from "@/components/auth/RequireClient";
+import RequirePaid from "@/components/portal/RequirePaid";
 
 // ── Wizard/calculator/audit family (already lazy pre-Wave-9) ───────────────
 const Wizard = lazy(() => import("@/pages/wizard"));
@@ -297,6 +298,8 @@ const StatsCounter = lazy(() => import("@/pages/portal/FreeTools/StatsCounter"))
 const PhotoQuoteIntake = lazy(() => import("@/pages/portal/FreeTools/PhotoQuoteIntake"));
 const BookingWidget = lazy(() => import("@/pages/portal/FreeTools/BookingWidget"));
 const PhotoGallery = lazy(() => import("@/pages/portal/FreeTools/PhotoGallery"));
+const AiReviewResponder = lazy(() => import("@/pages/portal/FreeTools/AiReviewResponder"));
+const MarginCalculator = lazy(() => import("@/pages/portal/FreeTools/MarginCalculator"));
 
 // ── Public / shareable artifacts ───────────────────────────────────────────
 const OnboardingForm = lazy(() => import("@/pages/OnboardingForm"));
@@ -561,19 +564,24 @@ function Router() {
       <Route path="/portal/api-access">{() => <RequireClient><PortalApiAccessPage /></RequireClient>}</Route>
       {/* W-AO-6d — Brand Kits portal page (QuoteQuick $29 upsell) */}
       <Route path="/portal/brand-kits">{() => <RequireClient><PortalBrandKitsPage /></RequireClient>}</Route>
-      {/* Free Tools — foundation wave (index + Schema Generator) */}
-      <Route path="/portal/free-tools/schema">{() => <RequireClient><SchemaGenerator /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/faq">{() => <RequireClient><FaqWidget /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/hours">{() => <RequireClient><HoursWidget /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/trust-badges">{() => <RequireClient><TrustBadges /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/review-link">{() => <RequireClient><ReviewLink /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/callback">{() => <RequireClient><CallbackForm /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/service-area">{() => <RequireClient><ServiceAreaMap /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/before-after">{() => <RequireClient><BeforeAfterSlider /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/stats">{() => <RequireClient><StatsCounter /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/photo-quote">{() => <RequireClient><PhotoQuoteIntake /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/booking">{() => <RequireClient><BookingWidget /></RequireClient>}</Route>
-      <Route path="/portal/free-tools/gallery">{() => <RequireClient><PhotoGallery /></RequireClient>}</Route>
+      {/* Free Tools — the /portal/free-tools/* toolbox is a PAID perk. Each
+          tool route is wrapped in RequirePaid (free users get an upgrade
+          gate); the INDEX below stays open so free users browse the catalog
+          (locked cards) to drive conversion. */}
+      <Route path="/portal/free-tools/schema">{() => <RequireClient><RequirePaid toolName="Local Business Schema"><SchemaGenerator /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/faq">{() => <RequireClient><RequirePaid toolName="FAQ Widget"><FaqWidget /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/hours">{() => <RequireClient><RequirePaid toolName="Hours Block"><HoursWidget /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/trust-badges">{() => <RequireClient><RequirePaid toolName="Trust Badges"><TrustBadges /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/review-link">{() => <RequireClient><RequirePaid toolName="Review Link + QR Card"><ReviewLink /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/callback">{() => <RequireClient><RequirePaid toolName="Callback Request"><CallbackForm /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/service-area">{() => <RequireClient><RequirePaid toolName="Service Area Map"><ServiceAreaMap /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/before-after">{() => <RequireClient><RequirePaid toolName="Before / After Slider"><BeforeAfterSlider /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/stats">{() => <RequireClient><RequirePaid toolName="Stats / Trust Counter"><StatsCounter /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/photo-quote">{() => <RequireClient><RequirePaid toolName="Photo-quote Intake"><PhotoQuoteIntake /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/booking">{() => <RequireClient><RequirePaid toolName="Appointment Booking"><BookingWidget /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/gallery">{() => <RequireClient><RequirePaid toolName="Our Work — Photo Gallery"><PhotoGallery /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/review-responder">{() => <RequireClient><RequirePaid toolName="AI Review Responder"><AiReviewResponder /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/margin-calc">{() => <RequireClient><RequirePaid toolName="Margin & Markup Calculator"><MarginCalculator /></RequirePaid></RequireClient>}</Route>
       <Route path="/portal/free-tools">{() => <RequireClient><FreeToolsIndex /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>
