@@ -177,6 +177,34 @@ function parseWorth(raw: string): TicketWorthVerdict | null {
 }
 
 /**
+ * Per-window invocation ceiling for the AI worth-classifier — a simple
+ * fixed-window counter. Bounds LLM spend if the inbound webhook token leaks and
+ * an attacker floods past the route rate limiter. Default 200 classifier calls
+ * / 10-min window comfortably exceeds any realistic legitimate inbound volume.
+ * Override via INBOUND_CLASSIFIER_CEILING (per window).
+ */
+const CLASSIFIER_CEILING = Math.max(1, Number(process.env.INBOUND_CLASSIFIER_CEILING) || 200);
+const CLASSIFIER_WINDOW_MS = 10 * 60_000;
+
+const classifierBudget = {
+  windowStart: Date.now(),
+  calls: 0,
+  /** Count this attempt; returns false once the window's ceiling is exceeded. */
+  allow(): boolean {
+    const now = Date.now();
+    if (now - this.windowStart >= CLASSIFIER_WINDOW_MS) {
+      this.windowStart = now;
+      this.calls = 0;
+    }
+    this.calls += 1;
+    return this.calls <= CLASSIFIER_CEILING;
+  },
+  count(): number {
+    return this.calls;
+  },
+};
+
+/**
  * Decide whether a NEW inbound email is worth a support ticket. Two layers:
  *   1. deterministic automated/bulk filter (free) → drop,
  *   2. a cheap, conservative AI classifier → drop only clear marketing/spam.
@@ -194,6 +222,20 @@ export async function classifyInboundForTicket(
   }
   if (process.env.INBOUND_SMART_FILTER === "false") {
     return { worth: true, category: "filter_off", reason: "smart filter disabled" };
+  }
+  /* Spend ceiling / circuit-breaker. The webhook is token-gated + IP
+   * rate-limited, but as a last line of defence against a leaked-token flood
+   * running unbounded LLM spend: cap the number of AI classifier calls per
+   * rolling window. Above the ceiling we SKIP the model and fail-open
+   * (worth=true) — a flood still creates tickets (visible, recoverable) but
+   * costs nothing in inference. Genuine low-volume traffic never hits the cap,
+   * so real inquiries are unaffected. */
+  if (!classifierBudget.allow()) {
+    log.warn("[concierge] worth-classifier ceiling hit — skipping AI, defaulting to worth", {
+      senderEmail,
+      windowCalls: classifierBudget.count(),
+    });
+    return { worth: true, category: "ceiling", reason: "classifier ceiling — AI skipped (fail-open)" };
   }
   try {
     const raw = await chat({

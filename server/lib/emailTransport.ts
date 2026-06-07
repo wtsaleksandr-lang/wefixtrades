@@ -280,7 +280,14 @@ export function getEmailTransporter(): Transporter | null {
 
 /** Default "from" address for outbound emails. */
 export function getFromAddress(): string {
-  return process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@wefixtrades.com";
+  // SMTP_USER is intentionally NOT in the From fallback chain: with
+  // SendGrid it is the literal string "apikey", which is a malformed
+  // From address. Only fall back to it if it actually looks like an
+  // email (contains "@"); otherwise use the safe default.
+  const user = process.env.SMTP_USER;
+  return process.env.SMTP_FROM
+    || (user && user.includes("@") ? user : undefined)
+    || "noreply@wefixtrades.com";
 }
 
 /**

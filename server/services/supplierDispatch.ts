@@ -27,6 +27,23 @@ import { chat } from "./aiService";
 
 const log = createLogger("SupplierDispatch");
 
+/**
+ * HTML-escape admin/customer-derived values before interpolating them
+ * into the `bodyHtml` blocks below. The detail-table/headline/summary
+ * fields are escaped inside buildAdminAlertEmail, but these blocks are
+ * passed as raw `bodyHtml`, so task descriptions (which can embed
+ * onboarding answers) and the Fiverr suggested-message must be escaped
+ * here or they could inject markup into supplier/admin inboxes.
+ */
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export interface DispatchResult {
   dispatched: boolean;
   dispatch_method?: string;
@@ -107,7 +124,7 @@ function buildEmailHtml(params: {
   const descriptionBlock = params.taskDescription
     ? `<div style="font-size:13px;color:#374151;line-height:1.55;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px 14px;margin:0 0 14px;">
         <strong style="font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#6B7280;">Task Details</strong><br/>
-        ${params.taskDescription}
+        ${escapeHtml(params.taskDescription)}
       </div>`
     : "";
 
@@ -249,7 +266,7 @@ async function dispatchViaFiverr(
     bodyHtml: `
       <div style="font-size:13px;color:#374151;line-height:1.55;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px 14px;margin:0 0 14px;">
         <strong style="font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#6B7280;">Suggested message to supplier</strong><br/>
-        <pre style="white-space:pre-wrap;font-family:inherit;margin:6px 0 0;">${suggestedMessage}</pre>
+        <pre style="white-space:pre-wrap;font-family:inherit;margin:6px 0 0;">${escapeHtml(suggestedMessage)}</pre>
       </div>`,
     cta: { label: "Place Order on Fiverr", url: fiverrUrl },
     footerNote: `Admin action required — place order manually on Fiverr`,
