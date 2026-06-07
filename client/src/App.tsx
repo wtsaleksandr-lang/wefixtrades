@@ -300,6 +300,9 @@ const BookingWidget = lazy(() => import("@/pages/portal/FreeTools/BookingWidget"
 const PhotoGallery = lazy(() => import("@/pages/portal/FreeTools/PhotoGallery"));
 const AiReviewResponder = lazy(() => import("@/pages/portal/FreeTools/AiReviewResponder"));
 const MarginCalculator = lazy(() => import("@/pages/portal/FreeTools/MarginCalculator"));
+const InvoicePdf = lazy(() => import("@/pages/portal/FreeTools/InvoicePdf"));
+const AiQuoteWriter = lazy(() => import("@/pages/portal/FreeTools/AiQuoteWriter"));
+const ReviewQrCard = lazy(() => import("@/pages/portal/FreeTools/ReviewQrCard"));
 
 // ── Public / shareable artifacts ───────────────────────────────────────────
 const OnboardingForm = lazy(() => import("@/pages/OnboardingForm"));
@@ -582,6 +585,9 @@ function Router() {
       <Route path="/portal/free-tools/gallery">{() => <RequireClient><RequirePaid toolName="Our Work — Photo Gallery"><PhotoGallery /></RequirePaid></RequireClient>}</Route>
       <Route path="/portal/free-tools/review-responder">{() => <RequireClient><RequirePaid toolName="AI Review Responder"><AiReviewResponder /></RequirePaid></RequireClient>}</Route>
       <Route path="/portal/free-tools/margin-calc">{() => <RequireClient><RequirePaid toolName="Margin & Markup Calculator"><MarginCalculator /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/invoice">{() => <RequireClient><RequirePaid toolName="Invoice / Quote PDF"><InvoicePdf /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/quote-writer">{() => <RequireClient><RequirePaid toolName="AI Quote Writer"><AiQuoteWriter /></RequirePaid></RequireClient>}</Route>
+      <Route path="/portal/free-tools/review-qr">{() => <RequireClient><RequirePaid toolName="Review QR + Card"><ReviewQrCard /></RequirePaid></RequireClient>}</Route>
       <Route path="/portal/free-tools">{() => <RequireClient><FreeToolsIndex /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>

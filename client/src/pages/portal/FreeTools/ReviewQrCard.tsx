@@ -287,7 +287,6 @@ export default function ReviewQrCard() {
             position: absolute;
             inset: 0;
             padding: 24px;
-            background: #ffffff;
             display: flex;
             flex-wrap: wrap;
             gap: 24px;
@@ -527,7 +526,7 @@ export default function ReviewQrCard() {
                         <img
                           src={reviewQr}
                           alt={`QR code linking to the Google review page for ${printableName}`}
-                          className="w-40 h-40"
+                          style={{ width: 160, height: 160 }}
                           data-testid="rqc-review-qr"
                         />
                       ) : (
@@ -567,7 +566,7 @@ export default function ReviewQrCard() {
                         <img
                           src={vcardQr}
                           alt={`QR code that saves the contact details for ${printableName}`}
-                          className="w-40 h-40"
+                          style={{ width: 160, height: 160 }}
                           data-testid="rqc-vcard-qr"
                         />
                       ) : (
@@ -659,7 +658,7 @@ export default function ReviewQrCard() {
 /** Dashed empty-state box shown before a QR can be generated. */
 function QrPlaceholder({ label }: { label: string }) {
   return (
-    <div className="w-40 h-40 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 px-3 text-center">
+    <div style={{ width: 160, height: 160 }} className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 px-3 text-center">
       <QrCode className="w-6 h-6 text-gray-300" aria-hidden="true" />
       <p className="text-[11px] text-gray-400 leading-snug">{label}</p>
     </div>
