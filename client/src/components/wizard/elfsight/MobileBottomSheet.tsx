@@ -1,28 +1,34 @@
-// MobileBottomSheet — Elfsight-clone mobile editor panel sheet (2026-06-05
-// rebuild; supersedes the BH-3 3-snap collapsible sheet).
+// MobileBottomSheet — Elfsight-clone mobile editor panel sheet.
 //
-// Faithful structural replica of Elfsight's mobile editor: the default mobile
-// state is a FULL-SCREEN live preview with a persistent dark bottom tab bar
-// (BottomTabBar) and NO panel open. Tapping a panel tab (Build/Style/Settings/
-// Install) opens THAT tab's panel as a bottom SHEET overlaying the preview. The
-// bottom tab bar stays visible above-the-fold so the user can switch tabs; a
-// close chevron (and tapping the active tab again, handled by the parent)
-// dismisses the sheet back to the full preview.
+// 2026-06-07 rebuild: DOCKED drag-to-resize panel (supersedes the fixed 70vh
+// overlay). On phones (≤768px) the work area sits between the 64px clean top
+// bar and the 60px persistent dark bottom tab bar (BottomTabBar). The sheet
+// DOCKS at the bottom of that work area; the preview ALWAYS occupies the space
+// ABOVE the sheet and scrolls independently — there is no blur and no dim
+// scrim, so the preview is never obscured.
 //
-// This REPLACES the previous model (3-snap collapsible pill + the separate
-// qq-mobile-actionbar with Save/Reset). The Save capability is NOT lost — it
-// is relocated into this sheet's sticky footer ("Save draft"); autosave also
-// runs in the parent. Reset-to-default and Help are also reachable from the
-// footer.
+// Resize model:
+//   - Snap points: collapsed (~64px peek = drag handle + active-tab title),
+//     half (~50vh), full (clamped so the preview keeps ≥140px visible).
+//   - Dragging the handle tracks the finger continuously (live pixel height);
+//     releasing snaps to the NEAREST snap point and persists it to
+//     localStorage ('qq_wizard_sheet_snap'). A tap (movement < 6px) cycles
+//     collapsed → half → full → collapsed.
+//   - The sheet publishes its current visible height as the
+//     `--qq-sheet-h` CSS custom property on <html>; WizardShell's preview
+//     height calc subtracts it so the preview shrinks/grows live. Closing the
+//     sheet (or unmount) zeroes it so the preview reclaims the full work area.
 //
 // Constraints / parity:
 //   - Mobile-only (≤768px); desktop continues to use the side-panel.
-//   - The sheet sits ABOVE the persistent dark bottom tab bar (~60px + safe
+//   - The sheet docks ABOVE the persistent dark bottom tab bar (~60px + safe
 //     area), so its body never hides behind it.
-//   - GPU-accelerated translateY slide; 240ms ease-out; reduced-motion safe.
-//   - Touch targets ≥ 44px.
-//   - z-index 9998 (above canvas + backdrop, below the bottom tab bar at 9999
-//     so tabs stay tappable while the sheet is open).
+//   - NOT modal (docked, not an overlay) → no aria-modal, no tap-catching
+//     backdrop. Preview stays interactive + scrollable at every snap.
+//   - GPU-friendly height transitions; transition:none during active drag so
+//     it tracks the finger; reduced-motion → instant snaps.
+//   - Touch targets ≥ 44px; drag handle is a 40×4px grabber on a ≥44px row.
+//   - z-index 9998 (above canvas, below the bottom tab bar at 9999).
 //   - Listens for `qq-wizard:focus-field` so a PreviewPane tap auto-opens the
 //     sheet, switches tab, and scrolls the field into view.
 
@@ -38,20 +44,32 @@ import { EDITOR_TABS, type EditorTab } from './types';
 
 const p = platformTheme;
 
-// Height of the persistent dark bottom tab bar (icon+label cell). The sheet's
-// footer + body clear this so nothing hides behind it.
+// Height of the persistent dark bottom tab bar (icon+label cell). The sheet
+// docks above this so nothing hides behind it.
 const BOTTOM_BAR_PX = 60;
 
-// Height of the clean mobile top bar (✕ · name · autosave · Publish). The
-// backdrop is inset to BELOW this so the top bar stays tappable while the
-// sheet is open (see backdrop CSS note below).
+// Height of the clean mobile top bar (✕ · name · autosave · Publish).
 const TOPBAR_PX = 64;
+
+// Collapsed peek = just the drag handle row + active-tab title.
+const COLLAPSED_PX = 64;
+
+// Minimum preview height that must remain visible above the sheet even at the
+// "full" snap. The sheet's max height is clamped to workArea − this.
+const MIN_PREVIEW_PX = 140;
+
+// Tap vs drag threshold (px of total movement).
+const TAP_THRESHOLD_PX = 6;
+
+export type SheetSnap = 'collapsed' | 'half' | 'full';
+
+const STORAGE_KEY = 'qq_wizard_sheet_snap';
 
 // ── Component ─────────────────────────────────────────────────────────
 
 interface Props {
-  /** Whether the panel sheet is open over the preview. When false the sheet
-   *  slides off-screen and the preview is fully visible (default state). */
+  /** Whether the panel sheet is docked open over/beside the preview. When
+   *  false the sheet is hidden and the preview reclaims the full work area. */
   open: boolean;
   /** Dismiss the sheet back to the full preview. */
   onClose: () => void;
@@ -75,6 +93,44 @@ function readPrefersReduced(): boolean {
   catch { return false; }
 }
 
+function loadSnap(initial: SheetSnap): SheetSnap {
+  if (typeof window === 'undefined') return initial;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw === 'collapsed' || raw === 'half' || raw === 'full') return raw;
+  } catch (err) {
+    // localStorage may throw in private mode / sandboxed iframes — fall back
+    // to the default snap rather than crashing the editor.
+    if (typeof console !== 'undefined') console.warn('[wizard-sheet] loadSnap failed', err);
+  }
+  return initial;
+}
+
+function persistSnap(next: SheetSnap): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, next);
+  } catch (err) {
+    if (typeof console !== 'undefined') console.warn('[wizard-sheet] persistSnap failed', err);
+  }
+}
+
+// Compute the live mobile work-area height (between top bar and bottom tab
+// bar, minus safe area). SSR-safe.
+function readSafeAreaBottom(): number {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return 0;
+  try {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;bottom:env(safe-area-inset-bottom,0px);visibility:hidden;';
+    document.body.appendChild(probe);
+    const v = parseFloat(getComputedStyle(probe).bottom) || 0;
+    document.body.removeChild(probe);
+    return v;
+  } catch {
+    return 0;
+  }
+}
+
 export default function MobileBottomSheet({
   open, onClose, activeTab, onTabChange, onResetTab, onSave, onHelp,
   children, isBusy = false,
@@ -82,18 +138,167 @@ export default function MobileBottomSheet({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const reduceMotion = useMemo(readPrefersReduced, []);
 
-  // Scroll container ref so `qq-wizard:focus-field` can scroll into view.
+  const [snap, setSnapState] = useState<SheetSnap>(() => loadSnap('half'));
+  // Live pixel height during/after a drag. When null we render the snap height.
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const sheetRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   useLayoutGuard(contentRef, { maxGapPx: 24, label: 'wizard-sheet-content' });
 
+  // ── Geometry helpers ──────────────────────────────────────────────
+  // workAreaPx = innerHeight − topbar − bottombar − safeArea. maxPx (full
+  // snap) is clamped so the preview keeps ≥ MIN_PREVIEW_PX visible.
+  const geomRef = useRef({ workAreaPx: 0, maxPx: 0, halfPx: 0 });
+  const computeGeom = useCallback(() => {
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 0;
+    const safe = readSafeAreaBottom();
+    const workAreaPx = Math.max(0, vh - TOPBAR_PX - BOTTOM_BAR_PX - safe);
+    // Full snap leaves at least MIN_PREVIEW_PX of preview; never below half.
+    const maxPx = Math.max(COLLAPSED_PX, workAreaPx - MIN_PREVIEW_PX);
+    // Half ≈ 50vh, but clamped within [collapsed, max].
+    const halfPx = Math.min(maxPx, Math.max(COLLAPSED_PX, Math.round(vh * 0.5)));
+    geomRef.current = { workAreaPx, maxPx, halfPx };
+    return geomRef.current;
+  }, []);
+
+  const snapToPx = useCallback((s: SheetSnap): number => {
+    const { maxPx, halfPx } = geomRef.current;
+    if (s === 'collapsed') return COLLAPSED_PX;
+    if (s === 'full') return maxPx;
+    return halfPx;
+  }, []);
+
+  // Recompute geometry on mount + resize/orientation change.
+  useEffect(() => {
+    computeGeom();
+    const onResize = () => {
+      computeGeom();
+      // Keep the live height in sync when not actively dragging.
+      setDragHeight((cur) => (cur === null ? null : Math.min(cur, geomRef.current.maxPx)));
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, [computeGeom]);
+
+  // ── Publish current visible height to <html> as --qq-sheet-h ───────
+  // The preview's height calc subtracts this var so it shrinks/grows live.
+  const publishSheetHeight = useCallback((px: number) => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.style.setProperty('--qq-sheet-h', `${Math.round(px)}px`);
+  }, []);
+  const clearSheetHeight = useCallback(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.style.setProperty('--qq-sheet-h', '0px');
+  }, []);
+
+  // The current rendered height (drag override else snap height).
+  const currentHeightPx = useMemo(() => {
+    if (!open) return 0;
+    if (dragHeight !== null) return dragHeight;
+    return snapToPx(snap);
+  }, [open, dragHeight, snap, snapToPx]);
+
+  // Sync the CSS var whenever the rendered height changes; zero on close.
+  useEffect(() => {
+    if (!open) {
+      clearSheetHeight();
+      return;
+    }
+    publishSheetHeight(currentHeightPx);
+  }, [open, currentHeightPx, publishSheetHeight, clearSheetHeight]);
+
+  // Always zero the var on unmount so a stale value can't shrink the preview.
+  useEffect(() => () => { clearSheetHeight(); }, [clearSheetHeight]);
+
+  // ── Snap helpers ──────────────────────────────────────────────────
+  const setSnap = useCallback((next: SheetSnap) => {
+    setSnapState(next);
+    persistSnap(next);
+  }, []);
+
+  // Set true when a pointer sequence resolved to a real drag, so the synthetic
+  // click that follows pointerup doesn't ALSO cycle the snap.
+  const suppressClickRef = useRef(false);
+  const cycleSnap = useCallback(() => {
+    if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+    setSnap(snap === 'collapsed' ? 'half' : snap === 'half' ? 'full' : 'collapsed');
+  }, [snap, setSnap]);
+
+  // Nearest snap to a pixel height (for snap-on-release).
+  const nearestSnap = useCallback((px: number): SheetSnap => {
+    const { maxPx, halfPx } = geomRef.current;
+    const candidates: Array<[SheetSnap, number]> = [
+      ['collapsed', COLLAPSED_PX],
+      ['half', halfPx],
+      ['full', maxPx],
+    ];
+    let best: SheetSnap = 'half';
+    let bestDist = Infinity;
+    for (const [s, h] of candidates) {
+      const d = Math.abs(px - h);
+      if (d < bestDist) { bestDist = d; best = s; }
+    }
+    return best;
+  }, []);
+
+  // ── Drag-to-resize (pointer) ──────────────────────────────────────
+  const dragRef = useRef<{ startY: number; startH: number; moved: number } | null>(null);
+
+  const onHandlePointerDown = useCallback((ev: React.PointerEvent) => {
+    computeGeom();
+    const startH = snapToPx(snap);
+    dragRef.current = { startY: ev.clientY, startH, moved: 0 };
+    setIsDragging(true);
+    setDragHeight(startH);
+    try { (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId); } catch { /* capture unsupported */ }
+  }, [computeGeom, snap, snapToPx]);
+
+  const onHandlePointerMove = useCallback((ev: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const delta = ev.clientY - drag.startY; // down = positive
+    drag.moved = Math.max(drag.moved, Math.abs(delta));
+    const { maxPx } = geomRef.current;
+    // Drag up (negative delta) grows the sheet; clamp to [collapsed, max].
+    const next = Math.min(maxPx, Math.max(COLLAPSED_PX, drag.startH - delta));
+    setDragHeight(next);
+  }, []);
+
+  const endDrag = useCallback((ev: React.PointerEvent) => {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    setIsDragging(false);
+    try { (ev.currentTarget as HTMLElement).releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
+    if (!drag) { setDragHeight(null); return; }
+    if (drag.moved < TAP_THRESHOLD_PX) {
+      // Treated as a tap → let the synthetic click cycle the snap; just drop
+      // the live height so the snap height renders.
+      setDragHeight(null);
+      return;
+    }
+    // Real drag → snap to nearest + persist, and suppress the trailing click
+    // so it doesn't cycle on top of the snap. Drop the live override so the
+    // snap height (with its settle transition) takes over.
+    suppressClickRef.current = true;
+    const target = nearestSnap(dragHeight ?? drag.startH);
+    setSnap(target);
+    setDragHeight(null);
+  }, [dragHeight, nearestSnap, setSnap]);
+
   // ── `qq-wizard:focus-field` listener ──────────────────────────────
-  // A PreviewPane tap dispatches this to: switch active tab, OPEN the sheet,
-  // and scroll the section/field into view + transient highlight.
   useEffect(() => {
     const onFocus = (e: Event) => {
       const ev = e as CustomEvent<{ tabId?: EditorTab; sectionId?: string; fieldId?: string }>;
       const { tabId, sectionId, fieldId } = ev.detail ?? {};
       if (tabId) onTabChange(tabId);
+      // Ensure the panel is at least half-open so the field is reachable.
+      setSnap((cur => (cur === 'collapsed' ? 'half' : cur))(snap));
       requestAnimationFrame(() => {
         const root = contentRef.current;
         if (!root) return;
@@ -110,7 +315,7 @@ export default function MobileBottomSheet({
     };
     window.addEventListener('qq-wizard:focus-field', onFocus as EventListener);
     return () => window.removeEventListener('qq-wizard:focus-field', onFocus as EventListener);
-  }, [onTabChange, reduceMotion]);
+  }, [onTabChange, reduceMotion, setSnap, snap]);
 
   // Reset confirm flow — show inline pill for ~3s; confirming fires onResetTab.
   const onResetClick = useCallback(() => {
@@ -126,48 +331,62 @@ export default function MobileBottomSheet({
   const activeTabLabel =
     EDITOR_TABS.find((t) => t.id === activeTab)?.label ?? 'Build';
 
+  const isCollapsed = snap === 'collapsed' && dragHeight === null;
+
   // Portal to document.body so the fixed-position sheet anchors to the
-  // VIEWPORT, not to any transformed/filtered/backdrop-filtered editor
-  // ancestor (those establish a containing block for position:fixed and
-  // were pinning the open sheet off-screen below the scrolled frame).
+  // VIEWPORT, not to any transformed/filtered editor ancestor.
   return createPortal(
     <>
-      {/* Backdrop — only paints when the sheet is open. Tapping it closes
-          the sheet (back to full preview). */}
-      {open && (
-        <div
-          className="qq-sheet-backdrop"
-          data-testid="wizard-sheet-backdrop"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
+      {/* No backdrop: the sheet is docked, not modal — the preview must stay
+          fully visible, unblurred, and interactive at every snap. */}
 
       <div
+        ref={sheetRef}
         data-theme="light"
-        className={`qq-sheet${open ? ' is-open' : ''}${reduceMotion ? ' is-reduced-motion' : ''}`}
+        className={`qq-sheet${open ? ' is-open' : ''}${isDragging ? ' is-dragging' : ''}${isCollapsed ? ' is-collapsed' : ''}${reduceMotion ? ' is-reduced-motion' : ''}`}
         data-testid="wizard-bottom-sheet"
         data-open={open ? 'true' : 'false'}
+        data-snap={snap}
         role="dialog"
         aria-label={`${activeTabLabel} settings`}
-        aria-modal="true"
         aria-hidden={open ? undefined : true}
+        style={open ? { height: `${Math.round(currentHeightPx)}px` } : undefined}
       >
-        {/* ── Sheet header — title + close chevron ──────────────────── */}
+        {/* ── Drag handle row — grabber + title + close chevron ───────── */}
         <div className="qq-sheet-header">
-          <span className="qq-sheet-title" data-testid="wizard-sheet-title">
-            {activeTabLabel}
-          </span>
           <button
             type="button"
-            className="qq-sheet-close"
-            data-testid="wizard-sheet-close"
-            onClick={onClose}
-            aria-label="Close panel"
-            title="Close panel"
+            className="qq-sheet-grabber"
+            data-testid="wizard-sheet-handle"
+            aria-label={
+              snap === 'collapsed' ? 'Expand panel'
+                : snap === 'half' ? 'Expand panel further'
+                  : 'Collapse panel'
+            }
+            aria-expanded={snap !== 'collapsed'}
+            onClick={cycleSnap}
+            onPointerDown={onHandlePointerDown}
+            onPointerMove={onHandlePointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
           >
-            <ChevronDown size={24} aria-hidden="true" />
+            <span className="qq-sheet-grabber-bar" aria-hidden="true" />
           </button>
+          <div className="qq-sheet-header-row">
+            <span className="qq-sheet-title" data-testid="wizard-sheet-title">
+              {activeTabLabel}
+            </span>
+            <button
+              type="button"
+              className="qq-sheet-close"
+              data-testid="wizard-sheet-close"
+              onClick={onClose}
+              aria-label="Close panel"
+              title="Close panel"
+            >
+              <ChevronDown size={24} aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         {/* ── Scrollable content (active tab's panel only) ───────────── */}
@@ -216,43 +435,16 @@ export default function MobileBottomSheet({
 
       <style>{`
         /* Mobile-only — desktop continues to use the side-panel pattern. */
-        .qq-sheet, .qq-sheet-backdrop { display: none; }
+        .qq-sheet { display: none; }
 
         @media (max-width: 768px) {
-          .qq-sheet-backdrop {
-            display: block;
-            /* Constrained to the PREVIEW zone only — below the top bar and
-               above the bottom tab bar — NOT inset:0. The backdrop is portaled
-               to <body>, so a full-viewport overlay sits in a higher stacking
-               context than the editor chrome (top bar / bottom tab bar live
-               inside the shell) and swallowed their taps no matter their
-               z-index, AND a backdrop tap on the chrome did nothing. Inset to
-               the preview area so the chrome stays physically uncovered +
-               tappable while the sheet is open, and a tap on the dimmed
-               preview still closes the sheet (onClick={onClose}). */
-            position: fixed;
-            top: ${TOPBAR_PX}px; left: 0; right: 0;
-            bottom: calc(${BOTTOM_BAR_PX}px + env(safe-area-inset-bottom, 0px));
-            z-index: 9997;
-            background: rgba(15, 23, 42, 0.35);
-            backdrop-filter: blur(2px);
-            -webkit-backdrop-filter: blur(2px);
-            animation: qq-sheet-backdrop-in 240ms ease-out;
-          }
-          @keyframes qq-sheet-backdrop-in {
-            from { opacity: 0; }
-            to   { opacity: 1; }
-          }
-
           .qq-sheet {
             display: flex; flex-direction: column;
             position: fixed; left: 0; right: 0;
-            /* Sit ABOVE the persistent dark bottom tab bar so the bar's tabs
-               stay tappable while a panel is open. */
+            /* Dock ABOVE the persistent dark bottom tab bar. */
             bottom: calc(${BOTTOM_BAR_PX}px + env(safe-area-inset-bottom, 0px));
-            height: 70vh; max-height: 70vh;
-            /* z-index 9998 — above canvas + backdrop (9997), below the bottom
-               tab bar (9999). */
+            /* Height is driven by inline style (live drag / snap px). */
+            /* z-index 9998 — above canvas, below the bottom tab bar (9999). */
             z-index: 9998;
             background: ${AE.color.bg};
             font-family: ${AE.font.family};
@@ -261,14 +453,14 @@ export default function MobileBottomSheet({
             border-top-right-radius: ${AE.radius.lg};
             box-shadow: ${AE.shadow.pop};
             border-top: 1px solid ${AE.color.hairline};
-            /* Default = slid FULLY off-screen (closed). Because the sheet is
-               anchored bottom: BOTTOM_BAR_PX + safe-area (so the open sheet
-               clears the dark tab bar), a plain translateY(100%) would leave a
-               ~60px header peeking over the bar. Translate by its full height
-               PLUS that bottom offset so it clears the screen entirely. */
+            /* overflow:clip (not hidden) keeps the sticky footer working in
+               embedded widgets (per project_overflow_clip_for_sticky). */
+            overflow: clip;
+            /* Closed → slide fully off-screen. Open → settle transition only;
+               killed during active drag so it tracks the finger. */
             transform: translateY(calc(100% + ${BOTTOM_BAR_PX}px + env(safe-area-inset-bottom, 0px)));
-            transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
-            will-change: transform;
+            transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+                        height 240ms cubic-bezier(0.22, 1, 0.36, 1);
             touch-action: pan-y;
             pointer-events: none;
           }
@@ -276,14 +468,39 @@ export default function MobileBottomSheet({
             transform: translateY(0);
             pointer-events: auto;
           }
+          .qq-sheet.is-dragging {
+            transition: none;
+            will-change: height;
+          }
 
-          /* ── Sheet header ──────────────────────────────────────── */
+          /* ── Drag handle + header ──────────────────────────────── */
           .qq-sheet-header {
             flex-shrink: 0;
+          }
+          .qq-sheet-grabber {
+            display: flex; align-items: center; justify-content: center;
+            width: 100%; min-height: 28px; padding: 10px 0 4px;
+            background: transparent; border: none; cursor: grab;
+            touch-action: none;
+          }
+          .qq-sheet-grabber:active { cursor: grabbing; }
+          .qq-sheet-grabber:focus-visible {
+            outline: 2px solid ${AE.color.accent};
+            outline-offset: -4px;
+            border-radius: ${AE.radius.md};
+          }
+          .qq-sheet-grabber-bar {
+            display: block;
+            width: 40px; height: 4px; border-radius: ${AE.radius.pill};
+            background: ${AE.color.hairlineStrong};
+          }
+          .qq-sheet-header-row {
             display: flex; align-items: center; justify-content: space-between;
             gap: 8px;
-            padding: 12px 12px 8px 18px;
+            padding: 0 12px 8px 18px;
             border-bottom: 1px solid ${AE.color.hairline};
+            /* Min tap target for the row that carries the close button. */
+            min-height: 36px;
           }
           .qq-sheet-title {
             font-size: 17px; font-weight: 600;
@@ -303,9 +520,18 @@ export default function MobileBottomSheet({
             outline-offset: -2px;
           }
 
+          /* Collapsed peek → hide body + footer, keep handle + title row. */
+          .qq-sheet.is-collapsed .qq-sheet-content,
+          .qq-sheet.is-collapsed .qq-sheet-footer {
+            display: none;
+          }
+          .qq-sheet.is-collapsed .qq-sheet-header-row {
+            border-bottom: none;
+          }
+
           /* ── Scrollable content ────────────────────────────────── */
           .qq-sheet-content {
-            flex: 1; min-height: 0;
+            flex: 1 1 auto; min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             padding: 8px 12px;
@@ -387,7 +613,7 @@ export default function MobileBottomSheet({
             background: var(--qq-surface);
             border-top-color: var(--qq-border);
           }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-header {
+          .qq-editor-shell[data-theme="dark"] .qq-sheet-header-row {
             border-bottom-color: var(--qq-border);
           }
           .qq-editor-shell[data-theme="dark"] .qq-sheet-title {
@@ -405,13 +631,12 @@ export default function MobileBottomSheet({
           }
         }
 
-        /* prefers-reduced-motion — instant open/close, no transitions. */
+        /* prefers-reduced-motion — instant open/close + snap, no transitions. */
         @media (prefers-reduced-motion: reduce) {
           .qq-sheet, .qq-sheet-content {
             transition: none !important;
             animation: none !important;
           }
-          .qq-sheet-backdrop { animation: none !important; }
           .qq-sheet-content [data-sheet-highlight="true"] {
             animation: none !important;
             outline: 2px solid ${p.colors.accent};
