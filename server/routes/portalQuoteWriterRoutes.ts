@@ -33,6 +33,7 @@ import {
   recordSpend,
   type SupportedModel,
 } from "../services/quotequickAiBudget";
+import { portalAiToolRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("PortalQuoteWriter");
 
@@ -151,6 +152,16 @@ export function registerPortalQuoteWriterRoutes(app: Express): void {
     requireClient,
     async (req: Request, res: Response) => {
       const userId = (req.user as Express.User).id;
+
+      /* (0) Per-user rate limit — ~10 generations/min/user, keyed on userId
+       *     (authed endpoint), IP fallback. */
+      const rlKey = `portal-quote-writer:${userId ?? req.ip}`;
+      if (!(await portalAiToolRateLimiter.check(rlKey))) {
+        return res.status(429).json({
+          error: "rate_limited",
+          message: "You're generating quotes too quickly. Please wait a moment and try again.",
+        });
+      }
 
       /* (1) Validate input. */
       const parsed = quoteWriterSchema.safeParse(req.body);

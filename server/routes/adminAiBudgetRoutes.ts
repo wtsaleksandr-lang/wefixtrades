@@ -19,6 +19,7 @@ import {
   aiBudgetConfigValuesSchema,
   AI_BUDGET_SCOPES,
   DEFAULT_AI_BUDGET_CONFIG,
+  DEFAULT_AI_BUDGET_BY_SCOPE,
   type AiBudgetScope,
 } from "@shared/schema";
 
@@ -45,6 +46,10 @@ export function registerAdminAiBudgetRoutes(app: Express): void {
       res.json({
         global,
         tiers,
+        // Per-scope defaults so the editor can pre-fill a scope that has no
+        // saved row yet (notably tier_business, which gets a higher cap than
+        // the $0.50 global fall-back).
+        defaults: DEFAULT_AI_BUDGET_BY_SCOPE,
         top_spenders: topSpenders,
         scopes: AI_BUDGET_SCOPES,
       });
