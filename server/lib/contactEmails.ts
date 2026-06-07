@@ -53,11 +53,12 @@ function buildInternalHtml(p: ContactPayload, id: number): string {
     subjectForTitle: `New contact form submission · #${id}`,
     alertType: "New contact form submission",
     alertTone: "info",
-    headline: `${escapeHtml(p.name)} sent a message`,
+    headline: `${p.name} sent a message`,
     summary: "Reply directly — the customer's address is the reply-to on this email.",
     detailRows: [
-      { label: "From", value: `${escapeHtml(p.name)} &lt;${escapeHtml(p.email)}&gt;` },
-      { label: "Subject", value: escapeHtml(p.subject || "General") },
+      // Values are HTML-escaped inside buildAdminAlertEmail — pass raw here.
+      { label: "From", value: `${p.name} <${p.email}>` },
+      { label: "Subject", value: p.subject || "General" },
       { label: "Lead ID", value: `#${id}` },
     ],
     bodyHtml: `

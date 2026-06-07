@@ -525,10 +525,14 @@ async function markRow(id: number, status: "skipped" | "failed", reason: string)
 }
 
 function formatMoney(cents: number, currency: string): string {
-  const sym = currency.toLowerCase() === "usd" ? "$"
-    : currency.toLowerCase() === "cad" ? "$"
-    : currency.toLowerCase() === "eur" ? "€"
-    : currency.toLowerCase() === "gbp" ? "£"
+  const code = currency.toLowerCase();
+  const sym = code === "usd" ? "$"
+    : code === "cad" ? "$"
+    : code === "eur" ? "€"
+    : code === "gbp" ? "£"
     : "";
-  return `${sym}${(cents / 100).toFixed(2)}`;
+  const amount = (cents / 100).toFixed(2);
+  // Unknown currency: append the uppercased ISO code so the amount is
+  // never ambiguous (e.g. "49.00 AUD").
+  return sym ? `${sym}${amount}` : `${amount} ${currency.toUpperCase()}`;
 }

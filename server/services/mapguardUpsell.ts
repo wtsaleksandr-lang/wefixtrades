@@ -28,6 +28,7 @@ import { db } from "../db";
 import { clients, clientServices } from "@shared/schemas/adminCrm";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { buildLegalFooter } from "../lib/emailFooter";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { createLogger } from "../lib/logger";
 
@@ -223,8 +224,8 @@ Open your dashboard: ${dashboardUrl}
     <a href="${plansUrl}" style="display:inline-block;background:#2D6A4F;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-right:8px;">See Plans</a>
     <a href="${dashboardUrl}" style="display:inline-block;background:#ffffff;color:#2D6A4F;padding:11px 27px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;border:1px solid #2D6A4F;">Open Dashboard</a>
   </td></tr>
-  <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
-    <p style="font-size:11px;color:#9ca3af;margin:0;">MapGuard &middot; WeFixTrades</p>
+  <tr><td style="padding:24px 28px 8px;">
+    ${buildLegalFooter({ marketing: true, recipientEmail: ctx.contactEmail, theme: "light" })}
   </td></tr>
 </table>
 </body></html>`;
@@ -288,6 +289,7 @@ export async function fireSetupCompletionUpsell(clientId: number, clientServiceI
       subject,
       html,
       text,
+      category: "marketing",
     });
 
     // Stamp success so we never re-send.

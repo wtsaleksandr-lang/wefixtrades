@@ -96,8 +96,8 @@ export function buildAdminAlertEmail(p: AdminAlertEmailParams): string {
   const detailTable = p.detailRows && p.detailRows.length > 0
     ? `<table style="width:100%;border-collapse:collapse;background:${t.cardInner};border:1px solid ${t.border};border-radius:8px;padding:8px 14px;margin:0 0 ${p.bodyHtml || p.cta ? "16px" : "0"};">
         ${p.detailRows.map((r) => `<tr>
-          <td style="padding:6px 0;color:${t.textMuted};font-size:12px;text-transform:uppercase;letter-spacing:0.06em;width:130px;">${r.label}</td>
-          <td style="padding:6px 0;color:${r.valueColor ?? t.textBright};font-size:14px;font-weight:600;text-align:right;">${r.value}</td>
+          <td style="padding:6px 0;color:${t.textMuted};font-size:12px;text-transform:uppercase;letter-spacing:0.06em;width:130px;">${escapeHtml(r.label)}</td>
+          <td style="padding:6px 0;color:${r.valueColor ?? t.textBright};font-size:14px;font-weight:600;text-align:right;">${escapeHtml(r.value)}</td>
         </tr>`).join("")}
       </table>`
     : "";
@@ -108,20 +108,20 @@ export function buildAdminAlertEmail(p: AdminAlertEmailParams): string {
 
   const ctaButton = p.cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td>
-        <a href="${p.cta.url}" style="display:inline-block;background:${isDark ? "#0d3cfc" : "#0F172A"};color:${isDark ? "#0B0F14" : "#FFFFFF"};font-size:14px;font-weight:700;padding:11px 22px;border-radius:8px;text-decoration:none;mso-padding-alt:0;">${p.cta.label}</a>
+        <a href="${escapeHtml(p.cta.url)}" style="display:inline-block;background:${isDark ? "#0d3cfc" : "#0F172A"};color:${isDark ? "#0B0F14" : "#FFFFFF"};font-size:14px;font-weight:700;padding:11px 22px;border-radius:8px;text-decoration:none;mso-padding-alt:0;">${escapeHtml(p.cta.label)}</a>
       </td></tr></table>`
     : "";
 
   const summaryLine = p.summary
-    ? `<p style="font-size:14px;color:${t.textBody};line-height:1.55;margin:0 0 18px;">${p.summary}</p>`
+    ? `<p style="font-size:14px;color:${t.textBody};line-height:1.55;margin:0 0 18px;">${escapeHtml(p.summary)}</p>`
     : "";
 
   const footerNote = p.footerNote
-    ? `<p style="font-size:11px;color:${t.textFaint};margin:14px 0 0;text-align:center;">${p.footerNote}</p>`
+    ? `<p style="font-size:11px;color:${t.textFaint};margin:14px 0 0;text-align:center;">${escapeHtml(p.footerNote)}</p>`
     : "";
 
   const recipientLine = p.recipientEmail
-    ? `<span style="color:${t.textFaint};">to ${p.recipientEmail}</span>`
+    ? `<span style="color:${t.textFaint};">to ${escapeHtml(p.recipientEmail)}</span>`
     : "";
 
   // Brand wordmark — compact (smaller than buildEmailHeader's marketing version)
@@ -147,8 +147,8 @@ ${titleTag}
   <div style="max-width:${maxWidth}px;margin:0 auto;">
     ${brand}
     <div style="background:${t.card};border:1px solid ${t.border};border-radius:12px;padding:24px 22px;">
-      <p style="display:inline-block;font-size:11px;font-weight:700;color:${tone.fg};background:${tone.bg};border:1px solid ${tone.border};text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;padding:4px 10px;border-radius:999px;">${p.alertType}</p>
-      <h1 style="font-size:18px;font-weight:700;color:${t.textBright};margin:0 0 ${p.summary ? "8px" : "16px"};line-height:1.35;">${p.headline}</h1>
+      <p style="display:inline-block;font-size:11px;font-weight:700;color:${tone.fg};background:${tone.bg};border:1px solid ${tone.border};text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;padding:4px 10px;border-radius:999px;">${escapeHtml(p.alertType)}</p>
+      <h1 style="font-size:18px;font-weight:700;color:${t.textBright};margin:0 0 ${p.summary ? "8px" : "16px"};line-height:1.35;">${escapeHtml(p.headline)}</h1>
       ${summaryLine}
       ${detailTable}
       ${bodyBlock}
@@ -165,6 +165,24 @@ ${titleTag}
 
 function escapeForTag(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * HTML-escape a dynamic value before interpolating it into the alert
+ * markup. Applied to every caller-supplied string field (headline,
+ * summary, detail rows, alertType, CTA, footerNote, recipient) so that
+ * admin/customer-derived data — business names, task titles/descriptions
+ * that can embed onboarding answers, reviewer names — can never inject
+ * markup into supplier/admin inboxes. `bodyHtml` is intentionally NOT
+ * escaped (callers pass trusted, pre-built HTML there).
+ */
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /* ─── Plain-text companion ─── */
