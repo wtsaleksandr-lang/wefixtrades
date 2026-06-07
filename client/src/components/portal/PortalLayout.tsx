@@ -394,9 +394,15 @@ export default function PortalLayout({
                 recognise it as the AI assistant, not a plain chat bubble.
                 Wrapped in FirstVisitTooltip so new portal users discover the
                 assistant on their first visit. Label is visible at every
-                breakpoint so the affordance is obvious on mobile too. */}
+                breakpoint so the affordance is obvious on mobile too.
+                `enabled` scopes the auto-show to the dashboard only — the
+                trigger mounts on every portal route, so without this gate the
+                coachmark re-appeared page-after-page (it's only marked visited
+                on dismiss) and, on mobile, stacked over page-level coachmarks
+                (e.g. /services), burying the H1 + primary CTA. */}
             <FirstVisitTooltip
               storageKey="portal-topnav-ai-copilot"
+              enabled={location === "/portal" || location === "/portal/dashboard"}
               title="Meet your AI Copilot"
               position="bottom"
               align="end"

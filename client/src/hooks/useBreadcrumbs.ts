@@ -19,10 +19,26 @@ type StaticRoute = {
   build: (m: RegExpMatchArray) => BreadcrumbItem[];
 };
 
+/** Known acronyms that should render fully upper-case in breadcrumbs. */
+const ACRONYMS = new Set([
+  "api",
+  "seo",
+  "ai",
+  "sms",
+  "faq",
+  "crm",
+  "url",
+  "id",
+  "qr",
+]);
+
 const humanise = (slug: string): string =>
   slug
     .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .split(" ")
+    .map((word) => (ACRONYMS.has(word.toLowerCase()) ? word.toUpperCase() : word))
+    .join(" ");
 
 /* ────────────── Admin routes ────────────── */
 const ADMIN_ROOT: BreadcrumbItem = { label: "Admin", to: "/admin/crm" };

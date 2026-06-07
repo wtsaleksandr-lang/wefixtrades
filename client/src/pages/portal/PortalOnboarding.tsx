@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation, Link } from "wouter";
 import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, RefreshCw, Settings2, AlertTriangle } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import type { PortalChatContext } from "@/components/portal/PortalChatWidget";
 import { getFieldConfig } from "@/config/onboardingFields";
 import { useOnboardingResponses } from "@/context/OnboardingContext";
@@ -207,6 +208,11 @@ export default function PortalOnboarding() {
 
   return (
     <PortalLayout chatContext={chatContext}>
+      <PageMeta
+        title="Onboarding"
+        description="Complete your service onboarding in your WeFixTrades portal."
+        noIndex
+      />
       <div data-theme="light" className="max-w-2xl space-y-6 pb-20">
         <Link href="/portal/services" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Services

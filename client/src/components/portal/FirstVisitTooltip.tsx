@@ -56,6 +56,15 @@ export interface FirstVisitTooltipProps {
   anchor: React.ReactNode;
   /** Optional extra classes on the outer wrapper (e.g. block layout fix). */
   className?: string;
+  /**
+   * Gate the auto-show. When false, the anchor renders but the first-visit
+   * hint never appears (and the first-visit token is NOT burned). Used to
+   * scope a globally-mounted hint to a single surface — e.g. the top-nav
+   * AI-Copilot coachmark should only auto-open on the dashboard, not on
+   * every portal route (where it nagged page-after-page and, on mobile,
+   * collided with page-level coachmarks). Default true.
+   */
+  enabled?: boolean;
 }
 
 export function FirstVisitTooltip({
@@ -66,11 +75,12 @@ export function FirstVisitTooltip({
   align = "start",
   anchor,
   className,
+  enabled = true,
 }: FirstVisitTooltipProps) {
   const isFirstVisit = useFirstVisit(storageKey);
   const [dismissed, setDismissed] = useState(false);
 
-  const show = isFirstVisit && !dismissed;
+  const show = enabled && isFirstVisit && !dismissed;
 
   const dismiss = () => {
     setDismissed(true);
