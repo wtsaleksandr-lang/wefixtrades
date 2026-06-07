@@ -374,7 +374,7 @@ export default function ReviewLink() {
                   onClick={handleCopy}
                   disabled={!slug}
                   variant="outline"
-                  className="w-full"
+                  className="w-full min-h-11 sm:min-h-0"
                   data-testid="review-link-copy"
                 >
                   {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy link</>}
