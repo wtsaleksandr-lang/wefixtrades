@@ -139,7 +139,7 @@ export default function TradePromptsPage() {
         <div data-testid={`trade-prompts-page-${tradeMeta.slug}`}>
           <V7Hero
             productName={`AI Content Prompts · ${tradeMeta.seoTradeNoun}`}
-            headline={`AI Content Prompts for ${tradeMeta.seoTradeNoun} Businesses`}
+            headline={`AI Content Prompts for ${tradeMeta.label}`}
             sub={`12 named content patterns adapted for ${tradeMeta.noun}. Generate trade-specific social posts, images, articles, and short-form videos — all auto-personalised to your business name, service area, brand colours, and tone.`}
             ctas={[
               { label: "Start free", href: `/signup?intent=contentflow&trade=${tradeMeta.slug}` },
@@ -213,29 +213,9 @@ export default function TradePromptsPage() {
                       <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, marginBottom: 8, lineHeight: 1.3 }}>
                         {pattern.label}
                       </h3>
-                      <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.55, margin: 0, flex: 1 }}>
+                      <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.55, margin: "0 0 6px", flex: 1 }}>
                         {pattern.publicDescription}
                       </p>
-
-                      {/* Sample-output placeholder slot. Real images are
-                          baked in the post-Phase-1 test pass; until then
-                          we show a neutral aspect-ratio block so the
-                          card height stays consistent. */}
-                      <div
-                        aria-hidden
-                        style={{
-                          marginTop: 14,
-                          aspectRatio: "16 / 9",
-                          background: mkt.sectionLight,
-                          border: `1px dashed ${mkt.onDarkBorder}`,
-                          borderRadius: 10,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 11, color: mkt.onDarkFaint, letterSpacing: "0.08em", textTransform: "uppercase",
-                        }}
-                        data-testid={`trade-prompt-sample-${pattern.id}`}
-                      >
-                        Sample · coming after test pass
-                      </div>
 
                       <Link
                         href={ctaHref}
@@ -243,7 +223,8 @@ export default function TradePromptsPage() {
                         style={{
                           display: "inline-flex", alignItems: "center", gap: 4,
                           fontSize: 13, fontWeight: 700, color: mkt.accent,
-                          marginTop: 16, textDecoration: "none",
+                          marginTop: 10, padding: "12px 0", minHeight: 44,
+                          textDecoration: "none",
                         }}
                       >
                         Sign up to use this prompt <ArrowRight size={14} />
