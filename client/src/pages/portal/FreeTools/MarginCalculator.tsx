@@ -521,11 +521,11 @@ export default function MarginCalculator() {
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-xs text-gray-500">
                           <span className="flex items-center gap-1.5">
-                            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-slate-400" />
+                            <span style={{ width: 10, height: 10 }} className="inline-block rounded-sm bg-slate-400" />
                             Cost {costShare.toFixed(0)}%
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+                            <span style={{ width: 10, height: 10 }} className="inline-block rounded-sm bg-emerald-500" />
                             Profit {profitShare.toFixed(0)}%
                           </span>
                         </div>

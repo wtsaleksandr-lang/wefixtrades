@@ -214,7 +214,8 @@ export default function FreeToolsIndex() {
             className="group flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 transition-all hover:shadow-sm"
           >
             <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white"
+              style={{ width: 36, height: 36 }}
+              className="flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white"
               aria-hidden="true"
             >
               <Sparkles className="h-4 w-4 text-amber-600" />
@@ -269,7 +270,8 @@ export default function FreeToolsIndex() {
                       />
                       {showLocked && (
                         <span
-                          className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border border-amber-200 bg-white/95 shadow-sm"
+                          style={{ width: 28, height: 28 }}
+                          className="absolute top-2 right-2 flex items-center justify-center rounded-full border border-amber-200 bg-white/95 shadow-sm"
                           aria-hidden="true"
                         >
                           <Lock className="h-3.5 w-3.5 text-amber-600" />

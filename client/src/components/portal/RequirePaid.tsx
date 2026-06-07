@@ -56,7 +56,8 @@ export default function RequirePaid({
         <Card className="w-full max-w-lg" data-testid="free-tool-gate-upsell">
           <CardContent className="flex flex-col items-center p-8 text-center">
             <span
-              className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50"
+              style={{ width: 48, height: 48 }}
+              className="mb-4 flex items-center justify-center rounded-full bg-amber-50"
               aria-hidden="true"
             >
               <Lock className="h-5 w-5 text-amber-600" />
