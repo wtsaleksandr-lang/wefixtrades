@@ -1292,11 +1292,25 @@ export default function AIBubble(props: AIBubbleProps) {
           /* Wave 6 fix — on mobile the bubble at bottom 12px overlapped the
            *  right edge of the full-width bottom action/Done bar (~64px tall).
            *  Sit it ABOVE that bar plus the device safe-area inset so it no
-           *  longer covers the footer's Done button. */
+           *  longer covers the footer's Done button.
+           *
+           *  fix/ai-bubble-formula — the right-anchored bubble still landed on
+           *  the live preview's bottom "Get My Quote" CTA + the right-aligned
+           *  quote total that sit just above the bottom tab bar. The bottom
+           *  tab bar (.qq-bottom-tabbar) is fixed at the viewport bottom with
+           *  min-height 60px + its own safe-area padding. Reposition the
+           *  bubble to the BOTTOM-LEFT corner (the preview's primary CTA +
+           *  total are centre/right-weighted, and the canvas zoom pill lives
+           *  bottom-RIGHT — so left clears all three) and raise it clearly
+           *  above the 60px tab bar (60 + ~16px gap = 76px, plus the device
+           *  safe-area inset). Shrink it slightly so it reads as a secondary
+           *  affordance on the narrow viewport. The chat panel is unaffected
+           *  (it opens as a full-width bottom sheet via the rule above). */
           .qq-ai-bubble {
-            right: 12px;
+            right: auto;
+            left: 12px;
             bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-            padding: 9px 12px; font-size: 12px;
+            padding: 8px 11px; font-size: 11.5px;
           }
         }
 
