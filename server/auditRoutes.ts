@@ -1903,6 +1903,145 @@ function withApiTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promis
   ]);
 }
 
+/* ─── P1 audit-timeout fix (2026-06-07) ──────────────────────────────────
+ * The whole /generate handler MUST finish well under Cloudflare's ~100s edge
+ * 524 limit. The gather phase is already bounded (GATHER_DEADLINE_MS=50s), but
+ * the Sonnet narrative call had NO timeout: aiService's failover chain (each
+ * provider TIMEOUT_MS=30s + retries) could stack 60s+ of AI on top of the 50s
+ * gather → ~110-125s → 524, and the tool returned nothing. We now:
+ *   1. Bound the narrative chat() with a hard time budget (Promise.race via
+ *      withApiTimeout, since ChatOptions has no AbortSignal). On timeout the
+ *      race resolves to AI_TIMEOUT_SENTINEL.
+ *   2. Cap the AI budget so gather + AI + save stays under HANDLER_DEADLINE_MS.
+ *   3. On timeout/empty/error, fall back to a TEMPLATED narrative built from
+ *      the already-computed scores + gathered data, so the report still ships
+ *      with prose instead of a 524. Real narrative is used whenever it returns
+ *      in time. */
+const HANDLER_DEADLINE_MS = 80_000; // hard ceiling for the whole /generate handler
+const AI_BUDGET_MS = 28_000;        // preferred narrative budget when time allows
+const AI_SAVE_RESERVE_MS = 6_000;   // reserve for DB save + JSON response after AI
+const AI_MIN_BUDGET_MS = 8_000;     // never give the model less than this if we call it at all
+// Distinct sentinel so a genuine empty model reply ("") is not mistaken for a timeout.
+const AI_TIMEOUT_SENTINEL = "__AI_TIMEOUT__";
+
+/**
+ * Build a usable audit narrative from already-gathered scores/data when the AI
+ * call times out or fails. Mirrors the JSON shape the report UI consumes
+ * (executiveSummary, grade, keyStrength, competitorWeakness, actionPlan[],
+ * quickWin, demandGapInsight). Conservative, data-driven prose — no fabricated
+ * numbers; every field falls back to a generic-but-true sentence when its
+ * source datum is missing. */
+function buildTemplatedNarrative(ctx: {
+  businessName: string;
+  trade: string;
+  city: string;
+  scores: any;
+  reviewsCount: number;
+  rating: number | null;
+  hasWebsite: boolean;
+  mobileScore: number | null;
+  marketLeader: any;
+  detectedIssues: string[];
+  recommendedServices: any[];
+  estimatedRevenueLoss: { low?: number; high?: number } | null;
+}): any {
+  const { businessName, trade, city, scores, reviewsCount, rating, hasWebsite, mobileScore, marketLeader, detectedIssues, recommendedServices, estimatedRevenueLoss } = ctx;
+  const grade = scores?.grade || "C";
+  const total = typeof scores?.total === "number" ? scores.total : null;
+  const name = businessName || "Your business";
+
+  // Executive summary — score + the single biggest detected gap.
+  const summaryParts: string[] = [];
+  summaryParts.push(
+    total !== null
+      ? `${name} scores ${total}/100 (grade ${grade}) for local search performance in ${city || "your area"}.`
+      : `Here is your local search performance summary for ${name} in ${city || "your area"}.`
+  );
+  if (reviewsCount > 0) summaryParts.push(`You currently have ${reviewsCount} Google review${reviewsCount === 1 ? "" : "s"}${rating != null ? ` at a ${rating}★ rating` : ""}.`);
+  const biggestGap =
+    detectedIssues.includes("no-website") ? "you have no website linked, which costs you trust and conversions from Maps" :
+    detectedIssues.includes("low-visibility") ? "you're not visible for most of the searches your customers use" :
+    detectedIssues.includes("low-reviews") ? "your review count is behind where it needs to be to win the Maps pack" :
+    detectedIssues.includes("slow-website") ? "your website is slow on mobile, where most customers find you" :
+    detectedIssues.includes("not-in-maps-pack") ? "you're not consistently appearing in the Google Maps 3-pack" :
+    detectedIssues.includes("bad-rating") ? "your average rating is dragging down click-through and ranking" :
+    "there are clear opportunities to capture more local demand";
+  summaryParts.push(`The biggest opportunity right now: ${biggestGap}.`);
+  if (estimatedRevenueLoss && (estimatedRevenueLoss.low || estimatedRevenueLoss.high)) {
+    summaryParts.push(`We estimate this is worth roughly $${estimatedRevenueLoss.low ?? 0}–$${estimatedRevenueLoss.high ?? 0}/month in recoverable revenue.`);
+  }
+  const executiveSummary = summaryParts.join(" ");
+
+  // Grade explanation — score-driven, honest.
+  const gradeExplanation =
+    grade === "A" ? "You're outperforming most local competitors. The focus now is protecting your lead and converting more of the traffic you already earn." :
+    grade === "B" ? "You're in a strong position with a few specific gaps holding you back from the top of the local pack." :
+    grade === "C" ? "You have a solid foundation, but several fixable gaps are letting competitors capture demand that should be yours." :
+    "There are multiple high-impact gaps. The good news: each one is fixable, and addressing the top few moves your grade quickly.";
+
+  // Key strength — pick the highest-scoring pillar.
+  let keyStrength = "";
+  const gm = scores?.googleMaps?.score ?? 0;
+  if (rating != null && rating >= 4.5 && reviewsCount >= 20) keyStrength = `Your ${rating}★ rating across ${reviewsCount} reviews is a genuine trust signal customers notice.`;
+  else if (gm >= 18) keyStrength = "Your Google Business Profile is well-established and gives you a real head start in Maps.";
+  else if (scores?.demandCoverage?.score >= 8) keyStrength = "Your availability (evenings/weekends) means you're positioned to capture demand competitors miss.";
+
+  // Competitor weakness / opportunity.
+  let competitorWeakness = "";
+  if (marketLeader?.name && typeof marketLeader?.reviewsCount === "number") {
+    const gap = marketLeader.reviewsCount - (reviewsCount || 0);
+    competitorWeakness = gap > 0
+      ? `${marketLeader.name} leads with ${marketLeader.reviewsCount} reviews vs your ${reviewsCount || 0} — closing that ${gap}-review gap directly lifts your Maps ranking.`
+      : `You're ahead of ${marketLeader.name} on reviews — press that advantage by keeping your profile and content fresh.`;
+  }
+
+  // Demand-gap insight (UI always wants a string here).
+  const demandGapInsight =
+    scores?.demandCoverage?.breakdown?.evenings || scores?.demandCoverage?.breakdown?.weekends
+      ? "Your evening/weekend availability means you're capturing after-hours demand many competitors miss."
+      : "Extending into evening/weekend coverage (even via call/chat handling) would capture demand you're currently missing.";
+
+  // Action plan — derived from detected issues + recommended services, max 3,
+  // HIGH→LOW, at least one free.
+  const svcByIssue = (recommendedServices || []).map((s: any) => s?.name || s?.title || String(s)).filter(Boolean);
+  const candidates: Array<{ priority: string; title: string; detail: string; estimatedImpact: string }> = [];
+  if (detectedIssues.includes("low-reviews") || detectedIssues.includes("bad-rating")) {
+    candidates.push({ priority: "HIGH", title: "Win more reviews this month (free)", detail: `Ask your last 20 happy ${trade} customers for a Google review with a one-tap link. More reviews at a high rating is the single biggest lever on Maps ranking and click-through — and it costs nothing.`, estimatedImpact: "Higher Maps ranking + more calls" });
+  }
+  if (detectedIssues.includes("no-website") || detectedIssues.includes("slow-website")) {
+    candidates.push({ priority: "HIGH", title: hasWebsite ? "Fix your mobile site speed" : "Get a fast, simple website live", detail: hasWebsite ? `Most customers reach you on mobile${mobileScore != null ? ` and your mobile speed score is ${mobileScore}/100` : ""}. Every 1-second delay reduces conversions by ~7%. Compress images and trim heavy scripts to recover visitors who leave before contacting you.` : "Without a linked website you lose trust and conversions from your Maps listing. Even a fast 1-page site with your services, area and a call button materially lifts conversions.", estimatedImpact: "15–25% more visitors contact you" });
+  }
+  if (detectedIssues.includes("low-visibility") || detectedIssues.includes("not-in-maps-pack")) {
+    candidates.push({ priority: "MEDIUM", title: "Improve local search visibility", detail: `You're not consistently visible for the searches ${trade} customers in ${city || "your area"} actually use. Tightening your profile categories, services and city-relevant content lifts you into the local pack where the clicks are.`, estimatedImpact: "More local-pack appearances" });
+  }
+  if (svcByIssue.length && candidates.length < 3) {
+    candidates.push({ priority: "LOW", title: "Close remaining gaps", detail: `Based on your audit, ${svcByIssue.slice(0, 3).join(", ")} target the remaining gaps WeFixTrades can fix for you.`, estimatedImpact: "Compounding visibility gains" });
+  }
+  if (candidates.length === 0) {
+    candidates.push({ priority: "HIGH", title: "Keep your profile fresh (free)", detail: `Post updates, add recent photos, and respond to every review. Consistent activity on your Google Business Profile protects and grows your ${trade} visibility in ${city || "your area"}.`, estimatedImpact: "Sustained ranking" });
+  }
+  const actionPlan = candidates.slice(0, 3);
+
+  const quickWin = {
+    action: `Send a review request to your 10 most recent happy ${trade} customers today using a one-tap Google review link.`,
+    timeRequired: "15 minutes",
+    expectedResult: "Each new 5★ review measurably improves your Maps ranking and the trust customers see first.",
+  };
+
+  return {
+    grade,
+    executiveSummary,
+    gradeExplanation,
+    keyStrength: keyStrength || null,
+    competitorWeakness: competitorWeakness || null,
+    demandGapInsight,
+    actionPlan,
+    quickWin,
+    // Marks this as the deterministic fallback (not AI-authored) for debugging.
+    _templatedFallback: true,
+  };
+}
+
 /* ─── High-quality website screenshot via dedicated PageSpeed call ─── */
 async function captureWebsiteScreenshot(url: string): Promise<string | null> {
   const key = process.env.PAGESPEED_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
@@ -2757,18 +2896,70 @@ ${keywords.map((k: any) => `${k.keyword}: rank ${k.organicRank || 'not ranking'}
 Business audit data:
 ${JSON.stringify(auditData, null, 2)}`;
 
-        const raw = await chat({
-          system: systemPrompt,
-          messages: [{ role: "user", content: userPrompt }],
-          maxTokens: 4096,
-          modelOverride: "claude-sonnet-4-5",
-          // audit/ai 2026-05-24: audit narrative generation — gate
-          // under wft_audit (same surface as webfixAuditService).
-          surface: "wft_audit",
-        });
-        if (!raw) {
-          log.error("[audit] narrative generation returned empty");
-          auditData.narrative = { summary: "", analysis: "", recommendations: [], actionPlan: [], quickWin: null };
+        // P1 fix (2026-06-07): bound the narrative call so the handler can
+        // never blow past Cloudflare's ~100s 524 limit. aiService has no
+        // AbortSignal, so we race chat() against a hard time budget. The budget
+        // is the smaller of AI_BUDGET_MS and whatever time is left under
+        // HANDLER_DEADLINE_MS after reserving AI_SAVE_RESERVE_MS for the DB
+        // save + response — so gather + AI + save stays under the ceiling.
+        const aiElapsed = Date.now() - startTime;
+        // Time left under the hard ceiling once we reserve room for save+response.
+        const aiTimeLeftMs = HANDLER_DEADLINE_MS - aiElapsed - AI_SAVE_RESERVE_MS;
+        const aiBudgetMs = Math.min(AI_BUDGET_MS, aiTimeLeftMs);
+        // If gather already ate most of the ceiling, skip the AI entirely and go
+        // straight to the templated narrative — calling it would risk a 524.
+        let raw: string;
+        if (aiBudgetMs < AI_MIN_BUDGET_MS) {
+          log.error("[audit] insufficient time for narrative AI — skipping to templated fallback", {
+            timeLeftMs: aiTimeLeftMs,
+            elapsedMs: aiElapsed,
+          });
+          raw = AI_TIMEOUT_SENTINEL;
+        } else {
+          log.info("[audit] narrative AI budget", { budgetMs: aiBudgetMs, elapsedMs: aiElapsed });
+          raw = await withApiTimeout(
+            chat({
+              system: systemPrompt,
+              messages: [{ role: "user", content: userPrompt }],
+              maxTokens: 4096,
+              modelOverride: "claude-sonnet-4-5",
+              // audit/ai 2026-05-24: audit narrative generation — gate
+              // under wft_audit (same surface as webfixAuditService).
+              surface: "wft_audit",
+            }).catch((e: any) => {
+              // Surface the underlying AI error here (instead of letting it reject
+              // the race) so we can deterministically fall back to a templated
+              // narrative below rather than throwing past the handler deadline.
+              log.error("[audit] narrative chat() failed — will use templated fallback:", e?.message);
+              return AI_TIMEOUT_SENTINEL;
+            }),
+            aiBudgetMs,
+            AI_TIMEOUT_SENTINEL,
+          );
+        }
+        if (raw === AI_TIMEOUT_SENTINEL || !raw) {
+          // Timed out or returned empty/errored — ship a templated narrative
+          // built from the already-gathered scores/data so the report still
+          // has real prose. This is the 524-avoidance path; logged, never silent.
+          log.error("[audit] narrative unavailable in budget — using templated fallback", {
+            reason: raw === AI_TIMEOUT_SENTINEL ? "timeout_or_error" : "empty",
+            budgetMs: aiBudgetMs,
+            elapsedMs: Date.now() - startTime,
+          });
+          auditData.narrative = buildTemplatedNarrative({
+            businessName: business.name || "",
+            trade,
+            city,
+            scores,
+            reviewsCount,
+            rating,
+            hasWebsite: !!website,
+            mobileScore,
+            marketLeader: compData?.marketLeader || null,
+            detectedIssues: dedupedIssues,
+            recommendedServices,
+            estimatedRevenueLoss: auditData.estimatedRevenueLoss || null,
+          });
         } else {
         log.info("═══ CLAUDE RESPONSE ═══");
         log.info(raw);
