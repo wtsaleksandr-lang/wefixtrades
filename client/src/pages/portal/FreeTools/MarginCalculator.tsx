@@ -264,7 +264,7 @@ export default function MarginCalculator() {
         </span>
       }
     >
-      <div data-theme="light" className="space-y-6">
+      <div data-theme="light" className="qq-paper-surface space-y-6">
         <header>
           <div className="flex items-center gap-2 mb-1">
             <Percent

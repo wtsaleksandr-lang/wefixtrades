@@ -248,7 +248,7 @@ export default function AiQuoteWriter() {
         </span>
       }
     >
-      <div data-theme="light" className="space-y-6">
+      <div data-theme="light" className="qq-paper-surface space-y-6">
         <header>
           <div className="flex items-center gap-2 mb-1">
             <PencilLine className="w-5 h-5 text-brand-blue" aria-hidden="true" />
@@ -332,7 +332,13 @@ export default function AiQuoteWriter() {
                     id="qw-produce"
                     label="What to produce"
                     value={produce}
-                    onChange={setProduce}
+                    onChange={(next) => {
+                      // Clear the now-unwanted draft so stale cards don't
+                      // contradict the new selection.
+                      if (next === "description") setEmail(null);
+                      else if (next === "email") setDescription(null);
+                      setProduce(next);
+                    }}
                     help="Generate the quote description, the estimate email, or both at once."
                     testid="produce"
                   >
