@@ -5,6 +5,7 @@
 // retired once H2-H7 finish the tab content.
 
 import WizardShell from '@/components/wizard/elfsight/WizardShell';
+import { PageMeta } from '@/components/seo/PageMeta';
 import { useWidgetFonts } from '@/hooks/useWidgetFonts';
 
 export default function Wizard() {
@@ -23,5 +24,14 @@ export default function Wizard() {
     );
   }
 
-  return <WizardShell />;
+  return (
+    <>
+      <PageMeta
+        title="Quote Builder"
+        description="Build and customize your free instant-quote calculator widget for your trade business."
+        noIndex
+      />
+      <WizardShell />
+    </>
+  );
 }

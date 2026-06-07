@@ -182,7 +182,7 @@ export default function FreeToolsHubPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Free Tools for Trades — Local SEO, AI Content, Widgets | WeFixTrades"
+        title="Free Tools for Trades — Local SEO, AI Content, Widgets"
         description="19 free tools across local SEO, AI content, and customer engagement. No signup required. Built by WeFixTrades for plumbers, electricians, HVAC, roofers, and trades."
         canonical="/free-tools"
       />

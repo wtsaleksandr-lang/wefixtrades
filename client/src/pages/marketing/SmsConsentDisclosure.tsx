@@ -77,7 +77,12 @@ function ConsentNoScriptFallback() {
   return (
     <div data-noscript-fallback="sms-consent" style={{ display: "none" }} aria-hidden="true">
       <div style={{ padding: 24, maxWidth: 760, margin: "0 auto", fontFamily: "system-ui, sans-serif", lineHeight: 1.6 }}>
-        <h1>SMS Consent &amp; Disclosure — WeFixTrades</h1>
+        {/* Not an <h1>: the visible V7Hero headline below is the page's
+            single <h1>. Kept as a styled <p> so the no-JS / TCR-scraped
+            fallback still leads with the disclosure title. */}
+        <p style={{ fontSize: 24, fontWeight: 700, margin: "0 0 16px" }}>
+          SMS Consent &amp; Disclosure — WeFixTrades
+        </p>
         <p>
           <strong>Effective {EFFECTIVE}.</strong> Brand: MR Holdings &amp; Trade
           LLC, operating as <strong>WeFixTrades</strong>. This page describes

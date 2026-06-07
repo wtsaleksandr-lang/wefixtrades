@@ -119,7 +119,7 @@ export default function MapGuardSuitePage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="MapGuard Suite — Local SEO Platform for Trades | WeFixTrades"
+        title="MapGuard Suite — Local SEO Platform for Trades"
         description="Four products designed to find, fix, and monitor your local presence. MapGuard Core, Citation Tracker, Citation Builder, and Full Audit Master — your complete local SEO suite."
         canonical="/mapguard-suite"
       />
