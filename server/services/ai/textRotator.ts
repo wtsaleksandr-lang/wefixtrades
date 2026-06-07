@@ -18,6 +18,9 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { rotate, resolveProviderOrder, type ProviderImpl } from "./rotator";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("AI:TextRotator");
 
 export interface TextInput {
   system?: string;
@@ -39,7 +42,7 @@ const anthropicProvider: ProviderImpl<TextInput, TextOutput> = {
   name: "anthropic",
   ready: () => !!process.env.ANTHROPIC_API_KEY,
   invoke: async (input) => {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY!, timeout: 30_000 });
     const model = input.tier === "premium" ? "claude-sonnet-4-6"
       : input.tier === "fast" ? "claude-haiku-4-5-20251001"
       : "claude-haiku-4-5-20251001";
@@ -71,18 +74,30 @@ const openaiProvider: ProviderImpl<TextInput, TextOutput> = {
     const model = input.tier === "premium" ? "gpt-4o"
       : input.tier === "fast" ? "gpt-4o-mini"
       : "gpt-4.1";
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        max_tokens: input.max_tokens ?? 2048,
-        messages: [
-          ...(input.system ? [{ role: "system", content: input.system }] : []),
-          { role: "user", content: input.user },
-        ],
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          max_tokens: input.max_tokens ?? 2048,
+          messages: [
+            ...(input.system ? [{ role: "system", content: input.system }] : []),
+            { role: "user", content: input.user },
+          ],
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (e: any) {
+      if (e?.name === "AbortError" || e?.name === "TimeoutError") {
+        log.warn("OpenAI request timed out after 30s — failing over", { model });
+        const err: any = new Error(`OpenAI request timed out after 30000ms (model ${model})`);
+        err.status = 504;
+        throw err;
+      }
+      throw e;
+    }
     if (!res.ok) {
       const errBody = await res.text();
       const err: any = new Error(`OpenAI ${res.status}: ${errBody.slice(0, 200)}`);

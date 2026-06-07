@@ -103,6 +103,56 @@ function subjectContainsEscalation(subject: string): boolean {
   return ESCALATION_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
+/* ─── Tenant binding (security) ─── */
+
+/**
+ * The concierge agent loops are scoped to ONE tenant (the matched client /
+ * business owner). The `ticket_id` an action acts on, however, is supplied by
+ * the MODEL — which can be confused or prompt-injected into naming another
+ * tenant's ticket. The loop executors stamp the loop's bound clientId onto the
+ * PendingAction's `metadata.boundClientId`; these helpers HARD-ASSERT that the
+ * model-supplied ticket actually belongs to that tenant before any send.
+ *
+ * Backward-compatible: when `boundClientId` is absent (e.g. the human-confirmed
+ * admin-copilot confirm-card path, which is already surface- + user-bound and
+ * not loop-driven), the assertion is a no-op — behaviour for that path is
+ * unchanged. Enforcement engages only for the auto-tier loop paths that set it.
+ */
+function readBoundClientId(action: PendingAction): number | null {
+  const raw = action.metadata?.boundClientId;
+  return typeof raw === "number" && Number.isInteger(raw) ? raw : null;
+}
+
+/**
+ * Assert the loaded ticket belongs to the loop's bound tenant. Returns an
+ * error result (caller returns it — refusal, logged) when the ticket is owned
+ * by a DIFFERENT client; returns null when the action may proceed (same tenant,
+ * or no binding present). The refusal is LOGGED, never silently swallowed.
+ */
+function assertTicketTenant(
+  action: PendingAction,
+  ticket: { id: number; client_id: number },
+  toolName: string,
+): ActionExecutionResult | null {
+  const boundClientId = readBoundClientId(action);
+  if (boundClientId == null) return null; // no loop binding → legacy path, unchanged
+  if (ticket.client_id !== boundClientId) {
+    log.error("cross-tenant ticket access REFUSED — model-supplied ticket_id belongs to another tenant", {
+      tool: toolName,
+      ticketId: ticket.id,
+      ticketClientId: ticket.client_id,
+      boundClientId,
+      session_id: action.session_id,
+    });
+    return {
+      narrative:
+        `Refused: ticket #${ticket.id} does not belong to this conversation's account, ` +
+        `so I did not act on it. This has been logged for review.`,
+    };
+  }
+  return null;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    1. send_support_email_reply  (auto-tier with draft fallback)
    ═══════════════════════════════════════════════════════════════════ */
@@ -165,6 +215,10 @@ async function executeSendSupportEmailReply(
 
   const ticket = await storage.getSupportTicketById(ticketId);
   if (!ticket) throw new Error(`Ticket #${ticketId} not found`);
+
+  // SECURITY: the model supplied ticket_id — refuse if it isn't this loop's tenant.
+  const tenantRefusal = assertTicketTenant(action, ticket, "send_support_email_reply");
+  if (tenantRefusal) return tenantRefusal;
 
   /* ── Admission checks (all four must pass for auto-send) ── */
 
@@ -380,6 +434,10 @@ async function executeNotifyAdminOfTicket(
   const ticket = await storage.getSupportTicketById(ticketId);
   if (!ticket) throw new Error(`Ticket #${ticketId} not found`);
 
+  // SECURITY: the model supplied ticket_id — refuse if it isn't this loop's tenant.
+  const tenantRefusal = assertTicketTenant(action, ticket, "notify_admin_of_ticket");
+  if (tenantRefusal) return tenantRefusal;
+
   // Best-effort: in-app via admin_activity_log; Slack via fireAlert.
   // Only return tool_error if BOTH paths fail.
   let inAppOk = false;
@@ -563,6 +621,43 @@ async function executeSendAdminSms(
 
   const ticket = await storage.getSupportTicketById(ticketId);
   if (!ticket) throw new Error(`Ticket #${ticketId} not found`);
+
+  // SECURITY: the model supplied ticket_id — refuse if it isn't this loop's tenant.
+  const tenantRefusal = assertTicketTenant(action, ticket, "send_admin_sms");
+  if (tenantRefusal) return tenantRefusal;
+
+  // SECURITY (SMS-specific): the phone number is resolved from
+  // getSmsThreads(ticket.calculator_id), so the calculator the SMS goes out on
+  // MUST also belong to the bound tenant — otherwise a model could name a
+  // (same-client but) wrong calculator, or a ticket whose calculator was
+  // re-pointed. Only enforced when the loop bound a tenant; legacy path skips.
+  const boundClientIdForSms = readBoundClientId(action);
+  if (boundClientIdForSms != null && ticket.calculator_id != null) {
+    const boundClient = await storage.getClientById(boundClientIdForSms);
+    const calculator = await storage.getCalculatorById(ticket.calculator_id);
+    const sameOwner =
+      !!boundClient &&
+      !!calculator &&
+      boundClient.user_id != null &&
+      calculator.user_id != null &&
+      calculator.user_id === boundClient.user_id;
+    if (!sameOwner) {
+      log.error("cross-tenant SMS calculator access REFUSED — ticket calculator not owned by bound tenant", {
+        tool: "send_admin_sms",
+        ticketId: ticket.id,
+        calculatorId: ticket.calculator_id,
+        calculatorUserId: calculator?.user_id ?? null,
+        boundClientId: boundClientIdForSms,
+        boundClientUserId: boundClient?.user_id ?? null,
+        session_id: action.session_id,
+      });
+      return {
+        narrative:
+          `Refused: the SMS for ticket #${ticket.id} would go out on a calculator that ` +
+          `isn't owned by this conversation's account, so I did not send it. This has been logged for review.`,
+      };
+    }
+  }
 
   // Resolve phone server-side from the customer's existing SMS thread on
   // the ticket's calculator. NEVER trust a phone number from the model.

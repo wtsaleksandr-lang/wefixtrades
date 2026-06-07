@@ -417,18 +417,30 @@ async function callOpenAi(system: string, user: string): Promise<string> {
     err.status = 401;
     throw err;
   }
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      max_tokens: MAX_OUTPUT_TOKENS,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: MAX_OUTPUT_TOKENS,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (e: any) {
+    if (e?.name === "AbortError" || e?.name === "TimeoutError") {
+      log.warn("[humanize] OpenAI request timed out after 30s");
+      const err: any = new Error("OpenAI humanize request timed out after 30000ms");
+      err.status = 504;
+      throw err;
+    }
+    throw e;
+  }
   if (!res.ok) {
     const body = await res.text();
     const err: any = new Error(`OpenAI ${res.status}: ${body.slice(0, 200)}`);
@@ -446,7 +458,7 @@ async function callAnthropic(system: string, user: string): Promise<string> {
     err.status = 401;
     throw err;
   }
-  const client = new Anthropic({ apiKey: key });
+  const client = new Anthropic({ apiKey: key, timeout: 30_000 });
   const res = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: MAX_OUTPUT_TOKENS,

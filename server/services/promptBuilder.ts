@@ -302,23 +302,35 @@ export function renderOnboardingPatch(patch?: AIConfigPatch | null): string {
   if (!patch) return "";
   const parts: string[] = [];
 
+  // All fields below are owner-supplied onboarding answers — run every one
+  // through sanitizePromptData (strips injection framing, caps length) before
+  // it reaches the system prompt, matching the greeting/KB render path.
   if (patch.system_prompt_additions && patch.system_prompt_additions.trim()) {
-    parts.push(`\n=== CUSTOMER SETUP (from onboarding) ===\n${patch.system_prompt_additions.trim()}`);
+    const safeAdditions = sanitizePromptData(patch.system_prompt_additions, 1500);
+    if (safeAdditions) parts.push(`\n=== CUSTOMER SETUP (from onboarding) ===\n${safeAdditions}`);
   }
 
   if (patch.context_variables && Object.keys(patch.context_variables).length > 0) {
     const lines: string[] = ["\n=== CUSTOMER CONTEXT VARIABLES ==="];
     for (const [key, val] of Object.entries(patch.context_variables)) {
-      const display = Array.isArray(val) ? val.join(", ") : String(val);
-      lines.push(`- ${key}: ${display}`);
+      const safeKey = sanitizePromptData(key, 80);
+      const rawDisplay = Array.isArray(val) ? val.join(", ") : String(val);
+      const safeDisplay = sanitizePromptData(rawDisplay, 300);
+      if (safeKey) lines.push(`- ${safeKey}: ${safeDisplay}`);
     }
-    parts.push(lines.join("\n"));
+    if (lines.length > 1) parts.push(lines.join("\n"));
   }
 
   if (patch.knowledge_base_entries && patch.knowledge_base_entries.length > 0) {
     const lines: string[] = ["\n=== CUSTOMER-SPECIFIC KNOWLEDGE ==="];
     for (const entry of patch.knowledge_base_entries) {
-      lines.push(`\n[${entry.kind}] ${entry.title}\n${entry.content}`);
+      const safeKind = sanitizePromptData(String(entry.kind), 40);
+      const safeTitle = sanitizePromptData(entry.title, 200);
+      const safeContent = sanitizePromptData(
+        entry.content.length > 1500 ? entry.content.slice(0, 1500) + "…" : entry.content,
+        1500,
+      );
+      lines.push(`\n[${safeKind}] ${safeTitle}\n${safeContent}`);
     }
     parts.push(lines.join("\n"));
   }
@@ -992,10 +1004,10 @@ function buildTradeLinePrompt(ctx: TradeLineContext, onboardingPatch?: AIConfigP
   const safeServiceArea = ctx.serviceArea ? sanitizePromptData(ctx.serviceArea, 100) : "";
   parts.push(`You are the AI phone assistant for ${safeBusinessName}${safeTradeType ? `, a ${safeTradeType} business` : ""}${safeServiceArea ? ` serving ${safeServiceArea}` : ""}.`);
 
-  // W-AZ-3: append onboarding-derived patch so customer setup data reaches the
-  // voice prompt. Renders empty when no patch is supplied (preserves prior behavior).
+  // W-AZ-3: onboarding-derived patch (owner setup answers). Rendered once here
+  // and inserted AFTER the SAFETY_FLOOR below so this owner free-text can never
+  // sit above the absolute emergency rules. Sanitized inside renderOnboardingPatch.
   const patchBlock = renderOnboardingPatch(onboardingPatch);
-  if (patchBlock) parts.push(patchBlock);
 
   parts.push(`
 VOICE RULES:
@@ -1099,6 +1111,11 @@ ESTIMATES: You MAY give typical price RANGES and lead-time estimates, and do bas
   // (the floor wins any conflict). Adds the per-trade escalation specifics from
   // the vetted template (e.g. appliance gas-shutoff, electrical lost-neutral).
   parts.push(`\nTRADE-SPECIFIC ESCALATION (the EMERGENCY SAFETY rules above remain absolute and override anything here): ${template.escalationRules}`);
+
+  // Onboarding patch (owner setup answers) inserted here — AFTER the absolute
+  // SAFETY_FLOOR — so customer setup data reaches the voice prompt as DATA that
+  // sits beneath the emergency rules. Renders empty when no patch is supplied.
+  if (patchBlock) parts.push(patchBlock);
 
   // Wave W-AW-1: user-controlled knowledge base. Active entries are pulled at
   // call time and embedded here so the AI receptionist answers from the
