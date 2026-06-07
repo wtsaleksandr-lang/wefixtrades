@@ -456,7 +456,7 @@ export default function PortalContentFlow() {
   }
 
   const selected = useMemo(
-    () => listQuery.data?.prompts.find((p) => p.id === selectedId) ?? null,
+    () => listQuery.data?.prompts?.find((p) => p.id === selectedId) ?? null,
     [listQuery.data, selectedId],
   );
 
@@ -563,10 +563,10 @@ export default function PortalContentFlow() {
             />
 
             {/* Tag chips for the currently-filtered set. */}
-            {listQuery.data && listQuery.data.top_tags.length > 0 && (
+            {(listQuery.data?.top_tags?.length ?? 0) > 0 && (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tags</span>
-                {listQuery.data.top_tags.map((tag) => {
+                {listQuery.data?.top_tags?.map((tag) => {
                   const isActive = activeTag === tag;
                   return (
                     <button
@@ -611,7 +611,7 @@ export default function PortalContentFlow() {
           </div>
         ) : listQuery.isError ? (
           <Card className="p-6 text-sm text-destructive">Could not load the prompt library. Try again.</Card>
-        ) : (listQuery.data?.prompts.length ?? 0) === 0 ? (
+        ) : (listQuery.data?.prompts?.length ?? 0) === 0 ? (
           <Card className="p-6 text-sm text-muted-foreground">No prompts match those filters. Try clearing one.</Card>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
