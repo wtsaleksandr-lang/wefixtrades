@@ -242,6 +242,58 @@ export function StyledSelect({
         />
       </button>
 
+      {/* Trigger/label/caret layout — ALWAYS rendered (closed AND open) so
+          the CLOSED trigger stays a single inline row (label left, chevron
+          right, compact height) instead of falling back to bare
+          .premium-input. The popup/listbox rules stay gated below because
+          they only matter while open. */}
+      <style>{`
+        .qq-styled-select-trigger {
+          display: flex; align-items: center; justify-content: space-between;
+          width: 100%;
+          gap: 8px;
+          text-align: left;
+          cursor: pointer;
+        }
+        .qq-styled-select-trigger[disabled] {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .qq-styled-select-trigger-label {
+          flex: 1 1 auto;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .qq-styled-select-trigger-icon {
+          display: inline-flex;
+          align-items: center;
+        }
+        .qq-styled-select-trigger-caret {
+          flex: 0 0 auto;
+        }
+        [data-theme="light"] .qq-styled-select-trigger {
+          background: #f5f5f7;
+          color: #1d1d1f;
+        }
+        [data-theme="light"] .qq-styled-select-trigger-label.is-placeholder {
+          color: #6e6e73;
+        }
+        [data-theme="light"] .qq-styled-select-trigger-caret {
+          color: #6e6e73;
+        }
+        [data-theme="dark"] .qq-styled-select-trigger {
+          background: #0f172a;
+          color: #F9FAFB;
+        }
+        [data-theme="dark"] .qq-styled-select-trigger-label.is-placeholder {
+          color: #9CA3AF;
+        }
+      `}</style>
+
       {open && (
         <div
           data-theme={theme}
@@ -343,39 +395,6 @@ export function StyledSelect({
               as theme-aware. The selectors are unique enough to not bleed
               into the rest of the wizard. */}
           <style>{`
-            [data-theme="light"] .qq-styled-select-trigger {
-              display: flex; align-items: center; justify-content: space-between;
-              width: 100%;
-              gap: 8px;
-              text-align: left;
-              cursor: pointer;
-              background: #f5f5f7;
-              color: #1d1d1f;
-            }
-            [data-theme="light"] .qq-styled-select-trigger[disabled] {
-              opacity: 0.55;
-              cursor: not-allowed;
-            }
-            [data-theme="light"] .qq-styled-select-trigger-label {
-              flex: 1 1 auto;
-              overflow: hidden;
-              text-overflow: ellipsis;
-              white-space: nowrap;
-              display: inline-flex;
-              align-items: center;
-              gap: 6px;
-            }
-            [data-theme="light"] .qq-styled-select-trigger-label.is-placeholder {
-              color: #6e6e73;
-            }
-            [data-theme="light"] .qq-styled-select-trigger-icon {
-              display: inline-flex;
-              align-items: center;
-            }
-            [data-theme="light"] .qq-styled-select-trigger-caret {
-              flex: 0 0 auto;
-              color: #6e6e73;
-            }
             [data-theme="light"] .qq-styled-select-backdrop {
               position: fixed; inset: 0;
               background: rgba(15, 23, 42, 0.42);
@@ -513,18 +532,6 @@ export function StyledSelect({
 
             /* Dark theme mirror — kept slim; the editor scope is light-only
                today, but this lets host pages opt in without a refactor. */
-            [data-theme="dark"] .qq-styled-select-trigger {
-              display: flex; align-items: center; justify-content: space-between;
-              width: 100%;
-              gap: 8px;
-              text-align: left;
-              cursor: pointer;
-              background: #0f172a;
-              color: #F9FAFB;
-            }
-            [data-theme="dark"] .qq-styled-select-trigger-label.is-placeholder {
-              color: #9CA3AF;
-            }
             [data-theme="dark"] .qq-styled-select-backdrop {
               position: fixed; inset: 0;
               background: rgba(15, 23, 42, 0.6);

@@ -23,7 +23,7 @@ import { createPortal } from 'react-dom';
 import {
   MousePointerClick, Square, Type, Receipt,
   Layers, Box, Frame, CheckCircle2, XCircle,
-  Lock, Sparkles, ChevronRight,
+  Lock, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -65,6 +65,9 @@ import {
   Shield, ShieldCheck, CheckCircle, Award,
   Star, ThumbsUp, BadgeCheck, Verified, ClipboardCheck, Clock,
   Leaf, FileBadge, Plus, X as XIcon, ChevronUp, ChevronDown,
+  // FIX 5b — tradesperson/trust icon additions.
+  Wrench, Hammer, HardHat, Truck, Phone, MapPin, Calendar,
+  CreditCard, Heart, Users, Zap, Handshake,
 } from 'lucide-react';
 import { useFoldablePanels } from './useFoldablePanels';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
@@ -1580,11 +1583,16 @@ export default function StyleTab({
           line-height: 1.2;
           margin: 0;
         }
-        /* Hide RichTextField's own floating label inside this section only —
-         * we render an external one above the input instead. The compact
-         * preview still works; just the inside-the-field label is suppressed. */
+        /* The button-copy rows now use a plain compact text input (a caption
+         * is a one-line string, not rich text). The external
+         * .qq-button-copy-label above each input is the only label. This
+         * legacy rule (hiding RichTextField's in-field label) is retained as
+         * a no-op in case any other surface ever nests one here. */
         .qq-button-copy-row .qq-rtf-floating-label {
           display: none;
+        }
+        .qq-button-copy-input {
+          width: 100%;
         }
         .qq-style-grid {
           display: grid; gap: 10px;
@@ -2097,28 +2105,21 @@ export default function StyleTab({
         .qq-style-panel input[type="checkbox"] {
           accent-color: var(--qq-accent, ${p.colors.accent});
         }
-        /* BD-3f Item 3 — Brand Studio chevron picks up the accent too. The
-         * chevron is the most visible "dropdown arrow" surface in the
-         * StyleTab so Alex's feedback maps directly. (Range slider styling
-         * lives in SLIDER-1 block above — accent already wired via the
-         * --qq-slider-accent / --qq-accent fallback chain.) */
-        .qq-bs-chev {
-          color: var(--qq-accent, ${p.colors.muted}) !important;
-        }
-
         /* ── W-AO-6b — theme preset cards ────────────────────────── */
         .qq-style-preset-cards {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 8px;
+          /* FIX 6 — denser grid: 8px → 4px inter-card gap. */
+          gap: 4px;
         }
         @media (max-width: 480px) {
           .qq-style-preset-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         .qq-style-preset-card {
           display: flex; flex-direction: column; align-items: stretch;
-          gap: 4px;
-          padding: 6px;
+          /* FIX 6 — tighten internal spacing/padding so the grid reads denser. */
+          gap: 3px;
+          padding: 5px;
           background: #fff;
           border: 1px solid ${p.colors.borderLight};
           border-radius: 10px;
@@ -2152,7 +2153,9 @@ export default function StyleTab({
           letter-spacing: -0.02em;
         }
         .qq-style-preset-card-name {
-          font-size: 11px;
+          /* FIX 6 — names KEPT (they aid recognition) but smaller/tighter. */
+          font-size: 10px;
+          line-height: 1.2;
           font-weight: 600;
           color: ${p.colors.heading};
         }
@@ -2202,18 +2205,10 @@ export default function StyleTab({
 
         /* ── W-AO-6c — Brand Studio (Pro) ────────────────────────── */
         .qq-bs-group { position: relative; }
-        /* BD-3f Item 1 — header button fills the full legend row so the
-         * chevron lives at the far right and the title (with Lock + Pro
-         * pill) sits at the far left, matching the uniform section-title
-         * pattern. */
-        .qq-bs-header {
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 8px;
-          width: 100%; padding: 0;
-          background: transparent; border: none;
-          cursor: pointer; font: inherit; text-align: left;
-          color: inherit;
-        }
+        /* FIX 3 — the manual .qq-bs-header button + .qq-bs-chev chevron were
+         * removed; useFoldablePanels now owns Brand Studio's fold via the
+         * injected .qq-foldable-chevron (single chevron, single mechanism).
+         * Only the title style remains. */
         .qq-bs-header-title {
           display: inline-flex; align-items: center; gap: 6px;
           font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
@@ -2228,11 +2223,6 @@ export default function StyleTab({
           border-radius: 999px;
           text-transform: none;
         }
-        .qq-bs-chev {
-          color: ${p.colors.muted};
-          transition: transform 0.18s ease;
-        }
-        .qq-bs-chev.is-open { transform: rotate(90deg); }
         .qq-bs-body {
           display: flex; flex-direction: column; gap: 12px;
           margin-top: 14px;
@@ -2510,7 +2500,7 @@ function BrandStudioGroup({
   patch: (next: Partial<ShellStyle>) => void;
   isProTier: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  // FIX 3 — local open/setOpen removed; useFoldablePanels owns the fold.
   const bgImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const customCss = style.customCss ?? '';
@@ -2605,33 +2595,18 @@ function BrandStudioGroup({
       data-pro-tier={isProTier ? 'true' : 'false'}
     >
       <legend className="qq-style-legend">
-        <button
-          type="button"
-          className="qq-bs-header"
-          data-testid="style-bs-toggle"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span className="qq-bs-header-title">
-            {/* Wave 57 — Brand Studio is now a free-tier builder feature.
-             *  Lock icon + "Pro" pill removed per the strategic gating pivot
-             *  (builder-time customisation is unlimited; OUTCOME features
-             *  like the live "Powered by" badge stay paid). The
-             *  `isProTier` prop is force-true at the caller for the same
-             *  reason; we keep the data attribute for back-compat with
-             *  the audit-CSS in case anything still hooks `data-pro-tier`. */}
-            Brand Studio
-          </span>
-          <ChevronRight
-            size={14}
-            className={'qq-bs-chev' + (open ? ' is-open' : '')}
-            aria-hidden="true"
-          />
-        </button>
+        {/* FIX 3 — fold is owned solely by useFoldablePanels (it injects ONE
+         *  .qq-foldable-chevron into this legend and toggles via max-height,
+         *  exactly like every other fieldset). The former manual
+         *  <button.qq-bs-header> + <ChevronRight.qq-bs-chev> + local `open`
+         *  state produced a SECOND chevron and a second collapse mechanism.
+         *  Removed both; the legend is now a plain title like Theme/Typography.
+         *  Wave 57 — Lock icon + "Pro" pill already removed (builder-time
+         *  customisation is unlimited); `data-pro-tier` kept for back-compat. */}
+        <span className="qq-bs-header-title">Brand Studio</span>
       </legend>
 
-      {open && (
-        <div className="qq-style-group-body qq-bs-body">
+      <div className="qq-style-group-body qq-bs-body">
           {/* 1. Custom CSS */}
           <div className="qq-bs-sub" data-testid="style-bs-sub-customcss">
             {/* BD-3e Fix 4 — help cue added (was previously missing). */}
@@ -3171,7 +3146,6 @@ function BrandStudioGroup({
             {/* ── /BD-3l ── */}
           </div>
         </div>
-      )}
     </fieldset>
   );
 }
@@ -3547,6 +3521,16 @@ function BrandKitGroup({
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // On the token/preview (unauthenticated) page the server returns the
+      // SPA index.html (HTML, 200) instead of JSON. res.json() would then
+      // throw "Unexpected token '<'" and we'd surface a raw parser message.
+      // Guard on content-type: a non-JSON 200 means we're not really authed,
+      // so fall through to the unauthenticated/empty branch silently.
+      if (!res.headers.get('content-type')?.includes('application/json')) {
+        setKits(null);
+        setLoadState('unauthenticated');
+        return;
+      }
       const body = await res.json();
       setKits(Array.isArray(body?.kits) ? body.kits : []);
       setLoadState('ready');
@@ -4144,6 +4128,20 @@ const TRUST_ICON_OPTIONS: ReadonlyArray<{ id: TrustBadge['icon']; label: string;
   { id: 'clock', label: 'Clock', Icon: Clock },
   { id: 'leaf', label: 'Leaf', Icon: Leaf },
   { id: 'file-badge', label: 'File Badge', Icon: FileBadge },
+  // FIX 5b — tradesperson/trust additions. Keep in sync with the TrustBadge
+  // icon union (shared/templatePresets.ts) and ICON_MAP (TrustBadgeRow.tsx).
+  { id: 'wrench', label: 'Wrench', Icon: Wrench },
+  { id: 'hammer', label: 'Hammer', Icon: Hammer },
+  { id: 'hard-hat', label: 'Hard Hat', Icon: HardHat },
+  { id: 'truck', label: 'Truck', Icon: Truck },
+  { id: 'phone', label: 'Phone', Icon: Phone },
+  { id: 'map-pin', label: 'Map Pin', Icon: MapPin },
+  { id: 'calendar', label: 'Calendar', Icon: Calendar },
+  { id: 'credit-card', label: 'Credit Card', Icon: CreditCard },
+  { id: 'heart', label: 'Heart', Icon: Heart },
+  { id: 'users', label: 'Users', Icon: Users },
+  { id: 'zap', label: 'Zap', Icon: Zap },
+  { id: 'handshake', label: 'Handshake', Icon: Handshake },
 ];
 
 const TRUST_BADGE_MAX = 8;
@@ -4257,22 +4255,68 @@ function TrustBadgesGroup({
               >
                 {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; up to 8 of
                     these render simultaneously on a single Trust badges panel,
-                    so the OS-sheet-covers-wizard bug was amplified here. */}
+                    so the OS-sheet-covers-wizard bug was amplified here.
+                    FIX 5a — wrapped in FloatField (variant="select") so the
+                    "Icon" title sits TOP-LEFT and the closed trigger is a
+                    compact single row (combined with the StyledSelect
+                    closed-trigger layout fix). */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <StyledSelect
-                    value={badge.icon}
-                    onChange={(next) => update(i, { icon: next as TrustBadge['icon'] })}
-                    options={TRUST_ICON_OPTIONS.map((o) => ({
-                      value: o.id,
-                      label: o.label,
-                      icon: <o.Icon size={14} aria-hidden="true" />,
-                    }))}
-                    title="Badge icon"
-                    ariaLabel={`Badge icon for row ${i + 1}`}
-                    disabled={!canEdit}
-                    testId={`style-trust-badge-icon-${i}`}
-                  />
+                  <FloatField
+                    variant="select"
+                    label="Icon"
+                    htmlFor={`style-trust-badge-icon-${i}`}
+                  >
+                    <StyledSelect
+                      value={badge.icon}
+                      onChange={(next) => update(i, { icon: next as TrustBadge['icon'] })}
+                      options={TRUST_ICON_OPTIONS.map((o) => ({
+                        value: o.id,
+                        label: o.label,
+                        icon: <o.Icon size={14} aria-hidden="true" />,
+                      }))}
+                      title="Badge icon"
+                      ariaLabel={`Badge icon for row ${i + 1}`}
+                      disabled={!canEdit}
+                      testId={`style-trust-badge-icon-${i}`}
+                    />
+                  </FloatField>
                 </div>
+                {/* FIX 5c — optional per-badge icon colour. Native colour
+                    input kept compact; clearing back to default is handled by
+                    the adjacent reset button. Defaults to the brand accent in
+                    the picker UI but only persists `color` once the user
+                    actually changes it (so untouched badges stay default). */}
+                <input
+                  type="color"
+                  aria-label={`Icon colour for badge ${i + 1}`}
+                  data-testid={`style-trust-badge-color-${i}`}
+                  value={badge.color || platformTheme.colors.accent}
+                  onChange={(e) => update(i, { color: e.target.value })}
+                  disabled={!canEdit}
+                  style={{
+                    width: 22, height: 22, padding: 0,
+                    border: `1px solid ${platformTheme.colors.borderLight}`,
+                    borderRadius: 6,
+                    background: '#fff',
+                    cursor: canEdit ? 'pointer' : 'not-allowed',
+                    opacity: canEdit ? 1 : 0.4,
+                    flexShrink: 0,
+                  }}
+                  title="Icon colour"
+                />
+                {badge.color && (
+                  <button
+                    type="button"
+                    aria-label={`Reset icon colour for badge ${i + 1} to default`}
+                    data-testid={`style-trust-badge-color-reset-${i}`}
+                    onClick={() => update(i, { color: undefined })}
+                    disabled={!canEdit}
+                    style={trustBadgeIconBtn(canEdit)}
+                    title="Reset icon colour"
+                  >
+                    <XIcon size={12} aria-hidden="true" />
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label={`Move badge ${i + 1} up`}
@@ -4431,18 +4475,22 @@ function ButtonCopyGroup({
               >
                 {row.label}
               </label>
-              <RichTextField
-                label={row.label}
-                htmlFor={row.testid}
+              {/* A button caption is a plain one-line string. The previous
+                  RichTextField (WYSIWYG B/I/U/font/color/emoji/image with
+                  expansionMode="inline") was wrong for this — it kept a
+                  preview input AND folded the editor open, producing the
+                  "BACK twice" + clipped-box bug. A plain compact text input
+                  bound to the same setter is the correct control. The
+                  external <label class="qq-button-copy-label"> above stays. */}
+              <input
+                id={row.testid}
+                type="text"
+                className="premium-input qq-button-copy-input"
                 value={current[row.key] ?? ''}
-                onChange={(next) => setField(row.key, next)}
+                onChange={(e) => setField(row.key, e.target.value)}
                 placeholder={row.placeholder}
-                testid={row.testid}
-                compact
-                // P2 UX — 5 stacked button-copy rows; overlay variant
-                // covers the next row's label when one is being edited.
-                // Inline mode folds the editor down between rows.
-                expansionMode="inline"
+                data-testid={row.testid}
+                disabled={!isProTier}
               />
             </div>
           ))}

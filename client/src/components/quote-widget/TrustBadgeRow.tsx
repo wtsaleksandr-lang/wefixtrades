@@ -17,6 +17,9 @@ import { motion } from 'framer-motion';
 import {
   Shield, ShieldCheck, CheckCircle, CheckCircle2, Award, Lock, Star,
   ThumbsUp, BadgeCheck, Verified, ClipboardCheck, Clock, Leaf, FileBadge, X,
+  // FIX 5b — tradesperson/trust icon additions.
+  Wrench, Hammer, HardHat, Truck, Phone, MapPin, Calendar,
+  CreditCard, Heart, Users, Zap, Handshake,
 } from 'lucide-react';
 import type { TrustBadge, BusinessProfile } from '@shared/templatePresets';
 import type { WidgetTheme } from './widgetThemes';
@@ -43,6 +46,20 @@ const ICON_MAP = {
   'clock': Clock,
   'leaf': Leaf,
   'file-badge': FileBadge,
+  // FIX 5b — tradesperson/trust additions. Keep in sync with the TrustBadge
+  // icon union (shared/templatePresets.ts) and TRUST_ICON_OPTIONS (StyleTab.tsx).
+  'wrench': Wrench,
+  'hammer': Hammer,
+  'hard-hat': HardHat,
+  'truck': Truck,
+  'phone': Phone,
+  'map-pin': MapPin,
+  'calendar': Calendar,
+  'credit-card': CreditCard,
+  'heart': Heart,
+  'users': Users,
+  'zap': Zap,
+  'handshake': Handshake,
 } as const;
 
 function isDarkSurface(color: string): boolean {
@@ -271,7 +288,15 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
               setOpen({ i, anchor: { cx: r.left + r.width / 2, bottom: r.bottom } });
             }}
           >
-            <Icon size={14} aria-hidden="true" color="currentColor" strokeWidth={2} />
+            {/* FIX 5c — honour the optional per-badge icon colour; fall back
+                to currentColor (the chip's text colour) when unset so existing
+                badges look identical. */}
+            <Icon
+              size={14}
+              aria-hidden="true"
+              color={badge.color || 'currentColor'}
+              strokeWidth={2}
+            />
             {badge.label}
           </button>
         );

@@ -853,7 +853,11 @@
 }
 .qq-info-cue-popover {
   position: fixed;
-  z-index: 2000;
+  /* FIX 7 — was 2000, which paints BEHIND the opaque mobile editor sheet
+   * (.qq-sheet, z-index 9998) and the tab bar (9999), so help cues were
+   * invisible on mobile. Lift to 10000 (matches StyledSelect's popup, which
+   * already does this for the same reason) so the popover sits above both. */
+  z-index: 10000;
   width: 280px; max-width: calc(100vw - 32px);
   padding: 10px 12px;
   background: var(--popover-bg-light);
