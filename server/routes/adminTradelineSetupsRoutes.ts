@@ -21,6 +21,7 @@ import { tradelinePhoneSetups, clients } from "@shared/schema";
 import { portStatusSchema } from "@shared/schema";
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { provisionNumber } from "../services/tradelineSetup/provisionNumber";
+import { releaseTwilioNumber } from "../services/twilioNumberRelease";
 import { createLogger } from "../lib/logger";
 import { writeAudit } from "../lib/auditLog";
 import { translatePortRejection, listKnownRejections } from "../services/tradelineSetup/portRejectionTranslator";
@@ -31,6 +32,57 @@ const log = createLogger("AdminTradelineSetups");
 
 const TRADELINE_MODES = ["new", "forward", "port"] as const;
 type Mode = (typeof TRADELINE_MODES)[number];
+
+/**
+ * Release the Twilio number a setup row owns (if any) and null out the
+ * stored SID/number so it isn't double-released or treated as live.
+ *
+ * Call this AFTER the row's terminal status flip on any cancel/abandon path.
+ * Safe to call when the row has no `assigned_number_sid` (no-op). Audit-logs
+ * the release with actor + SID via the same writeAudit pattern the handlers
+ * use. Non-throwing: a Twilio failure is logged inside releaseTwilioNumber
+ * and surfaced in the audit metadata, never propagated to the response.
+ *
+ * `row` only needs `id`, `assigned_number`, and `assigned_number_sid`; we
+ * accept the broader select type for convenience.
+ */
+async function releaseAssignedNumberIfPresent(
+  row: { assigned_number_sid?: string | null; assigned_number?: string | null },
+  id: number,
+  req: Request,
+  context: string,
+): Promise<void> {
+  const sid = row.assigned_number_sid?.trim();
+  if (!sid) return;
+
+  const result = await releaseTwilioNumber(sid);
+
+  // Only clear the stored SID/number once Twilio confirms it's gone (released
+  // now or already absent). On a hard failure we KEEP the SID so a later
+  // reconciliation/retry can still find and release it.
+  if (result.released) {
+    await db
+      .update(tradelinePhoneSetups)
+      .set({ assigned_number: null, assigned_number_sid: null, updated_at: new Date() })
+      .where(eq(tradelinePhoneSetups.id, id));
+  }
+
+  writeAudit({
+    actorId: (req.user as any)?.id ? String((req.user as any).id) : null,
+    actorType: "admin",
+    action: "tradeline_number_released",
+    entityType: "tradeline_phone_setup",
+    entityId: String(id),
+    metadata: {
+      context,
+      sid,
+      released: result.released,
+      already_gone: result.alreadyGone ?? false,
+      ...(result.error ? { error: result.error } : {}),
+    },
+    req,
+  });
+}
 
 export function registerAdminTradelineSetupsRoutes(app: Express) {
   /* ─── KPI strip ─── */
@@ -232,6 +284,23 @@ export function registerAdminTradelineSetupsRoutes(app: Express) {
               updated_at: new Date(),
             })
             .where(eq(tradelinePhoneSetups.id, id));
+          writeAudit({
+            actorId: (req.user as any)?.id ? String((req.user as any).id) : null,
+            actorType: "admin",
+            action: "tradeline_retry_provision",
+            entityType: "tradeline_phone_setup",
+            entityId: String(id),
+            metadata: {
+              outcome: "provisioned",
+              from_status: row.provisioning_status,
+              to_status: "provisioned",
+              number: result.number,
+              sid: result.sid,
+              countryCode,
+              preference,
+            },
+            req,
+          });
           return res.json({
             ok: true,
             provisioned: true,
@@ -249,6 +318,22 @@ export function registerAdminTradelineSetupsRoutes(app: Express) {
               updated_at: new Date(),
             })
             .where(eq(tradelinePhoneSetups.id, id));
+          writeAudit({
+            actorId: (req.user as any)?.id ? String((req.user as any).id) : null,
+            actorType: "admin",
+            action: "tradeline_retry_provision",
+            entityType: "tradeline_phone_setup",
+            entityId: String(id),
+            metadata: {
+              outcome: "queued",
+              from_status: row.provisioning_status,
+              to_status: "queued",
+              reason: result.reason,
+              countryCode,
+              preference,
+            },
+            req,
+          });
           return res.json({ ok: true, provisioned: false, queued: true, reason: result.reason });
         }
 
@@ -260,6 +345,22 @@ export function registerAdminTradelineSetupsRoutes(app: Express) {
             updated_at: new Date(),
           })
           .where(eq(tradelinePhoneSetups.id, id));
+        writeAudit({
+          actorId: (req.user as any)?.id ? String((req.user as any).id) : null,
+          actorType: "admin",
+          action: "tradeline_retry_provision",
+          entityType: "tradeline_phone_setup",
+          entityId: String(id),
+          metadata: {
+            outcome: "failed",
+            from_status: row.provisioning_status,
+            to_status: "failed",
+            error: result.error,
+            countryCode,
+            preference,
+          },
+          req,
+        });
         return res.status(502).json({ ok: false, error: result.error });
       } catch (err) {
         log.error("retry-provision failed", { err: (err as Error).message });
@@ -304,6 +405,23 @@ export function registerAdminTradelineSetupsRoutes(app: Express) {
             updated_at: new Date(),
           })
           .where(eq(tradelinePhoneSetups.id, id));
+
+        writeAudit({
+          actorId: (req.user as any)?.id ? String((req.user as any).id) : null,
+          actorType: "admin",
+          action: "tradeline_mark_port_status",
+          entityType: "tradeline_phone_setup",
+          entityId: String(id),
+          metadata: {
+            from_status: row.port_status,
+            to_status: parsed.data.status,
+            terminal: isTerminal,
+            ...(parsed.data.status === "rejected"
+              ? { reason: parsed.data.rejectionReason ?? null }
+              : {}),
+          },
+          req,
+        });
 
         return res.json({ ok: true });
       } catch (err) {
@@ -400,6 +518,13 @@ export function registerAdminTradelineSetupsRoutes(app: Express) {
           metadata: { reason: parsed.data.reason ?? null, from_status: row.port_status },
           req,
         });
+
+        // Cost-leak plug: if this setup owns a provisioned Twilio number,
+        // release it back to Twilio AFTER the DB status flip so a churned
+        // tradeline stops billing. Idempotent + non-blocking — see
+        // releaseTwilioNumber. Audit-log the release with actor + SID.
+        await releaseAssignedNumberIfPresent(row, id, req, "force_cancel");
+
         return res.json({ ok: true });
       } catch (err) {
         log.error("force-cancel failed", { err: (err as Error).message });
@@ -445,7 +570,7 @@ export function registerAdminTradelineSetupsRoutes(app: Express) {
 
         return res.json({ ok: true });
       } catch (err) {
-        log.error("force-complete failed", { err: (req as any).message });
+        log.error("force-complete failed", { err: (err as Error).message });
         res.status(500).json({ error: "Force complete failed" });
       }
     },
