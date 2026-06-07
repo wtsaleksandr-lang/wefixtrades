@@ -99,7 +99,14 @@ const hoursBody = z.object({
 const badgeSchema = z.object({
   slug: z.string().min(1).max(64),
   label: z.string().min(1).max(120),
-  proofUrl: z.string().url().max(500).optional(),
+  proofUrl: z
+    .string()
+    .url()
+    .max(500)
+    .refine((u) => /^https?:\/\//i.test(u), {
+      message: "Proof URL must start with http:// or https://",
+    })
+    .optional(),
   valueText: z.string().max(120).optional(),
 });
 
