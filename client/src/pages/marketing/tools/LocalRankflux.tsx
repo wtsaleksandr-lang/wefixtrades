@@ -101,8 +101,11 @@ const SCORE_BAND_COLORS = {
 } as const;
 
 function colorForScore10(score10: number): string {
+  // Color boundaries MUST match the band-label boundaries (HIGH ≥8, MEDIUM
+  // 3–8, LOW <3) so a bar's colour never disagrees with its printed band.
+  // The old intermediate orange step at ≥6 turned bars orange while the label
+  // still read MEDIUM — removed for a single consistent rubric.
   if (score10 >= 8) return SCORE_BAND_COLORS.HIGH;
-  if (score10 >= 6) return "#F97316";
   if (score10 >= 3) return SCORE_BAND_COLORS.MEDIUM;
   return SCORE_BAND_COLORS.LOW;
 }
@@ -156,7 +159,7 @@ export default function LocalRankflux() {
           <>
             <VolatilityGauge score10={data.todayScore as number} />
             <div style={{ fontSize: 13, color: "rgba(0,0,0,0.5)", marginTop: 6 }}>
-              {new Date(data.todayDate as string).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+              {new Date(data.todayDate as string).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}
               {" · "}
               <a href={data.sourceUrl} target="_blank" rel="noreferrer noopener" style={{ color: "rgba(0,0,0,0.55)", textDecoration: "underline" }}>
                 source: MozCast <ExternalLink size={12} style={{ display: "inline-block", verticalAlign: "middle" }} />
@@ -206,7 +209,11 @@ export default function LocalRankflux() {
               const heightPct = Math.max(8, Math.min(100, d.scorePct));
               const bandColor = colorForScore10(d.score);
               const dt = new Date(d.date);
-              const dayOfWeek = dt.toLocaleDateString(undefined, { weekday: "short" });
+              // All three date renderings on this page use UTC so the weekday,
+              // the day-number, and the gauge subtitle agree. `d.date` is a
+              // yyyy-mm-dd (UTC) string; mixing getUTCDate() with a local
+              // toLocaleDateString() previously shifted the weekday a day back.
+              const dayOfWeek = dt.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
               const dayOfMonth = dt.getUTCDate();
               return (
                 <button
@@ -265,7 +272,7 @@ export default function LocalRankflux() {
               }}
               data-testid="rankflux-selected-day"
             >
-              <strong>{new Date(selectedDay.date).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "short", day: "numeric" })}</strong>
+              <strong>{new Date(selectedDay.date).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })}</strong>
               {" — "}
               MozCast {selectedDay.score.toFixed(1)}/10 ({selectedDay.band}).{" "}
               {selectedDay.band === "HIGH"
@@ -331,8 +338,8 @@ export default function LocalRankflux() {
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>How to read the bands</h2>
         <ul style={{ paddingLeft: 20 }}>
           <li><strong>LOW (0-3)</strong>: Algorithm is quiet. If your ranking dropped, look at your own profile / competitors.</li>
-          <li><strong>MEDIUM (3-6)</strong>: Normal day-to-day churn. Some movement, nothing to panic about.</li>
-          <li><strong>HIGH (6-10)</strong>: Likely a Google update in progress. Hold steady — wait 3-7 days for things to settle before changing your profile.</li>
+          <li><strong>MEDIUM (3-8)</strong>: Normal day-to-day churn. Some movement, nothing to panic about.</li>
+          <li><strong>HIGH (8-10)</strong>: Likely a Google update in progress. Hold steady — wait 3-7 days for things to settle before changing your profile.</li>
         </ul>
 
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>Want to track YOUR rankings?</h2>
@@ -382,14 +389,14 @@ function VolatilityGauge({ score10 }: { score10: number }) {
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }} data-testid="rankflux-gauge">
       <svg viewBox="0 0 240 150" width="220" height="138" aria-label={`Volatility gauge ${safeScore.toFixed(1)} of 10`} role="img">
         {/* Band arcs — paint each band as a thick stroked arc, segmented
-            green / yellow / orange / red across the 0..180° half-circle. */}
+            green / amber / red across the 0..180° half-circle. Boundaries
+            match the band-label rubric exactly: LOW 0–3, MEDIUM 3–8, HIGH 8–10. */}
         <GaugeArc startScore={0} endScore={3} color={SCORE_BAND_COLORS.LOW} />
-        <GaugeArc startScore={3} endScore={6} color={SCORE_BAND_COLORS.MEDIUM} />
-        <GaugeArc startScore={6} endScore={8} color="#F97316" />
+        <GaugeArc startScore={3} endScore={8} color={SCORE_BAND_COLORS.MEDIUM} />
         <GaugeArc startScore={8} endScore={10} color={SCORE_BAND_COLORS.HIGH} />
 
-        {/* Tick labels at 0, 3, 6, 8, 10. */}
-        {[0, 3, 6, 8, 10].map((v) => {
+        {/* Tick labels at the band boundaries: 0, 3, 8, 10. */}
+        {[0, 3, 8, 10].map((v) => {
           const a = (-180 + (v / 10) * 180) * (Math.PI / 180);
           const x = 120 + 110 * Math.cos(a);
           const y = 130 + 110 * Math.sin(a);

@@ -212,7 +212,12 @@ async function localSearchCheckerHandler(req: Request, res: Response) {
           address: p.address || "",
           rating: p.rating ?? null,
           reviewsCount: p.reviewCount ?? null,
-          gbpUrl: p.placeId ? `https://www.google.com/maps?cid=${p.placeId}` : null,
+          // The provider returns an opaque ChIJ… Place ID, NOT a numeric CID,
+          // so `maps?cid=<placeId>` was a malformed link. The correct Place
+          // ID-based deep link uses the Maps Search API query_place_id param.
+          gbpUrl: p.placeId
+            ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.title || "")}&query_place_id=${encodeURIComponent(p.placeId)}`
+            : null,
           phone: null,
         }))
       : [];
@@ -250,21 +255,24 @@ async function citationCheckerHandler(req: Request, res: Response) {
   if (!rateOk("citation", req, res)) return;
   const businessName = strField(req.body?.businessName, 120);
   const city = strField(req.body?.city, 80);
-  const phone = strField(req.body?.phone, 30);
+  // phone is accepted by the form but intentionally not used to gate the
+  // citation query (see queryParts note below) — reading it would be dead code.
   if (!businessName) {
     return res.status(400).json({ ok: false, error: "Missing businessName." });
   }
 
   const checks = CITATION_SOURCES.map(async (src) => {
-    // `site:<domain> "<name>" <city>` — phone added only if supplied. We
-    // accept the first organic hit on that domain as confirmation; the
-    // disclaimer below makes clear this is a quick check, not the full
-    // 50+ directory sweep that the paid audit runs.
+    // `site:<domain> "<name>" <city>` — phone is intentionally NOT ANDed into
+    // the query. Directory result snippets rarely contain the literal phone
+    // string, so requiring it as an AND term dropped legitimate matches
+    // (~9/10 → ~3/10). The phone field is "optional, helps matching" only — it
+    // must never shrink the citation count. We accept the first organic hit on
+    // that domain as confirmation; the disclaimer below makes clear this is a
+    // quick check, not the full 50+ directory sweep that the paid audit runs.
     const queryParts = [
       `site:${src.domain}`,
       `"${businessName}"`,
       city,
-      phone,
     ].filter(Boolean);
     const q = queryParts.join(" ");
     try {
@@ -781,6 +789,12 @@ async function localRankGridHandler(req: Request, res: Response) {
         ]);
         const search = searchResp.status === "fulfilled" ? searchResp.value : null;
         const maps = mapsResp.status === "fulfilled" ? mapsResp.value : null;
+        // If BOTH provider calls failed (rejected), this point couldn't be
+        // checked at all — almost always Serper-maps throttling on 25 parallel
+        // calls. That's "unavailable", NOT a genuine ranking gap, so it must be
+        // excluded from the dead-zone / missed count rather than counted as a
+        // loss. If at least one call fulfilled, we have real data for the point.
+        const unavailable = search === null && maps === null;
         let rank: number | null = null;
         const organic = search?.organic ?? [];
         for (let i = 0; i < organic.length && i < 20; i++) {
@@ -803,9 +817,16 @@ async function localRankGridHandler(req: Request, res: Response) {
           rating: typeof p.rating === "number" ? p.rating : null,
           reviewsCount: typeof p.reviewCount === "number" ? p.reviewCount : null,
         }));
-        return { lat: pt.lat, lng: pt.lng, rank, mapRank, topResults };
+        const status: "ranked" | "not-found" | "unavailable" = unavailable
+          ? "unavailable"
+          : (rank ?? mapRank) != null
+            ? "ranked"
+            : "not-found";
+        return { lat: pt.lat, lng: pt.lng, rank, mapRank, status, topResults };
       } catch {
-        return { lat: pt.lat, lng: pt.lng, rank: null as number | null, mapRank: null as number | null, topResults: [] as Array<{ rank: number; name: string; rating: number | null; reviewsCount: number | null }> };
+        // The whole point errored — treat as unavailable (couldn't check),
+        // not as a ranking gap.
+        return { lat: pt.lat, lng: pt.lng, rank: null as number | null, mapRank: null as number | null, status: "unavailable" as "ranked" | "not-found" | "unavailable", topResults: [] as Array<{ rank: number; name: string; rating: number | null; reviewsCount: number | null }> };
       }
     }),
   );
@@ -817,7 +838,12 @@ async function localRankGridHandler(req: Request, res: Response) {
   const found = effective.filter((r): r is number => r != null);
   const avgRank = found.length ? found.reduce((a, b) => a + b, 0) / found.length : null;
   const top3Count = found.filter((r) => r <= 3).length;
-  const missedCount = points.length - found.length;
+  // "Dead zones" = points we successfully checked where the business does NOT
+  // rank. Points that couldn't be checked (provider throttle/error) are tracked
+  // separately as `unavailable` and MUST NOT inflate the missed/dead-zone count.
+  const unavailableCount = points.filter((p) => p.status === "unavailable").length;
+  const missedCount = points.filter((p) => p.status === "not-found").length;
+  const checkedCount = points.length - unavailableCount;
 
   // Wave 6A — aggregate the most-frequent #1 businesses across all 25
   // grid points to build the "Who's outranking you nearby" sidebar.
@@ -861,7 +887,7 @@ async function localRankGridHandler(req: Request, res: Response) {
     keyword,
     center: { lat: geo.lat, lng: geo.lng, address: geo.address },
     gridPoints: points,
-    summary: { avgRank, top3Count, missedCount },
+    summary: { avgRank, top3Count, missedCount, unavailableCount, checkedCount, totalPoints: points.length },
     competitors,
   });
 }
@@ -928,6 +954,37 @@ async function localSerpCheckHandler(req: Request, res: Response) {
       reviewCount: typeof p.reviewCount === "number" ? p.reviewCount : undefined,
       address: p.address || undefined,
     }));
+
+    // Relevance gate (Wave — credibility fix). A generic non-result query
+    // (e.g. "asdkjfh@@@") makes the Serper free-tier fall back to an unrelated
+    // top-10. Showing that as a confident result is dishonest. For the web
+    // engine, require non-trivial token overlap between the query terms and the
+    // returned titles/snippets; if there's effectively none, return a
+    // low-confidence empty state so the client renders its "no results" panel
+    // instead of a fabricated count banner. (Maps/local-pack is name-matched by
+    // the provider already, so we only gate the organic web engine.)
+    let lowConfidence = false;
+    if (engine === "search" && organic.length > 0) {
+      const queryTokens = new Set(
+        query
+          .toLowerCase()
+          .split(/[^a-z0-9]+/i)
+          .filter((t) => t.length >= 3),
+      );
+      if (queryTokens.size > 0) {
+        const haystack = organic
+          .map((o) => `${o.title} ${o.snippet} ${o.displayedLink}`.toLowerCase())
+          .join(" ");
+        const haystackTokens = new Set(haystack.split(/[^a-z0-9]+/i).filter(Boolean));
+        let overlap = 0;
+        for (const t of queryTokens) if (haystackTokens.has(t)) overlap += 1;
+        // If not a single meaningful query token appears anywhere in the
+        // returned result set, the provider returned generic filler.
+        if (overlap === 0) lowConfidence = true;
+      }
+    }
+    const safeOrganic = lowConfidence ? [] : organic;
+
     return res.json({
       ok: true,
       query,
@@ -935,11 +992,12 @@ async function localSerpCheckHandler(req: Request, res: Response) {
       country,
       language,
       engine,
-      organic,
+      organic: safeOrganic,
       localPack,
+      lowConfidence,
       provider: result.provider,
       cached: !!result.cached,
-      totalResults: result.totalResults,
+      totalResults: lowConfidence ? 0 : result.totalResults,
     });
   } catch (err: any) {
     log.warn("[local-serp-check] orchestrator failed", { error: err?.message || String(err) });
