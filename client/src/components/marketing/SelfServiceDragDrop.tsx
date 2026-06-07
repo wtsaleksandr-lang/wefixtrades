@@ -1264,7 +1264,14 @@ function CheckoutWrap({
 }) {
   return (
     <div
-      aria-hidden={!visible}
+      // When hidden the overlay is invisible (opacity 0) but still in the DOM,
+      // so its inputs/buttons would otherwise stay in the tab order while the
+      // subtree is removed from the a11y tree — the exact `aria-hidden-focus`
+      // violation. `inert` (native) makes the whole subtree non-focusable AND
+      // removes it from the a11y tree, so it supersedes aria-hidden here. When
+      // visible, no inert is applied so the real checkout is fully accessible.
+      // Spread-applied because `inert` isn't typed on React 18's JSX props.
+      {...(!visible ? { inert: "" } : {})}
       style={{
         position: "absolute",
         inset: 0,

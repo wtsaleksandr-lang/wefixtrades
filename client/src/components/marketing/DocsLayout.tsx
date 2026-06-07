@@ -48,7 +48,10 @@ export function CodeBlock({ code, lang = "html" }: { code: string; lang?: string
     <div
       data-testid="code-block"
       data-theme="dark"
-      style={{ background: C.codeBase, borderRadius: 12, overflow: "hidden", margin: "16px 0", fontSize: 13 }}
+      // maxWidth/minWidth cap the block to the content column so a long code
+      // line scrolls inside the <pre> instead of widening the document on
+      // mobile (375px overflowed +87–230px across docs pages).
+      style={{ background: C.codeBase, borderRadius: 12, overflow: "hidden", margin: "16px 0", fontSize: 13, maxWidth: "100%", minWidth: 0 }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 16px", background: C.codeHeader, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <span style={{ color: "#94A3B8", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>{lang}</span>
@@ -61,7 +64,7 @@ export function CodeBlock({ code, lang = "html" }: { code: string; lang?: string
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      <pre style={{ padding: "18px 20px", margin: 0, color: "#E2E8F0", overflowX: "auto", fontFamily: "ui-monospace, SFMono-Regular, monospace", lineHeight: 1.6, whiteSpace: "pre" as const }}>
+      <pre tabIndex={0} style={{ padding: "18px 20px", margin: 0, color: "#E2E8F0", overflowX: "auto", fontFamily: "ui-monospace, SFMono-Regular, monospace", lineHeight: 1.6, whiteSpace: "pre" as const }}>
         <code>{code}</code>
       </pre>
     </div>

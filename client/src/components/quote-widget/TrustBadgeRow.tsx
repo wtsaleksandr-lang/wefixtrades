@@ -191,7 +191,10 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
     `linear-gradient(to right, transparent 0, ${maskOpaque} 14px, ${maskOpaque} calc(100% - 22px), transparent 100%)`;
   const rowStyle: CSSProperties = {
     display: 'flex',
-    flexWrap: 'nowrap',
+    // Wrap to multiple rows so chips never push the widget/page past the
+    // viewport on narrow screens (mobile overflowed by up to +296px when this
+    // was a single nowrap row). Children carry minWidth:0 so they can shrink.
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 6,
@@ -200,6 +203,7 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
     fontFamily,
     minWidth: 0,
     maxWidth: '100%',
+    boxSizing: 'border-box',
     overflowX: 'auto',
     overflowY: 'hidden',
     scrollbarWidth: 'none',
@@ -222,6 +226,12 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
     fontWeight: 500,
     whiteSpace: 'nowrap',
     flexShrink: 0,
+    // Cap a pathologically long single chip to the row width so it can never
+    // push past the viewport (label ellipsises instead of overflowing).
+    maxWidth: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
     lineHeight: 1.2,
     cursor: 'pointer',
     fontFamily: 'inherit',

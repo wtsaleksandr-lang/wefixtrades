@@ -209,8 +209,10 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
               gap: 64, alignItems: "center",
             }}
           >
-            {/* Left text */}
-            <div>
+            {/* Left text — minWidth:0 lets this 1fr track shrink below its
+                content's min-content width instead of widening the grid past
+                the viewport (grid items default to min-width:auto). */}
+            <div style={{ minWidth: 0 }}>
               {/* Badge */}
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
@@ -272,9 +274,10 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
               </div>
             </div>
 
-            {/* Right mockup */}
-            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-              <div className="mkt-float" style={{ width: "100%", maxWidth: 420, display: "flex", justifyContent: "flex-end" }}>
+            {/* Right mockup — minWidth:0 so the mockup's intrinsic min-content
+                width can't force this 1fr track (and the grid) past 1200px. */}
+            <div style={{ minWidth: 0, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+              <div className="mkt-float" style={{ width: "100%", maxWidth: 420, minWidth: 0, display: "flex", justifyContent: "flex-end" }}>
                 <Mockup />
               </div>
             </div>
@@ -306,13 +309,16 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 gap: 80, alignItems: "center",
               }}
             >
-              {/* Mockup */}
-              <div data-reveal="fade-left" style={{ display: "flex", justifyContent: "center" }}>
+              {/* Mockup — minWidth:0 stops the mockup's min-content width from
+                  widening this 1fr track past the 1200px row (the 80px column
+                  gap leaves no slack), which was pushing the demo section — and
+                  the page wrapper — wider than the viewport. */}
+              <div data-reveal="fade-left" style={{ minWidth: 0, display: "flex", justifyContent: "center" }}>
                 <Mockup />
               </div>
 
               {/* Text */}
-              <div data-reveal="fade-right">
+              <div data-reveal="fade-right" style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: demo.bulletColor, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                   {demo.label}
                 </div>
@@ -375,6 +381,9 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                   style={{
                     background: C.bg, border: `1px solid ${C.border}`,
                     borderRadius: 16, padding: "32px 24px", boxShadow: SHADOW.card,
+                    // minWidth:0 so a long unbroken word in the body can't push
+                    // the card (and the grid) wider than its column on mobile.
+                    minWidth: 0,
                   }}
                 >
                   <div style={{ width: 52, height: 52, borderRadius: 14, background: bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
@@ -415,10 +424,16 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 position: "relative",
               }}
             >
-              {/* Connecting line */}
+              {/* Connecting line — inset by half a column on each side so it
+                  spans from the centre of the first step circle to the centre
+                  of the last. `steps.length` is interpolated into the calc()
+                  here; previously it was a literal string ("steps.length"
+                  inside the quotes), which is invalid CSS, so left/right fell
+                  back to auto and the line was mispositioned. */}
               <div className="step-line" style={{
-                position: "absolute", top: 31, left: "calc(100% / (2 * steps.length))",
-                right: "calc(100% / (2 * steps.length))",
+                position: "absolute", top: 31,
+                left: `calc(100% / (2 * ${steps.length}))`,
+                right: `calc(100% / (2 * ${steps.length}))`,
                 height: 2,
                 background: `linear-gradient(90deg, transparent, ${C.border}, transparent)`,
                 pointerEvents: "none",
@@ -431,7 +446,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                   data-testid={`step-${num}`}
                   data-reveal="fade-up"
                   data-delay={String(i * 150)}
-                  style={{ padding: "0 12px", position: "relative", zIndex: 1 }}
+                  style={{ minWidth: 0, padding: "0 12px", position: "relative", zIndex: 1 }}
                 >
                   <div style={{
                     width: 64, height: 64, borderRadius: "50%",

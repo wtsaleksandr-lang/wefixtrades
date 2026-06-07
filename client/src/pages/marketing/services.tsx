@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { TrendingUp } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { service, breadcrumbList } from "@/lib/seo/jsonLd";
@@ -247,6 +248,9 @@ export default function ServicesPage() {
     {
       id: "seo",
       img: "",
+      // RankFlow has no webp icon asset; use the same lucide TrendingUp mark
+      // it uses everywhere else (nav, ProductIndex, portal, admin).
+      Icon: TrendingUp,
       title: "RankFlow",
       desc: "Done-for-you local SEO. We handle keyword targeting, page optimization, local listings, and monthly progress tracking.",
       from: `From ${formatPrice(lowestMonthly(RANKFLOW)!)}/mo`,
@@ -356,14 +360,24 @@ export default function ServicesPage() {
             {services.map(svc => (
               <div key={svc.id} style={s.serviceCard} data-testid={svc.testid}>
                 <div style={s.iconWrap}>
-                  <OptimizedImage
-                    src={svc.img}
-                    alt={svc.title}
-                    width={48}
-                    height={48}
-                    style={s.serviceIcon}
-                    loading="lazy"
-                  />
+                  {"Icon" in svc && svc.Icon ? (
+                    <svc.Icon
+                      width={48}
+                      height={48}
+                      style={s.serviceIcon}
+                      color={mkt.accent}
+                      aria-label={svc.title}
+                    />
+                  ) : (
+                    <OptimizedImage
+                      src={svc.img}
+                      alt={svc.title}
+                      width={48}
+                      height={48}
+                      style={s.serviceIcon}
+                      loading="lazy"
+                    />
+                  )}
                 </div>
                 <h3 style={s.serviceTitle}>{svc.title}</h3>
                 <p style={s.serviceDesc}>{svc.desc}</p>

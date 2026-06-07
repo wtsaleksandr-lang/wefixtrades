@@ -129,6 +129,7 @@ function MatrixCell({ value }: { value: MatrixValue }) {
           background: "rgba(34,197,94,0.14)",
           color: "rgb(74,222,128)",
         }}
+        role="img"
         aria-label="Yes"
       >
         <Check size={16} strokeWidth={2.5} />
@@ -148,6 +149,7 @@ function MatrixCell({ value }: { value: MatrixValue }) {
           background: "rgba(248,113,113,0.10)",
           color: "rgb(248,113,113)",
         }}
+        role="img"
         aria-label="No"
       >
         <XIcon size={16} strokeWidth={2.5} />
@@ -167,6 +169,7 @@ function MatrixCell({ value }: { value: MatrixValue }) {
           background: "rgba(250,204,21,0.14)",
           color: "rgb(250,204,21)",
         }}
+        role="img"
         aria-label="Partial"
       >
         <Minus size={16} strokeWidth={2.5} />
