@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Phone, Mail, Star, ChevronRight, HelpCircle } from "lucide-react";
+import { Globe, Phone, Mail, Star, ChevronRight, HelpCircle, AlertTriangle, RefreshCw } from "lucide-react";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
@@ -218,7 +218,7 @@ function OpportunityCard({
 export default function PipelinePage() {
   const [moveOpp, setMoveOpp] = useState<Opportunity | null>(null);
 
-  const { data, isLoading } = useQuery<PipelineData>({
+  const { data, isLoading, isError, refetch } = useQuery<PipelineData>({
     queryKey: ["/api/admin/outbound/pipeline"],
     queryFn: async () => {
       const res = await fetch("/api/admin/outbound/pipeline", { credentials: "include" });
@@ -248,6 +248,16 @@ export default function PipelinePage() {
         {isLoading ? (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-sm text-gray-400">
             Loading pipeline...
+          </div>
+        ) : isError ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+            <AlertTriangle className="w-6 h-6 text-red-500 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-900 mb-1">Couldn't load pipeline</p>
+            <p className="text-xs text-gray-400 mb-3">The server returned an error. This is a backend failure, not an empty pipeline.</p>
+            <Button size="sm" variant="outline" onClick={() => refetch()} className="gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5" />
+              Try again
+            </Button>
           </div>
         ) : total === 0 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">

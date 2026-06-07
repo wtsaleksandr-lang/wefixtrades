@@ -30,6 +30,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AlertTriangle, Loader2, ShieldOff, Save } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +77,7 @@ export default function AdminAiGatesPage() {
   usePageTitle("AI Gates");
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [confirmDisableAll, setConfirmDisableAll] = useState(false);
 
   const { data, isLoading } = useQuery<{ gates: GateRow[] }>({
     queryKey: ["/api/admin/ai-gates"],
@@ -120,7 +131,12 @@ export default function AdminAiGatesPage() {
           </div>
           <Button
             variant={allKilled ? "outline" : "destructive"}
-            onClick={() => globalKill.mutate(!allKilled)}
+            onClick={() => {
+              // Re-enabling (safe direction) fires immediately; disabling ALL
+              // AI is destructive and product-wide, so it must confirm first.
+              if (allKilled) globalKill.mutate(false);
+              else setConfirmDisableAll(true);
+            }}
             disabled={globalKill.isPending}
             data-testid="ai-gates-global-kill"
           >
@@ -132,6 +148,31 @@ export default function AdminAiGatesPage() {
             {allKilled ? "Re-enable ALL AI" : "Disable ALL AI"}
           </Button>
         </div>
+
+        <AlertDialog open={confirmDisableAll} onOpenChange={setConfirmDisableAll}>
+          <AlertDialogContent data-testid="ai-gates-disable-all-confirm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disable ALL AI across the product?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This flips every AI surface kill switch ON at once — for every
+                client, product-wide. All AI call sites will fall back to their
+                non-AI behavior until you re-enable them. Continue?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="ai-gates-disable-all-cancel">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => globalKill.mutate(true)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="ai-gates-disable-all-confirm-btn"
+              >
+                Disable ALL AI
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Card className="p-0 overflow-x-auto">
           {isLoading ? (
