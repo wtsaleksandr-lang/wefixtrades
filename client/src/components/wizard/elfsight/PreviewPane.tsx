@@ -1276,7 +1276,14 @@ export default function PreviewPane({
   // Touch is handled separately by the one-finger native listener on the
   // pane (above) + the two-finger pinch handler, so this is mouse-only.
   const SKIP_MOVE_SELECTOR =
-    'input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos';
+    // Desktop inline-title-edit fix (fix/pencil-desktop-inputbg): the header
+    // title + its pencil edit-hint MUST be in this skip list. On desktop a
+    // left-mouse pointerdown on the canvas starts a pan via onHandlePointerDown,
+    // which setPointerCapture()s the pointer and SUPPRESSES the subsequent
+    // click — so onBezelClick (which opens the inline title editor on a pencil/
+    // title click) never fired and the editor input never mounted. Skipping the
+    // move-start for the title + pencil lets the click through to onBezelClick.
+    'input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], [data-testid="advanced-title"], [data-testid="advanced-title-edit-hint"], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos';
 
   // Background click — deselect the widget so resize handles go away. Also the
   // mouse drag-from-anywhere entry point: when the pointer-down isn't on an
@@ -2123,7 +2130,7 @@ export default function PreviewPane({
   return (
     <div
       data-theme="light"
-      className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${widgetSelected ? ' is-widget-selected' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
+      className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${widgetSelected ? ' is-widget-selected' : ''}${titleEditing ? ' is-title-editing' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
       data-testid="editor-preview-pane"
       data-mobile-clean={isMobileViewport ? 'true' : 'false'}
       data-floating-launcher-preview={flpActive ? 'true' : 'false'}
@@ -3316,6 +3323,14 @@ export default function PreviewPane({
          * both light and dark themes, without erasing the live colour of
          * the title text underneath. The 4 % accent tint matches the
          * platform's standard selected-input affordance. */
+        /* While the inline title editor is open, hide the underlying live
+         * title TEXT so it doesn't show through behind the input (the input is
+         * positioned over it). visibility:hidden keeps the title in layout so
+         * measureTitle()'s rect stays valid and the input stays pinned. The
+         * pencil hint is a sibling of the title text, so it's unaffected. */
+        .qq-preview-pane.is-title-editing [data-testid="advanced-title"] {
+          visibility: hidden;
+        }
         .qq-preview-title-edit {
           font-size: 17px; font-weight: 800;
           letter-spacing: -0.01em;
