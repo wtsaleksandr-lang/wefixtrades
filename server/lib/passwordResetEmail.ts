@@ -14,8 +14,13 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { createLogger } from "./logger";
+import { queueEmail } from "../services/emailQueueService";
 
 const log = createLogger("password-reset-email");
+
+/** Brief pause between the inline send and its single immediate retry. */
+const RETRY_DELAY_MS = 750;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface PasswordResetEmailData {
   /** Recipient address (post-normalisation). */
@@ -61,17 +66,49 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
     supportNote: "Didn't request this? Safely ignore this email.",
   });
 
+  const subject = "Reset your WeFixTrades password";
+  const mail = {
+    from: `WeFixTrades <${getFromAddress()}>`,
+    to: data.to,
+    subject,
+    html,
+    text,
+  };
+
+  /* Password-reset links are interactive — the user is waiting on the page —
+   * so the minute-cadence email queue would feel laggy as the primary path.
+   * Instead: send inline, retry once after a brief pause on a transient SMTP
+   * blip, and only if BOTH inline attempts fail, enqueue() as a durable
+   * backstop so the queue worker's 3-attempt retry + final-failure alert still
+   * cover it. category=password_reset is transactional → bypasses the
+   * drain-time preference gate (notificationPreferences.TRANSACTIONAL_BYPASS). */
   try {
-    await transporter.sendMail({
-      from: `WeFixTrades <${getFromAddress()}>`,
-      to: data.to,
-      subject: "Reset your WeFixTrades password",
-      html,
-      text,
-    });
+    await transporter.sendMail(mail);
     return true;
-  } catch (err) {
-    log.error("Failed to send password-reset email", { to: data.to, error: String(err) });
-    return false;
+  } catch (firstErr) {
+    log.warn("password-reset email send failed — retrying once", { to: data.to, error: String(firstErr) });
+    await sleep(RETRY_DELAY_MS);
+    try {
+      await transporter.sendMail(mail);
+      return true;
+    } catch (secondErr) {
+      // Both inline attempts failed — enqueue as a durable backstop so the
+      // queue worker retries + alerts on final failure (instead of silently
+      // losing the reset link).
+      log.error("password-reset email failed twice inline — enqueuing as backstop", {
+        to: data.to,
+        error: String(secondErr),
+      });
+      try {
+        await queueEmail(data.to, subject, html, text, { category: "password_reset", source: "password_reset_backstop" });
+        return true;
+      } catch (queueErr) {
+        log.error("password-reset email backstop enqueue ALSO failed — link lost", {
+          to: data.to,
+          error: String(queueErr),
+        });
+        return false;
+      }
+    }
   }
 }

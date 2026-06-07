@@ -16,6 +16,7 @@
  * Callers are responsible for transport-specific parsing (MIME, multipart) and
  * must pass already-cleaned fields.
  */
+import { createHash } from "node:crypto";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { clients, ticketMessages } from "@shared/schema";
@@ -45,6 +46,25 @@ export interface InboundEmailResult {
   filtered?: boolean;
 }
 
+/**
+ * Dedup key for an inbound email. Prefer the RFC Message-ID. When the mail has
+ * no (or an empty) Message-ID — malformed/header-less mail — fall back to a
+ * deterministic hash of sender + subject + the first 512 chars of the body, so
+ * a re-fetch/re-POST of the SAME message still collides and can't double-ingest.
+ * The `synthetic:` prefix keeps these visibly distinct from real header IDs.
+ */
+function buildDedupKey(
+  messageId: string | null,
+  senderEmail: string | null,
+  subject: string,
+  content: string,
+): string {
+  const trimmed = (messageId || "").trim();
+  if (trimmed) return trimmed;
+  const basis = `${(senderEmail || "").toLowerCase()}\n${subject || ""}\n${(content || "").slice(0, 512)}`;
+  return `synthetic:${createHash("sha256").update(basis).digest("hex")}`;
+}
+
 /** Parse a "#<id>" ticket reference from a subject line. */
 function extractTicketRef(subject: string): number | null {
   const m = (subject || "").match(/#(\d{1,9})\b/);
@@ -62,15 +82,18 @@ export async function ingestInboundEmail(input: InboundEmailInput): Promise<Inbo
   const { senderEmail, subject, content, messageId } = input;
 
   // Dedup — the same message can be delivered twice (SendGrid re-POST, or an
-  // IMAP re-fetch before the seen-flag commits).
-  if (messageId) {
+  // IMAP re-fetch before the seen-flag commits). Use the Message-ID when
+  // present; otherwise fall back to a content hash so header-less/malformed
+  // mail can't double-ingest on a re-fetch/re-POST race.
+  const dedupKey = buildDedupKey(messageId, senderEmail, subject, content);
+  {
     const [dupe] = await db
       .select({ id: ticketMessages.id })
       .from(ticketMessages)
-      .where(sql`${ticketMessages.metadata}->>'email_message_id' = ${messageId}`)
+      .where(sql`${ticketMessages.metadata}->>'email_message_id' = ${dedupKey}`)
       .limit(1);
     if (dupe) {
-      log.info(`duplicate Message-ID ${messageId} — skipped`);
+      log.info(`duplicate inbound email (${dedupKey}) — skipped`);
       return { ticketId: null, isNewTicket: false, duplicate: true };
     }
   }
@@ -94,7 +117,12 @@ export async function ingestInboundEmail(input: InboundEmailInput): Promise<Inbo
     inbound: true,
     channel: "email",
     from_email: senderEmail,
-    email_message_id: messageId,
+    // Persist the dedup key (real Message-ID, or `synthetic:<hash>` fallback)
+    // so a later re-fetch/re-POST of the same mail collides and is skipped.
+    email_message_id: dedupKey,
+    // Keep the raw header value (may be null) for audit/debugging, separate
+    // from the dedup key used for collision detection.
+    email_message_id_raw: messageId,
     unverified_sender: matchedClientId === null,
   };
 
