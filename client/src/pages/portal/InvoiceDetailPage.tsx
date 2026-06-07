@@ -174,7 +174,16 @@ export default function InvoiceDetailPage() {
           </div>
         )}
 
-        {data && <InvoiceEditor data={data} invoiceId={invoiceId} onChanged={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/bookflow/invoices", invoiceId] })} toast={toast} navigate={navigate} />}
+        {data && !data.invoice && (
+          <div style={{ padding: 40, textAlign: "center" }}>
+            <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: "0 0 4px" }}>Invoice not found</p>
+            <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
+              This invoice may have been removed, or your account is still being set up.
+            </p>
+          </div>
+        )}
+
+        {data?.invoice && <InvoiceEditor data={data} invoiceId={invoiceId} onChanged={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/bookflow/invoices", invoiceId] })} toast={toast} navigate={navigate} />}
       </div>
     </PortalLayout>
   );

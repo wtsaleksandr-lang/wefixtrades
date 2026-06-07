@@ -492,13 +492,13 @@ export default function PortalServiceDetail() {
     enabled: !!serviceId,
   });
 
-  const isTradeLine = data?.service.service_id?.startsWith("tradeline");
-  const isSiteLaunch = data?.service.service_id?.startsWith("sitelaunch");
-  const isWebFix = data?.service.service_id?.startsWith("webfix");
-  const isWebCare = data?.service.service_id?.startsWith("webcare");
-  const isAdFlow = data?.service.service_id?.startsWith("adflow");
-  const isQuoteQuick = data?.service.service_id?.startsWith("quotequick");
-  const isMapguard = data?.service.service_id?.startsWith("mapguard");
+  const isTradeLine = data?.service?.service_id?.startsWith("tradeline");
+  const isSiteLaunch = data?.service?.service_id?.startsWith("sitelaunch");
+  const isWebFix = data?.service?.service_id?.startsWith("webfix");
+  const isWebCare = data?.service?.service_id?.startsWith("webcare");
+  const isAdFlow = data?.service?.service_id?.startsWith("adflow");
+  const isQuoteQuick = data?.service?.service_id?.startsWith("quotequick");
+  const isMapguard = data?.service?.service_id?.startsWith("mapguard");
 
   // Tasks waiting on client approval (for SiteLaunch design approval flow)
   const approvalTasks = (data?.tasks || []).filter(
@@ -642,7 +642,16 @@ export default function PortalServiceDetail() {
           </div>
         )}
 
-        {data && (
+        {data && !data.service && (
+          <div className="bg-card rounded-xl border border-border p-6 text-center">
+            <p className="text-sm font-medium text-foreground">Service not found</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              This service may have been removed, or your account is still being set up.
+            </p>
+          </div>
+        )}
+
+        {data && data.service && (
           <>
             {/* Service header */}
             <div className="bg-card rounded-xl border border-border p-5">

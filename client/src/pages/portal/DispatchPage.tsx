@@ -115,8 +115,11 @@ export default function DispatchPage() {
     setSelectedDate(d.toISOString().slice(0, 10));
   }, [selectedDate]);
 
-  const activeJobs = appointments.filter((a) => a.status !== "cancelled");
-  const completedCount = appointments.filter((a) => a.status === "completed").length;
+  // The endpoint can return a non-array body for the empty/no-client case;
+  // normalize to an array so .filter/.map/.length never throw.
+  const list = Array.isArray(appointments) ? appointments : [];
+  const activeJobs = list.filter((a) => a.status !== "cancelled");
+  const completedCount = list.filter((a) => a.status === "completed").length;
 
   return (
     <PortalLayout breadcrumb="Today's jobs" compact>
@@ -198,7 +201,7 @@ export default function DispatchPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && appointments.length === 0 && (
+      {!isLoading && list.length === 0 && (
         <div style={{
           textAlign: "center",
           padding: "48px 20px",
@@ -220,7 +223,7 @@ export default function DispatchPage() {
 
       {/* Job cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {appointments.map((apt) => {
+        {list.map((apt) => {
           const sc = statusColor(apt.status);
           const isComplete = apt.status === "completed";
           return (

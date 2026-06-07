@@ -143,6 +143,19 @@ export default function PortalEmailDomainSetup() {
     );
   }
 
+  if (!state.data.identity) {
+    return (
+      <PortalLayout>
+        <div className="max-w-3xl text-center py-16">
+          <p className="text-base font-semibold text-gray-900">Email sender domain isn't set up yet</p>
+          <p className="text-sm text-gray-600 mt-1">
+            Once your account finishes provisioning, your sender domain settings will appear here.
+          </p>
+        </div>
+      </PortalLayout>
+    );
+  }
+
   const { proAccess, identity, requiredRecords } = state.data;
 
   return (
