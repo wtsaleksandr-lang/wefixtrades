@@ -1248,7 +1248,8 @@ export function initScheduler() {
   // Wave W-AV-1 — Business Operator AI. Hourly at :15 past the hour.
   // ESCALATE-ONLY in v1; per-playbook auto-execute unlocks after 3
   // consecutive admin approvals on that playbook. Monthly $50 cap +
-  // ADMIN_AI_KILL_SWITCH env emergency stop are both checked inside.
+  // kill switch (durable ai_system_gates global flag set by the admin UI, OR
+  // the ADMIN_AI_KILL_SWITCH env emergency stop) are both checked inside.
   let businessOperatorRunning = false;
   cron.schedule("15 * * * *", async () => {
     if (businessOperatorRunning) {

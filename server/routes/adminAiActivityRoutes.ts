@@ -29,8 +29,8 @@ import { EXECUTORS } from "../services/businessOperator/executors";
 import {
   recordPlaybookApproval,
   recordPlaybookRejection,
-  isKillSwitchOn,
 } from "../services/businessOperatorAgent";
+import { setGlobalKillSwitch, isGlobalKillSwitchOn } from "../services/aiSystemGate";
 import { writeAudit } from "../lib/auditLog";
 
 const log = createLogger("AdminAiActivity");
@@ -67,7 +67,9 @@ export function registerAdminAiActivityRoutes(app: Express): void {
       res.json({
         rows,
         playbooks: playbookRows,
-        kill_switch_on: isKillSwitchOn(),
+        // Durable, instance-consistent read (ai_system_gates) — not the
+        // legacy process.env flag, which was process-local and reset on restart.
+        kill_switch_on: await isGlobalKillSwitchOn(),
         statuses: ADMIN_AI_ACTION_STATUSES,
         all_playbooks: ADMIN_AI_PLAYBOOKS,
       });
@@ -233,19 +235,25 @@ export function registerAdminAiActivityRoutes(app: Express): void {
   app.post("/api/admin/ai-activity/kill-switch", requireAdmin, async (req: Request, res: Response) => {
     try {
       const desired = req.body?.enabled === true;
-      // env-level: process-local flip. Survives only until next restart unless
-      // the deployment env var is updated too. Audit the intent regardless.
-      process.env.ADMIN_AI_KILL_SWITCH = desired ? "1" : "0";
+      // DURABLE: persist to ai_system_gates via setGlobalKillSwitch so the
+      // pause survives restart/redeploy AND propagates across every Replit
+      // instance (process.env was process-local and reset on restart — a real
+      // incident-response failure). aiGateAllowed() reads kill_switch_on at
+      // request time, so every gated AI call site honors this immediately.
+      await setGlobalKillSwitch(desired);
+      // Read back the durable truth so the admin UI reflects reality rather
+      // than the requested intent.
+      const enabled = await isGlobalKillSwitchOn();
       const adminId = (req.user as Express.User).id;
       writeAudit({
         actorId: adminId,
         action: "update",
         entityType: "admin_ai_kill_switch",
         entityId: "global",
-        after: { enabled: desired },
+        after: { enabled },
         req,
       });
-      res.json({ ok: true, enabled: desired });
+      res.json({ ok: true, enabled });
     } catch (err: any) {
       log.error("kill-switch failed", { error: err?.message });
       res.status(500).json({ error: "kill_switch_failed" });

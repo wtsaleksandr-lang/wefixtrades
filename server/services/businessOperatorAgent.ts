@@ -49,6 +49,7 @@ import {
   recordFailure,
   recordSuccess,
 } from "./aiService";
+import { isGlobalKillSwitchOn } from "./aiSystemGate";
 
 const log = createLogger("BusinessOperatorAgent");
 
@@ -69,8 +70,28 @@ interface TickResult {
   costCentsThisTick: number;
 }
 
+/**
+ * Legacy env-only emergency override. Kept as a deploy-time hard stop that a
+ * human can set on the running container without DB access. NOTE: this flag is
+ * process-local — it does NOT survive restarts or propagate across instances,
+ * so it is no longer the source of truth for the admin kill switch. The admin
+ * UI toggle persists to ai_system_gates (durable, instance-consistent); use
+ * `isKillSwitchActive()` to honor BOTH.
+ */
 export function isKillSwitchOn(): boolean {
   return process.env[KILL_SWITCH_ENV] === "1" || process.env[KILL_SWITCH_ENV] === "true";
+}
+
+/**
+ * Durable-aware kill check used by the operator tick. True if EITHER the
+ * legacy env emergency override is set OR the durable global kill switch
+ * (ai_system_gates, written by the admin UI) is on. Reading the DB at tick
+ * start means an admin "kill AI" survives restart/redeploy and applies on
+ * every instance — closing the split-brain between env and DB.
+ */
+export async function isKillSwitchActive(): Promise<boolean> {
+  if (isKillSwitchOn()) return true;
+  return isGlobalKillSwitchOn();
 }
 
 /** YYYY-MM in UTC. */
@@ -354,7 +375,7 @@ async function escalateAction(action: AdminAiAction): Promise<void> {
 
 export async function runBusinessOperatorTick(): Promise<TickResult> {
   const ranAt = new Date().toISOString();
-  if (isKillSwitchOn()) {
+  if (await isKillSwitchActive()) {
     log.warn("Kill switch ON — skipping tick");
     return {
       ranAt,

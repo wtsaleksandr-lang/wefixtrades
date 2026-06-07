@@ -168,6 +168,33 @@ export async function setGlobalKillSwitch(on: boolean): Promise<void> {
   log.warn("GLOBAL kill switch toggled", { on });
 }
 
+/**
+ * Durable read of the GLOBAL kill switch — the truth that
+ * `setGlobalKillSwitch` writes. Returns true only when EVERY known surface
+ * has kill_switch_on === true (i.e. a true global stop is in effect),
+ * mirroring exactly what setGlobalKillSwitch(true) produces. Survives
+ * restarts and is consistent across instances because it reads the DB at
+ * call time (unlike the legacy process.env.ADMIN_AI_KILL_SWITCH flag).
+ *
+ * Fail-safe: on infrastructure error returns false (do not falsely report
+ * the system as globally halted), and loud logs are emitted.
+ */
+export async function isGlobalKillSwitchOn(): Promise<boolean> {
+  try {
+    for (const surface of AI_SURFACE_LIST) {
+      await ensureGateRow(surface);
+    }
+    const rows = await db
+      .select({ kill_switch_on: aiSystemGates.kill_switch_on })
+      .from(aiSystemGates);
+    if (rows.length === 0) return false;
+    return rows.every((r) => r.kill_switch_on === true);
+  } catch (err: any) {
+    log.error("global kill-switch read failed — reporting OFF", { error: err?.message });
+    return false;
+  }
+}
+
 /** Admin-only — update the monthly budget cap for one surface. */
 export async function setMonthlyBudget(surface: string, cents: number | null): Promise<void> {
   await ensureGateRow(surface);
