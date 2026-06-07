@@ -53,6 +53,7 @@ import { registerReviewPublicRoutes } from "./reviewPublicRoutes";
 import { registerWidgetRoutes } from "./widgetRoutes";
 import { registerWidgetFreetoolsRoutes } from "./widgetFreetoolsRoutes";
 import { registerPortalFreetoolsRoutes } from "./portalFreetoolsRoutes";
+import { registerPortalReviewReplyRoutes } from "./portalReviewReplyRoutes";
 import { registerReviewFunnelRoutes } from "./reviewFunnelRoutes";
 import { registerPortalReviewLinkRoutes } from "./portalReviewLinkRoutes";
 import { registerServiceAreaMapRoutes } from "./serviceAreaMapRoutes";
@@ -209,6 +210,10 @@ export async function registerRoutes(
   registerWidgetRoutes(app);
   registerWidgetFreetoolsRoutes(app);
   registerPortalFreetoolsRoutes(app);
+  // AI Review Responder — interactive free tool. Reuses the QuoteQuick AI
+  // budget cap (getUserBudgetSnapshot/gateDecision/recordSpend) + shared
+  // Anthropic client. Client route: /portal/free-tools/review-responder.
+  registerPortalReviewReplyRoutes(app);
   registerReviewFunnelRoutes(app);
   registerPortalReviewLinkRoutes(app);
   registerServiceAreaMapRoutes(app);
