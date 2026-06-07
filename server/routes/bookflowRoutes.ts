@@ -1086,6 +1086,12 @@ export function registerBookflowRoutes(app: Express): void {
      Stripe Connect Webhook handler for invoice payments
      ═══════════════════════════════════════════ */
 
+  // SUPERSEDED: this handler is dead — no Stripe endpoint points at this URL, so
+  // it never fires (and it hard-500s in prod without BOOKFLOW_WEBHOOK_SECRET).
+  // The payment_intent.succeeded logic now lives in the verified main webhook
+  // (server/routes/stripeBillingRoutes.ts → handlePaymentIntentSucceeded);
+  // BOOKFLOW_WEBHOOK_SECRET is no longer required. Left in place intentionally
+  // (nothing routes to it) to avoid touching working code.
   app.post("/api/bookflow/webhook/payment", async (req: Request, res: Response) => {
     const stripe = getStripeClient();
     if (!stripe) return res.status(503).send("Stripe not configured");

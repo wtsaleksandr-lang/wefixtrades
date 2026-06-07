@@ -8,11 +8,11 @@
 
 import type { Express, Request, Response } from "express";
 import Stripe from "stripe";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { widgetDeposits, apiSubscriptions, tradelinePhoneSetups } from "@shared/schema";
+import { widgetDeposits, apiSubscriptions, tradelinePhoneSetups, bookflowInvoices } from "@shared/schema";
 import { getApiTier } from "@shared/pricing/apiTiers";
 import { generateCuid } from "../lib/apiKeys";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
@@ -281,6 +281,15 @@ export function registerStripeBillingRoutes(app: Express): void {
           if (isCitationTrackerSubscription(event.data.object as Stripe.Subscription)) {
             await handleCitationTrackerSubscriptionEvent(event.data.object as Stripe.Subscription);
           }
+          break;
+
+        case "payment_intent.succeeded":
+          // BookFlow invoices + QuoteQuick one-off payments. This endpoint IS
+          // subscribed to payment_intent.succeeded but previously had no case,
+          // so bookflow invoices were never marked paid. Folds in the logic
+          // from the (now-superseded, secret-gated) /api/bookflow/webhook/payment
+          // handler — running on the already-verified main webhook signature.
+          await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
           break;
 
         default:
@@ -949,18 +958,199 @@ function priceIdToQuoteQuickTier(priceId: string | null | undefined): string | n
   return null;
 }
 
+/**
+ * payment_intent.succeeded — BookFlow invoice + QuoteQuick one-off payments.
+ *
+ * Superseded the dead /api/bookflow/webhook/payment handler in bookflowRoutes.ts
+ * (which never fired because no Stripe endpoint pointed at it and it hard-500s
+ * without BOOKFLOW_WEBHOOK_SECRET). Mirrors that handler's drizzle update
+ * exactly, but runs on the already-verified main webhook signature.
+ *
+ * Idempotent: the bookflow update only touches rows that are not already 'paid',
+ * so a re-delivered event is a no-op (and we log loudly which case we hit).
+ * Subscription/checkout payment_intents lack these metadata types → no-op.
+ */
+async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
+  const meta = pi.metadata || {};
+
+  if (meta.type === "bookflow_invoice" && meta.pay_link_token) {
+    // Idempotency: only flip rows that are not already 'paid'. .returning()
+    // tells us whether this delivery actually transitioned a row.
+    const updated = await db
+      .update(bookflowInvoices)
+      .set({
+        status: "paid",
+        paid_at: new Date(),
+        payment_method: "stripe",
+        stripe_payment_intent_id: pi.id,
+        updated_at: new Date(),
+      })
+      .where(
+        and(
+          eq(bookflowInvoices.pay_link_token, meta.pay_link_token),
+          ne(bookflowInvoices.status, "paid"),
+        ),
+      )
+      .returning({ id: bookflowInvoices.id });
+
+    if (updated.length > 0) {
+      log.info(
+        `[billing-webhook] BookFlow invoice #${updated[0].id} marked paid (payment_intent ${pi.id}, token ${meta.pay_link_token})`,
+      );
+    } else {
+      log.info(
+        `[billing-webhook] BookFlow payment_intent ${pi.id} for token ${meta.pay_link_token} — no row updated (already paid or token not found); idempotent no-op`,
+      );
+    }
+    return;
+  }
+
+  if (meta.type === "quotequick_payment" && meta.calculator_id) {
+    // Mirrors the dead handler: log only (no DB side-effect for one-off QQ pay).
+    log.info(
+      `[billing-webhook] QuoteQuick payment succeeded (calculator ${meta.calculator_id}, payment_intent ${pi.id}, amount ${pi.amount})`,
+    );
+    return;
+  }
+
+  // Subscription/checkout-driven payment_intents (no bookflow/quotequick
+  // metadata) are handled via invoice.* events — nothing to do here.
+  log.info(`[billing-webhook] payment_intent.succeeded ${pi.id} — no bookflow/quotequick metadata; no-op`);
+}
+
 async function handleSubscriptionUpdated(
   subscription: Stripe.Subscription,
   previousAttrs: Partial<Stripe.Subscription> | undefined,
 ) {
-  // Recovery path: past_due → active (a retry succeeded). Cancel any
+  const customerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer?.id;
+
+  // ─── Dunning suspend gate (env kill-switch: DUNNING_AUTO_SUSPEND=false) ───
+  // SUSPEND on exhaustion: Stripe marks a subscription "unpaid" only after it
+  // has EXHAUSTED its retry schedule. (During active retries the status is
+  // "past_due" — we deliberately do NOT touch service there; the customer
+  // keeps premium features while Stripe is still retrying.) On the transition
+  // INTO "unpaid" we pause the client's active monthly services so we stop
+  // delivering premium features to a non-paying customer. We mark each row
+  // with metadata.dunning_suspended so (a) admin-initiated pauses are never
+  // auto-resumed and (b) re-delivered events are idempotent. The Twilio number
+  // is intentionally KEPT here — full release stays on subscription.deleted.
+  if (
+    process.env.DUNNING_AUTO_SUSPEND !== "false" &&
+    subscription.status === "unpaid" &&
+    previousAttrs?.status !== "unpaid"
+  ) {
+    try {
+      if (!customerId) {
+        log.warn(`[dunning] unpaid subscription ${subscription.id} has no customer id — skipping suspend`);
+      } else {
+        const client = await storage.findClientByStripeCustomerId(customerId);
+        if (!client) {
+          log.warn(`[dunning] no client for stripe customer ${customerId} (subscription ${subscription.id}) — skipping suspend`);
+        } else {
+          const services = await storage.listClientServices(client.id);
+          let suspendedCount = 0;
+          for (const svc of services) {
+            if (svc.billing_period === "monthly" && svc.status === "active") {
+              const existingMeta = (svc.metadata as Record<string, any> | null) ?? {};
+              await storage.updateClientService(svc.id, {
+                status: "paused",
+                metadata: {
+                  ...existingMeta,
+                  dunning_suspended: true,
+                  dunning_suspended_at: new Date().toISOString(),
+                },
+              });
+              suspendedCount++;
+              log.info(`[dunning] service #${svc.id} (${svc.service_id}) paused for client ${client.id} — subscription ${subscription.id} unpaid`);
+            }
+          }
+
+          if (suspendedCount > 0) {
+            await storage.logAdminActivity({
+              actor_type: "system",
+              actor_name: "Stripe Webhook",
+              action: "service.dunning_suspended",
+              entity_type: "client",
+              entity_id: client.id,
+              summary: `Paused ${suspendedCount} monthly service(s) for client "${client.business_name}" — Stripe retries exhausted (subscription ${subscription.id} → unpaid). Twilio number retained.`,
+            });
+            // TODO(dunning): final-notice email ("service suspended due to
+            // non-payment"). No suitable send-now helper exists today
+            // (dunningEmails.ts only has scheduled-sequence builders), so we
+            // intentionally do NOT invent a new template here — log + audit only.
+            log.info(`[dunning] suspended ${suspendedCount} service(s) for client ${client.id} (subscription ${subscription.id})`);
+          } else {
+            log.info(`[dunning] subscription ${subscription.id} unpaid but client ${client.id} had no active monthly services to pause — no-op`);
+          }
+        }
+      }
+    } catch (err: any) {
+      log.error(`[dunning] suspend-on-unpaid failed for subscription ${subscription.id}:`, err.message);
+    }
+  }
+
+  // Recovery path: (past_due | unpaid) → active (a retry succeeded). Cancel any
   // pending dunning rows even if Stripe didn't fire a fresh
-  // invoice.payment_succeeded for some reason.
-  if (previousAttrs?.status === "past_due" && subscription.status === "active") {
+  // invoice.payment_succeeded for some reason, AND reactivate the services we
+  // paused for dunning (never an admin-initiated pause).
+  if (
+    (previousAttrs?.status === "past_due" || previousAttrs?.status === "unpaid") &&
+    subscription.status === "active"
+  ) {
     await cancelPendingForSubscription({
       stripeSubscriptionId: subscription.id,
       reason: "payment_succeeded",
     }).catch(err => log.warn(`[dunning] cancel-on-recovery failed:`, err.message));
+
+    // Reactivate ONLY services we paused for dunning. Gated behind the same
+    // kill-switch so disabling the feature stops both halves of the gate.
+    if (process.env.DUNNING_AUTO_SUSPEND !== "false") {
+      try {
+        if (!customerId) {
+          log.warn(`[dunning] recovered subscription ${subscription.id} has no customer id — skipping resume`);
+        } else {
+          const client = await storage.findClientByStripeCustomerId(customerId);
+          if (!client) {
+            log.warn(`[dunning] no client for stripe customer ${customerId} (subscription ${subscription.id}) — skipping resume`);
+          } else {
+            const services = await storage.listClientServices(client.id);
+            let resumedCount = 0;
+            for (const svc of services) {
+              const meta = (svc.metadata as Record<string, any> | null) ?? {};
+              // Only OUR dunning pauses — never clobber an admin pause.
+              if (svc.status === "paused" && meta.dunning_suspended === true) {
+                const { dunning_suspended, dunning_suspended_at, ...rest } = meta;
+                await storage.updateClientService(svc.id, {
+                  status: "active",
+                  metadata: rest,
+                });
+                resumedCount++;
+                log.info(`[dunning] service #${svc.id} (${svc.service_id}) reactivated for client ${client.id} — subscription ${subscription.id} recovered to active`);
+              }
+            }
+
+            if (resumedCount > 0) {
+              await storage.logAdminActivity({
+                actor_type: "system",
+                actor_name: "Stripe Webhook",
+                action: "service.dunning_resumed",
+                entity_type: "client",
+                entity_id: client.id,
+                summary: `Reactivated ${resumedCount} dunning-suspended service(s) for client "${client.business_name}" — subscription ${subscription.id} recovered to active.`,
+              });
+              log.info(`[dunning] resumed ${resumedCount} service(s) for client ${client.id} (subscription ${subscription.id})`);
+            } else {
+              log.info(`[dunning] subscription ${subscription.id} recovered but no dunning-suspended services to resume for client ${client.id} — no-op`);
+            }
+          }
+        }
+      } catch (err: any) {
+        log.error(`[dunning] resume-on-recovery failed for subscription ${subscription.id}:`, err.message);
+      }
+    }
   }
 
   // Defensive: if we ever see active → canceled here (rare — usually
