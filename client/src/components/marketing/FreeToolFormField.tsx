@@ -176,9 +176,16 @@ export function FreeToolFormField({
       <input
         id={fieldId}
         type={type}
-        // CSS selector `:placeholder-shown` needs a non-empty placeholder
-        // to fire — a single space is the standard trick.
-        placeholder={placeholder ?? " "}
+        // The floating label IS the resting-state placeholder — it drops to
+        // mid-field when empty/unfocused. So the native placeholder must stay
+        // a single space (which still fires `:placeholder-shown`); rendering a
+        // real example string here would collide with the dropped label and
+        // garble into an unreadable smudge. The `placeholder` example prop is
+        // intentionally not painted as the native placeholder.
+        placeholder=" "
+        // Example text is still surfaced as a hover tooltip (no visual collision)
+        // rather than painted inline over the floating label.
+        title={placeholder || undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
@@ -265,7 +272,11 @@ export function FreeToolFormTextarea({
     >
       <textarea
         id={fieldId}
-        placeholder={placeholder ?? " "}
+        // Keep the native placeholder a single space so the floating label is
+        // the only resting-state text — a real example string would collide
+        // with the dropped label. Example is surfaced via `title` instead.
+        placeholder=" "
+        title={placeholder || undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}

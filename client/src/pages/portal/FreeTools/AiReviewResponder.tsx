@@ -419,6 +419,7 @@ export default function AiReviewResponder() {
                           type="button"
                           variant="outline"
                           size="sm"
+                          className="min-h-11 sm:min-h-0"
                           onClick={() => handleCopy(idx)}
                           aria-label={`Copy reply option ${idx + 1}`}
                           data-testid={`copy-reply-${idx}`}

@@ -122,7 +122,8 @@ export default function InvoicePdf() {
 
   const fmtMoney = (n: number): string => {
     const v = Number.isFinite(n) ? n : 0;
-    return `${sym}${v.toLocaleString(undefined, {
+    // Sign before the symbol: -$83.33, never $-83.33.
+    return `${v < 0 ? "-" : ""}${sym}${Math.abs(v).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;

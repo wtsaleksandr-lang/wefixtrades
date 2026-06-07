@@ -313,6 +313,7 @@ export default function TrustBadges() {
                       onClick={handleCopy}
                       variant="outline"
                       size="sm"
+                      className="min-h-11 sm:min-h-0"
                       disabled={!widgetToken}
                       data-testid="badges-copy-snippet"
                     >
