@@ -17,6 +17,41 @@ const stripeIdSchema = z.union([
   z.null(),
   z.string().regex(/^(prod_|price_)[A-Za-z0-9]+$/, "Must look like prod_… or price_…").max(120),
 ]);
+/* ─── Money/state whitelists (canonical: client_payments + client_services
+   schema column comments in shared/schemas/adminCrm.ts) ───────────────── */
+// client_payments.type  — "invoice | payment | refund | credit"
+const PAYMENT_TYPES = ["invoice", "payment", "refund", "credit"] as const;
+// client_payments.status — "pending | paid | failed | partial | refunded"
+// (matches the PATCH /payments/:id ALLOWED_STATUSES list)
+const PAYMENT_STATUSES = ["pending", "paid", "failed", "partial", "refunded"] as const;
+// client_services.status — "pending | onboarding | active | paused | cancelled | completed"
+const CLIENT_SERVICE_STATUSES = [
+  "pending",
+  "onboarding",
+  "active",
+  "paused",
+  "cancelled",
+  "completed",
+] as const;
+
+// Manual payment-create body. amount_cents must be a non-negative integer
+// (NaN/negative previously corrupted revenue aggregates). client_service_id /
+// order_id are optional positive ints. Unknown keys are stripped by Zod's
+// default object behavior so only whitelisted fields reach storage.
+const createPaymentBody = z.object({
+  client_id: z.coerce.number().int().positive(),
+  client_service_id: z.coerce.number().int().positive().optional().nullable(),
+  order_id: z.coerce.number().int().positive().optional().nullable(),
+  type: z.enum(PAYMENT_TYPES).default("invoice"),
+  amount_cents: z.coerce
+    .number()
+    .int("amount_cents must be a whole number of cents")
+    .min(0, "amount_cents must be >= 0"),
+  status: z.enum(PAYMENT_STATUSES).default("pending"),
+  description: z.string().max(2000).optional().nullable(),
+  actor_type: z.string().max(20).optional(),
+});
+
 import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
@@ -28,12 +63,81 @@ import { sendAdflowCreativeApprovalEmail } from "../lib/adflowCreativeApprovalEm
 import crypto from "crypto";
 import { createLogger } from "../lib/logger";
 import { noisyCatch } from "../lib/silentFailureGuard";
+import { releaseTwilioNumber } from "../services/twilioNumberRelease";
+import { writeAudit } from "../lib/auditLog";
 import { saveFile, deleteFile } from "../services/fileStorage";
 import { getClientCostLedger } from "../services/clientCostLedger";
 import { getClientBudgetBand } from "../services/aiBudget";
 import type { Deliverable } from "@shared/schema";
 
 const log = createLogger("AdminCRM");
+
+/**
+ * Cost-leak plug (cross-cutting with adminTradelineSetupsRoutes): when a
+ * client's subscription is cancelled, any Twilio number their TradeLine setup
+ * owns must be released or it keeps billing forever. Looks up the per-client
+ * tradeline_phone_setups row by client_id, releases the number via Twilio
+ * (idempotent, non-throwing), nulls the stored SID on success, and audit-logs
+ * the release with actor + SID. Best-effort: a failure is logged + audited,
+ * never propagated to the cancel response.
+ */
+async function releaseTradelineNumberForClient(
+  clientId: number,
+  req: Request,
+  context: string,
+): Promise<void> {
+  try {
+    const { db } = await import("../db");
+    const { tradelinePhoneSetups } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const [row] = await db
+      .select({
+        id: tradelinePhoneSetups.id,
+        assigned_number_sid: tradelinePhoneSetups.assigned_number_sid,
+      })
+      .from(tradelinePhoneSetups)
+      .where(eq(tradelinePhoneSetups.client_id, clientId))
+      .limit(1);
+
+    const sid = row?.assigned_number_sid?.trim();
+    if (!row || !sid) return; // no setup row / no owned number → nothing to release
+
+    const result = await releaseTwilioNumber(sid);
+
+    if (result.released) {
+      await db
+        .update(tradelinePhoneSetups)
+        .set({ assigned_number: null, assigned_number_sid: null, updated_at: new Date() })
+        .where(eq(tradelinePhoneSetups.id, row.id));
+    }
+
+    writeAudit({
+      actorId: (req.user as any)?.id ? String((req.user as any).id) : null,
+      actorType: "admin",
+      action: "tradeline_number_released",
+      entityType: "tradeline_phone_setup",
+      entityId: String(row.id),
+      metadata: {
+        context,
+        client_id: clientId,
+        sid,
+        released: result.released,
+        already_gone: result.alreadyGone ?? false,
+        ...(result.error ? { error: result.error } : {}),
+      },
+      req,
+    });
+  } catch (err: any) {
+    // Never let a release failure break the cancel flow — log loudly so the
+    // leak is visible and can be reconciled.
+    log.error("[tradeline-release] failed to release number on cancel", {
+      clientId,
+      context,
+      err: err?.message,
+    });
+  }
+}
 
 /* Regression-fix (PR fix/admin-stats-cards-loading): resolves a product
    identifier that may be either an exact service_catalog id (tier-level,
@@ -622,6 +726,12 @@ export function registerAdminCrmRoutes(app: Express): void {
         summary: `Cancelled client_service #${csId} on product "${String(req.params.id)}"${reason ? ` — ${reason}` : ""}`,
         metadata: { service_id: String(req.params.id), client_service_id: csId, client_id: updated.client_id, reason },
       });
+
+      // Cost-leak plug: releasing the client's TradeLine Twilio number (if any)
+      // so a cancelled subscription stops billing the number. Runs after the
+      // status flip; non-blocking + audit-logged.
+      await releaseTradelineNumberForClient(updated.client_id, req, "subscription_cancel");
+
       res.json({ subscription: updated });
     } catch (err: any) {
       log.error("[products subscriber cancel POST] Error:", err.message);
@@ -873,6 +983,9 @@ export function registerAdminCrmRoutes(app: Express): void {
   app.patch("/api/admin/crm/clients/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const id = parseInt(String(req.params.id) as string);
+      // Capture the pre-update row so the audit log records the before+after of
+      // the money/state-relevant field (status drives lead/active counts).
+      const beforeClient = await storage.getClientById(id);
       const client = await storage.updateClient(id, req.body);
       if (!client) return res.status(404).json({ error: "Client not found" });
       await storage.logAdminActivity({
@@ -883,7 +996,11 @@ export function registerAdminCrmRoutes(app: Express): void {
         entity_type: "client",
         entity_id: id,
         summary: `Updated client "${client.business_name}"`,
-        metadata: { fields: Object.keys(req.body) },
+        metadata: {
+          fields: Object.keys(req.body),
+          before: beforeClient ? { status: beforeClient.status } : null,
+          after: { status: client.status },
+        },
       });
       res.json(client);
     } catch (err: any) {
@@ -908,6 +1025,16 @@ export function registerAdminCrmRoutes(app: Express): void {
   app.post("/api/admin/crm/clients/:id/services", requireAdmin, async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(String(req.params.id) as string);
+      // Reject out-of-whitelist status — an unrecognized value silently drops
+      // the sub from MRR/active counts (getProductStats filters status in
+      // active/paused/cancelled). Validate only `status` here so the rest of
+      // the create body keeps its existing pass-through behavior.
+      if (
+        req.body?.status !== undefined &&
+        !CLIENT_SERVICE_STATUSES.includes(req.body.status)
+      ) {
+        return res.status(400).json({ error: "Invalid client_service status" });
+      }
       const svc = await storage.createClientService({ ...req.body, client_id: clientId });
       await storage.logAdminActivity({
         actor_type: "human",
@@ -961,6 +1088,13 @@ export function registerAdminCrmRoutes(app: Express): void {
         summary: `Removed service "${existing.service_id}" from client #${clientId}`,
         metadata: { service_id: existing.service_id, status: existing.status },
       });
+
+      // Cost-leak plug: tearing down a (TradeLine) service must release the
+      // client's owned Twilio number — the tradeline_phone_setups row is keyed
+      // by client_id and survives this delete, so without this the number
+      // keeps billing. No-op when the client has no owned number.
+      await releaseTradelineNumberForClient(clientId, req, "service_unassign");
+
       res.json({ ok: true, client_service: removed });
     } catch (err: any) {
       // Postgres FK violation — typical Drizzle/pg error code is "23503".
@@ -993,6 +1127,17 @@ export function registerAdminCrmRoutes(app: Express): void {
   app.patch("/api/admin/crm/client-services/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const id = parseInt(String(req.params.id) as string);
+      // Reject out-of-whitelist status — an unrecognized value silently drops
+      // the sub from MRR/active counts (getProductStats filters status).
+      if (
+        req.body?.status !== undefined &&
+        !CLIENT_SERVICE_STATUSES.includes(req.body.status)
+      ) {
+        return res.status(400).json({ error: "Invalid client_service status" });
+      }
+      // Capture the pre-update row so the audit log records before+after of the
+      // money/state-relevant fields (mirrors the product-publish before/after).
+      const before = await storage.getClientServiceById(id);
       const svc = await storage.updateClientService(id, req.body);
       if (!svc) return res.status(404).json({ error: "Client service not found" });
       await storage.logAdminActivity({
@@ -1003,7 +1148,25 @@ export function registerAdminCrmRoutes(app: Express): void {
         entity_type: "client_service",
         entity_id: id,
         summary: `Updated client service #${id}`,
-        metadata: { fields: Object.keys(req.body) },
+        metadata: {
+          fields: Object.keys(req.body),
+          before: before
+            ? {
+                status: before.status,
+                enabled: before.enabled,
+                price_cents: before.price_cents,
+                cost_cents: before.cost_cents,
+                fulfillment_mode: before.fulfillment_mode,
+              }
+            : null,
+          after: {
+            status: svc.status,
+            enabled: svc.enabled,
+            price_cents: svc.price_cents,
+            cost_cents: svc.cost_cents,
+            fulfillment_mode: svc.fulfillment_mode,
+          },
+        },
       });
       res.json(svc);
     } catch (err: any) {
@@ -1669,7 +1832,18 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.post("/api/admin/crm/payments", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const payment = await storage.createClientPayment(req.body);
+      // Validate the create body before it reaches storage. Previously the raw
+      // req.body was inserted, so a negative/NaN amount_cents or a bogus
+      // type/status silently corrupted getUnpaidTotal/getMonthlyRevenue
+      // aggregates. Whitelists mirror the client_payments schema (type +
+      // status) and the PATCH sibling's status check. amount_cents is a
+      // non-negative integer — refunds/credits are modeled by `type`, not by a
+      // negative amount, so we don't accept negatives here.
+      const parsed = createPaymentBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Invalid payment" });
+      }
+      const payment = await storage.createClientPayment(parsed.data as any);
       await storage.logAdminActivity({
         actor_type: "human",
         actor_id: (req.user as any)?.id,
@@ -1690,15 +1864,29 @@ export function registerAdminCrmRoutes(app: Express): void {
       const id = parseInt(String(req.params.id) as string);
       const updates = { ...req.body };
       // Reject unknown statuses — an unrecognized value silently drops the row
-      // from the unpaid/revenue aggregates.
-      const ALLOWED_STATUSES = ["pending", "paid", "failed", "refunded", "partial"];
-      if (updates.status !== undefined && !ALLOWED_STATUSES.includes(updates.status)) {
+      // from the unpaid/revenue aggregates. Whitelist shared with the CREATE
+      // path (PAYMENT_STATUSES).
+      if (updates.status !== undefined && !PAYMENT_STATUSES.includes(updates.status)) {
         return res.status(400).json({ error: "Invalid payment status" });
       }
       // Auto-set paid_at when marking as paid
       if (updates.status === "paid" && !updates.paid_at) {
         updates.paid_at = new Date();
       }
+      // Capture the pre-update row so the audit log records before+after of the
+      // money-relevant fields (status/amount drive revenue + unpaid totals).
+      const { db: paymentsDb } = await import("../db");
+      const { clientPayments } = await import("@shared/schema");
+      const { eq: eqOp } = await import("drizzle-orm");
+      const [beforePayment] = await paymentsDb
+        .select({
+          status: clientPayments.status,
+          amount_cents: clientPayments.amount_cents,
+          type: clientPayments.type,
+        })
+        .from(clientPayments)
+        .where(eqOp(clientPayments.id, id))
+        .limit(1);
       const payment = await storage.updateClientPayment(id, updates);
       if (!payment) return res.status(404).json({ error: "Payment not found" });
       await storage.logAdminActivity({
@@ -1709,7 +1897,21 @@ export function registerAdminCrmRoutes(app: Express): void {
         entity_type: "payment",
         entity_id: id,
         summary: `Payment #${id} → ${payment.status}`,
-        metadata: { fields: Object.keys(req.body) },
+        metadata: {
+          fields: Object.keys(req.body),
+          before: beforePayment
+            ? {
+                status: beforePayment.status,
+                amount_cents: beforePayment.amount_cents,
+                type: beforePayment.type,
+              }
+            : null,
+          after: {
+            status: payment.status,
+            amount_cents: payment.amount_cents,
+            type: payment.type,
+          },
+        },
       });
       res.json(payment);
     } catch (err: any) {
