@@ -6,7 +6,7 @@ import { eq, and, gt } from "drizzle-orm";
 import { users, passwordResetTokens, clients } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { sendPasswordResetEmail } from "../lib/passwordResetEmail";
-import { authRateLimiter, passwordResetDedupeLimiter, magicLinkDedupeLimiter } from "../services/rateLimiter";
+import { authRateLimiter, passwordResetDedupeLimiter, magicLinkDedupeLimiter, publicCheckoutRateLimiter } from "../services/rateLimiter";
 import { getMemory, linkSessionToUser, extractMemorySignals } from "../services/chatMemory";
 import { storage } from "../storage";
 import { generateSecret, verifyCode as verifyTotpCode } from "../services/totpService";
@@ -1084,6 +1084,11 @@ export function registerAuthRoutes(app: Express) {
    * ensuring the portal account; this endpoint retrieves and verifies it.
    */
   app.post("/api/auth/checkout-login", async (req, res, next) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!(await publicCheckoutRateLimiter.check(`checkout-login:${ip}`))) {
+      return res.status(429).json({ error: "Too many checkout attempts. Try again in a few minutes." });
+    }
+
     try {
       const { sessionId } = req.body;
       if (!sessionId || typeof sessionId !== "string") {

@@ -13,7 +13,12 @@ import { randomBytes, createHmac, timingSafeEqual } from "crypto";
 const LOGIN_TOKEN_TTL = 24 * 60 * 60; // 24 hours in seconds
 
 function getSecret(): string {
-  return process.env.SESSION_SECRET || "wft-login-token-dev-fallback";
+  const s = process.env.SESSION_SECRET;
+  if (s) return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET is not set — refusing to mint/verify tokens with a dev fallback in production");
+  }
+  return "wft-login-token-dev-fallback"; // dev/test only
 }
 
 function b64url(buf: Buffer | string): string {

@@ -26,7 +26,12 @@ const DEV_FALLBACK = "wft-billing-portal-default-key-change-me";
 const DEFAULT_TTL_DAYS = 30;
 
 function getSecret(): string {
-  return process.env.BILLING_PORTAL_SECRET || process.env.SESSION_SECRET || DEV_FALLBACK;
+  const s = process.env.BILLING_PORTAL_SECRET || process.env.SESSION_SECRET;
+  if (s) return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("BILLING_PORTAL_SECRET (or SESSION_SECRET) is not set — refusing to mint/verify tokens with a dev fallback in production");
+  }
+  return DEV_FALLBACK; // dev/test only
 }
 
 function b64url(buf: Buffer | string): string {
