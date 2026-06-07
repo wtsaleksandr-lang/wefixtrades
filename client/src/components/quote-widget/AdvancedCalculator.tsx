@@ -20,6 +20,7 @@ import {
   type TemplateStep,
   resolveTieredConfig,
   inlineElementStyleToCss,
+  parseVideoEmbedSrc,
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -76,7 +77,7 @@ import { sanitizeRichHtml, richHtmlToPlainText } from '@/components/wizard/elfsi
 // is self-healing against bright-on-bright Brand Studio picks. The
 // original user-saved tokens are NOT mutated — only the final rendered
 // colour is corrected. See `client/src/lib/contrastGuard.ts`.
-import { guardTextColor, getRelativeLuminance } from '@/lib/contrastGuard';
+import { guardTextColor, getRelativeLuminance, darkenBgForWhiteText, darkenBgForTextColor } from '@/lib/contrastGuard';
 
 /**
  * BD-3d — owner-configured heading/footer/title/subtitle may be rich HTML
@@ -231,7 +232,13 @@ interface AdvField {
   type: 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text' | 'image_choice' | 'heading'
     // COMPONENTS-1 — Wave U-F1. Display-only types (paragraph / divider /
     // image) carry no answer; the renderer emits inline JSX for them.
-    | 'paragraph' | 'divider' | 'image';
+    | 'paragraph' | 'divider' | 'image'
+    // BUILDER-COMPONENTS — content/CTA components (button / link). No answer;
+    // emitted as inline JSX and excluded from the formula context.
+    | 'button' | 'link'
+    // FIELD-PALETTE — video embed (YouTube / Vimeo). No answer; emitted as an
+    // inline 16:9 iframe and excluded from the formula context.
+    | 'video';
   help?: string;
   required?: boolean;
   default_value?: number;
@@ -242,6 +249,18 @@ interface AdvField {
   on_value?: number;
   options?: AdvOption[];
   visible_when?: { field: string; op: string; value: number };
+  /**
+   * CONDITIONAL-FIELDS-1 — conditional visibility. See `TemplateField.show_if`
+   * in shared/templatePresets.ts for the authoring docs. When set, the field
+   * renders only while the rule passes against the current answers; when it
+   * fails the field is dropped from the layout AND contributes a neutral value
+   * to the formula context (never a stale answer). Absent → always shown.
+   */
+  show_if?: {
+    field: string;
+    op: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains';
+    value: string | number;
+  };
   /** Optional grid column span (1 = half width, 2 = full width). */
   colSpan?: 1 | 2;
   // COMPONENTS-1 — see `TemplateField` in shared/templatePresets.ts for full
@@ -258,6 +277,16 @@ interface AdvField {
   imageUrl?: string;
   imageCaption?: string;
   imageAlt?: string;
+  // BUILDER-COMPONENTS — button / link destination. See `TemplateField` in
+  // shared/templatePresets.ts for the authoring docs. Echoed onto AdvField so
+  // the renderer reads them straight off the persisted config.
+  href?: string;
+  buttonAction?: 'url' | 'tel' | 'mailto';
+  // FIELD-PALETTE — video embed source + caption. See `TemplateField` in
+  // shared/templatePresets.ts for the authoring docs. Echoed onto AdvField so
+  // the renderer reads them straight off the persisted config.
+  videoUrl?: string;
+  videoCaption?: string;
   /**
    * Wave 61 — per-element cosmetic style overrides. Authored via the
    * floating <InlineStyleToolbar /> in the wizard preview. The renderer
@@ -276,7 +305,10 @@ interface AdvCalc {
   divider?: boolean;
 }
 interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'center' | 'right'; }
-interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; cta_heading?: string; cta_sub?: string; }
+interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; cta_heading?: string; cta_sub?: string;
+  /** Action tab — success line shown in the lead modal after submit. Absent →
+   *  LeadModal's built-in default copy. */
+  submit_success?: string; }
 /**
  * Wave H6 — Settings tab number-format slot. Drives the renderer's
  * currency / number formatting independent of the user's browser locale.
@@ -356,6 +388,12 @@ export interface AdvancedConfig {
    * owner can override via the Style tab.
    */
   trustBadges?: readonly import('@shared/templatePresets').TrustBadge[];
+  /**
+   * Action tab — Spam protection. Client-side honeypot on the lead modal.
+   * Absent / `true` → ON (protect by default); `false` → OFF. Drives the
+   * LeadModal `honeypot` prop. No backend involvement.
+   */
+  spamProtection?: boolean;
 }
 
 interface Props {
@@ -544,7 +582,11 @@ function rawFieldValue(f: AdvField, answers: Record<string, Answer>): FormulaCon
   // Text inputs flow through as their string value (formula engine
   // already coerces strings to 0 when summed).
   if (f.type === 'heading' || f.type === 'paragraph'
-      || f.type === 'divider' || f.type === 'image') return 0;
+      || f.type === 'divider' || f.type === 'image'
+      // BUILDER-COMPONENTS — button / link are content-only; never feed the calc.
+      || f.type === 'button' || f.type === 'link'
+      // FIELD-PALETTE — video embed is content-only; never feeds the calc.
+      || f.type === 'video') return 0;
   if (f.type === 'number' || f.type === 'slider') return Number(v) || 0;
   if (f.type === 'text') return String(v ?? '');
   if (f.type === 'toggle') return v ? (f.on_value ?? 1) : 0;
@@ -578,6 +620,97 @@ function rulePasses(rule: { op: string; value: number }, controlValue: number): 
     case 'lte': return controlValue <= rule.value;
     default: return true;
   }
+}
+
+/**
+ * CONDITIONAL-FIELDS-1 — evaluate a field's `show_if` rule against the
+ * current answers. Pure + side-effect-free so it re-runs cleanly on every
+ * answer change (the renderer already re-derives on state change).
+ *
+ * The rule's `field` is the CONTROLLING field's `id`; we resolve it to the
+ * answer (keyed by the controlling field's `name`). Comparison reads the
+ * RAW answer, not the formula contribution:
+ *   - select / radio / image_choice → the selected OPTION ID (string)
+ *   - number / slider               → the number
+ *   - toggle                        → coerced to 1 / 0 so a `value: 1` rule works
+ *   - multi_select                  → the array of selected option ids
+ *
+ * Semantics:
+ *   - No `show_if`            → visible.
+ *   - Controller not found    → visible (fail-open; a dangling ref must not
+ *                               permanently hide a field the owner can see in
+ *                               the editor).
+ *   - Controller unanswered   → eq/gt/lt/gte/lte/contains are FALSE (hidden);
+ *                               `ne` is TRUE (an absent answer is "not equal").
+ *
+ * `eq` / `ne` compare loosely-by-string so `'premium' === 'premium'` and
+ * `value: 1` matches a numeric `1`. `gt/lt/gte/lte` are numeric. `contains`
+ * is substring (string answer) or membership (multi_select array answer).
+ */
+function isFieldVisible(
+  field: AdvField,
+  fieldsById: Map<string, AdvField>,
+  answers: Record<string, Answer>,
+): boolean {
+  const rule = field.show_if;
+  if (!rule) return true;
+  const ctrl = fieldsById.get(rule.field);
+  if (!ctrl) return true; // dangling reference → fail open.
+
+  const answer = answers[ctrl.name];
+  const unanswered =
+    answer === undefined || answer === null || answer === ''
+    || (Array.isArray(answer) && answer.length === 0);
+
+  switch (rule.op) {
+    case 'eq':
+      if (unanswered) return false;
+      return looseEquals(answer, rule.value);
+    case 'ne':
+      if (unanswered) return true;
+      return !looseEquals(answer, rule.value);
+    case 'gt':
+    case 'lt':
+    case 'gte':
+    case 'lte': {
+      if (unanswered) return false;
+      const a = answerToNumber(answer);
+      const b = Number(rule.value);
+      if (!isFinite(a) || !isFinite(b)) return false;
+      if (rule.op === 'gt') return a > b;
+      if (rule.op === 'lt') return a < b;
+      if (rule.op === 'gte') return a >= b;
+      return a <= b;
+    }
+    case 'contains': {
+      if (unanswered) return false;
+      const needle = String(rule.value);
+      if (Array.isArray(answer)) return answer.map(String).includes(needle);
+      return String(answer).includes(needle);
+    }
+    default:
+      return true;
+  }
+}
+
+/** Loose equality for show_if eq/ne — compares by string so `1` == `'1'`
+ *  and `true`/toggle answers coerce predictably. */
+function looseEquals(answer: Answer, value: string | number): boolean {
+  if (typeof answer === 'boolean') {
+    // Toggle answers compare against 1/0 (or 'true'/'false').
+    const n = answer ? 1 : 0;
+    return String(n) === String(value) || String(answer) === String(value);
+  }
+  return String(answer) === String(value);
+}
+
+/** Coerce a raw answer to a number for the numeric show_if operators. */
+function answerToNumber(answer: Answer): number {
+  if (typeof answer === 'number') return answer;
+  if (typeof answer === 'boolean') return answer ? 1 : 0;
+  if (Array.isArray(answer)) return answer.length;
+  const n = parseFloat(String(answer));
+  return isFinite(n) ? n : NaN;
 }
 
 /** P2 UX — deposit-badge icon name → lucide component. Mirrors the
@@ -713,9 +846,19 @@ const groupHeaderStyle = (c: WidgetTheme, bodyIsDark: boolean): React.CSSPropert
   // Contrast with the ACTUAL body background: near-white on dark-gradient
   // bodies, near-black on light-gradient bodies — so the centered group label
   // is readable everywhere (was hardcoded black → invisible on dark bodies).
-  color: bodyIsDark ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.88)',
+  // Keep the adaptive base choice, then run it through the contrast guard
+  // against the body bg so edge themes (where c.bg disagrees with bodyIsDark)
+  // are corrected too. 11px → normal (non-large) WCAG floor.
+  color: guardTextColor(
+    bodyIsDark ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.88)',
+    c.bg,
+    'groupHeader',
+  ),
   display: 'block',
-  marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em',
+  // Sentence case (natural config casing) to MATCH the stacked select labels —
+  // every field/group caption in the widget now uses one consistent treatment
+  // (was uppercase here, sentence-case on selects → inconsistent).
+  marginBottom: '8px', letterSpacing: '0.02em',
   textAlign: 'center',
 });
 
@@ -1516,14 +1659,28 @@ export default function AdvancedCalculator({
     return ctx;
   }, [fields, answers]);
 
+  // CONDITIONAL-FIELDS-1 — id→field map so `show_if.field` (a controlling
+  // field id) resolves to that field (and its answer key, `name`).
+  const fieldsById = useMemo(() => {
+    const m = new Map<string, AdvField>();
+    for (const f of fields) m.set(f.id, f);
+    return m;
+  }, [fields]);
+
   const visibleIds = useMemo(() => {
     const s = new Set<string>();
     for (const f of fields) {
-      if (!f.visible_when) { s.add(f.id); continue; }
-      if (rulePasses(f.visible_when, asNumber(raw[f.visible_when.field] ?? 0))) s.add(f.id);
+      // Legacy numeric `visible_when` rule (kept for back-compat).
+      if (f.visible_when
+        && !rulePasses(f.visible_when, asNumber(raw[f.visible_when.field] ?? 0))) {
+        continue;
+      }
+      // CONDITIONAL-FIELDS-1 — `show_if` rule (string-or-number aware).
+      if (!isFieldVisible(f, fieldsById, answers)) continue;
+      s.add(f.id);
     }
     return s;
-  }, [fields, raw]);
+  }, [fields, raw, fieldsById, answers]);
 
   const ctx = useMemo(() => {
     const m: FormulaContext = {};
@@ -1610,7 +1767,11 @@ export default function AdvancedCalculator({
   const interactiveFieldCount = useMemo(
     () => visibleFields.filter(
       (f) => f.type !== 'heading' && f.type !== 'paragraph'
-        && f.type !== 'divider' && f.type !== 'image',
+        && f.type !== 'divider' && f.type !== 'image'
+        // BUILDER-COMPONENTS — button / link are display-only; no own step.
+        && f.type !== 'button' && f.type !== 'link'
+        // FIELD-PALETTE — video embed is display-only; no own step.
+        && f.type !== 'video',
     ).length,
     [visibleFields],
   );
@@ -1807,10 +1968,22 @@ export default function AdvancedCalculator({
   // white. `guardTextColor` (applied below as `ctaFgGuarded`) enforces the
   // contrast floor on top. Templates that DON'T set `ctaColor` fall through
   // to the exact legacy derivation — no regression.
-  const ctaBg = style.ctaColor ?? (resultTinted && resultIsDark ? '#ffffff' : accent);
+  const ctaBgRaw = style.ctaColor ?? (resultTinted && resultIsDark ? '#ffffff' : accent);
   const ctaFg = style.ctaColor !== undefined
     ? (getRelativeLuminance(style.ctaColor) >= 0.5 ? 'rgb(17,17,17)' : 'rgb(255,255,255)')
     : (resultTinted && resultIsDark ? c.result : '#ffffff');
+  // CONTRAST — when the resolved CTA foreground is WHITE (the legacy
+  // white-on-accent path, or a custom DARK `ctaColor` that derived white text),
+  // mid-tone accent fills (orange #E8821E, green #2E9E3F, red #ED3237) leave
+  // white below WCAG AA (≈2.7–4.1:1). Deepen the rendered button background just
+  // until white clears 4.5:1, preserving the "white on brand colour" button.
+  // `darkenBgForWhiteText` is a no-op when the fill is already dark enough, so
+  // dark accents / dark custom ctaColors are unchanged. The dark-text-on-bright
+  // path (e.g. yellow ctaColor → rgb(17,17,17)) is NOT touched — those pass and
+  // the condition below excludes them. `ctaFgGuarded` (computed later) derives
+  // against this darkened `ctaBg`, so the label is evaluated on the final fill.
+  const ctaFgIsWhite = ctaFg === '#ffffff' || ctaFg === 'rgb(255,255,255)';
+  const ctaBg = ctaFgIsWhite ? darkenBgForWhiteText(ctaBgRaw, 4.5) : ctaBgRaw;
   const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail.trim());
   const leadReady = leadName.trim() !== '' && leadEmailOk;
   const leadInputStyle: React.CSSProperties = {
@@ -1866,7 +2039,29 @@ export default function AdvancedCalculator({
   // through to the existing renderer default when absent. We compute the
   // tokens here so the JSX block below stays readable.
   const rpAccent = bsResultPanel?.accentOverride ?? accent;
-  const rpBg = bsResultPanel?.bgOverride ?? c.result;
+  // CONTRAST — result-panel background. When the panel intends WHITE text (a
+  // DARK-classified tint, per `resultTinted && resultIsDark` below — the same
+  // branch that drives the white dividers / white CTA), mid-tone brand colours
+  // (light-blue #29ABE2, teal #1A9B8E, green #4A7A4E) classify as "dark" but
+  // aren't dark enough for white text to clear WCAG AA (≈2.6–4.0:1). We deepen
+  // the RENDERED panel background just until white reaches 4.5:1, keeping the
+  // "white on brand colour" look — only a touch richer. `darkenBgForWhiteText`
+  // returns the input UNCHANGED when it already passes (navy/charcoal/olive →
+  // no change). LIGHT tints with DARK text (resultIsDark false) are untouched.
+  // Critically, this runs BEFORE the text tokens below derive against `rpBg`,
+  // so resultText/resultMuted/resultValueColor/headlineTotalColor are all
+  // evaluated against — and stay white on — the darkened surface.
+  const rpBgRaw = bsResultPanel?.bgOverride ?? c.result;
+  // Darken for the WORST-CASE panel text — the muted caption token, which is
+  // typically translucent white (e.g. rgba(255,255,255,0.82)). Solid-white
+  // headline/values clear AA at a lighter shade, but the translucent caption
+  // needs the bg a touch darker; `darkenBgForTextColor` composites the muted
+  // token's alpha and deepens the bg just until the COMPOSITED caption clears
+  // 4.5:1 — which also satisfies the solid-white text. Already-dark panels and
+  // light (dark-text) panels are returned unchanged.
+  const rpBg = resultTinted && resultIsDark
+    ? darkenBgForTextColor(rpBgRaw, c.resultMuted, 4.5)
+    : rpBgRaw;
   const rpEmphasis: AdvResultEmphasis = bsResultPanel?.emphasis ?? 'normal';
   const rpBorderMode: AdvResultBorder = bsResultPanel?.border ?? 'subtle';
   const rpHeadlineWeight = rpEmphasis === 'bold' ? 900
@@ -2372,12 +2567,18 @@ export default function AdvancedCalculator({
           only signal not already covered by the per-template trustBadges
           array, hence the synthesis. Wraps to multiple rows on narrow
           widths; absent + no profile data → renders null. */}
-      <TrustBadgeRow
-        badges={advanced.trustBadges}
-        businessProfile={advanced.businessProfile}
-        theme={cc}
-        fontFamily={fontFamily}
-      />
+      {/* Only render the trust strip when the owner hasn't disabled it.
+          `showTrustBadges` is defined on AdvStyle by the editor (sibling); read
+          loosely so this compiles regardless of when that field lands, and
+          treat `!== false` as "show" (default-on). */}
+      {(style as { showTrustBadges?: boolean }).showTrustBadges !== false && (
+        <TrustBadgeRow
+          badges={advanced.trustBadges}
+          businessProfile={advanced.businessProfile}
+          theme={cc}
+          fontFamily={fontFamily}
+        />
+      )}
       {/* BD-2a — stepper progress indicator. Rendered when the multi-step
           renderer is active (default for every template; owner can opt to
           single-form via Style tab → Step layout). The indicator sits
@@ -2674,6 +2875,10 @@ export default function AdvancedCalculator({
                 theme={cc}
                 fontFamily={fontFamily}
                 radiusPx={radiusInnerPx}
+                // Selected tier card paints with the SAME darkened/guarded
+                // colour the CTA button uses, so the chosen tier matches the
+                // CTA instead of the raw (brighter) accent.
+                selectedBg={ctaBg}
                 formatPrice={(value) =>
                   effectiveRangeMode?.enabled
                     ? formatResultRange(
@@ -3157,6 +3362,11 @@ export default function AdvancedCalculator({
         ctaFg={ctaFgGuarded}
         fontFamily={fontFamily}
         radiusPx={radiusInnerPx}
+        /* Action tab — owner success copy (absent → LeadModal default). */
+        successMessage={(results.submit_success || '').trim() || undefined}
+        /* Action tab — spam honeypot. Default ON (protect by default); only
+           an explicit `false` disables it. */
+        honeypot={advanced.spamProtection !== false}
         onSubmit={analyticsCalcId ? async (lead: Lead) => {
           const resp = await fetch('/api/leads', {
             method: 'POST',
@@ -3285,14 +3495,19 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   // legacy title-in-field float pattern is the unchanged default.
   const stacked = labelLayout === 'stacked';
   const stackedLabelStyle: React.CSSProperties = {
-    display: 'block', fontSize: '14px', fontWeight: 700, color: c.text,
+    display: 'block', fontSize: '14px', fontWeight: 700,
+    // Guard the stacked title against the body bg it renders on (c.bg — no
+    // dedicated body-bg var is in this component's scope). 14px bold → large
+    // text floor.
+    color: guardTextColor(c.text, c.bg, 'fieldLabelStacked', { largeText: true }),
     margin: '0 0 7px', letterSpacing: '-0.005em', lineHeight: 1.3,
     fontFamily,
   };
   const stackedHelp = stacked && f.help
     ? <p style={{
         margin: '7px 0 0', fontSize: '12px', fontWeight: 400,
-        color: c.textMuted, lineHeight: 1.45, fontFamily,
+        color: guardTextColor(c.textMuted, c.bg, 'fieldHelpStacked'),
+        lineHeight: 1.45, fontFamily,
       }}>{f.help}</p>
     : null;
   // Wrap a bare control in the stacked label + help scaffold.
@@ -3357,7 +3572,10 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     // image) just like header.title. Plain strings fall through unchanged.
     const headingProps = richTextRenderProps(f.label || '');
     const headingStyle = {
-      fontSize: '15px', fontWeight: 700, color: c.text, margin: '2px 0 0',
+      fontSize: '15px', fontWeight: 700,
+      // Heading sits on the body bg (c.bg). 15px bold → large-text floor.
+      color: guardTextColor(c.text, c.bg, 'headingField', { largeText: true }),
+      margin: '2px 0 0',
       paddingBottom: '7px', borderBottom: `1px solid ${c.border}`,
     } as const;
     return headingProps.__html
@@ -3437,6 +3655,134 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             borderRadius: radiusPx,
           }}
         />
+        {caption ? (
+          <figcaption style={{
+            fontSize: '12px', color: c.textMuted, lineHeight: 1.45,
+            fontFamily,
+          }}>{caption}</figcaption>
+        ) : null}
+      </figure>
+    );
+  }
+
+  // BUILDER-COMPONENTS — content/CTA components. Neither persists an answer.
+  // The owner's `label` is the visible text; `href` is the destination.
+  if (f.type === 'button') {
+    const text = (f.label ?? '').trim() || 'Button';
+    const action = f.buttonAction ?? 'url';
+    const raw = (f.href ?? '').trim();
+    // Build the resolved href per action type. `tel:` / `mailto:` strip an
+    // accidental scheme the owner may have typed so we never double-prefix.
+    const href = raw === '' ? ''
+      : action === 'tel' ? `tel:${raw.replace(/^tel:/i, '')}`
+      : action === 'mailto' ? `mailto:${raw.replace(/^mailto:/i, '')}`
+      : raw;
+    // Reuse the CTA styling pattern (accent fill, guarded contrast). The
+    // button text colour is contrast-guarded against the accent fill so a
+    // bright/owner-picked accent never renders unreadable text.
+    const btnFg = guardTextColor('#ffffff', accent, 'componentButtonText', { largeText: true });
+    const shared: React.CSSProperties = {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      gap: 8, maxWidth: '100%', boxSizing: 'border-box',
+      minHeight: 44, padding: '0 18px', borderRadius: radiusPx,
+      background: accent, color: btnFg, border: 'none',
+      fontSize: '14px', fontWeight: 700, fontFamily, letterSpacing: '0.01em',
+      cursor: href ? 'pointer' : 'not-allowed', textDecoration: 'none',
+      lineHeight: 1.2,
+    };
+    const label = <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text}</span>;
+    // URL action opens in a new tab; tel/mailto navigate the current context.
+    if (!href) {
+      return (
+        <button type="button" disabled data-testid={`adv-button-${f.id}`}
+          aria-disabled="true" style={{ ...shared, opacity: 0.6 }}>{label}</button>
+      );
+    }
+    if (action === 'url') {
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer"
+          data-testid={`adv-button-${f.id}`} data-button-action="url" style={shared}>{label}</a>
+      );
+    }
+    return (
+      <a href={href} data-testid={`adv-button-${f.id}`} data-button-action={action} style={shared}>{label}</a>
+    );
+  }
+
+  if (f.type === 'link') {
+    const text = (f.label ?? '').trim() || 'Link';
+    const raw = (f.href ?? '').trim();
+    // Themed inline anchor. The link colour is the widget accent, contrast-
+    // guarded against the body background so it stays readable on any theme.
+    const linkColor = guardTextColor(accent, c.bg, 'componentLink');
+    const linkStyle: React.CSSProperties = {
+      color: linkColor, fontFamily, fontSize: '14px', fontWeight: 600,
+      textDecoration: 'underline', textUnderlineOffset: '2px',
+      cursor: raw ? 'pointer' : 'not-allowed', overflowWrap: 'anywhere',
+    };
+    if (!raw) {
+      return (
+        <span data-testid={`adv-link-${f.id}`} aria-disabled="true"
+          style={{ ...linkStyle, opacity: 0.6, textDecorationStyle: 'dashed' }}>{text}</span>
+      );
+    }
+    return (
+      <a href={raw} target="_blank" rel="noopener noreferrer"
+        data-testid={`adv-link-${f.id}`} style={linkStyle}>{text}</a>
+    );
+  }
+
+  // FIELD-PALETTE — video embed. Display-only; persists no answer. The owner
+  // pastes a YouTube/Vimeo URL which is parsed into a sandboxed embed src
+  // (only those two hosts are ever produced — no arbitrary-iframe injection).
+  // Renders a responsive 16:9 iframe; an empty / unparseable URL shows a
+  // small placeholder so owners can SEE the slot before pasting a link.
+  if (f.type === 'video') {
+    const embedSrc = parseVideoEmbedSrc(f.videoUrl);
+    const caption = (f.videoCaption ?? '').trim();
+    const title = (f.label ?? '').trim() || 'Embedded video';
+    if (!embedSrc) {
+      return (
+        <div
+          data-testid={`adv-video-${f.id}`}
+          style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', gap: 4,
+            padding: '24px 12px',
+            border: `1px dashed ${c.border}`, borderRadius: radiusPx,
+            color: c.textMuted, fontSize: '12px', fontFamily,
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: '22px' }}>▷</span>
+          <span>Add a YouTube or Vimeo URL in the field settings.</span>
+        </div>
+      );
+    }
+    return (
+      <figure
+        data-testid={`adv-video-${f.id}`}
+        style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}
+      >
+        <div
+          style={{
+            position: 'relative', width: '100%', aspectRatio: '16 / 9',
+            borderRadius: radiusPx, overflow: 'hidden',
+            background: c.surface,
+          }}
+        >
+          <iframe
+            src={embedSrc}
+            title={title}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              border: 'none',
+            }}
+          />
+        </div>
         {caption ? (
           <figcaption style={{
             fontSize: '12px', color: c.textMuted, lineHeight: 1.45,
@@ -3573,8 +3919,12 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             rather than a prominent above-the-input title. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <span style={stacked ? { ...stackedLabelStyle, margin: 0 } : {
-            fontSize: '11px', fontWeight: 600, color: c.textMuted,
-            textTransform: 'uppercase', letterSpacing: '0.04em',
+            // Resting (non-stacked) slider caption sits on the body bg (c.bg).
+            // The stacked branch reuses stackedLabelStyle, already guarded.
+            fontSize: '11px', fontWeight: 600,
+            color: guardTextColor(c.textMuted, c.bg, 'sliderLabelResting'),
+            // Sentence case to match every other field/group label (was uppercase).
+            letterSpacing: '0.02em',
           }}>{f.label}</span>
           <span style={stacked ? {
             fontSize: '13px', fontWeight: 700, color: c.text, fontFamily: eff.fontMono,
@@ -3630,7 +3980,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
           background: isOutline ? 'transparent' : c.surface,
           border: isOutline ? `2px solid ${c.border}` : `1px solid ${c.border}`,
         }}>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: c.text }}>{on ? 'Included' : 'Not included'}</span>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: c.text, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{on ? 'Included' : 'Not included'}</span>
           <button type="button" onClick={() => onChange(!on)} aria-pressed={on}
           style={{
             width: '44px', height: '26px', borderRadius: '13px', border: 'none', flexShrink: 0,
@@ -3713,9 +4063,27 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
                 {/* BG-7 Item 3 — sanitized rich-text label. */}
                 {(() => {
                   const rp = richTextRenderProps(o.label);
+                  // Guard against the option row's EFFECTIVE opaque bg. The
+                  // selected fill is a ~10% accentTint composited over the LIGHT
+                  // base (c.bg / c.surface), so the real background is near the
+                  // base, not the alpha-dropped (opaque) accent. guardTextColor
+                  // drops alpha, so passing accentTint would make it see the
+                  // dark opaque accent and leave white text on a near-white fill
+                  // (invisible). A 10% tint barely shifts base luminance, so the
+                  // base is a faithful proxy and forces light text to dark.
+                  // Outline → c.bg (transparent shows body through), else surface.
+                  const optBg = isOutline ? c.bg : c.surface;
+                  const optColor = guardTextColor(c.text, optBg, 'radioOptionLabel');
+                  // One clean line — ellipsis instead of wrapping to 2 rows.
+                  // minWidth:0 lets the span shrink so ellipsis engages and the
+                  // control + label row stays aligned.
+                  const optLabelStyle: React.CSSProperties = {
+                    fontSize: '14px', color: optColor,
+                    minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  };
                   return rp.__html
-                    ? <span style={{ fontSize: '14px', color: c.text }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '14px', color: c.text }}>{rp.text}</span>;
+                    ? <span style={optLabelStyle} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={optLabelStyle}>{rp.text}</span>;
                 })()}
               </button>
             );
@@ -3768,9 +4136,22 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
                 {/* BG-7 Item 3 — sanitized rich-text label. */}
                 {(() => {
                   const rp = richTextRenderProps(o.label);
+                  // Same selected-fill trap as the radio rows: when selected the
+                  // card bg is a ~10% accentTint over the LIGHT base (c.surface /
+                  // body), so the effective bg is near-white. Guard the label
+                  // against the opaque light base (guardTextColor drops alpha, so
+                  // passing accentTint would see the dark opaque accent and leave
+                  // white text invisible on the near-white fill).
+                  const cardBg = isOutline ? c.bg : c.surface;
+                  const cardColor = guardTextColor(c.text, cardBg, 'imageChoiceCardLabel');
+                  // One clean line — ellipsis if the label is too long for the card.
+                  const cardLabelStyle: React.CSSProperties = {
+                    fontSize: '13px', fontWeight: 600, color: cardColor,
+                    maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  };
                   return rp.__html
-                    ? <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }}>{rp.text}</span>;
+                    ? <span style={cardLabelStyle} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={cardLabelStyle}>{rp.text}</span>;
                 })()}
               </button>
             );
@@ -3848,15 +4229,27 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                 {(() => {
                   const rp = richTextRenderProps(o.label);
+                  // Multi-select row bg does NOT switch to accentTint on select
+                  // (see comment above) — it stays surface/transparent. Outline →
+                  // c.bg (body shows through), else c.surface.
+                  const optBg = isOutline ? c.bg : c.surface;
+                  const optColor = guardTextColor(c.text, optBg, 'multiSelectOptionLabel');
+                  // Single line + ellipsis (parent column already minWidth:0).
+                  const msLabelStyle: React.CSSProperties = {
+                    fontSize: '14px', color: optColor,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  };
                   return rp.__html
-                    ? <span style={{ fontSize: '14px', color: c.text }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '14px', color: c.text }}>{rp.text}</span>;
+                    ? <span style={msLabelStyle} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={msLabelStyle}>{rp.text}</span>;
                 })()}
                 {(o as any).description && (() => {
                   const rp = richTextRenderProps((o as any).description as string);
+                  const descBg = isOutline ? c.bg : c.surface;
+                  const descColor = guardTextColor(c.textMuted, descBg, 'multiSelectOptionDesc');
                   return rp.__html
-                    ? <span style={{ fontSize: '12px', color: c.textMuted, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
-                    : <span style={{ fontSize: '12px', color: c.textMuted, lineHeight: 1.4 }}>{rp.text}</span>;
+                    ? <span style={{ fontSize: '12px', color: descColor, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={{ fontSize: '12px', color: descColor, lineHeight: 1.4 }}>{rp.text}</span>;
                 })()}
               </span>
             </button>

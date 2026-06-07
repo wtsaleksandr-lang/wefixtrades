@@ -472,8 +472,8 @@ export default function RankFlowDemo() {
                 We will check page speed, mobile-friendliness, and SEO structure.
               </p>
 
-              <div style={{ display: "flex", gap: 10 }}>
-                <div style={{ flex: 1, position: "relative" }}>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 200px", minWidth: 0, position: "relative" }}>
                   <Search
                     size={16}
                     color={mkt.textMuted}

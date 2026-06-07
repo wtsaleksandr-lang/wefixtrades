@@ -62,6 +62,89 @@ export function normalizeLayout(value: unknown): TemplateLayout {
   }
 }
 
+/* ─── Video embed parsing (FIELD-PALETTE) ─── */
+
+/**
+ * FIELD-PALETTE — parse an owner-pasted video URL into a sandboxed embed src.
+ *
+ * Accepts:
+ *  - YouTube watch URLs (`https://www.youtube.com/watch?v=<id>`)
+ *  - YouTube short links (`https://youtu.be/<id>`)
+ *  - YouTube `/embed/<id>` / `/shorts/<id>` / `/live/<id>` URLs
+ *  - Vimeo URLs (`https://vimeo.com/<id>`, `https://player.vimeo.com/video/<id>`)
+ *  - A bare YouTube id (11 chars) or bare numeric Vimeo id.
+ *
+ * SECURITY: only YouTube + Vimeo hosts are ever produced — an arbitrary or
+ * unparseable URL returns `null` so the renderer can show a placeholder
+ * instead of injecting an attacker-controlled iframe (no XSS via host).
+ *
+ * @returns the embed src (`https://www.youtube.com/embed/<id>` or
+ *   `https://player.vimeo.com/video/<id>`), or `null` when nothing matched.
+ */
+export function parseVideoEmbedSrc(raw: string | undefined | null): string | null {
+  const input = (raw ?? '').trim();
+  if (input === '') return null;
+
+  // Bare YouTube id (exactly 11 url-safe chars, no scheme/slash/dot).
+  if (/^[A-Za-z0-9_-]{11}$/.test(input)) {
+    return `https://www.youtube.com/embed/${input}`;
+  }
+  // Bare numeric Vimeo id.
+  if (/^\d{6,12}$/.test(input)) {
+    return `https://player.vimeo.com/video/${input}`;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(input.includes('://') ? input : `https://${input}`);
+  } catch {
+    return null;
+  }
+  // Only http(s) — block javascript:, data:, etc.
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+
+  const host = url.hostname.toLowerCase().replace(/^www\./, '');
+
+  // ── YouTube ──────────────────────────────────────────────────────────
+  if (host === 'youtu.be') {
+    const id = url.pathname.split('/').filter(Boolean)[0];
+    if (id && /^[A-Za-z0-9_-]{11}$/.test(id)) {
+      return `https://www.youtube.com/embed/${id}`;
+    }
+    return null;
+  }
+  if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+    // /watch?v=<id>
+    const v = url.searchParams.get('v');
+    if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) {
+      return `https://www.youtube.com/embed/${v}`;
+    }
+    // /embed/<id>, /shorts/<id>, /live/<id>, /v/<id>
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length >= 2 && ['embed', 'shorts', 'live', 'v'].includes(parts[0])) {
+      const id = parts[1];
+      if (/^[A-Za-z0-9_-]{11}$/.test(id)) {
+        return `https://www.youtube.com/embed/${id}`;
+      }
+    }
+    return null;
+  }
+
+  // ── Vimeo ────────────────────────────────────────────────────────────
+  if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+    // player.vimeo.com/video/<id>  OR  vimeo.com/<id>
+    const parts = url.pathname.split('/').filter(Boolean);
+    const id = parts[parts.length - 1];
+    if (id && /^\d{6,12}$/.test(id)) {
+      return `https://player.vimeo.com/video/${id}`;
+    }
+    return null;
+  }
+
+  // Any other host is rejected (no arbitrary iframe injection).
+  return null;
+}
+
 /* ─── Field / calculation / header / result types ─── */
 
 export type FieldType =
@@ -71,7 +154,17 @@ export type FieldType =
   // image) persist no answer but render JSX inline alongside inputs. `text`
   // is also surfaced in the picker now (single-line input, was always in
   // the enum but unsurfaced in the new editor).
-  | 'paragraph' | 'divider' | 'image';
+  | 'paragraph' | 'divider' | 'image'
+  // BUILDER-COMPONENTS — content/CTA components. `button` is a tappable
+  // action button (opens a URL / tel: / mailto:); `link` is an inline text
+  // anchor. Both are display-only — they carry NO answer and contribute
+  // nothing to the quote formula (handled alongside the display-only types
+  // everywhere `heading`/`paragraph`/`divider`/`image` are excluded).
+  | 'button' | 'link'
+  // FIELD-PALETTE — `video` is a display-only embed (YouTube / Vimeo). Like
+  // the other content types it carries NO answer and is excluded from the
+  // quote formula everywhere the display-only types are.
+  | 'video';
 
 export interface TemplateOption {
   id: string;
@@ -167,6 +260,31 @@ export interface TemplateField {
   imageCaption?: string;
   imageAlt?: string;
   /**
+   * BUILDER-COMPONENTS — `button` + `link` content components. Both use
+   * `label` for the visible text the customer taps/clicks. `href` is the
+   * destination; for a `button` the `buttonAction` discriminator picks how
+   * `href` is interpreted:
+   *   - 'url'    → open the URL (new tab, rel=noopener).
+   *   - 'tel'    → dial — the renderer prefixes `tel:`.
+   *   - 'mailto' → compose — the renderer prefixes `mailto:`.
+   * A `link` is always treated as a URL (new tab). All optional so an
+   * in-flight edit can partial-update; the renderer no-ops a button/link
+   * with an empty href (renders a disabled-looking control in the editor
+   * preview, harmless live).
+   */
+  href?: string;
+  buttonAction?: 'url' | 'tel' | 'mailto';
+  /**
+   * FIELD-PALETTE — `video` content component. `videoUrl` is the raw URL the
+   * owner pastes (a YouTube watch / youtu.be / Vimeo URL, or a bare id); the
+   * renderer parses it into a sandboxed youtube.com/embed or
+   * player.vimeo.com/video src. `videoCaption` renders muted beneath the
+   * 16:9 frame. Both optional; an empty / unparseable URL renders a small
+   * placeholder rather than a broken iframe.
+   */
+  videoUrl?: string;
+  videoCaption?: string;
+  /**
    * Wave 61 — per-element inline cosmetic style overrides driven by the
    * floating <InlineStyleToolbar />. Optional; absent → no override (the
    * widget renders with the resolved theme/AdvStyle tokens as before).
@@ -183,6 +301,32 @@ export interface TemplateField {
    * handles other cosmetic overrides, then re-attached on load.
    */
   inlineStyle?: InlineElementStyle;
+  /**
+   * CONDITIONAL-FIELDS-1 — conditional visibility. When present, this field
+   * is rendered ONLY while the rule evaluates true against the current
+   * answers; otherwise it is removed from the layout AND treated as
+   * unanswered in the formula engine (contributes 0 / [] — never a stale
+   * value). Absent → the field is always shown (no behaviour change for
+   * every existing template).
+   *
+   *  - `field` — the `id` of the CONTROLLING field whose answer is tested.
+   *  - `op`    — the comparison: `eq` / `ne` (equality, string or number),
+   *              `gt` / `lt` / `gte` / `lte` (numeric), or `contains`
+   *              (substring for text, membership for a multi_select array).
+   *  - `value` — the value to compare against. For a select / radio /
+   *              image_choice controller this is the OPTION ID (e.g.
+   *              `'premium'`); for a number / slider it's the number; for a
+   *              toggle use `1` / `0` (on / off).
+   *
+   * Single condition only (v1) — one clean "show when" rule per field.
+   * Serializable plain JSON so it round-trips through `toAdvancedConfig`
+   * and the persisted `calculator_settings.advanced` untouched.
+   */
+  show_if?: {
+    field: string;
+    op: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains';
+    value: string | number;
+  };
 }
 
 /**
@@ -304,6 +448,11 @@ export interface TemplateResults {
    */
   cta_heading?: string;
   cta_sub?: string;
+  /**
+   * Action tab — success line shown in the lead-capture modal after a
+   * successful submit. Absent → the modal's built-in default copy.
+   */
+  submit_success?: string;
 }
 
 /* ─── Stepper (BD-2a — multi-step renderer) ─── */
@@ -3609,6 +3758,60 @@ export function getTemplateCategories(): string[] {
   return seen;
 }
 
+/** Layout-variant id suffixes. A template whose id ends in one of these is a
+ *  per-layout VARIANT of a logical template (they share the same `name`); only
+ *  the layout differs. Layout is chosen in-editor, so these must collapse to a
+ *  single gallery card. */
+const LAYOUT_VARIANT_SUFFIXES = ['_single_col', '_two_col', '_multi_col'] as const;
+
+function hasLayoutSuffix(id: string): boolean {
+  return LAYOUT_VARIANT_SUFFIXES.some((s) => id.endsWith(s));
+}
+
+/** Collapse layout variants (…_single_col/_two_col/_multi_col that share a
+ *  display name) to ONE representative per template name, preserving
+ *  catalogue order. Used by the gallery + marketing listing so the same
+ *  title never appears as multiple cards. Layout itself is chosen in-editor.
+ *
+ *  Per-name representative preference (best kept id):
+ *    (a) an id WITHOUT a layout suffix (the base/canonical, e.g.
+ *        `junk_removal_quote`), else
+ *    (b) the `_two_col` variant (sensible default layout), else
+ *    (c) the first occurrence seen.
+ *  The kept representatives appear in original catalogue order (first-seen
+ *  position of each name). Pure — never mutates the input. */
+export function collapseLayoutVariants(list: TemplateConfig[]): TemplateConfig[] {
+  // first-seen order of names → preserves catalogue order of representatives.
+  const order: string[] = [];
+  const chosen = new Map<string, TemplateConfig>();
+
+  for (const t of list) {
+    const name = t.name.trim();
+    const current = chosen.get(name);
+    if (!current) {
+      order.push(name);
+      chosen.set(name, t);
+      continue;
+    }
+    // A representative is already chosen — only replace it if `t` is strictly
+    // more canonical (preference (a) base > (b) _two_col > (c) first seen).
+    const currentIsBase = !hasLayoutSuffix(current.id);
+    if (currentIsBase) continue; // (a) already held — nothing beats it.
+    const tIsBase = !hasLayoutSuffix(t.id);
+    if (tIsBase) {
+      chosen.set(name, t); // upgrade to canonical base.
+      continue;
+    }
+    // Neither is base: prefer _two_col over the first-seen suffixed variant.
+    const currentIsTwoCol = current.id.endsWith('_two_col');
+    if (!currentIsTwoCol && t.id.endsWith('_two_col')) {
+      chosen.set(name, t);
+    }
+  }
+
+  return order.map((name) => chosen.get(name)!);
+}
+
 /* ─── Runtime config bridge ─── */
 
 /**
@@ -3795,6 +3998,13 @@ export interface AdvStyle {
    * no calendar, legacy behaviour.
    */
   booking?: AdvBooking;
+
+  /**
+   * Owner toggle for the widget's trust-badge strip. Absent / true → the row
+   * shows; false → hidden. Mirrored on ShellStyle so the editor toggle
+   * round-trips through save into the persisted advanced style.
+   */
+  showTrustBadges?: boolean;
 
   /**
    * BD-3k — "Powered by WeFixTrades" footer badge. Optional. Absent →
@@ -4143,6 +4353,8 @@ type AdvStyleOptionalOnly =
   | 'secondary' | 'surface' | 'border' | 'success' | 'error'
   | 'logoPlacement' | 'logoSize'
   | 'headingWeight' | 'bodyWeight' | 'fontSize'
+  // Owner toggle, optional — absent/true → trust-badge strip shows.
+  | 'showTrustBadges'
   // W-AO-6c — Brand Studio fields. All Pro-tier only, all optional and
   // intentionally absent from `DEFAULT_ADV_STYLE` so a fresh calculator
   // renders identically to the pre-AO-6c build.
@@ -4365,6 +4577,12 @@ export interface AdvancedConfigShape {
    *  through verbatim by `toAdvancedConfig`; rendered as a pill row by the
    *  widget header. Absent → no badge row. */
   trustBadges?: readonly TrustBadge[];
+  /**
+   * Action tab — client-side spam honeypot on the lead-capture modal.
+   * Absent / `true` → ON (protect by default); explicit `false` → OFF.
+   * No backend involvement.
+   */
+  spamProtection?: boolean;
 }
 
 /* ─── W-BB-2 — Per-category visual identity (derived at load time) ───

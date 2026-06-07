@@ -540,6 +540,7 @@ export default function SocialSyncDemo() {
                   </label>
                   <select
                     className="socialsync-select"
+                    aria-label="Your trade"
                     value={tradeType}
                     onChange={(e) => setTradeType(e.target.value)}
                     style={{

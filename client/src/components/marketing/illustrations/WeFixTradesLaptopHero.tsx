@@ -19,8 +19,7 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
     <svg
       viewBox="0 0 720 480"
       width="100%"
-      height="auto"
-      style={{ display: "block", maxWidth: size }}
+      style={{ display: "block", height: "auto", maxWidth: size }}
       role="img"
       aria-label="WeFixTrades hero"
     >

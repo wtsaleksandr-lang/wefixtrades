@@ -21,6 +21,7 @@ import { createPortal } from 'react-dom';
 import { useDraggable } from '@dnd-kit/core';
 import {
   Sliders, Hash, ChevronDown, CircleDot, Image as ImageIcon, Heading2,
+  Type as TypeIcon, ToggleLeft as ToggleIcon, Layers,
   type LucideIcon,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -94,6 +95,31 @@ const TYPES: ReadonlyArray<TypeMeta> = [
     hint: 'Section divider text',
     description: 'Visual label that separates fields. Has no price impact.',
     Icon: Heading2,
+  },
+  // FIELD-PALETTE — surface three existing engine types in the Build tab too.
+  {
+    id: 'text',
+    label: 'Text',
+    hint: 'Single-line text input',
+    description: 'Customer types a short free-text answer. No price impact on its own.',
+    recommendedFor: 'names / notes',
+    Icon: TypeIcon,
+  },
+  {
+    id: 'toggle',
+    label: 'Toggle',
+    hint: 'Yes / no switch',
+    description: 'Customer flips a yes/no switch. Adds its price when turned on.',
+    recommendedFor: 'add-on yes/no',
+    Icon: ToggleIcon,
+  },
+  {
+    id: 'multiSelect',
+    label: 'Multi-select',
+    hint: 'Pick several from a list',
+    description: 'Customer picks several options. Each chosen option adds its own price.',
+    recommendedFor: 'add-on bundles',
+    Icon: Layers,
   },
 ];
 

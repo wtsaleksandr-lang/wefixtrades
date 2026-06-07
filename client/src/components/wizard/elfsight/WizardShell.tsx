@@ -32,9 +32,12 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { apiRequest } from '@/lib/queryClient';
+import { toast } from '@/hooks/use-toast';
+import { validateFormula } from '@shared/formulaEngine';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import { AE } from './appleEditor';
+import { buildAdvancedConfig } from './buildAdvancedConfig';
 import {
   buildBlankPreviewConfig, getTemplatePreset, deriveStyleFromCategory,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
@@ -43,7 +46,8 @@ import {
   type TemplateStep,
 } from '@shared/templatePresets';
 import {
-  SlidersHorizontal, Palette, Settings as SettingsIcon, Code2, HelpCircle,
+  SlidersHorizontal, Palette, Settings as SettingsIcon, MousePointerClick, HelpCircle,
+  LifeBuoy, Lightbulb,
 } from 'lucide-react';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
@@ -60,6 +64,7 @@ import BuildTab from './BuildTab';
 import PreviewPane from './PreviewPane';
 import StyleTab from './StyleTab';
 import SettingsTab from './SettingsTab';
+import ActionTab from './ActionTab';
 import InstallTab from './InstallTab';
 import { makeField } from './FieldsPanel';
 import { SelectionProvider } from './selection';
@@ -69,7 +74,7 @@ import {
   DEVICE_PRESET_STORAGE_KEY, EDITOR_TABS,
   type EditorTab, type EditorTheme, type PreviewDevice, type ShellState,
   type ShellHeader, type ShellResults, type ShellStyle,
-  type ShellSettings, type ShellNumberFormat, type ShellPricing,
+  type ShellSettings, type ShellPricing,
   type PublicFieldType,
 } from './types';
 
@@ -166,22 +171,6 @@ function loadPreviewCollapsed(): boolean {
   } catch { return false; }
 }
 
-function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
-  return sep === 'comma' ? ',' : sep === 'space' ? ' ' : '';
-}
-function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
-  return sep === 'comma' ? ',' : '.';
-}
-
-function toAdvNumberFormat(nf: ShellNumberFormat | undefined) {
-  const resolved = nf ?? DEFAULT_SHELL_NUMBER_FORMAT;
-  return {
-    thousands: thousandsLiteral(resolved.thousands),
-    decimal: decimalLiteral(resolved.decimal),
-    currency: resolved.currency || 'USD',
-  };
-}
-
 function toPricingConfig(pricing: ShellPricing | undefined) {
   if (!pricing) {
     return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 } as const;
@@ -197,6 +186,76 @@ function toPricingConfig(pricing: ShellPricing | undefined) {
   const unitName = (pricing.label ?? '').trim() || 'unit';
   const rate = typeof pricing.rate === 'number' && pricing.rate >= 0 ? pricing.rate : 1;
   return { pricingType: 'per_unit', unitName, rate } as const;
+}
+
+/**
+ * Thrown by saveDraftMutation when a calc formula fails validation, so the
+ * mutation rejects (no POST) and onError can show the named, specific reason.
+ */
+class FormulaValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FormulaValidationError';
+  }
+}
+
+/**
+ * P0 data-loss fix (fix/wizard-persistence) — Fix 2: validate every calc
+ * formula BEFORE saving so a broken formula never gets persisted (it would
+ * render as a silent $0 at quote time).
+ *
+ * For each calculation, in order:
+ *   1. Syntax check via the shared `validateFormula` (parse-only).
+ *   2. Reference check — every `[name]` must resolve to a field name OR a
+ *      PRECEDING calc name (case-insensitive), matching FormulaEditor's live
+ *      validator (FormulaEditor.tsx ~375-399). A calc may reference any calc
+ *      defined before it, so subtotals can chain into a total.
+ *
+ * Returns the first failure as `{ calcName, error }`, or null when all valid.
+ * Empty / no calcs → null (saving an empty calculator is fine).
+ */
+function firstInvalidFormula(
+  calculations: TemplateCalculation[],
+  fields: TemplateField[],
+): { calcName: string; error: string } | null {
+  const fieldNames = fields.map((f) => f.name);
+  const seenCalcNames: string[] = [];
+  const resolves = (ref: string, calcNames: string[]): boolean => {
+    const lower = ref.toLowerCase();
+    return (
+      fieldNames.includes(ref) ||
+      calcNames.includes(ref) ||
+      fieldNames.some((n) => n.toLowerCase() === lower) ||
+      calcNames.some((n) => n.toLowerCase() === lower)
+    );
+  };
+  for (const calc of calculations) {
+    const formula = calc.formula ?? '';
+    const displayName = (calc.name ?? '').trim() || 'Unnamed calculation';
+    if (formula.trim() !== '') {
+      const syntax = validateFormula(formula);
+      if (!syntax.valid) {
+        return { calcName: displayName, error: syntax.error || 'Invalid formula' };
+      }
+      const refs: string[] = [];
+      const re = /\[([^\]]+)\]/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(formula))) refs.push(m[1].trim());
+      const missing = refs.filter((r) => !resolves(r, seenCalcNames));
+      if (missing.length > 0) {
+        const list = missing.map((r) => `[${r}]`).join(', ');
+        return {
+          calcName: displayName,
+          error: missing.length === 1
+            ? `references an unknown field or calculation: ${list}`
+            : `references unknown fields or calculations: ${list}`,
+        };
+      }
+    }
+    // This calc is now available as a reference for the calcs that follow it.
+    if ((calc.name ?? '').trim() !== '') seenCalcNames.push(calc.name);
+  }
+  return null;
 }
 
 interface Props {
@@ -232,6 +291,10 @@ export default function WizardShell({ embed = false }: Props) {
   }, []);
   const [justSaved, setJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  // Elfsight-parity (2026-06): Install/embed folded into the Publish flow.
+  // Tapping Publish saves the draft AND opens this modal with the hosted link,
+  // embed code, and "have us install" — there is no separate Install tab.
+  const [publishOpen, setPublishOpen] = useState(false);
 
   // BD-3a fix 1 — undo / redo stacks of prior ShellState snapshots. We use
   // refs so pushing to the stacks doesn't itself trigger a re-render; the
@@ -480,6 +543,15 @@ export default function WizardShell({ embed = false }: Props) {
   // persisted across sessions — it's a transient preview lens.
   const [floatingLauncherPreview, setFloatingLauncherPreview] = useState(false);
   const [floatingLauncherExpanded, setFloatingLauncherExpanded] = useState(false);
+  /** "Generate with AI" Build-tab card → routes a prompt into the existing
+   *  floating AIBubble (seed + auto-send). `nonce` bumps per Generate click so
+   *  the bubble's seed effect re-fires even when the prompt text is unchanged. */
+  const [aiSeed, setAiSeed] = useState<{ prompt: string; nonce: number }>({ prompt: '', nonce: 0 });
+  const handleAIGenerate = useCallback((prompt: string) => {
+    const p = prompt.trim();
+    if (!p) return;
+    setAiSeed((s) => ({ prompt: p, nonce: s.nonce + 1 }));
+  }, []);
   const toggleFloatingLauncherPreview = useCallback(() => {
     setFloatingLauncherPreview((v) => {
       const next = !v;
@@ -1004,14 +1076,47 @@ export default function WizardShell({ embed = false }: Props) {
       const leadEmail = (settings.leadEmail ?? '').trim();
       const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail);
       const tradeId = (settings.tradeId ?? '').trim();
-      const ctaLabel = (settings.ctaLabel ?? '').trim();
 
-      const advanced: Record<string, unknown> = {
-        numberFormat: toAdvNumberFormat(settings.numberFormat),
-      };
-      if (ctaLabel !== '') {
-        advanced.results = { cta_label: ctaLabel };
+      // P0 data-loss fix (fix/wizard-persistence) — Fix 2: BLOCK the save if any
+      // calc formula is invalid or references an unknown field/calc. A broken
+      // formula otherwise saves silently and renders as $0 at quote time. A
+      // valid (or empty) calculator is never blocked.
+      const badFormula = firstInvalidFormula(
+        state.calculations ?? [],
+        state.fields ?? [],
+      );
+      if (badFormula) {
+        const msg = `"${badFormula.calcName}" ${badFormula.error}`;
+        throw new FormulaValidationError(msg);
       }
+
+      // P0 data-loss fix (fix/wizard-persistence) — persist the FULL authored
+      // config, not just numberFormat/results/spamProtection. The SAME shared
+      // buildAdvancedConfig() helper the live preview uses assembles the
+      // complete `advanced` shape: fields, calculations, result_calc (resolved
+      // rename-safe from resultCalcId), style, tiered, trustBadges, steps,
+      // header, results, numberFormat, businessProfile, spamProtection. Without
+      // this, a published widget lost the owner's custom fields/calcs/style.
+      // `forSave: true` strips the synthetic `__preview` marker.
+      const advanced = buildAdvancedConfig({
+        layout: state.layout,
+        businessName: state.businessName,
+        fields: state.fields,
+        calculations: state.calculations,
+        header: state.header,
+        results: state.results,
+        resultCalcId: state.resultCalcId,
+        style: state.style,
+        settings,
+        stepLayout: state.stepLayout,
+        tiered: state.tiered,
+        trustBadges: state.trustBadges,
+        steps: state.steps,
+        category: state.activeTemplateId
+          ? getTemplatePreset(state.activeTemplateId)?.category
+          : undefined,
+        forSave: true,
+      });
 
       // Wave H7 — surface the language pick as both a top-level
       // `calculator_settings.language` (explicit, easy for server consumers)
@@ -1084,6 +1189,25 @@ export default function WizardShell({ embed = false }: Props) {
         try { window.dispatchEvent(new CustomEvent('quotequick:wizard-save')); } catch { /* ignore */ }
       }
     },
+    onError: (err) => {
+      // Fix 2 — surface a clear, specific error. Formula-validation failures
+      // name the offending calc + reason so the owner can fix it; any other
+      // save failure gets a generic message. Either way the broken config was
+      // NOT persisted (the throw happened before the POST).
+      if (err instanceof FormulaValidationError) {
+        toast({
+          variant: 'destructive',
+          title: "Can't save — formula error",
+          description: err.message,
+        });
+        return;
+      }
+      toast({
+        variant: 'destructive',
+        title: "Couldn't save your calculator",
+        description: 'Something went wrong saving. Please try again.',
+      });
+    },
   });
 
   const reduceMotion = useMemo(() => {
@@ -1137,6 +1261,130 @@ export default function WizardShell({ embed = false }: Props) {
   useEffect(() => {
     if (!isMobile) setMobileSheetOpen(false);
   }, [isMobile]);
+
+  // ── Click-to-edit (2026-06-06) — tapping a spot on the live preview jumps
+  // the editor to the control that edits it. PreviewPane fires
+  // `onPreviewSpotEdit(tab, targetKey)`; we switch to `tab`, then scroll-to +
+  // pulse the matching editor control. On mobile we also pulse the tab in the
+  // bottom bar and defer the in-sheet highlight until the sheet opens.
+  //
+  // `targetKey` → DOM resolver. Most keys map to a `[data-edit-key]` anchor on
+  // the panels (added minimally to the section wrappers); fields use the
+  // existing `[data-testid="field-row-<id>"]` rows. Returns the first match in
+  // the live editor DOM (desktop left pane OR mobile sheet — both share these
+  // attributes since the same panel components render in each).
+  const resolveEditTarget = useCallback((targetKey: string): HTMLElement | null => {
+    if (typeof document === 'undefined') return null;
+    if (targetKey.startsWith('field:')) {
+      const id = targetKey.slice('field:'.length);
+      return document.querySelector<HTMLElement>(`[data-testid="field-row-${CSS.escape(id)}"]`);
+    }
+    return document.querySelector<HTMLElement>(`[data-edit-key="${CSS.escape(targetKey)}"]`);
+  }, []);
+
+  // Transient highlight timer so re-firing clears the previous pulse cleanly.
+  const editHighlightTimerRef = useRef<number | null>(null);
+  // Scroll a resolved control into view + restart the transient pulse.
+  const highlightNode = useCallback((node: HTMLElement) => {
+    node.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+    node.classList.remove('qq-edit-highlight');
+    // Force reflow so removing + re-adding restarts the keyframes.
+    void node.offsetWidth;
+    node.classList.add('qq-edit-highlight');
+    if (editHighlightTimerRef.current != null) {
+      window.clearTimeout(editHighlightTimerRef.current);
+    }
+    editHighlightTimerRef.current = window.setTimeout(() => {
+      node.classList.remove('qq-edit-highlight');
+      editHighlightTimerRef.current = null;
+    }, 1500);
+  }, [reduceMotion]);
+  const applyEditHighlight = useCallback((targetKey: string) => {
+    // Some edit anchors live inside an AdvancedSection that UNMOUNTS its
+    // children when collapsed (header/results under "Titles & result text";
+    // trust-badges/tiered under Style "Advanced settings"). When the section
+    // is closed the anchor isn't in the DOM, so resolveEditTarget returns null.
+    // Map those keys → their owning section id so we can expand-then-retry.
+    const SECTION_FOR_KEY: Record<string, string> = {
+      header: 'build-titles',
+      results: 'build-titles',
+      'trust-badges': 'style-advanced',
+      tiered: 'style-advanced',
+    };
+    // Defer one frame so the freshly-switched tab's panel has mounted.
+    requestAnimationFrame(() => {
+      const el = resolveEditTarget(targetKey);
+      if (!el) {
+        // Anchor may be hidden inside a collapsed (child-unmounting) section —
+        // open it via its toggle, then retry on the next frame.
+        const sectionId = SECTION_FOR_KEY[targetKey];
+        const section = sectionId
+          ? document.querySelector<HTMLElement>(`[data-testid="advanced-section-${sectionId}"]`)
+          : null;
+        if (section && section.getAttribute('data-open') === 'false') {
+          section.querySelector<HTMLButtonElement>(`[data-testid="advanced-toggle-${sectionId}"]`)?.click();
+          requestAnimationFrame(() => {
+            const node = resolveEditTarget(targetKey);
+            if (node) highlightNode(node);
+          });
+        }
+        return;
+      }
+      // If the target sits inside a collapsed AdvancedSection (mounted but
+      // closed), expand it first so the control is actually visible.
+      const collapsed = el.closest<HTMLElement>('[data-testid^="advanced-section-"][data-open="false"]');
+      if (collapsed) {
+        const toggle = collapsed.querySelector<HTMLButtonElement>('[data-testid^="advanced-toggle-"]');
+        toggle?.click();
+      }
+      // Scroll-to + pulse on the next frame (after any expand reflow).
+      requestAnimationFrame(() => {
+        highlightNode(resolveEditTarget(targetKey) ?? el);
+      });
+    });
+  }, [resolveEditTarget, highlightNode]);
+
+  // Mobile: which bottom-bar tab to pulse, and the highlight to apply once
+  // that tab's sheet is opened by the user. `pulseTab` is cleared after the
+  // hint animation (BottomTabBar also self-clears on a timer / open).
+  const [pulseTab, setPulseTab] = useState<EditorTab | null>(null);
+  const pendingMobileHighlightRef = useRef<string | null>(null);
+  const clearPulseTimerRef = useRef<number | null>(null);
+
+  const onPreviewSpotEdit = useCallback((tab: EditorTab, targetKey: string) => {
+    setActiveTab(tab);
+    if (isMobile) {
+      // Sheet is folded — pulse the tab to hint, and stash the highlight to
+      // run when the user opens that tab's sheet.
+      pendingMobileHighlightRef.current = targetKey;
+      setPulseTab(tab);
+      if (clearPulseTimerRef.current != null) window.clearTimeout(clearPulseTimerRef.current);
+      clearPulseTimerRef.current = window.setTimeout(() => {
+        setPulseTab(null);
+        clearPulseTimerRef.current = null;
+      }, 2400);
+    } else {
+      // Desktop — the panel is visible; switch tab then scroll-to + pulse.
+      applyEditHighlight(targetKey);
+    }
+  }, [isMobile, applyEditHighlight]);
+
+  // Mobile — when the sheet opens (for the pulsed tab), run the deferred
+  // highlight on the control inside the sheet, then clear the pending state.
+  useEffect(() => {
+    if (!isMobile || !mobileSheetOpen) return;
+    const key = pendingMobileHighlightRef.current;
+    if (!key) return;
+    pendingMobileHighlightRef.current = null;
+    setPulseTab(null);
+    applyEditHighlight(key);
+  }, [isMobile, mobileSheetOpen, activeTab, applyEditHighlight]);
+
+  // Cleanup transient timers on unmount.
+  useEffect(() => () => {
+    if (editHighlightTimerRef.current != null) window.clearTimeout(editHighlightTimerRef.current);
+    if (clearPulseTimerRef.current != null) window.clearTimeout(clearPulseTimerRef.current);
+  }, []);
 
   // BH-3 — Reset-to-default for the currently active tab. Style + Settings
   // are the tabs with persistent customisations; Build / Install are
@@ -1324,7 +1572,7 @@ export default function WizardShell({ embed = false }: Props) {
               mobile={isMobile}
               businessName={state.businessName}
               onBusinessNameChange={setBusinessName}
-              onPublish={() => saveDraftMutation.mutate()}
+              onPublish={() => { saveDraftMutation.mutate(); setPublishOpen(true); }}
               isPublishing={saveDraftMutation.isPending}
             />
 
@@ -1341,7 +1589,7 @@ export default function WizardShell({ embed = false }: Props) {
               data-mobile-sheet={isMobile ? 'true' : 'false'}
             >
               {/* Phase 0b (2026-06-05) — Elfsight-style left ICON RAIL.
-                  The section nav (Build · Style · Settings · Install) moved
+                  The section nav (Build · Action · Style · Settings) moved
                   out of the top chrome into this vertical rail, the first
                   column of the desktop editor frame. A Help item is pinned to
                   the bottom, wired to the SAME help overlay the top-bar / mobile
@@ -1366,9 +1614,9 @@ export default function WizardShell({ embed = false }: Props) {
                     const isActive = id === activeTab;
                     const RailIcon =
                       id === 'build' ? SlidersHorizontal
+                      : id === 'action' ? MousePointerClick
                       : id === 'style' ? Palette
-                      : id === 'settings' ? SettingsIcon
-                      : Code2; // install
+                      : SettingsIcon; // settings
                     return (
                       <button
                         key={id}
@@ -1435,6 +1683,7 @@ export default function WizardShell({ embed = false }: Props) {
                          template ships explicit `steps[]`. */
                       steps={state.steps}
                       onStepsChange={setSteps}
+                      onGenerateWithAI={handleAIGenerate}
                     />
                   ) : activeTab === 'style' ? (
                     <StyleTab
@@ -1469,13 +1718,13 @@ export default function WizardShell({ embed = false }: Props) {
                       onChange={setSettings}
                       planTier={planTier}
                     />
-                  ) : activeTab === 'install' ? (
-                    <InstallTab
+                  ) : activeTab === 'action' ? (
+                    <ActionTab
                       settings={state.settings ?? {}}
                       onChange={setSettings}
-                      businessName={state.businessName}
-                      logoUrl={state.logo}
                       style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                      onStyleChange={setStyle}
+                      planTier={planTier}
                     />
                   ) : (
                     <TabPlaceholder
@@ -1535,6 +1784,10 @@ export default function WizardShell({ embed = false }: Props) {
                 <PreviewPane
                   businessName={state.businessName}
                   onBusinessNameChange={setBusinessName}
+                  /* fix/tmpl-editor-mobile (B) — pencil-driven inline edit of
+                     the preview HEADER TITLE commits to state.header.title via
+                     setHeader, keeping the BuildTab header field in sync. */
+                  onHeaderTitleChange={(v) => setHeader({ ...(state.header ?? {}), title: v })}
                   logo={state.logo ?? null}
                   layout={state.layout}
                   device={device}
@@ -1563,6 +1816,9 @@ export default function WizardShell({ embed = false }: Props) {
                   }
                   onRemoveField={removeField}
                   onAddField={addField}
+                  /* Click-to-edit (2026-06-06) — tapping a preview spot jumps
+                     the editor to the control that edits it. */
+                  onPreviewSpotEdit={onPreviewSpotEdit}
                   /* Wave 61 — wires the floating <InlineStyleToolbar /> to
                      the existing setFields-based undo stack. */
                   onUpdateField={updateField}
@@ -1570,7 +1826,7 @@ export default function WizardShell({ embed = false }: Props) {
                    * widget inside the user's chosen hosted-page chrome so
                    * the preview matches what visitors at {slug}.your-quote
                    * .net actually see. */
-                  hostedFrame={activeTab === 'install'}
+                  hostedFrame={publishOpen}
                   /* BD-3b — session id for zoom persistence. Uses the
                    * active template id when present (per-calculator) and
                    * falls back to 'draft' for unsaved calculators. */
@@ -1625,6 +1881,7 @@ export default function WizardShell({ embed = false }: Props) {
                     onApplyTemplate={applyTemplate}
                     steps={state.steps}
                     onStepsChange={setSteps}
+                    onGenerateWithAI={handleAIGenerate}
                   />
                 ) : activeTab === 'style' ? (
                   <StyleTab
@@ -1652,13 +1909,13 @@ export default function WizardShell({ embed = false }: Props) {
                     onChange={setSettings}
                     planTier={planTier}
                   />
-                ) : activeTab === 'install' ? (
-                  <InstallTab
+                ) : activeTab === 'action' ? (
+                  <ActionTab
                     settings={state.settings ?? {}}
                     onChange={setSettings}
-                    businessName={state.businessName}
-                    logoUrl={state.logo}
                     style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                    onStyleChange={setStyle}
+                    planTier={planTier}
                   />
                 ) : (
                   <TabPlaceholder
@@ -1685,6 +1942,9 @@ export default function WizardShell({ embed = false }: Props) {
                 sheetOpen={mobileSheetOpen}
                 onSelectTab={onMobileSelectTab}
                 onHelp={() => setShowHelp(true)}
+                /* Click-to-edit — pulse this tab to hint the tapped preview
+                   spot is editable here; cleared when its sheet opens. */
+                pulseTab={pulseTab}
               />
             )}
 
@@ -1703,6 +1963,8 @@ export default function WizardShell({ embed = false }: Props) {
               setLogo={setLogo}
               applyTemplatePreset={applyTemplatePreset}
               replaceTemplate={applyTemplate}
+              seedPrompt={aiSeed.prompt}
+              seedNonce={aiSeed.nonce}
             />
 
             {showHelp && typeof document !== 'undefined' && createPortal(
@@ -1715,14 +1977,89 @@ export default function WizardShell({ embed = false }: Props) {
                 data-testid="editor-help-overlay"
               >
                 <div className="qq-editor-help-card" onClick={(e) => e.stopPropagation()}>
-                  <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: p.colors.heading }}>
-                    QuoteQuick editor
+                  <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: AE.color.text }}>
+                    Need a hand?
                   </p>
-                  <ul style={{ fontSize: 12.5, color: p.colors.muted, margin: '8px 0 0', lineHeight: 1.5, paddingLeft: 18 }}>
-                    <li>Use the Build, Style, Settings, and Install tabs to set up your calculator.</li>
-                    <li>The right pane is a live preview that updates as you edit.</li>
-                    <li>Undo and redo your changes with the toolbar buttons or Ctrl/Cmd+Z.</li>
-                  </ul>
+                  <p style={{ fontSize: 13, color: AE.color.secondary, margin: '6px 0 0', lineHeight: 1.5 }}>
+                    Build on the left, preview on the right. Esc or click outside to close.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+                    <a
+                      href="mailto:support@wefixtrades.com"
+                      data-testid="help-action-get-help"
+                      aria-label="Get help — email our support team"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: 12,
+                        borderRadius: AE.radius.md,
+                        border: `1px solid ${AE.color.hairline}`,
+                        background: AE.color.surface,
+                        textDecoration: 'none',
+                        color: AE.color.text,
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          flexShrink: 0,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 32, height: 32,
+                          borderRadius: AE.radius.sm,
+                          background: AE.color.accentTint,
+                          color: AE.color.accent,
+                        }}
+                      >
+                        <LifeBuoy style={{ width: 20, height: 20 }} />
+                      </span>
+                      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
+                          Get help
+                        </span>
+                        <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
+                          Questions or stuck? Our team replies fast.
+                        </span>
+                      </span>
+                    </a>
+
+                    <a
+                      href="mailto:support@wefixtrades.com?subject=Feature%20request"
+                      data-testid="help-action-request-feature"
+                      aria-label="Request a feature — email us your idea"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: 12,
+                        borderRadius: AE.radius.md,
+                        border: `1px solid ${AE.color.hairline}`,
+                        background: AE.color.surface,
+                        textDecoration: 'none',
+                        color: AE.color.text,
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          flexShrink: 0,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 32, height: 32,
+                          borderRadius: AE.radius.sm,
+                          background: AE.color.accentTint,
+                          color: AE.color.accent,
+                        }}
+                      >
+                        <Lightbulb style={{ width: 20, height: 20 }} />
+                      </span>
+                      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
+                          Request a feature
+                        </span>
+                        <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
+                          Tell us what would make QuoteQuick better.
+                        </span>
+                      </span>
+                    </a>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => setShowHelp(false)}
@@ -1735,9 +2072,78 @@ export default function WizardShell({ embed = false }: Props) {
               </div>,
               document.body,
             )}
+
+            {/* Publish flow (Elfsight-parity) — embed/hosted-link/install folded
+                here from the old Install tab. Opens on Publish. */}
+            {publishOpen && typeof document !== 'undefined' && createPortal(
+              <div
+                className="qq-editor-help"
+                role="dialog"
+                aria-label="Publish your calculator"
+                data-theme={editorTheme}
+                onClick={() => setPublishOpen(false)}
+                data-testid="editor-publish-overlay"
+              >
+                <div
+                  className="qq-editor-help-card"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ maxWidth: 560, width: '92%', maxHeight: '86vh', overflowY: 'auto' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: p.colors.heading }}>
+                      Publish your calculator
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPublishOpen(false)}
+                      aria-label="Close publish"
+                      data-testid="editor-publish-close"
+                      className="qq-editor-btn"
+                      style={{ padding: '5px 12px' }}
+                    >
+                      Done
+                    </button>
+                  </div>
+                  <InstallTab
+                    settings={state.settings ?? {}}
+                    onChange={setSettings}
+                    businessName={state.businessName}
+                    logoUrl={state.logo}
+                    style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                  />
+                </div>
+              </div>,
+              document.body,
+            )}
           </div>
 
           <style>{`
+            /* ── Click-to-edit (2026-06-06) — transient highlight ─────
+             *
+             * When the user taps a spot on the live preview, WizardShell
+             * switches to the editing tab and adds .qq-edit-highlight to
+             * the responsible control (a field row, the header section, the
+             * pricing/result section, the CTA panel, …) for ~1.5s. The pulse
+             * is a soft accent outline that breathes once — Apple-like, never
+             * jarring — and auto-removes. Uses the AE brand-accent token (no
+             * bare colour literal). Reduced-motion users get the steady
+             * outline without the pulse keyframe. */
+            .qq-edit-highlight {
+              outline: 2px solid ${AE.color.accent};
+              outline-offset: 2px;
+              border-radius: 10px;
+              animation: qq-edit-pulse 1.2s ease-out;
+              scroll-margin: 24px;
+            }
+            @keyframes qq-edit-pulse {
+              0%   { box-shadow: 0 0 0 0 ${AE.color.accentTint};   outline-color: ${AE.color.accent}; }
+              45%  { box-shadow: 0 0 0 6px ${AE.color.accentTint}; }
+              100% { box-shadow: 0 0 0 0 transparent;             outline-color: ${AE.color.accent}; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .qq-edit-highlight { animation: none; }
+            }
+
             /* ── BD-3g Item 2 — fold/unfold panels ──────────────────
              *
              * useFoldablePanels (DOM enhancer) decorates every
@@ -2684,10 +3090,30 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-body.is-mobile-sheet ~ .qq-ai-panel {
                 z-index: 9999 !important;
               }
-              /* Bottom-anchor the bubble above the persistent dark bottom tab
-               * bar (~60px + safe-area) so it never sits behind the tabs. */
+              /* fix/tmpl-editor-mobile (C) — keep the floating AI bubble OFF
+               * the widget's primary CTA / card on mobile. The default pill
+               * (label + icon, right:18 bottom:76) sat over the "Get My Quote"
+               * button and the card content. On mobile we:
+               *   • shrink it to a compact icon-only circle (label hidden),
+               *   • tuck it tight into the bottom-right corner, and
+               *   • lift it clear above the persistent dark bottom tab bar
+               *     (~60px) + safe-area, with extra clearance so it floats
+               *     beside — not over — the CTA.
+               * The widget CTA stays fully reachable/unobscured. */
               .qq-editor-body.is-mobile-sheet ~ .qq-ai-bubble {
-                bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+                right: 10px;
+                bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+                padding: 0;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                justify-content: center;
+                gap: 0;
+              }
+              /* Icon-only on mobile — drop the "AI" text so the footprint is a
+               * small circle that doesn't span across the CTA. */
+              .qq-editor-body.is-mobile-sheet ~ .qq-ai-bubble .qq-ai-bubble-label {
+                display: none;
               }
               .qq-preview-stage { max-width: 100%; }
               .qq-preview-pane > .qq-preview-stage > .widget-scope { padding: 0 !important; }

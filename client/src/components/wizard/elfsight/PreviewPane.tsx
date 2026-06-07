@@ -35,7 +35,6 @@ import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import {
-  buildBlankPreviewConfig,
   type TemplateLayout, type TemplateField, type TemplateCalculation,
   type TemplateTiered,
 } from '@shared/templatePresets';
@@ -46,11 +45,12 @@ import PreviewOverlay from './PreviewOverlay';
 import AddFieldMenu from './AddFieldMenu';
 import ComponentPicker, { type ComponentPickerAnchor } from './ComponentPicker';
 import InlineStyleToolbar from './InlineStyleToolbar';
+import { buildAdvancedConfig } from './buildAdvancedConfig';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
-  ShellSettings, ShellNumberFormat, PublicFieldType,
+  ShellSettings, PublicFieldType, EditorTab,
 } from './types';
-import { DEFAULT_SHELL_NUMBER_FORMAT, DEVICE_PRESET_WIDTH } from './types';
+import { DEVICE_PRESET_WIDTH } from './types';
 
 const p = platformTheme;
 
@@ -59,6 +59,13 @@ interface Props {
   /** Wave L E5 — two-way bind. When the user inline-edits the preview header
    *  title, this fires; the Build-tab business-name field stays in sync. */
   onBusinessNameChange?: (v: string) => void;
+  /** fix/tmpl-editor-mobile (B) — two-way bind for the widget HEADER TITLE
+   *  (the headline, e.g. "Get Your … Quote in 60 Seconds"), distinct from the
+   *  business name. Fired when the user inline-edits the header title via the
+   *  pencil affordance in the preview; commits to `header.title`. When wired,
+   *  the inline title editor binds to the header title; when absent it falls
+   *  back to the legacy business-name binding. */
+  onHeaderTitleChange?: (v: string) => void;
   /** Wave J item 5 — business logo (data URL or null). Surfaces in the
    *  preview header alongside the business name. */
   logo?: string | null;
@@ -100,6 +107,16 @@ interface Props {
    * scope-spectrum default. Optional; pass-through.
    */
   category?: string;
+  /**
+   * Click-to-edit (2026-06-06) — Apple/Tesla direct-manipulation. When the
+   * user taps a spot on the live preview mock-up that maps to an editor
+   * control, this fires with the editor TAB that edits it plus a `targetKey`
+   * locating the specific control to scroll-to + highlight. WizardShell
+   * switches to `tab`, then (desktop) scrolls/pulses the matching control, or
+   * (mobile) pulses that tab in the bottom bar and highlights the control once
+   * its sheet opens. Additive — never hijacks a drag / pencil-edit / resize.
+   */
+  onPreviewSpotEdit?: (tab: EditorTab, targetKey: string) => void;
   /** Wave I (f): remove a field from inside the preview overlay. */
   onRemoveField?: (fieldId: string) => void;
   /** Wave I (f): add a field via the in-preview +Add slot.
@@ -136,13 +153,6 @@ interface Props {
   /** Corner the floating launcher docks to (matches BD-3m style config).
    *  Defaults to bottom-right when undefined. */
   floatingLauncherPosition?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
-}
-
-function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
-  return sep === 'comma' ? ',' : sep === 'space' ? ' ' : '';
-}
-function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
-  return sep === 'comma' ? ',' : '.';
 }
 
 /**
@@ -248,10 +258,68 @@ function loadZoom(sessionId: string): number {
 /** Resize handle directions. */
 type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
+/**
+ * Click-to-edit (2026-06-06) — map a clicked preview element to the editor
+ * {tab, targetKey} that edits it.
+ *
+ * Walks up from the click target to the nearest `[data-component-type]` the
+ * rendered widget stamps on its parts (see AdvancedCalculator / TierSelector /
+ * TrustBadgeRow / CTA …). `targetKey` is a stable string the WizardShell
+ * highlight logic resolves to a DOM node via `[data-edit-key="<key>"]` (anchors
+ * added to the panels we own) or, for fields, the existing
+ * `[data-testid="field-row-<id>"]` rows (passed through `field:<id>`).
+ *
+ * Field components are handled by the caller (it has the field-index → id
+ * mapping); this helper covers the non-field structural parts. Returns null
+ * when nothing confident matches — the caller then falls back to a tab-only
+ * switch so a stray click never errors.
+ */
+const COMPONENT_EDIT_MAP: Record<string, { tab: EditorTab; targetKey: string }> = {
+  // Header zone — title / subtitle / logo all live in Build (Titles & business).
+  header:   { tab: 'build', targetKey: 'header' },
+  title:    { tab: 'build', targetKey: 'header' },
+  subtitle: { tab: 'build', targetKey: 'header' },
+  logo:     { tab: 'build', targetKey: 'business' },
+  'category-icon': { tab: 'build', targetKey: 'business' },
+  // Result / pricing zone — Build > Titles & result text + Pricing.
+  results:  { tab: 'build', targetKey: 'results' },
+  // Tier (Good/Better/Best) cards are configured in Style > Pricing tiers.
+  'tier-selector': { tab: 'style', targetKey: 'tiered' },
+  // Stepper chrome — step content lives in Build.
+  stepper:  { tab: 'build', targetKey: 'fields' },
+  // CTA / contact step → Action tab.
+  cta:      { tab: 'action', targetKey: 'action' },
+  'contact-step': { tab: 'action', targetKey: 'action' },
+  'contact-step-container': { tab: 'action', targetKey: 'action' },
+  // Trust visuals → Style (badge editor).
+  'trust-badges': { tab: 'style', targetKey: 'trust-badges' },
+  'trust-strip':  { tab: 'style', targetKey: 'trust-badges' },
+  'trust-block':  { tab: 'style', targetKey: 'trust-badges' },
+  // Generic body click (not a field) → Build.
+  body:     { tab: 'build', targetKey: 'fields' },
+};
+
+/**
+ * Resolve a clicked element to its {tab, targetKey}. Fields (`field-*`
+ * component types) return `{ tab:'build', targetKey:'__field__' }` so the
+ * caller substitutes the precise `field:<id>` key from its index map.
+ */
+function mapPreviewSpot(
+  el: HTMLElement,
+): { tab: EditorTab; targetKey: string } | null {
+  const node = el.closest<HTMLElement>('[data-component-type]');
+  if (!node) return null;
+  const type = node.dataset.componentType ?? '';
+  // Per-field inputs are stamped `field-<type>` (e.g. field-slider). Defer the
+  // precise field id to the caller, which owns the index→id mapping.
+  if (type.startsWith('field-')) return { tab: 'build', targetKey: '__field__' };
+  return COMPONENT_EDIT_MAP[type] ?? null;
+}
+
 export default function PreviewPane({
-  businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
+  businessName, onBusinessNameChange, onHeaderTitleChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category,
-  onRemoveField, onAddField, onUpdateField,
+  onRemoveField, onAddField, onUpdateField, onPreviewSpotEdit,
   hostedFrame = false,
   sessionId = 'draft',
   floatingLauncherPreview = false,
@@ -272,6 +340,20 @@ export default function PreviewPane({
   // per-field decorators. Placeholder seed fields (when `fields` is undefined)
   // are left alone since we can't reorder/remove them via the shell.
   const shellFields = fields ?? [];
+
+  // fix/tmpl-editor-mobile (A) — preview surface background.
+  //
+  // The bezel / overlay-host / mobile-clean container previously painted a
+  // hardcoded white. On a DARK template (e.g. apple-clean dark) that white
+  // showed through BELOW the widget content — a white band above the bottom
+  // tab bar in the mobile preview. Derive the surface colour from the live
+  // widget body background (`style.background`, which a dark template sets to
+  // a dark value) so the area behind/below the widget matches the widget.
+  // When the widget has no explicit background we fall back to the editor
+  // surface TOKEN (theme-aware — dark in dark editor mode), never a bare
+  // #fff/#000 literal. Light templates keep `#ffffff` from DEFAULT_ADV_STYLE,
+  // so the light preview is unchanged.
+  const previewBodyBg = style?.background ?? p.colors.surface;
 
   // Wave AC-2 — drag entire widget within canvas. Offset is per-device,
   // persisted to localStorage. BD-3b — initiates via a top-bar drag handle
@@ -1215,82 +1297,18 @@ export default function PreviewPane({
   }, [onHandlePointerDown]);
 
   const previewCalculatorData = useMemo<CalculatorData>(() => {
-    const advanced = buildBlankPreviewConfig(layout, businessName);
-    let merged = fields !== undefined ? { ...advanced, fields } : advanced;
-    if (calculations && calculations.length > 0) {
-      const stillHasHeadline = calculations.some((c) => c.name === merged.result_calc);
-      merged = {
-        ...merged,
-        calculations,
-        result_calc: stillHasHeadline ? merged.result_calc : calculations[calculations.length - 1].name,
-      };
-    }
-    if (resultCalcId) {
-      const hit = merged.calculations.find((c) => c.id === resultCalcId);
-      if (hit) merged = { ...merged, result_calc: hit.name };
-    }
-    if (header) {
-      const titleOverride = (header.title ?? '').trim();
-      const subtitleOverride = (header.subtitle ?? '').trim();
-      const mergedHeader = { ...(merged.header || { title: '', align: 'left' as const }) };
-      if (titleOverride !== '') mergedHeader.title = header.title!;
-      if (subtitleOverride !== '') mergedHeader.subtitle = header.subtitle;
-      merged = { ...merged, header: mergedHeader };
-    }
-    if (results) {
-      const headingOverride = (results.heading ?? '').trim();
-      const footnoteOverride = (results.footnote ?? '').trim();
-      const mergedResults = { ...(merged.results || {}) };
-      if (headingOverride !== '') mergedResults.heading = results.heading;
-      if (footnoteOverride !== '') mergedResults.footnote = results.footnote;
-      merged = { ...merged, results: mergedResults };
-    }
-    if (style) {
-      merged = {
-        ...merged,
-        style: { ...(merged.style ?? {}), ...style },
-      };
-    }
-    if (stepLayout) {
-      merged = { ...merged, stepLayout };
-    }
-    if (tiered) {
-      merged = { ...merged, tiered };
-    }
-    if (trustBadges) {
-      // BG-7 Item 1 — owner-edited trust badges win over the template
-      // seed. Empty array clears the row entirely (renderer hides it).
-      merged = { ...merged, trustBadges };
-    }
-    if (steps && steps.length > 0) {
-      // BG-7 Item 4 — owner-edited step content (descriptions). Wins
-      // over the template's seeded steps[] so descriptions render in
-      // the live preview as the owner types them.
-      merged = { ...merged, steps };
-    }
-    if (category && category.trim() !== '') {
-      merged = { ...merged, category };
-    }
-    if (settings?.businessProfile) {
-      merged = { ...merged, businessProfile: settings.businessProfile };
-    }
-    {
-      const nf = settings?.numberFormat ?? DEFAULT_SHELL_NUMBER_FORMAT;
-      const numberFormat = {
-        thousands: thousandsLiteral(nf.thousands),
-        decimal: decimalLiteral(nf.decimal),
-        currency: (nf.currency || 'USD').toUpperCase(),
-      };
-      merged = { ...merged, numberFormat };
-
-      const cta = (settings?.ctaLabel ?? '').trim();
-      if (cta !== '') {
-        merged = {
-          ...merged,
-          results: { ...(merged.results ?? {}), cta_label: cta },
-        };
-      }
-    }
+    // P0 data-loss fix (fix/wizard-persistence) — the full authored `advanced`
+    // config is now assembled by the SHARED buildAdvancedConfig() helper, which
+    // saveDraftMutation also calls. This guarantees the preview and the
+    // persisted/published widget render from byte-identical config. The merge
+    // logic that used to live inline here is unchanged — it just lives in one
+    // place now. `forSave` is omitted so the preview keeps its `__preview`
+    // marker (preview behaviour is untouched).
+    const merged = buildAdvancedConfig({
+      layout, businessName, fields, calculations, header, results,
+      resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps,
+      category,
+    });
     return {
       id: -1,
       slug: 'preview',
@@ -1435,6 +1453,36 @@ export default function PreviewPane({
     previewBezelRef.current = el;
   };
 
+  // Click-to-edit (2026-06-06) — resolve a clicked preview element to the
+  // editor {tab, targetKey} and notify WizardShell so it can switch tab +
+  // scroll-to/pulse the responsible control. Field clicks resolve to the
+  // precise `field:<id>` key via the same data-colspan index logic the
+  // selection code uses; non-field parts go through the structural map.
+  // Returns true once a callback fired so the caller can avoid a duplicate.
+  const fireSpotEdit = useCallback((target: HTMLElement): boolean => {
+    if (!onPreviewSpotEdit) return false;
+    const spot = mapPreviewSpot(target);
+    if (!spot) return false;
+    let targetKey = spot.targetKey;
+    if (targetKey === '__field__') {
+      // Resolve the exact field id from the clicked cell's index (mirrors the
+      // selection logic). data-colspan cells are the field grid items.
+      const fieldCell = target.closest('[data-colspan]') as HTMLElement | null;
+      let fieldId: string | null = null;
+      if (fieldCell && fieldCell.parentElement) {
+        const cells = Array.from(
+          fieldCell.parentElement.querySelectorAll<HTMLElement>('[data-colspan]'),
+        );
+        const idx = cells.indexOf(fieldCell);
+        if (idx >= 0 && idx < shellFields.length) fieldId = shellFields[idx].id;
+      }
+      // Fall back to the Fields section when we can't pin the exact field.
+      targetKey = fieldId ? `field:${fieldId}` : 'fields';
+    }
+    onPreviewSpotEdit(spot.tab, targetKey);
+    return true;
+  }, [onPreviewSpotEdit, shellFields]);
+
   // Header and results regions overlay over the AdvancedCalculator. They're
   // identified by data-testid="advanced-title" and the result-panel container.
   // We attach click handlers via event delegation on the bezel.
@@ -1449,6 +1497,8 @@ export default function PreviewPane({
     if (target.closest('[data-testid="advanced-title-edit-hint"]')) {
       selection.select({ kind: 'header', id: '__header' });
       openTitleEditor();
+      // Click-to-edit — jump the editor to the header/title controls too.
+      fireSpotEdit(target);
       return;
     }
 
@@ -1470,6 +1520,11 @@ export default function PreviewPane({
           }
         }
       }
+      // Click-to-edit — a control click (field input, CTA button, tier radio,
+      // …) still maps to its editor spot. This is additive: the control's own
+      // interaction (typing, picking a tier) is unaffected — we only ALSO tell
+      // the shell which editor control governs it.
+      fireSpotEdit(target);
       return;
     }
     // Bezel chrome click also selects the widget so resize handles surface.
@@ -1480,6 +1535,9 @@ export default function PreviewPane({
       || target.closest('.qq-result-block');
     if (resultBlock) {
       selection.select({ kind: 'results', id: '__results' });
+      // Click-to-edit — jump to the result/pricing editor (falls back to the
+      // structural map's `results` key → Build > Titles & result text).
+      if (!fireSpotEdit(target) && onPreviewSpotEdit) onPreviewSpotEdit('build', 'results');
       return;
     }
     // Header region.
@@ -1487,6 +1545,7 @@ export default function PreviewPane({
     if (headerBlock) {
       selection.select({ kind: 'header', id: '__header' });
       openTitleEditor();
+      if (!fireSpotEdit(target) && onPreviewSpotEdit) onPreviewSpotEdit('build', 'header');
       return;
     }
     // Field region.
@@ -1498,6 +1557,10 @@ export default function PreviewPane({
         selection.select({ kind: 'field', id: shellFields[idx].id });
       }
     }
+    // Click-to-edit — any remaining mappable spot (tier cards, trust badges,
+    // CTA region, stepper chrome) routes to its tab. Falls through harmlessly
+    // when nothing maps.
+    fireSpotEdit(target);
   };
 
   // Wave L M1 — auto-zoom-out on mobile so the whole mockup fits.
@@ -1566,11 +1629,31 @@ export default function PreviewPane({
   }, [titleEditing, measureTitle, businessName, header]);
 
   const openTitleEditor = useCallback(() => {
-    if (!onBusinessNameChange) return;
+    // fix/tmpl-editor-mobile (B) — the inline editor edits the HEADER TITLE
+    // when `onHeaderTitleChange` is wired, falling back to the legacy
+    // business-name binding otherwise. Open only when at least one commit
+    // path exists.
+    if (!onHeaderTitleChange && !onBusinessNameChange) return;
     measureTitle();
     setTitleEditing(true);
     setTimeout(() => { titleInputRef.current?.focus(); titleInputRef.current?.select(); }, 0);
-  }, [onBusinessNameChange, measureTitle]);
+  }, [onHeaderTitleChange, onBusinessNameChange, measureTitle]);
+
+  // fix/tmpl-editor-mobile (B) — inline title-editor bindings. When
+  // `onHeaderTitleChange` is wired the editor reads/writes the HEADER TITLE
+  // (`header.title`); otherwise it falls back to the legacy business-name
+  // binding so older mount sites keep working. A single gate + value + commit
+  // is shared by all three render paths (mobile-clean / mobile-bezel /
+  // desktop) so they stay in lock-step.
+  const titleEditEnabled = !!onHeaderTitleChange || !!onBusinessNameChange;
+  const titleEditValue = onHeaderTitleChange ? (header?.title ?? '') : businessName;
+  const titleEditPlaceholder = onHeaderTitleChange
+    ? 'Add your header title here'
+    : 'Add your business name here';
+  const commitTitleEdit = useCallback((v: string) => {
+    if (onHeaderTitleChange) onHeaderTitleChange(v);
+    else onBusinessNameChange?.(v);
+  }, [onHeaderTitleChange, onBusinessNameChange]);
 
   // Wave L E3 — swipe-to-delete on mobile.
   const [undo, setUndo] = useState<null | { field: TemplateField; index: number }>(null);
@@ -1858,7 +1941,10 @@ export default function PreviewPane({
           data-testid="preview-bezel-mobile-clean"
           className="qq-bezel--mobile-clean"
           onClick={onBezelClick}
-          style={{ position: 'relative', width: '100%', background: 'rgba(255,255,255,1)' }}
+          /* fix/tmpl-editor-mobile (A) — surface matches the widget body bg
+             (token-derived) so a dark template shows no white band below the
+             widget; light templates keep their white. */
+          style={{ position: 'relative', width: '100%', background: previewBodyBg }}
         >
           {renderPreviewWidget}
           {/* Clean mobile preview — selection ring stays, but the per-field
@@ -1881,15 +1967,15 @@ export default function PreviewPane({
           {shellFields.length === 0 && onAddField && (
             <PreviewEmptyState onAddField={onAddField} />
           )}
-          {titleEditing && titleBox && onBusinessNameChange && (
+          {titleEditing && titleBox && titleEditEnabled && (
             <input
               ref={titleInputRef}
               type="text"
               className="qq-preview-title-edit"
               data-testid="preview-title-edit"
-              placeholder="Add your business name here"
-              value={businessName}
-              onChange={(e) => onBusinessNameChange(e.target.value)}
+              placeholder={titleEditPlaceholder}
+              value={titleEditValue}
+              onChange={(e) => commitTitleEdit(e.target.value)}
               onBlur={() => setTitleEditing(false)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === 'Escape') {
@@ -2024,7 +2110,7 @@ export default function PreviewPane({
             >
               {dragHandle}
               <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px', flexShrink: 0 }} />
-              <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', background: '#fff', flex: 1, position: 'relative' }}>
+              <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', background: previewBodyBg, flex: 1, position: 'relative' }}>
                 {renderPreviewWidget}
                 {shellFields.length > 0 && onRemoveField && (
                   <PreviewOverlay
@@ -2058,15 +2144,15 @@ export default function PreviewPane({
                 {shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
                 )}
-                {titleEditing && titleBox && onBusinessNameChange && (
+                {titleEditing && titleBox && titleEditEnabled && (
                   <input
                     ref={titleInputRef}
                     type="text"
                     className="qq-preview-title-edit"
                     data-testid="preview-title-edit"
-                    placeholder="Add your business name here"
-                    value={businessName}
-                    onChange={(e) => onBusinessNameChange(e.target.value)}
+                    placeholder={titleEditPlaceholder}
+                    value={titleEditValue}
+                    onChange={(e) => commitTitleEdit(e.target.value)}
                     onBlur={() => setTitleEditing(false)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === 'Escape') {
@@ -2126,7 +2212,10 @@ export default function PreviewPane({
                 // descendants inside the widget anchor to the page / iframe
                 // scroll container instead of being trapped by this bezel.
                 // See memory/project_overflow_clip_for_sticky.md
-                borderRadius: 16, overflow: 'clip', background: '#fff',
+                /* fix/tmpl-editor-mobile (A) — bezel body matches widget bg
+                   (token-derived) so no white band shows below a dark-template
+                   widget; light templates resolve to white as before. */
+                borderRadius: 16, overflow: 'clip', background: previewBodyBg,
                 border: `1px solid ${p.colors.borderLight}`,
                 display: 'flex', flexDirection: 'column',
                 boxShadow: '0 20px 48px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.06)',
@@ -2188,15 +2277,15 @@ export default function PreviewPane({
                 {shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
                 )}
-                {titleEditing && titleBox && onBusinessNameChange && (
+                {titleEditing && titleBox && titleEditEnabled && (
                   <input
                     ref={titleInputRef}
                     type="text"
                     className="qq-preview-title-edit"
                     data-testid="preview-title-edit"
-                    placeholder="Add your business name here"
-                    value={businessName}
-                    onChange={(e) => onBusinessNameChange(e.target.value)}
+                    placeholder={titleEditPlaceholder}
+                    value={titleEditValue}
+                    onChange={(e) => commitTitleEdit(e.target.value)}
                     onBlur={() => setTitleEditing(false)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === 'Escape') {

@@ -67,19 +67,23 @@ test.describe('wizard J — Wave J UI refinement (desktop)', () => {
   test('(2) clicking a section InfoCue reveals its tooltip', async ({ page }) => {
     await openWizard(page);
     // Switch to Settings to find one of the InfoCues we know exists.
+    // IA redesign — the lead-email field (and its InfoCue) moved to the
+    // Action tab; the Settings tab's always-visible "Number formatting"
+    // section keeps its InfoCue (`settings-section-numberformat`) outside the
+    // collapsed AdvancedSection, so it's a stable target here.
     await page.getByTestId('editor-tab-settings').click();
     await expect(page.getByTestId('editor-tabpanel-settings')).toBeVisible();
-    const cue = page.getByTestId('info-cue-settings-lead-email');
+    const cue = page.getByTestId('info-cue-settings-section-numberformat');
     await expect(cue).toBeVisible();
     await cue.click();
-    await expect(page.getByTestId('info-cue-settings-lead-email-popover')).toBeVisible();
+    await expect(page.getByTestId('info-cue-settings-section-numberformat-popover')).toBeVisible();
     // Wave L P2 — popovers are now portaled to document.body. Escape is the
     // canonical dismiss path tracked by InfoCue.useEffect's keydown handler;
     // a click-outside at viewport (5,5) is racey because moving the mouse
     // toward the corner can re-enter the trigger and re-open via
     // onMouseEnter. Escape avoids that race.
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId('info-cue-settings-lead-email-popover')).toHaveCount(0);
+    await expect(page.getByTestId('info-cue-settings-section-numberformat-popover')).toHaveCount(0);
   });
 
   test('(3) theme toggle flips data-theme on the shell root and persists', async ({ page }) => {
@@ -157,29 +161,18 @@ test.describe('wizard J — Wave J UI refinement (desktop)', () => {
     expect(box.x).toBeLessThan(ibox.x);
   });
 
-  test('(7) preview pane has a square 1px grid background (BD-3a fix 2)', async ({ page }) => {
+  test('(7) preview pane has NO grid background (IA redesign removed it)', async ({ page }) => {
     await openWizard(page);
-    // BD-3a fix 2 — the grid moved from the outer right-pane (dotted
-    // radial-gradient, 16×16) to the inner preview pane (two
-    // perpendicular linear-gradients drawing a 24×24 1px square grid).
-    // Alex called out the day-mode dot pattern as barely visible; the
-    // square 1px grid is subtle but always perceptible on the light
-    // canvas. Outer `.qq-editor-right` is now `background: transparent`
-    // and carries no pattern of its own.
+    // IA redesign (2026-06) — Alex's Elfsight-parity pass REMOVED the preview
+    // grid background entirely. The old Wave J assertion (a 24×24 square grid
+    // of two linear-gradients on `.qq-preview-pane`) is obsolete; the pane is
+    // now a plain surface with no background pattern of its own. We invert the
+    // old check to lock in the removal: the pane must carry no grid gradients.
     const pane = page.getByTestId('editor-preview-pane');
     await expect(pane).toBeVisible();
-    const cs = await pane.evaluate((el) => {
-      const s = getComputedStyle(el);
-      return { bg: s.backgroundImage, size: s.backgroundSize };
-    });
-    // Two linear-gradients (one per axis) compose the square grid.
-    const bg = cs.bg.toLowerCase();
-    const linearCount = (bg.match(/linear-gradient/g) ?? []).length;
-    expect(linearCount).toBeGreaterThanOrEqual(2);
-    // Square grid spacing is 24px × 24px. Computed `background-size` may
-    // serialise as either `24px 24px, 24px 24px` (per layer) or `24px 24px`.
-    const sizeNorm = cs.size.replace(/\s+/g, ' ').trim();
-    expect(sizeNorm).toMatch(/^24px 24px(?:, 24px 24px)?$/);
+    const bg = await pane.evaluate((el) => getComputedStyle(el).backgroundImage);
+    const linearCount = (bg.toLowerCase().match(/linear-gradient/g) ?? []).length;
+    expect(linearCount).toBe(0);
   });
 });
 
@@ -197,12 +190,15 @@ test.describe('wizard J — Wave J UI refinement (mobile 390×844)', () => {
 
   test('(2) InfoCue tap-to-toggle works on mobile', async ({ page }) => {
     await openWizard(page);
+    // IA redesign — see the desktop variant: the lead-email InfoCue moved to
+    // the Action tab; use the always-visible Number-formatting InfoCue on the
+    // Settings tab. On mobile, tapping a bottom-bar tab opens that tab's sheet.
     await page.getByTestId('editor-tab-settings').click();
-    const cue = page.getByTestId('info-cue-settings-lead-email');
+    const cue = page.getByTestId('info-cue-settings-section-numberformat');
     await cue.click();
-    await expect(page.getByTestId('info-cue-settings-lead-email-popover')).toBeVisible();
+    await expect(page.getByTestId('info-cue-settings-section-numberformat-popover')).toBeVisible();
     await cue.click();
-    await expect(page.getByTestId('info-cue-settings-lead-email-popover')).toHaveCount(0);
+    await expect(page.getByTestId('info-cue-settings-section-numberformat-popover')).toHaveCount(0);
   });
 
   test('(3) theme toggle works on mobile', async ({ page }) => {
@@ -244,21 +240,15 @@ test.describe('wizard J — Wave J UI refinement (mobile 390×844)', () => {
     expect(box.height).toBeGreaterThanOrEqual(44);
   });
 
-  test('(7) preview pane square 1px grid background renders on mobile (BD-3a fix 2)', async ({ page }) => {
+  test('(7) preview pane has NO grid background on mobile (IA redesign removed it)', async ({ page }) => {
     await openWizard(page);
-    // Same contract as desktop — square 1px grid (BD-3a fix 2) lives on
-    // the inner `.qq-preview-pane`, not the outer right pane. See the
-    // desktop variant of this test for the full rationale.
+    // Same contract as desktop — the IA redesign removed the preview grid
+    // background. Lock in the removal on mobile too. (On mobile the pane
+    // renders the `.is-mobile-clean` branch, which has never carried a grid.)
     const pane = page.getByTestId('editor-preview-pane');
     await expect(pane).toBeVisible();
-    const cs = await pane.evaluate((el) => {
-      const s = getComputedStyle(el);
-      return { bg: s.backgroundImage, size: s.backgroundSize };
-    });
-    const bg = cs.bg.toLowerCase();
-    const linearCount = (bg.match(/linear-gradient/g) ?? []).length;
-    expect(linearCount).toBeGreaterThanOrEqual(2);
-    const sizeNorm = cs.size.replace(/\s+/g, ' ').trim();
-    expect(sizeNorm).toMatch(/^24px 24px(?:, 24px 24px)?$/);
+    const bg = await pane.evaluate((el) => getComputedStyle(el).backgroundImage);
+    const linearCount = (bg.toLowerCase().match(/linear-gradient/g) ?? []).length;
+    expect(linearCount).toBe(0);
   });
 });

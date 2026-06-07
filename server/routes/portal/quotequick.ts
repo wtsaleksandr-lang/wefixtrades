@@ -11,6 +11,7 @@
  *
  * Endpoints
  *   GET /api/portal/quotequick/summary
+ *   GET /api/portal/quotequick/usage
  *   GET /api/portal/quotequick/:calcId/leads
  */
 
@@ -18,9 +19,11 @@ import type { Express, Request, Response } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { requireClient } from "../../auth";
 import { db } from "../../db";
+import { storage } from "../../storage";
 import { clients, calculators, leads, deploymentStatus } from "@shared/schema";
 import { createLogger } from "../../lib/logger";
 import { withClientIdOrPreview } from "../../middleware/adminPreviewSafe";
+import { buildQuotaUsage } from "@shared/quotequickQuota";
 
 const log = createLogger("PortalQuoteQuick");
 
@@ -108,6 +111,47 @@ export function registerPortalQuotequickRoutes(app: Express) {
     } catch (err) {
       log.error("Portal QuoteQuick summary error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load QuoteQuick summary" });
+    }
+  });
+
+  /**
+   * GET /api/portal/quotequick/usage
+   *
+   * Free-tier quote-quota meter for the portal. Returns the authenticated
+   * account's current-CALENDAR-month quote/lead capture count, the limit
+   * (50 for free, null = unlimited for paid), the tier, whether it's
+   * over/near the cap, and when the quota resets (first of next month UTC).
+   *
+   * Counting is an aggregate over the existing leads table across every
+   * calculator the account owns — no counter column. Registered BEFORE the
+   * `:calcId` route below so "usage" isn't parsed as a calculator id.
+   *
+   * Auth: requireClient. adminPreviewSafe-wrapped (admins without a linked
+   * client see a zero/free preview shape).
+   */
+  app.get("/api/portal/quotequick/usage", requireClient, async (req: Request, res: Response) => {
+    const previewShape = buildQuotaUsage(0, false);
+    try {
+      const clientId = await withClientId(req, res, previewShape as unknown as Record<string, unknown>);
+      if (clientId === null) return;
+
+      // Resolve the account's user_id from the client record.
+      const [client] = await db
+        .select({ user_id: clients.user_id })
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+
+      if (!client?.user_id) {
+        // No linked user → no owned calculators → empty free usage.
+        return res.json(buildQuotaUsage(0, false));
+      }
+
+      const { used, isPaid } = await storage.getAccountMonthlyQuoteUsage(client.user_id);
+      res.json(buildQuotaUsage(used, isPaid));
+    } catch (err) {
+      log.error("Portal QuoteQuick usage error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to load usage" });
     }
   });
 

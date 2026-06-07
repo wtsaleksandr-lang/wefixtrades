@@ -9,8 +9,10 @@
 // 40×40 logo-upload square on the left, and the business name input
 // (floating-label) on the right.
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
+import { AE } from './appleEditor';
 import { useLayoutGuard } from '@/lib/layoutGuard';
 import type { TemplateField, TemplateCalculation, TemplateStep } from '@shared/templatePresets';
 import FieldsPanel from './FieldsPanel';
@@ -18,6 +20,7 @@ import CalculationsPanel from './CalculationsPanel';
 import HeaderResultsPanel from './HeaderResultsPanel';
 import StepContentPanel from './StepContentPanel';
 import TemplateStrip, { type ApplyTemplatePayload } from './TemplateGallery';
+import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
 import type { ShellHeader, ShellResults } from './types';
 
@@ -49,6 +52,12 @@ interface Props {
    */
   steps?: TemplateStep[];
   onStepsChange?: (next: TemplateStep[]) => void;
+  /**
+   * "Generate with AI" card → routes the typed prompt into the existing
+   * floating AI assistant (seed + auto-send). Optional so the panel still
+   * renders if a caller omits it (the card just won't fire).
+   */
+  onGenerateWithAI?: (prompt: string) => void;
 }
 
 // Max raw bytes accepted by the logo upload before we reject (1 MB). The
@@ -64,8 +73,22 @@ export default function BuildTab({
   results, onResultsChange,
   activeTemplateId, onApplyTemplate,
   steps, onStepsChange,
+  onGenerateWithAI,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // "Generate with AI" card prompt — local; on Generate it's handed to the
+  // shell, which seeds + auto-sends the floating AI assistant.
+  const [aiPrompt, setAiPrompt] = useState('');
+  const AI_EXAMPLES = [
+    'Mobile car detailing quote',
+    'Plumbing call-out estimate',
+    'Event catering per head',
+  ] as const;
+  const generateAi = useCallback(() => {
+    const v = aiPrompt.trim();
+    if (!v) return;
+    onGenerateWithAI?.(v);
+  }, [aiPrompt, onGenerateWithAI]);
   // LAYOUT-1 — dev-only overlap/crumple detector on the Build panel.
   // Tight maxGapPx because the Build column is a vertical stack of
   // input clusters; runaway gaps here indicate a missed spacing token.
@@ -92,15 +115,82 @@ export default function BuildTab({
       data-section
       role="tabpanel"
     >
+      {/* Decluttered default view — once the calculator already has fields,
+          the heavy "Generate with AI" card + full template strip dominate
+          screen 1. Tuck them behind a collapsed AdvancedSection so a
+          populated calculator opens lean; keep it OPEN when blank so a new
+          user lands directly on the start-here affordances. Everything stays
+          fully reachable; testids/behavior are untouched. */}
+      <AdvancedSection
+        id="build-start"
+        label="Start from a template / AI"
+        hint="generate with AI or pick a template"
+        defaultOpen={fields.length === 0}
+      >
+      {/* Generate with AI — discoverable entry point that routes into the
+          existing floating AI assistant (seed + auto-send). The bubble stays
+          the chat surface for refinement; this card is just the front door. */}
+      <div className="qq-buildai-card" data-testid="build-ai-card">
+        <div className="qq-buildai-head">
+          <span className="qq-buildai-headicon" aria-hidden="true">
+            <Sparkles size={16} />
+          </span>
+          <span className="qq-buildai-title">Generate with AI</span>
+        </div>
+        <p className="qq-buildai-sub">
+          Describe your job and we'll build the calculator for you.
+        </p>
+        <textarea
+          className="qq-buildai-input"
+          data-testid="build-ai-prompt"
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              generateAi();
+            }
+          }}
+          placeholder="e.g. A lawn-care quote with lawn size, frequency, and add-ons"
+          rows={2}
+          aria-label="Describe the calculator you want"
+        />
+        <div className="qq-buildai-chips" role="list">
+          {AI_EXAMPLES.map((ex, i) => (
+            <button
+              key={ex}
+              type="button"
+              role="listitem"
+              className="qq-buildai-chip"
+              data-testid={`build-ai-chip-${i}`}
+              onClick={() => setAiPrompt(ex)}
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="qq-buildai-generate"
+          data-testid="build-ai-generate"
+          onClick={generateAi}
+          disabled={!aiPrompt.trim()}
+        >
+          <Sparkles size={16} aria-hidden="true" />
+          <span>Generate</span>
+        </button>
+      </div>
+
       {/* H7 — horizontal template scroller, single-row, at the top. */}
       <TemplateStrip
         activeTemplateId={activeTemplateId}
         onApplyTemplate={onApplyTemplate}
       />
+      </AdvancedSection>
 
       <div className="qq-build-divider" />
 
-      <section className="qq-build-section" data-testid="editor-business-section">
+      <section className="qq-build-section" data-testid="editor-business-section" data-edit-key="business">
         {/* Wave J item 5 — composite logo + business-name field. */}
         <div className="qq-business-composite" data-testid="editor-business-composite">
           {/* AUDIT-LOW — wrap the logo-upload square so the clear pill can
@@ -179,14 +269,18 @@ export default function BuildTab({
         </>
       )}
 
-      <div className="qq-build-divider" />
-
-      <HeaderResultsPanel
-        header={header}
-        onHeaderChange={onHeaderChange}
-        results={results}
-        onResultsChange={onResultsChange}
-      />
+      <AdvancedSection
+        id="build-titles"
+        label="Titles & result text"
+        hint="headline, subtext, result labels & CTA copy"
+      >
+        <HeaderResultsPanel
+          header={header}
+          onHeaderChange={onHeaderChange}
+          results={results}
+          onResultsChange={onResultsChange}
+        />
+      </AdvancedSection>
 
       <style>{`
         .qq-build-tab {
@@ -197,6 +291,105 @@ export default function BuildTab({
         }
         .qq-build-divider {
           height: 1px; background: ${p.colors.borderLight}; margin: 0;
+        }
+        /* Generate with AI card — matches the Action/Style card visual
+           language (white surface, hairline border, 10px radius, accent). */
+        .qq-buildai-card {
+          font-family: ${AE.font.family};
+          background: ${AE.color.bg};
+          border: 1px solid ${AE.color.hairline};
+          border-radius: ${AE.radius.md};
+          box-shadow: ${AE.shadow.card};
+          padding: 12px 14px 14px;
+          display: flex; flex-direction: column; gap: 10px;
+          margin-bottom: 2px;
+        }
+        .qq-buildai-head {
+          display: flex; align-items: center; gap: 8px;
+        }
+        .qq-buildai-headicon {
+          display: inline-flex; align-items: center; justify-content: center;
+          color: ${AE.color.accent};
+        }
+        .qq-buildai-title {
+          font-size: ${AE.type.title.size};
+          font-weight: 600;
+          color: ${AE.color.text};
+        }
+        .qq-buildai-sub {
+          margin: -4px 0 0;
+          font-size: ${AE.type.helper.size};
+          color: ${AE.color.secondary};
+          line-height: 1.45;
+        }
+        .qq-buildai-input {
+          width: 100%; box-sizing: border-box;
+          resize: vertical; min-height: 56px;
+          font: inherit; font-size: 14px;
+          color: ${AE.color.text};
+          background: ${AE.color.surface};
+          border: 1px solid ${AE.color.hairline};
+          border-radius: ${AE.radius.sm};
+          padding: 10px 12px;
+          line-height: 1.45;
+          transition: border-color 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-buildai-input::placeholder { color: ${AE.color.secondary}; }
+        .qq-buildai-input:focus {
+          outline: none;
+          border-color: ${AE.color.accent};
+          box-shadow: ${AE.shadow.focus};
+        }
+        /* Example prompt chips — subtle (outline/tint), NOT a bright fill. */
+        .qq-buildai-chips {
+          display: flex; flex-wrap: wrap; gap: 6px;
+        }
+        .qq-buildai-chip {
+          font: inherit; cursor: pointer;
+          font-size: 12.5px; font-weight: 500;
+          color: ${AE.color.secondary};
+          background: ${AE.color.surface};
+          border: 1px solid ${AE.color.hairline};
+          border-radius: ${AE.radius.pill};
+          padding: 6px 12px;
+          transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+        }
+        .qq-buildai-chip:hover {
+          color: ${AE.color.accent};
+          border-color: ${AE.color.accent};
+          background: ${AE.color.accentTint};
+        }
+        .qq-buildai-chip:focus-visible {
+          outline: none; box-shadow: ${AE.shadow.focus};
+        }
+        /* Primary Generate button — accent fill (this is the primary action,
+           per AE.color.accent/publish). */
+        .qq-buildai-generate {
+          align-self: flex-end;
+          display: inline-flex; align-items: center; gap: 8px;
+          font: inherit; font-size: 14px; font-weight: 600;
+          color: ${AE.color.publishText};
+          background: ${AE.color.accent};
+          border: 1px solid ${AE.color.accent};
+          border-radius: ${AE.radius.sm};
+          padding: 9px 18px;
+          cursor: pointer;
+          transition: background 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+        }
+        .qq-buildai-generate:hover:not(:disabled) {
+          background: ${AE.color.accentHover};
+          border-color: ${AE.color.accentHover};
+        }
+        .qq-buildai-generate:focus-visible {
+          outline: none; box-shadow: ${AE.shadow.focus};
+        }
+        .qq-buildai-generate:disabled {
+          opacity: 0.5; cursor: not-allowed;
+        }
+        @media (max-width: 768px) {
+          .qq-buildai-generate {
+            align-self: stretch; justify-content: center;
+          }
         }
         /* Wave J item 5 — logo + name composite. */
         .qq-business-composite {

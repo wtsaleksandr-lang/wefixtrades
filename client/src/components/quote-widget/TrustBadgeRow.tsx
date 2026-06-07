@@ -181,19 +181,35 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
   // Hover → a clear white border on dark surfaces (a strong dark one on light).
   const borderColorHover = dark ? 'rgba(255, 255, 255, 1)' : 'rgba(0, 0, 0, 0.55)';
 
+  // Subtle horizontal-scroll affordance: fade the right + left edges so the row
+  // visibly hints "more to scroll". A mask is alpha-only — only the opaque
+  // STOP's alpha matters, its hue is irrelevant — so we use a theme colour as
+  // the opaque stop (derived, no white/black literal). The fade is slightly
+  // wider on the right (default state, scrolled to start) than the left.
+  const maskOpaque = theme.surface || theme.accent;
+  const fadeMask =
+    `linear-gradient(to right, transparent 0, ${maskOpaque} 14px, ${maskOpaque} calc(100% - 22px), transparent 100%)`;
   const rowStyle: CSSProperties = {
     display: 'flex',
-    flexWrap: 'nowrap',
+    // Wrap to multiple rows so chips never push the widget/page past the
+    // viewport on narrow screens (mobile overflowed by up to +296px when this
+    // was a single nowrap row). Children carry minWidth:0 so they can shrink.
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 6,
     padding: '8px 16px 10px',
     background: 'transparent',
     fontFamily,
+    minWidth: 0,
+    maxWidth: '100%',
+    boxSizing: 'border-box',
     overflowX: 'auto',
     overflowY: 'hidden',
     scrollbarWidth: 'none',
     WebkitOverflowScrolling: 'touch',
+    maskImage: fadeMask,
+    WebkitMaskImage: fadeMask,
   };
 
   const chipStyle: CSSProperties = {
@@ -210,6 +226,12 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
     fontWeight: 500,
     whiteSpace: 'nowrap',
     flexShrink: 0,
+    // Cap a pathologically long single chip to the row width so it can never
+    // push past the viewport (label ellipsises instead of overflowing).
+    maxWidth: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
     lineHeight: 1.2,
     cursor: 'pointer',
     fontFamily: 'inherit',

@@ -18,9 +18,9 @@ interface Props {
 
 const WAVE_BY_TAB: Record<EditorTab, string> = {
   build: 'Wave H2-H4',
+  action: 'Action', // implemented — fallback waypoint only
   style: 'Wave H5', // implemented — but kept as a fallback waypoint
   settings: 'Wave H6',
-  install: 'Wave H7',
 };
 
 export default function TabPlaceholder({ tab, businessName, onBusinessNameChange }: Props) {
@@ -80,7 +80,7 @@ export default function TabPlaceholder({ tab, businessName, onBusinessNameChange
           <p style={{ fontSize: 14, fontWeight: 700, color: p.colors.heading, margin: 0 }}>
             {tab === 'style' && 'Style'}
             {tab === 'settings' && 'Settings'}
-            {tab === 'install' && 'Install'}
+            {tab === 'action' && 'Action'}
           </p>
           <p style={{ fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>
             Coming in {WAVE_BY_TAB[tab]}.

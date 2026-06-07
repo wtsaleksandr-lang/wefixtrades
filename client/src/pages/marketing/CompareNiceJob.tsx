@@ -100,7 +100,12 @@ export default function CompareNiceJob() {
         {/* Comparison table */}
         <Card className="overflow-hidden mb-12">
           <p className="text-[11px] text-gray-400 px-4 pt-2 sm:hidden">Scroll right to see all columns →</p>
-          <div style={{ overflowX: "auto" }}>
+          <div
+            style={{ overflowX: "auto" }}
+            tabIndex={0}
+            role="region"
+            aria-label="ReputationShield vs NiceJob comparison"
+          >
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid #E5E7EB" }}>

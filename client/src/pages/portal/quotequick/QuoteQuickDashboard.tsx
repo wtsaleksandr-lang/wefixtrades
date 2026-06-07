@@ -53,6 +53,7 @@ import {
   type MonthlyBar,
 } from "@/components/ui/visual-primitives";
 import { ConversionGauge } from "@/components/quotequick/ConversionGauge";
+import { QuotaMeter } from "@/components/quotequick/QuotaMeter";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
 import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
@@ -391,6 +392,10 @@ export default function QuoteQuickDashboard() {
             </DropdownMenu>
           </div>
         </div>
+
+        {/* Free-tier quote-quota meter — owner-facing usage + upgrade nudge.
+            Server enforcement is soft-cap; this is the visible meter. */}
+        <QuotaMeter />
 
         {/* Hero KPI row */}
         <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">

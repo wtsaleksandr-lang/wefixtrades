@@ -12,13 +12,19 @@
  *  - Build tab top: business-name gap, header/calc section titles.
  *  - HeaderResultsPanel: no "Headline result" duplicate label above the
  *    select; floating label only.
- *  - Hosted page section on Install tab: headline + subheadline use
+ *  - Hosted page section in the Publish modal: headline + subheadline use
  *    FloatField (no header text above bare inputs).
- *  - Settings tab: brand-badge toggle visible.
+ *  - Settings tab: brand-badge toggle visible (now under AdvancedSection —
+ *    expand "Advanced settings" first).
  *  - Calculator preview: pencil icon next to title; quoted-amount with
  *    a long currency value does not overlap.
  *  - "Get a quote" flow: clicking CTA reveals form WITH a Back button.
- *  - Install tab language picker: shows 5 options, FloatField pattern.
+ *  - Publish-modal language picker: shows 5 options, FloatField pattern.
+ *
+ * IA REDESIGN (2026-06) — the Install tab was folded into the Publish modal
+ * (opened via `quotequick-publish`, content `editor-publish-overlay`); the tab
+ * strip is now Build · Action · Style · Settings (no Install). Install-related
+ * screenshots now drive the Publish modal instead of `editor-tab-install`.
  *
  * Each screenshot is named `vN-<area>-<viewport>.png`.
  *
@@ -108,10 +114,11 @@ test.describe('Wave R-pre v2 — desktop 1440', () => {
     await shoot(page, 'v2-header-results-desktop');
   });
 
-  test('Install tab — hosted-page section + language picker (5 options) + FloatField for headline/sub', async ({ page }) => {
+  test('Publish modal — hosted-page section + language picker (5 options) + FloatField for headline/sub', async ({ page }) => {
+    // IA redesign — Install tab folded into the Publish modal.
     await openWizard(page);
-    await page.getByTestId('editor-tab-install').click();
-    await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 1500 });
+    await page.getByTestId('quotequick-publish').click();
+    await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 1500 });
     await page.waitForTimeout(400);
     await shoot(page, 'v2-install-tab-desktop');
 
@@ -124,7 +131,11 @@ test.describe('Wave R-pre v2 — desktop 1440', () => {
     await openWizard(page);
     await page.getByTestId('editor-tab-settings').click();
     await expect(page.getByTestId('editor-tabpanel-settings')).toBeVisible({ timeout: 1500 });
-    // Scroll the brand-badge fieldset into view.
+    // IA redesign — brand-badge fieldset now lives inside the
+    // "Advanced settings" AdvancedSection (collapsed by default), so expand
+    // it before the fieldset is in the DOM, then scroll it into view.
+    await page.getByTestId('advanced-toggle-settings-advanced').click();
+    await expect(page.getByTestId('settings-group-brand-badge')).toBeVisible({ timeout: 1500 });
     await page.getByTestId('settings-group-brand-badge').scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
     await shoot(page, 'v2-settings-brand-badge-desktop');

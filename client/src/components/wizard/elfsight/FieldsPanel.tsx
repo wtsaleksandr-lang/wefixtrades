@@ -83,6 +83,30 @@ export function makeField(publicType: PublicFieldType): TemplateField {
         id, name: 'Image', label: 'Image', type: 'image',
         imageUrl: '', imageCaption: '',
       };
+    // BUILDER-COMPONENTS — content/CTA factories. Both ship a sensible
+    // default so the component reads as a real, working control the instant
+    // it's dropped in (before the owner sets the destination).
+    case 'button':
+      return {
+        id, name: 'Button', label: 'Call us', type: 'button',
+        buttonAction: 'tel', href: '',
+      };
+    case 'link':
+      return {
+        id, name: 'Link', label: 'Visit our website', type: 'link',
+        href: '',
+      };
+    // FIELD-PALETTE — surface the existing engine types in the picker.
+    case 'toggle':
+      return {
+        id, name: 'Toggle', label: 'Yes / no option', type: 'toggle',
+        on_value: 0, default_value: 0,
+      };
+    case 'video':
+      return {
+        id, name: 'Video', label: 'Video', type: 'video',
+        videoUrl: '', videoCaption: '',
+      };
   }
 }
 
@@ -119,6 +143,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
       data-theme="light"
       className="qq-fields-panel"
       data-testid="editor-fields-panel"
+      data-edit-key="fields"
       aria-label="Calculator fields"
     >
       <header className="qq-fields-header">
@@ -155,6 +180,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
               <li key={f.id} className="qq-fields-li" data-first={i === 0 ? '1' : '0'}>
                 <FieldRow
                   field={f}
+                  allFields={fields}
                   index={i}
                   total={fields.length}
                   onChange={(next) => handleRowChange(i, next)}

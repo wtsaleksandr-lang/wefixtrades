@@ -62,6 +62,7 @@ export default function HeaderResultsPanel({
         ref={registerHeaderPane}
         className={`qq-headres-section qq-headres-select${headerSelected ? ' is-selected' : ''}`}
         data-testid="editor-headerresults-header-section"
+        data-edit-key="header"
         {...(headerSelected ? { 'data-selected-in-pane': '' } : {})}
         onClick={() => selection.select({ kind: 'header', id: '__header' })}
       >
@@ -107,6 +108,7 @@ export default function HeaderResultsPanel({
         ref={registerResultsPane}
         className={`qq-headres-section qq-headres-select${resultsSelected ? ' is-selected' : ''}`}
         data-testid="editor-headerresults-results-section"
+        data-edit-key="results"
         {...(resultsSelected ? { 'data-selected-in-pane': '' } : {})}
         onClick={() => selection.select({ kind: 'results', id: '__results' })}
       >

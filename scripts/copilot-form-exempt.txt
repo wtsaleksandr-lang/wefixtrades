@@ -309,3 +309,4 @@ client/src/pages/portal/PortalAiReceptionists.tsx
 # Calculator Templates browser — read-only gallery with a search filter only;
 # selection routes to the wizard. No fillable form.
 client/src/pages/portal/PortalCalculatorTemplates.tsx
+client/src/pages/portal/FreeTools/MarginCalculator.tsx

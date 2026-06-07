@@ -30,6 +30,7 @@ import { createPortal } from 'react-dom';
 import {
   Sliders, Hash, ChevronDown, CircleDot, Image as ImageIcon, Heading2,
   Layers, FileText, Minus, Type as TypeIcon, Video as VideoIcon,
+  ToggleLeft as ToggleIcon,
   GitBranch, Calculator as CalcIcon, MousePointerClick, Link as LinkIcon,
   Mail as MailIcon, X as XIcon, Search as SearchIcon,
   ChevronRight, ChevronDown as ChevronDownToggle,
@@ -86,6 +87,8 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
       { id: 'number', label: 'Number', hint: 'Exact integer / decimal', Icon: Hash, publicType: 'number' },
       { id: 'dropdown', label: 'Dropdown', hint: 'Pick one from a list', Icon: ChevronDown, publicType: 'dropdown' },
       { id: 'multi-select', label: 'Multi-select', hint: 'Pick several from a list', Icon: Layers, publicType: 'multiSelect' },
+      // FIELD-PALETTE — toggle went live (publicType wired). Yes/no switch.
+      { id: 'toggle', label: 'Toggle', hint: 'Yes / no switch', Icon: ToggleIcon, publicType: 'toggle' },
       { id: 'file', label: 'File upload', hint: 'Image / document attach', Icon: FileText, disabled: true },
       { id: 'slider', label: 'Slider', hint: 'Numeric range input', Icon: Sliders, publicType: 'slider' },
       { id: 'choice', label: 'Choice', hint: 'Radio-style options', Icon: CircleDot, publicType: 'choice' },
@@ -101,7 +104,8 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
       { id: 'paragraph', label: 'Paragraph', hint: 'Block of body copy', Icon: FileText, publicType: 'paragraph' },
       { id: 'divider', label: 'Divider', hint: 'Horizontal rule', Icon: Minus, publicType: 'divider' },
       { id: 'image', label: 'Image', hint: 'Inline image', Icon: ImageIcon, publicType: 'image' },
-      { id: 'video', label: 'Video embed', hint: 'YouTube / Vimeo', Icon: VideoIcon, disabled: true },
+      // FIELD-PALETTE — Video embed went live (publicType wired).
+      { id: 'video', label: 'Video embed', hint: 'YouTube / Vimeo', Icon: VideoIcon, publicType: 'video' },
     ],
   },
   {
@@ -109,15 +113,21 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
     label: 'Logic',
     entries: [
       { id: 'conditional', label: 'Conditional section', hint: 'Show / hide based on answers', Icon: GitBranch, disabled: true },
-      { id: 'calc', label: 'Calculation formula', hint: 'Math formula on field values', Icon: CalcIcon, disabled: true },
+      // BUILDER-COMPONENTS — `calc` stays disabled by design: adding a
+      // calculation is already fully supported by the Build > Pricing
+      // (Calculations) panel + FormulaEditor. Surfacing a second insert
+      // path here would create a parallel calc system. The hint now points
+      // owners to the canonical location instead.
+      { id: 'calc', label: 'Calculation formula', hint: 'Add these in the Pricing panel →', Icon: CalcIcon, disabled: true },
     ],
   },
   {
     id: 'cta',
     label: 'CTA',
     entries: [
-      { id: 'button', label: 'Button', hint: 'Action / submit', Icon: MousePointerClick, disabled: true },
-      { id: 'link', label: 'Link', hint: 'External anchor', Icon: LinkIcon, disabled: true },
+      // BUILDER-COMPONENTS — Button + Link went live (publicType wired).
+      { id: 'button', label: 'Button', hint: 'Tappable call / link button', Icon: MousePointerClick, publicType: 'button' },
+      { id: 'link', label: 'Link', hint: 'Inline text link', Icon: LinkIcon, publicType: 'link' },
       { id: 'contact', label: 'Contact form', hint: 'Name + email + message', Icon: MailIcon, disabled: true },
     ],
   },

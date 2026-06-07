@@ -15,6 +15,11 @@ import {
   LEADS_RATE_LIMIT_WINDOW_MS,
 } from "../services/rateLimiter";
 import { sendQuoteReadySms } from "../services/quotequickHomeownerSmsService";
+import {
+  QUOTA_HARD_BLOCK,
+  buildQuotaUsage,
+  FREE_MONTHLY_QUOTE_LIMIT,
+} from "@shared/quotequickQuota";
 
 const log = createLogger("Leads");
 
@@ -320,6 +325,29 @@ export function registerLeadRoutes(app: Express): void {
         return res.status(429).json({ error: "Submission already received. Please wait a moment." });
       }
 
+      // ── Free-tier quote quota (HARD-BLOCK path, OFF by default) ─────────────
+      // Policy lives in @shared/quotequickQuota. The DEFAULT is soft-cap:
+      // over-limit free accounts still have their lead accepted + flagged
+      // (handled after creation below). This block only runs when Alex flips
+      // QUOTA_HARD_BLOCK to true — then over-limit free-tier captures are
+      // rejected with 402 BEFORE the lead is written. Guarded by the constant
+      // so the default path skips the extra usage query entirely.
+      if (QUOTA_HARD_BLOCK) {
+        const usage = await storage
+          .getAccountMonthlyQuoteUsageByCalculator(parsed.data.calculator_id)
+          .catch((err: any) => {
+            // Fail OPEN: a quota-lookup error must never block a real lead.
+            log.warn(`[leads] quota lookup failed (hard-block); allowing`, { error: err?.message });
+            return null;
+          });
+        if (usage && !usage.isPaid && usage.used >= FREE_MONTHLY_QUOTE_LIMIT) {
+          return res.status(402).json({
+            error: "This business has reached its monthly quote limit. Please try again next month.",
+            quota_exceeded: true,
+          });
+        }
+      }
+
       // quote_amount: preserve 0 as valid (don't coerce to null)
       const quoteAmount = parsed.data.quote_amount != null ? parsed.data.quote_amount : null;
 
@@ -505,7 +533,30 @@ export function registerLeadRoutes(app: Express): void {
         { op: "intake.lead.submitted", meta: { lead_id: lead.id, calculator_id: parsed.data.calculator_id } },
       );
 
-      res.json({ success: true, lead });
+      // ── Free-tier quote quota (SOFT-CAP flag, DEFAULT) ─────────────────────
+      // The lead is already saved (we never drop a real customer). After the
+      // fact, compute the owning account's current-month usage and flag the
+      // response when a FREE account is at/over the limit. The portal meter +
+      // owner upgrade nudge key off this — the homeowner-facing widget ignores
+      // it. Anonymous calcs (no owner) and paid accounts get the default
+      // quota_exceeded:false. Fails closed-to-false so a quota glitch never
+      // turns a successful capture into an error.
+      let quotaExceeded = false;
+      try {
+        const usage = await storage.getAccountMonthlyQuoteUsageByCalculator(
+          parsed.data.calculator_id,
+        );
+        if (usage) {
+          quotaExceeded = buildQuotaUsage(usage.used, usage.isPaid).quota_exceeded;
+        }
+      } catch (err: any) {
+        log.warn("[leads] quota flag computation failed; defaulting to false", {
+          error: err?.message,
+          calculatorId: parsed.data.calculator_id,
+        });
+      }
+
+      res.json({ success: true, lead, quota_exceeded: quotaExceeded });
     } catch (error: any) {
       log.error("Create lead error:", error);
       res.status(500).json({ error: "Failed to submit lead" });

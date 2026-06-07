@@ -45,3 +45,25 @@ dev-server.log
 /run-mkt-audit.mjs
 /nocache-server.mjs
 /OVERNIGHT-FINDINGS.md
+
+# orchestrator scratch (screenshots, audit scripts, preview server) — never commit
+_audit/
+_diag/
+_dpolish/
+_hunt/
+_live/
+_screenshots/
+_static.mjs
+_m/
+_mf/
+_tf/
+_theme/
+_tv/
+_v/
+_p0/
+_p0b/
+_p1/
+_p2/
+_vr*/
+_vr6_probe.html
+_vr6_smoke.mjs

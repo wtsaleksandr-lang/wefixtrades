@@ -42,6 +42,11 @@ const p = platformTheme;
 // footer + body clear this so nothing hides behind it.
 const BOTTOM_BAR_PX = 60;
 
+// Height of the clean mobile top bar (✕ · name · autosave · Publish). The
+// backdrop is inset to BELOW this so the top bar stays tappable while the
+// sheet is open (see backdrop CSS note below).
+const TOPBAR_PX = 64;
+
 // ── Component ─────────────────────────────────────────────────────────
 
 interface Props {
@@ -216,7 +221,18 @@ export default function MobileBottomSheet({
         @media (max-width: 768px) {
           .qq-sheet-backdrop {
             display: block;
-            position: fixed; inset: 0;
+            /* Constrained to the PREVIEW zone only — below the top bar and
+               above the bottom tab bar — NOT inset:0. The backdrop is portaled
+               to <body>, so a full-viewport overlay sits in a higher stacking
+               context than the editor chrome (top bar / bottom tab bar live
+               inside the shell) and swallowed their taps no matter their
+               z-index, AND a backdrop tap on the chrome did nothing. Inset to
+               the preview area so the chrome stays physically uncovered +
+               tappable while the sheet is open, and a tap on the dimmed
+               preview still closes the sheet (onClick={onClose}). */
+            position: fixed;
+            top: ${TOPBAR_PX}px; left: 0; right: 0;
+            bottom: calc(${BOTTOM_BAR_PX}px + env(safe-area-inset-bottom, 0px));
             z-index: 9997;
             background: rgba(15, 23, 42, 0.35);
             backdrop-filter: blur(2px);

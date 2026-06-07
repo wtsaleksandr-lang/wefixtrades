@@ -514,10 +514,10 @@ export default function InstallTab({
        *  top-right corner. No "Widget language" heading above. */}
       <section className="qq-install-section" data-testid="install-section-language">
         <FloatField
-          label="Widget language"
+          label="Language tag (lang attribute)"
           htmlFor="qq-install-language-select"
           variant="select"
-          infoText="Sets the lang attribute on the embedded widget so assistive tech and search engines know what language the calculator renders in."
+          infoText="Sets the widget's lang attribute for screen readers and search engines — it does NOT translate your widget. The text stays exactly as you wrote it. Full UI translation is coming soon."
           infoTestid="install-language"
         >
           <select
@@ -539,6 +539,15 @@ export default function InstallTab({
           data-testid="install-current-language"
         >
           Selected: <strong>{currentLang.label}</strong> ({currentLang.code})
+        </p>
+        <p
+          className="qq-install-sub"
+          data-testid="install-language-note"
+          style={{ marginTop: 4 }}
+        >
+          This only tags the widget's language for screen readers and search
+          engines — it does not translate the visible text. Your widget reads
+          exactly as you wrote it. Full UI translation is coming soon.
         </p>
         {/* TODO(i18n): translation strings — once translations land, ALSO
             apply them to the live preview header / CTA / step labels. */}

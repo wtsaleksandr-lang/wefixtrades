@@ -100,8 +100,8 @@ function autoTrendColor(values: number[]): SparklinePalette {
 
 export function Sparkline({
   values,
-  width = 80,
-  height = 24,
+  width: widthProp = 80,
+  height: heightProp = 24,
   variant = "line",
   color = "auto",
   showLastPoint = true,
@@ -113,6 +113,13 @@ export function Sparkline({
 }: SparklineProps) {
   const reduceMotion = useReducedMotion();
   const shouldAnimate = !reduceMotion;
+
+  // Guard against callers passing undefined / NaN / non-positive dimensions
+  // (e.g. props spread from data that lacks width/height). A bad dimension
+  // would otherwise emit `<svg width="undefined">` and `<line x2="undefined">`
+  // and throw "Expected length" SVG errors. Fall back to the documented defaults.
+  const width = Number.isFinite(widthProp) && widthProp > 0 ? widthProp : 80;
+  const height = Number.isFinite(heightProp) && heightProp > 0 ? heightProp : 24;
 
   const palette = color === "auto" ? autoTrendColor(values) : color;
   const colorVar = PALETTE_VAR[palette];

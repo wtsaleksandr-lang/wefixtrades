@@ -16,13 +16,13 @@ import type {
 } from '@shared/templatePresets';
 import { DEFAULT_ADV_STYLE } from '@shared/templatePresets';
 
-export type EditorTab = 'build' | 'style' | 'settings' | 'install';
+export type EditorTab = 'build' | 'action' | 'style' | 'settings';
 
 export const EDITOR_TABS: ReadonlyArray<{ id: EditorTab; label: string }> = [
   { id: 'build', label: 'Build' },
+  { id: 'action', label: 'Action' },
   { id: 'style', label: 'Style' },
   { id: 'settings', label: 'Settings' },
-  { id: 'install', label: 'Install' },
 ];
 
 /**
@@ -67,7 +67,14 @@ export type PublicFieldType =
   //  - `divider`     → display-only horizontal rule
   //  - `image`       → display-only inline image
   | 'text' | 'multiSelect'
-  | 'paragraph' | 'divider' | 'image';
+  | 'paragraph' | 'divider' | 'image'
+  // BUILDER-COMPONENTS — content/CTA components (no calc contribution):
+  //  - `button` → canonical 'button' (tappable action button)
+  //  - `link`   → canonical 'link' (inline text anchor)
+  | 'button' | 'link'
+  // FIELD-PALETTE — `toggle` (already an engine type, now surfaced in the
+  // picker) + new `video` content type (YouTube / Vimeo embed).
+  | 'toggle' | 'video';
 
 export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']> = {
   slider: 'slider',
@@ -81,6 +88,10 @@ export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']
   paragraph: 'paragraph',
   divider: 'divider',
   image: 'image',
+  button: 'button',
+  link: 'link',
+  toggle: 'toggle',
+  video: 'video',
 };
 
 export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicFieldType>> = {
@@ -95,6 +106,10 @@ export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicF
   paragraph: 'paragraph',
   divider: 'divider',
   image: 'image',
+  button: 'button',
+  link: 'link',
+  toggle: 'toggle',
+  video: 'video',
 };
 
 /** Header overrides — Wave H4. Both optional; blank values fall back to
@@ -115,8 +130,15 @@ export interface ShellResults {
  * state, the PreviewPane merge, and the persisted `advanced.style` slot all
  * speak the same shape. Every field stays optional so an in-flight edit can
  * partial-update without forcing every field.
+ *
+ * `showTrustBadges` — fix/tmpl-editor-mobile: owner toggle for the widget's
+ * trust-badge line. Default semantics = SHOWN when undefined or true; the
+ * widget renderer gates the row on `style.showTrustBadges !== false`. Optional
+ * so an in-flight partial edit never has to set it.
  */
-export type ShellStyle = AdvStyle;
+export type ShellStyle = AdvStyle & {
+  showTrustBadges?: boolean;
+};
 export type {
   AdvFontFamily as ShellFontFamily,
   AdvFieldStyle as ShellFieldStyle,
@@ -230,6 +252,34 @@ export interface ShellSettings {
    * preview/save payload (the AdvancedCalculator already honours that field).
    */
   ctaLabel?: string;
+  /**
+   * Action tab — Submit-button card. Success line shown after the lead form
+   * is submitted (maps to `results.submit_success` → LeadModal's success
+   * copy). Absent → the LeadModal default
+   * ("Thanks — we'll be in touch shortly."). The button TEXT itself is NOT a
+   * separate key — it reuses `ctaLabel` above (no duplicate state).
+   */
+  submitSuccessText?: string;
+  /**
+   * Action tab — Spam protection. Client-side honeypot on the lead form.
+   * `true`/undefined → ON (protect by default); `false` → OFF. When ON the
+   * LeadModal renders an off-screen, aria-hidden honeypot input; a filled
+   * value silently drops the submission. Maps to `advanced.spamProtection`.
+   */
+  spamProtection?: boolean;
+  /**
+   * Action tab — follow-up behaviour after the customer sees their quote.
+   *   'lead-form' (default) — collect Name / Email / Phone and notify.
+   *   'redirect'            — send the customer to `redirectUrl`.
+   *   'no-action'           — show the result only; no follow-up step.
+   */
+  actionMode?: 'redirect' | 'lead-form' | 'no-action';
+  /** Action tab — lead-form CTA card heading shown above the open-form button. */
+  ctaHeading?: string;
+  /** Action tab — lead-form CTA card caption shown under the heading. */
+  ctaCaption?: string;
+  /** Action tab — destination URL used when `actionMode === 'redirect'`. */
+  redirectUrl?: string;
   /**
    * Wave H7 — render-time language for the embedded widget. ISO 639-1 code
    * (e.g. `en`, `es`, `zh`). Defaults to `en`. Used by the Install tab to

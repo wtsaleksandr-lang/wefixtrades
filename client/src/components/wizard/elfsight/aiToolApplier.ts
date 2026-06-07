@@ -71,11 +71,19 @@ const ENGINE_TO_PUBLIC: Record<FieldType, PublicFieldType | null> = {
   // (Wave U-F1), so the AI tool applier can hydrate them directly via
   // makeField rather than degrading to dropdown / null.
   multi_select: 'multiSelect',
-  toggle: null,
+  // FIELD-PALETTE — toggle now has a first-class public type (surfaced in the
+  // picker), so the AI tool applier hydrates it directly via makeField.
+  toggle: 'toggle',
   text: 'text',
   paragraph: 'paragraph',
   divider: 'divider',
   image: 'image',
+  // BUILDER-COMPONENTS — content/CTA components. First-class public types so
+  // the AI tool applier can hydrate them via makeField.
+  button: 'button',
+  link: 'link',
+  // FIELD-PALETTE — video embed (YouTube / Vimeo).
+  video: 'video',
 };
 
 function uid(prefix: string): string {

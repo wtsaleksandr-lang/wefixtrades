@@ -7,6 +7,16 @@ import {
   MapPin,
   PhoneCall,
   Star,
+  SplitSquareHorizontal,
+  TrendingUp,
+  Camera,
+  CalendarClock,
+  Images,
+  MessagesSquare,
+  Percent,
+  Lock,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { OptimizedImage } from "@/components/ui/Picture";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useIsPaid } from "@/hooks/useIsPaid";
 
 /**
  * Free Tools — foundation wave.
@@ -111,19 +122,120 @@ const TOOLS: Tool[] = [
     href: "/portal/free-tools/review-link",
     previewImage: "/free-tools/previews/review-link.png",
   },
+  {
+    slug: "before-after",
+    title: "Before / After Slider",
+    description:
+      "A draggable image comparison — show off a re-roof, repaint, or cleaned driveway.",
+    icon: SplitSquareHorizontal,
+    status: "available",
+    href: "/portal/free-tools/before-after",
+  },
+  {
+    slug: "stats",
+    title: "Stats / Trust Counter",
+    description:
+      "An animated credibility strip — years, jobs completed, 24/7, service radius.",
+    icon: TrendingUp,
+    status: "available",
+    href: "/portal/free-tools/stats",
+  },
+  {
+    slug: "photo-quote",
+    title: "Photo-quote Intake",
+    description:
+      "A job-intake form where customers attach photos so you can quote without a site visit.",
+    icon: Camera,
+    status: "available",
+    href: "/portal/free-tools/photo-quote",
+  },
+  {
+    slug: "booking",
+    title: "Appointment Booking",
+    description:
+      "Let customers request a service slot — pick a day, time window and service type.",
+    icon: CalendarClock,
+    status: "available",
+    href: "/portal/free-tools/booking",
+  },
+  {
+    slug: "gallery",
+    title: "Our Work — Photo Gallery",
+    description:
+      "A responsive grid + lightbox to show off finished jobs — re-roofs, driveways, refits.",
+    icon: Images,
+    status: "available",
+    href: "/portal/free-tools/gallery",
+  },
+  {
+    slug: "review-responder",
+    title: "AI Review Responder",
+    description: "Draft on-brand replies to customer reviews in seconds.",
+    icon: MessagesSquare,
+    status: "available",
+    href: "/portal/free-tools/review-responder",
+  },
+  {
+    slug: "margin-calc",
+    title: "Margin & Markup Calculator",
+    description: "Price every job for profit — margin↔markup, instantly.",
+    icon: Percent,
+    status: "available",
+    href: "/portal/free-tools/margin-calc",
+  },
 ];
 
 export default function FreeToolsIndex() {
   usePageTitle("Free Tools");
+  const { isPaid, isLoading: tierLoading } = useIsPaid();
+  // Fail-safe: while the tier resolves OR if it can't be determined, treat the
+  // account as LOCKED (free) so we never flash a working link to a free user.
+  const locked = !isPaid;
+  const toolCount = TOOLS.length;
+
   return (
     <PortalLayout breadcrumb="Free Tools">
       <div data-theme="light" className="space-y-6">
         <header>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Free Tools</h1>
           <p className="text-sm text-gray-600">
-            Valuable add-ons for your site — yours to use, no upgrade required.
+            {isPaid
+              ? "Valuable add-ons for your site — included with your plan."
+              : "Embeddable widgets and premium tools for your site — unlocked with any paid plan."}
           </p>
         </header>
+
+        {/* Free-user conversion banner — paid accounts never see this. */}
+        {locked && !tierLoading && (
+          <Link
+            href="/portal/billing"
+            data-testid="free-tools-upgrade-banner"
+            data-theme="light"
+            className="group flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 transition-all hover:shadow-sm"
+          >
+            <span
+              style={{ width: 36, height: 36 }}
+              className="flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white"
+              aria-hidden="true"
+            >
+              <Sparkles className="h-4 w-4 text-amber-600" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-900">
+                Unlock all {toolCount} tools with any paid plan
+              </p>
+              <p className="text-xs text-gray-600">
+                Every embeddable widget and premium tool, ready to drop into
+                your site.
+              </p>
+            </div>
+            <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-amber-700">
+              Upgrade
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+        )}
+
         <div
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr"
           data-testid="free-tools-grid"
@@ -131,6 +243,10 @@ export default function FreeToolsIndex() {
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
             const available = tool.status === "available";
+            // A tool is shown locked when the account is free (or undetermined)
+            // AND it's an otherwise-available tool. Coming-soon cards keep their
+            // own treatment regardless of tier.
+            const showLocked = locked && available;
             return (
               <Card
                 key={tool.slug}
@@ -139,15 +255,29 @@ export default function FreeToolsIndex() {
               >
                 <CardContent className="p-5 flex flex-col h-full">
                   {tool.previewImage ? (
-                    <OptimizedImage
-                      src={tool.previewImage}
-                      alt={`${tool.title} preview`}
-                      width={400}
-                      height={250}
-                      className="w-full aspect-[16/10] object-cover rounded-md border border-gray-200 mb-3 bg-gray-50"
-                      loading="lazy"
-                      data-testid={`free-tool-preview-${tool.slug}`}
-                    />
+                    <div className="relative mb-3">
+                      <OptimizedImage
+                        src={tool.previewImage}
+                        alt={`${tool.title} preview`}
+                        width={400}
+                        height={250}
+                        className={cn(
+                          "w-full aspect-[16/10] object-cover rounded-md border border-gray-200 bg-gray-50",
+                          showLocked && "opacity-60",
+                        )}
+                        loading="lazy"
+                        data-testid={`free-tool-preview-${tool.slug}`}
+                      />
+                      {showLocked && (
+                        <span
+                          style={{ width: 28, height: 28 }}
+                          className="absolute top-2 right-2 flex items-center justify-center rounded-full border border-amber-200 bg-white/95 shadow-sm"
+                          aria-hidden="true"
+                        >
+                          <Lock className="h-3.5 w-3.5 text-amber-600" />
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <Icon
                       className="w-5 h-5 text-gray-400 absolute top-3 right-3"
@@ -160,18 +290,34 @@ export default function FreeToolsIndex() {
                   <p className="text-sm text-gray-600 mb-4 flex-1">
                     {tool.description}
                   </p>
-                  {available && tool.href ? (
-                    /* DS rule 4 — one .btn-primary-premium per page. Index has
-                       7 tool cards, so per-card CTAs use the plain outline
-                       variant; the premium accent is reserved for the
-                       primary action on each individual tool page. */
-                    <Button asChild variant="outline" size="sm" className="self-start">
-                      <Link href={tool.href}>Open</Link>
-                    </Button>
-                  ) : (
+                  {!available ? (
                     <span className="inline-block self-start text-xs px-2 py-1 rounded-md bg-gray-100 text-gray-600">
                       Coming soon
                     </span>
+                  ) : showLocked ? (
+                    /* Free user — locked card. Routes to the upgrade gate, not
+                       the tool (the route is RequirePaid-wrapped too, so this
+                       is belt-and-braces). */
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      data-testid={`free-tool-locked-${tool.slug}`}
+                    >
+                      <Link href="/portal/billing">
+                        <Lock className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                        Upgrade to unlock
+                      </Link>
+                    </Button>
+                  ) : (
+                    /* DS rule 4 — one .btn-primary-premium per page. Index has
+                       many tool cards, so per-card CTAs use the plain outline
+                       variant; the premium accent is reserved for the
+                       primary action on each individual tool page. */
+                    <Button asChild variant="outline" size="sm" className="self-start">
+                      <Link href={tool.href!}>Open</Link>
+                    </Button>
                   )}
                 </CardContent>
               </Card>

@@ -45,7 +45,7 @@ import type {
   AdvResultEmphasis, AdvResultBorder,
   AdvStepTransition,
   AdvPremiumAnimations,
-  AdvDeposit, AdvDepositIconName, AdvBooking, AdvBranding, AdvBookingSource,
+  AdvBranding,
   AdvFloatingLauncher, AdvFloatingLauncherPosition,
   AdvButtonCopy,
   TemplateTiered, TemplateTier,
@@ -65,9 +65,6 @@ import {
   Shield, ShieldCheck, CheckCircle, Award,
   Star, ThumbsUp, BadgeCheck, Verified, ClipboardCheck, Clock,
   Leaf, FileBadge, Plus, X as XIcon, ChevronUp, ChevronDown,
-  /* P2 UX — deposit-badge icon picker glyphs (subset that wasn't already
-     pulled in by the trust-badge editor above). */
-  Check, Calendar, FileCheck,
 } from 'lucide-react';
 import { useFoldablePanels } from './useFoldablePanels';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
@@ -225,22 +222,8 @@ const CONTRAST_AA_NORMAL = 4.5;
 // consistently (data URL inflates ~33% on top of this).
 const LOGO_MAX_BYTES = 1024 * 1024;
 
-/* P2 UX — deposit-badge icon picker. 10 lucide glyphs whitelisted by
- * `AdvDepositIconName`; the same map is mirrored in `AdvancedCalculator`
- * so the renderer can resolve a saved name back to its component without
- * cross-importing the wizard's icon list. */
-const DEPOSIT_ICON_OPTIONS: ReadonlyArray<{ name: AdvDepositIconName; Icon: LucideIcon; label: string }> = [
-  { name: 'Lock',        Icon: Lock,        label: 'Lock' },
-  { name: 'Shield',      Icon: Shield,      label: 'Shield' },
-  { name: 'ShieldCheck', Icon: ShieldCheck, label: 'Shield + check' },
-  { name: 'Check',       Icon: Check,       label: 'Check' },
-  { name: 'CheckCircle', Icon: CheckCircle, label: 'Check circle' },
-  { name: 'Calendar',    Icon: Calendar,    label: 'Calendar' },
-  { name: 'Clock',       Icon: Clock,       label: 'Clock' },
-  { name: 'BadgeCheck',  Icon: BadgeCheck,  label: 'Badge check' },
-  { name: 'FileCheck',   Icon: FileCheck,   label: 'File check' },
-  { name: 'Award',       Icon: Award,       label: 'Award' },
-];
+/* P2 UX — deposit-badge icon picker RELOCATED to ActionTab (the deposit
+ * config now lives under the Action tab's Payment sub-row). */
 
 // W-AO-6b — sensible fallback colour tokens used by the new swatch row.
 // Mirror the conservative pan-theme defaults from widgetThemes.ts so the
@@ -258,7 +241,9 @@ export default function StyleTab({
   stepLayout, onStepLayoutChange,
   tiered, onTieredChange, templateCategory,
   trustBadges, onTrustBadgesChange,
-  currencySymbol = '$',
+  // currencySymbol — formerly labelled the deposit-amount input, which has
+  // moved to ActionTab. Kept on Props (callers still pass it) but no longer
+  // destructured here.
 }: Props) {
   // Wave 57 — UNLOCK the builder. Trust Badges, Brand Studio, Button copy,
   // Floating-launcher icon + label, AI chat visibility, Brand Kits, and the
@@ -310,56 +295,12 @@ export default function StyleTab({
   const bodyWeight: ShellBodyWeight = style.bodyWeight ?? 400;
   const fontSize: ShellFontSize = style.fontSize ?? 'medium';
 
-  // BD-3k — Inline preview features (deposit / online-booking / "Powered
-  // by WeFixTrades" badge). All three are optional renders on the widget;
-  // when the corresponding `enabled` flag is false / absent the surface
-  // does not appear. Free-tier patches that flip `branding.showPoweredBy`
-  // off are stripped server-side (BRAND_STUDIO_STYLE_KEYS), so the badge
-  // stays locked on for free. Deposit + Booking aren't tier-gated — they
-  // are owner-facing affordances that work in every plan.
-  const deposit: AdvDeposit = style.deposit ?? { enabled: false, amount: 200 };
-  const depositEnabled = deposit.enabled === true;
-  const depositAmount = (() => {
-    const raw = deposit.amount;
-    if (typeof raw !== 'number' || !Number.isFinite(raw)) return 200;
-    return Math.max(1, Math.min(100000, Math.round(raw)));
-  })();
-  const depositLabel = typeof deposit.label === 'string' ? deposit.label : '';
-  /* P2 UX — deposit badge icon. Whitelisted glyph names; the renderer
-     defaults unknown values back to `'Lock'` so older calculators that
-     never picked an icon keep their existing badge. */
-  const depositIconName: AdvDepositIconName = (
-    DEPOSIT_ICON_OPTIONS.some((o) => o.name === deposit.iconName)
-      ? (deposit.iconName as AdvDepositIconName)
-      : 'Lock'
-  );
-  const setDeposit = (next: Partial<AdvDeposit>) => {
-    patch({
-      deposit: {
-        enabled: depositEnabled,
-        amount: depositAmount,
-        ...(depositLabel ? { label: depositLabel } : null),
-        ...(style.deposit ?? {}),
-        ...next,
-      },
-    });
-  };
-
-  const booking: AdvBooking = style.booking ?? { enabled: false, source: 'wefixtrades-default' };
-  const bookingEnabled = booking.enabled === true;
-  const bookingSource: AdvBookingSource = booking.source ?? 'wefixtrades-default';
-  const bookingUrl = typeof booking.url === 'string' ? booking.url : '';
-  const setBooking = (next: Partial<AdvBooking>) => {
-    patch({
-      booking: {
-        enabled: bookingEnabled,
-        source: bookingSource,
-        ...(bookingUrl ? { url: bookingUrl } : null),
-        ...(style.booking ?? {}),
-        ...next,
-      },
-    });
-  };
+  // BD-3k — Inline preview features. Deposit (style.deposit) + Online
+  // booking (style.booking) have been RELOCATED to the Action tab; their
+  // derivations + setters now live in ActionTab.tsx. Only the "Powered by
+  // WeFixTrades" badge remains here (below). Free-tier patches that flip
+  // `branding.showPoweredBy` off are stripped server-side
+  // (BRAND_STUDIO_STYLE_KEYS), so the badge stays locked on for free.
 
   // Branding badge — default ON when undefined. Free-tier locks it ON
   // (server-side strip + renderer-side fallback in AdvancedCalculator).
@@ -376,6 +317,12 @@ export default function StyleTab({
       branding: { showPoweredBy, ...(style.branding ?? {}), ...next },
     });
   };
+
+  // fix/tmpl-editor-mobile (D) — trust-badge visibility toggle. Default ON:
+  // the row shows when the flag is undefined or true; only an explicit
+  // `false` hides it. The widget renderer gates on the same
+  // `showTrustBadges !== false` predicate.
+  const showTrustBadges = style.showTrustBadges !== false;
 
   // BD-3m — Floating launcher embed mode. `enabled` + `position` are
   // free-tier allowed; `customIconUrl` + `label` are Pro-only (the server
@@ -398,7 +345,6 @@ export default function StyleTab({
   };
   const floatingIconFileRef = useRef<HTMLInputElement | null>(null);
   const onFloatingIconFile = useCallback((file: File | null) => {
-    if (!isProTier) return;
     if (!file) { setFloatingLauncher({ customIconUrl: undefined }); return; }
     if (file.size > LOGO_MAX_BYTES) return; // silently skip — UI hint shown
     const reader = new FileReader();
@@ -547,142 +493,6 @@ export default function StyleTab({
         </div>
       </fieldset>
 
-      {/* ── Colours ─────────────────────────────────────────────────
-       *
-       * BD-3f Item 2 — 5+4 grid layout (row 1 has 5 swatches, row 2 has 4)
-       * via `display: grid; grid-template-columns: repeat(5, 1fr)`. Pure
-       * CSS — the 9th item naturally falls onto the second row.
-       *
-       * BD-3f Item 4 — Secondary swatch REMOVED. The `style.secondary`
-       * slot was plumbed into the AdvancedCalculator's resolveTheme()
-       * but never read anywhere in the rendered widget, so the picker was
-       * misleading the owner. Removed pending an actual consumer in a
-       * future wave; the optional field stays on the type for forward
-       * compat. Decision documented in the BD-3f PR body.
-       *
-       * BD-3f Item 5 — Success / Error swatches mount a dismissable
-       * "ghost" demo toast onto the preview pane so the owner can SEE the
-       * colour they're picking in context. The ghost auto-dismisses after
-       * 6s; it's editor-only and never reaches the exported widget. */}
-      <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-colours"
-                  region="background"
-                  text="Click any swatch to change the calculator's accent, background, body text, or result-card colour. Success / Error briefly preview a demo toast on the canvas."
-                />
-                <span style={{ marginLeft: 6 }}>Colours</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-row">
-          {/* CONTRAST-3 — every readable-by-design swatch declares its
-              expected pair so the popover surfaces a live ratio + a
-              suggested-colour swatch when AA fails. The runtime guard
-              (CONTRAST-1) still auto-corrects on render so this layer is
-              informational, never blocking. */}
-          <ColourSwatch
-            icon={MousePointerClick}
-            label="Accent"
-            testid="style-input-accent"
-            value={accent}
-            fallback={DEFAULT_SHELL_STYLE.accent}
-            onChange={(v) => patch({ accent: v })}
-            pairColour={getContrastingColor(accent)}
-            pairLabel="CTA text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={Square}
-            label="Background"
-            testid="style-input-background"
-            value={background}
-            fallback={DEFAULT_SHELL_STYLE.background}
-            onChange={(v) => patch({ background: v })}
-            pairColour={text}
-            pairLabel="body text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={Box}
-            label="Surface"
-            testid="style-input-surface"
-            value={surface}
-            fallback={TOKEN_FALLBACKS.surface}
-            onChange={(v) => patch({ surface: v })}
-            pairColour={text}
-            pairLabel="body text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={Type}
-            label="Text"
-            testid="style-input-text"
-            value={text}
-            fallback={DEFAULT_SHELL_STYLE.text}
-            onChange={(v) => patch({ text: v })}
-            pairColour={surface}
-            pairLabel="surface"
-            pairRole="fg"
-          />
-          <ColourSwatch
-            icon={Receipt}
-            label="Results bg"
-            testid="style-input-resultsbg"
-            value={resultsBg}
-            fallback={DEFAULT_SHELL_STYLE.resultsBg}
-            onChange={(v) => patch({ resultsBg: v })}
-            pairColour={text}
-            pairLabel="result text"
-            pairRole="bg"
-          />
-          {/* Row 2 — secondary tokens. 4 items: Border, Success, Error,
-              and a placeholder slot (intentionally empty for now —
-              keeps the 5+4 grid balanced. Future colour tokens slot in
-              here without re-flowing the layout). */}
-          <ColourSwatch
-            icon={Frame}
-            label="Border"
-            testid="style-input-border"
-            value={borderColour}
-            fallback={TOKEN_FALLBACKS.border}
-            onChange={(v) => patch({ border: v })}
-          />
-          <ColourSwatch
-            icon={CheckCircle2}
-            label="Success"
-            testid="style-input-success"
-            value={success}
-            fallback={TOKEN_FALLBACKS.success}
-            onChange={(v) => patch({ success: v })}
-            onOpen={() => setGhost('success')}
-            pairColour="#ffffff"
-            pairLabel="badge text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={XCircle}
-            label="Error"
-            testid="style-input-error"
-            value={errorColour}
-            fallback={TOKEN_FALLBACKS.error}
-            onChange={(v) => patch({ error: v })}
-            onOpen={() => setGhost('error')}
-            pairColour="#ffffff"
-            pairLabel="badge text"
-            pairRole="bg"
-          />
-        </div>
-        </div>
-      </fieldset>
-
       {/* ── Typography ──────────────────────────────────────────────
        *
        * Wave L S2 — visible "Typography" heading dropped; the font picker
@@ -786,7 +596,157 @@ export default function StyleTab({
         </div>
       </fieldset>
 
-      {/* ── Layout ──────────────────────────────────────────────── */}
+      {/* ── Colours ─────────────────────────────────────────────────
+       *
+       * BD-3f Item 2 — 5+4 grid layout (row 1 has 5 swatches, row 2 has 4)
+       * via `display: grid; grid-template-columns: repeat(5, 1fr)`. Pure
+       * CSS — the 9th item naturally falls onto the second row.
+       *
+       * BD-3f Item 4 — Secondary swatch REMOVED. The `style.secondary`
+       * slot was plumbed into the AdvancedCalculator's resolveTheme()
+       * but never read anywhere in the rendered widget, so the picker was
+       * misleading the owner. Removed pending an actual consumer in a
+       * future wave; the optional field stays on the type for forward
+       * compat. Decision documented in the BD-3f PR body.
+       *
+       * BD-3f Item 5 — Success / Error swatches mount a dismissable
+       * "ghost" demo toast onto the preview pane so the owner can SEE the
+       * colour they're picking in context. The ghost auto-dismisses after
+       * 6s; it's editor-only and never reaches the exported widget. */}
+      <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-colours"
+                  region="background"
+                  text="Click any swatch to change the calculator's accent, background, body text, or result-card colour. Success / Error briefly preview a demo toast on the canvas."
+                />
+                <span style={{ marginLeft: 6 }}>Colours</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        {/* Apple/Tesla minimalism — only the three colours that matter most
+            (Accent, Background, Text) show by default. The other five live
+            behind a single "More colours" disclosure below. Every swatch
+            stays fully editable; theme presets already cover most users. */}
+        <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-row">
+          {/* CONTRAST-3 — every readable-by-design swatch declares its
+              expected pair so the popover surfaces a live ratio + a
+              suggested-colour swatch when AA fails. The runtime guard
+              (CONTRAST-1) still auto-corrects on render so this layer is
+              informational, never blocking. */}
+          <ColourSwatch
+            icon={MousePointerClick}
+            label="Accent"
+            testid="style-input-accent"
+            value={accent}
+            fallback={DEFAULT_SHELL_STYLE.accent}
+            onChange={(v) => patch({ accent: v })}
+            pairColour={getContrastingColor(accent)}
+            pairLabel="CTA text"
+            pairRole="bg"
+          />
+          <ColourSwatch
+            icon={Square}
+            label="Background"
+            testid="style-input-background"
+            value={background}
+            fallback={DEFAULT_SHELL_STYLE.background}
+            onChange={(v) => patch({ background: v })}
+            pairColour={text}
+            pairLabel="body text"
+            pairRole="bg"
+          />
+          <ColourSwatch
+            icon={Type}
+            label="Text"
+            testid="style-input-text"
+            value={text}
+            fallback={DEFAULT_SHELL_STYLE.text}
+            onChange={(v) => patch({ text: v })}
+            pairColour={surface}
+            pairLabel="surface"
+            pairRole="fg"
+          />
+        </div>
+        {/* The remaining five tokens (Surface, Border, Success, Error,
+            Results bg) are advanced — hidden by default behind one
+            disclosure, but unchanged in rendering / testids / handlers. */}
+        <AdvancedSection
+          id="style-colours-more"
+          label="More colours"
+          hint="surface, border, success, error, result panel"
+        >
+          <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-more-row">
+            <ColourSwatch
+              icon={Box}
+              label="Surface"
+              testid="style-input-surface"
+              value={surface}
+              fallback={TOKEN_FALLBACKS.surface}
+              onChange={(v) => patch({ surface: v })}
+              pairColour={text}
+              pairLabel="body text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={Frame}
+              label="Border"
+              testid="style-input-border"
+              value={borderColour}
+              fallback={TOKEN_FALLBACKS.border}
+              onChange={(v) => patch({ border: v })}
+            />
+            <ColourSwatch
+              icon={CheckCircle2}
+              label="Success"
+              testid="style-input-success"
+              value={success}
+              fallback={TOKEN_FALLBACKS.success}
+              onChange={(v) => patch({ success: v })}
+              onOpen={() => setGhost('success')}
+              pairColour="#ffffff"
+              pairLabel="badge text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={XCircle}
+              label="Error"
+              testid="style-input-error"
+              value={errorColour}
+              fallback={TOKEN_FALLBACKS.error}
+              onChange={(v) => patch({ error: v })}
+              onOpen={() => setGhost('error')}
+              pairColour="#ffffff"
+              pairLabel="badge text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={Receipt}
+              label="Results bg"
+              testid="style-input-resultsbg"
+              value={resultsBg}
+              fallback={DEFAULT_SHELL_STYLE.resultsBg}
+              onChange={(v) => patch({ resultsBg: v })}
+              pairColour={text}
+              pairLabel="result text"
+              pairRole="bg"
+            />
+          </div>
+        </AdvancedSection>
+        </div>
+      </fieldset>
+
+      <AdvancedSection id="style-advanced" label="Advanced settings" hint="layout, shape, branding, badges, brand kit & more">
+      {/* ── Layout ── Elfsight-style: width/layout is not a default-visible
+       *  Style control, so it lives under Advanced settings with the rest of
+       *  the non-core groups. Markup unchanged — only placement moved. */}
       <fieldset className="qq-style-group" data-testid="style-group-layout">
         <legend className="qq-style-legend">
           {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
@@ -960,11 +920,6 @@ export default function StyleTab({
           <label className="qq-style-label">
             <span className="qq-style-label-text">
               AI chat visibility
-              {!isProTier && (
-                <span className="qq-style-pro-pill">
-                  PRO
-                </span>
-              )}
               <InfoCue
                 testid="style-ai-chat-visibility-info"
                 region="chat-bubble"
@@ -981,7 +936,6 @@ export default function StyleTab({
               { value: 'always', label: 'Always visible' },
             ]}
             onChange={(v) => {
-              if (!isProTier) return;
               patch({ aiChatVisibility: v });
             }}
           />
@@ -999,7 +953,6 @@ export default function StyleTab({
         </div>
       </fieldset>
 
-      <AdvancedSection id="style-advanced" label="Advanced settings" hint="brand, badges, deposit, booking & more">
       {/* ── Shape ────────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-shape">
         <legend className="qq-style-legend">
@@ -1282,6 +1235,54 @@ export default function StyleTab({
         isProTier={isProTier}
       />
 
+      {/* ── fix/tmpl-editor-mobile (D) — Trust-badge visibility toggle ──
+       *
+       * Master on/off switch for the widget's trust-badge line, sitting
+       * directly above the badge editor so the show/hide control and the
+       * per-badge edits live together. Mirrors the "WeFixTrades badge"
+       * toggle pattern (qq-bs-sub + qq-style-label checkbox). Sets
+       * `style.showTrustBadges`; the widget renderer gates the row on
+       * `showTrustBadges !== false`, so undefined/true = shown. */}
+      <div
+        className="qq-bs-sub"
+        data-testid="style-sub-trust-badges-visibility"
+        data-edit-key="trust-badges"
+        style={{ marginTop: 12 }}
+      >
+        <p className="qq-bs-sub-title">
+          <span className="qq-bs-sub-title-text">Trust badges</span>
+          <InfoCue
+            testid="style-trust-badges-visibility-info"
+            region="trust-strip"
+            text="Show or hide the small trust-badge line in the widget. Turn it off to hide the badges entirely; turn it on to show them (and edit them in the section below)."
+          />
+        </p>
+        <p className="qq-bs-sub-hint">
+          Show the trust-badge line in the widget. Turn off to hide the badges entirely.
+        </p>
+        <label
+          className="qq-style-label"
+          style={{
+            marginTop: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={showTrustBadges}
+            onChange={(e) => patch({ showTrustBadges: e.target.checked })}
+            data-testid="style-trust-badges-visibility"
+            aria-label="Show trust badges"
+          />
+          <span className="qq-style-label-text" style={{ margin: 0 }}>
+            Show trust badges
+          </span>
+        </label>
+      </div>
+
       {/* ── BG-7 Item 1 — Trust badge editor ────────────────────────
        *
        * BF-8+9 (PR #498) pre-loaded 4 trust badges per template into
@@ -1300,251 +1301,11 @@ export default function StyleTab({
         isProTier={isProTier}
       />
 
-      {/* ── BD-3k — Deposit preview ──────────────────────────────────
-        *
-        * Renders a small accent-tinted badge above the action buttons
-        * on the widget's result step ("$X deposit required to schedule").
-        * Tapping the badge opens a Stripe-style preview card (visual
-        * only — production checkout is wired elsewhere). Owner-facing
-        * surface; not Pro-gated. Schema region: 'result'. */}
-      <fieldset className="qq-style-group" data-testid="style-group-deposit">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-deposit"
-                  region="result"
-                  text="Show a 'Deposit required to schedule' badge above the action buttons on the result step. Tapping the badge opens a Stripe-style preview card so the owner can see what the customer experiences. The actual checkout flow is wired separately to Stripe — the preview never charges money."
-                />
-                <span style={{ marginLeft: 6 }}>Deposit</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-          <label
-            className="qq-style-label"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-          >
-            <input
-              type="checkbox"
-              checked={depositEnabled}
-              onChange={(e) => setDeposit({ enabled: e.target.checked })}
-              data-testid="style-deposit-enabled"
-              aria-label="Require deposit to schedule"
-            />
-            <span className="qq-style-label-text" style={{ margin: 0, fontWeight: 700 }}>
-              Require deposit to schedule
-            </span>
-          </label>
-
-          {depositEnabled && (
-            <div
-              style={{
-                marginTop: 10, paddingLeft: 12,
-                borderLeft: `2px solid ${p.colors.border}`,
-                display: 'flex', flexDirection: 'column', gap: 10,
-              }}
-              data-testid="style-deposit-sub-fields"
-            >
-              <FloatField label={`Deposit amount (${currencySymbol})`} htmlFor="qq-style-deposit-amount">
-                <input
-                  id="qq-style-deposit-amount"
-                  type="number"
-                  className="premium-input"
-                  min={1}
-                  max={100000}
-                  step={1}
-                  inputMode="numeric"
-                  placeholder=" "
-                  value={depositAmount}
-                  data-testid="style-deposit-amount"
-                  onChange={(e) => {
-                    const raw = Number(e.target.value);
-                    if (!Number.isFinite(raw)) return;
-                    setDeposit({ amount: Math.max(1, Math.min(100000, Math.round(raw))) });
-                  }}
-                />
-              </FloatField>
-              <FloatField label="Badge label (optional)" htmlFor="qq-style-deposit-label">
-                <input
-                  id="qq-style-deposit-label"
-                  type="text"
-                  className="premium-input"
-                  maxLength={120}
-                  placeholder=" "
-                  value={depositLabel}
-                  data-testid="style-deposit-label"
-                  onChange={(e) => setDeposit({ label: e.target.value })}
-                />
-              </FloatField>
-              {/* P2 UX — deposit badge icon picker. 10 lucide glyphs the
-                  owner can pick from; selected one shows a brand-blue
-                  ring. Horizontal scroll on narrow widths so the row
-                  never wraps into a multi-line block. Default Lock
-                  preserves legacy badge appearance. */}
-              <div className="qq-deposit-icon-row" data-testid="style-deposit-icon-row">
-                <div
-                  className="qq-deposit-icon-row-label"
-                  id="style-deposit-icon-label"
-                >
-                  Badge icon
-                </div>
-                <div
-                  className="qq-deposit-icon-scroll"
-                  role="radiogroup"
-                  aria-labelledby="style-deposit-icon-label"
-                >
-                  {DEPOSIT_ICON_OPTIONS.map(({ name, Icon, label }) => {
-                    const selected = depositIconName === name;
-                    return (
-                      <button
-                        key={name}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        aria-label={label}
-                        title={label}
-                        data-testid={`style-deposit-icon-${name}`}
-                        className={`qq-deposit-icon-btn${selected ? ' is-selected' : ''}`}
-                        onClick={() => setDeposit({ iconName: name })}
-                      >
-                        <Icon size={16} aria-hidden="true" />
-                      </button>
-                    );
-                  })}
-                </div>
-                <style>{`
-                  .qq-deposit-icon-row {
-                    display: flex; flex-direction: column; gap: 4px;
-                  }
-                  .qq-deposit-icon-row-label {
-                    font-size: 11px; font-weight: 600;
-                    letter-spacing: 0.04em; text-transform: uppercase;
-                    color: ${p.colors.subtle};
-                  }
-                  .qq-deposit-icon-scroll {
-                    display: flex; gap: 6px;
-                    overflow-x: auto; padding: 2px 0 4px;
-                    scrollbar-width: thin;
-                  }
-                  .qq-deposit-icon-btn {
-                    flex: 0 0 auto;
-                    width: 32px; height: 32px;
-                    display: inline-flex; align-items: center; justify-content: center;
-                    background: #fff;
-                    border: 1px solid ${p.colors.borderLight};
-                    border-radius: 8px;
-                    color: ${p.colors.body};
-                    cursor: pointer;
-                    transition: border-color 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
-                  }
-                  .qq-deposit-icon-btn:hover {
-                    border-color: ${p.colors.border};
-                  }
-                  .qq-deposit-icon-btn.is-selected {
-                    border-color: ${p.colors.accent};
-                    color: ${p.colors.accent};
-                    box-shadow: 0 0 0 2px rgba(13, 60, 252, 0.18);
-                  }
-                  .qq-deposit-icon-btn:focus-visible {
-                    outline: 2px solid ${p.colors.accent};
-                    outline-offset: 1px;
-                  }
-                `}</style>
-              </div>
-            </div>
-          )}
-        </div>
-      </fieldset>
-
-      {/* ── BD-3k — Online-booking calendar ────────────────────────
-        *
-        * Renders a mock 3-day slot picker beneath the result-step
-        * price headline. Default source uses built-in mock slots
-        * (delegates to BB-1's `book_appointment` customer tool when
-        * available); `cal.com-url` / `calendly-url` open an external
-        * scheduler in a new tab. Schema region: 'result'. */}
-      <fieldset className="qq-style-group" data-testid="style-group-booking">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-booking"
-                  region="result"
-                  text="Adds a 3-day appointment slot picker beneath the price on the result step. Default uses built-in mock slots in the preview (production wires to your scheduler). You can also point it at a Cal.com or Calendly URL — tapping a slot then opens the external scheduler in a new tab."
-                />
-                <span style={{ marginLeft: 6 }}>Online booking</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-          <label
-            className="qq-style-label"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-          >
-            <input
-              type="checkbox"
-              checked={bookingEnabled}
-              onChange={(e) => setBooking({ enabled: e.target.checked })}
-              data-testid="style-booking-enabled"
-              aria-label="Show calendar in widget"
-            />
-            <span className="qq-style-label-text" style={{ margin: 0, fontWeight: 700 }}>
-              Show calendar in widget
-            </span>
-          </label>
-
-          {bookingEnabled && (
-            <div
-              style={{
-                marginTop: 10, paddingLeft: 12,
-                borderLeft: `2px solid ${p.colors.border}`,
-                display: 'flex', flexDirection: 'column', gap: 10,
-              }}
-              data-testid="style-booking-sub-fields"
-            >
-              {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; migrated to
-                  StyledSelect so the OS sheet stops covering the wizard on
-                  mobile. */}
-              <FloatField label="Calendar source" htmlFor="qq-style-booking-source" variant="select">
-                <StyledSelect
-                  value={bookingSource}
-                  onChange={(next) => setBooking({ source: next as AdvBookingSource })}
-                  options={[
-                    { value: 'wefixtrades-default', label: 'WeFixTrades default (built-in slots)' },
-                    { value: 'cal.com-url', label: 'Cal.com URL' },
-                    { value: 'calendly-url', label: 'Calendly URL' },
-                  ]}
-                  title="Calendar source"
-                  ariaLabel="Calendar source"
-                  testId="style-booking-source"
-                />
-              </FloatField>
-              {(bookingSource === 'cal.com-url' || bookingSource === 'calendly-url') && (
-                <FloatField label="Scheduler URL" htmlFor="qq-style-booking-url">
-                  <input
-                    id="qq-style-booking-url"
-                    type="url"
-                    className="premium-input"
-                    placeholder=" "
-                    value={bookingUrl}
-                    data-testid="style-booking-url"
-                    onChange={(e) => setBooking({ url: e.target.value })}
-                  />
-                </FloatField>
-              )}
-            </div>
-          )}
-        </div>
-      </fieldset>
+      {/* ── Deposit + Online booking — RELOCATED to ActionTab.
+        *  style.deposit (AdvDeposit) is now the Action tab's Payment
+        *  sub-row and style.booking (AdvBooking) its Online-booking
+        *  sub-row. Same state keys + testids (style-deposit-*,
+        *  style-booking-*) — moved out of Style, not duplicated. */}
 
       {/* ── BD-3m — Floating launcher embed mode ───────────────────
        *
@@ -1648,7 +1409,6 @@ export default function StyleTab({
                   accept="image/png,image/svg+xml,image/jpeg,image/webp"
                   className="premium-input"
                   data-testid="style-floating-launcher-icon-file"
-                  disabled={!isProTier}
                   onChange={(e) => onFloatingIconFile(e.target.files?.[0] ?? null)}
                   aria-label="Upload custom launcher icon"
                 />
@@ -1687,20 +1447,6 @@ export default function StyleTab({
                   </button>
                 </div>
               )}
-              {!isProTier && (
-                <p
-                  className="qq-style-pro-pill-row"
-                  style={{
-                    fontSize: 11,
-                    margin: 0, lineHeight: 1.4,
-                  }}
-                  data-testid="style-floating-launcher-icon-locked"
-                >
-                  <strong className="qq-style-pro-pill" style={{ marginRight: 4, marginLeft: 0 }}>PRO</strong>
-                  Custom icon + screen-reader label are part of the Pro plan.
-                </p>
-              )}
-
               <FloatField
                 label="Screen-reader label (optional)"
                 htmlFor="qq-style-floating-launcher-label"
@@ -1713,7 +1459,6 @@ export default function StyleTab({
                   placeholder=" "
                   value={floatingLabel}
                   data-testid="style-floating-launcher-label"
-                  disabled={!isProTier}
                   onChange={(e) => setFloatingLauncher({ label: e.target.value })}
                 />
               </FloatField>
@@ -2644,11 +2389,6 @@ export default function StyleTab({
           border-color: rgba(255,255,255,0.10);
           color: #f5f7fa;
         }
-        .qq-editor-shell[data-theme="dark"] .qq-deposit-icon-btn {
-          background: #1e293b;
-          border-color: rgba(255,255,255,0.10);
-          color: #f5f7fa;
-        }
         .qq-editor-shell[data-theme="dark"] .qq-bs-sub {
           background: #1e293b;
           border-color: rgba(255,255,255,0.08);
@@ -2892,29 +2632,6 @@ function BrandStudioGroup({
 
       {open && (
         <div className="qq-style-group-body qq-bs-body">
-          {!isProTier && (
-            <div className="qq-bs-upsell" data-testid="style-bs-upsell">
-              <span className="qq-bs-upsell-icon" aria-hidden="true">
-                <Sparkles size={16} />
-              </span>
-              <div className="qq-bs-upsell-body">
-                <p className="qq-bs-upsell-title">Brand Studio is a Pro feature</p>
-                <p className="qq-bs-upsell-sub">
-                  Preview the controls below — your saved settings keep their existing look.
-                  Upgrade to Pro ($29/mo) to publish custom CSS, image / gradient backgrounds,
-                  and result-panel styling on your widget.
-                </p>
-                <a
-                  href="/pricing/quotequick"
-                  className="qq-bs-upsell-cta"
-                  data-testid="style-bs-upgrade"
-                >
-                  Upgrade to Pro →
-                </a>
-              </div>
-            </div>
-          )}
-
           {/* 1. Custom CSS */}
           <div className="qq-bs-sub" data-testid="style-bs-sub-customcss">
             {/* BD-3e Fix 4 — help cue added (was previously missing). */}
@@ -2923,11 +2640,11 @@ function BrandStudioGroup({
               <InfoCue
                 testid="style-bs-customcss-info"
                 region="background"
-                text="Pro-tier custom CSS scoped to .qq-widget-<id> on your live calculator. Invalid CSS won't break the widget but won't be applied either — the runtime silently drops unparseable rules."
+                text="Custom CSS scoped to .qq-widget-<id> on your live calculator. Invalid CSS won't break the widget but won't be applied either — the runtime silently drops unparseable rules."
               />
             </p>
             <p className="qq-bs-sub-hint">
-              Advanced. Inject custom CSS scoped to your widget. Pro plan required.
+              Advanced. Inject custom CSS scoped to your widget.
             </p>
             <textarea
               className="qq-bs-css"
@@ -2950,12 +2667,12 @@ function BrandStudioGroup({
               <InfoCue
                 testid="style-bs-background-info"
                 region="background"
-                text="Override the widget body background. Solid uses the Colours-tab swatch; Gradient and Image are Pro-only and ship custom CSS to the live widget. Invalid CSS or unreachable image URLs are silently ignored at render time."
+                text="Override the widget body background. Solid uses the Colours-tab swatch; Gradient and Image ship custom CSS to the live widget. Invalid CSS or unreachable image URLs are silently ignored at render time."
               />
             </p>
             <p className="qq-bs-sub-hint">
               Override the widget body background. Solid keeps the picker in Colours;
-              Gradient and Image are Pro-only and render only on Pro plans.
+              Gradient and Image render custom CSS to the live widget.
             </p>
             <SegmentedControl<AdvBgMode>
               name="bs-bg-mode"
@@ -3878,34 +3595,11 @@ function BrandKitGroup({
     setPickerOpen(false);
   }, [onApply]);
 
-  // Free-tier rendering: lock + upsell. Match BrandStudioGroup styling.
-  if (!isProTier || loadState === 'pro-required') {
-    return (
-      <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="false">
-        <legend className="qq-style-legend">
-          <Lock size={12} aria-hidden="true" />
-          Brand Kit
-          <span className="qq-bs-pill" aria-label="Pro plan feature">
-            <Sparkles size={10} aria-hidden="true" /> Pro
-          </span>
-        </legend>
-        <div className="qq-style-group-body">
-          <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
-            Save your widget's look as a reusable Brand Kit and apply it across every
-            calculator you own. Upgrade to Pro ($29/mo) to unlock.
-          </p>
-          <a
-            href="/pricing/quotequick"
-            className="qq-bs-upsell-cta"
-            data-testid="style-bk-upgrade"
-          >
-            Upgrade to Pro →
-          </a>
-        </div>
-      </fieldset>
-    );
-  }
-
+  // Wave 58 — Brand Kit is now a free-tier builder feature. The former
+  // lock + "Upgrade to Pro" upsell variant has been removed; everyone sees
+  // the real save/apply controls. A server 403 (pro_tier_required) now
+  // falls through to the standard non-ready rendering below (buttons stay
+  // disabled until the list loads) instead of a tier upsell.
   if (loadState === 'unauthenticated') {
     return (
       <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="true">
@@ -4166,6 +3860,7 @@ function PricingTiersSubsection({
   return (
     <div
       data-testid="style-pricing-tiers"
+      data-edit-key="tiered"
       style={{
         marginTop: 16, paddingTop: 12,
         borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))',

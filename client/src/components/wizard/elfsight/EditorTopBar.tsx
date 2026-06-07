@@ -33,8 +33,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  CheckCircle2, CloudUpload, HelpCircle, Minimize2, Monitor, Moon,
-  PanelRightClose, PanelRightOpen, Redo2, Smartphone, Sun, Tablet, Undo2, X,
+  CheckCircle2, CloudUpload, HelpCircle, LifeBuoy, Lightbulb, Minimize2,
+  Monitor, Moon, PanelRightClose, PanelRightOpen, Redo2, Smartphone, Sun,
+  Tablet, Undo2, X,
 } from 'lucide-react';
 import { AE } from './appleEditor';
 // Phase 0b — EDITOR_TABS is no longer rendered here; the section nav moved to
@@ -451,6 +452,34 @@ export default function EditorTopBar({
        *  exists in PreviewPane / WizardShell state; only this redundant
        *  top-bar entry point is gone. */}
 
+      {/* 2026-06-05 — desktop Publish entry point. Install/embed was folded
+       *  into the Publish flow (Elfsight parity), so the desktop top bar now
+       *  needs the same primary action the mobile bar already has. Opens the
+       *  Publish modal (hosted link · embed · install) via onPublish. */}
+      {onPublish && (
+        <button
+          type="button"
+          onClick={() => onPublish?.()}
+          disabled={isPublishing}
+          data-testid="quotequick-publish"
+          style={{
+            flexShrink: 0,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: 30, padding: '0 16px',
+            background: AE.color.accent,
+            color: AE.color.publishText,
+            border: 'none', borderRadius: AE.radius.sm,
+            fontFamily: AE.font.family,
+            fontSize: 13, fontWeight: 600,
+            cursor: isPublishing ? 'not-allowed' : 'pointer',
+            opacity: isPublishing ? 0.6 : 1,
+          }}
+          title="Publish — get your embed code & share link"
+        >
+          {isPublishing ? 'Publishing…' : 'Publish'}
+        </button>
+      )}
+
       <span className="qq-editor-divider" aria-hidden="true" />
 
       <div className="qq-editor-group" role="group" aria-label="Tools">
@@ -550,13 +579,88 @@ export default function EditorTopBar({
             onClick={(e) => e.stopPropagation()}
           >
             <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: AE.color.text }}>
-              QuoteQuick editor
+              Need a hand?
             </p>
-            <p style={{ fontSize: 13, color: AE.color.secondary, margin: '8px 0 0', lineHeight: 1.5 }}>
-              Build your calculator on the left, preview it live on the right.
-              Use the tabs to switch between Build, Style, Settings, and Install.
-              Press Esc or click outside this box to close.
+            <p style={{ fontSize: 13, color: AE.color.secondary, margin: '6px 0 0', lineHeight: 1.5 }}>
+              Build on the left, preview on the right. Esc or click outside to close.
             </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+              <a
+                href="mailto:support@wefixtrades.com"
+                data-testid="help-action-get-help"
+                aria-label="Get help — email our support team"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: 12,
+                  borderRadius: AE.radius.md,
+                  border: `1px solid ${AE.color.hairline}`,
+                  background: AE.color.surface,
+                  textDecoration: 'none',
+                  color: AE.color.text,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    flexShrink: 0,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 32, height: 32,
+                    borderRadius: AE.radius.sm,
+                    background: AE.color.accentTint,
+                    color: AE.color.accent,
+                  }}
+                >
+                  <LifeBuoy style={{ width: 20, height: 20 }} />
+                </span>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
+                    Get help
+                  </span>
+                  <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
+                    Questions or stuck? Our team replies fast.
+                  </span>
+                </span>
+              </a>
+
+              <a
+                href="mailto:support@wefixtrades.com?subject=Feature%20request"
+                data-testid="help-action-request-feature"
+                aria-label="Request a feature — email us your idea"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: 12,
+                  borderRadius: AE.radius.md,
+                  border: `1px solid ${AE.color.hairline}`,
+                  background: AE.color.surface,
+                  textDecoration: 'none',
+                  color: AE.color.text,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    flexShrink: 0,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 32, height: 32,
+                    borderRadius: AE.radius.sm,
+                    background: AE.color.accentTint,
+                    color: AE.color.accent,
+                  }}
+                >
+                  <Lightbulb style={{ width: 20, height: 20 }} />
+                </span>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
+                    Request a feature
+                  </span>
+                  <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
+                    Tell us what would make QuoteQuick better.
+                  </span>
+                </span>
+              </a>
+            </div>
+
             <button
               type="button"
               onClick={closeHelp}
