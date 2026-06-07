@@ -283,13 +283,17 @@ export async function fireSetupCompletionUpsell(clientId: number, clientServiceI
     if (!transporter) return { sent: false, reason: "smtp_not_configured" };
 
     const { subject, html, text } = buildUpsellEmail(ctx);
+    // CAN-SPAM compliance is satisfied by the visible unsubscribe link +
+    // postal address rendered via buildLegalFooter({ marketing: true }) in the
+    // HTML body. This path uses the raw nodemailer transporter (no wrapper),
+    // which doesn't carry a `category` field — orchestrator/List-Unsubscribe
+    // routing only applies on the wrapper path, so it's omitted here.
     await transporter.sendMail({
       from: getFromAddress(),
       to: ctx.contactEmail,
       subject,
       html,
       text,
-      category: "marketing",
     });
 
     // Stamp success so we never re-send.
