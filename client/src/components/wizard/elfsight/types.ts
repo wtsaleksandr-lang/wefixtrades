@@ -74,7 +74,11 @@ export type PublicFieldType =
   | 'button' | 'link'
   // FIELD-PALETTE — `toggle` (already an engine type, now surfaced in the
   // picker) + new `video` content type (YouTube / Vimeo embed).
-  | 'toggle' | 'video';
+  | 'toggle' | 'video'
+  // WIZARD-GAPS — `contact_form` content type → canonical 'contact_form'.
+  // Inline name + email + message block; submits via the existing /api/leads
+  // path. No quote contribution.
+  | 'contact_form';
 
 export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']> = {
   slider: 'slider',
@@ -92,6 +96,7 @@ export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']
   link: 'link',
   toggle: 'toggle',
   video: 'video',
+  contact_form: 'contact_form',
 };
 
 export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicFieldType>> = {
@@ -110,6 +115,7 @@ export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicF
   link: 'link',
   toggle: 'toggle',
   video: 'video',
+  contact_form: 'contact_form',
 };
 
 /** Header overrides — Wave H4. Both optional; blank values fall back to

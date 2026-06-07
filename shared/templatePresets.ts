@@ -164,7 +164,13 @@ export type FieldType =
   // FIELD-PALETTE — `video` is a display-only embed (YouTube / Vimeo). Like
   // the other content types it carries NO answer and is excluded from the
   // quote formula everywhere the display-only types are.
-  | 'video';
+  | 'video'
+  // WIZARD-GAPS — `contact_form` is a content component: an inline
+  // name + email + message block the owner can place in the widget. It
+  // submits via the EXISTING /api/leads lead-capture path (same endpoint the
+  // CTA LeadModal / ContactStep use). It carries NO quote answer and is
+  // excluded from the formula everywhere the display-only types are.
+  | 'contact_form';
 
 export interface TemplateOption {
   id: string;
@@ -284,6 +290,19 @@ export interface TemplateField {
    */
   videoUrl?: string;
   videoCaption?: string;
+  /**
+   * WIZARD-GAPS — `contact_form` content component. Renders an inline
+   * name + email + message block that submits to the EXISTING /api/leads
+   * endpoint (reusing the same lead-capture path as the CTA LeadModal).
+   *  - `label`           — the visible heading above the form ("Get in touch").
+   *  - `contactRequire`  — which of the three inputs are required. Name + email
+   *                        always validate as required when listed; message is
+   *                        optional unless the owner adds it here. Defaults
+   *                        (when undefined) to name + email required.
+   * Carries no quote answer — excluded from the formula context like the other
+   * content components.
+   */
+  contactRequire?: Array<'name' | 'email' | 'message'>;
   /**
    * Wave 61 — per-element inline cosmetic style overrides driven by the
    * floating <InlineStyleToolbar />. Optional; absent → no override (the
