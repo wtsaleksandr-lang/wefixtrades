@@ -1491,9 +1491,143 @@ export default function PreviewPane({
       // Fall back to the Fields section when we can't pin the exact field.
       targetKey = fieldId ? `field:${fieldId}` : 'fields';
     }
+    // feat/wizard-section-sync — preview→menu also sets the SHARED persistent
+    // selection so the menu row + this preview spot stay highlighted (not just
+    // a 1.5s pulse). Fields/header/results already select via onBezelClick;
+    // here we also persist the STRUCTURAL spots (CTA / trust / tier / stepper /
+    // business) under the generic `spot` kind keyed by their targetKey.
+    if (targetKey.startsWith('field:')) {
+      selection.select({ kind: 'field', id: targetKey.slice('field:'.length) });
+    } else if (targetKey === 'header') {
+      selection.select({ kind: 'header', id: '__header' });
+    } else if (targetKey === 'results') {
+      selection.select({ kind: 'results', id: '__results' });
+    } else {
+      selection.select({ kind: 'spot', id: targetKey });
+    }
     onPreviewSpotEdit(spot.tab, targetKey);
     return true;
-  }, [onPreviewSpotEdit, shellFields]);
+  }, [onPreviewSpotEdit, shellFields, selection]);
+
+  // ── Menu → preview sync (feat/wizard-section-sync, 2026-06-07) ──────────
+  //
+  // The INVERSE of fireSpotEdit: given the shared selection (set by clicking a
+  // menu field-row OR a preview spot), locate the matching element INSIDE the
+  // rendered preview widget, give it a PERSISTENT `.qq-selected` outline, and
+  // smooth-centre it in the visible preview band.
+  //
+  // Preview elements are keyed off the SAME scheme the click side already uses:
+  //   - field:<id>  → the Nth `[data-colspan]` grid cell, where N is the field's
+  //                    index in `shellFields` (mirrors fireSpotEdit / onBezelClick).
+  //   - header      → the `[data-testid="advanced-title"]` block.
+  //   - results     → the result panel block.
+  // No new attribute is minted on the widget — we resolve by the existing
+  // index/testid contract, then tag the resolved node with `.qq-selected`.
+  const resolvePreviewNode = useCallback((): HTMLElement | null => {
+    const host = overlayHostRef.current;
+    const sel = selection.selected;
+    if (!host || !sel) return null;
+    if (sel.kind === 'field') {
+      const idx = shellFields.findIndex((f) => f.id === sel.id);
+      if (idx < 0) return null;
+      const cells = Array.from(host.querySelectorAll<HTMLElement>('[data-colspan]'));
+      return cells[idx] ?? null;
+    }
+    if (sel.kind === 'results') {
+      return (
+        host.querySelector<HTMLElement>('[data-testid="advanced-result-panel"]')
+        || host.querySelector<HTMLElement>('[data-testid="advanced-result"]')
+        || host.querySelector<HTMLElement>('.qq-result-block')
+      );
+    }
+    if (sel.kind === 'header') {
+      const title = host.querySelector<HTMLElement>('[data-testid="advanced-title"]');
+      return (title?.closest('div') as HTMLElement | null) ?? title;
+    }
+    if (sel.kind === 'spot') {
+      // Structural spot — find the `[data-component-type]` node whose mapped
+      // editor targetKey equals the selection id (inverse of mapPreviewSpot).
+      const nodes = Array.from(host.querySelectorAll<HTMLElement>('[data-component-type]'));
+      for (const n of nodes) {
+        const type = n.dataset.componentType ?? '';
+        if (type.startsWith('field-')) continue;
+        if (COMPONENT_EDIT_MAP[type]?.targetKey === sel.id) return n;
+      }
+      return null;
+    }
+    return null;
+  }, [selection.selected, shellFields]);
+
+  // Centre a target within the VISIBLE preview band. On mobile the bottom sheet
+  // covers `--qq-sheet-h` px of the screen, so naive scrollIntoView({block:
+  // 'center'}) centres in the full viewport and can land the target UNDER the
+  // sheet. We instead scroll `paneRef` (the scroll container) by hand so the
+  // target sits in the middle of the band between the pane top and the sheet
+  // top. Desktop falls back to the same math (sheet height = 0), which simply
+  // centres within the pane's own client box.
+  const centerPreviewNode = useCallback((node: HTMLElement) => {
+    const pane = paneRef.current;
+    const reduce = reduceMotionRef.current;
+    const behavior: ScrollBehavior = reduce ? 'auto' : 'smooth';
+    if (!pane) {
+      try { node.scrollIntoView({ behavior, block: 'center', inline: 'nearest' }); } catch { /* ignore */ }
+      return;
+    }
+    // Sheet height (px) currently stolen from the bottom of the viewport.
+    let sheetH = 0;
+    try {
+      const raw = getComputedStyle(document.documentElement)
+        .getPropertyValue('--qq-sheet-h').trim();
+      sheetH = raw ? parseFloat(raw) || 0 : 0;
+    } catch { /* ignore */ }
+    const paneRect = pane.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    // The visible band is the pane viewport minus whatever the sheet overlaps
+    // at its bottom. Clamp so a tall sheet can't invert the band.
+    const overlap = Math.max(
+      0,
+      Math.min(sheetH, paneRect.bottom - (window.innerHeight - sheetH)),
+    );
+    const bandHeight = Math.max(0, paneRect.height - overlap);
+    const bandCenterY = paneRect.top + bandHeight / 2;
+    const nodeCenterY = nodeRect.top + nodeRect.height / 2;
+    const delta = nodeCenterY - bandCenterY;
+    if (Math.abs(delta) < 2) return;
+    try {
+      pane.scrollBy({ top: delta, behavior });
+    } catch {
+      pane.scrollTop += delta;
+    }
+  }, []);
+
+  // On every selection change: paint the persistent outline on the matching
+  // preview node (and strip it from any previously-selected node), then centre
+  // it. Re-runs when the selection OR the field list changes (a reorder/add
+  // shifts which `[data-colspan]` cell a field maps to). Defer one frame so a
+  // freshly-rendered widget (post tab-switch / template apply) is laid out.
+  useEffect(() => {
+    const host = overlayHostRef.current;
+    if (!host) return undefined;
+    const stripAll = () => {
+      host.querySelectorAll<HTMLElement>('.qq-selected').forEach((el) => {
+        el.classList.remove('qq-selected');
+        el.removeAttribute('data-selected-in-preview');
+      });
+    };
+    if (!selection.selected) {
+      stripAll();
+      return undefined;
+    }
+    const raf = requestAnimationFrame(() => {
+      stripAll();
+      const node = resolvePreviewNode();
+      if (!node) return;
+      node.classList.add('qq-selected');
+      node.setAttribute('data-selected-in-preview', '');
+      centerPreviewNode(node);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [selection.selected, shellFields, resolvePreviewNode, centerPreviewNode]);
 
   // Header and results regions overlay over the AdvancedCalculator. They're
   // identified by data-testid="advanced-title" and the result-panel container.
@@ -2670,6 +2804,30 @@ export default function PreviewPane({
         .qq-preview-pane[data-dragging="1"] { cursor: grabbing; }
         .qq-preview-pane .qq-preview-stage { cursor: auto; }
         .qq-preview-pane [data-testid^="preview-bezel"] { cursor: auto; }
+
+        /* ── feat/wizard-section-sync (2026-06-07) — persistent preview
+         *    selection outline. Mirror of the menu-side qq-field-row.is-
+         *    selected state on the RIGHT pane: the preview element matching
+         *    the shared selection (a field cell, the header block, or the
+         *    result panel) gets a steady 2px brand-accent OUTLINE — never a
+         *    bright fill — so the user always sees which section they're
+         *    editing. Uses the user-accent CSS var (--qq-accent, set on the
+         *    editor shell) with the theme accent token as the fallback, so no
+         *    bare colour literal trips the hardcoded-colour guard. The outline
+         *    persists until another item is selected; the transient
+         *    qq-edit-highlight pulse remains a separate on-jump motion cue.
+         *    A short outline transition gives a soft settle; reduced-motion
+         *    users get the steady outline with no transition. */
+        .qq-preview-pane .qq-selected {
+          outline: 2px solid var(--qq-accent, ${p.colors.accent});
+          outline-offset: 2px;
+          border-radius: 10px;
+          scroll-margin: 24px;
+          transition: outline-color 120ms ease;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-preview-pane .qq-selected { transition: none; }
+        }
 
         /* Apple-mobile-clean (2026-06-05) — clean Elfsight-style mobile preview.
          * Active only when PreviewPane mounts the .is-mobile-clean branch (real

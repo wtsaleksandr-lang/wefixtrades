@@ -67,7 +67,7 @@ import SettingsTab from './SettingsTab';
 import ActionTab from './ActionTab';
 import InstallTab from './InstallTab';
 import { makeField } from './FieldsPanel';
-import { SelectionProvider } from './selection';
+import { SelectionProvider, useSelection } from './selection';
 import { useEditorDndSensors, DND_CONTAINERS } from './dnd';
 import {
   INITIAL_SHELL_STATE, DEFAULT_SHELL_STYLE, DEFAULT_SHELL_NUMBER_FORMAT,
@@ -266,6 +266,80 @@ interface Props {
 // when an owner edits a lot inside one session (each tweak pushes the prior
 // state). 50 entries handles a typical build session comfortably.
 const HISTORY_LIMIT = 50;
+
+// feat/wizard-section-sync (2026-06-07) — menu-side persistent highlight for
+// the generic `spot` selection kind (CTA / trust-badges / tier-selector /
+// stepper / business). Field rows, the header section and the results section
+// already self-mark `.is-selected` via useSelection inside their own panels;
+// the structural panel anchors are plain `[data-edit-key]` divs that don't
+// consume the context, so this tiny consumer (mounted INSIDE SelectionProvider)
+// drives their persistent outline from the SAME shared selection. It toggles a
+// `.qq-edit-selected` class on the resolved anchor — distinct from the transient
+// `.qq-edit-highlight` pulse — and clears it from any previously-selected node.
+// Mirrors resolveEditTarget's key→section expand logic so an anchor inside a
+// collapsed AdvancedSection is opened before it's highlighted.
+function MenuSpotSelectionSync({
+  reduceMotion, mobileSheetOpen, activeTab,
+}: {
+  reduceMotion: boolean;
+  // Re-run when the mobile sheet opens or the active tab changes so a `spot`
+  // anchor that mounts only once its panel/sheet is shown still gets the
+  // persistent outline (the anchor isn't in the DOM while the sheet is folded).
+  mobileSheetOpen: boolean;
+  activeTab: EditorTab;
+}) {
+  const { selected } = useSelection();
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const strip = () => {
+      document.querySelectorAll<HTMLElement>('.qq-edit-selected').forEach((el) => {
+        el.classList.remove('qq-edit-selected');
+      });
+    };
+    // Only the generic `spot` kind is driven here; field/header/results own
+    // their persistent menu outline inside their own components.
+    if (!selected || selected.kind !== 'spot') {
+      strip();
+      return undefined;
+    }
+    const SECTION_FOR_KEY: Record<string, string> = {
+      'trust-badges': 'style-advanced',
+      tiered: 'style-advanced',
+    };
+    const key = selected.id;
+    const behavior: ScrollBehavior = reduceMotion ? 'auto' : 'smooth';
+    const raf = requestAnimationFrame(() => {
+      strip();
+      let el = document.querySelector<HTMLElement>(`[data-edit-key="${CSS.escape(key)}"]`);
+      if (!el) {
+        const sectionId = SECTION_FOR_KEY[key];
+        const section = sectionId
+          ? document.querySelector<HTMLElement>(`[data-testid="advanced-section-${sectionId}"]`)
+          : null;
+        if (section && section.getAttribute('data-open') === 'false') {
+          section.querySelector<HTMLButtonElement>(`[data-testid="advanced-toggle-${sectionId}"]`)?.click();
+        }
+        // Retry next frame after the expand reflow.
+        requestAnimationFrame(() => {
+          const node = document.querySelector<HTMLElement>(`[data-edit-key="${CSS.escape(key)}"]`);
+          if (node) {
+            node.classList.add('qq-edit-selected');
+            try { node.scrollIntoView({ block: 'center', behavior }); } catch { /* ignore */ }
+          }
+        });
+        return;
+      }
+      const collapsed = el.closest<HTMLElement>('[data-testid^="advanced-section-"][data-open="false"]');
+      if (collapsed) {
+        collapsed.querySelector<HTMLButtonElement>('[data-testid^="advanced-toggle-"]')?.click();
+      }
+      el.classList.add('qq-edit-selected');
+      try { el.scrollIntoView({ block: 'center', behavior }); } catch { /* ignore */ }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [selected, reduceMotion, mobileSheetOpen, activeTab]);
+  return null;
+}
 
 export default function WizardShell({ embed = false }: Props) {
   const [, navigate] = useLocation();
@@ -1515,6 +1589,14 @@ export default function WizardShell({ embed = false }: Props) {
 
   return (
     <SelectionProvider>
+      {/* feat/wizard-section-sync — persists the menu-side outline for generic
+          structural `spot` selections (CTA / trust / tier / stepper / business)
+          from the shared selection. Renders nothing. */}
+      <MenuSpotSelectionSync
+        reduceMotion={reduceMotion}
+        mobileSheetOpen={mobileSheetOpen}
+        activeTab={activeTab}
+      />
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
@@ -2147,6 +2229,26 @@ export default function WizardShell({ embed = false }: Props) {
             }
             @media (prefers-reduced-motion: reduce) {
               .qq-edit-highlight { animation: none; }
+            }
+
+            /* ── feat/wizard-section-sync (2026-06-07) — PERSISTENT menu-side
+             * selection outline for structural spot anchors (CTA / trust /
+             * tier / stepper / business). Unlike the 1.5s qq-edit-highlight
+             * pulse above, this outline stays until another item is selected,
+             * mirroring the persistent qq-selected outline on the preview
+             * side. Selected = a steady 2px brand-accent OUTLINE (never a bright
+             * fill), honouring the user accent var with the AE token fallback —
+             * no bare colour literal. Reduced-motion users simply get the steady
+             * outline with no transition. */
+            .qq-edit-selected {
+              outline: 2px solid var(--qq-accent, ${AE.color.accent});
+              outline-offset: 2px;
+              border-radius: 10px;
+              scroll-margin: 24px;
+              transition: outline-color 120ms ease;
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .qq-edit-selected { transition: none; }
             }
 
             /* ── BD-3g Item 2 — fold/unfold panels ──────────────────

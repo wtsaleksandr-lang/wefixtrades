@@ -24,7 +24,12 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from 'react';
 
-export type SelectionKind = 'field' | 'calc' | 'results' | 'header';
+// `spot` (feat/wizard-section-sync) — a generic structural preview spot that
+// isn't a field/calc/results/header (CTA / trust-badges / tier-selector /
+// stepper / business). `id` is the editor `targetKey` for that spot (e.g.
+// 'action', 'trust-badges', 'tiered'). Lets the same shared-selection state
+// persist the highlight on BOTH panes for those non-field sections too.
+export type SelectionKind = 'field' | 'calc' | 'results' | 'header' | 'spot';
 
 export interface SelectionTarget {
   kind: SelectionKind;
