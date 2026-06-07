@@ -25,6 +25,7 @@ import {
   Calendar, DollarSign, ChevronDown, Loader2, User, Check,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { PageMeta } from "@/components/seo/PageMeta";
 import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import ClassicMinimalPreview from "./invoice-templates/ClassicMinimal";
@@ -151,6 +152,11 @@ export default function InvoiceDetailPage() {
 
   return (
     <PortalLayout breadcrumb={<><Link href="/portal/invoices" className="text-brand-blue hover:underline">Invoices</Link><span className="mx-2 text-gray-400">›</span><span>{data?.invoice?.invoice_number || "Invoice"}</span></>}>
+      <PageMeta
+        title="Invoice"
+        description="View and edit invoice details in your WeFixTrades portal."
+        noIndex
+      />
       <div data-theme="light">
         <div style={{ marginBottom: 16 }}>
           <Link href="/portal/invoices" className="text-gray-600 hover:text-gray-900" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, textDecoration: "none" }}>

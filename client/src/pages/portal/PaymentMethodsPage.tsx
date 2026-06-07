@@ -141,7 +141,7 @@ export default function PaymentMethodsPage() {
     "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors resize-vertical";
 
   return (
-    <PortalLayout>
+    <PortalLayout breadcrumb="Payment Methods">
       <div data-theme="light" className="max-w-2xl space-y-6">
         <div>
           <Link href="/portal/billing" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-blue transition-colors mb-2" data-testid="link-back-to-billing">

@@ -183,7 +183,7 @@ export default function PortalCalculatorAnalytics() {
   }, [data]);
 
   return (
-    <PortalLayout>
+    <PortalLayout breadcrumb="Calculator Analytics">
       <div data-theme="light">
         <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 4 }}>
           Calculator Analytics
