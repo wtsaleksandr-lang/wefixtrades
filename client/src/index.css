@@ -204,6 +204,111 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
+/* Scoped light-surface reset for the Free-Tools toolbox: document/print-oriented pages (invoices, QR cards, AI output) that must stay light regardless of portal theme. Mirrors the full :root light token set so the subtree renders light even when <html class="dark">. */
+.qq-paper-surface {
+  --button-outline: rgba(0,0,0, .10);
+  --badge-outline: rgba(0,0,0, .05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .08);
+
+  --background: 210 17% 97%;
+  --foreground: 220 14% 10%;
+  --border: 220 13% 91%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 14% 10%;
+  --card-border: 220 13% 91%;
+  --sidebar: 220 14% 95%;
+  --sidebar-foreground: 220 14% 20%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-primary: 153 38% 34%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 14% 95%;
+  --sidebar-accent-foreground: 220 14% 10%;
+  --sidebar-ring: 222 100% 59%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 14% 10%;
+  --popover-border: 220 13% 91%;
+  --primary: 222 100% 59%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 95%;
+  --secondary-foreground: 220 14% 15%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 9% 38%;
+  --accent: 222 100% 95%;
+  --accent-foreground: 222 100% 40%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --input: 220 13% 91%;
+  --ring: 222 100% 59%;
+  --chart-1: 222 100% 59%;
+  --chart-2: 196 100% 37%;
+  --chart-3: 13 96% 53%;
+  --chart-4: 36 93% 44%;
+  --chart-5: 0 84% 60%;
+
+  --gauge-sapphire: 222 100% 59%;
+  --gauge-emerald: 152 65% 40%;
+  --gauge-amber: 36 93% 44%;
+  --gauge-crimson: 0 84% 60%;
+  --gauge-violet: 262 70% 56%;
+  --gauge-teal: 196 100% 37%;
+
+  --font-sans: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 0.75rem;
+  --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.03);
+  --shadow-xs: 0px 1px 2px 0px rgba(0,0,0,0.04);
+  --shadow-sm: 0 2px 6px rgba(0,0,0,0.05);
+  --shadow: 0 6px 16px rgba(0,0,0,0.06);
+  --shadow-md: 0 6px 16px rgba(0,0,0,0.06);
+  --shadow-lg: 0 12px 30px rgba(0,0,0,0.08);
+  --shadow-xl: 0 16px 40px rgba(0,0,0,0.10);
+  --shadow-2xl: 0px 25px 50px -12px rgba(0,0,0,0.2);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 140ms;
+  --dur: 220ms;
+  --dur-slow: 360ms;
+
+  --shadow-soft: 0 2px 10px rgba(0,0,0,0.06);
+  --shadow-card: 0 10px 20px #33314833;
+  --shadow-hover: 0 20px 36px #3331484d;
+
+  --ring-primary: 0 0 0 3px rgba(13,60,252,0.25);
+  --glow-primary: inset 0 0 0 2px #FFFFFF;
+  --hover-border-bright: #FFFFFF;
+  --field-bg-light: #FFFFFF;
+  --popover-bg-light: #FFFFFF;
+  --text-on-dark: #FFFFFF;
+  --print-body-bg: white;
+
+  --hairline:         rgba(133, 128, 123, 0.18);
+  --hairline-strong:  rgba(133, 128, 123, 0.32);
+  --hairline-dashed:  rgba(133, 128, 123, 0.08);
+
+  --scrollbar-thumb: rgba(120, 120, 120, 0.45);
+  --scrollbar-thumb-hover: rgba(120, 120, 120, 0.75);
+
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
 /* Dark mode — warm grey, NOT pure black.
  * Per product direction (Alex 2026-05-24): the canvas is #1f1f23, a warm
  * neutral grey. Surfaces step up in lightness for cards / popovers /

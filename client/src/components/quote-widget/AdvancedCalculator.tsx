@@ -3540,15 +3540,22 @@ function ContactFormField({
     margin: '0 0 4px', fontFamily,
   };
 
-  // Mirror the CTA button: accent fill with contrast-guarded text.
-  const btnFg = guardTextColor('#ffffff', accent, 'contactFormButtonText', { largeText: true });
+  // Mirror the CTA button: accent fill with contrast-guarded text. Darken the
+  // accent background when it's too light for white text — otherwise a pale /
+  // near-white accent yields an invisible button (same pattern as the primary
+  // CTA above). No-op when the accent is already dark enough.
+  const btnBg = darkenBgForWhiteText(accent, 4.5);
+  const btnFg = guardTextColor('#ffffff', btnBg, 'contactFormButtonText', { largeText: true });
 
   const emailValid = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
   const validate = (): string | null => {
     if (require.includes('name') && name.trim() === '') return 'Please enter your name.';
-    if (require.includes('email') && email.trim() === '') return 'Please enter your email.';
-    if (email.trim() !== '' && !emailValid(email)) return 'Please enter a valid email.';
+    // Email is effectively required for submission regardless of contactRequire:
+    // the /api/leads endpoint needs email || phone, and this form never sends a
+    // phone — so without an email the request is un-submittable (400 at submit).
+    if (email.trim() === '') return 'Please enter your email.';
+    if (!emailValid(email)) return 'Please enter a valid email.';
     if (require.includes('message') && message.trim() === '') return 'Please enter a message.';
     return null;
   };
@@ -3690,7 +3697,7 @@ function ContactFormField({
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           minHeight: 44, padding: '0 18px', borderRadius: radiusPx,
-          background: accent, color: btnFg, border: 'none',
+          background: btnBg, color: btnFg, border: 'none',
           fontSize: '14px', fontWeight: 700, fontFamily, letterSpacing: '0.01em',
           cursor: status === 'submitting' ? 'default' : 'pointer',
           opacity: status === 'submitting' ? 0.7 : 1,

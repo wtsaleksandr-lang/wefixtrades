@@ -118,17 +118,25 @@ function buildReviewUrl(raw: string): string | null {
   return null;
 }
 
-/** Generate a PNG data-URL QR for `text`; empty/invalid → null. */
-async function makeQr(text: string | null): Promise<string | null> {
-  if (!text) return null;
+/**
+ * Generate a PNG data-URL QR for `text`.
+ *   • no input        → { url: null, failed: false }  (empty state)
+ *   • encode failure  → { url: null, failed: true }   (distinct error state)
+ */
+async function makeQr(
+  text: string | null,
+): Promise<{ url: string | null; failed: boolean }> {
+  if (!text) return { url: null, failed: false };
   try {
-    return await QRCode.toDataURL(text, {
+    const url = await QRCode.toDataURL(text, {
       errorCorrectionLevel: "M",
       margin: 2,
       width: 512,
     });
+    return { url, failed: false };
   } catch {
-    return null;
+    // Encoding can fail when the payload is too large to fit a QR symbol.
+    return { url: null, failed: true };
   }
 }
 
@@ -187,6 +195,10 @@ export default function ReviewQrCard() {
   //    encoded payload changes; guard against out-of-order async resolves. ──
   const [reviewQr, setReviewQr] = useState<string | null>(null);
   const [vcardQr, setVcardQr] = useState<string | null>(null);
+  // Distinct "input existed but encoding failed" flags so the placeholder can
+  // tell a real failure (e.g. link too long to encode) from the empty state.
+  const [reviewQrFailed, setReviewQrFailed] = useState(false);
+  const [vcardQrFailed, setVcardQrFailed] = useState(false);
   const genSeq = useRef(0);
 
   useEffect(() => {
@@ -198,8 +210,10 @@ export default function ReviewQrCard() {
     ]).then(([rq, vq]) => {
       // Drop stale results from superseded runs.
       if (cancelled || seq !== genSeq.current) return;
-      setReviewQr(rq);
-      setVcardQr(vq);
+      setReviewQr(rq.url);
+      setVcardQr(vq.url);
+      setReviewQrFailed(rq.failed);
+      setVcardQrFailed(vq.failed);
     });
     return () => {
       cancelled = true;
@@ -304,7 +318,7 @@ export default function ReviewQrCard() {
         }
       `}</style>
 
-      <div data-theme="light" className="space-y-6">
+      <div data-theme="light" className="qq-paper-surface space-y-6">
         <header className="rqc-no-print">
           <div className="flex items-center gap-2 mb-1">
             <QrCode className="w-5 h-5 text-brand-blue" aria-hidden="true" />
@@ -532,6 +546,7 @@ export default function ReviewQrCard() {
                       ) : (
                         <QrPlaceholder
                           label="Add your Google review link to generate this QR"
+                          failed={reviewQrFailed}
                         />
                       )}
                       {tagline.trim() && (
@@ -572,6 +587,7 @@ export default function ReviewQrCard() {
                       ) : (
                         <QrPlaceholder
                           label="Add a phone, email, or website to generate this QR"
+                          failed={vcardQrFailed}
                         />
                       )}
                       <div className="text-xs text-gray-500 space-y-0.5">
@@ -656,11 +672,14 @@ export default function ReviewQrCard() {
 }
 
 /** Dashed empty-state box shown before a QR can be generated. */
-function QrPlaceholder({ label }: { label: string }) {
+function QrPlaceholder({ label, failed = false }: { label: string; failed?: boolean }) {
+  const text = failed
+    ? "Couldn't generate this QR — the link may be too long."
+    : label;
   return (
     <div style={{ width: 160, height: 160 }} className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 px-3 text-center">
       <QrCode className="w-6 h-6 text-gray-300" aria-hidden="true" />
-      <p className="text-[11px] text-gray-400 leading-snug">{label}</p>
+      <p className="text-[11px] text-gray-400 leading-snug">{text}</p>
     </div>
   );
 }

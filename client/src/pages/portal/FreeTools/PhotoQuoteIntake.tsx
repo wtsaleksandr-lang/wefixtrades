@@ -367,7 +367,7 @@ export default function PhotoQuoteIntake() {
         </span>
       }
     >
-      <div data-theme="light" className="space-y-6">
+      <div data-theme="light" className="qq-paper-surface space-y-6">
         <header>
           <div className="flex items-center gap-2 mb-1">
             <Camera className="w-5 h-5 text-brand-blue" aria-hidden="true" />

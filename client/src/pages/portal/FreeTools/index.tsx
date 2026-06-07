@@ -225,7 +225,7 @@ export default function FreeToolsIndex() {
 
   return (
     <PortalLayout breadcrumb="Free Tools">
-      <div data-theme="light" className="space-y-6">
+      <div data-theme="light" className="qq-paper-surface space-y-6">
         <header>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Free Tools</h1>
           <p className="text-sm text-gray-600">

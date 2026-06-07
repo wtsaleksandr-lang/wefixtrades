@@ -228,7 +228,7 @@ export default function InvoicePdf() {
         }
       `}</style>
 
-      <div data-theme="light" className="space-y-6">
+      <div data-theme="light" className="qq-paper-surface space-y-6">
         <header className="inv-no-print">
           <div className="flex items-center gap-2 mb-1">
             <FileText className="w-5 h-5 text-brand-blue" aria-hidden="true" />
@@ -525,10 +525,10 @@ export default function InvoicePdf() {
                   {computed.rows.map((row, idx) => (
                     <div
                       key={row.id}
-                      className="grid grid-cols-12 gap-1 items-start"
+                      className="grid grid-cols-1 sm:grid-cols-12 gap-1 items-start"
                       data-testid={`invoice-line-${idx}`}
                     >
-                      <div className="col-span-6">
+                      <div className="sm:col-span-6">
                         <TitleInField
                           id={`invoice-line-desc-${row.id}`}
                           label="Description"
@@ -538,7 +538,7 @@ export default function InvoicePdf() {
                           testid={`invoice-line-desc-input-${idx}`}
                         />
                       </div>
-                      <div className="col-span-2">
+                      <div className="sm:col-span-2">
                         <TitleInField
                           id={`invoice-line-qty-${row.id}`}
                           label="Qty"
@@ -549,7 +549,7 @@ export default function InvoicePdf() {
                           testid={`invoice-line-qty-input-${idx}`}
                         />
                       </div>
-                      <div className="col-span-3">
+                      <div className="sm:col-span-3">
                         <TitleInField
                           id={`invoice-line-price-${row.id}`}
                           label={`Unit (${sym})`}
@@ -560,19 +560,19 @@ export default function InvoicePdf() {
                           testid={`invoice-line-price-input-${idx}`}
                         />
                       </div>
-                      <div className="col-span-1 flex items-center justify-center pt-2">
+                      <div className="sm:col-span-1 flex items-center justify-center pt-2">
                         <button
                           type="button"
                           onClick={() => removeLine(row.id)}
                           disabled={computed.rows.length <= 1}
                           aria-label={`Remove line ${idx + 1}`}
                           data-testid={`invoice-remove-line-${idx}`}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                      <div className="col-span-12 -mt-0.5 pl-1 text-right text-[11px] text-gray-500 tabular-nums">
+                      <div className="sm:col-span-12 -mt-0.5 pl-1 text-right text-[11px] text-gray-500 tabular-nums">
                         Line total:{" "}
                         <span className="font-semibold text-gray-700">
                           {fmtMoney(row.lineTotal)}

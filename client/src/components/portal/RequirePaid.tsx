@@ -34,7 +34,7 @@ export default function RequirePaid({
   if (isLoading) {
     return (
       <PortalLayout breadcrumb="Free Tools">
-        <div data-theme="light" className="flex justify-center py-16">
+        <div data-theme="light" className="qq-paper-surface flex justify-center py-16">
           <Card className="h-20 w-full max-w-md animate-pulse" data-testid="free-tool-gate-loading">
             <CardContent className="flex h-full items-center justify-center p-4">
               <p className="text-xs text-gray-500">Checking your plan…</p>
@@ -52,7 +52,7 @@ export default function RequirePaid({
   // Free account → upgrade gate (the tool itself is never rendered).
   return (
     <PortalLayout breadcrumb="Free Tools">
-      <div data-theme="light" className="flex justify-center py-12">
+      <div data-theme="light" className="qq-paper-surface flex justify-center py-12">
         <Card className="w-full max-w-lg" data-testid="free-tool-gate-upsell">
           <CardContent className="flex flex-col items-center p-8 text-center">
             <span
