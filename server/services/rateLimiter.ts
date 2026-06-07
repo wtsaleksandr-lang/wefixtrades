@@ -284,3 +284,31 @@ export const inboundEmailRateLimiter = new RateLimiter(
   60,
   60_000,
 );
+
+/**
+ * Per-sender cap on the brand-line inbound SMS classify path
+ * (POST /api/twilio/inbound, no-lead branch). Every signed inbound that
+ * doesn't match a lead runs an LLM classifier (Claude Haiku) and may create
+ * a support ticket. The matched-lead path already has checkRateLimit; the
+ * no-lead branch had none, so a single sender could drive unbounded Haiku
+ * spend + unbounded ticket creation. Keyed on the inbound `From` number,
+ * 15 / hour is generous for a real prospect texting back-and-forth while
+ * bounding a spam/abuse loop. Past the cap we ack Twilio quietly and skip
+ * the classify entirely. */
+export const brandLineInboundRateLimiter = new RateLimiter(
+  defaultStore,
+  15,
+  60 * 60_000,
+);
+
+/**
+ * Vapi voice webhooks (POST /api/vapi/webhook and POST /api/vapi/conversation).
+ * Both are signature/secret-gated, but a flood of even rejected requests (or a
+ * replayed signed payload) burns CPU + LLM spend, and per-call duration caps
+ * don't bound aggregate volume. 120 / min keyed on IP and/or call.id is an
+ * order of magnitude above real Vapi traffic while blunting a flood. */
+export const vapiRateLimiter = new RateLimiter(
+  defaultStore,
+  120,
+  60_000,
+);

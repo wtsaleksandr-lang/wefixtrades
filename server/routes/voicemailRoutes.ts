@@ -23,7 +23,7 @@ import crypto from "crypto";
 import type { Express, Request, Response } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { voicemails } from "@shared/schema";
+import { voicemails, tradelinePhoneSetups, clients } from "@shared/schema";
 import { verifyTwilioSignature, normalizePhone, matchLeadByPhone } from "../twilioClient";
 import { getOpenAI } from "../openaiClient";
 import { chat as anthropicChat } from "../services/aiService";
@@ -177,6 +177,46 @@ async function runAsyncEnrichment(vmId: number, recordingUrl: string): Promise<v
   }
 }
 
+/* ─── Server-side voicemail-owner resolution ──────────────────────────
+ *
+ * SECURITY (P1): the voicemail's owner (voicemails.user_id) must be derived
+ * from the SIGNED call context, never from an attacker-supplied value. The
+ * dialed WeFixTrades number (`To` on the recording-status webhook, whose body
+ * is HMAC-verified by verifyTwilioSignature) maps to its owner:
+ *
+ *   To (E.164) → tradeline_phone_setups.assigned_number → client_id
+ *               → clients.user_id
+ *
+ * The previous implementation trusted an unsigned `?MobileUserId=` query param
+ * — anyone who learned the webhook path could file voicemails under any user's
+ * id. We now ignore that param entirely (it has no legitimate producer yet —
+ * inbound push / TwiML forwarding is deferred Phase 4 part 2) and derive the
+ * owner from `To`. Returns null when the number isn't mapped to a portal user,
+ * in which case the row is stored owner-less and matched by lead/phone only. */
+function normalizeDialedNumber(raw: string): string {
+  // Twilio sends `To` in E.164; strip incidental formatting to be safe.
+  return raw.replace(/[^\d+]/g, "");
+}
+
+async function resolveOwnerFromDialedNumber(toRaw: string): Promise<number | null> {
+  const to = normalizeDialedNumber(toRaw);
+  if (!to) return null;
+  try {
+    const [row] = await db
+      .select({ userId: clients.user_id })
+      .from(tradelinePhoneSetups)
+      .innerJoin(clients, eq(clients.id, tradelinePhoneSetups.client_id))
+      .where(eq(tradelinePhoneSetups.assigned_number, to))
+      .limit(1);
+    const uid = row?.userId ?? null;
+    return typeof uid === "number" && uid > 0 ? uid : null;
+  } catch {
+    // Owner-less voicemail is acceptable (lead/phone match still applies);
+    // a lookup failure must never mis-attribute, so fall back to null.
+    return null;
+  }
+}
+
 /* ─── Route registration ──────────────────────────────────────────── */
 
 export function registerVoicemailRoutes(app: Express): void {
@@ -200,14 +240,13 @@ export function registerVoicemailRoutes(app: Express): void {
       const durationRaw = req.body?.RecordingDuration;
       const duration = Number(durationRaw);
 
-      // MobileUserId is forwarded by the inbound TwiML as a query param
-      // so we know whose voicemail this is. Falls through to lead match
-      // by phone if absent.
-      const mobileUserIdRaw = req.query?.MobileUserId;
-      const mobileUserId = Number(
-        typeof mobileUserIdRaw === "string" ? mobileUserIdRaw : Array.isArray(mobileUserIdRaw) ? mobileUserIdRaw[0] : NaN,
-      );
-      const userId = Number.isFinite(mobileUserId) && mobileUserId > 0 ? mobileUserId : null;
+      // SECURITY (P1): derive the owning user SERVER-SIDE from the dialed
+      // WeFixTrades number (`To` on this HMAC-verified webhook body) →
+      // tradeline → owner. The prior code trusted an unsigned
+      // `?MobileUserId=` query param, letting anyone with the webhook path
+      // file voicemails under any user's id. That param is now ignored.
+      const toRaw = typeof req.body?.To === "string" ? req.body.To : "";
+      const userId = await resolveOwnerFromDialedNumber(toRaw);
 
       // Match a lead by normalized phone, best-effort.
       let leadId: number | null = null;

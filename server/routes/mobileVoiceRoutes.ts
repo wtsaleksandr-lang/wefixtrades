@@ -17,6 +17,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { mobileCallRecords, mobileDevices, mobilePlatformSchema, voicemails } from "@shared/schema";
 import { requireSessionOrBearer } from "../lib/mobileAuth";
+import { resolveVoiceEntitlement } from "../lib/voiceEntitlement";
 import { signRecordingUrl } from "./voicemailRoutes";
 import {
   getVoiceConfig,
@@ -51,6 +52,21 @@ export function registerMobileVoiceRoutes(app: Express) {
         const deviceId = parsed.success ? parsed.data.deviceId : undefined;
 
         const user = req.user as any;
+
+        // P0 ENTITLEMENT GATE: never mint a Voice token for a user without a
+        // live voice entitlement. A minted token grants outbound dialling for
+        // its full TTL, so an un-gated mint is unbounded platform-billed
+        // calling for any authenticated (incl. free / never-paid) user. Mirror
+        // the inbound AI-employee gate (twilioRoutes.ts ~326): active/onboarding
+        // tradeline service OR in-window Pro trial. Re-checked at dial time in
+        // outbound-twiml as defence in depth.
+        const entitlement = await resolveVoiceEntitlement(Number(user.id));
+        if (!entitlement) {
+          return res.status(403).json({
+            error: "Voice calling requires an active TradeLine subscription or trial.",
+            code: "voice_not_entitled",
+          });
+        }
 
         // If a deviceId is given, look up that device's row so we can pick a
         // pushCredentialSid for the Voice grant. Preference order:

@@ -17,6 +17,7 @@ import {
   checkVapiReadiness,
   getVapiConfig,
   verifyWebhookSignature,
+  verifyConversationAuth,
   handleConversationTurn,
   handleTradeLineConversationTurn,
   extractCallReport,
@@ -43,6 +44,7 @@ import {
   executeCreateBooking,
 } from "../services/bookingTools";
 import { storage } from "../storage";
+import { vapiRateLimiter } from "../services/rateLimiter";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Vapi");
@@ -64,6 +66,15 @@ export function registerVapiRoutes(app: Express): void {
    */
   app.post("/api/vapi/webhook", async (req: Request, res: Response) => {
     try {
+      // Aggregate volume guard (per-call duration is capped elsewhere). Keyed on
+      // IP + call.id so a flood / replayed signed payload is blunted before any
+      // processing. Modest ceiling (120/min) well above real Vapi traffic.
+      const rlKey = `vapi-webhook:${req.ip ?? "noip"}:${(req.body as any)?.message?.call?.id ?? "nocall"}`;
+      if (!(await vapiRateLimiter.check(rlKey))) {
+        log.warn("[vapi] Webhook rate limit exceeded");
+        return res.status(429).json({ error: "Too many requests" });
+      }
+
       // Verify webhook signature using the raw body buffer (captured by Express JSON middleware)
       const signature = req.headers["x-vapi-signature"] as string | undefined;
       const rawBody = (req as any).rawBody as Buffer | undefined;
@@ -136,7 +147,12 @@ export function registerVapiRoutes(app: Express): void {
 
         case "function-call": {
           const fn = event.message.functionCall;
-          log.info("[vapi] Function call received", { name: fn?.name, params: fn?.parameters });
+          // No-PII-in-logs: function params carry customer_name/phone/address —
+          // log only the function name and the param KEYS, never the values.
+          log.info("[vapi] Function call received", {
+            name: fn?.name,
+            paramKeys: fn?.parameters ? Object.keys(fn.parameters) : [],
+          });
 
           if (!fn?.name) {
             return res.json({ result: "No function specified" });
@@ -207,44 +223,55 @@ export function registerVapiRoutes(app: Express): void {
             messages: report.messageCount,
           });
 
-          // Log the completed call to ai_usage_logs
-          logUsage({
-            model: "vapi-call",
-            surface: "vapi",
-            provider: "vapi",
-            channel: "voice",
-            sessionId: `vapi-${report.callId}`,
-            latencyMs: report.duration ? report.duration * 1000 : undefined,
-            success: report.endedReason !== "error",
-            metadata: {
-              webhookEvent: "end-of-call-report",
-              callId: report.callId,
-              endedReason: report.endedReason,
-              messageCount: report.messageCount,
-              durationSeconds: report.duration,
-            },
-          });
-
-          // W-BA-2 (Phase 3b §5) — record voice cost against the client.
-          if (tradeLineResolved?.client?.id && report.duration) {
-            recordVoiceCostForClient({
-              clientId: tradeLineResolved.client.id,
-              durationSeconds: report.duration,
-            }).catch(err =>
-              log.warn(`[vapi-cost] voice cost record failed: ${(err as Error).message}`),
-            );
-          }
+          // Helper: write the ai_usage_logs telemetry row for this call.
+          // For TradeLine calls this is gated behind the dedupe insert below so
+          // a replayed signed webhook does not double-count usage; for brand
+          // calls (no per-client dedupe key) it runs once here.
+          const writeUsageLog = () =>
+            logUsage({
+              model: "vapi-call",
+              surface: "vapi",
+              provider: "vapi",
+              channel: "voice",
+              sessionId: `vapi-${report.callId}`,
+              latencyMs: report.duration ? report.duration * 1000 : undefined,
+              success: report.endedReason !== "error",
+              metadata: {
+                webhookEvent: "end-of-call-report",
+                callId: report.callId,
+                endedReason: report.endedReason,
+                messageCount: report.messageCount,
+                durationSeconds: report.duration,
+              },
+            });
 
           // If this was a TradeLine call, log to tradeline_call_log + update usage
           if (tradeLineResolved) {
+            // Idempotency: logTradeLineCall dedupes on vapi_call_id and returns a
+            // non-null callLogId ONLY on a fresh insert. Cost + usage recording
+            // run AFTER this and ONLY for a fresh insert, so a replayed signed
+            // end-of-call-report does not double-charge the client.
             const callResult = await logTradeLineCall(
               tradeLineResolved.clientService.id,
               report,
               event.message.recordingUrl ?? undefined,
             );
 
-            // Non-blocking: extract lead + send notifications
             if (callResult.callLogId) {
+              // Fresh insert — safe to record telemetry + bill exactly once.
+              writeUsageLog();
+
+              // W-BA-2 (Phase 3b §5) — record voice cost against the client.
+              if (tradeLineResolved.client?.id && report.duration) {
+                recordVoiceCostForClient({
+                  clientId: tradeLineResolved.client.id,
+                  durationSeconds: report.duration,
+                }).catch(err =>
+                  log.warn(`[vapi-cost] voice cost record failed: ${(err as Error).message}`),
+                );
+              }
+
+              // Non-blocking: extract lead + send notifications
               processTradeLineCallPostHook(
                 tradeLineResolved.clientService.id,
                 tradeLineResolved.client.id,
@@ -256,11 +283,14 @@ export function registerVapiRoutes(app: Express): void {
               ).catch(err =>
                 log.warn(`[tradeline] post-call hook failed for call ${report.callId}: ${(err as Error).message}`),
               );
+            } else {
+              log.info("[vapi] Duplicate end-of-call-report ignored for cost/usage", { callId: report.callId });
             }
           } else {
             // Not a TradeLine customer — this was a call to the WeFixTrades
-            // company sales/support line. Extract caller info, log as sales
-            // lead, and email the team. Non-blocking.
+            // company sales/support line. No per-client billing; write telemetry
+            // and hand off to the sales-line handler. Non-blocking.
+            writeUsageLog();
             handleSalesCallEnded(report).catch(err =>
               log.warn(`[wft-sales-line] post-call handler failed for ${report.callId}:`, err.message),
             );
@@ -305,10 +335,42 @@ export function registerVapiRoutes(app: Express): void {
    * Vapi sends the conversation transcript and expects a text reply.
    * Routes through the shared assistant core with surface="vapi".
    */
-  app.post("/api/vapi/conversation", async (req: Request, res: Response) => {
+  const conversationHandler = async (req: Request, res: Response) => {
     try {
       const { messages, call } = req.body || {};
       const convCallId = call?.id || req.body?.callId || "unknown";
+
+      // Aggregate volume guard. Keyed on IP + call.id, before any auth/processing.
+      const rlKey = `vapi-conversation:${req.ip ?? "noip"}:${convCallId}`;
+      if (!(await vapiRateLimiter.check(rlKey))) {
+        log.warn("[vapi] Conversation rate limit exceeded");
+        return res.status(429).json({ error: "Too many requests" });
+      }
+
+      // AUTH (FIX P0): /conversation was completely unauthenticated. Vapi's
+      // custom-llm model.url requests are NOT HMAC-signed like the serverUrl
+      // webhook, so we authenticate via a shared secret baked into the model.url
+      // we hand Vapi (trailing /s/<secret> path segment), accepting it from the
+      // path or an Authorization: Bearer header — and ALSO accepting a valid
+      // x-vapi-signature for defence in depth. Reject (401) before any work.
+      const signature = req.headers["x-vapi-signature"] as string | undefined;
+      const rawBody = (req as any).rawBody as Buffer | undefined;
+      const authHeader = req.headers["authorization"] as string | undefined;
+      const pathSecret = (req.params as any)?.secret as string | undefined;
+      if (!verifyConversationAuth(rawBody, signature, authHeader, pathSecret)) {
+        // SAFE-ROLLOUT GRACE: already-provisioned Vapi assistants POST to the
+        // bare /api/vapi/conversation URL (no secret) until they are re-pushed
+        // to the new /s/<secret> model.url. Enforcing 401 immediately on
+        // redeploy would break live TradeLine voice for existing clients. So
+        // we GRACE (log-but-allow) until VAPI_CONVERSATION_ENFORCE=true. Rollout:
+        // (1) deploy permissive, (2) re-push all assistants to the secret URL,
+        // (3) confirm logs show no more bare-path hits, (4) set the flag true.
+        if (process.env.VAPI_CONVERSATION_ENFORCE === "true") {
+          log.warn("[vapi] Conversation auth failed — rejected (enforce on)");
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+        log.warn("[vapi] Conversation auth failed — GRACE allowed (set VAPI_CONVERSATION_ENFORCE=true after re-pushing assistants)");
+      }
 
       const vapiMessages: VapiTranscriptMessage[] = Array.isArray(messages)
         ? messages
@@ -402,7 +464,13 @@ export function registerVapiRoutes(app: Express): void {
         },
       });
     }
-  });
+  };
+
+  // Bare path (legacy / Authorization-header auth) and the secret-bearing path
+  // that buildConversationUrl() hands Vapi (/s/:secret). Both run the same
+  // handler, which authenticates via path secret, bearer token, or signature.
+  app.post("/api/vapi/conversation", conversationHandler);
+  app.post("/api/vapi/conversation/s/:secret", conversationHandler);
 
   /**
    * GET /api/vapi/web-config
