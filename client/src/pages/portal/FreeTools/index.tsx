@@ -212,6 +212,7 @@ const TOOLS: Tool[] = [
     icon: QrCode,
     status: "available",
     href: "/portal/free-tools/review-qr",
+    previewImage: "/free-tools/previews/qr-card.png",
   },
 ];
 
@@ -267,7 +268,7 @@ export default function FreeToolsIndex() {
         )}
 
         <div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start"
           data-testid="free-tools-grid"
         >
           {TOOLS.map((tool) => {
@@ -291,6 +292,12 @@ export default function FreeToolsIndex() {
                         alt={`${tool.title} preview`}
                         width={400}
                         height={250}
+                        // AVIF/WebP/@2x/@3x variants are NOT generated for these
+                        // preview PNGs; with variants on, the SPA fallback serves
+                        // index.html (text/html) for the missing files and the
+                        // browser renders a broken image. Force a plain <img> on
+                        // the real base .png.
+                        disableVariants
                         className={cn(
                           "w-full aspect-[16/10] object-cover rounded-md border border-gray-200 bg-gray-50",
                           showLocked && "opacity-60",
