@@ -12,7 +12,7 @@ import { eq } from "drizzle-orm";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { widgetDeposits, apiSubscriptions } from "@shared/schema";
+import { widgetDeposits, apiSubscriptions, tradelinePhoneSetups } from "@shared/schema";
 import { getApiTier } from "@shared/pricing/apiTiers";
 import { generateCuid } from "../lib/apiKeys";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
@@ -33,6 +33,7 @@ import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { recordRevenueForClient } from "../services/clientCostBilling";
+import { releaseTwilioNumber } from "../services/twilioNumberRelease";
 import { fireAlert } from "../services/alertService";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { runPreFixAudit } from "../services/webfixAuditService";
@@ -739,6 +740,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     return;
   }
 
+  // Idempotency: Stripe can re-deliver invoice.paid — guard on the invoice id
+  // so a redelivery doesn't create a duplicate renewal payment row.
+  const existing = (await storage.listClientPayments(client.id)).find(p => p.stripe_invoice_id === invoice.id);
+  if (existing) {
+    log.info(`[billing-webhook] invoice.paid duplicate ignored for invoice ${invoice.id}`);
+    return;
+  }
+
   // Create payment record for the renewal
   await storage.createClientPayment({
     client_id: client.id,
@@ -1041,6 +1050,44 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, _eve
     entity_id: client.id,
     summary: `Subscription cancelled for client "${client.business_name}"`,
   });
+
+  // Cost-leak plug: release any Twilio number this client's TradeLine setup
+  // owns, or it keeps billing monthly forever after churn. Idempotent +
+  // non-throwing release service; the DB lookup is wrapped so a Twilio/DB blip
+  // never breaks the cancel webhook — but it LOGS loudly (no silent catch).
+  try {
+    const [setupRow] = await db
+      .select({
+        id: tradelinePhoneSetups.id,
+        assigned_number_sid: tradelinePhoneSetups.assigned_number_sid,
+      })
+      .from(tradelinePhoneSetups)
+      .where(eq(tradelinePhoneSetups.client_id, client.id))
+      .limit(1);
+
+    const sid = setupRow?.assigned_number_sid?.trim();
+    if (setupRow && sid) {
+      const result = await releaseTwilioNumber(sid);
+
+      if (result.released) {
+        await db
+          .update(tradelinePhoneSetups)
+          .set({ assigned_number: null, assigned_number_sid: null, updated_at: new Date() })
+          .where(eq(tradelinePhoneSetups.id, setupRow.id));
+      }
+
+      await storage.logAdminActivity({
+        actor_type: "system",
+        actor_name: "Stripe Webhook",
+        action: "tradeline_number_released",
+        entity_type: "client",
+        entity_id: client.id,
+        summary: `Tradeline number release on cancel — sid ${sid}: ${result.released ? (result.alreadyGone ? "already_gone" : "released") : `failed (${result.error ?? "unknown"})`}`,
+      });
+    }
+  } catch (err: any) {
+    log.warn(`[billing-webhook] number-release on cancel failed:`, err.message);
+  }
 
   log.info(`[billing-webhook] Subscription cancelled for client ${client.id}`);
 }

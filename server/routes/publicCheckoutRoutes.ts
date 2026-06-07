@@ -20,6 +20,7 @@ import { getTradeLineDefaultConfig, serviceCatalog } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { getUpsellsForCart } from "../lib/checkoutUpsells";
+import { publicCheckoutRateLimiter } from "../services/rateLimiter";
 import { inArray, eq } from "drizzle-orm";
 
 const log = createLogger("PublicCheckout");
@@ -189,6 +190,11 @@ export function registerPublicCheckoutRoutes(app: Express): void {
   });
 
   app.post("/api/public/checkout", async (req: Request, res: Response) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!(await publicCheckoutRateLimiter.check(`public-checkout:${ip}`))) {
+      return res.status(429).json({ error: "Too many checkout attempts. Try again in a few minutes." });
+    }
+
     try {
       const stripe = getStripe();
       if (!stripe) return res.status(503).json({ error: "Payments are not configured yet. Please contact us directly." });
