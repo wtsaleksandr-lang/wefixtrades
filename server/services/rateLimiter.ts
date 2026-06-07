@@ -103,6 +103,19 @@ export const aiChatRateLimiter = new RateLimiter(
 );
 
 /**
+ * Per-user cap for the QuoteQuick portal AI free-tools — AI Quote Writer
+ * (POST /api/portal/free-tools/quote-writer) and AI Review Responder
+ * (POST /api/portal/free-tools/review-reply). Each call is a real (metered)
+ * Haiku generation that also counts against the user's AI budget; 10/min/user
+ * is generous for interactive drafting while bounding a scripted loop.
+ */
+export const portalAiToolRateLimiter = new RateLimiter(
+  defaultStore,
+  10,
+  60_000,
+);
+
+/**
  * Per-user cap for mobile voice transcription (/api/mobile/ai/transcribe).
  *
  * Whisper costs ~$0.006/min — at 30 transcripts/hr/user that's roughly

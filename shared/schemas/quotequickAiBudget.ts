@@ -36,8 +36,16 @@ export const aiSpendLog = pgTable("ai_spend_log", {
 export type AiSpendLog = typeof aiSpendLog.$inferSelect;
 
 /* ─── ai_budget_config ─── */
-/** Recognised scope values. `global` is the fall-back; the rest override per plan_tier. */
-export const AI_BUDGET_SCOPES = ["global", "tier_free", "tier_starter", "tier_pro", "tier_agency"] as const;
+/**
+ * Recognised scope values. `global` is the fall-back; the rest override per
+ * plan_tier. The `tier_*` names map 1:1 to the real pricing tier ids in
+ * shared/pricing/apiTiers.ts (free / starter / pro / business / agency) — they
+ * MUST stay aligned, because getEffectiveBudgetConfig builds `tier_${plan_tier}`
+ * and an unknown scope silently falls through to `global`. `tier_business` was
+ * missing here, which made the per-tier cap for actual paying (Business) users
+ * inert — the QuoteQuick AI chat only admits `planTier === "business"`.
+ */
+export const AI_BUDGET_SCOPES = ["global", "tier_free", "tier_starter", "tier_pro", "tier_business", "tier_agency"] as const;
 export type AiBudgetScope = typeof AI_BUDGET_SCOPES[number];
 
 export const aiBudgetConfig = pgTable("ai_budget_config", {
@@ -76,6 +84,35 @@ export const DEFAULT_AI_BUDGET_CONFIG: AiBudgetConfigValues = {
   per_call_max_usd: 0.15,
   daily_ceiling_usd: 0.2,
   image_lifetime_cap: 10,
+};
+
+/**
+ * Sensible default cap for the paying `tier_business` scope. The AI quote
+ * assistant is a Business-plan ($79/mo) feature, so a Business user should get
+ * materially more headroom than the $0.50 lifetime global fall-back — but the
+ * cap still has to bound a runaway loop well under one month's subscription.
+ * 20× the global lifetime ($10.00) with a $1.00/day ceiling and the same
+ * $0.15 per-call ceiling is a comfortable envelope for real editor + free-tool
+ * usage while keeping worst-case spend a small fraction of the plan price.
+ * This is a default the admin UI can pre-fill; the live value is whatever the
+ * admin saves into the `tier_business` row.
+ */
+export const DEFAULT_TIER_BUSINESS_BUDGET_CONFIG: AiBudgetConfigValues = {
+  cap_lifetime_usd: 10,
+  soft_warn_pct: 80,
+  per_call_max_usd: 0.15,
+  daily_ceiling_usd: 1,
+  image_lifetime_cap: 100,
+};
+
+/**
+ * Per-scope default config used to pre-fill the admin budget editor when a
+ * scope has no saved row yet. Any scope not listed falls back to the `global`
+ * defaults above.
+ */
+export const DEFAULT_AI_BUDGET_BY_SCOPE: Partial<Record<AiBudgetScope, AiBudgetConfigValues>> = {
+  global: DEFAULT_AI_BUDGET_CONFIG,
+  tier_business: DEFAULT_TIER_BUSINESS_BUDGET_CONFIG,
 };
 
 /* ─── ai_budget_audit_log ─── */

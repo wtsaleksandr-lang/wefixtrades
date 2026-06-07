@@ -30,6 +30,7 @@ import {
   recordSpend,
   type SupportedModel,
 } from "../services/quotequickAiBudget";
+import { chatRateLimiter } from "../services/rateLimiter";
 import { QUOTEQUICK_AI_TOOLS, QUOTEQUICK_SYSTEM_PROMPT } from "../services/quotequickAiTools";
 import { validateFormula } from "@shared/formulaEngine";
 import { getEffectiveTemplates } from "../lib/applyQuoteQuickOverrides";
@@ -154,6 +155,17 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
   /* ─── Streaming chat (POST) ────────────────────────────────────────── */
   app.post("/api/quotequick/ai/chat", requireAuth, async (req: Request, res: Response) => {
     const userId = (req.user as Express.User).id;
+
+    /* (0) Per-user rate limit — ~20 chats/min/user. Keyed on userId (this is
+     *     an authed endpoint), falling back to IP if the id is somehow absent.
+     *     Runs before any SSE headers so we can return a clean JSON 429. */
+    const rlKey = `qq-ai-chat:${userId ?? req.ip}`;
+    if (!(await chatRateLimiter.check(rlKey))) {
+      return res.status(429).json({
+        error: "rate_limited",
+        message: "You're sending messages too quickly. Please wait a moment and try again.",
+      });
+    }
 
     /* (1) Validate input. */
     const parsed = chatRequestSchema.safeParse(req.body);
@@ -384,6 +396,18 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
   });
 
   app.post("/api/ai/formula-help", requireAuth, async (req: Request, res: Response) => {
+    const userId = (req.user as Express.User).id;
+
+    /* (0) Per-user rate limit — ~20 formula-help calls/min/user, keyed on
+     *     userId (authed endpoint), IP fallback. */
+    const rlKey = `qq-formula-help:${userId ?? req.ip}`;
+    if (!(await chatRateLimiter.check(rlKey))) {
+      return res.status(429).json({
+        error: "rate_limited",
+        message: "You're requesting formula help too quickly. Please wait a moment and try again.",
+      });
+    }
+
     const parsed = formulaHelpSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "invalid_request", details: parsed.error.format() });
@@ -421,14 +445,70 @@ Rules:
 - Return ONE formula expression — no explanation, no prose.
 - Respond as JSON: { "formula": "<the formula expression>" }`;
 
+    /* Budget snapshot + pre-call gate — mirrors /api/quotequick/ai/chat and the
+     * portal free-tool routes so this Haiku call counts against (and is bounded
+     * by) the same lifetime / daily / per-call caps. Previously this endpoint
+     * was gate-less + unmetered: an authed user could loop it for uncapped
+     * Haiku spend. */
+    let snapshot;
+    try {
+      snapshot = await getUserBudgetSnapshot(userId);
+    } catch (err: any) {
+      log.error("budget snapshot failed pre-call (formula-help)", { error: err?.message });
+      return res.status(503).json({ error: "budget_lookup_failed" });
+    }
+
+    const estimate = estimateCallCost({
+      model: TEXT_MODEL,
+      systemPromptTokens: approxTokens(system),
+      historyTokens: 0,
+      messageTokens: approxTokens(prompt),
+      hasImage: false,
+    });
+    const decision = gateDecision(snapshot, estimate, false);
+    if (!decision.allowed) {
+      return res.status(402).json({
+        error: "budget_exceeded",
+        code: decision.code,
+        message: "Your AI budget for this period has been reached. Please try again later.",
+        snapshot: {
+          cumulative_usd: snapshot.cumulative_usd,
+          today_usd: snapshot.today_usd,
+          config: snapshot.config,
+          scope: snapshot.scope,
+        },
+      });
+    }
+
     try {
       const client = getSharedClient();
       const completion = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model: TEXT_MODEL,
         max_tokens: 256,
         system,
         messages: [{ role: "user", content: prompt }],
       });
+
+      /* Record real spend against the same caps. recordSpend failure must
+       * never swallow a successful generation — log it (don't silently catch)
+       * so the cap counters can be reconciled, then still return the formula. */
+      const usage = (completion as any)?.usage ?? {};
+      try {
+        await recordSpend({
+          userId,
+          model: TEXT_MODEL,
+          inputTokens: usage.input_tokens ?? 0,
+          outputTokens: usage.output_tokens ?? 0,
+          imageCount: 0,
+          cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+          cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+        });
+      } catch (spendErr: any) {
+        log.error("recordSpend failed (formula already generated)", {
+          error: spendErr?.message,
+        });
+      }
+
       // Pull the first text block.
       const text = (completion.content || [])
         .filter((b: any) => b?.type === "text")
@@ -439,7 +519,10 @@ Rules:
       let raw: any = null;
       try { raw = JSON.parse(text); } catch {
         const m = /\{[\s\S]*\}/.exec(text);
-        if (m) { try { raw = JSON.parse(m[0]); } catch {} }
+        // Best-effort fallback: extract the first {...} block. A parse failure
+        // here is expected (model returned prose) — leave raw null and fall
+        // through to the no_formula branch below.
+        if (m) { try { raw = JSON.parse(m[0]); } catch { raw = null; } }
       }
       const formula = typeof raw?.formula === "string" ? raw.formula.trim().slice(0, 600) : "";
       if (!formula) {
