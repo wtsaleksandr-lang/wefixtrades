@@ -112,10 +112,15 @@ export function buildAdvancedConfig(
     if (hit) merged = { ...merged, result_calc: hit.name };
   }
   if (header) {
-    const titleOverride = (header.title ?? '').trim();
     const subtitleOverride = (header.subtitle ?? '').trim();
     const mergedHeader = { ...(merged.header || { title: '', align: 'left' as const }) };
-    if (titleOverride !== '') mergedHeader.title = header.title!;
+    // BUG-1 fix (fix/inline-title-edit): apply the header title whenever it is
+    // DEFINED — including an intentionally-cleared empty string — so the user
+    // deleting the title to retype it does NOT snap the template default back
+    // ("doesn't work"). `null`/`undefined` means "never set" → keep template
+    // default; only an explicit value (incl. "") overrides. Subtitle keeps the
+    // legacy "non-empty only" semantics (no inline editor clears it).
+    if (header.title != null) mergedHeader.title = header.title;
     if (subtitleOverride !== '') mergedHeader.subtitle = header.subtitle;
     merged = { ...merged, header: mergedHeader };
   }

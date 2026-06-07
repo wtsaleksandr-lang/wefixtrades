@@ -143,10 +143,18 @@ export default function WidgetSelect({
       {!stacked && (
         <label
           htmlFor={id}
+          title={label}
           style={{
             position: 'absolute', left: 14, top: 4, fontSize: 12, fontWeight: 700,
             letterSpacing: '0.015em', color: labelColor, pointerEvents: 'none',
             lineHeight: 1, background: 'transparent', padding: '0 2px',
+            // Clamp the floated label to ONE line so a long question
+            // ("How often do you want service?") can't wrap to 2 lines and
+            // overprint the value span ("One-Off") below it. maxWidth leaves
+            // room for the chevron + right padding; full text stays available
+            // via the native title tooltip.
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            maxWidth: 'calc(100% - 28px)',
           }}
         >
           {label}

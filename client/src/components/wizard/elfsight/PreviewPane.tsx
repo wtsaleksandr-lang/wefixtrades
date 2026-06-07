@@ -66,6 +66,11 @@ interface Props {
    *  the inline title editor binds to the header title; when absent it falls
    *  back to the legacy business-name binding. */
   onHeaderTitleChange?: (v: string) => void;
+  /** BUG-3 fix (fix/inline-title-edit): fired (debounced) when the user COMMITS
+   *  an inline title edit (Enter / blur). Lets the shell persist the draft so a
+   *  title typed inline survives navigation without a separate "Save draft"
+   *  click. Optional — when absent, inline edits behave as before. */
+  onCommitTitle?: () => void;
   /** Wave J item 5 — business logo (data URL or null). Surfaces in the
    *  preview header alongside the business name. */
   logo?: string | null;
@@ -317,7 +322,7 @@ function mapPreviewSpot(
 }
 
 export default function PreviewPane({
-  businessName, onBusinessNameChange, onHeaderTitleChange, logo, layout, device, fields, calculations,
+  businessName, onBusinessNameChange, onHeaderTitleChange, onCommitTitle, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category,
   onRemoveField, onAddField, onUpdateField, onPreviewSpotEdit,
   hostedFrame = false,
@@ -1582,23 +1587,58 @@ export default function PreviewPane({
   }, [device]);
 
   // Wave L E5 — editable preview header title.
+  // Desktop-regression fix (fix/inline-title-edit): when the title can't be
+  // measured to a real rect on the first frame (it lands empty inside the
+  // zoomed desktop stage), we mount the input at this fallback position so it
+  // ALWAYS appears in the DOM; the rAF re-measure + ResizeObserver then snap it
+  // onto the live title. Top-left of the overlay host, comfortable defaults.
+  const FALLBACK_TITLE_BOX = { left: 16, top: 16, width: 240, height: 32 } as const;
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleBox, setTitleBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
-  const measureTitle = useCallback(() => {
+  // BUG-2 fix (fix/inline-title-edit): returns the title node when one exists
+  // (so callers can scroll-into-view), else null. Always RE-MEASURES into
+  // `titleBox` when the box is valid; when it's zero/empty (off-screen, not yet
+  // laid out, or measured inside a collapsed ancestor) it leaves the previous
+  // box in place rather than clearing it — clearing would unmount the input
+  // (the render gate requires `titleBox`), which is exactly the desktop
+  // regression we're fixing. The rAF re-measure + ResizeObserver below correct
+  // the position once the title has a real box.
+  //
+  // Desktop-zoom math: on desktop the overlay host lives inside the
+  // `.qq-preview-stage`, which carries `transform: scale(zoom)`. Both
+  // getBoundingClientRect() calls return POST-transform (scaled) screen
+  // coordinates, but the absolutely-positioned input is a child of the host
+  // and therefore lives in the host's UNSCALED local coordinate space. So the
+  // scaled rect deltas must be divided by the host's effective scale to land
+  // on the title. We derive the scale empirically from the host itself
+  // (getBoundingClientRect().width ÷ offsetWidth) so it's exactly 1 on the
+  // mobile-clean path (no transformed ancestor) and equals `zoom` on desktop —
+  // no hardcoded dependency on the zoom state, and mobile stays untouched.
+  const measureTitle = useCallback((): HTMLElement | null => {
     const host = overlayHostRef.current;
-    if (!host) return;
+    if (!host) return null;
     const t = host.querySelector<HTMLElement>('[data-testid="advanced-title"]');
-    if (!t) { setTitleBox(null); return; }
+    if (!t) return null;
     const hostRect = host.getBoundingClientRect();
     const r = t.getBoundingClientRect();
+    // A zero/empty box means the title isn't laid out yet (font load, mobile
+    // reflow, or measured before the widget painted). Don't overwrite a good
+    // box with a stale/invalid one and DON'T clear it (clearing unmounts the
+    // input) — just return the node so the caller can scroll + re-measure.
+    if (r.width <= 0 || r.height <= 0) return t;
+    // Effective scale of the host (1 when no transformed ancestor; `zoom` on
+    // the desktop scaled stage). offsetWidth is the unscaled layout width.
+    const scale = host.offsetWidth > 0 ? hostRect.width / host.offsetWidth : 1;
+    const s = scale > 0 ? scale : 1;
     setTitleBox({
-      left: r.left - hostRect.left,
-      top: r.top - hostRect.top,
-      width: Math.max(r.width, 200),
-      height: r.height,
+      left: (r.left - hostRect.left) / s,
+      top: (r.top - hostRect.top) / s,
+      width: Math.max(r.width / s, 200),
+      height: r.height / s,
     });
+    return t;
   }, []);
 
   useEffect(() => {
@@ -1620,11 +1660,22 @@ export default function PreviewPane({
     const hostEl = overlayHostRef.current;
     paneEl?.addEventListener('scroll', onScroll, { passive: true });
     if (hostEl && hostEl !== paneEl) hostEl.addEventListener('scroll', onScroll, { passive: true });
+    // BUG-2 fix (fix/inline-title-edit): layout can shift WHILE editing (font
+    // load, the title text growing as the user types, mobile reflow). A
+    // ResizeObserver on the title node keeps `titleBox` pinned over the title
+    // so the absolutely-positioned input never drifts off the live title.
+    let ro: ResizeObserver | null = null;
+    const titleNode = hostEl?.querySelector<HTMLElement>('[data-testid="advanced-title"]') ?? null;
+    if (titleNode && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measureTitle());
+      ro.observe(titleNode);
+    }
     return () => {
       cancelAnimationFrame(id1);
       window.removeEventListener('resize', onResize);
       paneEl?.removeEventListener('scroll', onScroll);
       if (hostEl && hostEl !== paneEl) hostEl.removeEventListener('scroll', onScroll);
+      ro?.disconnect();
     };
   }, [titleEditing, measureTitle, businessName, header]);
 
@@ -1634,10 +1685,34 @@ export default function PreviewPane({
     // business-name binding otherwise. Open only when at least one commit
     // path exists.
     if (!onHeaderTitleChange && !onBusinessNameChange) return;
-    measureTitle();
+    // Desktop-regression fix (fix/inline-title-edit): ALWAYS mount the input
+    // when the pencil is clicked, as long as the title NODE exists — never
+    // bail-to-never-mount on an invalid/empty initial measurement. The earlier
+    // guard ("don't open if the box couldn't be measured") fired on the desktop
+    // scaled-canvas path: the title sometimes measures to an empty box on the
+    // first frame inside the zoomed `.qq-preview-stage`, so `titleBox` stayed
+    // null and the render gate (`titleEditing && titleBox`) kept the input out
+    // of the DOM entirely. We now seed a sensible fallback box when the initial
+    // measurement is missing, set `titleEditing = true` unconditionally, then
+    // let the rAF re-measure + ResizeObserver + scroll-into-view correct the
+    // position on the next frame(s).
+    const node = measureTitle();
+    if (!node) return; // title element genuinely not rendered — nothing to edit
+    setTitleBox((prev) => prev ?? FALLBACK_TITLE_BOX);
+    if (!titleBox) {
+      // No valid box yet — bring the title into view so the next measure
+      // lands a real rect, but mount the input now regardless.
+      node.scrollIntoView({ block: 'center', inline: 'nearest' });
+    }
     setTitleEditing(true);
-    setTimeout(() => { titleInputRef.current?.focus(); titleInputRef.current?.select(); }, 0);
-  }, [onHeaderTitleChange, onBusinessNameChange, measureTitle]);
+    // Re-measure on the next frame so the fallback box is replaced by the real
+    // title rect (origin- and scale-corrected) before the user sees it.
+    requestAnimationFrame(() => {
+      measureTitle();
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    });
+  }, [onHeaderTitleChange, onBusinessNameChange, measureTitle, titleBox]);
 
   // fix/tmpl-editor-mobile (B) — inline title-editor bindings. When
   // `onHeaderTitleChange` is wired the editor reads/writes the HEADER TITLE
@@ -1654,6 +1729,32 @@ export default function PreviewPane({
     if (onHeaderTitleChange) onHeaderTitleChange(v);
     else onBusinessNameChange?.(v);
   }, [onHeaderTitleChange, onBusinessNameChange]);
+
+  // BUG-3 fix (fix/inline-title-edit): autosave the draft when the user commits
+  // an inline title edit, so the title survives navigation without a separate
+  // "Save draft" click. Debounced (700ms) so rapid Enter/blur cycles or fast
+  // re-edits don't spam the save endpoint, and skipped entirely when the value
+  // is unchanged from the value at editor-open time (no needless write).
+  const titleValueAtOpenRef = useRef<string>('');
+  const saveDebounceRef = useRef<number | null>(null);
+  // Snapshot the title value when the editor opens, so commit can skip the save
+  // when the user opened and closed without changing anything.
+  useEffect(() => {
+    if (titleEditing) titleValueAtOpenRef.current = titleEditValue;
+  }, [titleEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => {
+    if (saveDebounceRef.current) window.clearTimeout(saveDebounceRef.current);
+  }, []);
+  const commitTitleAndSave = useCallback(() => {
+    setTitleEditing(false);
+    if (!onCommitTitle) return;
+    if (titleEditValue === titleValueAtOpenRef.current) return; // unchanged → no save
+    if (saveDebounceRef.current) window.clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = window.setTimeout(() => {
+      saveDebounceRef.current = null;
+      onCommitTitle();
+    }, 700);
+  }, [onCommitTitle, titleEditValue]);
 
   // Wave L E3 — swipe-to-delete on mobile.
   const [undo, setUndo] = useState<null | { field: TemplateField; index: number }>(null);
@@ -1976,7 +2077,7 @@ export default function PreviewPane({
               placeholder={titleEditPlaceholder}
               value={titleEditValue}
               onChange={(e) => commitTitleEdit(e.target.value)}
-              onBlur={() => setTitleEditing(false)}
+              onBlur={commitTitleAndSave}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === 'Escape') {
                   (e.target as HTMLInputElement).blur();
@@ -2153,7 +2254,7 @@ export default function PreviewPane({
                     placeholder={titleEditPlaceholder}
                     value={titleEditValue}
                     onChange={(e) => commitTitleEdit(e.target.value)}
-                    onBlur={() => setTitleEditing(false)}
+                    onBlur={commitTitleAndSave}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === 'Escape') {
                         (e.target as HTMLInputElement).blur();
@@ -2286,7 +2387,7 @@ export default function PreviewPane({
                     placeholder={titleEditPlaceholder}
                     value={titleEditValue}
                     onChange={(e) => commitTitleEdit(e.target.value)}
-                    onBlur={() => setTitleEditing(false)}
+                    onBlur={commitTitleAndSave}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === 'Escape') {
                         (e.target as HTMLInputElement).blur();
@@ -3226,7 +3327,13 @@ export default function PreviewPane({
           border-radius: 6px;
           padding: 0 6px;
           box-sizing: border-box;
-          z-index: 3;
+          /* BUG-2 fix (fix/inline-title-edit): the inline title input must sit
+           * ABOVE every other preview overlay or it is painted under them and
+           * reads as "nothing happens" — especially on mobile. In-host overlays
+           * top out at z-index 13 (resize-dims) and the floating
+           * InlineStyleToolbar is position:fixed at z-index 8000. 8001 clears
+           * all of them while staying below app-level modals. */
+          z-index: 8001;
         }
         .qq-preview-title-edit::placeholder {
           color: #94a3b8; font-weight: 600;

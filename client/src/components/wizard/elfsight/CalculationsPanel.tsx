@@ -28,6 +28,25 @@ function uid(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/** Derive a short, sensible calc name from the user's plain-English description.
+ *  Takes the first few meaningful words, title-cases them, and trims to a
+ *  reasonable length so the new row has a readable label instead of "Subtotal".
+ *  De-duped against existing names by the caller. */
+function nameFromDescription(desc: string, existing: TemplateCalculation[]): string {
+  const cleaned = desc.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const words = cleaned.split(' ').filter(Boolean).slice(0, 4);
+  let base = words.join(' ');
+  if (base.length > 40) base = base.slice(0, 40).trim();
+  if (!base) base = 'Calculation';
+  // Capitalize the first letter; keep the rest as typed (names can be mixed case).
+  base = base.charAt(0).toUpperCase() + base.slice(1);
+  const taken = new Set(existing.map((c) => c.name.toLowerCase()));
+  if (!taken.has(base.toLowerCase())) return base;
+  let n = 2;
+  while (taken.has(`${base} ${n}`.toLowerCase())) n++;
+  return `${base} ${n}`;
+}
+
 /** Default calc appended when the user clicks "Add calculation". */
 function makeBlankCalc(existing: TemplateCalculation[]): TemplateCalculation {
   // Pick a non-colliding default name.
@@ -51,11 +70,79 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
   // ID-prefix counter so we don't re-trigger autofocus on later re-renders.
   const seenRef = useRef<Set<string>>(new Set());
 
+  // Panel-level "describe your formula" AI generator. Reuses the SAME
+  // /api/ai/formula-help endpoint that FormulaEditor's per-row FormulaAIButton
+  // uses; on success it appends a NEW calculation via the existing add path.
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   const handleAdd = () => {
     const next = makeBlankCalc(calculations);
     setJustAddedId(next.id);
     seenRef.current.add(next.id);
     onChange([...calculations, next]);
+  };
+
+  /** Generate a brand-new calculation from a plain-English description.
+   *  Mirrors FormulaEditor.FormulaAIButton's request body exactly
+   *  (prompt + availableFields + precedingCalcs), then creates the calc
+   *  through the same onChange add path handleAdd uses — never bypassing it. */
+  const handleGenerate = async () => {
+    const trimmed = aiPrompt.trim();
+    if (!trimmed || aiBusy) return;
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const res = await fetch('/api/ai/formula-help', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: trimmed,
+          // All fields and ALL current calcs are valid references for a new
+          // calc appended to the end of the list (it sees everything above it).
+          availableFields: fields.map((f) => f.name),
+          precedingCalcs: calculations.map((c) => c.name),
+        }),
+      });
+      const data: any = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Honest, friendly messages for the budget-gated / auth / outage codes
+        // the endpoint enforces; otherwise surface the server's own message.
+        if (res.status === 401) {
+          setAiError('Sign in to use AI formula help.');
+        } else if (res.status === 402 || res.status === 403 || res.status === 429) {
+          setAiError(data?.message || data?.error || "You've reached your AI usage limit for now. Try again later or upgrade your plan.");
+        } else if (res.status === 503) {
+          setAiError('AI is unavailable right now — try again shortly.');
+        } else {
+          setAiError(data?.message || data?.error || `Couldn't generate a calculation (HTTP ${res.status}).`);
+        }
+        return;
+      }
+      const formula = typeof data?.formula === 'string' ? data.formula.trim() : '';
+      if (!formula) {
+        setAiError('AI returned an empty formula.');
+        return;
+      }
+      // Build the new calc off the blank-calc default (correct id/format),
+      // override name + formula, and append through the existing add path.
+      const blank = makeBlankCalc(calculations);
+      const next: TemplateCalculation = {
+        ...blank,
+        name: nameFromDescription(trimmed, calculations),
+        formula,
+      };
+      setJustAddedId(next.id);
+      seenRef.current.add(next.id);
+      onChange([...calculations, next]);
+      setAiPrompt('');
+    } catch (err: any) {
+      setAiError(String(err?.message ?? 'Network error'));
+    } finally {
+      setAiBusy(false);
+    }
   };
 
   const handleRowChange = (idx: number, next: TemplateCalculation) => {
@@ -107,6 +194,51 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
           </button>
         )}
       </header>
+
+      {/* Panel-level "describe your formula" AI generator. Surfaces the
+          Elfsight-style plain-English → formula capability at the section
+          level (it also exists per-row in FormulaEditor) so it's discoverable
+          before any calc exists. Title-in-field textarea + Generate; on
+          success a NEW calculation is appended through the existing add path. */}
+      <div className="qq-calcs-ai" data-testid="calcs-ai-generator">
+        <label className="qq-calcs-ai-field">
+          <span className="qq-calcs-ai-titlecue">
+            <span className="qq-calcs-ai-title">Describe a calculation</span>
+          </span>
+          <textarea
+            className="qq-calcs-ai-input"
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            placeholder="e.g. Add 10% tax to the subtotal, then a $25 booking fee"
+            rows={2}
+            disabled={aiBusy}
+            data-testid="calcs-ai-input"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleGenerate();
+              }
+            }}
+          />
+        </label>
+        <div className="qq-calcs-ai-actions">
+          <button
+            type="button"
+            className="qq-calcs-ai-go"
+            onClick={handleGenerate}
+            disabled={aiBusy || !aiPrompt.trim()}
+            data-testid="calcs-ai-generate"
+          >
+            <span aria-hidden="true">✨</span>
+            <span>{aiBusy ? 'Generating…' : 'Generate calculation'}</span>
+          </button>
+        </div>
+        {aiError && (
+          <div className="qq-calcs-ai-err" role="alert" data-testid="calcs-ai-error">
+            {aiError}
+          </div>
+        )}
+      </div>
 
       {isEmpty ? (
         <div className="qq-calcs-empty" data-testid="editor-calculations-empty">
@@ -176,6 +308,66 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
         .qq-calcs-sub {
           margin: 3px 0 0; font-size: 11.5px; color: ${p.colors.subtle};
           line-height: 1.6;
+        }
+        /* Panel-level "describe your formula" AI generator card. */
+        .qq-calcs-ai {
+          display: flex; flex-direction: column; gap: 8px;
+          padding: 10px 12px; border-radius: 10px;
+          background: ${p.colors.accentLighter};
+          border: 1px solid ${p.colors.accentLight};
+        }
+        .qq-calcs-ai-field {
+          display: flex; flex-direction: column; gap: 2px;
+        }
+        .qq-calcs-ai-titlecue {
+          display: inline-flex; align-items: center; gap: 6px;
+        }
+        .qq-calcs-ai-title {
+          font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.body};
+          text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .qq-calcs-ai-input {
+          width: 100%; box-sizing: border-box; resize: vertical;
+          min-height: 48px;
+          font: inherit; font-size: 13px; line-height: 1.45;
+          padding: 8px 10px; border-radius: 8px;
+          background: #fff; color: ${p.colors.heading};
+          border: 1px solid ${p.colors.border};
+        }
+        .qq-calcs-ai-input::placeholder { color: ${p.colors.muted}; }
+        .qq-calcs-ai-input:focus {
+          outline: 2px solid ${p.colors.accentLight};
+          outline-offset: 0; border-color: ${p.colors.accent};
+        }
+        .qq-calcs-ai-input:disabled { opacity: 0.6; cursor: not-allowed; }
+        .qq-calcs-ai-actions {
+          display: flex; justify-content: flex-end;
+        }
+        .qq-calcs-ai-go {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 14px; border-radius: 8px;
+          font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+          background: ${p.colors.accent}; color: #fff;
+          border: 1px solid ${p.colors.accent};
+          box-shadow: ${p.shadows.button};
+          transition: background 0.12s ease, border-color 0.12s ease;
+        }
+        .qq-calcs-ai-go:hover:not(:disabled) {
+          background: ${p.colors.accentDark}; border-color: ${p.colors.accentDark};
+        }
+        .qq-calcs-ai-go:disabled {
+          opacity: 0.55; cursor: not-allowed; box-shadow: none;
+        }
+        .qq-calcs-ai-err {
+          font-size: 11.5px; line-height: 1.4;
+          padding: 7px 10px; border-radius: 8px;
+          color: ${p.colors.danger};
+          background: ${p.colors.dangerLight};
+          border: 1px solid ${p.colors.danger};
+        }
+        @media (max-width: 480px) {
+          .qq-calcs-ai-go { width: 100%; justify-content: center; }
         }
         .qq-calcs-helptoken {
           display: inline-block; margin: 0 3px;

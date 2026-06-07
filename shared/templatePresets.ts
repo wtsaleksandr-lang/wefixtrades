@@ -630,7 +630,15 @@ export interface TrustBadge {
     | 'check-circle' | 'check-circle-2'
     | 'award' | 'lock' | 'star' | 'thumbs-up'
     | 'badge-check' | 'verified'
-    | 'clipboard-check' | 'clock' | 'leaf' | 'file-badge';
+    | 'clipboard-check' | 'clock' | 'leaf' | 'file-badge'
+    // FIX 5b — tradesperson/trust additions. Keep in sync with
+    // TRUST_ICON_OPTIONS (StyleTab.tsx) and ICON_MAP (TrustBadgeRow.tsx).
+    | 'wrench' | 'hammer' | 'hard-hat' | 'truck' | 'phone'
+    | 'map-pin' | 'calendar' | 'credit-card' | 'heart' | 'users'
+    | 'zap' | 'handshake';
+  /** Optional icon colour (any CSS colour). Defaults to the chip's text
+   *  colour (currentColor) when unset, so existing badges are unaffected. */
+  color?: string;
   /** Optional visual variant — reserved for future emphasis (default vs pro). */
   variant?: 'default' | 'pro';
 }

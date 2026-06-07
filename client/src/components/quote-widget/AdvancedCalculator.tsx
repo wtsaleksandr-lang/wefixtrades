@@ -2375,7 +2375,10 @@ export default function AdvancedCalculator({
             </div>
             {subtitle && (() => {
               const props = richTextRenderProps(subtitle);
-              const baseStyle = { fontSize: '13px', color: cc.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.5 } as React.CSSProperties;
+              // 13px → 12px and slightly tighter line-height: the trust line was
+              // reading as a dense run-on. Colour stays the theme body token
+              // (cc.textBody) — no hardcoded hex.
+              const baseStyle = { fontSize: '12px', color: cc.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.4 } as React.CSSProperties;
               if (props.__html) {
                 return (
                   <p
@@ -2387,6 +2390,38 @@ export default function AdvancedCalculator({
                   />
                 );
               }
+              const plain = props.text ?? '';
+              // If the trust line is mid-dot / bullet separated, render each
+              // claim as its own span with a muted dividing dot between them
+              // (flex-wrap so it reflows on mobile) instead of one run-on
+              // sentence. The divider reuses the same theme body token (no hex).
+              const segments = plain
+                .split(/\s*[·•]\s*/)
+                .map((s) => s.trim())
+                .filter(Boolean);
+              if (segments.length > 1) {
+                return (
+                  <div
+                    data-testid="advanced-subtitle"
+                    data-component-name="Subtitle"
+                    data-component-type="subtitle"
+                    style={{
+                      ...baseStyle,
+                      display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+                      justifyContent: justify, gap: '2px 0',
+                    }}
+                  >
+                    {segments.map((seg, i) => (
+                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        {i > 0 && (
+                          <span aria-hidden="true" style={{ opacity: 0.4, margin: '0 6px' }}>·</span>
+                        )}
+                        <span>{seg}</span>
+                      </span>
+                    ))}
+                  </div>
+                );
+              }
               return (
                 <p
                   data-testid="advanced-subtitle"
@@ -2394,7 +2429,7 @@ export default function AdvancedCalculator({
                   data-component-type="subtitle"
                   style={baseStyle}
                 >
-                  {props.text}
+                  {plain}
                 </p>
               );
             })()}
@@ -4238,8 +4273,19 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
         {/* Group caption (same style as a multi-select's group label) so when a
             toggle sits beside a labelled field its control card lines up with
             that field's option cards instead of floating (Alex's page-2
-            alignment). */}
-        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
+            alignment). In FLOAT mode the toggle title gets its OWN single-line,
+            left-aligned style (NOT the centered groupHeaderStyle) so a long
+            label like "Add a deep clean (inside oven, fridge, baseboards)" stays
+            on one line (ellipsized) with the toggle card under it, instead of
+            centering + wrapping to 2-3 lines and colliding. */}
+        <label
+          title={f.label}
+          style={stacked ? stackedLabelStyle : {
+            ...groupHeaderStyle(c, bodyIsDark),
+            textAlign: 'left',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}
+        >{f.label}</label>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
           padding: '12px 14px', borderRadius: radiusPx,

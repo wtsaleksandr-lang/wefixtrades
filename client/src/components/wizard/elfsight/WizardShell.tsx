@@ -1788,6 +1788,11 @@ export default function WizardShell({ embed = false }: Props) {
                      the preview HEADER TITLE commits to state.header.title via
                      setHeader, keeping the BuildTab header field in sync. */
                   onHeaderTitleChange={(v) => setHeader({ ...(state.header ?? {}), title: v })}
+                  /* BUG-3 fix (fix/inline-title-edit): persist the draft when an
+                     inline title edit is committed (debounced inside PreviewPane)
+                     so a title typed on the mockup survives navigation without a
+                     separate "Save draft" click. Reuses the existing mutation. */
+                  onCommitTitle={() => saveDraftMutation.mutate()}
                   logo={state.logo ?? null}
                   layout={state.layout}
                   device={device}
