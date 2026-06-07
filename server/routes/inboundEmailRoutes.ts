@@ -22,8 +22,14 @@ import multer from "multer";
 import crypto from "crypto";
 import { createLogger } from "../lib/logger";
 import { ingestInboundEmail } from "../services/inboundEmailIngest";
+import { inboundEmailRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("InboundEmail");
+
+/** Best-effort client IP for rate-limiting (honours the proxy header). */
+function getClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
+}
 
 /* Multipart parser — fields only. Attachment file parts are drained and
  * dropped; attachment handling lands with shared-files retention (3g). */
@@ -106,6 +112,22 @@ function requireInboundToken(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
+/**
+ * Per-IP rate limit — runs AFTER the token check but BEFORE multer parses the
+ * body, so a leaked-token flood is rejected cheaply (no multipart parse, no
+ * ingestion, no LLM classifier spend). 60/min/IP is generous for SendGrid's
+ * low legitimate inbound volume. Returns 429 on exceed; SendGrid backs off.
+ */
+async function limitInboundRate(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const ip = getClientIp(req);
+  if (!(await inboundEmailRateLimiter.check(`inbound-email:${ip}`))) {
+    log.warn("[inbound-email] rate-limited", { ip });
+    res.status(429).json({ error: "Too many requests" });
+    return;
+  }
+  next();
+}
+
 /* ─── Route ─── */
 
 export function registerInboundEmailRoutes(app: Express): void {
@@ -117,6 +139,7 @@ export function registerInboundEmailRoutes(app: Express): void {
   app.post(
     "/api/inbound/email/:token",
     requireInboundToken,
+    limitInboundRate,
     upload.any(),
     async (req: Request, res: Response) => {
       try {

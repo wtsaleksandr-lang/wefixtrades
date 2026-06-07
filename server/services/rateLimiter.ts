@@ -271,3 +271,16 @@ export const snapshotMutateRateLimiter = new RateLimiter(
   30,
   AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
 );
+
+/**
+ * Inbound email webhook (POST /api/inbound/email/:token). Token-gated, but if
+ * the path token ever leaks, an attacker could POST a flood that spawns tickets
+ * and burns LLM classifier spend. SendGrid Inbound Parse's legitimate volume is
+ * low (a handful of forwarded mails per minute at most), so 60 / min / IP is
+ * generous for real traffic while bounding a leaked-token flood. Pairs with the
+ * classifier-invocation ceiling in inboundEmailConcierge for defence in depth. */
+export const inboundEmailRateLimiter = new RateLimiter(
+  defaultStore,
+  60,
+  60_000,
+);
