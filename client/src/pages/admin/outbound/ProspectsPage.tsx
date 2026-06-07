@@ -560,7 +560,7 @@ export default function ProspectsPage() {
   if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
   params.set("limit", "100");
 
-  const { data, isLoading } = useQuery<{ data: ProspectRow[]; total: number }>({
+  const { data, isLoading, isError, refetch } = useQuery<{ data: ProspectRow[]; total: number }>({
     queryKey: ["/api/admin/outbound/prospects", search, statusFilter],
     queryFn: async () => {
       const res = await fetch(`/api/admin/outbound/prospects?${params}`, { credentials: "include" });
@@ -679,6 +679,16 @@ export default function ProspectsPage() {
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Loading prospects...</div>
+          ) : isError ? (
+            <div className="p-8 text-center">
+              <AlertTriangle className="w-6 h-6 text-red-500 mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground mb-1">Couldn't load prospects</p>
+              <p className="text-xs text-muted-foreground mb-3">The server returned an error. This is a backend failure, not an empty list.</p>
+              <Button size="sm" variant="outline" onClick={() => refetch()} className="gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5" />
+                Try again
+              </Button>
+            </div>
           ) : rows.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
               No prospects found.{" "}
