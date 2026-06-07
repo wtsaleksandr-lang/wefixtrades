@@ -283,6 +283,101 @@ export function verifyWebhookSignature(rawBody: Buffer | undefined, signature: s
   }
 }
 
+/* ─── Custom-LLM (/conversation) authentication ─── */
+
+/**
+ * Shared secret used to authenticate Vapi's custom-llm POSTs to
+ * /api/vapi/conversation.
+ *
+ * WHY a path/header secret and not the webhook HMAC signature:
+ * Vapi signs `serverUrl` (server-message webhook) requests with the
+ * `x-vapi-signature` HMAC header, which is why /api/vapi/webhook can verify
+ * an HMAC. Vapi's custom-llm `model.url` requests are a DIFFERENT transport —
+ * they are NOT HMAC-signed with the server secret by default; custom-llm auth
+ * is carried by whatever credential is baked into the configured `model.url`
+ * (we control that URL end-to-end in buildAssistantConfig /
+ * buildTradeLineAssistantConfig / upsertVapiAssistant). So the robust,
+ * non-breaking gate is a shared bearer secret that travels on every URL we
+ * hand Vapi. We accept it from either the Authorization: Bearer header or a
+ * trailing /s/<secret> path segment, and ALSO accept a valid x-vapi-signature
+ * (defence in depth — if a future Vapi config does sign these, it still works).
+ *
+ * Falls back to VAPI_WEBHOOK_SECRET so a single configured secret protects
+ * both endpoints; a dedicated VAPI_CONVERSATION_SECRET can override.
+ */
+export function getConversationSecret(): string | undefined {
+  return process.env.VAPI_CONVERSATION_SECRET || process.env.VAPI_WEBHOOK_SECRET || undefined;
+}
+
+/**
+ * Builds the custom-llm URL Vapi should POST conversation turns to, with the
+ * shared secret embedded as a trailing path segment when configured. Vapi
+ * calls back exactly the URL we provide, so the secret rides along on every
+ * legitimate request while a caller hitting the bare path is rejected.
+ */
+export function buildConversationUrl(serverUrl?: string): string {
+  const base = serverUrl ? `${serverUrl}/api/vapi/conversation` : "/api/vapi/conversation";
+  const secret = getConversationSecret();
+  return secret ? `${base}/s/${encodeURIComponent(secret)}` : base;
+}
+
+/**
+ * Authenticate an inbound /api/vapi/conversation request.
+ * Accepts (any of):
+ *   1. A valid x-vapi-signature HMAC over the raw body (same as the webhook).
+ *   2. Authorization: Bearer <secret> matching the conversation secret.
+ *   3. A path secret (/s/<secret>) matching the conversation secret.
+ *
+ * Production with no secret configured → reject (fail closed).
+ * Development with no secret configured → allow (with warning), matching the
+ * webhook verifier's dev behaviour so local testing is not blocked.
+ */
+export function verifyConversationAuth(
+  rawBody: Buffer | undefined,
+  signature: string | undefined,
+  authorizationHeader: string | undefined,
+  pathSecret: string | undefined,
+): boolean {
+  const secret = getConversationSecret();
+  const isProd = process.env.NODE_ENV === "production";
+
+  if (!secret) {
+    if (isProd) {
+      log.error("No VAPI_CONVERSATION_SECRET / VAPI_WEBHOOK_SECRET set in production — rejecting /conversation");
+      return false;
+    }
+    log.warn("No conversation secret configured — allowing unverified /conversation in development");
+    return true;
+  }
+
+  // 1. Defence in depth: accept a valid webhook-style HMAC signature if present.
+  if (signature && verifyWebhookSignature(rawBody, signature)) {
+    return true;
+  }
+
+  // 2/3. Constant-time compare of the bearer token or path secret.
+  const presented =
+    (authorizationHeader && authorizationHeader.startsWith("Bearer ")
+      ? authorizationHeader.slice("Bearer ".length).trim()
+      : undefined) || pathSecret;
+
+  if (!presented) {
+    log.warn("No bearer/path secret present on /conversation request");
+    return false;
+  }
+
+  try {
+    const crypto = require("crypto");
+    const a = Buffer.from(presented);
+    const b = Buffer.from(secret);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch (err) {
+    log.error("Conversation auth comparison threw", { error: (err as Error).message });
+    return false;
+  }
+}
+
 /* ─── Translate Vapi transcript into shared ChatMessage[] ─── */
 
 export function translateTranscript(vapiMessages: VapiTranscriptMessage[]): ChatMessage[] {
@@ -369,9 +464,16 @@ function setCachedClientServiceId(key: string, csId: number): void {
 /**
  * Resolve which TradeLine client a Vapi call belongs to.
  *
- * Strategy 1: metadata.clientServiceId (explicit assignment from Vapi assistant config)
- * Strategy 2: phoneNumberId lookup (Vapi phone number -> client_services metadata)
- * Strategy 3: primaryBusinessNumber match (client's business number forwards to Vapi)
+ * SECURITY (cross-tenant binding): the call metadata is CALLER-SUPPLIED and must
+ * never be the authoritative tenant signal — a forged call could set
+ * metadata.clientServiceId to bind to any tenant. Resolution order:
+ *
+ *   Strategy 1 (AUTHORITATIVE): phoneNumberId — the Vapi-attested number that
+ *     received the call. Wins outright.
+ *   Strategy 2 (FALLBACK): primaryBusinessNumber match on the called number.
+ *   Strategy 3 (UNTRUSTED FALLBACK): metadata.clientServiceId — only used when
+ *     neither phone signal resolves. If a phone signal DID resolve, the metadata
+ *     is ignored; if it disagrees with the phone-derived client it is refused.
  */
 export async function resolveTradeLineClient(
   callMetadata?: Record<string, any>,
@@ -379,34 +481,45 @@ export async function resolveTradeLineClient(
   phoneNumberId?: string,
 ): Promise<ResolvedTradeLineClient | null> {
   try {
-    // Strategy 1: explicit clientServiceId in call metadata
-    const csId = callMetadata?.clientServiceId ?? callMetadata?.client_service_id;
-    if (csId) {
-      const numId = typeof csId === "number" ? csId : parseInt(csId);
-      if (!isNaN(numId)) {
-        const resolved = await resolveByClientServiceId(numId);
-        if (resolved) return resolved;
-      }
+    // Parse the caller-supplied metadata hint (UNTRUSTED — used only as a
+    // last-resort fallback, and cross-checked against any phone-derived client).
+    const metaCsRaw = callMetadata?.clientServiceId ?? callMetadata?.client_service_id;
+    let metaCsId: number | undefined;
+    if (metaCsRaw !== undefined && metaCsRaw !== null) {
+      const numId = typeof metaCsRaw === "number" ? metaCsRaw : parseInt(metaCsRaw);
+      if (!isNaN(numId)) metaCsId = numId;
     }
 
-    // Strategy 2: lookup by Vapi phoneNumberId (the Vapi number that received the call)
+    // Strategy 1 (AUTHORITATIVE): lookup by Vapi phoneNumberId (the Vapi-attested
+    // number that received the call). This wins over caller-supplied metadata.
     if (phoneNumberId) {
       const cacheKey = `vapi-phone:${phoneNumberId}`;
       const cached = getCachedClientServiceId(cacheKey);
-      if (cached) {
-        const resolved = await resolveByClientServiceId(cached);
-        if (resolved) return resolved;
+      let csIdByPhone = cached;
+      if (!csIdByPhone) {
+        const looked = await storage.findClientServiceByVapiPhoneNumberId(phoneNumberId);
+        if (looked) {
+          setCachedClientServiceId(cacheKey, looked);
+          csIdByPhone = looked;
+        }
       }
-
-      const csIdByPhone = await storage.findClientServiceByVapiPhoneNumberId(phoneNumberId);
       if (csIdByPhone) {
-        setCachedClientServiceId(cacheKey, csIdByPhone);
         const resolved = await resolveByClientServiceId(csIdByPhone);
-        if (resolved) return resolved;
+        if (resolved) {
+          // Refuse a metadata hint that disagrees with the attested phone number —
+          // trust the phone, but surface the mismatch for monitoring.
+          if (metaCsId !== undefined && metaCsId !== csIdByPhone) {
+            log.warn("Ignoring caller metadata.clientServiceId that disagrees with attested phoneNumberId", {
+              metadataClientServiceId: metaCsId,
+              phoneDerivedClientServiceId: csIdByPhone,
+            });
+          }
+          return resolved;
+        }
       }
     }
 
-    // Strategy 3: lookup by the CALLED number matching a client's primaryBusinessNumber
+    // Strategy 2 (FALLBACK): lookup by the CALLED number matching a client's primaryBusinessNumber
     // (handles the case where the client's business number forwards to Vapi)
     if (callMetadata?.calledNumber) {
       const calledNumber = callMetadata.calledNumber;
@@ -423,6 +536,16 @@ export async function resolveTradeLineClient(
         const resolved = await resolveByClientServiceId(csIdByBiz);
         if (resolved) return resolved;
       }
+    }
+
+    // Strategy 3 (UNTRUSTED FALLBACK): caller-supplied metadata.clientServiceId.
+    // Only reached when no phone-attested signal resolved a client. Now that
+    // /api/vapi/conversation is auth-gated and /webhook is signature-gated, the
+    // caller is trusted, but we still prefer phone-derived binding above and use
+    // metadata only as a last resort (e.g. web-SDK demo calls with no DID).
+    if (metaCsId !== undefined) {
+      const resolved = await resolveByClientServiceId(metaCsId);
+      if (resolved) return resolved;
     }
 
     return null;
@@ -862,7 +985,7 @@ export function buildAssistantConfig(): Record<string, any> {
       name: "WeFixTrades Sales & Support",
       // `model.model` string is required by Vapi for custom-llm provider —
       // see fix in upsertVapiAssistant() below.
-      model: { provider: "custom-llm", model: "wefixtrades-brand-v1", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
+      model: { provider: "custom-llm", model: "wefixtrades-brand-v1", url: buildConversationUrl(config.serverUrl) },
       voice: buildVapiVoiceBlock(process.env.VAPI_WFT_VOICE_ID || ELEVENLABS_RACHEL_VOICE_ID),
       firstMessage: "WeFixTrades, this is Riley — how can I help?",
       endCallMessage: "Thanks for calling WeFixTrades. We'll follow up by email shortly — have a great rest of your day.",
@@ -920,7 +1043,7 @@ export async function buildTradeLineAssistantConfig(resolved: ResolvedTradeLineC
     name: `TradeLine — ${resolved.client.business_name}`,
     // `model.model` string is required by Vapi for custom-llm provider —
     // see fix in upsertVapiAssistant() below.
-    model: { provider: "custom-llm", model: "wefixtrades-tradeline-v1", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
+    model: { provider: "custom-llm", model: "wefixtrades-tradeline-v1", url: buildConversationUrl(config.serverUrl) },
     voice: buildVapiVoiceBlock(voiceId),
     firstMessage: ctx.mode === "after_hours"
       ? `Hi, thanks for calling ${ctx.businessName}! We're closed for the day, but I can help make sure you're looked after.`
@@ -980,7 +1103,7 @@ export async function upsertVapiAssistant(
     model: {
       provider: "custom-llm" as const,
       model: "wefixtrades-tradeline-v1",
-      url: `${config.serverUrl}/api/vapi/conversation`,
+      url: buildConversationUrl(config.serverUrl),
       messages: [{ role: "system", content: systemPrompt }],
     },
     voice: buildVapiVoiceBlock(voiceConfig?.voiceId),
