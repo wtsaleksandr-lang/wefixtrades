@@ -955,8 +955,8 @@ export default function AIBubble(props: AIBubbleProps) {
           <div className="qq-ai-msgs" ref={scrollerRef} data-testid="aibubble-msgs">
             {messages.length === 0 && (
               <div className="qq-ai-empty" data-testid="aibubble-empty">
-                <p style={{ margin: 0, fontWeight: 700 }}>Hi — I can build your calculator with you.</p>
-                <p style={{ margin: '6px 0 0', color: p.colors.muted }}>
+                <p className="qq-ai-empty-title" style={{ margin: 0, fontWeight: 700 }}>Hi — I can build your calculator with you.</p>
+                <p className="qq-ai-empty-sub" style={{ margin: '6px 0 0' }}>
                   Ask me to add fields, change pricing, or restyle. Or attach your existing pricing
                   — a photo, PDF, Excel sheet, or email — and I'll build the calculator for you.
                 </p>
@@ -1351,6 +1351,7 @@ export default function AIBubble(props: AIBubbleProps) {
           display: flex; flex-direction: column; gap: 10px;
         }
         .qq-ai-empty { font-size: 13px; line-height: 1.5; color: #0f172a; }
+        .qq-ai-empty-sub { color: #6b7280; }
         .qq-ai-msg {
           max-width: 86%; padding: 8px 11px;
           border-radius: 12px; font-size: 13px; line-height: 1.45;
@@ -1644,6 +1645,8 @@ export default function AIBubble(props: AIBubbleProps) {
         [data-theme="dark"] .qq-ai-panel { background: #0f172a; color: #e2e8f0; border-color: rgba(255,255,255,0.08); }
         [data-theme="dark"] .qq-ai-panel-header { background: #1e293b; border-color: rgba(255,255,255,0.05); }
         [data-theme="dark"] .qq-ai-msgs { background: #0f172a; }
+        [data-theme="dark"] .qq-ai-empty { color: #e2e8f0; }
+        [data-theme="dark"] .qq-ai-empty-sub { color: #94a3b8; }
         [data-theme="dark"] .qq-ai-msg-assistant { background: #1e293b; color: #e2e8f0; }
         [data-theme="dark"] .qq-ai-compose { background: #0f172a; border-color: rgba(255,255,255,0.06); }
         [data-theme="dark"] .qq-ai-input { background: #1e293b; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
