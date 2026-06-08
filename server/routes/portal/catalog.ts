@@ -29,6 +29,7 @@ import { SERVICES } from "@shared/services";
 import { ALL_BUNDLES, bundleSavings } from "@shared/pricing";
 import type { ServiceCatalogRow } from "@shared/schema";
 import { createLogger } from "../../lib/logger";
+import { resolveStripePriceId } from "../../lib/stripePriceResolver";
 
 const log = createLogger("PortalCatalog");
 
@@ -112,7 +113,12 @@ export function registerPortalCatalogRoutes(app: Express) {
           if (dup && dup.status !== "cancelled" && dup.status !== "completed") {
             return res.status(409).json({ error: `You're already subscribed to ${s.name}.` });
           }
-          const priceId = s.stripe_price_id;
+          // Resolve via the shared helper so env-priced bundle tiers
+          // (TradeLine, ContentFlow, QQ install) resolve to their env-var
+          // price when the catalog stripe_price_id is null — matching public
+          // checkout. Bundles check out each tier at its native period, so
+          // there is no yearly variant here (wantsYearly = false).
+          const priceId = resolveStripePriceId(s, false);
           if (!priceId) {
             return res.status(400).json({ error: `${s.name} pricing isn't configured yet. Please contact us.` });
           }
@@ -227,10 +233,22 @@ export function registerPortalCatalogRoutes(app: Express) {
         }
       }
 
-      const tierStripeId = pickedTier?.stripe_price_id || null;
-      const productLevelPriceId = wantsYearly && svc.billing_period === "monthly"
-        ? svc.stripe_yearly_price_id
-        : svc.stripe_price_id;
+      /* Route both the tier and the product lookups through the shared
+         resolver (catalog stripe_price_id → env-var fallback) so env-priced
+         tiers (TradeLine, ContentFlow, QQ install) resolve in-portal exactly
+         as they do on public checkout. Tier-first, then product fallback —
+         same order as before, just env-aware. Yearly is only meaningful for a
+         monthly subscription, matching the public path's gate. */
+      const tierStripeId = pickedTier
+        ? resolveStripePriceId(
+            { id: pickedTier.id, stripe_price_id: pickedTier.stripe_price_id ?? null },
+            wantsYearly && pickedTier.billing_period === "monthly",
+          )
+        : null;
+      const productLevelPriceId = resolveStripePriceId(
+        svc,
+        wantsYearly && svc.billing_period === "monthly",
+      );
       const resolvedPriceId = tierStripeId ?? productLevelPriceId;
       if (!resolvedPriceId) {
         return res.status(400).json({ error: `${svc.name} pricing isn't configured yet. Please contact us.` });
