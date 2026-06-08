@@ -540,7 +540,7 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
 
         /* ── Dark mode (portaled — see the data-theme mirror above) ──────────
          * The popover/sheet portals to document.body, so the index.css rules
-         * scoped under `.qq-editor-shell[data-theme="dark"]` can't reach it.
+         * scoped under .qq-editor-shell[data-theme="dark"] can't reach it.
          * We mirror the shell's data-theme onto the portal roots
          * (.qq-addfield-menu / .qq-addfield-sheet-root) and re-state the dark
          * styling here, self-/descendant-scoped to that mirrored attribute so
