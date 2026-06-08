@@ -107,6 +107,19 @@ export default function AdvancedSection({ id, label = 'Advanced settings', hint,
           gap: 16px;
           padding-bottom: 6px;
         }
+        /* Dark editor chrome — the Apple light grays above (#1d1d1f label,
+           #6e6e73 hint/chevron) render dark-on-dark on the #1e293b panel.
+           Repaint to the shared dark text tokens (≥4.5:1) without touching
+           light mode. */
+        .qq-editor-shell[data-theme="dark"] .qq-adv-toggle-label {
+          color: var(--qq-text, #f1f5f9);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-adv-toggle-hint {
+          color: var(--qq-muted, #94a3b8);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-adv-chevron {
+          color: var(--qq-muted, #94a3b8);
+        }
       `}</style>
     </section>
   );
