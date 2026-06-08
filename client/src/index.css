@@ -632,7 +632,17 @@
   font-size: 13.5px;
 }
 .float-field--select > select.premium-input + label,
-.float-field > select.premium-input + label {
+.float-field > select.premium-input + label,
+/* BUG-3 — StyledSelect renders its trigger as a <button class="premium-input
+   qq-styled-select-trigger">, not a native <select>, so neither
+   :placeholder-shown nor the select selectors above match it. It ALSO injects
+   a sibling <style> node between the trigger and the FloatField <label>, so an
+   adjacent-sibling (`+ label`) combinator never matches — use the general
+   sibling (`~ label`) so the intervening <style> is skipped. Without this the
+   label falls back to the resting position (top:14px) and sits low, crowding
+   the selected value. Treat the trigger like an always-floated select so the
+   title lands in the proper title-in-field slot. */
+.float-field > .qq-styled-select-trigger.premium-input ~ label {
   top: 6px;
   font-size: 11px;
   font-weight: 600;
@@ -1930,7 +1940,11 @@
 .qq-editor-shell[data-theme="light"] .float-field > .premium-input:focus + label,
 .qq-editor-shell[data-theme="light"] .float-field > .premium-input:not(:placeholder-shown) + label,
 .qq-editor-shell[data-theme="light"] .float-field > select.premium-input + label,
-.qq-editor-shell[data-theme="light"] .float-field--select > select.premium-input + label {
+.qq-editor-shell[data-theme="light"] .float-field--select > select.premium-input + label,
+/* BUG-3 — float the StyledSelect trigger's label accent in the light editor.
+   `~ label` (general sibling) skips the <style> node StyledSelect injects
+   between the trigger and the label — `+ label` would not match. */
+.qq-editor-shell[data-theme="light"] .float-field > .qq-styled-select-trigger.premium-input ~ label {
   color: #0d3cfc;
 }
 

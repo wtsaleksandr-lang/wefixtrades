@@ -428,7 +428,7 @@ export default function FieldRow({
           {supportsNumeric && (
             <>
               <div className="qq-field-grid-3">
-                <FloatField label="Min" htmlFor={`field-row-input-min-${field.id}`}>
+                <FloatField label="Minimum" htmlFor={`field-row-input-min-${field.id}`}>
                   <input
                     id={`field-row-input-min-${field.id}`}
                     type="number"
@@ -439,7 +439,7 @@ export default function FieldRow({
                     data-testid={`field-row-input-min-${field.id}`}
                   />
                 </FloatField>
-                <FloatField label="Max" htmlFor={`field-row-input-max-${field.id}`}>
+                <FloatField label="Maximum" htmlFor={`field-row-input-max-${field.id}`}>
                   <input
                     id={`field-row-input-max-${field.id}`}
                     type="number"
@@ -1104,6 +1104,28 @@ export default function FieldRow({
         .qq-field-grid-3 {
           display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
         }
+        /* BUG-1 — full-word floated labels ("Minimum" / "Maximum" / "Max
+         * length" / "Max selections") must fit the narrow grid-3 columns.
+         * Keep them on one line and shrink the floated badge so they never
+         * clip or wrap inside the cramped third-width inputs, especially on
+         * mobile (375px). Targets only the floated state (top:6px). */
+        .qq-field-grid-3 .float-field > label {
+          white-space: nowrap;
+        }
+        .qq-field-grid-3 .float-field > .premium-input:focus + label,
+        .qq-field-grid-3 .float-field > .premium-input:not(:placeholder-shown) + label,
+        .qq-field-grid-3 .float-field > select.premium-input + label {
+          font-size: 10px;
+          left: 11px;
+        }
+        @media (max-width: 480px) {
+          .qq-field-grid-3 .float-field > .premium-input:focus + label,
+          .qq-field-grid-3 .float-field > .premium-input:not(:placeholder-shown) + label,
+          .qq-field-grid-3 .float-field > select.premium-input + label {
+            font-size: 9.5px;
+            left: 10px;
+          }
+        }
         /* Wave W-LAYOUT — Width toggle (½ / Full). Sits inline as a row
            of its own under the Label field. Visually matches the
            SegmentedControl in SettingsTab but compressed for the dense
@@ -1118,13 +1140,29 @@ export default function FieldRow({
         }
         .qq-field-width-segmented {
           display: inline-flex; border: 1px solid ${p.colors.border};
-          border-radius: 7px; overflow: hidden; background: #fff;
+          border-radius: 7px; background: #fff;
+          /* BUG-2 — :clip (not :hidden) so the rounded container corners
+           * survive; combined with the per-segment radii below, this keeps
+           * BOTH the left and right corners rounded instead of the first
+           * segment's square background/inset-shadow squaring off the left
+           * edge. See [project_overflow_clip_for_sticky]. */
+          overflow: clip;
         }
         .qq-field-width-btn {
           padding: 5px 12px; border: none; background: transparent;
           font: inherit; font-size: 12px; font-weight: 600;
           color: ${p.colors.body}; cursor: pointer;
           transition: background 0.1s ease, color 0.1s ease;
+        }
+        /* BUG-2 — match the first / last segment's paint box to the
+         * container's rounded corners so an active (tinted bg + inset
+         * box-shadow) end segment doesn't paint a square corner over the
+         * container's rounded one. Inner radius = outer 7px − 1px border. */
+        .qq-field-width-btn:first-child {
+          border-top-left-radius: 6px; border-bottom-left-radius: 6px;
+        }
+        .qq-field-width-btn:last-child {
+          border-top-right-radius: 6px; border-bottom-right-radius: 6px;
         }
         .qq-field-width-btn + .qq-field-width-btn {
           border-left: 1px solid ${p.colors.border};
