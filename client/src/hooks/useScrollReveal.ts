@@ -28,6 +28,17 @@ export function useScrollReveal() {
     const els = document.querySelectorAll<HTMLElement>("[data-reveal]");
     const triggers: ScrollTrigger[] = [];
 
+    // Defensive: if ScrollTrigger (and therefore IntersectionObserver under
+    // the hood) isn't usable for any reason, NEVER hide the content — leave it
+    // visible. Without this guard a failed/unsupported ScrollTrigger would
+    // leave every [data-reveal] element stuck at opacity:0 (blank page for
+    // crawlers / older engines). The baseline [data-reveal] CSS is already
+    // visible-by-default; we only opt into the hidden start state when we know
+    // we can animate it back.
+    if (!ScrollTrigger || typeof ScrollTrigger.create !== "function") {
+      return;
+    }
+
     els.forEach((el) => {
       // Never touch elements inside the automation diagram section
       if (el.closest('.ad-diagram')) return;
@@ -63,6 +74,13 @@ export function useScrollReveal() {
 
     return () => {
       triggers.forEach((t) => t.kill());
+      // Safety net: on teardown, clear any leftover hidden inline state so an
+      // element can never be left permanently invisible (e.g. a trigger killed
+      // before it fired during a fast route change).
+      els.forEach((el) => {
+        if (el.closest('.ad-diagram')) return;
+        gsap.set(el, { clearProps: "opacity,transform,x,y,scale" });
+      });
     };
   }, []);
 }

@@ -124,7 +124,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Automated Follow-ups",
       description: "Confirmations, reminders, nurture sequences, review requests. Every lead gets the right message at the right time — without you remembering to send it.",
-      cta: { label: "Learn More", href: "/products/tradeline" },
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "auto auto", gap: 16, maxWidth: 720, width: "100%" }}>
           <StatTile value="5467894" label="Lead captured" color="cyanSoft" badge={<span style={{ fontSize: 10, fontFamily: MONO, padding: "3px 8px", borderRadius: 999, background: TILE.pink.bg, color: TILE.pink.ink, letterSpacing: "0.08em" }}>NEW</span>} />
@@ -143,7 +142,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "One Inbox. All Channels.",
       description: "Phone, SMS, web chat — every conversation transcribed, tagged, and ready for follow-up. Plug into the tools you already use.",
-      cta: { label: "See Integrations", href: "/products/tradeline" },
       mockup: (
         <OrbitingLogos
           center={<ChatPreviewCenter />}
@@ -197,7 +195,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Automated Follow-up & Booking",
       description: "Customers can book a slot and pay a deposit right after their quote. Email + SMS reminders run automatically.",
-      cta: { label: "Learn More", href: "/products/quickquotepro" },
       mockup: <Wide><StatTrio
         a={{ value: "62%", label: "Quote-to-book", color: "lavender", icon: <TrendingUp size={16} /> }}
         b={{ value: "—", label: "Manual touches", color: "mint", icon: <Sparkles size={16} /> }}
@@ -208,7 +205,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Works With Everything You Use",
       description: "WordPress, Wix, Squarespace, Webflow, Shopify, plain HTML. Works alongside Jobber, Housecall Pro — no platform switch.",
-      cta: { label: "See Integrations", href: "/products/quickquotepro" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Embed</div>
@@ -247,7 +243,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Issue Detection, Auto-Fixed",
       description: "We catch profile suspensions, hour mismatches, missing photos, and category drift. Most issues are auto-fixed by us — no work for you.",
-      cta: { label: "Learn More", href: "/products/mapguard" },
       mockup: <Wide><StatTrio
         a={{ value: "47", label: "Issues found YTD", color: "cyanSoft", icon: <Eye size={16} /> }}
         b={{ value: "44", label: "Auto-fixed", color: "mint", icon: <ShieldCheck size={16} /> }}
@@ -258,7 +253,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Visibility Score, Tracked",
       description: "Monthly reports show how often you appear in Maps searches and where you rank vs nearby competitors.",
-      cta: { label: "Learn More", href: "/products/mapguard" },
       mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
         <GaugeTile value={89} label="Visibility score" color="cyanSoft" />
         <MiniChartTile value="+87%" label="Map impressions" trend="30 days" color="mint" />
@@ -269,7 +263,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Connected To Everything",
       description: "Pulls Google Business Profile, Search Console, and Maps data. Pushes alerts to your inbox + dashboard.",
-      cta: { label: "See How It Works", href: "/products/mapguard" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Health</div>
@@ -307,7 +300,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Bad Reviews, Caught Fast",
       description: "1- and 2-star reviews are escalated to you immediately with a suggested response. Address concerns before they spread.",
-      cta: { label: "Learn More", href: "/products/reputationshield" },
       mockup: <Wide><StatTrio
         a={{ value: "< 30 min", label: "Reply time avg", color: "cyanSoft", icon: <MessageSquare size={16} /> }}
         b={{ value: "4.9★", label: "Current avg", color: "mint", icon: <Star size={16} /> }}
@@ -318,7 +310,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Review Requests, Automated",
       description: "Sends a Google review link the day after each completed job. The leads who liked the work tell the world about it.",
-      cta: { label: "Learn More", href: "/products/reputationshield" },
       mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
         <MiniChartTile value="247" label="Reviews this year" trend="+183%" color="cyanSoft" />
         <GaugeTile value={94} label="Reply rate" color="mint" />
@@ -328,7 +319,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Every Review, One Inbox",
       description: "Monitors your Google and Facebook reviews. Every reply drafted for you, ready to post in one place.",
-      cta: { label: "Learn More", href: "/products/reputationshield" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 220, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Reputation</div>
@@ -368,7 +358,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Multi-Channel Publishing",
       description: "One post → published to Facebook, Instagram, Google Business, and LinkedIn. Tracked, optimized, and analyzed in one place.",
-      cta: { label: "Learn More", href: "/products/socialsync" },
       mockup: <Wide><StatTrio
         a={{ value: "4 channels", label: "From 1 click", color: "cyanSoft", icon: <Send size={16} /> }}
         b={{ value: "1 hr/wk", label: "Time spent", color: "lavender", icon: <Clock size={16} /> }}
@@ -379,7 +368,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Performance, Tracked",
       description: "See which posts drive engagement, calls, and reviews. AI learns your audience and adjusts the next round.",
-      cta: { label: "Learn More", href: "/products/socialsync" },
       mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
         <MiniChartTile value="14.2k" label="Reach 30d" trend="+87%" color="cyanSoft" />
         <StatTile value="247" label="Engagements" color="lavender" size="lg" />
@@ -390,7 +378,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Connected To Every Platform",
       description: "Facebook, Instagram, LinkedIn, Pinterest, Google Business. Add one, get them all.",
-      cta: { label: "See Integrations", href: "/products/socialsync" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>This week</div>
@@ -430,7 +417,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Search Console, Demystified",
       description: "All the data Google gives you, in plain English. Where you ranked, who clicked, what they searched.",
-      cta: { label: "Learn More", href: "/products/rankflow" },
       mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
         <MiniChartTile value="14 240" label="Impressions" trend="+62%" color="cyanSoft" />
         <MiniChartTile value="847" label="Clicks" trend="+38%" color="lavender" />
@@ -441,7 +427,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Action Items, Not Charts",
       description: "Each report includes exactly which pages to update, which keywords to target, and which competitors to watch.",
-      cta: { label: "See Sample Report", href: "/products/rankflow" },
       mockup: <Wide><StatTrio
         a={{ value: "5", label: "Pages to update", color: "pink", icon: <PenTool size={16} /> }}
         b={{ value: "12", label: "New keyword wins", color: "mint", icon: <TrendingUp size={16} /> }}
@@ -452,7 +437,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Built On Real Google Data",
       description: "Search Console + GA4 + Maps. Real ranking data, not third-party scraping.",
-      cta: { label: "See Integrations", href: "/products/rankflow" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>This month</div>
@@ -474,7 +458,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "01",
       title: "A Trade-Ready Site, Done For You",
       description: "Pick a template, drop in your services, and we ship a hosted site that's optimized for Google and converts trade visitors.",
-      cta: { label: "See What's Included", href: "/products/sitelaunch" },
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
@@ -490,7 +473,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Built For Conversion",
       description: "Every section is designed to turn visitors into leads. Quote widgets, click-to-call, instant chat — wired in from day one.",
-      cta: { label: "Learn More", href: "/products/sitelaunch" },
       mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
         <GaugeTile value={98} label="Performance" color="cyanSoft" />
         <GaugeTile value={100} label="SEO" color="mint" />
@@ -501,7 +483,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "AI-Optimized After Delivery",
       description: "Once launched, AI tunes copy, image alt text, and meta tags every month based on what's actually working in search.",
-      cta: { label: "See Process", href: "/products/sitelaunch" },
       mockup: <Wide><StatTrio
         a={{ value: "Monthly", label: "AI tune-ups", color: "lavender", icon: <Sparkles size={16} /> }}
         b={{ value: "Free", label: "Updates included", color: "mint", icon: <ShieldCheck size={16} /> }}
@@ -512,7 +493,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Plays Well With Everything",
       description: "Stripe, Calendly, Google Business, our quote widgets — wired in. Your existing tools come along.",
-      cta: { label: "See Integrations", href: "/products/sitelaunch" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Live</div>
@@ -535,7 +515,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "01",
       title: "Your Site, Watched 24/7",
       description: "Uptime checks every 15 minutes. The moment your site goes down, we know — and so does our on-call team.",
-      cta: { label: "Learn More", href: "/products/webcare" },
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
@@ -551,7 +530,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Updates Without Drama",
       description: "WordPress, plugins, and themes auto-updated and tested. We catch breaks before your customers do.",
-      cta: { label: "Learn More", href: "/products/webcare" },
       mockup: <Wide><StatTrio
         a={{ value: "47", label: "Updates this month", color: "cyanSoft", icon: <Zap size={16} /> }}
         b={{ value: "0", label: "Breaks reaching prod", color: "mint", icon: <ShieldCheck size={16} /> }}
@@ -562,7 +540,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Performance, Maintained",
       description: "Lighthouse scores monitored monthly. We fix regressions, compress new images, and keep page speed where it should be.",
-      cta: { label: "Learn More", href: "/products/webcare" },
       mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
         <GaugeTile value={94} label="Performance" color="cyanSoft" />
         <GaugeTile value={100} label="Best practices" color="mint" />
@@ -613,7 +590,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Fixes, Done For You",
       description: "We turn audit findings into actual code changes. Image compression, lazy loading, broken links, SEO meta — all sorted.",
-      cta: { label: "Learn More", href: "/products/webfix" },
       mockup: <Wide><StatTrio
         a={{ value: "23 → 4", label: "Issues, before & after", color: "cyanSoft", icon: <Eye size={16} /> }}
         b={{ value: "+56pts", label: "Performance lift", color: "mint", icon: <Zap size={16} /> }}
@@ -624,7 +600,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Monthly Health Reports",
       description: "Track whether the fixes stuck. Performance scores, traffic, conversions — all charted month over month.",
-      cta: { label: "See Sample", href: "/products/webfix" },
       mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
         <MiniChartTile value="+184%" label="Organic traffic" trend="90 days" color="cyanSoft" />
         <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
@@ -637,7 +612,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Works With Any Site",
       description: "WordPress, Webflow, Shopify, Wix, custom builds. We adapt to your stack — you don't migrate.",
-      cta: { label: "See Stack", href: "/products/webfix" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Lighthouse</div>
@@ -660,7 +634,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "01",
       title: "AI-Drafted Articles, Trade-Specific",
       description: "Content tuned to your trade, your service area, and your voice. Drafted weekly, approved by you, published automatically.",
-      cta: { label: "See Sample", href: "/products/contentflow" },
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
@@ -676,7 +649,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Long-Form + Social, In Sync",
       description: "Each blog post becomes a Facebook post, an Instagram caption, a LinkedIn share, and a Google Business update.",
-      cta: { label: "Learn More", href: "/products/contentflow" },
       mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
         <CalendarTile cells={["booked", "free", "booked", "today", "free", "booked", "free", "booked", "free", "booked", "free", "booked", "free", "booked"]} label="Distribution calendar" color="cyanSoft" />
         <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
@@ -689,7 +661,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Performance Feeds The Loop",
       description: "We see which pieces drive calls and clicks — then adjust the next batch to do more of what's working.",
-      cta: { label: "Learn More", href: "/products/contentflow" },
       mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
         <MiniChartTile value="+184%" label="Organic traffic" trend="90 days" color="cyanSoft" />
         <StatTile value="247" label="Engagements/post" color="lavender" size="lg" />
@@ -700,7 +671,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Distributed Everywhere",
       description: "WordPress, Facebook, Instagram, LinkedIn, Google Business, YouTube. One workflow, every channel.",
-      cta: { label: "See Channels", href: "/products/contentflow" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>This week</div>
@@ -724,7 +694,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "01",
       title: "Google Ads, Run For You",
       description: "Real campaigns, run by a vetted ad-agency partner. They tune bids, swap creative, and pause losers — every week.",
-      cta: { label: "Learn More", href: "/products/adflow" },
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
@@ -740,7 +709,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Creative That Speaks Trades",
       description: "Headlines, images, and copy written for trade buyers — emergency calls, quote requests, service calls.",
-      cta: { label: "See Examples", href: "/products/adflow" },
       mockup: <Wide><StatTrio
         a={{ value: "12", label: "Active ads", color: "cyanSoft", icon: <Sparkles size={16} /> }}
         b={{ value: "8.4%", label: "CTR", color: "mint", icon: <TrendingUp size={16} /> }}
@@ -751,7 +719,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Reports You Can Read",
       description: "What you spent, what came back, and what we changed last week. No agency-speak.",
-      cta: { label: "See Sample Report", href: "/products/adflow" },
       mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16 }}>
         <MiniChartTile value="$8 240" label="Revenue from ads" trend="+212%" color="cyanSoft" />
         <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
@@ -764,7 +731,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Connected To Your Funnel",
       description: "Google Ads, Meta Ads, your CRM, your dashboards. One signal flowing end-to-end.",
-      cta: { label: "See Integrations", href: "/products/adflow" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Last 7 days</div>
@@ -813,7 +779,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "03",
       title: "Pay On Completion",
       description: "Card, Apple Pay, bank, e-transfer. Customer pays the moment the job is done — funds in your account next day.",
-      cta: { label: "Learn More", href: "/products/bookflow" },
       mockup: <Wide><StatTrio
         a={{ value: "8 methods", label: "Payment options", color: "cyanSoft", icon: <Send size={16} /> }}
         b={{ value: "Same day", label: "Funds available", color: "mint", icon: <Clock size={16} /> }}
@@ -824,7 +789,6 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "04",
       title: "Connects To Your Calendar",
       description: "Google Calendar, Cal.com, Calendly. Your real availability, no double-bookings.",
-      cta: { label: "See Calendars", href: "/products/bookflow" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Today</div>

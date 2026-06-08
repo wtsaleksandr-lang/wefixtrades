@@ -5,11 +5,12 @@
  * All pricing data comes from shared/pricing.ts. No hardcoded values.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { X, Check, ArrowRight, Loader2 } from "lucide-react";
 import { mkt, shadows, typography } from "@/theme/tokens";
 import { formatPrice, yearlyMonthlyEquiv, bundleSavings, type BundleDef, type Tier, type ProductDef } from "@/config/pricing";
 import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
+import { FreeToolFormField, FreeToolFormFieldStyles } from "@/components/marketing/FreeToolFormField";
 
 const FONT = typography.fontFamily;
 
@@ -42,13 +43,12 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const nameRef = useRef<HTMLInputElement>(null);
 
   // Focus first field on open
   useEffect(() => {
     if (open) {
       setError("");
-      setTimeout(() => nameRef.current?.focus(), 100);
+      setTimeout(() => document.getElementById("checkout-business-name")?.focus(), 100);
     }
   }, [open]);
 
@@ -233,45 +233,69 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
             </div>
           </div>
 
-          {/* Intake form */}
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Intake form — title-in-field (floating-label) per DESIGN-SYSTEM
+              input rules, via the shared FreeToolFormField primitive. The
+              modal sits on a dark surface (mkt.bg), so the floated label's
+              background is matched to the panel via --ftool-label-bg. The 2px
+              gap between stacked fields is the design-system spacing. */}
+          <FreeToolFormFieldStyles />
+          <form
+            onSubmit={handleSubmit}
+            style={{ display: "flex", flexDirection: "column", gap: 16, ["--ftool-label-bg" as any]: mkt.bg }}
+          >
             <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: -4 }}>
               Your Details
             </div>
 
-            <FormField
-              ref={nameRef}
-              label="Business Name"
-              placeholder="e.g. Smith Plumbing"
-              value={businessName}
-              onChange={setBusinessName}
-              required
-            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <FreeToolFormField
+                id="checkout-business-name"
+                theme="dark"
+                label="Business Name"
+                placeholder="e.g. Smith Plumbing"
+                helpText="The trading name we'll put on your account and invoices."
+                value={businessName}
+                onChange={setBusinessName}
+                autoComplete="organization"
+                required
+              />
 
-            <FormField
-              label="Your Name"
-              placeholder="e.g. John Smith"
-              value={contactName}
-              onChange={setContactName}
-              required
-            />
+              <FreeToolFormField
+                theme="dark"
+                label="Your Name"
+                placeholder="e.g. John Smith"
+                helpText="Who we should address account and billing emails to."
+                value={contactName}
+                onChange={setContactName}
+                autoComplete="name"
+                required
+              />
 
-            <FormField
-              label="Email"
-              placeholder="john@smithplumbing.com"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              required
-            />
+              <FreeToolFormField
+                theme="dark"
+                label="Email"
+                type="email"
+                placeholder="john@smithplumbing.com"
+                helpText="Where we'll send your receipt and account access."
+                value={email}
+                onChange={setEmail}
+                inputMode="email"
+                autoComplete="email"
+                required
+              />
 
-            <FormField
-              label="Phone"
-              placeholder="(555) 123-4567"
-              type="tel"
-              value={phone}
-              onChange={setPhone}
-            />
+              <FreeToolFormField
+                theme="dark"
+                label="Phone"
+                type="tel"
+                placeholder="(555) 123-4567"
+                helpText="Optional — only used if we need to reach you about your order."
+                value={phone}
+                onChange={setPhone}
+                inputMode="tel"
+                autoComplete="tel"
+              />
+            </div>
             <SmsConsentDisclosure variant="inline" />
 
             {error && (
@@ -339,47 +363,3 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
     </>
   );
 }
-
-/* ─── Form Field ─── */
-
-import { forwardRef } from "react";
-
-const FormField = forwardRef<HTMLInputElement, {
-  label: string;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  required?: boolean;
-}>(function FormField({ label, placeholder, value, onChange, type = "text", required }, ref) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <div>
-      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: mkt.text, marginBottom: 6 }}>
-        {label}{required && <span style={{ color: mkt.accent, marginLeft: 2 }}>*</span>}
-      </label>
-      <input
-        ref={ref}
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={{
-          width: "100%",
-          padding: "12px 14px",
-          borderRadius: 10,
-          border: `1px solid ${focused ? mkt.accent : "rgba(255,255,255,0.10)"}`,
-          background: "rgba(255,255,255,0.04)",
-          color: mkt.onDark,
-          fontSize: 14,
-          fontFamily: FONT,
-          outline: "none",
-          transition: "border-color 0.15s ease",
-          boxSizing: "border-box",
-        }}
-      />
-    </div>
-  );
-});

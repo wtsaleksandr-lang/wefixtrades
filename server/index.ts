@@ -238,6 +238,7 @@ const cspDirectives = {
     "https://*.sentry.io",
     "https://*.ingest.sentry.io",
     "https://*.vapi.ai",
+    "https://static.cloudflareinsights.com",  // Cloudflare Web Analytics (beacon.min.js)
   ],
   styleSrc: [
     "'self'",
@@ -270,6 +271,8 @@ const cspDirectives = {
     "https://*.vapi.ai",
     "wss://api.vapi.ai",
     "wss://*.vapi.ai",
+    "https://cloudflareinsights.com",         // CF Web Analytics beacon RUM endpoint (/cdn-cgi/rum)
+    "https://static.cloudflareinsights.com",
   ],
   frameSrc: [
     "'self'",
