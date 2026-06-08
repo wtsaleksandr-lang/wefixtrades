@@ -720,10 +720,23 @@ export default function InstallTab({
             </h3>
             <p className="qq-install-doneforyou-sub">
               We install QuoteQuick on your website, configure it for your trade,
-              and verify it's capturing leads — within 24 hours. Use the{' '}
-              <strong>Have us install it</strong> button at the bottom of this
-              tab to start.
+              and verify it's capturing leads — within 24 hours.
             </p>
+            {/* Install-panel layout fix — the CTA used to live in a separate
+                position:sticky bottom anchor. That sticky element floated over
+                the sections above (the layout guard flagged it overlapping the
+                hosted section + a runaway gap, and on a short panel it visually
+                covered content). Moving it inline into this card lays the panel
+                out cleanly with no overlap, keeps the button discoverable right
+                beside its explainer, and removes the sticky machinery. */}
+            <button
+              type="button"
+              className="qq-install-doneforyou-cta"
+              onClick={() => setInstallCheckoutOpen(true)}
+              data-testid="install-doneforyou-cta"
+            >
+              Have us install it — $75
+            </button>
           </div>
         </div>
       </section>
@@ -792,22 +805,6 @@ export default function InstallTab({
         snippet={snippet}
       />
 
-      {/* BD-3j Fix 3 — "Have us install it" CTA anchored at the bottom-left
-       *  corner of the Install tab as a sticky action. Sits inside the
-       *  scrollable left pane of the wizard editor; doesn't collide with
-       *  the canvas-side zoom toolbar from BD-3b (the canvas is a separate
-       *  right-pane container). */}
-      <div className="qq-install-cta-anchor" aria-hidden="false">
-        <button
-          type="button"
-          className="qq-install-doneforyou-cta"
-          onClick={() => setInstallCheckoutOpen(true)}
-          data-testid="install-doneforyou-cta"
-        >
-          Have us install it — $75
-        </button>
-      </div>
-
       <style>{`
         /* Wave AA — sector gaps tightened from 16 → 10 (and the sub-headline
            bottom-margin 10 → 6) so the Install tab reads as a cohesive panel
@@ -816,28 +813,7 @@ export default function InstallTab({
            already gives a visual seam between sections. */
         .qq-install-tab {
           display: flex; flex-direction: column; gap: 2px;
-          /* BD-3j Fix 3 — reserve space at the bottom so the sticky
-             "Have us install it" CTA never overlaps the last section. */
-          padding-bottom: 72px;
           position: relative;
-        }
-        /* BD-3j Fix 3 — sticky CTA anchor at the bottom-LEFT of the
-           Install tab's scrollable area. Doesn't conflict with BD-3b's
-           zoom toolbar because that lives on the canvas (right pane) — the
-           Install tab is the left pane. */
-        .qq-install-cta-anchor {
-          position: sticky;
-          bottom: 12px;
-          left: 0;
-          margin-top: 12px;
-          display: flex;
-          justify-content: flex-start;
-          align-items: center;
-          z-index: 2;
-          pointer-events: none;
-        }
-        .qq-install-cta-anchor > .qq-install-doneforyou-cta {
-          pointer-events: auto;
         }
         .qq-install-h {
           font-size: 13px; font-weight: 700; color: ${p.colors.heading};
@@ -1254,6 +1230,11 @@ export default function InstallTab({
         }
         .qq-install-doneforyou-cta {
           flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+          /* Inline in the done-for-you card (was a sticky bottom anchor).
+             align-self:flex-start keeps it from stretching full-width in the
+             column-flex card; a small top margin separates it from the copy. */
+          align-self: flex-start;
+          margin-top: 4px;
           padding: 10px 16px; border-radius: 8px;
           font-size: 13px; font-weight: 700; cursor: pointer;
           background: ${p.colors.accent}; color: #fff; border: none;
