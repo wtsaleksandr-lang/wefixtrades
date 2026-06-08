@@ -73,6 +73,58 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * res2 — AI-provider deploy gate.
+ *
+ * A deploy that boots WITHOUT any working AI provider is now allowed to start
+ * the server (AI was demoted from boot-critical), so a keyless AI deploy would
+ * otherwise sail through silently. This gate catches it: it reads the `ai`
+ * check from /api/healthz and FAILS the verification (loud) when NO provider
+ * authenticates — i.e. every provider has key_present=false OR live_ping_ok
+ * not true. If at least one provider authenticates, it passes (even if the
+ * primary is failing over to a backup — that's resilience working, not a
+ * broken deploy).
+ *
+ * Returns true = AI gate passed, false = deploy should be marked FAILED.
+ */
+async function checkAiGate() {
+  let data;
+  try {
+    const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(8000) });
+    data = JSON.parse(await res.text());
+  } catch (err) {
+    log(`AI gate: could not read healthz (${err?.message ?? err}) — treating as FAIL`);
+    return false;
+  }
+  const ai = data?.checks?.ai;
+  if (!ai) {
+    // Older deploy without the ai check — don't block (backward compatible).
+    log("AI gate: healthz has no `ai` check (older deploy) — skipping AI gate");
+    return true;
+  }
+  const providers = Array.isArray(ai.providers) ? ai.providers : [];
+  const anyAuthed = providers.some((p) => p?.live_ping_ok === true);
+  if (anyAuthed) {
+    const live = providers.filter((p) => p?.live_ping_ok === true).map((p) => p.provider);
+    log(
+      `OK AI gate — provider(s) authenticated: ${live.join(", ")}` +
+        (ai.failover_active ? " (failover ACTIVE — primary circuit not closed)" : ""),
+    );
+    return true;
+  }
+  log("FAIL AI gate — NO AI provider authenticated on the deployed server:");
+  if (providers.length === 0) {
+    log("  (no providers reported — likely no AI key present at all)");
+  }
+  for (const p of providers) {
+    log(
+      `  ✗ ${p.provider}: key_present=${p.key_present} live_ping_ok=${p.live_ping_ok}` +
+        (p.detail ? ` (${p.detail})` : ""),
+    );
+  }
+  return false;
+}
+
 function runSmoke() {
   return new Promise((resolve) => {
     const env = { ...process.env, SMOKE_BASE_URL: BASE };
@@ -93,7 +145,15 @@ function runSmoke() {
 async function main() {
   log(`target: ${BASE}`);
   const healthy = await checkHealth();
-  if (!healthy) {
+
+  // res2 — AI-provider gate. Runs regardless of the overall healthz verdict so
+  // a keyless-AI deploy gets a SPECIFIC loud failure reason (overall healthz
+  // may already be `degraded`/503 because AI degrades, not downs). A deploy is
+  // bad if EITHER the overall healthz never went ok OR no AI provider authed.
+  const aiOk = await checkAiGate();
+  if (!healthy || !aiOk) {
+    if (!healthy) log("FAIL overall healthz never returned ok");
+    if (!aiOk) log("FAIL AI provider gate — no working AI provider on the deploy");
     process.exit(1);
   }
   if (process.env.SKIP_SMOKE === "1") {

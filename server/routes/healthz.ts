@@ -31,6 +31,8 @@
 
 import type { Express, Request, Response } from "express";
 import Stripe from "stripe";
+import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { isTwilioConfigured, getTwilioClient } from "../twilioClient";
@@ -40,6 +42,12 @@ import {
   BingApiError,
 } from "../lib/seo/bingClient";
 import { createLogger } from "../lib/logger";
+// res2: AI-provider health. getPrimaryCircuitState() exposes whether the
+// Anthropic primary is currently failing over to the backup chain;
+// readyFallbackProviders() lists which OpenAI-compatible backups have keys.
+// Both are read-only and owned by the sibling AI services (do not edit there).
+import { getPrimaryCircuitState } from "../services/aiService";
+import { readyFallbackProviders } from "../services/llmFallbackChain";
 
 const log = createLogger("Healthz");
 
@@ -297,6 +305,182 @@ async function checkRedis(): Promise<ProbeOutcome> {
   return { ok: true, status: "ok", detail: "REDIS_URL present" };
 }
 
+/* ─── AI providers (res2) ───
+ *
+ * Business-continuity visibility for the LLM stack. Reports per-provider
+ *   { provider, key_present, live_ping_ok }
+ * plus `failover_active` (Anthropic primary circuit OPEN/half-open).
+ *
+ * Liveness: ONE cheapest authenticated call per provider that HAS a key —
+ * `models.list()` (Anthropic + every OpenAI-compatible backup). models.list
+ * is an authenticated GET that consumes NO generation tokens and is the
+ * cheapest way to prove the key authenticates. Each call is bounded by a
+ * short timeout (AI_PING_TIMEOUT_MS, ≤5s).
+ *
+ * Caching: the result is cached for AI_PROBE_CACHE_TTL_MS (60s) in a DEDICATED
+ * cache (separate from the 15s healthz cache) so live pings never burn rate
+ * limits even if the outer healthz cache is bypassed or expires faster.
+ *
+ * Status: AI is a FEATURE, not boot-critical. This probe NEVER returns `down`:
+ *   - no key on ANY provider, or every live ping fails → `degraded`
+ *   - at least one provider key present AND ping ok     → `ok`
+ * The overall healthz status therefore degrades (not 503s) on AI loss.
+ */
+const AI_PROBE_CACHE_TTL_MS = 60_000;
+const AI_PING_TIMEOUT_MS = Math.min(
+  Number(process.env.AI_HEALTHZ_PING_TIMEOUT_MS ?? 5_000),
+  5_000,
+);
+
+interface AiProviderStatus {
+  provider: string;
+  key_present: boolean;
+  live_ping_ok: boolean | null; // null = not pinged (no key)
+  detail?: string;
+}
+
+/** Env-var resolvers mirror server/services/llmFallbackChain.ts so the live
+ *  ping uses the same key/baseURL the runtime cascade would. Kept local (not
+ *  imported) because the chain's provider table is private to that module and
+ *  this probe must not edit it. */
+function aiPingTargets(): Array<{
+  provider: string;
+  apiKey: string | undefined;
+  baseURL?: string;
+  kind: "anthropic" | "openai";
+}> {
+  return [
+    { provider: "anthropic", apiKey: process.env.ANTHROPIC_API_KEY, kind: "anthropic" },
+    {
+      provider: "openai",
+      apiKey: process.env.OPENAI_API_KEY ?? process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      kind: "openai",
+    },
+    { provider: "groq", apiKey: process.env.GROQ_API_KEY, baseURL: "https://api.groq.com/openai/v1", kind: "openai" },
+    { provider: "together", apiKey: process.env.TOGETHER_API_KEY, baseURL: "https://api.together.xyz/v1", kind: "openai" },
+    { provider: "mistral", apiKey: process.env.MISTRAL_API_KEY, baseURL: "https://api.mistral.ai/v1", kind: "openai" },
+    { provider: "deepseek", apiKey: process.env.DEEPSEEK_API_KEY, baseURL: "https://api.deepseek.com/v1", kind: "openai" },
+    {
+      provider: "xai",
+      apiKey: process.env.XAI_API_KEY ?? process.env.GROK_API_KEY,
+      baseURL: "https://api.x.ai/v1",
+      kind: "openai",
+    },
+  ];
+}
+
+/** One cheapest authenticated call, bounded by AI_PING_TIMEOUT_MS. */
+async function pingProvider(t: {
+  provider: string;
+  apiKey: string;
+  baseURL?: string;
+  kind: "anthropic" | "openai";
+}): Promise<{ ok: boolean; detail?: string }> {
+  const withTimeout = <T,>(p: Promise<T>): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`ai ping ${t.provider} timed out`)), AI_PING_TIMEOUT_MS),
+      ),
+    ]);
+  try {
+    if (t.kind === "anthropic") {
+      const client = new Anthropic({ apiKey: t.apiKey, timeout: AI_PING_TIMEOUT_MS });
+      // models.list() is an authenticated GET — no generation tokens spent.
+      await withTimeout(client.models.list({ limit: 1 }) as unknown as Promise<unknown>);
+      return { ok: true };
+    }
+    const client = new OpenAI({ apiKey: t.apiKey, baseURL: t.baseURL, timeout: AI_PING_TIMEOUT_MS });
+    await withTimeout(client.models.list() as unknown as Promise<unknown>);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message.slice(0, 160) : String(err) };
+  }
+}
+
+let aiCached: { at: number; providers: AiProviderStatus[] } | null = null;
+
+async function buildAiProviderStatuses(): Promise<AiProviderStatus[]> {
+  const now = Date.now();
+  if (aiCached && now - aiCached.at < AI_PROBE_CACHE_TTL_MS) {
+    return aiCached.providers;
+  }
+  const targets = aiPingTargets();
+  const results = await Promise.all(
+    targets.map(async (t): Promise<AiProviderStatus> => {
+      const key_present = !!t.apiKey?.trim();
+      if (!key_present) {
+        return { provider: t.provider, key_present: false, live_ping_ok: null };
+      }
+      const ping = await pingProvider({ provider: t.provider, apiKey: t.apiKey!, baseURL: t.baseURL, kind: t.kind });
+      return {
+        provider: t.provider,
+        key_present: true,
+        live_ping_ok: ping.ok,
+        ...(ping.detail ? { detail: ping.detail } : {}),
+      };
+    }),
+  );
+  aiCached = { at: now, providers: results };
+  return results;
+}
+
+/**
+ * AI check — feature-level, never `down`. `degraded` when no provider key is
+ * present OR no present provider authenticates; `ok` when at least one
+ * provider key authenticates. Includes per-provider detail + failover state.
+ */
+async function checkAi(): Promise<ProbeOutcome> {
+  const providers = await buildAiProviderStatuses();
+  const circuit = getPrimaryCircuitState();
+  const failover_active = circuit !== "closed";
+
+  const anyKeyPresent = providers.some((p) => p.key_present);
+  const anyLiveOk = providers.some((p) => p.live_ping_ok === true);
+
+  // readyFallbackProviders() is the chain's own view of which backups have
+  // keys — surface it for cross-checking against the per-provider list.
+  let fallback_ready: string[] = [];
+  try {
+    fallback_ready = readyFallbackProviders();
+  } catch {
+    fallback_ready = [];
+  }
+
+  if (!anyKeyPresent) {
+    return {
+      ok: false,
+      status: "degraded",
+      detail: "no AI provider key configured — all AI features disabled",
+      providers,
+      failover_active,
+      circuit_state: circuit,
+      fallback_ready,
+    };
+  }
+  if (!anyLiveOk) {
+    return {
+      ok: false,
+      status: "degraded",
+      detail: "AI key(s) present but no provider authenticated on live ping",
+      providers,
+      failover_active,
+      circuit_state: circuit,
+      fallback_ready,
+    };
+  }
+  return {
+    ok: true,
+    status: failover_active ? "degraded" : "ok",
+    ...(failover_active ? { detail: "primary circuit not closed — failing over to backups" } : {}),
+    providers,
+    failover_active,
+    circuit_state: circuit,
+    fallback_ready,
+  };
+}
+
 /* ─── aggregation ─── */
 
 function aggregate(checks: Record<string, CheckResult>): "ok" | "degraded" | "down" {
@@ -308,8 +492,36 @@ function aggregate(checks: Record<string, CheckResult>): "ok" | "degraded" | "do
   return worst;
 }
 
+/** AI-specific probe wrapper. The standard probe() races a 2s timeout and
+ *  converts any timeout/throw into `down` — wrong for AI, whose live pings may
+ *  take up to AI_PING_TIMEOUT_MS (5s) and which must NEVER 503 the deploy.
+ *  This wrapper bounds the whole AI check just above the per-ping budget and
+ *  degrades (never downs) on timeout/throw. */
+async function aiProbe(): Promise<CheckResult> {
+  const started = Date.now();
+  try {
+    const result = await Promise.race([
+      checkAi(),
+      new Promise<ProbeOutcome>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("ai check timed out")),
+          AI_PING_TIMEOUT_MS + 1_000,
+        ),
+      ),
+    ]);
+    return { ...result, latency_ms: Date.now() - started };
+  } catch (err) {
+    return {
+      ok: false,
+      status: "degraded",
+      latency_ms: Date.now() - started,
+      detail: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 async function buildHealthz(): Promise<{ body: HealthzResponse; http: number }> {
-  const [dbR, dbTablesR, dopplerR, stripeR, twilioR, mapsR, bingR, redisR] = await Promise.all([
+  const [dbR, dbTablesR, dopplerR, stripeR, twilioR, mapsR, bingR, redisR, aiR] = await Promise.all([
     probe("db", checkDb),
     probe("db_tables", checkDbTables),
     probe("doppler", checkDoppler),
@@ -318,6 +530,7 @@ async function buildHealthz(): Promise<{ body: HealthzResponse; http: number }> 
     probe("google_maps", checkGoogleMaps),
     probe("bing", checkBing),
     probe("redis", checkRedis),
+    aiProbe(),
   ]);
 
   const checks: Record<string, CheckResult> = {
@@ -329,6 +542,7 @@ async function buildHealthz(): Promise<{ body: HealthzResponse; http: number }> 
     google_maps: mapsR,
     bing: bingR,
     redis: redisR,
+    ai: aiR,
   };
 
   const status = aggregate(checks);
