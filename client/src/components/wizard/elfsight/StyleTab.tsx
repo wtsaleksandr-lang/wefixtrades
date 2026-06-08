@@ -478,13 +478,16 @@ export default function StyleTab({
                 className="qq-style-preset-card-swatch qq-style-preset-card-swatch--split"
                 aria-hidden="true"
                 style={{
-                  /* W2 #11 — dual-colour split swatch matching the marketing
-                     template page: left half = the results/panel colour
-                     (resultsBg), right half = the CTA/accent colour. This
-                     makes a user recognise the same themes in both surfaces.
-                     resultsBg falls back to the panel background, then to the
-                     general background, so every preset reads as two colours. */
-                  background: `linear-gradient(90deg, ${preset.style.resultsBg ?? preset.style.background ?? 'rgba(255,255,255,1)'} 0 50%, ${preset.style.accent ?? '#0d3cfc'} 50% 100%)`,
+                  /* W2 #11 / W5 — dual-colour split swatch matching the
+                     marketing template page EXACTLY: left half = the
+                     results/panel colour (resultsBg), right half = the CTA
+                     colour (ctaColor, falling back to accent). The website's
+                     swatch (template-detail.tsx) uses `resultsBg | ctaColor`,
+                     so mirroring that here means a user recognises the same
+                     themes in both surfaces. resultsBg falls back to the panel
+                     background, then the general background, so every preset
+                     reads as two colours. */
+                  background: `linear-gradient(90deg, ${preset.style.resultsBg ?? preset.style.background ?? 'rgba(255,255,255,1)'} 0 50%, ${preset.style.ctaColor ?? preset.style.accent ?? '#0d3cfc'} 50% 100%)`,
                   borderColor: preset.style.border ?? '#e5e7eb',
                 }}
               />

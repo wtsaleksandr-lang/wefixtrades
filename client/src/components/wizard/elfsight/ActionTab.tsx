@@ -667,16 +667,30 @@ export default function ActionTab({
         }
         .qq-action-card-head {
           display: flex; align-items: center; gap: 8px;
+          /* W5 FIX 3 — fixed min-height so EVERY action-card head (Payment /
+             Email / Online booking / Submit / Spam …) is the exact same
+             height regardless of the head icon's intrinsic optical box. This
+             pins the Deposit + Online-booking pair (and all siblings) to a
+             tidy matched row instead of leaving alignment to incidental
+             icon metrics. */
+          min-height: 44px;
           padding: 12px 14px;
           border-bottom: 1px solid ${AE.color.hairline};
         }
         .qq-action-card-headicon {
           display: inline-flex; align-items: center; justify-content: center;
+          /* W5 FIX 3 — fixed 18px square so the icon glyph is centred in a
+             constant box; different lucide icons (CreditCard vs CalendarDays
+             vs BellRing) otherwise sit a hair higher/lower and make adjacent
+             card heads read as misaligned. */
+          width: 18px; height: 18px; flex: 0 0 auto;
+          line-height: 0;
           color: ${AE.color.accent};
         }
         .qq-action-card-title {
           font-size: ${AE.type.caption.size};
           font-weight: 600;
+          line-height: 1.2;
           letter-spacing: ${AE.type.caption.tracking};
           text-transform: uppercase;
           color: ${AE.color.secondary};
