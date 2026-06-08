@@ -268,6 +268,13 @@ export default function RichTextField({
       data-testid={`${tid}-panel`}
       style={{ transition }}
     >
+      {/* Floating-label fix — the in-field title label sits at the panel's
+          top edge (top:-7px, title-in-field rule). The panel itself is now
+          overflow:visible so the label is never clipped; an inner wrapper
+          (.qq-rtf-panel-inner) carries the rounded-corner clip + content
+          overflow so the toolbar's square top corners and the editor's
+          scroll still clip to the panel's 10px radius. */}
+      <div className="qq-rtf-panel-inner">
       <div className="qq-rtf-toolbar" role="toolbar" aria-label={`${label} formatting`}>
             <button type="button" className="qq-rtf-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => exec('bold')} aria-label="Bold" data-testid={`${tid}-bold`}>
               <Bold size={14} />
@@ -399,7 +406,7 @@ export default function RichTextField({
                 aria-label="Done editing"
                 data-testid={`${tid}-done`}
               >
-                <Check size={13} /> Done
+                <Check size={14} /> Done
               </button>
             )}
           </div>
@@ -454,13 +461,18 @@ export default function RichTextField({
                 aria-label="Done editing"
                 data-testid={`${tid}-done`}
               >
-                <Check size={13} /> Done
+                <Check size={14} /> Done
               </button>
             </div>
           )}
 
+          </div>
+
           {/* In-field label + InfoCue stay visible in the expanded panel
-              header so users keep the context of which field they're editing. */}
+              header so users keep the context of which field they're editing.
+              Sibling of .qq-rtf-panel-inner (not inside it) so the panel's
+              overflow:visible lets the label render above the top border
+              without being clipped by the inner content-clip. */}
           <div className="qq-rtf-panel-label">
             <span>{label}</span>
             {infoText && (
@@ -582,6 +594,22 @@ export default function RichTextField({
           border-radius: 10px;
           box-shadow: 0 6px 20px rgba(0,0,0,0.10);
           display: flex; flex-direction: column;
+          /* Floating-label fix — overflow:visible so the .qq-rtf-panel-label
+             (top:-7px, title-in-field) is NOT clipped by the panel. The
+             rounded-corner clip for the toolbar/editor moves to the inner
+             wrapper below, which keeps the previous overflow:hidden behavior
+             for content only (sticky-safety preserved: the clip still exists,
+             just on the inner element, so nothing else can overflow). */
+          overflow: visible;
+        }
+        .qq-rtf-panel-inner {
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          /* Inner radius = panel radius (10) minus border (1.5) ≈ 8.5px so the
+             clipped content corners sit flush inside the panel border. */
+          border-radius: 8.5px;
           overflow: hidden;
         }
         .qq-rtf-toolbar {
@@ -771,11 +799,17 @@ export default function RichTextField({
         }
         .qq-rtf-fold.is-open {
           grid-template-rows: 1fr;
-          margin-top: 4px;
+          /* Reduced from 4px → 0; the fold-inner now carries the top room as
+             padding so the floating panel-label (top:-7px) isn't clipped by
+             the fold's required overflow:hidden in inline/compact mode. */
+          margin-top: 0;
         }
         .qq-rtf-fold-inner {
           min-height: 0;
           overflow: hidden;
+          /* Floating-label fix (inline mode) — reserve top room inside the
+             fold clip for the panel-label that sits above the panel border. */
+          padding-top: 9px;
         }
         /* Inline-mode panel — relaxes the fixed height (the editor uses
          * its own height; the panel grows to fit its children) and tones

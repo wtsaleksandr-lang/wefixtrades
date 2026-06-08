@@ -1291,6 +1291,25 @@ export default function PreviewPane({
   const onPaneBackgroundPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     const onInteractive = !!target.closest(SKIP_MOVE_SELECTOR);
+    // Deselect-stale-text fix — a background pointerdown that delegates to
+    // onHandlePointerDown calls e.preventDefault() (to drive the canvas
+    // pan / suppress native drag). preventDefault() on pointerdown ALSO
+    // suppresses the browser's default "collapse the text selection when
+    // you click elsewhere" behaviour, so a selection the user dragged over
+    // the preview title/subtitle/trust-chips would STICK (and multiple
+    // stale highlights accumulate). When the pointerdown is NOT on an
+    // editable/interactive element (those keep their native caret/selection
+    // behaviour because they're in SKIP_MOVE_SELECTOR → onInteractive), we
+    // explicitly clear any existing window selection here — matching native
+    // deselect. This runs at gesture START (pointerdown), before any
+    // drag-to-select-new-text happens on the following pointermove, so it
+    // never fights a fresh selection; it only clears a stale one.
+    if (!onInteractive) {
+      try {
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed) sel.removeAllRanges();
+      } catch { /* getSelection unavailable — nothing to clear */ }
+    }
     // Mouse, primary button, not on an interactive control → start a move
     // from anywhere on the canvas / bezel body. Reuses the handle's move
     // logic by delegating to onHandlePointerDown (which reads e.currentTarget
