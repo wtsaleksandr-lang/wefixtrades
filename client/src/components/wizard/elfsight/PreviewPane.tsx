@@ -1385,7 +1385,15 @@ export default function PreviewPane({
     // click — so onBezelClick (which opens the inline title editor on a pencil/
     // title click) never fired and the editor input never mounted. Skipping the
     // move-start for the title + pencil lets the click through to onBezelClick.
-    'input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], [data-testid="advanced-title"], [data-testid="advanced-title-edit-hint"], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos';
+    // NOTE: every click-to-edit section the wizard exposes (title + the
+    // generalised SECTION_EDITORS: subtitle, results-heading, footnote) AND
+    // their pencil edit-hints MUST be here, for the same pointer-capture reason
+    // as the title above. `[data-testid$="-edit-hint"]` catches every EditHint
+    // pencil (current + future) in one rule; the section bodies are listed
+    // explicitly. Without this, on desktop these sections looked editable
+    // (pencil + cursor) but the canvas pan swallowed the click and the inline
+    // editor never mounted — while mobile (separate touch path) worked.
+    'input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], [data-testid="advanced-title"], [data-testid="advanced-subtitle"], [data-testid="advanced-result-heading"], [data-testid="advanced-footnote"], [data-testid$="-edit-hint"], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos';
 
   // Background click — deselect the widget so resize handles go away. Also the
   // mouse drag-from-anywhere entry point: when the pointer-down isn't on an
