@@ -138,13 +138,24 @@ const STATIC_ROUTES = [
   // is a public lead magnet with unique <PageMeta>, FAQ + (where relevant)
   // HowTo JSON-LD. Hydrated head needed for non-JS crawlers (Bing, LLMs).
   "/tools/google-review-link-generator",
-  "/tools/local-search-checker",
+  // Wave 6E — /tools/local-search-checker now 301s to the canonical
+  // /tools/local-serp-checker (see App.tsx legacy redirects). Prerender the
+  // canonical, NOT the redirect slug, so crawlers get the real hydrated head.
+  "/tools/local-serp-checker",
   "/tools/citation-checker",
   "/tools/local-rankflux",
   // Wave 2 — Local Rank Grid (free) + Citation Builder (paid service).
   // Both need hydrated head tags for non-JS crawlers (Bing, LLMs).
   "/tools/local-rank-grid",
   "/citation-builder",
+  // Nav/SEO hygiene — header + footer link these live pages (MapGuard Suite,
+  // the Free Tools hub, the Rank Tracker tool, the Citation Tracker), but they
+  // were missing from the prerender list, so non-JS crawlers + social unfurls
+  // got the generic fallback <title>/meta instead of each page's PageMeta head.
+  "/mapguard-suite",
+  "/free-tools",
+  "/tools/local-rank-tracker",
+  "/citation-tracker",
   // ContentFlow Phase 1 — 5 public prompt-library SEO landings.
   // Bing + LLM crawlers (no JS exec) need hydrated head tags here.
   "/tools/plumbing-ai-content-prompts",
