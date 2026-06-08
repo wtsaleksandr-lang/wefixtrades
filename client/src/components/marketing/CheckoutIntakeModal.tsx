@@ -21,6 +21,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
+import { FreeToolFormField, FreeToolFormFieldStyles } from "@/components/marketing/FreeToolFormField";
 
 export interface CheckoutIntakeModalProps {
   open: boolean;
@@ -89,6 +90,15 @@ export default function CheckoutIntakeModal({
       window.removeEventListener("keydown", onKey);
     };
   }, [open, onClose]);
+
+  /* Autofocus the first field (Business name) on open. FreeToolFormField
+     doesn't forward an `autoFocus` prop, so we focus by id — same pattern
+     the sibling CheckoutModal uses. */
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => document.getElementById("intake-business-name")?.focus(), 100);
+    return () => clearTimeout(t);
+  }, [open]);
 
   if (!open) return null;
 
@@ -205,51 +215,62 @@ export default function CheckoutIntakeModal({
           </p>
         )}
 
+        {/* Intake form — title-in-field (floating-label) per DESIGN-SYSTEM
+            input rules, via the shared FreeToolFormField primitive. This is
+            a light-surface modal (#fff), so theme="light". The 2px gap
+            between stacked fields is the design-system spacing. */}
+        <FreeToolFormFieldStyles />
         <form onSubmit={submit} style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 12 }}>
-          <Field label="Business name" autoFocus>
-            <input
-              type="text"
-              required
-              autoComplete="organization"
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <FreeToolFormField
+              id="intake-business-name"
+              testId="intake-business-name"
+              theme="light"
+              label="Business name"
+              helpText="The trading name we'll put on your account and invoices."
               value={form.business_name}
-              onChange={(e) => setForm({ ...form, business_name: e.target.value })}
-              style={inputStyle}
-              data-testid="intake-business-name"
-            />
-          </Field>
-          <Field label="Your name">
-            <input
-              type="text"
+              onChange={(v) => setForm({ ...form, business_name: v })}
+              autoComplete="organization"
               required
-              autoComplete="name"
+            />
+            <FreeToolFormField
+              id="intake-contact-name"
+              testId="intake-contact-name"
+              theme="light"
+              label="Your name"
+              helpText="Who we should address account and billing emails to."
               value={form.contact_name}
-              onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
-              style={inputStyle}
-              data-testid="intake-contact-name"
-            />
-          </Field>
-          <Field label="Email">
-            <input
-              type="email"
+              onChange={(v) => setForm({ ...form, contact_name: v })}
+              autoComplete="name"
               required
-              autoComplete="email"
+            />
+            <FreeToolFormField
+              id="intake-contact-email"
+              testId="intake-contact-email"
+              theme="light"
+              label="Email"
+              type="email"
+              helpText="Where we'll send your receipt and account access."
               value={form.contact_email}
-              onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
-              style={inputStyle}
-              data-testid="intake-contact-email"
+              onChange={(v) => setForm({ ...form, contact_email: v })}
+              inputMode="email"
+              autoComplete="email"
+              required
             />
-          </Field>
-          <Field label="Phone (optional)">
-            <input
+            <FreeToolFormField
+              id="intake-contact-phone"
+              testId="intake-contact-phone"
+              theme="light"
+              label="Phone (optional)"
               type="tel"
-              autoComplete="tel"
+              helpText="Optional — only used if we need to reach you about your order."
               value={form.contact_phone}
-              onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-              style={inputStyle}
-              data-testid="intake-contact-phone"
+              onChange={(v) => setForm({ ...form, contact_phone: v })}
+              inputMode="tel"
+              autoComplete="tel"
             />
-            <SmsConsentDisclosure variant="inline" />
-          </Field>
+          </div>
+          <SmsConsentDisclosure variant="inline" />
 
           {error && (
             <p
@@ -307,22 +328,3 @@ export default function CheckoutIntakeModal({
   );
 }
 
-function Field({ label, autoFocus, children }: { label: string; autoFocus?: boolean; children: React.ReactNode }) {
-  return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>{label}</span>
-      <div data-autofocus={autoFocus ? "1" : undefined}>{children}</div>
-    </label>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "10px 12px",
-  fontSize: 14,
-  borderRadius: 10,
-  border: "1px solid #D1D5DB",
-  background: "#fff",
-  color: "#0F1418",
-  outline: "none",
-};

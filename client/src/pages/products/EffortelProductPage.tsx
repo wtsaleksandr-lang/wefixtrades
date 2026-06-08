@@ -91,7 +91,7 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
   sitelaunch: {
     eyebrow: "Your current site looks like 2014. Visitors notice.",
     headline: <>A site that converts. <span style={{ display: "block", color: mkt.accent }}>Live in a week.</span></>,
-    sub: "We design, build, and host a trade-tuned site that ranks on Google and turns visitors into booked jobs.",
+    sub: "We design, build, and launch a trade-tuned site that ranks on Google and turns visitors into booked jobs.",
   },
   webcare: {
     eyebrow: "Last time WordPress broke your site, you lost a day fixing it.",
@@ -185,6 +185,13 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
 
   const isTradeLine = slug === "tradeline";
   const isComingSoon = cfg.comingSoon === true;
+  // A product whose every priced tier is a one-time charge (WebFix $249,
+  // SiteLaunch $1197). Used to swap subscription microcopy ("No card required.
+  // Cancel anytime.", "5-min setup · No card") for one-time-honest copy — that
+  // language is self-contradictory at the point of sale for a paid one-time SKU.
+  const isOneTime =
+    (cfg.pricingSection?.plans?.length ?? 0) > 0 &&
+    (cfg.pricingSection?.plans ?? []).every((p) => (p.period ?? "").includes("one-time"));
   // Wave 11D D5 — visual breadcrumb on MapGuard Suite member product pages.
   const isMapGuardSuiteMember = slug === "mapguard";
 
@@ -297,12 +304,12 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
           <WaitlistForm productSlug={cfg.slug} productName={cfg.name} />
         )}
         <Faq items={cfg.faq ?? []} />
-        <FinalCta cfg={effectiveCfg} />
+        <FinalCta cfg={effectiveCfg} comingSoon={isComingSoon} oneTime={isOneTime} />
         {/* TradeLine: sticky chat-input launcher replaces the standard
             sticky-mobile CTA + global SiteChatWidget. */}
         {isTradeLine
           ? <TradeLineDemoLauncher />
-          : <StickyMobileCta primaryCta={effectiveCfg.primaryCTA} productName={cfg.name} />}
+          : <StickyMobileCta primaryCta={effectiveCfg.primaryCTA} productName={cfg.name} comingSoon={isComingSoon} oneTime={isOneTime} />}
       </div>
     </MarketingLayout>
   );
@@ -314,8 +321,16 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
    show a sticky bottom bar with the primary CTA. Hides automatically
    when the user reaches the final CTA section.
    ════════════════════════════════════════════════════════════════ */
-function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: string; href: string }; productName: string }) {
+function StickyMobileCta({ primaryCta, productName, comingSoon, oneTime }: { primaryCta: { label: string; href: string }; productName: string; comingSoon?: boolean; oneTime?: boolean }) {
   const [visible, setVisible] = useState(false);
+  // Subline must match the billing type. "5-min setup · No card" is a
+  // live-subscription claim — false for a waitlist (nothing to set up yet)
+  // and for a paid one-time checkout (a card IS required).
+  const subline = comingSoon
+    ? "Get early access"
+    : oneTime
+      ? "Secure Stripe checkout"
+      : "5-min setup · No card";
 
   useEffect(() => {
     const onScroll = () => {
@@ -374,7 +389,7 @@ function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: str
             {productName}
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDark, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            5-min setup · No card
+            {subline}
           </div>
         </div>
         <CtaLink href={primaryCta.href} style={{
@@ -618,16 +633,34 @@ function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans:
   // W-AN-2 — when `comingSoon` is true, all per-tier checkout buttons
   // and primary-CTA links are replaced with a single "Notify me when
   // available" link that scrolls to the waitlist form below.
-  const [checkoutTier, setCheckoutTier] = useState<{ sku: string; name: string; price: string } | null>(null);
+  const [checkoutTier, setCheckoutTier] = useState<{ sku: string; name: string; price: string; period: string } | null>(null);
   if (!pricing?.plans?.length) return null;
   const checkoutEnabled = !!pricing.checkoutEnabled && !comingSoon;
+  // Single-price products (one tier) read as a fixed price, not a "tier"
+  // ladder — so the pricing header shouldn't say "Pick a tier".
+  const singlePrice = pricing.plans.length === 1;
+  // A product whose only tiers are one-time is a one-time purchase
+  // (e.g. WebFix $249, SiteLaunch $1197) — its header + microcopy must not
+  // imply a recurring subscription ("Cancel anytime", "billed monthly").
+  const allOneTime = pricing.plans.every((p) => (p.period ?? "").includes("one-time"));
+  const pricingHeading = comingSoon
+    ? "Simple, transparent pricing"
+    : allOneTime
+      ? (singlePrice ? "Simple, one-time pricing" : "One-time pricing")
+      : "Pick a tier. Cancel any time.";
+  // Coming-soon/waitlist products must not run live-signup microcopy
+  // ("Cancel anytime", "Posts start within 24 hours of setup") — there is no
+  // live signup yet. Swap the note for a waitlist-honest line.
+  const displayNote = comingSoon
+    ? "Pricing locked in at launch. Join the waitlist for early access."
+    : pricing.note;
   return (
     <section id="pricing" style={{ padding: "56px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <Reveal>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
-              Pick a tier. Cancel any time.
+              {pricingHeading}
             </h2>
             {/* Wave 26 — TradeLine flat-pricing wedge vs competitors. Per
                 competitive-tradeline-research.md: per-minute pricing is the
@@ -722,10 +755,28 @@ function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans:
                   }}>
                     Notify me when available
                   </a>
+                ) : checkoutEnabled && p.sku && /^\$?0(\.0+)?$/.test((p.price ?? "").trim()) ? (
+                  /* Free ($0) tier — route to free signup, NOT the Stripe
+                     payment intake modal. A $0 plan must never show "redirected
+                     to Stripe to complete payment" copy. */
+                  <Link href="/signup" style={{
+                    display: "block", textAlign: "center",
+                    padding: "12px 14px", borderRadius: 10,
+                    background: p.highlighted ? "#FFFFFF" : mkt.ctaBg,
+                    color: p.highlighted ? mkt.accent : mkt.ctaText,
+                    fontSize: 13, fontWeight: p.highlighted ? 700 : 500,
+                    textDecoration: "none",
+                    lineHeight: 1.25,
+                    whiteSpace: "normal",
+                    overflowWrap: "break-word",
+                    marginTop: "auto",
+                  }}>
+                    Start free
+                  </Link>
                 ) : checkoutEnabled && p.sku ? (
                   <button
                     type="button"
-                    onClick={() => setCheckoutTier({ sku: p.sku, name: p.name, price: `${p.price}${p.period}` })}
+                    onClick={() => setCheckoutTier({ sku: p.sku, name: p.name, price: `${p.price}${p.period}`, period: p.period ?? "" })}
                     style={{
                       display: "block", width: "100%", textAlign: "center",
                       padding: "12px 14px", borderRadius: 10,
@@ -761,9 +812,9 @@ function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans:
             </Reveal>
           ))}
         </div>
-        {pricing.note && (
+        {displayNote && (
           <p style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: mkt.onDarkFaint, fontFamily: MONO, letterSpacing: "0.04em" }}>
-            {pricing.note}
+            {displayNote}
           </p>
         )}
       </div>
@@ -782,13 +833,21 @@ function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans:
         }
       `}</style>
 
-      {/* Per-tier checkout — only mounts for checkoutEnabled products. */}
+      {/* Per-tier checkout — only mounts for checkoutEnabled products.
+          billingNote is derived from the tier's billing period so the modal
+          subhead never contradicts the price (one-time vs subscription).
+          Free ($0) tiers route to free signup, not the Stripe-payment flow. */}
       <CheckoutIntakeModal
         open={!!checkoutTier}
         onClose={() => setCheckoutTier(null)}
         items={checkoutTier ? [checkoutTier.sku] : []}
         bundleName={checkoutTier?.name}
         priceLabel={checkoutTier?.price}
+        billingNote={
+          checkoutTier?.period.includes("one-time")
+            ? "One-time payment. No subscription."
+            : undefined
+        }
       />
     </section>
   );
@@ -975,7 +1034,16 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
 /* ════════════════════════════════════════════════════════════════
    SECTION: FINAL CTA
    ════════════════════════════════════════════════════════════════ */
-function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
+function FinalCta({ cfg, comingSoon, oneTime }: { cfg: ReturnType<typeof getProductBySlug> & {}; comingSoon?: boolean; oneTime?: boolean }) {
+  // Reassurance line must match the billing type. "No card required. Cancel
+  // anytime." is subscription-trial language — wrong for a paid one-time
+  // purchase (a card is required, nothing to cancel) and for a waitlist
+  // (there's no signup to cancel yet).
+  const reassurance = comingSoon
+    ? "Join free — we'll email you the moment it's ready."
+    : oneTime
+      ? "One-time payment. Secure Stripe checkout. You own it."
+      : "Setup is fast. No card required. Cancel anytime.";
   return (
     <section style={{ padding: "56px 24px" }}>
       <div style={{
@@ -994,7 +1062,7 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
           <span style={{ display: "block", color: mkt.accent }}>{cfg.name}?</span>
         </h2>
         <p style={{ position: "relative", fontSize: 16, lineHeight: 1.55, color: mkt.onDarkMuted, marginBottom: 32 }}>
-          Setup is fast. No card required. Cancel anytime.
+          {reassurance}
         </p>
         <CtaLink href={cfg.primaryCTA.href} className="wft-hover-border-white" style={{ ...ctaPrimary, position: "relative", fontSize: 14, padding: "16px 32px" }}>
           {cfg.primaryCTA.label} <ArrowRight size={20} />
