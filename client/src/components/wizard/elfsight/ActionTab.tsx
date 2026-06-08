@@ -463,7 +463,7 @@ export default function ActionTab({
             </div>
 
             {/* Online booking — relocated style.booking */}
-            <div className="qq-action-card" data-testid="action-group-booking">
+            <div className="qq-action-card" data-testid="action-group-booking" data-edit-key="online-booking">
               <div className="qq-action-card-head">
                 <span className="qq-action-card-headicon" aria-hidden="true">
                   <CalendarDays size={16} />
