@@ -1291,6 +1291,25 @@ export default function PreviewPane({
   const onPaneBackgroundPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     const onInteractive = !!target.closest(SKIP_MOVE_SELECTOR);
+    // Deselect-stale-text fix — a background pointerdown that delegates to
+    // onHandlePointerDown calls e.preventDefault() (to drive the canvas
+    // pan / suppress native drag). preventDefault() on pointerdown ALSO
+    // suppresses the browser's default "collapse the text selection when
+    // you click elsewhere" behaviour, so a selection the user dragged over
+    // the preview title/subtitle/trust-chips would STICK (and multiple
+    // stale highlights accumulate). When the pointerdown is NOT on an
+    // editable/interactive element (those keep their native caret/selection
+    // behaviour because they're in SKIP_MOVE_SELECTOR → onInteractive), we
+    // explicitly clear any existing window selection here — matching native
+    // deselect. This runs at gesture START (pointerdown), before any
+    // drag-to-select-new-text happens on the following pointermove, so it
+    // never fights a fresh selection; it only clears a stale one.
+    if (!onInteractive) {
+      try {
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed) sel.removeAllRanges();
+      } catch { /* getSelection unavailable — nothing to clear */ }
+    }
     // Mouse, primary button, not on an interactive control → start a move
     // from anywhere on the canvas / bezel body. Reuses the handle's move
     // logic by delegating to onHandlePointerDown (which reads e.currentTarget
@@ -2470,6 +2489,13 @@ export default function PreviewPane({
                   display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
                   padding: '9px 14px', background: '#fbfcfd',
                   borderBottom: `1px solid ${p.colors.borderLight}`,
+                  /* The chrome bar is the topmost flow child of the bezel. The
+                   * bezel rounds its corners via `overflow: clip` + radius 16,
+                   * but make the chrome's own top corners round to the same
+                   * inner radius (16 − 1px border = 15) so the bar can never
+                   * paint a square top edge over the bezel's rounded corner —
+                   * belt-and-suspenders against any future parent/clip change. */
+                  borderTopLeftRadius: 15, borderTopRightRadius: 15,
                 }}
               >
                 <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#f87171' }} />
@@ -3199,6 +3225,11 @@ export default function PreviewPane({
           position: absolute;
           top: 0; left: 0; right: 0;
           height: 28px;
+          /* The handle is the topmost painted layer, pinned to the bezel's
+           * top edge. Round its top corners to the bezel's inner radius so its
+           * tinted bar never reads as a square cap over the rounded corner. */
+          border-top-left-radius: 15px;
+          border-top-right-radius: 15px;
           z-index: 8;
           display: flex; align-items: center; justify-content: center;
           padding: 0 10px;

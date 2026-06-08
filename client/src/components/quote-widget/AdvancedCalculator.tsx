@@ -1555,10 +1555,17 @@ export default function AdvancedCalculator({
   // Label placement: `float` (title-in-field, the legacy default) vs `stacked`
   // (Elfsight-style title-above + help-below). Opt-in; live widgets keep float.
   const labelLayout: 'float' | 'stacked' = style.labelLayout ?? 'float';
-  // `widgetWidth` undefined → no max-width cap (the outer QuoteWidget wrapper
-  // handled sizing pre-H5). Only apply a fixed cap when the user picked one.
-  const widgetWidth: AdvWidgetWidth | undefined = style.widgetWidth;
-  const maxWidthStyle: string | undefined = widgetWidth ? WIDTH_PX[widgetWidth] : undefined;
+  // Wave width-uniform — `widgetWidth` undefined → fall back to the standard
+  // `'wide'` (820px) cap so EVERY default template renders at the same width.
+  // Previously undefined meant "no cap" (full-bleed), which made the 39 trade
+  // templates that ship without a `style` block — and the 5 premium templates
+  // whose `style` block omits `widgetWidth` — render wider than the templates
+  // that explicitly carry `widgetWidth: 'wide'`. Alex flagged "some templates
+  // are changing the width"; this is the root cause (renderer default, not a
+  // per-template override — no template sets a *different* width). An owner who
+  // deliberately picks `'full'` or `'narrow'` in the Style tab still overrides.
+  const widgetWidth: AdvWidgetWidth = style.widgetWidth ?? 'wide';
+  const maxWidthStyle: string | undefined = WIDTH_PX[widgetWidth];
 
   // Wave AC-1 — per-viewport pixel overrides. When `widgetWidthDesktop` or
   // `widgetWidthMobile` are set, they take precedence over the `widgetWidth`
@@ -2176,7 +2183,7 @@ export default function AdvancedCalculator({
       className={widgetClass}
       data-testid="advanced-calculator"
       data-field-style={fieldStyle}
-      data-widget-width={widgetWidth ?? 'legacy'}
+      data-widget-width={widgetWidth}
       data-widget-width-desktop={widgetWidthDesktopPx ?? ''}
       data-widget-width-mobile={widgetWidthMobilePx ?? ''}
       data-style-radius={radiusSet ? radiusValue : 'legacy'}
@@ -2237,6 +2244,13 @@ export default function AdvancedCalculator({
         // breathing room between each. 540px is the floor for both wizard
         // preview and the live customer-facing widget (single component).
         minHeight: '540px',
+        // BD-2a-badge-pin — root is a flex COLUMN so the body region can flex
+        // and push the sticky bottom bar + root Powered-by badge flush to the
+        // bottom edge on every template, even when content is shorter than the
+        // 540px floor. Without this the badge floated up, leaving empty space
+        // below it on short templates. See FIX 1 (badge bottom-pin).
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* ── BD-2a-sticky — Top sticky region ──
@@ -2536,6 +2550,36 @@ export default function AdvancedCalculator({
           }
           .${gridId}[data-layout="multi-column"] .${gridId}-fields > * { grid-column: auto; }
         }
+        /* Premium DEFAULT CTA hover — works on EVERY template + theme.
+           Color-agnostic (transform + shadow + brightness only) so it reads
+           well on both light and dark CTA backgrounds. The base transition is
+           inline on the button; this rule supplies the hover/active deltas.
+           Additive to the paid pulse ::after (that animates the background
+           gradient; this animates the box) so the two never fight. The hover
+           lift is SUBTLE-but-noticeable: a 2px rise, a stronger elevated
+           shadow, and a slight brightness bump. */
+        /* !important: out-specifies a global button:hover rule in index.css
+           (button[style*=background][style*=border-radius]:hover) that would
+           otherwise cap the lift at -1px and leak the transform under
+           reduced-motion. */
+        .qq-w-cta:hover {
+          transform: translateY(-2px) !important;
+          box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+          filter: brightness(1.06);
+        }
+        /* Press feel — settle back flush on click. */
+        .qq-w-cta:active { transform: translateY(0) !important; }
+        /* Accessibility — honour reduced-motion: no transform/transition, keep
+           just the elevated shadow as a static hover affordance. */
+        @media (prefers-reduced-motion: reduce) {
+          .qq-w-cta { transition: none; }
+          .qq-w-cta:hover {
+            transform: none !important;
+            filter: none;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+          }
+          .qq-w-cta:active { transform: none !important; }
+        }
         /* Premium slider — Apple/Stripe-style.
            Thin 4px track, brand-blue progress fill, ~18px white thumb with
            a soft brand-blue border + subtle shadow. Hover scales the thumb
@@ -2656,7 +2700,17 @@ export default function AdvancedCalculator({
         data-component-type="body"
         data-step-index={useStepper ? stepIdx : 'single'}
         data-step-mode={useStepper ? (isContactStep ? 'contact' : 'data') : 'single'}
-        style={{ background: bodyBackground }}>
+        style={{
+          background: bodyBackground,
+          // BD-2a-badge-pin — flex-grow the body so it absorbs all spare
+          // vertical space inside the flex-column root. This pushes the sticky
+          // bottom bar + root Powered-by badge to the bottom edge on short
+          // templates while leaving tall/scrolling templates unaffected.
+          // `min-height: 0` lets the grid shrink correctly inside the flex
+          // column instead of overflowing.
+          flex: '1 1 auto',
+          minHeight: 0,
+        }}>
         {/* Inputs — when the stepper is on the contact step, the fields
             section is replaced by the ContactStep (rendered further below
             so it shares the same column as the result panel on two-column
@@ -3131,6 +3185,7 @@ export default function AdvancedCalculator({
                 )}
                 {leadView === 'cta' && (
                   <button type="button" data-testid="advanced-cta"
+                    className="qq-w-cta"
                     data-component-name="CTA button"
                     data-component-type="cta"
                     // BD-3l — `data-qq-cta-pulse` plus `--qq-cta-base`
@@ -3149,6 +3204,15 @@ export default function AdvancedCalculator({
                       cursor: 'pointer', fontFamily, letterSpacing: '0.01em',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                       boxShadow: '0 6px 16px rgba(0,0,0,0.18)',
+                      // Premium default CTA hover — smooth transition for the
+                      // lift + elevated shadow + brightness defined in the
+                      // scoped <style> `.qq-w-cta:hover` rule. Color-agnostic
+                      // (transform/shadow/filter only) so it reads well on both
+                      // light and dark CTA backgrounds and never fights the
+                      // paid pulse ::after. Disabled via prefers-reduced-motion
+                      // in the scoped block.
+                      transition:
+                        'transform 180ms ease, box-shadow 180ms ease, filter 180ms ease',
                       // BD-3l — position relative so the pulse shimmer
                       // ::after pseudo-element anchors correctly. No
                       // visual change when the pack is off.
