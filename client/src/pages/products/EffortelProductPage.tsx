@@ -234,6 +234,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
             products without a real customer-facing widget. */}
         {slug === "quickquotepro" && <QuickQuoteLandingLiveDemo />}
         {slug === "mapguard" && <MapGuardLandingTeaser />}
+        {slug === "rankflow" && <RankFlowFreeTools />}
 
         {/* NUMBERED CARDS
             A11Y — NumberedCard renders its title as <h3>, but the page's
@@ -624,7 +625,7 @@ function HowItWorks({ steps }: { steps?: { title: string; desc: string }[] }) {
 /* ════════════════════════════════════════════════════════════════
    SECTION: PRICING
    ════════════════════════════════════════════════════════════════ */
-function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans: any[]; note?: string; checkoutEnabled?: boolean }; primaryCta: { label: string; href: string }; comingSoon?: boolean; slug?: string }) {
+function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans: any[]; note?: string; noteLink?: { label: string; href: string }; checkoutEnabled?: boolean }; primaryCta: { label: string; href: string }; comingSoon?: boolean; slug?: string }) {
   // When checkoutEnabled, each tier card opens CheckoutIntakeModal
   // pre-loaded with that tier's SKU. `checkoutTier` = the open plan
   // (null = closed). Products without checkoutEnabled keep the
@@ -812,9 +813,20 @@ function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans:
             </Reveal>
           ))}
         </div>
-        {displayNote && (
+        {(displayNote || (!comingSoon && pricing.noteLink)) && (
           <p style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: mkt.onDarkFaint, fontFamily: MONO, letterSpacing: "0.04em" }}>
             {displayNote}
+            {/* Worded link instead of a raw "/pricing/..." path printed inline
+                (which read as broken copy). Hidden in coming-soon mode where the
+                note is swapped for waitlist messaging. */}
+            {!comingSoon && pricing.noteLink && (
+              <>
+                {displayNote ? " " : ""}
+                <Link href={pricing.noteLink.href} style={{ color: mkt.accent, textDecoration: "underline" }}>
+                  {pricing.noteLink.label}
+                </Link>
+              </>
+            )}
           </p>
         )}
       </div>
@@ -1188,6 +1200,85 @@ function QuickQuoteLandingLiveDemo() {
           >
             Try it live <ArrowRight size={14} />
           </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION: RankFlow free-tools cross-link
+   RankFlow is the paid done-for-you SEO product; its free SERP/rank
+   tools are the natural top-of-funnel. Surface a small "try the free
+   tools first" callout linking the three live tools. Reuses the
+   {name, href, blurb} card pattern from FreeToolsHubPage / the suite.
+   ════════════════════════════════════════════════════════════════ */
+const RANKFLOW_FREE_TOOLS: { name: string; href: string; blurb: string }[] = [
+  { name: "Local SERP Checker", href: "/tools/local-serp-checker", blurb: "See exactly where you rank on Google + Maps for any keyword." },
+  { name: "Local Rank Tracker", href: "/tools/local-rank-tracker", blurb: "Multi-engine rank snapshot for your business in one click." },
+  { name: "Local Rank Grid", href: "/tools/local-rank-grid", blurb: "5×5 geo-grid heatmap of how visibility changes across your area." },
+];
+
+function RankFlowFreeTools() {
+  return (
+    <section style={{ padding: "20px 24px 8px" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto" }}>
+        <p
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: mkt.accent,
+            textAlign: "center",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            margin: "0 0 8px",
+            fontFamily: MONO,
+          }}
+        >
+          Try the free tools first
+        </p>
+        <h2
+          style={{
+            fontSize: "clamp(22px, 3vw, 30px)",
+            fontWeight: 600,
+            color: mkt.onDark,
+            textAlign: "center",
+            letterSpacing: "-0.02em",
+            lineHeight: 1.15,
+            margin: "0 0 20px",
+          }}
+        >
+          See where you stand — no signup
+        </h2>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {RANKFLOW_FREE_TOOLS.map((t) => (
+            <Link
+              key={t.href}
+              href={t.href}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                padding: "16px 18px",
+                borderRadius: 14,
+                background: mkt.sectionLight,
+                border: `1px solid var(--hairline)`,
+                textDecoration: "none",
+                color: mkt.onDark,
+              }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                {t.name} <ArrowRight size={14} color={mkt.accent} />
+              </span>
+              <span style={{ fontSize: 12, lineHeight: 1.5, color: mkt.onDarkMuted }}>{t.blurb}</span>
+            </Link>
+          ))}
         </div>
       </div>
     </section>

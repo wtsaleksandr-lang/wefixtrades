@@ -25,10 +25,10 @@ export default function AdFlowHeroAnimation() {
 
   return (
     <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <AnimationFrame ariaLabel="Ad copy auto-generates, click-through rate climbs from 1.2% to 4.6%, conversions counter grows">
+      <AnimationFrame ariaLabel="Example ad copy auto-generates, click-through rate climbs from 1.2% to 4.6%, conversions counter grows. Illustrative figures.">
         <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={monoLabel}>AdFlow · live test</span>
+            <span style={monoLabel}>AdFlow · example</span>
             <span style={{ ...monoLabel, color: mkt.accent }}>Variant {phase + 1}/3</span>
           </div>
 
@@ -60,6 +60,11 @@ export default function AdFlowHeroAnimation() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <MetricTile label="CTR" value={CTR[phase]} highlight={phase === 2} />
             <MetricTile label="Conversions" value={CONV[phase]} highlight={phase === 2} />
+          </div>
+
+          {/* Honesty cue — these are illustrative figures, not a live account. */}
+          <div style={{ ...monoLabel, textAlign: "center", color: mkt.onDarkFaint, opacity: 0.85 }}>
+            Illustrative example
           </div>
         </div>
       </AnimationFrame>

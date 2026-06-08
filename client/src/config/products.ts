@@ -61,7 +61,7 @@ export interface ProductPage {
   bestFor: string[];
   visuals: { title: string; desc: string; image?: string }[];
   faq: { q: string; a: string }[];
-  pricingSection: { plans: { sku?: string; name: string; price: string; period: string; features: string[]; badge?: string; highlighted?: boolean }[]; note?: string; checkoutEnabled?: boolean };
+  pricingSection: { plans: { sku?: string; name: string; price: string; period: string; features: string[]; badge?: string; highlighted?: boolean }[]; note?: string; noteLink?: { label: string; href: string }; checkoutEnabled?: boolean };
   related: string[];
 }
 
@@ -516,19 +516,19 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     outcomes: [
       { title: "Consistent online presence", desc: "Fresh content goes out every week across all your channels without you lifting a finger." },
-      { title: "Better local SEO", desc: "Regular articles and GBP posts signal to Google that your business is active and relevant." },
+      { title: "Better local SEO", desc: "Regular articles and Google Business Profile posts signal to Google that your business is active and relevant." },
       { title: "More trust before the first call", desc: "Customers who see helpful content are more likely to choose you over a competitor with an empty blog." },
       { title: "Zero time investment", desc: "No writing, no scheduling, no platform switching. ContentFlow handles it all." },
     ],
     howItWorks: [
       { title: "Build your brand profile", desc: "Tell us about your business, services, service area, and the tone you want. AI uses this as the foundation for all content." },
-      { title: "AI drafts your content", desc: "Articles, social posts, and GBP updates are generated on a regular schedule — all matched to your brand voice." },
+      { title: "AI drafts your content", desc: "Articles, social posts, and Google Business Profile updates are generated on a regular schedule — all matched to your brand voice." },
       { title: "Review and approve", desc: "Preview every piece before it goes live. Approve, request changes, or let autopilot handle everything." },
       { title: "Auto-publish across channels", desc: "Approved content is published to your blog, Facebook, Instagram, and Google Business Profile automatically." },
     ],
     bestFor: ["Plumbers", "Electricians", "HVAC Technicians", "Roofers", "Cleaners", "Landscapers", "Painters", "General Contractors"],
     visuals: [
-      { title: "Content Calendar", desc: "See your upcoming posts, articles, and GBP updates in one organized view." },
+      { title: "Content Calendar", desc: "See your upcoming posts, articles, and Google Business Profile updates in one organized view." },
       { title: "Brand Voice Editor", desc: "Fine-tune how your AI-generated content sounds — friendly, professional, or direct." },
       { title: "Multi-Channel Dashboard", desc: "Track what’s been published, what’s pending approval, and what’s coming next." },
     ],
@@ -538,8 +538,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "How does the AI know what to write about?", a: "It uses your brand profile, service descriptions, service area, and industry knowledge to generate relevant, helpful content. Topics rotate automatically so you never repeat." },
       { q: "Can I edit content before it goes live?", a: "Yes. Every piece is available for review. You can edit text, approve as-is, or reject and request a rewrite." },
       { q: "What if I don’t like the tone?", a: "You can adjust your brand voice settings at any time. Choose between friendly, professional, or direct — and add any specific phrases or terminology you prefer." },
-      { q: "How is this different from SocialSync?", a: "SocialSync focuses specifically on social media posting. ContentFlow is a standalone content engine that produces articles, social posts, and GBP updates together — you can buy it on its own, no SocialSync subscription required. The two work well together but neither needs the other." },
-      { q: "How much content do I get?", a: "It depends on your plan: Creator includes 12 pieces per month, Studio 40, and Agency 120 — a mix of articles, social posts, and GBP updates." },
+      { q: "How is this different from SocialSync?", a: "SocialSync focuses specifically on social media posting. ContentFlow is a standalone content engine that produces articles, social posts, and Google Business Profile updates together — you can buy it on its own, no SocialSync subscription required. The two work well together but neither needs the other." },
+      { q: "How much content do I get?", a: "It depends on your plan: Creator includes 12 pieces per month, Studio 40, and Agency 120 — a mix of articles, social posts, and Google Business Profile updates." },
     ],
     pricingSection: buildPricingSection(CONTENTFLOW, "Standalone plans — no SocialSync or RankFlow subscription required. No contracts. Cancel anytime.", { checkout: true }),
     related: ["socialsync", "rankflow", "mapguard"],
@@ -652,7 +652,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
           ],
         },
       ],
-      note: "BookFlow is included free with any QuoteQuick plan. See /pricing/quotequick for plan options.",
+      note: "BookFlow is included free with any QuoteQuick plan.",
+      noteLink: { label: "See QuoteQuick plans", href: "/pricing/quotequick" },
     },
     related: ["quickquotepro", "tradeline"],
   },

@@ -17,14 +17,16 @@ export default function WebFixHeroAnimation() {
   const beat = useBeat(5, 1100, inView && !reduced);
   const phase = reduced ? 4 : beat;
 
-  // Phase 0: score 32, phase 1-4: each fix checks off, score climbs
+  // Phase 0: score 42, phase 1-4: each fix checks off, score climbs to 98.
+  // Endpoints (42 → 98) match the WebFix copy, stat band, and demo gauge so
+  // the page never shows two different "before"/"after" scores.
   const fixedCount = Math.max(0, phase);
-  const score = phase === 0 ? 32 : phase === 1 ? 51 : phase === 2 ? 68 : phase === 3 ? 82 : 94;
+  const score = phase === 0 ? 42 : phase === 1 ? 61 : phase === 2 ? 77 : phase === 3 ? 89 : 98;
   const scoreColor = score < 50 ? "#EF4444" : score < 90 ? "#F59E0B" : "#10B981";
 
   return (
     <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <AnimationFrame ariaLabel="PageSpeed score climbing from 32 to 94 as performance fixes check off">
+      <AnimationFrame ariaLabel="PageSpeed score climbing from 42 to 98 as performance fixes check off">
         <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={monoLabel}>PageSpeed audit</span>

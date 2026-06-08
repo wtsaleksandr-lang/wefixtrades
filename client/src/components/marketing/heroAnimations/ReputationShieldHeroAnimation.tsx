@@ -19,11 +19,14 @@ export default function ReputationShieldHeroAnimation() {
 
   const typedLen = phase === 0 ? 0 : phase === 1 ? Math.floor(REPLY_FULL.length * 0.45) : REPLY_FULL.length;
   const reply = REPLY_FULL.slice(0, typedLen);
-  const rating = phase === 0 ? "4.2" : phase === 1 ? "4.5" : "4.7";
+  // Climb settles on 4.9 to match the rating shown everywhere else on the
+  // ReputationShield page (mockup cards, demo header, badge) — avoids the
+  // page showing two different "current" averages (was 4.7 here vs 4.9 below).
+  const rating = phase === 0 ? "4.2" : phase === 1 ? "4.6" : "4.9";
 
   return (
     <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <AnimationFrame ariaLabel="A 1-star review appears, AI drafts a personal reply, star rating climbs from 4.2 to 4.7">
+      <AnimationFrame ariaLabel="A 1-star review appears, AI drafts a personal reply, star rating climbs from 4.2 to 4.9">
         <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={monoLabel}>Review intercepted</span>

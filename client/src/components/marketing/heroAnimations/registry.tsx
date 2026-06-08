@@ -23,8 +23,10 @@ const PRODUCT_ANIMATIONS: Record<string, ReturnType<typeof lazy>> = {
   rankflow: lazy(() => import("./RankFlowHeroAnimation")),
   adflow: lazy(() => import("./AdFlowHeroAnimation")),
   socialsync: lazy(() => import("./SocialSyncHeroAnimation")),
-  // BookFlow rolled into QuoteQuick — points at the same animation.
-  bookflow: lazy(() => import("./QuoteQuickHeroAnimation")),
+  // BookFlow is rolled into QuoteQuick, but its hero must SHOW booking — not
+  // the QuoteQuick quote flow (which read as the wrong product). Lead with the
+  // self-booking calendar demo used lower on the page.
+  bookflow: lazy(() => import("@/components/product-demos/BookFlowDemo")),
   // Citation tracker is the MapGuard Suite bonus animation.
   "citation-tracker": lazy(() => import("./CitationTrackerHeroAnimation")),
 };
