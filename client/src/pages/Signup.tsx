@@ -12,7 +12,11 @@ import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import MicrosoftSignInButton from "@/components/auth/MicrosoftSignInButton";
 import FacebookSignInButton from "@/components/auth/FacebookSignInButton";
 import { ga4Event } from "@/lib/ga4";
-import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
+import {
+  SmsConsentDisclosure,
+  SMS_CONSENT_LABEL,
+  SMS_CONSENT_VERSION,
+} from "@/components/forms/SmsConsentDisclosure";
 
 export default function SignupPage() {
   const [businessName, setBusinessName] = useState("");
@@ -20,8 +24,14 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
+  const [consentError, setConsentError] = useState(false);
   const [, navigate] = useLocation();
   usePageTitle("Create Free Account");
+
+  // TCPA: a phone number may only be submitted with an affirmative opt-in.
+  const phoneProvided = phone.trim().length > 0;
+  const consentRequired = phoneProvided && !smsConsent;
 
   // ─── GA4: signup_started ───
   // Fires once on page mount; we count "page reached" as the funnel-top
@@ -62,6 +72,10 @@ export default function SignupPage() {
           name,
           businessName,
           phone: phone || undefined,
+          // TCPA: explicit opt-in + the exact text the user agreed to.
+          smsConsent: phone.trim() ? smsConsent : false,
+          smsConsentText: phone.trim() && smsConsent ? SMS_CONSENT_LABEL : undefined,
+          smsConsentVersion: phone.trim() && smsConsent ? SMS_CONSENT_VERSION : undefined,
           demoSessionId: demoSessionId || undefined,
         }),
       });
@@ -103,6 +117,11 @@ export default function SignupPage() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    // TCPA: block submit if a phone is given without an affirmative opt-in.
+    if (consentRequired) {
+      setConsentError(true);
+      return;
+    }
     signup.mutate();
   };
 
@@ -233,9 +252,48 @@ export default function SignupPage() {
               autoComplete="tel"
               style={{ ...inputStyle, marginBottom: 8 }}
             />
-            <div style={{ marginBottom: 20 }}>
+            {phoneProvided && (
+              <label
+                htmlFor="signup-sms-consent"
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  marginBottom: 8,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  id="signup-sms-consent"
+                  type="checkbox"
+                  checked={smsConsent}
+                  onChange={(e) => {
+                    setSmsConsent(e.target.checked);
+                    if (e.target.checked) setConsentError(false);
+                  }}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    marginTop: 1,
+                    flexShrink: 0,
+                    accentColor: "#0D3CFC",
+                    cursor: "pointer",
+                  }}
+                  data-testid="checkbox-sms-consent"
+                />
+                <span style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5 }}>
+                  {SMS_CONSENT_LABEL}
+                </span>
+              </label>
+            )}
+            <div style={{ marginBottom: consentError ? 6 : 20 }}>
               <SmsConsentDisclosure variant="inline" />
             </div>
+            {consentError && (
+              <p style={{ fontSize: 13, color: mkt.danger, marginBottom: 16 }}>
+                Please tick the box to agree to SMS messages, or clear the phone field to continue without it.
+              </p>
+            )}
 
             {signup.error && (
               <p style={{ fontSize: 13, color: mkt.danger, marginBottom: 16 }}>
@@ -250,7 +308,7 @@ export default function SignupPage() {
                 #0D3CFC with off-white text. */}
             <button
               type="submit"
-              disabled={signup.isPending}
+              disabled={signup.isPending || consentRequired}
               style={{
                 width: "100%",
                 padding: "14px 0",
@@ -261,7 +319,7 @@ export default function SignupPage() {
                 border: "none",
                 borderRadius: 10,
                 cursor: signup.isPending ? "wait" : "pointer",
-                opacity: signup.isPending ? 0.7 : 1,
+                opacity: signup.isPending || consentRequired ? 0.7 : 1,
                 letterSpacing: "0.04em",
                 transition: "background 0.15s ease, opacity 0.15s ease",
               }}

@@ -8,7 +8,11 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
+import {
+  SmsConsentDisclosure,
+  SMS_CONSENT_LABEL,
+  SMS_CONSENT_VERSION,
+} from "@/components/forms/SmsConsentDisclosure";
 
 /**
  * Business-name completion step for "Continue with Google" sign-up.
@@ -33,7 +37,14 @@ interface PendingResponse {
 export default function SignupBusinessNamePage() {
   const [businessName, setBusinessName] = useState("");
   const [phone, setPhone] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
+  // Inline error shown when a phone is supplied but SMS consent isn't ticked.
+  const [consentError, setConsentError] = useState(false);
   const [, navigate] = useLocation();
+
+  // TCPA: a phone number may only be submitted with an affirmative opt-in.
+  const phoneProvided = phone.trim().length > 0;
+  const consentRequired = phoneProvided && !smsConsent;
   usePageTitle("Finish signing up");
 
   // Confirm a pending Google signup exists before showing the form.
@@ -59,7 +70,15 @@ export default function SignupBusinessNamePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ businessName, phone: phone || undefined }),
+        body: JSON.stringify({
+          businessName,
+          phone: phone || undefined,
+          // TCPA: explicit opt-in + the exact text the user agreed to, so the
+          // backend can persist a defensible consent record.
+          smsConsent: phone.trim() ? smsConsent : false,
+          smsConsentText: phone.trim() && smsConsent ? SMS_CONSENT_LABEL : undefined,
+          smsConsentVersion: phone.trim() && smsConsent ? SMS_CONSENT_VERSION : undefined,
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -115,6 +134,11 @@ export default function SignupBusinessNamePage() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!businessName.trim() || complete.isPending) return;
+    // TCPA: block submit if a phone is given without an affirmative opt-in.
+    if (consentRequired) {
+      setConsentError(true);
+      return;
+    }
     complete.mutate();
   };
 
@@ -169,9 +193,48 @@ export default function SignupBusinessNamePage() {
                   style={{ ...inputStyle, marginBottom: 8 }}
                   data-testid="input-phone"
                 />
-                <div style={{ marginBottom: 20 }}>
+                {phoneProvided && (
+                  <label
+                    htmlFor="finish-sms-consent"
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      marginBottom: 8,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      id="finish-sms-consent"
+                      type="checkbox"
+                      checked={smsConsent}
+                      onChange={(e) => {
+                        setSmsConsent(e.target.checked);
+                        if (e.target.checked) setConsentError(false);
+                      }}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        marginTop: 1,
+                        flexShrink: 0,
+                        accentColor: "#0D3CFC",
+                        cursor: "pointer",
+                      }}
+                      data-testid="checkbox-sms-consent"
+                    />
+                    <span style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5 }}>
+                      {SMS_CONSENT_LABEL}
+                    </span>
+                  </label>
+                )}
+                <div style={{ marginBottom: consentError ? 6 : 20 }}>
                   <SmsConsentDisclosure variant="inline" />
                 </div>
+                {consentError && (
+                  <p style={{ fontSize: 13, color: mkt.danger, marginBottom: 16 }}>
+                    Please tick the box to agree to SMS messages, or clear the phone field to continue without it.
+                  </p>
+                )}
 
                 {complete.error && (
                   <p style={{ fontSize: 13, color: mkt.danger, marginBottom: 16 }}>
@@ -181,7 +244,7 @@ export default function SignupBusinessNamePage() {
 
                 <button
                   type="submit"
-                  disabled={!businessName.trim() || complete.isPending}
+                  disabled={!businessName.trim() || complete.isPending || consentRequired}
                   style={{
                     width: "100%",
                     padding: "14px 0",
@@ -193,7 +256,7 @@ export default function SignupBusinessNamePage() {
                     borderRadius: 8,
                     letterSpacing: "0.04em",
                     cursor: complete.isPending ? "wait" : "pointer",
-                    opacity: !businessName.trim() || complete.isPending ? 0.7 : 1,
+                    opacity: !businessName.trim() || complete.isPending || consentRequired ? 0.7 : 1,
                     transition: "background 0.15s ease, opacity 0.15s ease",
                   }}
                   data-testid="button-finish-signup"

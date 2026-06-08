@@ -24,6 +24,21 @@ interface SmsConsentDisclosureProps {
   className?: string;
 }
 
+/**
+ * Affirmative opt-in label rendered next to the SMS-consent checkbox.
+ *
+ * TCPA requires express written consent to be an *affirmative* action (a
+ * ticked box), not a passive disclosure paragraph. This is the exact label
+ * shown beside the checkbox; the longer DISCLOSURE_BODY below stays as the
+ * supporting fine print + Privacy Policy link.
+ *
+ * Bump SMS_CONSENT_VERSION whenever the wording materially changes so the
+ * stored consent record reflects which text the user actually agreed to.
+ */
+export const SMS_CONSENT_VERSION = "2026-06-08";
+export const SMS_CONSENT_LABEL =
+  "I agree to receive SMS messages from WeFixTrades about my account, quotes, and service updates. Msg & data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help.";
+
 const DISCLOSURE_BODY =
   "By providing your phone number, you agree to receive SMS messages from WeFixTrades for quotes, appointment confirmations, support responses, and service reminders. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help. See our ";
 
