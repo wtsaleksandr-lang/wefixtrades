@@ -2470,6 +2470,13 @@ export default function PreviewPane({
                   display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
                   padding: '9px 14px', background: '#fbfcfd',
                   borderBottom: `1px solid ${p.colors.borderLight}`,
+                  /* The chrome bar is the topmost flow child of the bezel. The
+                   * bezel rounds its corners via `overflow: clip` + radius 16,
+                   * but make the chrome's own top corners round to the same
+                   * inner radius (16 − 1px border = 15) so the bar can never
+                   * paint a square top edge over the bezel's rounded corner —
+                   * belt-and-suspenders against any future parent/clip change. */
+                  borderTopLeftRadius: 15, borderTopRightRadius: 15,
                 }}
               >
                 <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#f87171' }} />
@@ -3199,6 +3206,11 @@ export default function PreviewPane({
           position: absolute;
           top: 0; left: 0; right: 0;
           height: 28px;
+          /* The handle is the topmost painted layer, pinned to the bezel's
+           * top edge. Round its top corners to the bezel's inner radius so its
+           * tinted bar never reads as a square cap over the rounded corner. */
+          border-top-left-radius: 15px;
+          border-top-right-radius: 15px;
           z-index: 8;
           display: flex; align-items: center; justify-content: center;
           padding: 0 10px;

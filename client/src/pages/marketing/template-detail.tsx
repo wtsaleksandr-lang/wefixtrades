@@ -25,6 +25,7 @@ import {
   getTemplatePreset,
   toAdvancedConfig,
   TEMPLATE_PRESETS,
+  collapseLayoutVariants,
   THEME_COMBOS,
   defaultThemeForTemplate,
   type AdvStyle,
@@ -452,18 +453,33 @@ function TemplateRail({
   const scrollColorRow = (dir: -1 | 1) =>
     colorRowRef.current?.scrollBy({ left: dir * 132, behavior: "smooth" });
 
+  // Collapse per-layout variants (…_single_col/_two_col/_multi_col sharing a
+  // display name) to ONE representative card per template. Layout is chosen
+  // in-editor, not in this rail, so the same title must never appear 2–3×.
+  // Counts, filtering and pagination all operate on this collapsed catalogue
+  // (matches the /templates index page, which already collapses).
+  const presets = useMemo(() => collapseLayoutVariants(TEMPLATE_PRESETS), []);
+
+  // `selectedSlug` may be a layout-variant id (…_single_col) that the collapsed
+  // catalogue dropped in favour of its representative. Match the active card by
+  // display name so the representative still highlights for any variant slug.
+  const selectedName = useMemo(
+    () => getTemplatePreset(selectedSlug)?.name ?? "",
+    [selectedSlug],
+  );
+
   const categories = useMemo<[string, number][]>(() => {
     const counts = new Map<string, number>();
-    for (const t of TEMPLATE_PRESETS) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
+    for (const t of presets) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
     const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-    return [["All", TEMPLATE_PRESETS.length], ...entries];
-  }, []);
+    return [["All", presets.length], ...entries];
+  }, [presets]);
   const shown = useMemo(
     () =>
       category === "All"
-        ? TEMPLATE_PRESETS
-        : TEMPLATE_PRESETS.filter((t) => t.category === category),
-    [category],
+        ? presets
+        : presets.filter((t) => t.category === category),
+    [category, presets],
   );
   const pageCount = Math.max(1, Math.ceil(shown.length / PER_PAGE));
   const safePage = Math.min(page, pageCount - 1);
@@ -541,7 +557,7 @@ function TemplateRail({
       {/* 2×2 grid of real thumbnails */}
       <div className="tpl-rail-grid">
         {pageItems.map((t) => {
-          const active = t.id === selectedSlug;
+          const active = t.id === selectedSlug || t.name === selectedName;
           return (
             <div
               key={t.id}
