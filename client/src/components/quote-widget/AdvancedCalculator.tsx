@@ -2558,23 +2558,27 @@ export default function AdvancedCalculator({
            gradient; this animates the box) so the two never fight. The hover
            lift is SUBTLE-but-noticeable: a 2px rise, a stronger elevated
            shadow, and a slight brightness bump. */
+        /* !important: out-specifies a global button:hover rule in index.css
+           (button[style*=background][style*=border-radius]:hover) that would
+           otherwise cap the lift at -1px and leak the transform under
+           reduced-motion. */
         .qq-w-cta:hover {
-          transform: translateY(-2px);
+          transform: translateY(-2px) !important;
           box-shadow: 0 12px 28px rgba(0,0,0,0.28);
           filter: brightness(1.06);
         }
         /* Press feel — settle back flush on click. */
-        .qq-w-cta:active { transform: translateY(0); }
+        .qq-w-cta:active { transform: translateY(0) !important; }
         /* Accessibility — honour reduced-motion: no transform/transition, keep
            just the elevated shadow as a static hover affordance. */
         @media (prefers-reduced-motion: reduce) {
           .qq-w-cta { transition: none; }
           .qq-w-cta:hover {
-            transform: none;
+            transform: none !important;
             filter: none;
             box-shadow: 0 12px 28px rgba(0,0,0,0.28);
           }
-          .qq-w-cta:active { transform: none; }
+          .qq-w-cta:active { transform: none !important; }
         }
         /* Premium slider — Apple/Stripe-style.
            Thin 4px track, brand-blue progress fill, ~18px white thumb with
