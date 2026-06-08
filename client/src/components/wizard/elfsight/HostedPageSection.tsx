@@ -118,15 +118,22 @@ export default function HostedPageSection({
         the host site's own page.
       </p>
 
-      {/* ── Background — preset gallery ─────────────────────────── */}
+      {/* ── Background — preset gallery ───────────────────────────
+       *  Cue-density fix — "Background" is ONE surface with THREE ways to set
+       *  it (preset / solid colour / image). It previously carried a separate
+       *  InfoCue on each of the three sub-blocks (3 cues for one logical
+       *  control). Consolidated to a SINGLE cue on this top "Background"
+       *  header; the solid + image sub-blocks below are now plain labelled
+       *  rows. Keeps the help affordance without the cue pile-up the layout
+       *  guard flagged. */}
       <div className="qq-hosted-block">
         <div className="qq-hosted-block-h">
           <InfoCue
             testid="hosted-bg-preset"
             region="background"
-            text="Pick a ready-made background for your hosted page. The widget sits on a card in the centre — backgrounds frame it rather than competing with it."
+            text="Set the background for your hosted page — choose a ready-made preset, a flat solid colour, or upload your own image. The widget sits on a centred card so the background frames it rather than competing with it."
           />
-          <span>Background preset</span>
+          <span>Background</span>
         </div>
         <div
           className="qq-hosted-preset-grid"
@@ -152,14 +159,10 @@ export default function HostedPageSection({
         </div>
       </div>
 
-      {/* ── Background — solid color ────────────────────────────── */}
+      {/* ── Background — solid color ──────────────────────────────
+       *  Cue removed (consolidated into the single "Background" cue above). */}
       <div className="qq-hosted-block">
         <div className="qq-hosted-block-h">
-          <InfoCue
-            testid="hosted-bg-solid"
-            region="background"
-            text="Override the preset with a flat colour. Useful for matching a strict brand palette."
-          />
           <span>Or pick a solid color</span>
         </div>
         <div className="qq-hosted-solid-row">
@@ -193,14 +196,11 @@ export default function HostedPageSection({
         </div>
       </div>
 
-      {/* ── Background — image upload ──────────────────────────── */}
+      {/* ── Background — image upload ────────────────────────────
+       *  Cue removed (consolidated into the single "Background" cue above);
+       *  the foot note below still explains the file limits + darken slider. */}
       <div className="qq-hosted-block">
         <div className="qq-hosted-block-h">
-          <InfoCue
-            testid="hosted-bg-image"
-            region="background"
-            text="Upload your own background image (PNG, JPG, WebP, up to 2 MB). Use the darken slider to keep the widget readable on busy photos."
-          />
           <span>Or upload a custom background image</span>
         </div>
         <div className="qq-hosted-upload-row">
@@ -282,13 +282,13 @@ export default function HostedPageSection({
         </p>
       </div>
 
-      {/* ── Layout — centered card toggle ───────────────────────── */}
+      {/* ── Layout — centered card toggle ─────────────────────────
+       *  Cue-density fix — the per-block InfoCue was dropped; the toggle's own
+       *  title + sub-label already say "Recommended. Keeps the widget legible
+       *  on busy backgrounds." That leaves the section with a single help cue
+       *  (Background), one clear cue per surface. */}
       <div className="qq-hosted-block">
         <div className="qq-hosted-block-h">
-          <InfoCue
-            testid="hosted-layout"
-            text="Recommended: keep the widget on a centred card so it stays legible over busy backgrounds. Toggle off to let the widget float over the bare background."
-          />
           <span>Layout</span>
         </div>
         <label className="qq-hosted-switch-row" data-testid="hosted-card-toggle">
@@ -312,11 +312,12 @@ export default function HostedPageSection({
        *  placeholders provide concrete examples. No header text above
        *  the field per Alex's global rule. */}
       <div className="qq-hosted-block">
+        {/* Cue-density fix — the floating "(optional)" label + placeholder make
+            this self-evident; the per-input InfoCue was redundant noise on top
+            of the section's existing cues. Dropped. */}
         <FloatField
           label="Headline (optional)"
           htmlFor="qq-hosted-headline-input"
-          infoText="Optional headline rendered above the widget on the hosted page. Leave empty to skip."
-          infoTestid="hosted-headline"
         >
           <input
             id="qq-hosted-headline-input"
@@ -333,8 +334,6 @@ export default function HostedPageSection({
         <FloatField
           label="Subheadline (optional)"
           htmlFor="qq-hosted-subheadline-input"
-          infoText="One-line subtext under the headline. Helps set tone for the visitor."
-          infoTestid="hosted-subheadline"
         >
           <input
             id="qq-hosted-subheadline-input"

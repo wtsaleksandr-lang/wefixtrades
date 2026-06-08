@@ -851,25 +851,35 @@ function bodyIsDarkBg(bg: string | undefined): boolean {
   return (0.299 * r + 0.587 * g + 0.114 * b) < 140;
 }
 
-const groupHeaderStyle = (c: WidgetTheme, bodyIsDark: boolean): React.CSSProperties => ({
-  fontSize: '11px', fontWeight: 700,
-  // Contrast with the ACTUAL body background: near-white on dark-gradient
-  // bodies, near-black on light-gradient bodies — so the centered group label
-  // is readable everywhere (was hardcoded black → invisible on dark bodies).
-  // Keep the adaptive base choice, then run it through the contrast guard
-  // against the body bg so edge themes (where c.bg disagrees with bodyIsDark)
-  // are corrected too. 11px → normal (non-large) WCAG floor.
-  color: guardTextColor(
+// Add-ons-label fix — grouped fields (radio / multi-select / image_choice /
+// slider / toggle) can't host a floating in-field label, so they render this
+// caption above the control. The caption was previously a tiny (11px) grey,
+// CENTERED chip — which read as "under-styled" next to the proper field labels
+// on sibling inputs (Service type / Quantity get the blue resting field label,
+// left-aligned, 13px). Normalise it to MATCH the field-label treatment: same
+// resting field-label colour (theme-aware, contrast-guarded — passed in by the
+// caller as `labelColor`, which is `restingLabelColor` = guarded `textBody`),
+// same left alignment, same weight. This makes "Add-ons" sit consistently with
+// its sibling field labels instead of looking like a different, lesser element.
+const groupHeaderStyle = (
+  c: WidgetTheme, bodyIsDark: boolean, labelColor?: string,
+): React.CSSProperties => ({
+  fontSize: '13px', fontWeight: 700,
+  // Prefer the field-label resting colour the caller resolved (matches the
+  // floated/resting label on sibling single-input fields). Fall back to the
+  // body-bg-adaptive choice when a caller doesn't pass one — still readable on
+  // light AND dark bodies, run through the contrast guard either way.
+  color: labelColor ?? guardTextColor(
     bodyIsDark ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.88)',
     c.bg,
     'groupHeader',
   ),
   display: 'block',
   // Sentence case (natural config casing) to MATCH the stacked select labels —
-  // every field/group caption in the widget now uses one consistent treatment
-  // (was uppercase here, sentence-case on selects → inconsistent).
-  marginBottom: '8px', letterSpacing: '0.02em',
-  textAlign: 'center',
+  // every field/group caption in the widget now uses one consistent treatment.
+  // Left-aligned to match the field labels on sibling inputs (was centered).
+  marginBottom: '8px', letterSpacing: '-0.005em',
+  textAlign: 'left',
 });
 
 /**
@@ -2738,8 +2748,13 @@ export default function AdvancedCalculator({
                     // multi_select always spans full width: it renders a tall
                     // stack of option cards, so pairing it half-width beside a
                     // short field leaves an ugly empty gap (catalogue-wide fix).
+                    // Editor-width fix: the "Full" width button sets colSpan to
+                    // `undefined` (see FieldRow — "Picking Full sets colSpan to
+                    // undefined"), so full = "not explicitly half". Treat
+                    // `undefined` as full (`!== 1`); otherwise the preview never
+                    // reflowed when the owner picked Full (it stayed half).
                     gridColumn:
-                      f.colSpan === 2 || f.type === 'multi_select' ? '1 / -1' : 'auto',
+                      f.colSpan !== 1 || f.type === 'multi_select' ? '1 / -1' : 'auto',
                     // BD-3l — per-child stagger index (capped at 7) read
                     // by `.qq-stagger-in` keyframes. No-op when the pack
                     // is off (CSS rule doesn't match).
@@ -4281,8 +4296,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
         <label
           title={f.label}
           style={stacked ? stackedLabelStyle : {
-            ...groupHeaderStyle(c, bodyIsDark),
-            textAlign: 'left',
+            ...groupHeaderStyle(c, bodyIsDark, restingLabelColor),
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}
         >{f.label}</label>
@@ -4354,7 +4368,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     }
     return (
       <div>
-        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
+        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, restingLabelColor)}>{f.label}</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
@@ -4415,7 +4429,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     // image is uploaded yet. Tap target ≥44px (minHeight 120px covers it).
     return (
       <div>
-        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
+        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, restingLabelColor)}>{f.label}</label>
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -4490,7 +4504,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   else if (maxSelect) hint = `Pick up to ${maxSelect}`;
   return (
     <div>
-      <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark)}>{f.label}</label>
+      <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, restingLabelColor)}>{f.label}</label>
       {hint && (
         <p
           data-testid={`adv-multiselect-hint-${f.id}`}

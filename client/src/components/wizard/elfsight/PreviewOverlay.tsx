@@ -215,10 +215,21 @@ export default function PreviewOverlay({
          * compliant. The hit-target re-enables pointer events since the
          * parent overlay has them disabled.
          *
-         * Hover-to-reveal is dropped: the parent overlay has pointer-events
-         * none which disables hover on the wrapper, so the remove icon now
-         * sits at a subtle 0.7 opacity by default and goes solid on its own
-         * hover. */
+         * Remove-glyph visibility fix — the badge used to rest at opacity:0.7
+         * (ALWAYS visible). On dark templates the faint "−" chips floating at
+         * each field's corner read as "broken". It's now a proper hover/
+         * selection affordance: HIDDEN by default on desktop (pointer:fine),
+         * revealed only when (a) the field cell is hovered, (b) the remove
+         * button itself is hovered/focused (keyboard), or (c) the field is
+         * selected. The wrapper is pointer-events:none for CLICKS (so controls
+         * underneath stay interactive). The button itself keeps
+         * pointer-events:auto, so its own :hover reveals it and clicking it
+         * removes the field; :focus-within still fires on a pointer-events:none
+         * wrapper (focus isn't pointer-gated), so keyboard users get it too.
+         * Selection (.is-selected, set by the bezel click delegation in
+         * PreviewPane) also reveals it — so a single click on a field surfaces
+         * its remove. Mobile (pointer:coarse) keeps the badge always visible
+         * since there's no hover and the tap target must be reachable. */
         .qq-preview-field-deco-remove {
           position: absolute;
           top: -22px; right: -22px;
@@ -227,20 +238,26 @@ export default function PreviewOverlay({
           background: transparent; border: 0;
           display: inline-flex; align-items: center; justify-content: center;
           cursor: pointer;
-          opacity: 0.7;
+          opacity: 0;
           transition: opacity 0.12s ease;
           z-index: 2;
           pointer-events: auto;
         }
-        .qq-preview-field-deco-remove:hover,
-        .qq-preview-field-deco-remove:focus-visible {
-          opacity: 1;
-        }
-        .qq-preview-field-deco.is-selected .qq-preview-field-deco-remove {
-          opacity: 1;
+        /* Desktop / fine-pointer: reveal on button hover, keyboard
+         * focus-within, or when the field is the selected one. (The wrapper is
+         * pointer-events:none so a wrapper :hover can't fire — selection-on-
+         * click is the field-level reveal; button :hover is the corner reveal.) */
+        @media (pointer: fine) {
+          .qq-preview-field-deco:focus-within .qq-preview-field-deco-remove,
+          .qq-preview-field-deco-remove:hover,
+          .qq-preview-field-deco-remove:focus-visible,
+          .qq-preview-field-deco.is-selected .qq-preview-field-deco-remove {
+            opacity: 1;
+          }
         }
         @media (pointer: coarse) {
-          /* On touch devices show the remove icon always so it's reachable. */
+          /* On touch devices show the remove icon always so it's reachable
+           * (no hover state to reveal it). */
           .qq-preview-field-deco-remove { opacity: 1; }
         }
         /* Wave L E2 — shrunk the visible glyph from 22px → 18px so the
