@@ -457,13 +457,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
     {
       number: "01",
       title: "A Trade-Ready Site, Done For You",
-      description: "Pick a template, drop in your services, and we ship a hosted site that's optimized for Google and converts trade visitors.",
+      description: "Pick a template, drop in your services, and we build a launch-ready site that's optimized for Google and converts trade visitors.",
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
             <StatTile value="5–7 days" label="Kickoff to live" color="cyanSoft" size="sm" icon={<Clock size={14} />} />
             <StatTile value="98" label="Lighthouse mobile" color="mint" size="sm" icon={<Zap size={14} />} />
-            <StatTile value="$0" label="Hosting fees" color="lavender" size="sm" icon={<ShieldCheck size={14} />} />
+            {/* Was "$0 Hosting fees" — contradicts the SiteLaunch FAQ, which
+                states hosting is separate at $10–20/mo. Replaced with a stat
+                the FAQ confirms ("Do I own the website? Yes."). */}
+            <StatTile value="You own it" label="Site, design & content" color="lavender" size="sm" icon={<ShieldCheck size={14} />} />
           </div>
           <SiteLaunchDemo />
         </div>
