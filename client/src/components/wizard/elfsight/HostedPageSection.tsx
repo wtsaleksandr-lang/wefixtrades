@@ -580,6 +580,55 @@ export default function HostedPageSection({
           .qq-w-slider::-webkit-slider-thumb,
           .qq-w-slider::-moz-range-thumb { transition: none; }
         }
+
+        /* AUDIT dm3 — dark-mode re-theme. The section hardcodes data-theme=
+         * "light" on itself, but the wizard editor shell sets data-theme=
+         * "dark". Without these overrides the whole card rendered as a light
+         * grey-blue island with washed text (helper ~2.3:1, labels ~2.7:1,
+         * sub ~1.8:1 — all fail AA). Scope every fix under the dark shell so
+         * LIGHT mode is untouched. Palette matches the sibling tabs
+         * (.qq-style-group dark: #0f172a panel, #f5f7fa text). */
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-section {
+          background: #0f172a;
+          border-color: rgba(255,255,255,0.08);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-section .qq-install-h {
+          color: #f5f7fa;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-section .qq-install-sub {
+          color: #cbd5e1;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-block-h {
+          color: #f5f7fa;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-preset-label {
+          color: #cbd5e1;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-preset,
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-upload-btn,
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-color-input,
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-color-text,
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-icon-btn,
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-thumb {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.14);
+          color: #f1f5f9;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-upload-btn:hover {
+          background: #243149;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-mini-label {
+          color: #94a3b8;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-foot {
+          color: #94a3b8;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-switch-title {
+          color: #f5f7fa;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-hosted-switch-sub {
+          color: #94a3b8;
+        }
       `}</style>
     </section>
   );

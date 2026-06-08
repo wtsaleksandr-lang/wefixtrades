@@ -429,7 +429,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             aria-label="Collect a deposit when customers book"
           />
           <span>
-            <span style={{ fontWeight: 700, fontSize: 13, color: p.colors.heading, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span className="qq-deposit-toggle-title" style={{ fontWeight: 700, fontSize: 13, color: p.colors.heading, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               Collect a deposit when customers book
               <InfoCue
                 testid="settings-deposit"
@@ -1131,6 +1131,14 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           background: ${p.colors.accentLighter};
           border-color: ${p.colors.accent};
           color: ${p.colors.accentDark};
+        }
+        /* AUDIT dm3 — deposit-card heading. The inline color is
+         * p.colors.heading (light-theme dark slate), which renders muddy on
+         * the dark deposit card (.qq-style-group → #0f172a in dark mode). The
+         * inline style wins over plain CSS, so override with !important under
+         * the dark shell only. Light mode keeps the inline heading colour. */
+        .qq-editor-shell[data-theme="dark"] .qq-deposit-toggle-title {
+          color: #f5f7fa !important;
         }
       `}</style>
     </section>
