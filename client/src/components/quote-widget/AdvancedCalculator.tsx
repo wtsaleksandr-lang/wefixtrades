@@ -1265,6 +1265,7 @@ function BookingCalendarPreview({
     <div
       data-testid="advanced-booking-block"
       data-component-name="Booking calendar"
+      data-component-type="online-booking"
       data-booking-source={source}
       style={{
         marginTop: 16, paddingTop: 14,
@@ -1285,7 +1286,16 @@ function BookingCalendarPreview({
           <path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
         <span style={{
-          fontSize: 13, fontWeight: 700, color: theme.textBody,
+          // BUG-4 (fix/preview-fullscreen-canvas-booking): this heading sits
+          // directly on the booking block container, which has no background of
+          // its own and therefore inherits the RESULT-PANEL surface (rpBg). The
+          // theme's `textBody` token is contrast-guarded against the OUTER card
+          // surface, so on themes whose result panel is a saturated blue/dark
+          // (e.g. result: #1e40af) it resolved to a dark value and the heading
+          // went invisible. `resultText` is the sibling token already guarded
+          // against the result-panel background (see `cc.resultText` derivation),
+          // so it stays readable on every theme — matching the day-card values.
+          fontSize: 13, fontWeight: 700, color: theme.resultText,
           letterSpacing: '0.01em',
         }}>
           Schedule your appointment

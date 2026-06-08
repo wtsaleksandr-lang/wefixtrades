@@ -296,6 +296,13 @@ const COMPONENT_EDIT_MAP: Record<string, { tab: EditorTab; targetKey: string }> 
   cta:      { tab: 'action', targetKey: 'action' },
   'contact-step': { tab: 'action', targetKey: 'action' },
   'contact-step-container': { tab: 'action', targetKey: 'action' },
+  // BUG-2 (fix/preview-fullscreen-canvas-booking): the booking-calendar block
+  // sits INSIDE the result panel, so without its own component-type a click on
+  // a slot walked up to the nearest mapped ancestor (`results`) and selected
+  // the RESULTS section. Stamping `online-booking` on the block + this mapping
+  // routes a booking-slot click to the Action tab's Online-booking card
+  // (`[data-edit-key="online-booking"]`), where the calendar is configured.
+  'online-booking': { tab: 'action', targetKey: 'online-booking' },
   // Trust visuals → Style (badge editor).
   'trust-badges': { tab: 'style', targetKey: 'trust-badges' },
   'trust-strip':  { tab: 'style', targetKey: 'trust-badges' },
@@ -975,8 +982,69 @@ export default function PreviewPane({
    * device-preset switch + pane resize); the dedicated Fit button is
    * dropped to free a slot in the zoom toolbar. */
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
-  const openFullscreen = useCallback(() => setFullscreenOpen(true), []);
+  const openFullscreen = useCallback(() => {
+    // BUG-1 (fix/preview-fullscreen-canvas-booking): entering the TEST modal
+    // must drop any editor selection/hover so the drag handle + resize handles
+    // (which key off widgetSelected/widgetHover) are not left mounted behind
+    // the overlay. The fullscreen surface is a clean, customer-style preview.
+    setWidgetSelected(false);
+    setWidgetHover(false);
+    setFullscreenOpen(true);
+  }, []);
   const closeFullscreen = useCallback(() => setFullscreenOpen(false), []);
+  // Live mirror of fullscreenOpen so the once-bound native wheel listener can
+  // read it without re-binding (and bailing on zoom while the modal is open).
+  const fullscreenOpenRef = useRef(fullscreenOpen);
+  fullscreenOpenRef.current = fullscreenOpen;
+
+  /* BUG-3 (fix/preview-fullscreen-canvas-booking) — wheel-to-pan the canvas.
+   *
+   * Canva-style: a plain (no Ctrl/⌘) wheel over the EMPTY dotted canvas pans
+   * the bezel vertically by translating the same `widgetOffset.y` the drag-pan
+   * uses. We deliberately DON'T pan when the wheel target is inside the
+   * scrollable widget content (`overlayHostRef`) — that content owns its own
+   * scroll, matching the spec ("over the widget mockup content → scrolls the
+   * widget"). The left menu lives outside the pane, so its wheel events never
+   * reach this pane-level listener. Clamp to the same vertical bounds the drag
+   * uses so the bezel (and its 28-px drag handle) always stays reachable. */
+  const panCanvasOnWheel = useCallback((e: WheelEvent) => {
+    const pane = paneRef.current;
+    const stage = stageRef.current;
+    if (!pane || !stage) return;
+    // Let the live widget content scroll itself — only the bare canvas pans.
+    const host = overlayHostRef.current;
+    const tgt = e.target as Node | null;
+    if (host && tgt && host.contains(tgt)) return;
+    // Cancel any in-flight inertia coast so the pan wins cleanly.
+    if (momentumRafRef.current != null) {
+      cancelAnimationFrame(momentumRafRef.current);
+      momentumRafRef.current = null;
+    }
+    e.preventDefault();
+    const paneRect = pane.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const VISIBLE_MIN = 80;
+    const z = zoomRef.current || 1;
+    const cur = widgetOffsetRef.current;
+    const naturalTop = stageRect.top - cur.y * z;
+    const bezel = bezelMeasureRef.current;
+    const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
+    const bezelTopOffset = (bezelRect.top - stageRect.top) / z;
+    const minY = (paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop) / z - bezelTopOffset;
+    const maxY = (paneRect.bottom - VISIBLE_MIN - naturalTop) / z;
+    // Wheel down (deltaY > 0) scrolls content down → move the bezel UP, like a
+    // scroll container. Divide by zoom so the pan tracks 1:1 in screen px.
+    const nextY = Math.max(minY, Math.min(maxY, cur.y - e.deltaY / z));
+    if (nextY === cur.y) return;
+    setWidgetOffset((prev) => {
+      const next = { x: prev.x, y: nextY };
+      try {
+        localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [device]);
+
   // Esc closes the modal. Only attaches when the modal is open.
   useEffect(() => {
     if (!fullscreenOpen) return;
@@ -997,7 +1065,18 @@ export default function PreviewPane({
     const pane = paneRef.current;
     if (!pane) return;
     const onWheel = (e: WheelEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
+      // BUG-1 — no zoom while the fullscreen TEST modal is open; the wheel
+      // there must drive the live calculator only, never the editor canvas.
+      if (fullscreenOpenRef.current) return;
+      if (!(e.ctrlKey || e.metaKey)) {
+        // BUG-3 (fix/preview-fullscreen-canvas-booking): a plain (un-modified)
+        // wheel over the EMPTY CANVAS pans the bezel vertically (Canva-style).
+        // When the pointer is over the scrollable widget content or the menu
+        // we let that element scroll instead (handled inside panCanvasOnWheel,
+        // which bails when the wheel target sits inside the bezel content).
+        panCanvasOnWheel(e);
+        return;
+      }
       e.preventDefault();
       const delta = e.deltaY;
       // BH-1 — wheel-zoom counts as manual.
@@ -1005,7 +1084,9 @@ export default function PreviewPane({
     };
     pane.addEventListener('wheel', onWheel, { passive: false });
     return () => pane.removeEventListener('wheel', onWheel);
-  }, [setZoomManual]);
+    // panCanvasOnWheel is a stable useCallback; fullscreen read via ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setZoomManual, panCanvasOnWheel]);
 
   // Ctrl/⌘ +/-/0 keyboard shortcuts. Skip when typing in an input so we
   // don't fight native browser zoom inside text fields.
@@ -1016,6 +1097,8 @@ export default function PreviewPane({
       if (target instanceof HTMLElement && target.isContentEditable) return;
       const meta = e.ctrlKey || e.metaKey;
       if (!meta) return;
+      // BUG-1 — the fullscreen TEST modal disables editor zoom shortcuts.
+      if (fullscreenOpenRef.current) return;
       // The pane needs to actually be visible for these to apply — guard by
       // checking that the pane is in the DOM.
       if (!paneRef.current) return;
@@ -2033,8 +2116,10 @@ export default function PreviewPane({
   // hover-preview handles (no fade) but the selected state still surfaces
   // them fully.
   const HANDLE_DIRS: HandleDir[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-  const showHandlesPreview = widgetHover && !widgetSelected;
-  const resizeHandles = (widgetSelected || showHandlesPreview) ? (
+  // BUG-1 (fix/preview-fullscreen-canvas-booking): never render edit chrome
+  // (resize handles) while the fullscreen TEST modal is open.
+  const showHandlesPreview = widgetHover && !widgetSelected && !fullscreenOpen;
+  const resizeHandles = ((widgetSelected || showHandlesPreview) && !fullscreenOpen) ? (
     <>
       {HANDLE_DIRS.map((dir) => (
         <div
@@ -2060,7 +2145,7 @@ export default function PreviewPane({
   // a native `title` tooltip so power users can still confirm what the
   // control does without it being a permanent visual feature. Icon centres
   // in the 28-px bar; height stays at 28 to match DRAG_HANDLE_TOP_RESERVE.
-  const dragHandle = (
+  const dragHandle = fullscreenOpen ? null : (
     <div
       className={`qq-widget-drag-handle${widgetSelected ? ' is-selected' : ''}`}
       data-testid="preview-drag-handle"
@@ -2290,10 +2375,17 @@ export default function PreviewPane({
       data-floating-launcher-expanded={floatingLauncherExpanded ? 'true' : 'false'}
       data-flp-phase={flpPhase}
       ref={paneRef}
-      onPointerDown={isMobileViewport ? undefined : onPaneBackgroundPointerDown}
-      onPointerMove={isMobileViewport ? undefined : onHandlePointerMove}
-      onPointerUp={isMobileViewport ? undefined : onHandlePointerUp}
-      onPointerCancel={isMobileViewport ? undefined : onHandlePointerUp}
+      /* BUG-1 (fix/preview-fullscreen-canvas-booking): while the fullscreen
+       * TEST modal is open the pane MUST NOT run any editor pointer logic.
+       * The modal is rendered inside this pane, so its clicks bubble up here;
+       * without this gate, onPaneBackgroundPointerDown fired, selected the
+       * widget (surfacing drag/resize chrome) and started a canvas pan behind
+       * the modal. Detaching the handlers makes the fullscreen overlay a pure,
+       * chrome-free test surface — clicks only drive the live calculator. */
+      onPointerDown={isMobileViewport || fullscreenOpen ? undefined : onPaneBackgroundPointerDown}
+      onPointerMove={isMobileViewport || fullscreenOpen ? undefined : onHandlePointerMove}
+      onPointerUp={isMobileViewport || fullscreenOpen ? undefined : onHandlePointerUp}
+      onPointerCancel={isMobileViewport || fullscreenOpen ? undefined : onHandlePointerUp}
     >
       {isMobileViewport ? mobileCleanContent : (
        <>
