@@ -4003,6 +4003,18 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   const labelChipBg = isOutline ? c.bg : c.surface;
   const restingLabelColor = guardTextColor(c.textBody, labelChipBg, 'fieldLabelResting');
   const floatedLabelColor = guardTextColor(accent, labelChipBg, 'fieldLabelFloated', { largeText: true });
+  // GROUP-LABEL contrast fix — grouped fields (radio / multi-select /
+  // image_choice / toggle) render their caption ABOVE the control via
+  // `groupHeaderStyle`, so it paints on the BODY background (c.bg), NOT on the
+  // input fill (labelChipBg = c.surface for filled fields). Re-guarding the
+  // same `textBody` against c.bg means the "Add-ons" / radio captions are
+  // legible against the surface they ACTUALLY sit on. When surface == bg (the
+  // common light-theme case) this resolves identically to restingLabelColor;
+  // it only diverges when the two differ (e.g. a tinted body bg, or an
+  // owner-overridden text token that passes on one surface but not the other),
+  // which is exactly when the wrong reference produced a washed-out caption.
+  // Dark themes (dark c.bg) still yield a light, readable caption.
+  const groupLabelColor = guardTextColor(c.textBody, c.bg, 'fieldGroupLabel');
   const floatVars: React.CSSProperties = {
     // CSS variables consumed by .qq-w-float in index.css.
     // Resting label uses textBody (not textMuted) so it stays readable — the
@@ -4447,7 +4459,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
         <label
           title={f.label}
           style={stacked ? stackedLabelStyle : {
-            ...groupHeaderStyle(c, bodyIsDark, restingLabelColor),
+            ...groupHeaderStyle(c, bodyIsDark, groupLabelColor),
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}
         >{f.label}</label>
@@ -4493,7 +4505,15 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
         inputBase={inputBase}
         radiusPx={radiusPx}
         fontFamily={fontFamily}
-        labelColor={accent}
+        // W-LABELS contrast fix — pass the CONTRAST-GUARDED floated label
+        // colour, not the raw `accent`. WidgetSelect paints this directly as
+        // the floated label's `color` over the select button fill (c.surface
+        // filled / c.bg outline = the same `labelChipBg` this colour is guarded
+        // against). Passing raw `accent` here bypassed the guard, so an
+        // owner-picked near-white accent rendered the "Service type" label
+        // invisible (bright-on-white). `floatedLabelColor` is already guarded
+        // against the real surface, so it stays readable on light AND dark.
+        labelColor={floatedLabelColor}
         labelLayout={labelLayout}
       />
     );
@@ -4519,7 +4539,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     }
     return (
       <div>
-        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, restingLabelColor)}>{f.label}</label>
+        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}>{f.label}</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
@@ -4580,7 +4600,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     // image is uploaded yet. Tap target ≥44px (minHeight 120px covers it).
     return (
       <div>
-        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, restingLabelColor)}>{f.label}</label>
+        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}>{f.label}</label>
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -4655,7 +4675,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   else if (maxSelect) hint = `Pick up to ${maxSelect}`;
   return (
     <div>
-      <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, restingLabelColor)}>{f.label}</label>
+      <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}>{f.label}</label>
       {hint && (
         <p
           data-testid={`adv-multiselect-hint-${f.id}`}
