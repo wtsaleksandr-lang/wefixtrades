@@ -97,6 +97,24 @@ export function getPrimaryCircuitState(): CircuitState {
 
 let _client: Anthropic | null = null;
 
+/** True when the Anthropic primary key is present. When false, the text path
+ *  skips the Anthropic attempt entirely and goes straight to the fallback
+ *  chain (if any backup provider has a key). */
+function anthropicKeyPresent(): boolean {
+  return !!process.env.ANTHROPIC_API_KEY;
+}
+
+/** Typed error surfaced when NO provider (Anthropic absent AND no fallback
+ *  key present) can serve a text request. Route layers can map this to a
+ *  clean 503 instead of an opaque 500. */
+export class NoAIProviderError extends Error {
+  readonly code = "NO_AI_PROVIDER_CONFIGURED";
+  constructor(message = "No AI provider is configured (ANTHROPIC_API_KEY absent and no fallback provider key present).") {
+    super(message);
+    this.name = "NoAIProviderError";
+  }
+}
+
 function getClient(): Anthropic {
   if (!_client) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -272,6 +290,17 @@ async function readGateBudget(surface: string): Promise<{ spent: number; cap: nu
 
 /* ─── Streaming chat (returns Anthropic stream, caller handles events) ─── */
 export function streamChat(opts: ChatOptions) {
+  // Streaming cannot safely fail over mid-stream: the fallback providers
+  // speak the OpenAI streaming schema, not Anthropic's, and the caller has
+  // already begun consuming an Anthropic event stream. So instead of failing
+  // over, we surface a clean, typed NoAIProviderError when the primary key is
+  // absent — the route layer maps that to a 503 rather than an opaque 500.
+  // (Non-streaming callers get true failover via chat().)
+  if (!anthropicKeyPresent()) {
+    throw new NoAIProviderError(
+      "Streaming AI is temporarily unavailable (ANTHROPIC_API_KEY absent). Streaming cannot fail over; retry without streaming or try again later.",
+    );
+  }
   assertCircuitAllowsRequest();
   const client = getClient();
   const params: Parameters<typeof client.messages.stream>[0] = {
@@ -296,8 +325,17 @@ export async function chat(opts: ChatOptions): Promise<string> {
     }
   }
 
-  assertCircuitAllowsRequest();
-  const client = getClient();
+  // Resilience: when the Anthropic primary key is ABSENT we must NOT throw
+  // here. Skip the Anthropic attempt and fall straight through to the
+  // multi-provider fallback chain (handled after the retry loop below).
+  // Only assert the circuit breaker + build the Anthropic client when the
+  // primary key is actually present.
+  const hasAnthropic = anthropicKeyPresent();
+  let client: Anthropic | null = null;
+  if (hasAnthropic) {
+    assertCircuitAllowsRequest();
+    client = getClient();
+  }
   let lastError: Error | null = null;
   const model = opts.modelOverride || getModel();
   const tStart = Date.now();
@@ -354,16 +392,22 @@ export async function chat(opts: ChatOptions): Promise<string> {
     }
   }
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  // Skip the entire Anthropic attempt loop when no primary key is present —
+  // `client` is null and we drop straight to the fallback chain below.
+  for (let attempt = 0; hasAnthropic && client && attempt <= MAX_RETRIES; attempt++) {
+    // Non-null local so the Parameters<typeof ...> type query below resolves
+    // against `Anthropic` (not `Anthropic | null`); the loop guard already
+    // proved client is present.
+    const c: Anthropic = client;
     try {
-      const params: Parameters<typeof client.messages.create>[0] = {
+      const params: Parameters<typeof c.messages.create>[0] = {
         model,
         max_tokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
         system: opts.system ? buildCachedSystem(opts.system) : (undefined as any),
         messages: mapMessages(opts.messages, opts.userImageBlocks) as any,
       };
       if (opts.tools?.length) (params as any).tools = opts.tools;
-      const response = await client.messages.create(params) as Anthropic.Message;
+      const response = await c.messages.create(params) as Anthropic.Message;
 
       const usage = response.usage as any;
       if (usage?.cache_creation_input_tokens || usage?.cache_read_input_tokens) {
@@ -410,7 +454,10 @@ export async function chat(opts: ChatOptions): Promise<string> {
       return block.type === "text" ? block.text : "";
     } catch (err: any) {
       lastError = err;
-      if (err?.status === 401 || err?.status === 400) {
+      // 400 = malformed request (bad prompt/params). This is NOT a provider
+      // outage — the same payload will fail on every provider — so propagate
+      // immediately rather than burning the fallback chain.
+      if (err?.status === 400) {
         if (opts.surface) {
           // Wave 92: noisy on usage-log failure.
           noisyCatch(
@@ -425,10 +472,36 @@ export async function chat(opts: ChatOptions): Promise<string> {
               success: false,
               errorMessage: err?.message?.slice(0, 500),
             }),
-            { op: "ai.logUsage.4xx", meta: { surface: opts.surface, status: err?.status } },
+            { op: "ai.logUsage.400", meta: { surface: opts.surface, status: err?.status } },
           );
         }
         throw err;
+      }
+      // 401/403 = Anthropic key problem (absent-at-runtime / expired / revoked /
+      // forbidden). This is the most common real failure. Treat it like
+      // exhaustion: log it, record a circuit failure, then BREAK out of the
+      // Anthropic loop so we fall THROUGH to runTextFallbackChain below
+      // instead of throwing. Backup providers have their own keys and are
+      // unaffected by a bad Anthropic key.
+      if (err?.status === 401 || err?.status === 403) {
+        if (opts.surface) {
+          noisyCatch(
+            logUsage({
+              model,
+              surface: opts.surface as any,
+              provider: "anthropic",
+              channel: "chat",
+              userId: opts.userId,
+              sessionId: opts.sessionId,
+              latencyMs: Date.now() - tStart,
+              success: false,
+              errorMessage: err?.message?.slice(0, 500),
+            }),
+            { op: "ai.logUsage.auth", meta: { surface: opts.surface, status: err?.status } },
+          );
+        }
+        recordFailure();
+        break; // fall through to the fallback chain
       }
       recordFailure();
       if (attempt < MAX_RETRIES) {
@@ -437,8 +510,11 @@ export async function chat(opts: ChatOptions): Promise<string> {
     }
   }
 
-  if (opts.surface) {
+  if (opts.surface && hasAnthropic) {
     // Wave 92: noisy on usage-log failure at retry-exhaustion.
+    // Only emit an "anthropic" failure row when we actually attempted
+    // Anthropic; when the key was absent the loop was skipped and no
+    // primary-path call was made.
     noisyCatch(
       logUsage({
         model,
@@ -455,15 +531,26 @@ export async function chat(opts: ChatOptions): Promise<string> {
     );
   }
 
-  /* Reliability fallback: Anthropic exhausted (5xx after MAX_RETRIES, or
-   * other non-401/400 errors). Cascade through the multi-provider fallback
-   * chain (OpenAI → Groq → Together → Mistral → DeepSeek → xAI, whichever
-   * have keys), one shot each, until one answers. Each attempt is logged to
-   * ai_usage_logs with its real provider attribution. Only when EVERY ready
-   * provider fails do we propagate the original Anthropic error. */
-  log.warn("anthropic-exhausted-fallback-chain", {
+  /* Reliability fallback: the Anthropic primary path is unavailable —
+   * either its key is absent (loop was skipped), it returned 401/403 (bad/
+   * expired key), it exhausted MAX_RETRIES on 5xx/network, or it hit another
+   * non-400 error. Cascade through the multi-provider fallback chain
+   * (OpenAI → Groq → Together → Mistral → DeepSeek → xAI, whichever have
+   * keys), one shot each, until one answers. Each attempt is logged to
+   * ai_usage_logs with its real provider attribution. */
+  const readyProviders = readyFallbackProviders();
+
+  // If NEITHER the Anthropic key NOR any fallback provider key is present,
+  // there is nothing to try — surface a clear, catchable typed error so the
+  // route layer can render a 503 instead of an opaque failure.
+  if (!hasAnthropic && readyProviders.length === 0) {
+    throw new NoAIProviderError();
+  }
+
+  log.warn("anthropic-unavailable-fallback-chain", {
     route: "ai-chat",
-    providers: readyFallbackProviders(),
+    anthropicKeyPresent: hasAnthropic,
+    providers: readyProviders,
   });
   try {
     const result = await runTextFallbackChain({
