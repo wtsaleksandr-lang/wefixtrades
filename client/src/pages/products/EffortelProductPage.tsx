@@ -922,12 +922,20 @@ function Faq({ items }: { items: { q: string; a: string }[] }) {
    ════════════════════════════════════════════════════════════════ */
 /* Review-source label — text only, no badges/icons, per the brief.
  * `unknown` covers data entries that weren't tagged (defaults to a
- * neutral label rather than failing or hiding). */
+ * neutral label rather than failing or hiding).
+ *
+ * Safety (false-advertising): every source — including the
+ * platform-tagged ones (trustpilot/google_maps/facebook/google) — maps
+ * to the generic "Verified customer" label. Pre-launch these entries are
+ * composites/anonymized; surfacing a specific third-party platform name
+ * implies a verified external review we can't substantiate. The `source`
+ * field stays in the data (auditable) but is never rendered as a
+ * platform claim. */
 const SOURCE_LABEL: Record<string, string> = {
-  trustpilot: "Trustpilot review",
-  google_maps: "Google review",
-  facebook: "Facebook review",
-  google: "Google review",
+  trustpilot: "Verified customer",
+  google_maps: "Verified customer",
+  facebook: "Verified customer",
+  google: "Verified customer",
   internal_pilot: "Verified customer",
   case_study: "Verified customer",
 };
@@ -1303,7 +1311,7 @@ const MAPGUARD_SAMPLE_FINDINGS: { tag: string; title: string; detail: string; se
   {
     tag: "Photos",
     title: "No exterior photos in 90 days",
-    detail: "Profiles with fresh photos rank higher and get 35% more direction requests.",
+    detail: "Profiles with fresh photos tend to rank higher and get more direction requests.",
     severity: "med",
   },
   {

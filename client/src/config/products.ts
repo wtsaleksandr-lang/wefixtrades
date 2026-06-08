@@ -85,9 +85,9 @@ export const PRODUCT_PAGES: ProductPage[] = [
       "Review requests \u2014 Asks customers for Google reviews after completed jobs.",
     ],
     outcomes: [
-      { title: "Fewer missed calls", desc: "AI answers every call. Leads don\u2019t slip through." },
-      { title: "Faster quoting", desc: "Instant estimates keep callers from shopping around." },
-      { title: "More channels covered", desc: "Calls, texts, and chat handled in one system." },
+      { title: "Fewer missed calls", desc: "The old way: miss the call, lose the job. The new way: every call answered, every lead captured \u2014 automatically." },
+      { title: "More than an answering service", desc: "An answering service takes a message. TradeLine answers the question, gives the price, and books the job." },
+      { title: "Not a script. A real conversation.", desc: "Not voicemail, not a phone tree \u2014 a real AI that talks to your customers, quotes the job, and books it, on the phone and in chat." },
       { title: "Stronger reviews", desc: "Automated requests help grow your online reputation." },
     ],
     howItWorks: [
@@ -110,7 +110,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "How long does setup take?", a: "Most businesses are live in minutes. Add your services, pricing, and hours. Deploy the widget and forward your calls." },
       { q: "Can I cancel anytime?", a: "Yes. No contracts. No cancellation fees." },
     ],
-    pricingSection: buildPricingSection(TRADELINE, "Overage: $0.15/min after included minutes.", { checkout: true }),
+    pricingSection: buildPricingSection(TRADELINE, "A full-time receptionist costs $3,000–$4,000/mo. TradeLine answers every call, day and night, from $99. Overage: $0.15/min after included minutes.", { checkout: true }),
     related: ["quickquotepro", "reputationshield"],
   },
   {
@@ -127,10 +127,10 @@ export const PRODUCT_PAGES: ProductPage[] = [
     name: "QuoteQuick",
     shortTagline: "Instant quotes on your website. Qualified leads in your inbox.",
     seoTitle: "QuoteQuick \u2014 Instant Quote Calculator for Trades | WeFixTrades",
-    seoDescription: "Your customers get instant prices on your website. You get qualified leads with every quote. Live in 5 minutes. No platform switch. Free for 14 days.",
+    seoDescription: "Your customers get instant prices on your website. You get qualified leads with every quote. Live in 5 minutes. No platform switch. Start free \u2014 no card required.",
     category: "core",
     heroVisualType: "calculator",
-    primaryCTA: { label: "Start Free \u2014 14 Days, No Card", href: "/wizard" },
+    primaryCTA: { label: "Start Free \u2014 No Card", href: "/wizard" },
     secondaryCTA: { label: "Try a Live Demo", href: "/products/quickquotepro/demo" },
     highlights: [
       "Customers get instant prices, 24/7 \u2014 even when you\u2019re on a job site.",
@@ -142,7 +142,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     outcomes: [
       { title: "More leads from your website", desc: "Visitors who get a price are 3\u00d7 more likely to submit their details than those who see a contact form." },
-      { title: "Faster conversions", desc: "Instant pricing keeps customers on your site instead of calling your competitors." },
+      { title: "Quote before the call, not after", desc: "Jobber and Housecall Pro quote after the call. QuoteQuick quotes before it — so the lead's already warm when they reach you." },
       { title: "Higher average job value", desc: "Add-ons and package tiers increase upsell without any extra effort." },
       { title: "Less time on basic quotes", desc: "Stop answering \u2018how much?\u2019 calls. Let the widget handle the first conversation." },
     ],
@@ -163,9 +163,9 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Will it work on my website?", a: "Yes. WordPress, Wix, Squarespace, Webflow, Shopify, or plain HTML. If your site supports a script tag, it works." },
       { q: "I already use Jobber / Housecall Pro. Do I need to switch?", a: "No. QuoteQuick works alongside whatever you already use. Leads come to your email and dashboard \u2014 no platform switch needed." },
       { q: "Is booking included?", a: "Yes, on the Business plan. Customers can book an appointment and pay a deposit directly after receiving their estimate." },
-      { q: "Can I try it before paying?", a: "Yes. 14-day free trial, no credit card required. Build your calculator and see it work before you commit." },
+      { q: "Can I try it before paying?", a: "Yes. The Free plan is free forever — no credit card required. Build your calculator and start capturing leads before you ever upgrade." },
     ],
-    pricingSection: buildPricingSection(QUOTEQUICK, "14-day free trial. No credit card required."),
+    pricingSection: buildPricingSection(QUOTEQUICK, "The only instant-quote calculator built specifically for trades — your real pricing rules, not a generic form. A single extra booked job pays for a year of Pro. Start free — no card required."),
     related: ["tradeline", "sitelaunch"],
   },
   {
@@ -191,7 +191,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     outcomes: [
       { title: "Rank in Map Pack", desc: "We optimize your profile so you appear in Google's local results where customers are searching." },
-      { title: "Issues Fixed For You", desc: "Ranking drops, profile problems, and review issues are handled by our team — not just flagged." },
+      { title: "Done for you, built for trades", desc: "The first done-for-you Google Maps service built only for trades — not another dashboard you have to run. Ranking drops, profile problems, and review issues are handled by our team, not just flagged." },
       { title: "Stay Ahead of Competitors", desc: "We track competitors in your area and adjust your strategy to maintain your position." },
     ],
     howItWorks: [
@@ -210,7 +210,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need to do anything?", a: "No. We handle everything — setup, optimization, monitoring, and reporting. You just receive your monthly progress report." },
       { q: "What's the difference between plans?", a: "Higher plans include more optimization work each month, which means faster improvements. Pro also adds review management and competitor tracking." },
     ],
-    pricingSection: buildPricingSection(MAPGUARD, "Setup fee required for new clients."),
+    pricingSection: buildPricingSection(MAPGUARD, "Most SEO agencies charge $500–$1,000/mo and ignore your Google profile. MapGuard does the one thing that moves the map — from $99/mo. Less than one missed job a month. Setup fee required for new clients."),
     related: ["rankflow", "webcare", "reputationshield"],
   },
   {
@@ -234,7 +234,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { title: "Fewer website problems", desc: "Updates, patches, and security checks happen automatically. You don't get surprised by a broken site." },
       { title: "Better first impression", desc: "Customers always see a professional, working website with accurate info." },
       { title: "Fewer missed leads", desc: "Broken forms, outdated pages, and slow load times cost real enquiries. WebCare keeps everything running." },
-      { title: "Less time wasted", desc: "No more chasing developers or trying to fix things yourself. We handle it." },
+      { title: "Faster than a freelancer", desc: "A freelancer charges $90/hr and answers next week. WebCare watches your site every 15 minutes and fixes breaks before you notice — built for trades, no dashboards to learn, just a green/red monthly report." },
     ],
     howItWorks: [
       { title: "We review your site", desc: "We check your website for outdated info, broken elements, and security issues. No technical work on your end." },
@@ -256,7 +256,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "What kind of updates are included?", a: "Security patches, plugin and theme updates, content changes (text, images, hours, pricing), and performance checks." },
       { q: "How quickly do you respond to requests?", a: "Basic plan: within 2 business days. Pro plan: within 24 hours for priority requests." },
     ],
-    pricingSection: buildPricingSection(WEBCARE, "No contracts. Cancel anytime.", { checkout: true }),
+    pricingSection: buildPricingSection(WEBCARE, "One broken contact form costs weeks of missed leads. WebCare is $79/mo — less than a single lost job. No contracts. Cancel anytime.", { checkout: true }),
     related: ["rankflow", "mapguard", "sitelaunch"],
   },
   {
@@ -280,7 +280,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     outcomes: [
       { title: "More calls and enquiries", desc: "A site built to convert visitors into leads \u2014 not just look pretty." },
       { title: "Stronger first impression", desc: "Customers check your website before they call. Look established from day one." },
-      { title: "Higher conversion", desc: "Built-in lead capture and clear calls to action turn more visitors into paying jobs." },
+      { title: "Built for trades, not a template", desc: "The only website built specifically for trades — quote widget, click-to-call, and booking wired in from day one. Stop losing jobs to a 2014 website: a site that books work for you, built in days, not months." },
       { title: "One job covers the cost", desc: "One extra plumbing call-out, one HVAC repair, one electrical job \u2014 and SiteLaunch has paid for itself." },
     ],
     howItWorks: [
@@ -304,7 +304,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need hosting?", a: "Hosting is separate and typically costs $10\u201320/month. We\u2019ll recommend the best option and set it up for you." },
       { q: "Can I add QuoteQuick later?", a: "Yes. QuoteQuick can be added anytime \u2014 it\u2019s a standalone tool that embeds into any website. SiteLaunch sites come pre-wired for it." },
     ],
-    pricingSection: buildPricingSection(SITELAUNCH, "One-time build fee. No contracts. No monthly retainers unless you want optional support.", { checkout: true }),
+    pricingSection: buildPricingSection(SITELAUNCH, "A custom agency site runs $3,000–$8,000 and takes 6–12 weeks. SiteLaunch is a one-time build, live in 5 days. No contracts. No monthly retainers unless you want optional support.", { checkout: true }),
     related: ["quickquotepro", "rankflow", "webcare"],
   },
   {
@@ -351,7 +351,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "How long does setup take?", a: "About 5 minutes. Connect your accounts, tell us about your business, and we start generating content." },
       { q: "What platforms are supported?", a: "Facebook, Instagram, and Google Business Profile. LinkedIn support is planned for the future." },
     ],
-    pricingSection: buildPricingSection(SOCIALSYNC, "No contracts. Cancel anytime. Posts start within 24 hours of setup."),
+    pricingSection: buildPricingSection(SOCIALSYNC, "A marketing agency posts for you and charges $500+/mo. SocialSync does it from $99 — and you approve every post. No contracts. Cancel anytime. Posts start within 24 hours of setup."),
     related: ["reputationshield", "mapguard", "rankflow"],
   },
   {
@@ -374,7 +374,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     ],
     outcomes: [
       { title: "More 5-star reviews, automatically", desc: "Every completed job triggers a friendly SMS or email. Smart reminders follow up. QR codes let techs collect reviews on-site. No awkward asking." },
-      { title: "Fewer public complaints", desc: "Unhappy customers see a private feedback form \u2014 not the Google review page. You get the complaint. Google doesn\u2019t. You fix it before it goes public." },
+      { title: "Fewer public complaints", desc: "Unlike generic review tools, the shield catches unhappy customers privately before they post. They see a private feedback form \u2014 not the Google review page. You get the complaint. Google doesn\u2019t. You fix it before it goes public." },
       { title: "Respond faster than your competitors", desc: "AI drafts professional replies in seconds. Edit if you want, then post directly to Google. Low-rating alerts notify you instantly so you can respond the same day." },
     ],
     howItWorks: [
@@ -421,7 +421,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     outcomes: [
       { title: "Better local visibility", desc: "Show up when customers in your area search for your services." },
       { title: "Steady organic growth", desc: "SEO improvements compound \u2014 each month builds on the last." },
-      { title: "Zero guesswork", desc: "Your dashboard shows exactly what was done and what\u2019s coming next." },
+      { title: "Real numbers, not guesses", desc: "Most rank tools scrape estimates. RankFlow reads your actual Google Search Console data \u2014 real numbers, not guesses. Your dashboard shows exactly what was done and what's coming next." },
     ],
     howItWorks: [
       { title: "We set up your profile", desc: "Tell us your services, service area, and website \u2014 we handle the rest." },
@@ -445,7 +445,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need to give website access?", a: "For the best results, yes. We need CMS access to implement optimizations. If that\u2019s not possible, we\u2019ll work with what\u2019s available." },
       { q: "Do you write the content?", a: "Yes. On Growth and Pro plans, we create SEO-optimized service and location pages targeting your services and area." },
     ],
-    pricingSection: buildPricingSection(RANKFLOW, undefined, { checkout: true }),
+    pricingSection: buildPricingSection(RANKFLOW, "Agencies charge $1,500+/mo for a PDF. RankFlow starts at $349 — and tells you exactly what to do.", { checkout: true }),
     related: ["mapguard", "socialsync"],
   },
   {
@@ -493,7 +493,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I own the changes?", a: "Absolutely. Everything we fix stays on your website. It’s your site, your content, your improvements." },
       { q: "What CMS or platforms do you support?", a: "Our specialists handle WordPress, Wix, Squarespace, Shopify, and Webflow using your CMS login. We run an automated audit first, then our team makes the fixes by hand — no AI guessing on your site." },
     ],
-    pricingSection: buildPricingSection(WEBFIX, "One-time fee. No subscription. No hidden costs.", { checkout: true }),
+    pricingSection: buildPricingSection(WEBFIX, "Agencies put you on a retainer. WebFix is one fix, one price — done by hand, no AI guessing, no migration. One-time fee. No subscription. No hidden costs.", { checkout: true }),
     related: ["webcare", "rankflow", "sitelaunch"],
   },
   {
@@ -509,7 +509,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     highlights: [
       "AI article generation — Blog posts, service pages, and local content written in your brand voice.",
       "Social media posts — Facebook, Instagram, and Google Business posts created and scheduled automatically.",
-      "Google Business Profile posts — Keep your GBP active with regular local posts that boost visibility.",
+      "Google Business Profile posts — Keep your Google Business Profile active with regular local posts that boost visibility.",
       "Brand voice matching — AI learns your tone, terminology, and style so content sounds like you.",
       "Multi-channel publishing — One content engine feeds every platform. No copy-pasting between tools.",
       "Quality-checked before publishing — Every piece is reviewed for accuracy, tone, and relevance before it goes live.",
@@ -517,7 +517,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     outcomes: [
       { title: "Consistent online presence", desc: "Fresh content goes out every week across all your channels without you lifting a finger." },
       { title: "Better local SEO", desc: "Regular articles and Google Business Profile posts signal to Google that your business is active and relevant." },
-      { title: "More trust before the first call", desc: "Customers who see helpful content are more likely to choose you over a competitor with an empty blog." },
+      { title: "Trade-specific, in your voice", desc: "Not generic SEO sludge — trade-specific content in your voice. Customers who see helpful content are more likely to choose you over a competitor with an empty blog." },
       { title: "Zero time investment", desc: "No writing, no scheduling, no platform switching. ContentFlow handles it all." },
     ],
     howItWorks: [
@@ -565,7 +565,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     outcomes: [
       { title: "More leads, faster", desc: "Paid ads deliver leads while SEO and organic strategies build over time." },
       { title: "Transparent reporting", desc: "Monthly reports show exactly what was spent and what it generated." },
-      { title: "Professional campaign management", desc: "Experienced agency partners handle the complexity of ad platforms." },
+      { title: "Ad copy that knows trades", desc: "Ad copy written by people who actually know trades — experienced agency partners handle the complexity of the ad platforms." },
     ],
     howItWorks: [
       { title: "Tell us your goals", desc: "Share your services, service area, budget, and what you want to advertise. We brief the agency." },
@@ -587,7 +587,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Can I cancel anytime?", a: "Yes. No long-term contracts. Your ad accounts and data stay yours if you cancel." },
       { q: "How quickly will I see leads?", a: "Paid ads can generate leads within days of launch. Most clients see meaningful results within the first 2–4 weeks." },
     ],
-    pricingSection: buildPricingSection(ADFLOW, "Ad spend is funded separately — you pay the ad platforms directly.", { checkout: true }),
+    pricingSection: buildPricingSection(ADFLOW, "Agencies charge $1,500+/mo. AdFlow starts at $399 — ad spend funded separately, transparent. You pay the ad platforms directly.", { checkout: true }),
     related: ["tradeline", "rankflow", "mapguard"],
   },
   {
@@ -652,7 +652,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
           ],
         },
       ],
-      note: "BookFlow is included free with any QuoteQuick plan.",
+      note: "A full booking + dispatch + pay-on-completion system — bundled free with any QuoteQuick plan, not a separate bill.",
       noteLink: { label: "See QuoteQuick plans", href: "/pricing/quotequick" },
     },
     related: ["quickquotepro", "tradeline"],
