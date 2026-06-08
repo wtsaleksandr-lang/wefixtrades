@@ -20,12 +20,13 @@
 // Integrations, Spam protection) are rendered as disabled rows with a small
 // "Coming soon" hint so the LAYOUT matches without faking functionality.
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   User, Mail, Phone, Plus,
   CreditCard, BellRing, CalendarDays,
   MousePointerClick, Plug, ShieldCheck,
   Lock, Shield, Check, CheckCircle, Calendar, Clock, BadgeCheck, FileCheck, Award,
+  Copy, RefreshCw, Send, ExternalLink,
   type LucideIcon,
 } from 'lucide-react';
 import { AE } from './appleEditor';
@@ -86,10 +87,13 @@ interface Props {
   onStyleChange: (next: AdvStyle) => void;
   /** Owner plan tier — drives the "Pro" hint on coming-soon rows. */
   planTier?: string;
+  /** Calculator edit token — the Integrations panel uses it to read/save its
+   *  outbound-webhook config. Empty in the pre-save create flow. */
+  editToken?: string;
 }
 
 export default function ActionTab({
-  settings, onChange, style, onStyleChange,
+  settings, onChange, style, onStyleChange, editToken = '',
 }: Props) {
   const patch = useCallback(
     (next: Partial<ShellSettings>) => onChange({ ...settings, ...next }),
@@ -599,11 +603,9 @@ export default function ActionTab({
               </div>
             </div>
 
-            {/* Integrations genuinely needs a backend (webhook delivery
-                worker) — left as coming-soon. */}
-            <div className="qq-action-soonrows" data-testid="action-group-soon">
-              <ComingSoonRow icon={Plug} label="Integrations" testid="action-row-integrations" />
-            </div>
+            {/* Integrations — real outbound lead webhook (Zapier / Make /
+                HubSpot / Google Sheets / Slack / custom). Free for all tiers. */}
+            <IntegrationsPanel editToken={editToken} />
           </AdvancedSection>
         </>
       )}
@@ -863,30 +865,383 @@ export default function ActionTab({
           color: ${AE.color.secondary};
           line-height: 1.5;
         }
+        /* Integrations panel. */
+        .qq-integ .qq-action-card-body {
+          display: flex; flex-direction: column; gap: 12px;
+        }
+        .qq-integ-hint {
+          margin: 0;
+          font-size: ${AE.type.helper.size};
+          color: ${AE.color.secondary};
+          line-height: 1.5;
+        }
+        .qq-integ-error {
+          margin: -4px 0 0;
+          font-size: ${AE.type.helper.size};
+          color: ${AE.color.danger};
+          line-height: 1.4;
+        }
+        .qq-integ-row {
+          display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        }
+        .qq-integ-btn {
+          display: inline-flex; align-items: center; gap: 8px;
+          min-height: 44px;
+          padding: 0 16px;
+          background: ${AE.color.accent};
+          color: ${AE.color.publishText};
+          border: none;
+          border-radius: ${AE.radius.md};
+          font: inherit; font-size: ${AE.type.label.size}; font-weight: 600;
+          cursor: pointer;
+          transition: background 0.12s ease, opacity 0.12s ease;
+        }
+        .qq-integ-btn:hover:not(:disabled) { background: ${AE.color.accentHover}; }
+        .qq-integ-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .qq-integ-btn:focus-visible {
+          outline: 2px solid ${AE.color.accent}; outline-offset: 2px;
+        }
+        .qq-integ-testresult {
+          font-size: ${AE.type.helper.size};
+          font-weight: 500;
+          line-height: 1.4;
+        }
+        .qq-integ-testresult.is-ok { color: ${AE.color.success}; }
+        .qq-integ-testresult.is-err { color: ${AE.color.danger}; }
+        .qq-integ-secret {
+          display: flex; flex-direction: column; gap: 6px;
+          padding: 12px;
+          background: ${AE.color.surface};
+          border: 1px solid ${AE.color.hairline};
+          border-radius: ${AE.radius.md};
+        }
+        .qq-integ-secret-label {
+          font-size: ${AE.type.caption.size};
+          font-weight: 600;
+          letter-spacing: ${AE.type.caption.tracking};
+          text-transform: uppercase;
+          color: ${AE.color.secondary};
+        }
+        .qq-integ-secret-row {
+          display: flex; align-items: center; gap: 8px;
+        }
+        .qq-integ-secret-value {
+          flex: 1 1 auto; min-width: 0;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+          font-size: 12px;
+          color: ${AE.color.text};
+          background: ${AE.color.bg};
+          border: 1px solid ${AE.color.hairline};
+          border-radius: ${AE.radius.sm};
+          padding: 8px 10px;
+        }
+        .qq-integ-iconbtn {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 44px; height: 44px;
+          flex: 0 0 auto;
+          background: ${AE.color.bg};
+          border: 1px solid ${AE.color.hairline};
+          border-radius: ${AE.radius.md};
+          color: ${AE.color.secondary};
+          cursor: pointer;
+          transition: border-color 0.12s ease, color 0.12s ease;
+        }
+        .qq-integ-iconbtn:hover:not(:disabled) {
+          border-color: ${AE.color.hairlineStrong};
+          color: ${AE.color.text};
+        }
+        .qq-integ-iconbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .qq-integ-iconbtn:focus-visible {
+          outline: 2px solid ${AE.color.accent}; outline-offset: 1px;
+        }
+        .qq-integ-link {
+          display: inline-flex; align-items: center; gap: 4px;
+          color: ${AE.color.accent};
+          font-weight: 500;
+          text-decoration: none;
+        }
+        .qq-integ-link:hover { text-decoration: underline; }
       `}</style>
     </section>
   );
 }
 
-/* A disabled drill-in row for a feature we don't have yet. Renders the
-   icon + label + a "Coming soon" pill + a chevron so the panel LAYOUT
-   matches a full Action panel without faking the feature. */
-function ComingSoonRow({
-  icon: Icon, label, testid,
-}: { icon: LucideIcon; label: string; testid: string }) {
+/* ── Integrations panel ─────────────────────────────────────────────────
+   Real outbound LEAD webhook config. Fires a signed POST to the owner's URL
+   on every lead/quote submission — so it connects to Zapier, Make, n8n,
+   HubSpot, GoHighLevel, Google Sheets, Slack, or any custom endpoint (they
+   all accept inbound webhooks). Free for all tiers.
+
+   The signing secret is generated + stored server-side; this panel reads,
+   saves (on-blur / toggle), can "Send test", and can rotate the secret via
+   the token-authed /api/calculators/integrations endpoints. */
+
+interface WebhookCfg { url: string; enabled: boolean; secret: string; }
+
+const URL_RE = /^https:\/\/[^\s]+$/i;
+
+function IntegrationsPanel({ editToken }: { editToken: string }) {
+  const [cfg, setCfg] = useState<WebhookCfg>({ url: '', enabled: false, secret: '' });
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const hasToken = !!editToken;
+
+  // Load existing config once we have a token.
+  useEffect(() => {
+    if (!hasToken) { setLoaded(true); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/calculators/integrations?token=${encodeURIComponent(editToken)}`);
+        if (!r.ok) { if (!cancelled) setLoaded(true); return; }
+        const data = await r.json();
+        if (cancelled) return;
+        const wh = data?.webhook ?? {};
+        setCfg({
+          url: typeof wh.url === 'string' ? wh.url : '',
+          enabled: wh.enabled === true,
+          secret: typeof wh.secret === 'string' ? wh.secret : '',
+        });
+      } catch {
+        /* leave defaults — the panel still renders, save will surface errors */
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [editToken, hasToken]);
+
+  const persist = useCallback(
+    async (next: { url?: string; enabled?: boolean; rotate_secret?: boolean }) => {
+      if (!hasToken) {
+        setSaveError('Save the calculator first to configure integrations.');
+        return;
+      }
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const r = await fetch('/api/calculators/integrations', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: editToken,
+            url: next.url ?? cfg.url,
+            enabled: next.enabled ?? cfg.enabled,
+            ...(next.rotate_secret ? { rotate_secret: true } : {}),
+          }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setSaveError(data?.error || 'Could not save. Please try again.');
+          return;
+        }
+        const wh = data?.webhook ?? {};
+        setCfg({
+          url: typeof wh.url === 'string' ? wh.url : '',
+          enabled: wh.enabled === true,
+          secret: typeof wh.secret === 'string' ? wh.secret : '',
+        });
+      } catch {
+        setSaveError('Network error while saving.');
+      } finally {
+        setSaving(false);
+      }
+    },
+    [cfg.url, cfg.enabled, editToken, hasToken],
+  );
+
+  const onToggle = useCallback((enabled: boolean) => {
+    setCfg((c) => ({ ...c, enabled }));
+    void persist({ enabled });
+  }, [persist]);
+
+  const onUrlBlur = useCallback(() => {
+    const url = cfg.url.trim();
+    if (url && !URL_RE.test(url)) {
+      setSaveError('Enter a full https:// URL.');
+      return;
+    }
+    void persist({ url });
+  }, [cfg.url, persist]);
+
+  const onSendTest = useCallback(async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const r = await fetch('/api/calculators/integrations/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: editToken, url: cfg.url.trim() }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setTestResult({ ok: false, msg: data?.error || `Failed (${r.status})` });
+        return;
+      }
+      setTestResult(
+        data?.ok
+          ? { ok: true, msg: `Delivered${data.status ? ` (HTTP ${data.status})` : ''}.` }
+          : { ok: false, msg: data?.error || `Endpoint rejected the test${data.status ? ` (HTTP ${data.status})` : ''}.` },
+      );
+    } catch {
+      setTestResult({ ok: false, msg: 'Network error sending test.' });
+    } finally {
+      setTesting(false);
+    }
+  }, [editToken, cfg.url]);
+
+  const onCopySecret = useCallback(async () => {
+    if (!cfg.secret) return;
+    try {
+      await navigator.clipboard.writeText(cfg.secret);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }, [cfg.secret]);
+
+  const onRotate = useCallback(() => {
+    void persist({ rotate_secret: true });
+  }, [persist]);
+
+  const urlInvalid = !!cfg.url.trim() && !URL_RE.test(cfg.url.trim());
+  const canTest = hasToken && !!cfg.url.trim() && !urlInvalid && !!cfg.secret;
+
   return (
-    <div
-      className="qq-action-soonrow"
-      data-testid={testid}
-      aria-disabled="true"
-      title={`${label} is coming soon`}
-    >
-      <span className="qq-action-soonrow-icon" aria-hidden="true">
-        <Icon size={16} />
-      </span>
-      <span className="qq-action-soonrow-label">{label}</span>
-      <span className="qq-action-soon">Coming soon</span>
-      <span className="qq-action-soonrow-chevron" aria-hidden="true">›</span>
+    <div className="qq-action-card qq-integ" data-testid="action-group-integrations">
+      <div className="qq-action-card-head">
+        <span className="qq-action-card-headicon" aria-hidden="true">
+          <Plug size={16} />
+        </span>
+        <span className="qq-action-card-title">Integrations</span>
+        <InfoCue
+          testid="action-section-integrations"
+          region="result"
+          text="Send every new lead to your own systems in real time with a signed webhook. Works with Zapier, Make, n8n, HubSpot, GoHighLevel, Google Sheets and Slack — they all accept this webhook."
+        />
+      </div>
+      <div className="qq-action-card-body">
+        {!hasToken && (
+          <p className="qq-integ-hint" data-testid="integ-needs-save">
+            Save your calculator first, then connect a webhook here.
+          </p>
+        )}
+
+        <label className="qq-action-toggle">
+          <input
+            type="checkbox"
+            checked={cfg.enabled}
+            disabled={!hasToken || saving || !loaded}
+            onChange={(e) => onToggle(e.target.checked)}
+            data-testid="integ-enabled"
+            aria-label="Send a webhook on every new lead"
+          />
+          <span className="qq-action-toggle-title">Send a webhook on every new lead</span>
+        </label>
+
+        <FloatField
+          label="Webhook URL"
+          htmlFor="qq-integ-url"
+          infoText="The https:// endpoint we POST each lead to. Paste a Zapier/Make catch-hook URL, a Slack incoming webhook, or your own API."
+          infoTestid="integ-url"
+        >
+          <input
+            id="qq-integ-url"
+            type="url"
+            inputMode="url"
+            className="premium-input"
+            placeholder=" "
+            value={cfg.url}
+            disabled={!hasToken}
+            onChange={(e) => { setCfg((c) => ({ ...c, url: e.target.value })); setSaveError(null); }}
+            onBlur={onUrlBlur}
+            data-testid="integ-url-input"
+            aria-invalid={urlInvalid}
+          />
+        </FloatField>
+
+        {urlInvalid && (
+          <p className="qq-integ-error" data-testid="integ-url-error">Enter a full https:// URL.</p>
+        )}
+        {saveError && (
+          <p className="qq-integ-error" data-testid="integ-save-error">{saveError}</p>
+        )}
+
+        <div className="qq-integ-row">
+          <button
+            type="button"
+            className="qq-integ-btn"
+            onClick={onSendTest}
+            disabled={!canTest || testing}
+            data-testid="integ-send-test"
+          >
+            <Send size={16} aria-hidden="true" />
+            <span>{testing ? 'Sending…' : 'Send test'}</span>
+          </button>
+          {testResult && (
+            <span
+              className={`qq-integ-testresult${testResult.ok ? ' is-ok' : ' is-err'}`}
+              data-testid="integ-test-result"
+              role="status"
+            >
+              {testResult.msg}
+            </span>
+          )}
+        </div>
+
+        {cfg.secret && (
+          <div className="qq-integ-secret" data-testid="integ-secret-block">
+            <div className="qq-integ-secret-label">Signing secret</div>
+            <div className="qq-integ-secret-row">
+              <code className="qq-integ-secret-value" data-testid="integ-secret-value">{cfg.secret}</code>
+              <button
+                type="button"
+                className="qq-integ-iconbtn"
+                onClick={onCopySecret}
+                title="Copy signing secret"
+                aria-label="Copy signing secret"
+                data-testid="integ-copy-secret"
+              >
+                <Copy size={16} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="qq-integ-iconbtn"
+                onClick={onRotate}
+                disabled={saving}
+                title="Regenerate signing secret"
+                aria-label="Regenerate signing secret"
+                data-testid="integ-rotate-secret"
+              >
+                <RefreshCw size={16} aria-hidden="true" />
+              </button>
+            </div>
+            <p className="qq-integ-hint">
+              {copied ? 'Copied.' : 'Verify the X-WFT-Signature header with this secret to confirm each request is genuine.'}
+            </p>
+          </div>
+        )}
+
+        <p className="qq-integ-hint">
+          Connect to Zapier, Make, HubSpot, Google Sheets, Slack and more — they all accept this webhook.{' '}
+          <a
+            href="/docs/webhooks"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="qq-integ-link"
+            data-testid="integ-docs-link"
+          >
+            Read the docs <ExternalLink size={12} aria-hidden="true" />
+          </a>
+        </p>
+      </div>
     </div>
   );
 }

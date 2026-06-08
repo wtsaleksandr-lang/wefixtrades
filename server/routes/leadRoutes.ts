@@ -8,6 +8,7 @@ import { buildHostedUrl } from "@shared/slugUtils";
 import { createLogger } from "../lib/logger";
 import { noisyCatch } from "../lib/silentFailureGuard";
 import { emitApiWebhookEvent } from "../services/apiWebhookDispatcher";
+import { fireLeadWebhook } from "../services/quotequickLeadWebhook";
 import {
   leadsSubmissionRateLimiter,
   leadsIpRateLimiter,
@@ -514,6 +515,20 @@ export function registerLeadRoutes(app: Express): void {
           });
         })
         .catch((err) => log.warn("Webhook emit lookup failed", { error: err?.message }));
+
+      // QuoteQuick Integrations — owner-configured OUTBOUND lead webhook
+      // (Zapier/Make/n8n/HubSpot/GoHighLevel/Google Sheets/Slack/custom).
+      // Free for all tiers. Best-effort, signed (X-WFT-Signature), SSRF-guarded,
+      // and NON-BLOCKING: fireLeadWebhook never throws and logs its own outcome,
+      // so a failed/slow consumer can never affect lead capture above. No-op
+      // unless integrations.webhook.{enabled,url,secret} is configured.
+      void fireLeadWebhook(calculator, lead).catch((err) =>
+        log.error("[lead-webhook] fire threw unexpectedly", {
+          error: err?.message,
+          calculatorId: parsed.data.calculator_id,
+          leadId: lead.id,
+        }),
+      );
 
       // Wave 92: captureIntakeEvent feeds the audit trail. Previously a
       // `.catch(() => {})` swallowed write failures so lead-source attribution

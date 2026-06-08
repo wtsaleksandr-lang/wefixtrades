@@ -534,6 +534,18 @@ export default function WizardShell({ embed = false }: Props) {
     id: null, businessName: null,
   });
 
+  // Edit token from the URL — the ownership credential the Integrations panel
+  // (Action tab) uses to read/save its outbound-webhook config. Empty in the
+  // pre-save create flow; the panel shows a "save the calculator first" hint.
+  const editToken = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      return new URLSearchParams(window.location.search).get('token') || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
   // IA-1 — capture where the user came from BEFORE the wizard mounts
   // replaces history. We use this to land them back on the same
   // dashboard when they click Minimize. Document.referrer is the
@@ -1807,6 +1819,7 @@ export default function WizardShell({ embed = false }: Props) {
                       style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                       onStyleChange={setStyle}
                       planTier={planTier}
+                      editToken={editToken}
                     />
                   ) : (
                     <TabPlaceholder
@@ -2003,6 +2016,7 @@ export default function WizardShell({ embed = false }: Props) {
                     style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                     onStyleChange={setStyle}
                     planTier={planTier}
+                    editToken={editToken}
                   />
                 ) : (
                   <TabPlaceholder

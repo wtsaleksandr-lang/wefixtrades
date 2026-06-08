@@ -4,6 +4,7 @@ import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "../lib/transactionalShell";
 import { isTwilioConfigured, sendSMS, storeSmsMessage } from "../twilioClient";
 import { createLogger } from "../lib/logger";
+import { assertPublicHttpsUrl } from "../lib/webhookSsrfGuard";
 
 const log = createLogger("NotificationWorker");
 
@@ -234,37 +235,10 @@ export async function processNotificationQueue(): Promise<{ processed: number; e
         }
 
         try {
-          const url = new URL(webhookUrl);
-          if (url.protocol !== 'https:') {
-            throw new Error('Webhook URL must use HTTPS');
-          }
-
-          const dns = await import('dns');
-          const lookups = await dns.promises.lookup(url.hostname, { all: true });
-          const isPrivate = lookups.some((addr) => {
-            const ip = addr.address;
-            return (
-              ip.startsWith('10.') ||
-              ip.startsWith('192.168.') ||
-              ip.startsWith('172.16.') ||
-              ip.startsWith('172.17.') ||
-              ip.startsWith('172.18.') ||
-              ip.startsWith('172.19.') ||
-              ip.startsWith('172.2') || // covers 172.20–172.29
-              ip.startsWith('172.30.') || // covers 172.30.x.x (private)
-              ip.startsWith('172.31.') || // covers 172.31.x.x (private)
-              ip.startsWith('127.') ||
-              ip === '0.0.0.0' ||
-              ip.startsWith('169.254.') ||
-              ip === '::1' ||
-              ip.startsWith('fc') ||
-              ip.startsWith('fd') ||
-              ip.startsWith('fe80:')
-            );
-          });
-          if (isPrivate) {
-            throw new Error('Webhook host resolves to a private or loopback address');
-          }
+          // SSRF guard — shared with the QuoteQuick lead-webhook delivery
+          // path (server/lib/webhookSsrfGuard.ts). Rejects non-https URLs and
+          // any host that resolves to a private / loopback / link-local addr.
+          await assertPublicHttpsUrl(webhookUrl);
 
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 5000);
