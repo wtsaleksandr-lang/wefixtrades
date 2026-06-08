@@ -148,7 +148,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
       },
     ],
     savingsHighlight: "Save $150+/mo compared to ServiceTitan",
-    ctaLabel: "Start Free — 14 Days, No Card",
+    ctaLabel: "Start Free — No Card",
     ctaHref: "/wizard",
     productPageHref: "/products/quickquotepro",
   },

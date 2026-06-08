@@ -99,7 +99,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
-            <StatTile value="100%" label="Calls answered" color="cyanSoft" size="sm" />
+            <StatTile value="24/7" label="Calls answered" color="cyanSoft" size="sm" />
             <StatTile value="< 30s" label="Avg pick-up" color="lavender" size="sm" />
             <StatTile value="240+" label="Trades businesses" color="mint" size="sm" />
           </div>
@@ -348,7 +348,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
             <StatTile value="12/wk" label="Posts auto-drafted" color="cyanSoft" size="sm" icon={<PenTool size={14} />} />
             <StatTile value="4" label="Channels per click" color="lavender" size="sm" icon={<Send size={14} />} />
-            <StatTile value="+340%" label="Engagement lift" color="mint" size="sm" icon={<TrendingUp size={14} />} />
+            <StatTile value="+340%" label="Engagement lift (example)" color="mint" size="sm" icon={<TrendingUp size={14} />} />
           </div>
           <SocialSyncDemo />
         </div>
@@ -583,7 +583,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
             <StatTile value="42 → 98" label="Lighthouse climb" color="mint" size="sm" icon={<Zap size={14} />} />
             <StatTile value="23 → 1" label="Issues fixed" color="cyanSoft" size="sm" icon={<ShieldCheck size={14} />} />
-            <StatTile value="+184%" label="Organic traffic" color="lavender" size="sm" icon={<TrendingUp size={14} />} />
+            <StatTile value="+184%" label="Organic traffic (example)" color="lavender" size="sm" icon={<TrendingUp size={14} />} />
           </div>
           <WebFixDemo />
         </div>
@@ -604,7 +604,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Monthly Health Reports",
       description: "Track whether the fixes stuck. Performance scores, traffic, conversions — all charted month over month.",
       mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
-        <MiniChartTile value="+184%" label="Organic traffic" trend="90 days" color="cyanSoft" />
+        <MiniChartTile value="+184%" label="Organic traffic (example)" trend="90 days" color="cyanSoft" />
         <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
           <StatTile value="2.1s" label="LCP avg" color="mint" size="sm" />
           <StatTile value="12" label="New page-1 keywords" color="lavender" size="sm" />
@@ -642,7 +642,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
             <StatTile value="4–8/mo" label="Articles drafted" color="cyanSoft" size="sm" icon={<PenTool size={14} />} />
             <StatTile value="~1 hr" label="Your time / month" color="lavender" size="sm" icon={<Clock size={14} />} />
-            <StatTile value="+184%" label="Organic traffic" color="mint" size="sm" icon={<TrendingUp size={14} />} />
+            <StatTile value="+184%" label="Organic traffic (example)" color="mint" size="sm" icon={<TrendingUp size={14} />} />
           </div>
           <ContentFlowDemo />
         </div>
@@ -665,7 +665,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Performance Feeds The Loop",
       description: "We see which pieces drive calls and clicks — then adjust the next batch to do more of what's working.",
       mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
-        <MiniChartTile value="+184%" label="Organic traffic" trend="90 days" color="cyanSoft" />
+        <MiniChartTile value="+184%" label="Organic traffic (example)" trend="90 days" color="cyanSoft" />
         <StatTile value="247" label="Engagements/post" color="lavender" size="lg" />
         <StatTile value="18" label="Calls from posts" color="mint" size="lg" />
       </div>,
@@ -702,7 +702,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
             <StatTile value="$42→$19" label="Cost per lead, 4 wks" color="cyanSoft" size="sm" icon={<TrendingUp size={14} />} />
             <StatTile value="3.2×" label="ROAS" color="mint" size="sm" icon={<Zap size={14} />} />
-            <StatTile value="+340%" label="vs DIY ads" color="lavender" size="sm" icon={<Sparkles size={14} />} />
+            <StatTile value="+340%" label="vs DIY ads (example)" color="lavender" size="sm" icon={<Sparkles size={14} />} />
           </div>
           <AdFlowDemo />
         </div>
@@ -715,7 +715,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       mockup: <Wide><StatTrio
         a={{ value: "12", label: "Active ads", color: "cyanSoft", icon: <Sparkles size={16} /> }}
         b={{ value: "8.4%", label: "CTR", color: "mint", icon: <TrendingUp size={16} /> }}
-        c={{ value: "+340%", label: "Vs DIY ads", color: "lavender", icon: <Zap size={16} /> }}
+        c={{ value: "+340%", label: "Vs DIY ads (example)", color: "lavender", icon: <Zap size={16} /> }}
       /></Wide>,
     },
     {
