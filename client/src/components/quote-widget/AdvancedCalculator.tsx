@@ -1386,6 +1386,39 @@ function BookingCalendarPreview({
  * (`advanced-powered-by-root`) so it can't duplicate on desktop and stays
  * visible on mobile when the sticky bar folds. See the root badge below. */
 
+/* feat/inline-edit-all-sections (2026-06-08) — reusable pencil "edit hint"
+ * affordance, factored out of the title's inline pencil so EVERY inline-editable
+ * text section (subtitle, results heading, footnote) shows the SAME glyph + tap
+ * target + tooltip. Rendered ONLY in the wizard editor preview (gated on
+ * `editableTitle` at every call site); the live/published widget never mounts it.
+ * The `data-testid` is the hook PreviewPane's onBezelClick delegation matches to
+ * open the right section editor (mirrors `advanced-title-edit-hint`). `color`
+ * keeps it theme-aware (callers pass the section's body token — no hardcoded hex). */
+function EditHint({ testId, color }: { testId: string; color: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-testid={testId}
+      title="Click to edit"
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        minWidth: 28, minHeight: 28, borderRadius: 7,
+        color, opacity: 0.55, cursor: 'pointer', flexShrink: 0,
+        verticalAlign: 'middle', marginLeft: 4,
+        transition: 'opacity 0.12s ease, background 0.12s ease',
+      }}
+    >
+      <svg
+        width={14} height={14} viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" strokeWidth={2.4}
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
+      </svg>
+    </span>
+  );
+}
+
 export default function AdvancedCalculator({
   businessName, logoUrl, advanced, accentColor, editableTitle = false,
   planTier, calculatorId, bookingUrl, ownerEmail, connectedTop = false,
@@ -2412,7 +2445,15 @@ export default function AdvancedCalculator({
               // 13px → 12px and slightly tighter line-height: the trust line was
               // reading as a dense run-on. Colour stays the theme body token
               // (cc.textBody) — no hardcoded hex.
-              const baseStyle = { fontSize: '12px', color: cc.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.4 } as React.CSSProperties;
+              // feat/inline-edit-all-sections — in the wizard editor preview the
+              // subtitle is click-to-edit (same UX as the title): cursor:pointer
+              // + a small comfortable tap pad so the whole line reads as
+              // editable. PreviewPane's onBezelClick matches data-component-type
+              // ="subtitle" to open the inline editor + select the header section.
+              const baseStyle = {
+                fontSize: '12px', color: cc.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.4,
+                ...(editableTitle ? { cursor: 'pointer', borderRadius: 6 } : null),
+              } as React.CSSProperties;
               if (props.__html) {
                 return (
                   <p
@@ -2420,8 +2461,10 @@ export default function AdvancedCalculator({
                     data-component-name="Subtitle"
                     data-component-type="subtitle"
                     style={baseStyle}
-                    dangerouslySetInnerHTML={{ __html: props.__html }}
-                  />
+                  >
+                    <span dangerouslySetInnerHTML={{ __html: props.__html }} />
+                    {editableTitle && <EditHint testId="advanced-subtitle-edit-hint" color={cc.textBody} />}
+                  </p>
                 );
               }
               const plain = props.text ?? '';
@@ -2453,6 +2496,7 @@ export default function AdvancedCalculator({
                         <span>{seg}</span>
                       </span>
                     ))}
+                    {editableTitle && <EditHint testId="advanced-subtitle-edit-hint" color={cc.textBody} />}
                   </div>
                 );
               }
@@ -2464,6 +2508,7 @@ export default function AdvancedCalculator({
                   style={baseStyle}
                 >
                   {plain}
+                  {editableTitle && <EditHint testId="advanced-subtitle-edit-hint" color={cc.textBody} />}
                 </p>
               );
             })()}
@@ -2980,16 +3025,31 @@ export default function AdvancedCalculator({
           >
             {(() => {
               const props = richTextRenderProps(resultHeading);
+              // feat/inline-edit-all-sections — the result heading / total-cost
+              // label is click-to-edit in the wizard preview. data-component-type
+              // ="results-heading" routes onBezelClick to the inline editor (which
+              // commits to results.heading) AND selects the result section.
               const baseStyle = {
                 position: 'relative' as const, zIndex: 1,
                 fontSize: '11px', fontWeight: 700, color: cc.resultMuted,
                 textTransform: 'uppercase' as const, letterSpacing: '0.06em', margin: 0,
                 lineHeight: 1.3,
+                ...(editableTitle ? { cursor: 'pointer', borderRadius: 6, display: 'inline-flex', alignItems: 'center' } : null),
               };
               if (props.__html) {
-                return <p data-testid="advanced-result-heading" style={baseStyle} dangerouslySetInnerHTML={{ __html: props.__html }} />;
+                return (
+                  <p data-testid="advanced-result-heading" data-component-type="results-heading" style={baseStyle}>
+                    <span dangerouslySetInnerHTML={{ __html: props.__html }} />
+                    {editableTitle && <EditHint testId="advanced-result-heading-edit-hint" color={cc.resultMuted} />}
+                  </p>
+                );
               }
-              return <p data-testid="advanced-result-heading" style={baseStyle}>{props.text}</p>;
+              return (
+                <p data-testid="advanced-result-heading" data-component-type="results-heading" style={baseStyle}>
+                  {props.text}
+                  {editableTitle && <EditHint testId="advanced-result-heading-edit-hint" color={cc.resultMuted} />}
+                </p>
+              );
             })()}
             {/* BD-2b — when Good/Better/Best tiers are enabled the headline
                 slot is REPLACED by the 3-card tier selector. The breakdown
@@ -3142,11 +3202,28 @@ export default function AdvancedCalculator({
 
             {(() => {
               const props = richTextRenderProps(footnoteText);
-              const baseStyle = { fontSize: '11px', color: cc.resultMuted, margin: '14px 0 0', lineHeight: 1.5 };
+              // feat/inline-edit-all-sections — the result footnote / footer copy
+              // is click-to-edit in the wizard preview. data-component-type
+              // ="footnote" routes onBezelClick to the inline editor (which commits
+              // to results.footnote) AND selects the result section.
+              const baseStyle = {
+                fontSize: '11px', color: cc.resultMuted, margin: '14px 0 0', lineHeight: 1.5,
+                ...(editableTitle ? { cursor: 'pointer', borderRadius: 6 } : null),
+              };
               if (props.__html) {
-                return <p style={baseStyle} dangerouslySetInnerHTML={{ __html: props.__html }} />;
+                return (
+                  <p data-testid="advanced-footnote" data-component-type="footnote" style={baseStyle}>
+                    <span dangerouslySetInnerHTML={{ __html: props.__html }} />
+                    {editableTitle && <EditHint testId="advanced-footnote-edit-hint" color={cc.resultMuted} />}
+                  </p>
+                );
               }
-              return <p style={baseStyle}>{props.text}</p>;
+              return (
+                <p data-testid="advanced-footnote" data-component-type="footnote" style={baseStyle}>
+                  {props.text}
+                  {editableTitle && <EditHint testId="advanced-footnote-edit-hint" color={cc.resultMuted} />}
+                </p>
+              );
             })()}
 
             {/* ── BD-3k — Deposit preview badge + Stripe-style card ──

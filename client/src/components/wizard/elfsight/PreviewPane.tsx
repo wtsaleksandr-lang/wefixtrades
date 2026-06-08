@@ -71,6 +71,18 @@ interface Props {
    *  title typed inline survives navigation without a separate "Save draft"
    *  click. Optional — when absent, inline edits behave as before. */
   onCommitTitle?: () => void;
+  /** feat/inline-edit-all-sections (2026-06-08) — two-way bind for the widget
+   *  SUBTITLE (the trust line under the headline). Fired when the user inline-
+   *  edits the subtitle text in the preview; commits to `header.subtitle`,
+   *  keeping the BuildTab header field in sync. When absent the subtitle is not
+   *  inline-editable. */
+  onHeaderSubtitleChange?: (v: string) => void;
+  /** feat/inline-edit-all-sections — two-way bind for the result-panel copy.
+   *  `which` selects the field: 'heading' (total-cost label) or 'footnote'
+   *  (footer/fine-print under the result). Commits to `results.heading` /
+   *  `results.footnote`, keeping the BuildTab result-text fields in sync. When
+   *  absent those sections are not inline-editable. */
+  onResultsTextChange?: (which: 'heading' | 'footnote', v: string) => void;
   /** Wave J item 5 — business logo (data URL or null). Surfaces in the
    *  preview header alongside the business name. */
   logo?: string | null;
@@ -288,6 +300,12 @@ const COMPONENT_EDIT_MAP: Record<string, { tab: EditorTab; targetKey: string }> 
   'category-icon': { tab: 'build', targetKey: 'business' },
   // Result / pricing zone — Build > Titles & result text + Pricing.
   results:  { tab: 'build', targetKey: 'results' },
+  // feat/inline-edit-all-sections — the result heading (total-cost label) and
+  // footnote (fine print) map to the SAME results section as the panel itself,
+  // so clicking either selects + highlights the result block and routes the
+  // left pane to Build > result text.
+  'results-heading': { tab: 'build', targetKey: 'results' },
+  footnote: { tab: 'build', targetKey: 'results' },
   // Tier (Good/Better/Best) cards are configured in Style > Pricing tiers.
   'tier-selector': { tab: 'style', targetKey: 'tiered' },
   // Stepper chrome — step content lives in Build.
@@ -329,7 +347,8 @@ function mapPreviewSpot(
 }
 
 export default function PreviewPane({
-  businessName, onBusinessNameChange, onHeaderTitleChange, onCommitTitle, logo, layout, device, fields, calculations,
+  businessName, onBusinessNameChange, onHeaderTitleChange, onCommitTitle,
+  onHeaderSubtitleChange, onResultsTextChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category,
   onRemoveField, onAddField, onUpdateField, onPreviewSpotEdit,
   hostedFrame = false,
@@ -1750,6 +1769,30 @@ export default function PreviewPane({
       return;
     }
 
+    // feat/inline-edit-all-sections (2026-06-08) — extend the title's inline-edit
+    // dispatch to the other text-editable sections. Clicking the subtitle /
+    // results-heading / footnote (or their pencil edit-hint) opens the inline
+    // editor for that section AND fires the existing section-sync so the left
+    // pane switches to the right tab + persistently highlights the section
+    // (selection set inside fireSpotEdit via data-component-type). Handled here,
+    // BEFORE the control-match + result-panel branches, so the click opens the
+    // editor instead of only selecting. Each maps to its data-component-type
+    // (subtitle → header, results-heading/footnote → results). A section whose
+    // commit prop isn't wired no-ops in openSectionEditor (stays safe).
+    const inlineSpot: { sel: string; section: SectionKey }[] = [
+      { sel: '[data-testid="advanced-subtitle-edit-hint"], [data-testid="advanced-subtitle"]', section: 'subtitle' },
+      { sel: '[data-testid="advanced-result-heading-edit-hint"], [data-testid="advanced-result-heading"]', section: 'results-heading' },
+      { sel: '[data-testid="advanced-footnote-edit-hint"], [data-testid="advanced-footnote"]', section: 'footnote' },
+    ];
+    for (const { sel, section } of inlineSpot) {
+      if (target.closest(sel)) {
+        openSectionEditor(section);
+        // Section-sync — switch tab + persistently highlight the section.
+        fireSpotEdit(target);
+        return;
+      }
+    }
+
     const controlMatch = target.closest(
       'input, select, button, textarea, label, a, [role="slider"], [role="radio"], [role="checkbox"], [role="option"]',
     );
@@ -1836,9 +1879,70 @@ export default function PreviewPane({
   // ALWAYS appears in the DOM; the rAF re-measure + ResizeObserver then snap it
   // onto the live title. Top-left of the overlay host, comfortable defaults.
   const FALLBACK_TITLE_BOX = { left: 16, top: 16, width: 240, height: 32 } as const;
-  const [titleEditing, setTitleEditing] = useState(false);
+
+  // feat/inline-edit-all-sections (2026-06-08) — generalise the title's inline
+  // editor to ANY text-editable widget section. The plumbing (overlay <input>/
+  // <textarea> measured onto the live element, Enter/blur commit, Esc cancel,
+  // debounced draft-save) is shared; only the per-section binding (which DOM
+  // node to measure, which state field to read/write) differs. Each section's
+  // config below is resolved at render time from the wired commit props — a
+  // section with no commit prop is simply NOT inline-editable.
+  type SectionKey = 'title' | 'subtitle' | 'results-heading' | 'footnote';
+  interface SectionConfig {
+    /** Selector for the live rendered element to measure + overlay. */
+    selector: string;
+    /** Current text value the overlay editor binds to. */
+    value: string;
+    /** Commit a new value to state (per-keystroke, mirrors the title). */
+    commit: (v: string) => void;
+    /** Placeholder when the field is empty. */
+    placeholder: string;
+    /** Multiline copy (subtitle / footnote) → render a <textarea>. */
+    multiline: boolean;
+    /** Whether this section has a wired commit path (else not editable). */
+    enabled: boolean;
+  }
+  const sectionConfigs: Record<SectionKey, SectionConfig> = {
+    title: {
+      selector: '[data-testid="advanced-title"]',
+      value: onHeaderTitleChange ? (header?.title ?? '') : businessName,
+      commit: (v) => { if (onHeaderTitleChange) onHeaderTitleChange(v); else onBusinessNameChange?.(v); },
+      placeholder: onHeaderTitleChange ? 'Add your header title here' : 'Add your business name here',
+      multiline: false,
+      enabled: !!onHeaderTitleChange || !!onBusinessNameChange,
+    },
+    subtitle: {
+      selector: '[data-testid="advanced-subtitle"]',
+      value: header?.subtitle ?? '',
+      commit: (v) => onHeaderSubtitleChange?.(v),
+      placeholder: 'Add a short trust line (e.g. Licensed · Insured · 5-star)',
+      multiline: true,
+      enabled: !!onHeaderSubtitleChange,
+    },
+    'results-heading': {
+      selector: '[data-testid="advanced-result-heading"]',
+      value: results?.heading ?? '',
+      commit: (v) => onResultsTextChange?.('heading', v),
+      placeholder: 'Total-cost label (e.g. Your estimate)',
+      multiline: false,
+      enabled: !!onResultsTextChange,
+    },
+    footnote: {
+      selector: '[data-testid="advanced-footnote"]',
+      value: results?.footnote ?? '',
+      commit: (v) => onResultsTextChange?.('footnote', v),
+      placeholder: 'Fine print under the result (e.g. Instant estimate based on your inputs.)',
+      multiline: true,
+      enabled: !!onResultsTextChange,
+    },
+  };
+
+  const [editingSection, setEditingSection] = useState<SectionKey | null>(null);
   const [titleBox, setTitleBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
-  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  // The selector for whichever section is being edited (or the title's, as a
+  // harmless default when nothing is open — measure() no-ops without a match).
+  const activeSelector = editingSection ? sectionConfigs[editingSection].selector : '[data-testid="advanced-title"]';
 
   // BUG-2 fix (fix/inline-title-edit): returns the title node when one exists
   // (so callers can scroll-into-view), else null. Always RE-MEASURES into
@@ -1859,10 +1963,17 @@ export default function PreviewPane({
   // (getBoundingClientRect().width ÷ offsetWidth) so it's exactly 1 on the
   // mobile-clean path (no transformed ancestor) and equals `zoom` on desktop —
   // no hardcoded dependency on the zoom state, and mobile stays untouched.
+  // feat/inline-edit-all-sections — the measure helper is selector-driven so the
+  // same plumbing measures whichever section is being edited. The selector lives
+  // in a ref (not a closure) so `measureTitle` keeps its stable `[]` identity
+  // (the scroll/resize/RO listeners below depend on that) yet always reads the
+  // CURRENT section. Defaults to the title selector when nothing is open.
+  const activeSelectorRef = useRef<string>('[data-testid="advanced-title"]');
+  activeSelectorRef.current = activeSelector;
   const measureTitle = useCallback((): HTMLElement | null => {
     const host = overlayHostRef.current;
     if (!host) return null;
-    const t = host.querySelector<HTMLElement>('[data-testid="advanced-title"]');
+    const t = host.querySelector<HTMLElement>(activeSelectorRef.current);
     if (!t) return null;
     const hostRect = host.getBoundingClientRect();
     const r = t.getBoundingClientRect();
@@ -1885,7 +1996,7 @@ export default function PreviewPane({
   }, []);
 
   useEffect(() => {
-    if (!titleEditing) return;
+    if (!editingSection) return;
     measureTitle();
     const id1 = requestAnimationFrame(measureTitle);
     const onResize = () => measureTitle();
@@ -1908,7 +2019,7 @@ export default function PreviewPane({
     // ResizeObserver on the title node keeps `titleBox` pinned over the title
     // so the absolutely-positioned input never drifts off the live title.
     let ro: ResizeObserver | null = null;
-    const titleNode = hostEl?.querySelector<HTMLElement>('[data-testid="advanced-title"]') ?? null;
+    const titleNode = hostEl?.querySelector<HTMLElement>(activeSelectorRef.current) ?? null;
     if (titleNode && typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver(() => measureTitle());
       ro.observe(titleNode);
@@ -1920,58 +2031,59 @@ export default function PreviewPane({
       if (hostEl && hostEl !== paneEl) hostEl.removeEventListener('scroll', onScroll);
       ro?.disconnect();
     };
-  }, [titleEditing, measureTitle, businessName, header]);
+  }, [editingSection, measureTitle, businessName, header, results]);
 
-  const openTitleEditor = useCallback(() => {
-    // fix/tmpl-editor-mobile (B) — the inline editor edits the HEADER TITLE
-    // when `onHeaderTitleChange` is wired, falling back to the legacy
-    // business-name binding otherwise. Open only when at least one commit
-    // path exists.
-    if (!onHeaderTitleChange && !onBusinessNameChange) return;
-    // Desktop-regression fix (fix/inline-title-edit): ALWAYS mount the input
-    // when the pencil is clicked, as long as the title NODE exists — never
-    // bail-to-never-mount on an invalid/empty initial measurement. The earlier
-    // guard ("don't open if the box couldn't be measured") fired on the desktop
-    // scaled-canvas path: the title sometimes measures to an empty box on the
-    // first frame inside the zoomed `.qq-preview-stage`, so `titleBox` stayed
-    // null and the render gate (`titleEditing && titleBox`) kept the input out
-    // of the DOM entirely. We now seed a sensible fallback box when the initial
-    // measurement is missing, set `titleEditing = true` unconditionally, then
-    // let the rAF re-measure + ResizeObserver + scroll-into-view correct the
-    // position on the next frame(s).
+  // feat/inline-edit-all-sections — generic section-editor opener. Sets the
+  // active section, measures its live element onto `titleBox`, mounts the
+  // overlay editor, then focuses it. Identical lifecycle to the original
+  // title opener (incl. the desktop fallback-box mount-then-remeasure), but
+  // selector-driven via `sectionConfigs`. `openTitleEditor` is kept as a thin
+  // alias so the existing title pencil / header-click call sites are untouched.
+  const sectionConfigsRef = useRef(sectionConfigs);
+  sectionConfigsRef.current = sectionConfigs;
+  const openSectionEditor = useCallback((section: SectionKey) => {
+    const cfg = sectionConfigsRef.current[section];
+    if (!cfg.enabled) return; // no commit path wired → not editable
+    setEditingSection(section);
+    // The selector ref must point at the NEW section before we measure (state
+    // update is async, so set it imperatively here).
+    activeSelectorRef.current = cfg.selector;
+    // Desktop-regression fix (fix/inline-title-edit): ALWAYS mount the editor
+    // when the section NODE exists — never bail on an invalid/empty initial
+    // measurement (the desktop scaled-canvas path can measure an empty box on
+    // the first frame). Seed a fallback box, then let the rAF re-measure +
+    // ResizeObserver + scroll-into-view correct it on the next frame(s).
     const node = measureTitle();
-    if (!node) return; // title element genuinely not rendered — nothing to edit
+    if (!node) { setEditingSection(null); return; } // genuinely not rendered
     setTitleBox((prev) => prev ?? FALLBACK_TITLE_BOX);
     if (!titleBox) {
-      // No valid box yet — bring the title into view so the next measure
-      // lands a real rect, but mount the input now regardless.
       node.scrollIntoView({ block: 'center', inline: 'nearest' });
     }
-    setTitleEditing(true);
-    // Re-measure on the next frame so the fallback box is replaced by the real
-    // title rect (origin- and scale-corrected) before the user sees it.
     requestAnimationFrame(() => {
       measureTitle();
       titleInputRef.current?.focus();
-      titleInputRef.current?.select();
+      titleInputRef.current?.select?.();
     });
-  }, [onHeaderTitleChange, onBusinessNameChange, measureTitle, titleBox]);
+  }, [measureTitle, titleBox]);
 
-  // fix/tmpl-editor-mobile (B) — inline title-editor bindings. When
-  // `onHeaderTitleChange` is wired the editor reads/writes the HEADER TITLE
-  // (`header.title`); otherwise it falls back to the legacy business-name
-  // binding so older mount sites keep working. A single gate + value + commit
-  // is shared by all three render paths (mobile-clean / mobile-bezel /
-  // desktop) so they stay in lock-step.
-  const titleEditEnabled = !!onHeaderTitleChange || !!onBusinessNameChange;
-  const titleEditValue = onHeaderTitleChange ? (header?.title ?? '') : businessName;
-  const titleEditPlaceholder = onHeaderTitleChange
-    ? 'Add your header title here'
-    : 'Add your business name here';
+  const openTitleEditor = useCallback(() => {
+    openSectionEditor('title');
+  }, [openSectionEditor]);
+
+  // The binding for whichever section is currently open. When nothing is open
+  // these fall back to the title config (harmless — the render gate requires
+  // `editingSection`). A single gate + value + commit + placeholder is shared
+  // by all three render paths (mobile-clean / mobile-bezel / desktop) so they
+  // stay in lock-step.
+  const activeSection = editingSection ? sectionConfigs[editingSection] : sectionConfigs.title;
+  const titleEditEnabled = activeSection.enabled;
+  const titleEditValue = activeSection.value;
+  const titleEditPlaceholder = activeSection.placeholder;
+  const titleEditMultiline = activeSection.multiline;
   const commitTitleEdit = useCallback((v: string) => {
-    if (onHeaderTitleChange) onHeaderTitleChange(v);
-    else onBusinessNameChange?.(v);
-  }, [onHeaderTitleChange, onBusinessNameChange]);
+    const cfg = editingSection ? sectionConfigsRef.current[editingSection] : null;
+    cfg?.commit(v);
+  }, [editingSection]);
 
   // BUG-3 fix (fix/inline-title-edit): autosave the draft when the user commits
   // an inline title edit, so the title survives navigation without a separate
@@ -1983,13 +2095,13 @@ export default function PreviewPane({
   // Snapshot the title value when the editor opens, so commit can skip the save
   // when the user opened and closed without changing anything.
   useEffect(() => {
-    if (titleEditing) titleValueAtOpenRef.current = titleEditValue;
-  }, [titleEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (editingSection) titleValueAtOpenRef.current = titleEditValue;
+  }, [editingSection]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => {
     if (saveDebounceRef.current) window.clearTimeout(saveDebounceRef.current);
   }, []);
   const commitTitleAndSave = useCallback(() => {
-    setTitleEditing(false);
+    setEditingSection(null);
     if (!onCommitTitle) return;
     if (titleEditValue === titleValueAtOpenRef.current) return; // unchanged → no save
     if (saveDebounceRef.current) window.clearTimeout(saveDebounceRef.current);
@@ -1998,6 +2110,56 @@ export default function PreviewPane({
       onCommitTitle();
     }, 700);
   }, [onCommitTitle, titleEditValue]);
+
+  // feat/inline-edit-all-sections — the single overlay editor element, shared by
+  // all three render paths (mobile-clean / mobile-bezel / desktop). It mounts
+  // over whichever section is open (`editingSection`), absolutely-positioned on
+  // the measured `titleBox`. Multiline sections (subtitle / footnote) render a
+  // <textarea> so wrapped copy stays readable; single-line sections keep the
+  // <input>. Enter (non-shift) / Escape / blur all commit-and-close — matching
+  // the title's long-standing behaviour (per-keystroke commit means there is no
+  // separate "discard"; Esc simply closes, keeping the typed value). For the
+  // textarea, Shift+Enter inserts a newline so multi-line copy is still possible.
+  const editorCommonProps = {
+    ref: titleInputRef as React.Ref<HTMLInputElement & HTMLTextAreaElement>,
+    className: 'qq-preview-title-edit',
+    'data-testid': 'preview-title-edit',
+    'data-editing-section': editingSection ?? undefined,
+    placeholder: titleEditPlaceholder,
+    value: titleEditValue,
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => commitTitleEdit(e.target.value),
+    onBlur: commitTitleAndSave,
+    style: {
+      position: 'absolute' as const,
+      left: titleBox?.left ?? 0, top: titleBox?.top ?? 0,
+      width: titleBox?.width ?? 240, height: titleBox?.height ?? 32,
+    },
+  };
+  const sectionEditorEl = (editingSection && titleBox && titleEditEnabled) ? (
+    titleEditMultiline ? (
+      <textarea
+        {...editorCommonProps}
+        rows={1}
+        onKeyDown={(e) => {
+          // Enter commits + closes; Shift+Enter inserts a newline; Esc closes.
+          if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Escape') {
+            e.preventDefault();
+            (e.target as HTMLTextAreaElement).blur();
+          }
+        }}
+      />
+    ) : (
+      <input
+        {...editorCommonProps}
+        type="text"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === 'Escape') {
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+      />
+    )
+  ) : null;
 
   // Wave L E3 — swipe-to-delete on mobile.
   const [undo, setUndo] = useState<null | { field: TemplateField; index: number }>(null);
@@ -2313,28 +2475,7 @@ export default function PreviewPane({
           {shellFields.length === 0 && onAddField && (
             <PreviewEmptyState onAddField={onAddField} />
           )}
-          {titleEditing && titleBox && titleEditEnabled && (
-            <input
-              ref={titleInputRef}
-              type="text"
-              className="qq-preview-title-edit"
-              data-testid="preview-title-edit"
-              placeholder={titleEditPlaceholder}
-              value={titleEditValue}
-              onChange={(e) => commitTitleEdit(e.target.value)}
-              onBlur={commitTitleAndSave}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === 'Escape') {
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              style={{
-                position: 'absolute',
-                left: titleBox.left, top: titleBox.top,
-                width: titleBox.width, height: titleBox.height,
-              }}
-            />
-          )}
+          {sectionEditorEl}
           {resultsSel && (
             <div ref={resultsRegisterRef} data-selected-in-preview="" data-testid="preview-selected-results" style={{ display: 'none' }} />
           )}
@@ -2368,7 +2509,7 @@ export default function PreviewPane({
   return (
     <div
       data-theme="light"
-      className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${widgetSelected ? ' is-widget-selected' : ''}${titleEditing ? ' is-title-editing' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
+      className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${widgetSelected ? ' is-widget-selected' : ''}${editingSection ? ' is-title-editing' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
       data-testid="editor-preview-pane"
       data-mobile-clean={isMobileViewport ? 'true' : 'false'}
       data-floating-launcher-preview={flpActive ? 'true' : 'false'}
@@ -2497,28 +2638,7 @@ export default function PreviewPane({
                 {shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
                 )}
-                {titleEditing && titleBox && titleEditEnabled && (
-                  <input
-                    ref={titleInputRef}
-                    type="text"
-                    className="qq-preview-title-edit"
-                    data-testid="preview-title-edit"
-                    placeholder={titleEditPlaceholder}
-                    value={titleEditValue}
-                    onChange={(e) => commitTitleEdit(e.target.value)}
-                    onBlur={commitTitleAndSave}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === 'Escape') {
-                        (e.target as HTMLInputElement).blur();
-                      }
-                    }}
-                    style={{
-                      position: 'absolute',
-                      left: titleBox.left, top: titleBox.top,
-                      width: titleBox.width, height: titleBox.height,
-                    }}
-                  />
-                )}
+                {sectionEditorEl}
                 {resultsSel && (
                   <div ref={resultsRegisterRef} data-selected-in-preview="" data-testid="preview-selected-results" style={{ display: 'none' }} />
                 )}
@@ -2637,28 +2757,7 @@ export default function PreviewPane({
                 {shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
                 )}
-                {titleEditing && titleBox && titleEditEnabled && (
-                  <input
-                    ref={titleInputRef}
-                    type="text"
-                    className="qq-preview-title-edit"
-                    data-testid="preview-title-edit"
-                    placeholder={titleEditPlaceholder}
-                    value={titleEditValue}
-                    onChange={(e) => commitTitleEdit(e.target.value)}
-                    onBlur={commitTitleAndSave}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === 'Escape') {
-                        (e.target as HTMLInputElement).blur();
-                      }
-                    }}
-                    style={{
-                      position: 'absolute',
-                      left: titleBox.left, top: titleBox.top,
-                      width: titleBox.width, height: titleBox.height,
-                    }}
-                  />
-                )}
+                {sectionEditorEl}
                 {resultsSel && (
                   <div ref={resultsRegisterRef} data-selected-in-preview="" data-testid="preview-selected-results" style={{ display: 'none' }} />
                 )}
