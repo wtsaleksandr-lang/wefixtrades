@@ -191,7 +191,7 @@ export const PRODUCT_TESTIMONIALS: Record<string, ProductTestimonial[]> = {
       source: "facebook",
     },
     {
-      quote: "Old SEO guy charged me $800/mo and never touched the GBP. MapGuard charges less and it's the only thing that moved the needle.",
+      quote: "Old SEO guy charged me $800/mo and never touched the Google Business Profile. MapGuard charges less and it's the only thing that moved the needle.",
       author: "Pete W.",
       trade: "Roofer",
       city: "Hamilton, ON",
@@ -206,7 +206,9 @@ export const PRODUCT_TESTIMONIALS: Record<string, ProductTestimonial[]> = {
       trade: "Plumber",
       city: "Toronto, ON",
       rating: 5,
-      source: "trustpilot",
+      // ReputationShield works with Google + Facebook only — must not imply
+      // Trustpilot support, which the product copy doesn't claim.
+      source: "google",
     },
     {
       quote: "The review automation alone paid for it. We went from barely asking customers to getting reviews consistently.",
@@ -238,7 +240,8 @@ export const PRODUCT_TESTIMONIALS: Record<string, ProductTestimonial[]> = {
       trade: "Plumber",
       city: "Dallas, TX",
       rating: 5,
-      source: "trustpilot",
+      // ReputationShield works with Google + Facebook only.
+      source: "facebook",
     },
     {
       quote: "The 'shield' part is real — one upset customer's complaint never hit public because the form caught it first.",
@@ -565,7 +568,7 @@ export const PRODUCT_TESTIMONIALS: Record<string, ProductTestimonial[]> = {
       source: "facebook",
     },
     {
-      quote: "Three blog posts a month plus the GBP updates. My old agency charged 4x as much for half the output.",
+      quote: "Three blog posts a month plus the Google Business Profile updates. My old agency charged 4x as much for half the output.",
       author: "Hans T.",
       trade: "HVAC Tech",
       city: "Burlington, ON",
@@ -597,7 +600,7 @@ export const PRODUCT_TESTIMONIALS: Record<string, ProductTestimonial[]> = {
       source: "facebook",
     },
     {
-      quote: "Content + SEO + GBP updates all sync up. I see the difference in search-impression reports every month.",
+      quote: "Content + SEO + Google Business Profile updates all sync up. I see the difference in search-impression reports every month.",
       author: "Vincent M.",
       trade: "Landscaper",
       city: "Mississauga, ON",

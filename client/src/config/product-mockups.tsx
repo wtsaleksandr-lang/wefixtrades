@@ -489,7 +489,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       mockup: <Wide><StatTrio
         a={{ value: "Monthly", label: "AI tune-ups", color: "lavender", icon: <Sparkles size={16} /> }}
         b={{ value: "Free", label: "Updates included", color: "mint", icon: <ShieldCheck size={16} /> }}
-        c={{ value: "→ pages", label: "Across the site", color: "cyanSoft", icon: <Globe size={16} /> }}
+        c={{ value: "Every page", label: "Across the site", color: "cyanSoft", icon: <Globe size={16} /> }}
       /></Wide>,
     },
     {
@@ -594,9 +594,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Fixes, Done For You",
       description: "We turn audit findings into actual code changes. Image compression, lazy loading, broken links, SEO meta — all sorted.",
       mockup: <Wide><StatTrio
-        a={{ value: "23 → 4", label: "Issues, before & after", color: "cyanSoft", icon: <Eye size={16} /> }}
+        a={{ value: "23 → 1", label: "Issues, before & after", color: "cyanSoft", icon: <Eye size={16} /> }}
         b={{ value: "+56pts", label: "Performance lift", color: "mint", icon: <Zap size={16} /> }}
-        c={{ value: "5–7 days", label: "Turnaround", color: "lavender", icon: <Clock size={16} /> }}
+        c={{ value: "5 days", label: "Turnaround", color: "lavender", icon: <Clock size={16} /> }}
       /></Wide>,
     },
     {
@@ -774,7 +774,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       cta: { label: "See Mobile View", href: "/portal/dispatch" },
       mockup: <Wide><StatTrio
         a={{ value: "8", label: "Jobs today", color: "cyanSoft", icon: <Calendar size={16} /> }}
-        b={{ value: "$2 480", label: "Day's revenue", color: "mint", icon: <TrendingUp size={16} /> }}
+        b={{ value: "$2,480", label: "Day's revenue", color: "mint", icon: <TrendingUp size={16} /> }}
         c={{ value: "Auto-routed", label: "By proximity", color: "lavender", icon: <Globe size={16} /> }}
       /></Wide>,
     },
@@ -796,7 +796,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Today</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: TILE.white.ink, letterSpacing: "-0.02em" }}>8 jobs</div>
-          <div style={{ fontSize: 11, color: TILE.white.muted, marginTop: 4 }}>$2 480 booked</div>
+          <div style={{ fontSize: 11, color: TILE.white.muted, marginTop: 4 }}>$2,480 booked</div>
         </div>}
         logos={[
           { label: "G", color: "#4285F4", angle: 200, ring: 2 },
