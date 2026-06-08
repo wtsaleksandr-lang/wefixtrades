@@ -650,6 +650,35 @@
      floated state, so they too read the contrast-guarded --qq-float-color. */
   color: var(--qq-float-color, #0d3cfc) !important;
 }
+/* W5 FIX 2 — StyledSelect trigger inside a FloatField.
+ *
+ * StyledSelect renders a `button.premium-input.qq-styled-select-trigger`
+ * (NOT a native `select`), so neither of the `select.premium-input` rules
+ * above match it. Without this the FloatField `<label>` stays at its resting
+ * position (`top: 14px`) sitting directly on top of the trigger's own value
+ * text, and the trigger keeps a flat (non-reserved) top — so the "Icon" title
+ * reads cramped against the dropdown beneath it (and likewise the Font-family
+ * + Calendar-source selects). Mirror the native-select treatment: reserve top
+ * space on the trigger and float the title to the top-left, matching the
+ * title-in-field / label-spacing convention used by every other field. */
+.float-field > .qq-styled-select-trigger.premium-input,
+.float-field--select > .qq-styled-select-trigger.premium-input {
+  padding-top: 24px;
+  padding-bottom: 6px;
+  min-height: 48px;
+}
+/* `~ label` (general sibling), NOT `+ label`: StyledSelect renders
+   <button> then an inline <style> element BEFORE FloatField appends its
+   <label>, so the label is not the IMMEDIATE next sibling of the trigger.
+   The general-sibling combinator skips the intervening <style>. */
+.float-field > .qq-styled-select-trigger.premium-input ~ label,
+.float-field--select > .qq-styled-select-trigger.premium-input ~ label {
+  top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--qq-float-color, #0d3cfc) !important;
+}
+
 /* Some inputs (number, email, password) hide the placeholder when focused
  * — :placeholder-shown handles those uniformly with text-type inputs. */
 
@@ -1941,10 +1970,12 @@
 .qq-editor-shell[data-theme="light"] .float-field > .premium-input:not(:placeholder-shown) + label,
 .qq-editor-shell[data-theme="light"] .float-field > select.premium-input + label,
 .qq-editor-shell[data-theme="light"] .float-field--select > select.premium-input + label,
-/* BUG-3 — float the StyledSelect trigger's label accent in the light editor.
-   `~ label` (general sibling) skips the <style> node StyledSelect injects
-   between the trigger and the label — `+ label` would not match. */
-.qq-editor-shell[data-theme="light"] .float-field > .qq-styled-select-trigger.premium-input ~ label {
+/* StyledSelect trigger floats its FloatField label too. Uses `~ label`
+   (general sibling) because an inline <style> node StyledSelect injects sits
+   between the trigger and the label — `+ label` would not match. Covers both
+   the plain `.float-field` and the `.float-field--select` variant. */
+.qq-editor-shell[data-theme="light"] .float-field > .qq-styled-select-trigger.premium-input ~ label,
+.qq-editor-shell[data-theme="light"] .float-field--select > .qq-styled-select-trigger.premium-input ~ label {
   color: #0d3cfc;
 }
 

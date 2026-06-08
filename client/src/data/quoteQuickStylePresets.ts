@@ -10,9 +10,28 @@
  * preset). Where a token doesn't need to differ from the brand default
  * (`DEFAULT_ADV_STYLE`) we still list it explicitly so the preset is
  * self-documenting.
+ *
+ * ── W5 — match the website theme set ──────────────────────────────────
+ * The marketing template pages (`client/src/pages/marketing/template-detail
+ * .tsx`) let visitors pick from the SAME 13 `THEME_COMBOS`
+ * (`shared/templatePresets.ts`) the wizard's Style tab should offer. Before
+ * W5 the wizard shipped 8 hand-rolled presets (Minimal/Soft/Bold/Dark/Glass/
+ * Trade/Premium/Coastal) that didn't correspond to ANY of the website's
+ * themes, so a user who picked "Crimson" or "Navy" on the marketing page
+ * couldn't find it in the builder. We now DERIVE every wizard preset from
+ * `THEME_COMBOS` so the two surfaces can never drift: same ids, same names,
+ * same colours. Each combo encodes only the colour slots (bg/text/surface/
+ * border/resultsBg/accent/ctaColor — see `comboToStyleColors`); the wizard
+ * preset layers a sensible, consistent set of shape / typography / density
+ * tokens on top so `StyleTab.applyPreset` always receives a full valid
+ * `ShellStyle`.
  */
 
-import type { AdvStyle } from '@shared/templatePresets';
+import {
+  THEME_COMBOS,
+  comboToStyleColors,
+  type AdvStyle,
+} from '@shared/templatePresets';
 
 /** Stable id + label rendered on the preset card. */
 export interface QuoteQuickStylePreset {
@@ -26,199 +45,62 @@ export interface QuoteQuickStylePreset {
   style: AdvStyle;
 }
 
-export const QUOTEQUICK_STYLE_PRESETS: ReadonlyArray<QuoteQuickStylePreset> = [
-  {
-    id: 'minimal',
-    name: 'Minimal',
-    description: 'White surface, slate text, blue accent, hairline borders.',
+/**
+ * Shape / typography / density tokens layered onto every theme. The website
+ * combos only carry colour, so we apply ONE consistent, modern baseline for
+ * the non-colour tokens across all 13 themes. This keeps the Style tab grid
+ * predictable (picking a theme changes the palette, not the corner radius or
+ * the font) and matches the marketing previews, which render every combo with
+ * the same neutral shell.
+ */
+const COMBO_SHELL_BASE = {
+  secondary: '#64748b',
+  success: '#16a34a',
+  error: '#dc2626',
+  fontFamily: 'inter',
+  fieldStyle: 'filled',
+  radius: 12,
+  widgetWidth: 'wide',
+  headingWeight: 700,
+  bodyWeight: 400,
+  fontSize: 'medium',
+} as const satisfies Partial<AdvStyle>;
+
+/** Per-theme one-line descriptions (tooltip copy). Keyed by combo id so a
+ *  new combo without an entry still renders with a generic fallback. */
+const COMBO_DESCRIPTIONS: Record<string, string> = {
+  'black-yellow': 'White body, black result panel, high-vis yellow CTA.',
+  'car-rental': 'White body, crimson result panel + accent, near-black CTA.',
+  'mortgage': 'White body, soft sky-tint result panel, blue accent + CTA.',
+  'loan': 'White body, onyx result panel, signal-red accent + CTA.',
+  'emi': 'White body, azure result panel + accent, dark CTA.',
+  'bmi': 'White body, soft mint-tint result panel, green accent + CTA.',
+  'profit': 'White body, forest-green result panel + accent, dark CTA.',
+  'fees': 'White body, deep-navy result panel, blue accent + CTA.',
+  'reno': 'White body, olive result panel, warm-orange accent + CTA.',
+  'tshirt': 'White body, violet result panel + accent, dark CTA.',
+  'wedding': 'White body, royal-blue result panel, orange CTA.',
+  'carbon': 'White body, teal result panel + accent, dark CTA.',
+  'cake': 'White body, soft blush result panel, pink accent + CTA.',
+};
+
+/**
+ * The wizard preset list — DERIVED from the website's `THEME_COMBOS` so the
+ * Style tab always offers exactly the themes a visitor sees on the marketing
+ * template pages. The colour slots come straight from `comboToStyleColors`
+ * (the same mapper the renderer uses); the shape/typography/density tokens
+ * come from `COMBO_SHELL_BASE`.
+ */
+export const QUOTEQUICK_STYLE_PRESETS: ReadonlyArray<QuoteQuickStylePreset> =
+  THEME_COMBOS.map((combo) => ({
+    id: combo.id,
+    name: combo.name,
+    description: COMBO_DESCRIPTIONS[combo.id] ?? `${combo.name} theme.`,
     style: {
-      accent: '#2563eb',
-      background: '#ffffff',
-      text: '#0f172a',
-      resultsBg: '#ffffff',
-      secondary: '#64748b',
-      surface: '#ffffff',
-      border: '#e5e7eb',
-      success: '#16a34a',
-      error: '#dc2626',
-      fontFamily: 'inter',
-      fieldStyle: 'outline',
-      radius: 8,
-      widgetWidth: 'wide',
-      headingWeight: 700,
-      bodyWeight: 400,
-      fontSize: 'medium',
+      ...COMBO_SHELL_BASE,
+      ...comboToStyleColors(combo),
     },
-  },
-  {
-    id: 'soft',
-    name: 'Soft',
-    description: 'Cream surface, warm-brown text, sage accent, rounded.',
-    style: {
-      accent: '#84a98c',
-      background: '#faf6ef',
-      text: '#5a4633',
-      resultsBg: '#f5efe3',
-      secondary: '#b08968',
-      surface: '#fffaf2',
-      border: '#e9dfd0',
-      success: '#52796f',
-      error: '#bc4749',
-      fontFamily: 'manrope',
-      fieldStyle: 'filled',
-      radius: 12,
-      widgetWidth: 'wide',
-      headingWeight: 600,
-      bodyWeight: 400,
-      fontSize: 'medium',
-    },
-  },
-  {
-    id: 'bold',
-    name: 'Bold',
-    description: 'Slate-900 surface, electric-blue accent, sharp corners.',
-    style: {
-      accent: '#3b82f6',
-      background: '#0f172a',
-      text: '#f8fafc',
-      resultsBg: '#1e293b',
-      secondary: '#94a3b8',
-      surface: '#1e293b',
-      border: '#334155',
-      success: '#22c55e',
-      error: '#ef4444',
-      fontFamily: 'satoshi',
-      fieldStyle: 'outline',
-      radius: 0,
-      widgetWidth: 'wide',
-      headingWeight: 800,
-      bodyWeight: 500,
-      fontSize: 'medium',
-    },
-  },
-  {
-    id: 'dark',
-    name: 'Dark',
-    description: 'Pure dark mode, deep-grey surfaces, neon accent.',
-    style: {
-      accent: '#22d3ee',
-      background: '#0a0a0a',
-      text: '#fafafa',
-      resultsBg: '#171717',
-      secondary: '#a3a3a3',
-      surface: '#171717',
-      border: '#262626',
-      success: '#4ade80',
-      error: '#f87171',
-      fontFamily: 'inter',
-      fieldStyle: 'filled',
-      radius: 8,
-      widgetWidth: 'wide',
-      headingWeight: 700,
-      bodyWeight: 400,
-      fontSize: 'medium',
-    },
-  },
-  {
-    id: 'glass',
-    name: 'Glass',
-    description: 'Frosted off-white, low-opacity borders, indigo accent.',
-    style: {
-      accent: '#6366f1',
-      background: '#f8fafc',
-      text: '#1e1b4b',
-      resultsBg: '#eef2ff',
-      secondary: '#818cf8',
-      surface: '#ffffff',
-      border: '#e0e7ff',
-      success: '#10b981',
-      error: '#f43f5e',
-      fontFamily: 'jakarta',
-      fieldStyle: 'outline',
-      radius: 16,
-      widgetWidth: 'wide',
-      headingWeight: 600,
-      bodyWeight: 400,
-      fontSize: 'medium',
-    },
-  },
-  {
-    id: 'trade',
-    name: 'Trade',
-    description: 'Neutral grey + safety-orange, contractor-credible.',
-    style: {
-      accent: '#f97316',
-      background: '#f5f5f4',
-      text: '#1c1917',
-      resultsBg: '#ffffff',
-      secondary: '#57534e',
-      surface: '#ffffff',
-      border: '#d6d3d1',
-      success: '#15803d',
-      error: '#b91c1c',
-      fontFamily: 'system',
-      fieldStyle: 'filled',
-      radius: 4,
-      widgetWidth: 'wide',
-      headingWeight: 700,
-      bodyWeight: 500,
-      fontSize: 'medium',
-    },
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    description: 'Black surface, gold accent, serif heading — luxury feel.',
-    style: {
-      accent: '#c9a44c',
-      background: '#000000',
-      text: '#f5f5f4',
-      resultsBg: '#1c1917',
-      secondary: '#a8a29e',
-      surface: '#0c0a09',
-      border: '#292524',
-      success: '#a3e635',
-      error: '#fb7185',
-      fontFamily: 'plex',
-      fieldStyle: 'outline',
-      radius: 0,
-      widgetWidth: 'wide',
-      headingWeight: 700,
-      bodyWeight: 400,
-      fontSize: 'medium',
-    },
-  },
-  {
-    // BD-3e Fix 2 — `resultsBg` was `#cffafe` (pastel cyan, starts with
-    // `c`). AdvancedCalculator.applyStyleOverrides flags only first-char
-    // `e`/`f` hexes as "light", so Coastal's resultsBg fell through to the
-    // dark branch and the headline price rendered white instead of the
-    // dark-green `text` token the thumbnail advertises. Nudging the
-    // resultsBg one step lighter (`#e3fafe`) keeps the soft-sky look while
-    // letting the existing light-detect pass so `resultText = text`.
-    id: 'coastal',
-    name: 'Coastal',
-    description: 'Soft-sky surface, deep-teal accent, breezy feel.',
-    style: {
-      accent: '#0d9488',
-      background: '#ecfeff',
-      text: '#0f5132',
-      resultsBg: '#e3fafe',
-      secondary: '#0891b2',
-      surface: '#ffffff',
-      border: '#a5f3fc',
-      success: '#059669',
-      error: '#e11d48',
-      fontFamily: 'outfit',
-      fieldStyle: 'filled',
-      radius: 14,
-      widgetWidth: 'wide',
-      headingWeight: 600,
-      bodyWeight: 400,
-      fontSize: 'medium',
-    },
-  },
-];
+  }));
 
 /** Lookup by id — returns undefined for unknown ids (no fallback). */
 export function getStylePresetById(id: string | undefined): QuoteQuickStylePreset | undefined {
