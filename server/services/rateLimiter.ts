@@ -116,6 +116,19 @@ export const portalAiToolRateLimiter = new RateLimiter(
 );
 
 /**
+ * Per-calculator cap for the QuoteQuick Integrations "Send test" button
+ * (POST /api/calculators/integrations/test). Each call makes a real outbound
+ * POST to the owner's configured URL; 10/min/calculator is generous for
+ * interactive testing while bounding a loop that could be used to bounce
+ * traffic off our server.
+ */
+export const webhookTestRateLimiter = new RateLimiter(
+  defaultStore,
+  10,
+  60_000,
+);
+
+/**
  * Per-user cap for mobile voice transcription (/api/mobile/ai/transcribe).
  *
  * Whisper costs ~$0.006/min — at 30 transcripts/hr/user that's roughly

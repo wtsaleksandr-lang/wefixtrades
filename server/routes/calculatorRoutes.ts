@@ -10,8 +10,29 @@ import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/sl
 import { touchCalculatorActivity } from "../services/quotequickSlugLifecycle";
 import { noisyCatch } from "../lib/silentFailureGuard";
 import { createLogger } from "../lib/logger";
+import {
+  readWebhookConfig,
+  generateLeadWebhookSecret,
+  buildLeadWebhookPayload,
+  deliverSignedWebhook,
+} from "../services/quotequickLeadWebhook";
+import { webhookTestRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("Calculator");
+
+/** Body for saving the outbound lead-webhook integration config. */
+const integrationsSaveBody = z.object({
+  token: z.string().min(1),
+  url: z.string().trim().max(2000).optional().or(z.literal("")),
+  enabled: z.boolean().optional(),
+  rotate_secret: z.boolean().optional(),
+});
+
+/** Body for the "Send test" delivery. */
+const integrationsTestBody = z.object({
+  token: z.string().min(1),
+  url: z.string().trim().max(2000).optional().or(z.literal("")),
+});
 
 function generateToken(): string {
   return randomBytes(24).toString("hex");
@@ -519,6 +540,148 @@ export function registerCalculatorRoutes(app: Express): void {
     } catch (error: any) {
       log.error("Update calculator error:", error);
       res.status(500).json({ error: "Failed to update calculator" });
+    }
+  });
+
+  /* ─── QuoteQuick Integrations — outbound lead webhook config ──────────
+   * Owner-managed via the wizard, authed by the calculator's edit_token
+   * (same ownership credential the PATCH route uses). Config is stored in
+   * calculator_settings.integrations.webhook = { url, enabled, secret }.
+   * The signing secret is generated SERVER-SIDE and only ever leaves here
+   * through these endpoints (it is never accepted from the client). Free
+   * for all tiers — no plan gate.
+   * ──────────────────────────────────────────────────────────────────── */
+
+  // Read current integrations config (secret returned so the owner can copy
+  // it for signature verification — this is the owner's own calculator).
+  app.get("/api/calculators/integrations", async (req, res) => {
+    try {
+      const token = typeof req.query.token === "string" ? req.query.token : "";
+      if (!token) return res.status(400).json({ error: "Token required" });
+      const calculator = await storage.getCalculatorByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found" });
+      if (new Date() > new Date(calculator.token_expires_at)) {
+        return res.status(403).json({ error: "Edit access expired" });
+      }
+      const cfg = readWebhookConfig(calculator);
+      return res.json({
+        webhook: cfg
+          ? { url: cfg.url, enabled: cfg.enabled, secret: cfg.secret }
+          : { url: "", enabled: false, secret: "" },
+      });
+    } catch (error: any) {
+      log.error("Get integrations error:", error?.message);
+      return res.status(500).json({ error: "Failed to load integrations" });
+    }
+  });
+
+  // Save integrations config: set/clear the URL + enabled flag. Generates the
+  // signing secret on first enable; `rotate_secret: true` rotates it. The
+  // secret is never read from the request body.
+  app.put("/api/calculators/integrations", async (req, res) => {
+    try {
+      const parsed = integrationsSaveBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+      }
+      const calculator = await storage.getCalculatorByToken(parsed.data.token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found" });
+      if (new Date() > new Date(calculator.token_expires_at)) {
+        return res.status(403).json({ error: "Edit access expired" });
+      }
+
+      const current = readWebhookConfig(calculator);
+      const url = (parsed.data.url ?? "").trim();
+      const enabled = parsed.data.enabled === true;
+
+      // Secret lifecycle: keep the existing one; mint a new one on first
+      // enable (or when none exists yet but a URL is being saved); rotate on
+      // explicit request.
+      let secret = current?.secret ?? "";
+      if (parsed.data.rotate_secret || !secret) {
+        secret = generateLeadWebhookSecret();
+      }
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const nextSettings = {
+        ...settings,
+        integrations: {
+          ...(settings.integrations || {}),
+          webhook: { url, enabled, secret },
+        },
+      };
+
+      const renewedExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const updated = await storage.updateCalculator(calculator.id, {
+        calculator_settings: nextSettings,
+        token_expires_at: renewedExpiry,
+      });
+      if (!updated) return res.status(500).json({ error: "Failed to save integrations" });
+
+      noisyCatch(touchCalculatorActivity(calculator.id), {
+        op: "calculator.touchActivity.integrationsSave",
+        meta: { calculatorId: calculator.id },
+      });
+
+      return res.json({ webhook: { url, enabled, secret } });
+    } catch (error: any) {
+      log.error("Save integrations error:", error?.message);
+      return res.status(500).json({ error: "Failed to save integrations" });
+    }
+  });
+
+  // "Send test" — deliver a sample, clearly-marked `test: true` lead.created
+  // payload to the configured URL. Signed + SSRF-guarded. Rate-limited per
+  // calculator. Returns the real delivery result (status / error) to the UI.
+  app.post("/api/calculators/integrations/test", async (req, res) => {
+    try {
+      const parsed = integrationsTestBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+      }
+      const calculator = await storage.getCalculatorByToken(parsed.data.token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found" });
+      if (new Date() > new Date(calculator.token_expires_at)) {
+        return res.status(403).json({ error: "Edit access expired" });
+      }
+
+      const allowed = await webhookTestRateLimiter.check(`wh-test:${calculator.id}`);
+      if (!allowed) {
+        return res.status(429).json({ error: "Too many test sends. Please wait a minute and try again." });
+      }
+
+      const cfg = readWebhookConfig(calculator);
+      // Allow testing a freshly-typed URL even before it's saved/enabled, but
+      // require a secret to exist (so the signature is meaningful).
+      const url = (parsed.data.url ?? cfg?.url ?? "").trim();
+      const secret = cfg?.secret ?? "";
+      if (!url) return res.status(400).json({ error: "Enter a webhook URL first" });
+      if (!secret) return res.status(400).json({ error: "Save the webhook once to generate a signing secret, then test." });
+
+      const sampleLead = {
+        id: 0,
+        calculator_id: calculator.id,
+        name: "Sample Customer",
+        email: "sample@example.com",
+        phone: "+15555550100",
+        company: "Sample Co",
+        quote_amount: 1850,
+        answers: { service: "Sample service", notes: "This is a test event from QuoteQuick." },
+        status: "new",
+        created_date: new Date(),
+      } as any;
+
+      const payload = buildLeadWebhookPayload(calculator, sampleLead, { test: true });
+      const result = await deliverSignedWebhook(url, secret, payload);
+      return res.json({
+        ok: result.ok,
+        status: result.status ?? null,
+        error: result.error ?? null,
+        attempts: result.attempts,
+      });
+    } catch (error: any) {
+      log.error("Test integrations webhook error:", error?.message);
+      return res.status(500).json({ error: "Failed to send test webhook" });
     }
   });
 
