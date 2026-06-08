@@ -332,6 +332,17 @@ function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: str
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  /* Publish the sticky-bar height as the same CSS var the global chat FAB
+   * (SiteChatWidget) reads, so the FAB lifts above this bar on mobile instead
+   * of overlapping it and clipping the CTA label ("…NO CA"). ~80px ≈ rendered
+   * bar height (padding + two text rows) + the bottom:12 offset. Mirrors the
+   * MarketingStickyBar mechanism. */
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--mkt-sticky-bar-h", visible ? "80px" : "0px");
+    return () => { root.style.setProperty("--mkt-sticky-bar-h", "0px"); };
+  }, [visible]);
+
   return (
     <>
       {/* A11Y — axe `aria-hidden-focus`: the previous version set
@@ -380,6 +391,13 @@ function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: str
       <style>{`
         @media (min-width: 768px) {
           .sticky-mcta { display: none !important; }
+        }
+        /* Reserve right-side room for the floating chat FAB (56px @ right:24)
+         * so the CTA label never runs underneath it. Only needed in the
+         * 481–767px band: at ≤480px the FAB lifts clear ABOVE the bar (see
+         * SiteChatWidget --mkt-sticky-bar-h), so the bar keeps full width. */
+        @media (min-width: 481px) and (max-width: 767px) {
+          .sticky-mcta { padding-right: 76px !important; }
         }
       `}</style>
     </>

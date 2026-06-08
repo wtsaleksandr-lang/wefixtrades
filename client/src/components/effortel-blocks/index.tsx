@@ -719,6 +719,30 @@ function parseValue(raw: string): { prefix: string; num: number; suffix: string;
   return { prefix, num, suffix, sep };
 }
 
+/**
+ * isCountable — only animate values that are a SINGLE clean number with
+ * optional prefix/suffix (e.g. "$1,234", "240+", "98", "30%", "<30s",
+ * "5 min"). Ratios, ranges, and multi-number values must render as a
+ * static literal so the count-up never mangles them — e.g. "24/7" would
+ * otherwise animate the "24" and read "10/7" mid-flight; "5–7 days" would
+ * read "2–7 days". A value is NOT countable when it contains:
+ *   - a slash ("24/7", "5/5"),
+ *   - a range dash between digits ("5-7", "5–7", "5—7"),
+ *   - more than one separate number group ("3 of 5", "$2k–$4k").
+ * Note: a thousands-separator space ("120 547") is one number group, so
+ * we strip those before counting groups.
+ */
+function isCountable(value: string): boolean {
+  if (value.includes("/")) return false;
+  // Range dash (hyphen / en-dash / em-dash) sitting between two digits.
+  if (/\d\s*[-–—]\s*\d/.test(value)) return false;
+  // Count distinct number groups, treating "1,234" and "120 547" (thousands
+  // separators) as a single group.
+  const groups = value.replace(/(\d)[,\s](?=\d{3}\b)/g, "$1").match(/\d+(\.\d+)?/g);
+  if (!groups || groups.length !== 1) return false;
+  return !isNaN(parseValue(value).num);
+}
+
 function formatNum(n: number, sep: string, hasDecimal: boolean): string {
   if (hasDecimal) return n.toFixed(1);
   const rounded = Math.round(n);
@@ -746,6 +770,10 @@ export function Ticker({
   // `amount: 0` to fire on ANY intersection, and NO mobile-disabling guard.
   const inView = useInView(ref, { once: true, margin: "0px 0px -10% 0px", amount: 0 });
   const reduced = useReducedMotion();
+  // Ratios / ranges / multi-number values (e.g. "24/7", "5–7 days") must NOT
+  // animate — the count-up would mangle them ("24/7" → "10/7"). Render them as
+  // a static literal. Reduced-motion already renders the literal below.
+  const countable = isCountable(value);
   const parsed = parseValue(value);
   const hasDecimal = String(parsed.num).includes(".") || value.includes(".");
   // Start the count-up partway (not at 0) so a fast scroll never catches a
@@ -753,13 +781,13 @@ export function Ticker({
   // that ticks up to target.
   const START_FRACTION = 0.4;
   const [current, setCurrent] = useState(
-    reduced || isNaN(parsed.num)
+    reduced || !countable || isNaN(parsed.num)
       ? value
       : parsed.prefix + formatNum(parsed.num * START_FRACTION, parsed.sep, hasDecimal) + parsed.suffix
   );
 
   useEffect(() => {
-    if (!inView || reduced || isNaN(parsed.num)) return;
+    if (!inView || reduced || !countable || isNaN(parsed.num)) return;
     const controls = animate(parsed.num * START_FRACTION, parsed.num, {
       duration, delay, ease: [0.22, 1, 0.36, 1],
       onUpdate: (n) => setCurrent(parsed.prefix + formatNum(n, parsed.sep, hasDecimal) + parsed.suffix),
