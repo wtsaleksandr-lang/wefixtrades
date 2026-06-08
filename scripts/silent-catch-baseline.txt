@@ -19,7 +19,7 @@ server/jobs/mapguardPostDrainer.ts:156:9	silent-catch	.catch(() => {})
 server/jobs/scheduler.ts:161:7	silent-catch	.catch(() => {})
 server/replit_integrations/audio/client.ts:83:28	silent-catch	.catch(() => {})
 server/replit_integrations/audio/client.ts:84:29	silent-catch	.catch(() => {})
-server/routes/authRoutes.ts:1376:52	silent-catch	.catch(() => null)
+server/routes/authRoutes.ts:1440:52	silent-catch	.catch(() => null)
 server/routes/marketingRoutes.ts:123:20	silent-catch	.catch(() => {})
 server/routes/portalRoutes.ts:577:34	silent-catch	.catch(() => {})
 server/routes/quotequickAiChatRoutes.ts:442:48	empty-catch-block	} catch {}

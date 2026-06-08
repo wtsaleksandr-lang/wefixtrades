@@ -42,6 +42,56 @@ function getClientIp(req: Request): string {
 }
 
 /**
+ * TCPA SMS-consent record for a self-serve signup.
+ *
+ * Stored under clients.metadata.sms_consent (jsonb) — no schema migration
+ * needed. Captures the affirmative opt-in, the timestamp, and the exact
+ * label text/version the user agreed to so the consent is defensible.
+ */
+interface SmsConsentRecord {
+  granted: true;
+  at: string;
+  text?: string;
+  version?: string;
+  source: string;
+}
+
+/**
+ * Validates the SMS-consent payload against the submitted phone and returns
+ * the metadata block to merge into clients.metadata.
+ *
+ * TCPA rule enforced server-side: if a phone number is present, an explicit
+ * affirmative opt-in (`smsConsent === true`) is required. No phone → no
+ * consent needed and no consent record stored.
+ *
+ * Returns `{ error }` to reject (400), or `{ metadata }` (possibly null) to
+ * proceed. `metadata` is null when there's no phone — nothing to persist.
+ */
+function resolveSmsConsent(
+  body: any,
+  source: string,
+): { error: string } | { metadata: { sms_consent: SmsConsentRecord } | null } {
+  const phone = typeof body?.phone === "string" ? body.phone.trim() : "";
+  if (!phone) {
+    return { metadata: null };
+  }
+  if (body?.smsConsent !== true) {
+    return {
+      error:
+        "Please agree to receive SMS messages to continue, or remove your phone number.",
+    };
+  }
+  const record: SmsConsentRecord = {
+    granted: true,
+    at: new Date().toISOString(),
+    text: typeof body?.smsConsentText === "string" ? body.smsConsentText : undefined,
+    version: typeof body?.smsConsentVersion === "string" ? body.smsConsentVersion : undefined,
+    source,
+  };
+  return { metadata: { sms_consent: record } };
+}
+
+/**
  * Sprint 7: NODE_ENV-guarded test bypass for the auth rate limiter.
  *
  * Playwright runs many specs against a single localhost source IP and
@@ -272,6 +322,12 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ error: "Business name is required" });
       }
 
+      // TCPA: validate SMS consent before creating anything.
+      const consent = resolveSmsConsent(req.body, "signup");
+      if ("error" in consent) {
+        return res.status(400).json({ error: consent.error });
+      }
+
       const normalised = email.toLowerCase().trim();
 
       // Check email uniqueness
@@ -305,6 +361,7 @@ export function registerAuthRoutes(app: Express) {
         source: "website",
         trial_pro_features_enabled: true,
         trial_pro_expires_at: trialExpiresAt,
+        metadata: consent.metadata,
       });
 
       log.info("Self-serve signup completed", { userId: user.id, clientId: client.id });
@@ -543,6 +600,12 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ error: "Business name is required" });
       }
 
+      // TCPA: validate SMS consent before creating anything.
+      const consent = resolveSmsConsent(req.body, "google-signup");
+      if ("error" in consent) {
+        return res.status(400).json({ error: consent.error });
+      }
+
       // Race guard: another tab / a retry may have already created the
       // account. If so, just log into it.
       const alreadyByGoogle = await storage.getUserByGoogleSub(pending.sub);
@@ -587,6 +650,7 @@ export function registerAuthRoutes(app: Express) {
         source: "website",
         trial_pro_features_enabled: true,
         trial_pro_expires_at: trialExpiresAt,
+        metadata: consent.metadata,
       });
 
       log.info("Google self-serve signup completed", { userId: user.id, clientId: client.id });
