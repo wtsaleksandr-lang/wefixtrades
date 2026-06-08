@@ -1000,6 +1000,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     // Without an explicit style, toAdvancedConfig() would fall back to
     // deriveStyleFromCategory('Automotive').
     style: {
+      // Wave width-uniform — explicit standard width so this premium template
+      // matches every other default template (820px). Was implicit before.
+      widgetWidth: 'wide',
       // Colour B — drives the LEFT-side accents AND the right result panel.
       accent: '#0d0d0d',
       // LEFT zone body = white, dark text on light surfaces.
@@ -3382,6 +3385,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     // schema field on AdvStyle — wave-as1c will add it; for now the
     // identity comes from gradient + result-panel emphasis + accent border.)
     style: {
+      widgetWidth: 'wide',      // Wave width-uniform — explicit standard width
       accent: '#fb923c',        // orange-400 bold action
       secondary: '#facc15',     // yellow-400 high-energy
       background: '#0f172a',    // slate-900 deep base
@@ -3506,6 +3510,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     // body-on-bg pairing. Outer card stays white with the 16px outer
     // radius from `TEMPLATE_CARD_STYLE`.
     style: {
+      widgetWidth: 'wide',      // Wave width-uniform — explicit standard width
       accent: '#0F4A52',        // teal-deep — matches result panel bg
       secondary: '#5EEAD4',     // teal-200 accent (chips, ticks)
       background: '#f8fafc',    // slate-50 outer canvas
@@ -3617,6 +3622,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     // accents; dark-green `#166534` is the CTA / value-pill colour.
     // Outer card stays white with 16px outer radius (TEMPLATE_CARD_STYLE).
     style: {
+      widgetWidth: 'wide',      // Wave width-uniform — explicit standard width
       accent: '#047857',        // emerald — slider fill, brand accent
       secondary: '#A7F3D0',     // emerald-200 chips / ticks
       background: '#f8fafc',    // slate-50 outer canvas
@@ -3689,6 +3695,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     // W-AS-1b — extended with AO-6c Brand Studio fields: warm amber-to-peach
     // gradient body + bold red-accented result panel.
     style: {
+      widgetWidth: 'wide',      // Wave width-uniform — explicit standard width
       accent: '#dc2626',        // red-600 urgency
       secondary: '#f59e0b',     // amber-500 warning emphasis
       background: '#fef3c7',    // amber-50 warm pale yellow
