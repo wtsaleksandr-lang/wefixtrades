@@ -8,11 +8,12 @@ import { db } from "../db";
 import { aiSystemGates } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { runTextFallbackChain, readyFallbackProviders } from "./llmFallbackChain";
+import { CLAUDE_HAIKU } from "./aiModels";
 
 const log = createLogger("AIService");
 
 /* ─── Configuration ─── */
-const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MODEL = CLAUDE_HAIKU;
 const DEFAULT_MAX_TOKENS = 600;
 const TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;

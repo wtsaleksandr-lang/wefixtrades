@@ -22,6 +22,14 @@ import { createLogger } from "../lib/logger";
 import { logUsage } from "./usageTracker";
 import { noisyCatch } from "../lib/silentFailureGuard";
 import type { ChatMessage } from "./aiService";
+import {
+  OPENAI_GPT_4O_MINI,
+  GROQ_LLAMA,
+  TOGETHER_LLAMA,
+  MISTRAL_LARGE,
+  DEEPSEEK_CHAT,
+  XAI_GROK,
+} from "./aiModels";
 
 const log = createLogger("LLMFallbackChain");
 
@@ -50,37 +58,37 @@ const PROVIDERS: Record<string, ChainProvider> = {
     name: "openai",
     apiKey: () => process.env.OPENAI_API_KEY ?? process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
     baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    model: "gpt-4o-mini",
+    model: OPENAI_GPT_4O_MINI,
   },
   groq: {
     name: "groq",
     apiKey: () => process.env.GROQ_API_KEY,
     baseURL: "https://api.groq.com/openai/v1",
-    model: "llama-3.3-70b-versatile",
+    model: GROQ_LLAMA,
   },
   together: {
     name: "together",
     apiKey: () => process.env.TOGETHER_API_KEY,
     baseURL: "https://api.together.xyz/v1",
-    model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    model: TOGETHER_LLAMA,
   },
   mistral: {
     name: "mistral",
     apiKey: () => process.env.MISTRAL_API_KEY,
     baseURL: "https://api.mistral.ai/v1",
-    model: "mistral-large-latest",
+    model: MISTRAL_LARGE,
   },
   deepseek: {
     name: "deepseek",
     apiKey: () => process.env.DEEPSEEK_API_KEY,
     baseURL: "https://api.deepseek.com/v1",
-    model: "deepseek-chat",
+    model: DEEPSEEK_CHAT,
   },
   xai: {
     name: "xai",
     apiKey: () => process.env.XAI_API_KEY ?? process.env.GROK_API_KEY,
     baseURL: "https://api.x.ai/v1",
-    model: "grok-2-latest",
+    model: XAI_GROK,
   },
 };
 

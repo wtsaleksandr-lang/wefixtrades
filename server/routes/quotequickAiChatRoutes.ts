@@ -36,6 +36,7 @@ import {
   anonWizardAiPerDayLimiter,
 } from "../services/rateLimiter";
 import { QUOTEQUICK_AI_TOOLS, QUOTEQUICK_SYSTEM_PROMPT } from "../services/quotequickAiTools";
+import { CLAUDE_HAIKU, CLAUDE_SONNET } from "../services/aiModels";
 import { validateFormula } from "@shared/formulaEngine";
 import { getEffectiveTemplates } from "../lib/applyQuoteQuickOverrides";
 import { db } from "../db";
@@ -46,8 +47,8 @@ import { renderOnboardingPatch } from "../services/promptBuilder";
 
 const log = createLogger("QuoteQuickAiChat");
 
-const TEXT_MODEL: SupportedModel = "claude-haiku-4-5-20251001";
-const VISION_MODEL: SupportedModel = "claude-sonnet-4-6";
+const TEXT_MODEL: SupportedModel = CLAUDE_HAIKU;
+const VISION_MODEL: SupportedModel = CLAUDE_SONNET;
 
 const MAX_HISTORY_TURNS = 20;
 const MAX_OUTPUT_TOKENS = 1024;

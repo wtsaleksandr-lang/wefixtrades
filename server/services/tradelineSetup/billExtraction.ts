@@ -34,11 +34,12 @@ import { z } from "zod";
 import { chat as aiChat } from "../aiService";
 import { AI_SURFACES } from "../aiSurfaces";
 import { createLogger } from "../../lib/logger";
+import { CLAUDE_SONNET } from "../aiModels";
 
 const log = createLogger("BillExtraction");
 
 const MAX_BILL_BYTES = 5 * 1024 * 1024; // 5 MB
-const VISION_MODEL = process.env.CLAUDE_VISION_MODEL || "claude-sonnet-4-6";
+const VISION_MODEL = process.env.CLAUDE_VISION_MODEL || CLAUDE_SONNET;
 
 /* ─── Public types ────────────────────────────────────────────────────── */
 

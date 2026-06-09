@@ -19,6 +19,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { rotate, resolveProviderOrder, type ProviderImpl } from "./rotator";
 import { createLogger } from "../../lib/logger";
+import { CLAUDE_SONNET, CLAUDE_HAIKU, OPENAI_GPT_4O_MINI } from "../aiModels";
 
 const log = createLogger("AI:TextRotator");
 
@@ -43,9 +44,9 @@ const anthropicProvider: ProviderImpl<TextInput, TextOutput> = {
   ready: () => !!process.env.ANTHROPIC_API_KEY,
   invoke: async (input) => {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY!, timeout: 30_000 });
-    const model = input.tier === "premium" ? "claude-sonnet-4-6"
-      : input.tier === "fast" ? "claude-haiku-4-5-20251001"
-      : "claude-haiku-4-5-20251001";
+    const model = input.tier === "premium" ? CLAUDE_SONNET
+      : input.tier === "fast" ? CLAUDE_HAIKU
+      : CLAUDE_HAIKU;
     const res = await client.messages.create({
       model,
       max_tokens: input.max_tokens ?? 2048,
@@ -72,7 +73,7 @@ const openaiProvider: ProviderImpl<TextInput, TextOutput> = {
   invoke: async (input) => {
     const key = process.env.OPENAI_API_KEY ?? process.env.AI_INTEGRATIONS_OPENAI_API_KEY!;
     const model = input.tier === "premium" ? "gpt-4o"
-      : input.tier === "fast" ? "gpt-4o-mini"
+      : input.tier === "fast" ? OPENAI_GPT_4O_MINI
       : "gpt-4.1";
     let res: Response;
     try {
