@@ -4,6 +4,7 @@ import PortalLayout from "@/components/portal/PortalLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useIsPaid } from "@/hooks/useIsPaid";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 /**
  * RequirePaid — DRY paid-feature gate for the /portal/free-tools/* toolbox.
@@ -30,6 +31,12 @@ export default function RequirePaid({
   children: React.ReactNode;
 }) {
   const { isPaid, isLoading } = useIsPaid();
+
+  /* Set a per-route browser-tab title for EVERY state (loading / paywalled /
+   * paid) so the tab never falls back to the generic site default. For paid
+   * accounts the tool itself mounts and may call usePageTitle() with a more
+   * specific title, which simply overrides this one. */
+  usePageTitle(toolName);
 
   if (isLoading) {
     return (

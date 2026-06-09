@@ -19,6 +19,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Sparkles, Trash2, Pencil, Palette } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useIsPaid } from "@/hooks/useIsPaid";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +41,15 @@ interface BrandKitRow {
 
 export default function PortalBrandKitsPage() {
   usePageTitle("Brand Kits");
+
+  // Tier gate, client-side. The Brand Kits GET is Pro-gated server-side and
+  // returns 403 `pro_tier_required` for free accounts — firing it on every
+  // load of a free account logs a guaranteed 403 in the console even though
+  // the UI already shows the Pro upsell. useIsPaid() resolves the account's
+  // paid tier across every calculator (same source the free-tools gate trusts,
+  // and equivalent to the route's "any non-free calculator" Pro check), so we
+  // can short-circuit straight to the upsell and skip the doomed request.
+  const { isPaid, isLoading: tierLoading } = useIsPaid();
 
   const [kits, setKits] = useState<BrandKitRow[] | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "pro-required" | "error">("loading");
@@ -73,7 +83,21 @@ export default function PortalBrandKitsPage() {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    // Wait for the tier to resolve so we don't flash the wrong state. Once
+    // known: paid → fetch the kits; free → go straight to the Pro upsell
+    // without firing the guaranteed-403 GET.
+    if (tierLoading) {
+      setState("loading");
+      return;
+    }
+    if (!isPaid) {
+      setState("pro-required");
+      setKits(null);
+      return;
+    }
+    void refresh();
+  }, [tierLoading, isPaid, refresh]);
 
   const startEdit = (kit: BrandKitRow) => {
     setEditingId(kit.id);

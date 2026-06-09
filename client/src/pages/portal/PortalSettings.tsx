@@ -1,6 +1,6 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Bell, Mail, MessageSquare, Bot, Image as ImageIcon, ShieldCheck, Smartphone } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -27,6 +27,8 @@ import InfoCue from "@/components/wizard/elfsight/InfoCue";
 import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 import { resetFirstVisits } from "@/hooks/useFirstVisit";
 import { useDisplayPreferences } from "@/hooks/useDisplayPreferences";
+import { useTheme } from "@/context/ThemeContext";
+import { Sun, Moon } from "lucide-react";
 import {
   type AdvancedProductKey,
   ADVANCED_PRODUCT_KEYS,
@@ -87,6 +89,20 @@ export default function PortalSettings() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<TabKey>(() => parseTabFromHash());
+
+  /* Mobile: the tab strip is a horizontal-scroll row. On mount, scroll the
+   * SELECTED tab into view so a 375px user lands on (e.g.) "Account" rather
+   * than seeing the strip pre-scrolled past it. Runs on activeTab change too,
+   * so deep-linking to ?tab=security also reveals the right tab. inline:
+   * "nearest" keeps the scroll within the strip (no page jump); block:
+   * "nearest" avoids vertical scrolling. */
+  const tabStripRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const strip = tabStripRef.current;
+    if (!strip) return;
+    const activeEl = strip.querySelector<HTMLElement>('[data-state="active"]');
+    activeEl?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [activeTab]);
 
   // Keep the URL ?tab=... param in sync so direct links work and refresh
   // preserves the selected tab. Uses replaceState so we don't pollute
@@ -219,7 +235,12 @@ export default function PortalSettings() {
   return (
     <PortalLayout>
       {/* PortalSettings is light-theme locked — see CONTRAST-2. */}
-      <div data-theme="light" className="max-w-2xl space-y-6">
+      {/* This page is a tabbed settings surface; each Security-tab card (2FA,
+          Active sessions, Change password) carries its own single help cue in
+          a separate card. They are not a clustered cue group, so the
+          multiple-cue density rule (rule-b) doesn't meaningfully apply at this
+          page root — opt out explicitly via the documented escape hatch. */}
+      <div data-theme="light" data-cue-allowed-multiple className="max-w-2xl space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
           <p className="text-sm text-gray-500 mt-0.5">Manage your account, notifications, AI behaviour, and security.</p>
@@ -263,9 +284,13 @@ export default function PortalSettings() {
 
         {data && (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-            {/* Mobile: horizontal scroll if tabs overflow. */}
-            <div className="overflow-x-auto -mx-1 px-1">
-              <TabsList className="w-full sm:w-auto">
+            {/* Mobile: horizontal scroll if tabs overflow. The right-edge
+                fade hints there are more tabs to scroll to; it's a pure
+                visual affordance (pointer-events-none) and hidden on sm+
+                where the strip fits without scrolling. */}
+            <div className="relative">
+              <div ref={tabStripRef} className="overflow-x-auto -mx-1 px-1">
+                <TabsList className="w-full sm:w-auto">
                 <TabsTrigger value="account" data-testid="tab-trigger-account">Account</TabsTrigger>
                 <TabsTrigger value="notifications" data-testid="tab-trigger-notifications">Notifications</TabsTrigger>
                 <TabsTrigger value="sms-templates" data-testid="tab-trigger-sms-templates">Text messages</TabsTrigger>
@@ -281,7 +306,13 @@ export default function PortalSettings() {
                 >
                   Add 2FA in under a minute — strongly recommended for accounts handling customer data.
                 </FirstVisitTooltip>
-              </TabsList>
+                </TabsList>
+              </div>
+              {/* Right-edge fade — scroll affordance on mobile only. */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent sm:hidden"
+              />
             </div>
 
             {/* ─── Account ─── */}
@@ -1139,6 +1170,24 @@ interface PortalSession {
   last_active_at: string;
 }
 
+/* Build a distinguishing label for a session row. The backend may return a
+ * generic `user_agent_summary` (e.g. "Browser session") for every row, which
+ * makes it impossible to tell which session to revoke. When the summary is
+ * empty or generic, append a short, stable device fingerprint derived from the
+ * session id so each row is at least uniquely identifiable. Real device/browser
+ * parsing belongs server-side (user-agent string isn't sent to the client) —
+ * this is the best the client can do without that data. */
+function sessionLabel(s: PortalSession): string {
+  const summary = (s.user_agent_summary || "").trim();
+  const isGeneric = !summary || /^browser session$/i.test(summary) || /^unknown/i.test(summary);
+  // Short, stable suffix so identical generic rows are distinguishable.
+  const shortId = s.id.replace(/[^a-zA-Z0-9]/g, "").slice(-4).toUpperCase();
+  if (isGeneric) {
+    return shortId ? `Browser session · #${shortId}` : "Browser session";
+  }
+  return summary;
+}
+
 function ActiveSessionsSection() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1223,7 +1272,9 @@ function ActiveSessionsSection() {
           <p className="text-xs text-gray-500 py-3">No active sessions found.</p>
         ) : (
           <ul className="divide-y divide-gray-200 dark:divide-gray-700" data-testid="sessions-list">
-            {sessions.map((s) => (
+            {sessions.map((s) => {
+              const label = sessionLabel(s);
+              return (
               <li key={s.id} className="py-2 flex items-center justify-between gap-3">
                 <div className="flex items-start gap-2 min-w-0">
                   <Smartphone className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
@@ -1234,10 +1285,10 @@ function ActiveSessionsSection() {
                           This device
                         </span>
                       )}
-                      {s.user_agent_summary}
+                      {label}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {s.ip_city ? `${s.ip_city} · ` : ""}expires {formatRelative(s.last_active_at)}
+                      {s.ip_city ? `${s.ip_city} · ` : ""}last active {formatRelative(s.last_active_at)}
                     </p>
                   </div>
                 </div>
@@ -1246,14 +1297,15 @@ function ActiveSessionsSection() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setConfirmRevokeId(s.id)}
-                    aria-label={`Revoke session ${s.user_agent_summary}`}
+                    aria-label={`Revoke session ${label}`}
                     data-testid={`button-revoke-session-${s.id}`}
                   >
                     Revoke
                   </Button>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
@@ -1758,6 +1810,15 @@ function DisplayPreferencesSection() {
 
   return (
     <div className="space-y-4" data-testid="display-prefs-root">
+      {/* Appearance (theme) — same store as the header Sun/Moon toggle, so a
+          change here moves the header icon and vice-versa. Users look for the
+          dark/light switch inside the Display tab, so it lives here too. The
+          option model mirrors the header toggle (binary Light / Dark — the
+          legacy "system" UI was removed per Alex's feedback). This card is NOT
+          data-theme="light" locked: it must reflect the live theme so the
+          selected state is visible in dark mode. */}
+      <AppearanceCard />
+
       {/* Mode toggle card */}
       <div data-theme="light" className="bg-white rounded-xl border border-gray-200 p-5">
         <h2 className="text-sm font-semibold text-gray-900 mb-1">Dashboard layout</h2>
@@ -1838,6 +1899,60 @@ function DisplayPreferencesSection() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─── Appearance (theme) card — Display tab ───
+ *
+ * Wraps the SAME ThemeContext store the header Sun/Moon toggle uses, so the
+ * two stay in lock-step. Binary Light / Dark to match the header (the 3-option
+ * "System" dropdown was removed per Alex's feedback). Selected = outline +
+ * subtle tint, never a bright fill (UI rule). Theme-aware: uses semantic
+ * classes so the card reads correctly in both light and dark. */
+function AppearanceCard() {
+  const { resolved, setTheme } = useTheme();
+  const options: Array<{ value: "light" | "dark"; label: string; icon: typeof Sun }> = [
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon },
+  ];
+
+  return (
+    <div className="bg-card text-card-foreground rounded-xl border border-border p-5" data-testid="appearance-card">
+      <h2 className="text-sm font-semibold text-foreground mb-1">Appearance</h2>
+      <p className="text-xs text-muted-foreground mb-4">
+        Choose how the portal looks. This is the same setting as the sun/moon switch in the top bar.
+      </p>
+
+      <div
+        role="radiogroup"
+        aria-label="Appearance"
+        className="inline-flex rounded-lg border border-border p-1 bg-muted/40"
+      >
+        {options.map((opt) => {
+          const Icon = opt.icon;
+          const selected = resolved === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => setTheme(opt.value)}
+              className={
+                "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors " +
+                (selected
+                  ? "bg-background text-foreground shadow-sm ring-1 ring-brand-blue/40"
+                  : "text-muted-foreground hover:text-foreground")
+              }
+              data-testid={`appearance-${opt.value}`}
+            >
+              <Icon className="w-4 h-4" aria-hidden="true" />
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

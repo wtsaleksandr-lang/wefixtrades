@@ -13,6 +13,7 @@ import {
   ChevronDown, X, Settings, Search,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
 
 interface Invoice {
@@ -79,6 +80,7 @@ type DateRange = "all" | "30d" | "90d";
 type SortKey = "newest" | "oldest" | "amount_desc" | "amount_asc";
 
 export default function InvoicesPage() {
+  usePageTitle("Invoices");
   const [showCreate, setShowCreate] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
