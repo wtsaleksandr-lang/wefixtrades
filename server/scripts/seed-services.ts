@@ -11,7 +11,7 @@ import { db } from "../db";
 import { serviceCatalog, serviceTaskTemplates, onboardingTemplates } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import {
-  ALL_PRODUCTS, ALL_BUNDLES, type ProductDef, type Tier,
+  ALL_PRODUCTS, ALL_BUNDLES, CONTENTFLOW, type ProductDef, type Tier,
 } from "@shared/pricing";
 
 /** Build seed rows from pricing data — each tier becomes a service_catalog row */
@@ -155,6 +155,54 @@ async function main() {
       },
     });
     console.log(`  ✓ ${svc.name} (variant)`);
+  }
+
+  /* ─── ContentFlow self-serve entry SKUs (explicit safety net) ───
+   * contentflow-free + contentflow-starter are the two entry tiers the
+   * ContentFlow product page renders. They are also produced by
+   * buildServiceRows() above (they live in CONTENTFLOW.tiers), but they were
+   * missing from the live catalog — so any surface that POSTs these ids to
+   * /api/public/checkout (storage.getServiceById) 400'd "Unknown service".
+   * This block pins them explicitly so a seed run ALWAYS materializes both,
+   * independent of any future change to the buildServiceRows() derivation.
+   * Prices are read from CONTENTFLOW (shared/pricing.ts) — the canonical
+   * source — never hardcoded, so they can't drift. The upsert is idempotent
+   * with the main SERVICES loop (same id, same values). contentflow-free is
+   * price 0 → its product-page CTA routes to /signup (no checkout); seeding
+   * the row simply makes the SKU resolvable. */
+  const CONTENTFLOW_ENTRY_SKUS = CONTENTFLOW.tiers
+    .filter((t) => t.id === "contentflow-free" || t.id === "contentflow-starter")
+    .map((tier) => ({
+      id: tier.id,
+      name: `${CONTENTFLOW.name} ${tier.name}`,
+      tagline: CONTENTFLOW.tagline,
+      description: tier.features.join(". "),
+      category: CONTENTFLOW.category,
+      default_price: Math.round(tier.price * 100), // cents
+      billing_period: tier.billingPeriod,
+      delivery_pattern: "recurring",
+    }));
+
+  for (const svc of CONTENTFLOW_ENTRY_SKUS) {
+    await db.insert(serviceCatalog).values({
+      ...svc,
+      is_active: true,
+    }).onConflictDoUpdate({
+      target: serviceCatalog.id,
+      set: {
+        name: svc.name,
+        tagline: svc.tagline,
+        description: svc.description,
+        category: svc.category,
+        default_price: svc.default_price,
+        billing_period: svc.billing_period,
+        delivery_pattern: svc.delivery_pattern,
+        // is_active intentionally NOT set on conflict — preserves admin
+        // soft-retire decisions across re-seeds.
+        updated_at: new Date(),
+      },
+    });
+    console.log(`  ✓ ${svc.name} (contentflow entry SKU)`);
   }
 
   console.log(`\n${SERVICES.length + TRADELINE_VARIANTS.length} services seeded.`);
