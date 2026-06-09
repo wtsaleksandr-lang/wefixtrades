@@ -14,6 +14,7 @@ import { aiChatRateLimiter } from "../services/rateLimiter";
 import { aiGateAllowed, recordAiSpend } from "../services/aiSystemGate";
 import { logUsage } from "../services/usageTracker";
 import { estimateCostMicroCents } from "../services/aiPricing";
+import { OPENAI_GPT_4O_MINI } from "../services/aiModels";
 import { noisyCatch } from "../lib/silentFailureGuard";
 // W-BB-1 — customer-widget multi-step agent loop wiring.
 // Importing customerWidgetTools registers the 6 customer-widget actions
@@ -43,7 +44,7 @@ function getOpenAI(): OpenAI {
   return _openai;
 }
 
-const GEN_MODEL = "gpt-4o-mini";
+const GEN_MODEL = OPENAI_GPT_4O_MINI;
 
 /**
  * P2-gating — the calculator-authoring routes below (generate-pricing,

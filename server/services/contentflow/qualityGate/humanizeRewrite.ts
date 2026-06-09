@@ -27,6 +27,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { createLogger } from "../../../lib/logger";
+import { OPENAI_GPT_4O_MINI, CLAUDE_HAIKU } from "../../aiModels";
 
 const log = createLogger("ContentFlow:HumanizeRewrite");
 
@@ -423,7 +424,7 @@ async function callOpenAi(system: string, user: string): Promise<string> {
       method: "POST",
       headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: OPENAI_GPT_4O_MINI,
         max_tokens: MAX_OUTPUT_TOKENS,
         messages: [
           { role: "system", content: system },
@@ -460,7 +461,7 @@ async function callAnthropic(system: string, user: string): Promise<string> {
   }
   const client = new Anthropic({ apiKey: key, timeout: 30_000 });
   const res = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: CLAUDE_HAIKU,
     max_tokens: MAX_OUTPUT_TOKENS,
     system,
     messages: [{ role: "user", content: user }],

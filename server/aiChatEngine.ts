@@ -9,10 +9,11 @@ import { logUsage } from "./services/usageTracker";
 import { estimateCostMicroCents } from "./services/aiPricing";
 import { noisyCatch } from "./lib/silentFailureGuard";
 import { AI_SURFACES, type AiSurface } from "./services/aiSurfaces";
+import { OPENAI_GPT_4O_MINI } from "./services/aiModels";
 
 const log = createLogger("AIChatEngine");
 
-const CHAT_MODEL = "gpt-4o-mini";
+const CHAT_MODEL = OPENAI_GPT_4O_MINI;
 
 /**
  * P2-gating — map an agent type to the AI surface whose system-gate

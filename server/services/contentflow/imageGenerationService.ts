@@ -30,6 +30,7 @@ import { generateImage as generateImageViaRotator } from "../ai/imageRotator";
 import type { ContentDraft } from "@shared/schema";
 import { readBrandProfile } from "./brandProfile";
 import { createLogger } from "../../lib/logger";
+import { OPENAI_IMAGE } from "../aiModels";
 import { noisyCatch } from "../../lib/silentFailureGuard";
 import { postProcessAIImage, isPostProcessEnabled } from "./imagePostProcess";
 import {
@@ -53,7 +54,7 @@ function getOpenAiApiBase(): string {
   return OPENAI_API_BASE_DEFAULT;
 }
 
-const IMAGE_MODEL = process.env.IMAGE_MODEL || "gpt-image-1";
+const IMAGE_MODEL = process.env.IMAGE_MODEL || OPENAI_IMAGE;
 const IMAGE_QUALITY = (process.env.IMAGE_QUALITY || "medium") as "low" | "medium" | "high";
 const IMAGE_SIZE = (process.env.IMAGE_SIZE || "1024x1024") as "1024x1024" | "1024x1536" | "1536x1024";
 const REQUEST_TIMEOUT_MS = 30_000;
