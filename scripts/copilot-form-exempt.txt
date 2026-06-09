@@ -147,6 +147,12 @@ client/src/pages/portal/invoice-templates/TradeService.tsx
 #    Until then, exempt this page.
 client/src/pages/portal/PortalContentFlow.tsx
 
+# ── ContentFlow content library: read-mostly grid of the customer's
+#    generated assets with open/download/delete/schedule actions. Editing
+#    happens in a modal textarea (not a persistent lead form), matching the
+#    precedent for the other read-mostly portal dashboards/lists.
+client/src/pages/portal/contentflow/ContentFlowLibrary.tsx
+
 # ── Wave 7 — AI Insights is a read-only dashboard: Claude-generated
 #    prioritized actions surfaced as cards with dismiss/refresh buttons.
 #    No user-fillable form fields exist on this page.
