@@ -353,9 +353,11 @@
   --secondary: 240 6% 22%;
   --secondary-foreground: 240 9% 92%;
   --muted: 240 6% 18%;
-  /* a11y: 70% lightness keeps the muted text ≥ 6.0:1 on the warm-grey
-   * surface stack (bg 13% / card 18% / elevated 22%). */
-  --muted-foreground: 240 5% 70%;
+  /* a11y: 74% lightness keeps muted/KPI-label text ≥ 6.3:1 across the whole
+   * warm-grey surface stack — including the elevated 22% surface where 70%
+   * fell to 5.59:1 and read low-contrast for CRM KPI secondary labels.
+   * (bg 13% → 7.9:1 / card 18% → 7.2:1 / elevated 22% → 6.3:1.) */
+  --muted-foreground: 240 5% 74%;
   --accent: 240 6% 22%;
   --accent-foreground: 240 9% 92%;
   --destructive: 0 63% 45%;
