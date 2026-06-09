@@ -8,7 +8,8 @@
  *
  * Cost protection — this REUSES the exact same QuoteQuick AI infrastructure
  * the AI quote assistant + formula-help endpoint use:
- *   - getSharedClient()    → the single shared Anthropic client (no new SDK)
+ *   - chat()               → the shared multi-provider engine (Anthropic
+ *     primary, auto-failover to OpenAI/Groq/Together/… on outage)
  *   - validateConfig()     → key-present guard (503 if unavailable)
  *   - getUserBudgetSnapshot / estimateCallCost / gateDecision  → the budget
  *     gate runs BEFORE the call (403 budget_exceeded on cap/daily/per-call)
@@ -24,7 +25,7 @@ import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { requireClient } from "../auth";
 import { createLogger } from "../lib/logger";
-import { getSharedClient, validateConfig } from "../services/aiService";
+import { chat, NoAIProviderError, validateConfig } from "../services/aiService";
 import {
   estimateCallCost,
   gateDecision,
@@ -204,33 +205,41 @@ export function registerPortalReviewReplyRoutes(app: Express): void {
         });
       }
 
-      /* (4) Single non-streaming call via the shared client. */
+      /* (4) Single non-streaming call via the shared multi-provider engine.
+       *     chat() AUTOMATICALLY fails over to backup providers (OpenAI →
+       *     Groq → Together → …) when Anthropic is absent / 401-403 / 5xx-
+       *     exhausted, so a single-provider outage degrades gracefully instead
+       *     of hard-failing the customer. We deliberately do NOT pass
+       *     `opts.surface`: these routes use the QuoteQuick budget system
+       *     (gateDecision / recordSpend) above, NOT the ai_system_gates
+       *     surface table — passing a surface would double-gate. */
       try {
-        const client = getSharedClient();
-        const completion = await client.messages.create({
-          model: TEXT_MODEL,
-          max_tokens: MAX_OUTPUT_TOKENS,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userMessage }],
-        });
+        const text = (
+          await chat({
+            system: systemPrompt,
+            messages: [{ role: "user", content: userMessage }],
+            maxTokens: MAX_OUTPUT_TOKENS,
+            modelOverride: TEXT_MODEL,
+          })
+        ).trim();
 
-        const text = (completion.content || [])
-          .filter((b: any) => b?.type === "text")
-          .map((b: any) => b.text)
-          .join("")
-          .trim();
-
-        /* (5) Record real spend against the same caps. */
-        const usage = (completion as any)?.usage ?? {};
+        /* (5) Record real spend against the same caps. chat() returns only a
+         *     string (no usage object — and a fallback provider's token counts
+         *     wouldn't match Anthropic's anyway), so we record an ESTIMATE
+         *     from the input + output character length via approxTokens().
+         *     We must NOT drop recordSpend — that would let the QuoteQuick
+         *     budget cap drift. */
+        const inputTokens = approxTokens(systemPrompt) + approxTokens(userMessage);
+        const outputTokens = approxTokens(text);
         try {
           await recordSpend({
             userId,
             model: TEXT_MODEL,
-            inputTokens: usage.input_tokens ?? 0,
-            outputTokens: usage.output_tokens ?? 0,
+            inputTokens,
+            outputTokens,
             imageCount: 0,
-            cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
-            cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
           });
         } catch (spendErr: any) {
           // Spend logging must never swallow a successful generation, but we
@@ -250,7 +259,19 @@ export function registerPortalReviewReplyRoutes(app: Express): void {
 
         return res.json({ replies });
       } catch (err: any) {
-        log.error("anthropic call failed", {
+        /* All providers unavailable (Anthropic absent AND no fallback key) —
+         * chat() throws a typed NoAIProviderError. Map it to the same clean
+         * 503 the key-present guard uses, not an opaque 500. */
+        if (err instanceof NoAIProviderError) {
+          log.error("no AI provider available (primary + all fallbacks down)", {
+            error: err?.message,
+          });
+          return res.status(503).json({
+            error: "ai_unavailable",
+            message: "The AI service is temporarily unavailable. Please try again in a moment.",
+          });
+        }
+        log.error("ai chat call failed", {
           error: err?.message,
           status: err?.status,
         });
