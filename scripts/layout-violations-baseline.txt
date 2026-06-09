@@ -10,10 +10,10 @@ client/src/components/admin/LucideIconPicker.tsx:163:23	rule-c	square w-12 h-12
 client/src/components/admin/MapguardTaskCard.tsx:189:17	rule-c	square w-7 h-7
 client/src/components/admin/ServiceOps.tsx:47:12	rule-c	square w-7 h-7
 client/src/components/admin/TaskCard.tsx:442:14	rule-c	square w-10 h-10
-client/src/components/contentflow/ContentFlowPreviewModal.tsx:199:14	rule-c	square w-9 h-9
-client/src/components/contentflow/ContentFlowPreviewModal.tsx:253:21	rule-c	square w-10 h-10
-client/src/components/contentflow/ContentFlowPreviewModal.tsx:314:20	rule-c	square w-16 h-16
-client/src/components/contentflow/ContentFlowPreviewModal.tsx:315:28	rule-c	square w-7 h-7
+client/src/components/contentflow/ContentFlowPreviewModal.tsx:215:14	rule-c	square w-9 h-9
+client/src/components/contentflow/ContentFlowPreviewModal.tsx:269:21	rule-c	square w-10 h-10
+client/src/components/contentflow/ContentFlowPreviewModal.tsx:330:20	rule-c	square w-16 h-16
+client/src/components/contentflow/ContentFlowPreviewModal.tsx:331:28	rule-c	square w-7 h-7
 client/src/components/home/TrustStrip.tsx:88:19	rule-c	square w-1.5 h-1.5
 client/src/components/marketing/FeatureCards.tsx:110:13	rule-c	<svg width={52} height={52}>
 client/src/components/marketing/showcase/MultiTieredSupport.tsx:44:28	rule-c	size={36}
@@ -60,7 +60,7 @@ client/src/pages/admin/ApiPlatformUserDetailPage.tsx:376:25	rule-c	square w-12 h
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h-12
 client/src/pages/admin/BookingCalendarPage.tsx:60:16	rule-c	square w-10 h-10
 client/src/pages/admin/BookingCalendarPage.tsx:145:24	rule-c	square w-10 h-10
-client/src/pages/admin/ClientDetailPage.tsx:770:7	rule-b	<div> contains 2 cues
+client/src/pages/admin/ClientDetailPage.tsx:784:7	rule-b	<div> contains 2 cues
 client/src/pages/admin/CommunicationsPage.tsx:1139:21	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CommunicationsPage.tsx:1144:21	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CommunicationsPage.tsx:1269:23	rule-c	square w-2 h-2

@@ -57,22 +57,38 @@ const PLATFORM_CHROME: Record<string, { label: string; icon: React.ReactNode; ac
   website: { label: "Website", icon: <Globe className="h-4 w-4 text-brand-blue-600" />, accent: "border-brand-blue-200 bg-brand-blue-50" },
 };
 
+/**
+ * Returns a usable media src, or null. Guards against the empty/malformed
+ * values that otherwise reach the <img> and fire ERR_INVALID_URL or render a
+ * bare `src=""` on first paint: empty/whitespace strings, the literal strings
+ * "null"/"undefined", and anything that isn't an absolute http(s)/data/blob
+ * URL or a root-relative path. Exported so the queue page's thumbnail and the
+ * modal share one definition of "valid image src".
+ */
+export function validMediaSrc(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "null" || trimmed === "undefined") return null;
+  if (/^(https?:\/\/|data:|blob:|\/)/i.test(trimmed)) return trimmed;
+  return null;
+}
+
 function pickImageUrl(meta: any): string | null {
   if (!meta || typeof meta !== "object") return null;
-  return (
+  return validMediaSrc(
     meta?.media_plan?.image_url ||
     meta?.media_plan?.public_image_url ||
     meta?.image?.url ||
     meta?.hero_image?.url ||
-    null
+    null,
   );
 }
 
 function pickVideoUrl(meta: any): { url: string | null; poster: string | null } {
   if (!meta || typeof meta !== "object") return { url: null, poster: null };
   return {
-    url: meta?.media_plan?.video_url || meta?.video?.url || null,
-    poster: meta?.media_plan?.thumbnail_url || meta?.media_plan?.image_url || null,
+    url: validMediaSrc(meta?.media_plan?.video_url || meta?.video?.url || null),
+    poster: validMediaSrc(meta?.media_plan?.thumbnail_url || meta?.media_plan?.image_url || null),
   };
 }
 
@@ -391,9 +407,13 @@ export function PreviewThumb({
   onRegenerate?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
+  // Normalize: an empty/whitespace/malformed src must not reach the <img>
+  // below (it would paint src="" / fire ERR_INVALID_URL). Treat those exactly
+  // like "no image yet" → still-generating placeholder.
+  const safeImageUrl = validMediaSrc(imageUrl);
 
-  // State 1: no image URL at all — still-generating placeholder.
-  if (!imageUrl) {
+  // State 1: no usable image URL — still-generating placeholder.
+  if (!safeImageUrl) {
     return (
       <button
         type="button"
@@ -445,7 +465,7 @@ export function PreviewThumb({
       aria-label="Preview"
     >
       <img
-        src={imageUrl}
+        src={safeImageUrl}
         alt=""
         className="h-full w-full object-cover"
         loading="lazy"

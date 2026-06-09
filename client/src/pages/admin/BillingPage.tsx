@@ -12,7 +12,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, AlertCircle, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { DollarSign, AlertCircle, Download, Search } from "lucide-react";
 import { csvDownload, todayIso } from "@/lib/csvDownload";
 
 interface PaymentRow {
@@ -56,6 +57,7 @@ function fmtDate(d: string | null) {
 export default function BillingPage() {
   usePageTitle("Billing");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -87,6 +89,21 @@ export default function BillingPage() {
 
   const payments = data?.data ?? [];
   const unpaidTotal = data?.unpaidTotal ?? 0;
+
+  /* Free-text search over the loaded ledger (client name, description, and the
+   * formatted/raw amount). Status is still filtered server-side; this narrows
+   * the returned rows client-side, matching the Audit-Leads / Prospects pattern. */
+  const visiblePayments = (() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return payments;
+    return payments.filter((p) => {
+      const name = (p.client_name || `Client #${p.client_id}`).toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const amount = fmt(p.amount_cents).toLowerCase();
+      const amountRaw = (p.amount_cents / 100).toString();
+      return name.includes(q) || desc.includes(q) || amount.includes(q) || amountRaw.includes(q);
+    });
+  })();
 
   const now = new Date();
   const pendingPayments = payments.filter((p) => p.status === "pending");
@@ -159,6 +176,20 @@ export default function BillingPage() {
           </div>
         </div>
 
+        {/* Search — narrows the loaded ledger by client, description, or amount.
+            Matches the Audit-Leads / Prospects search pattern. */}
+        <div className="relative max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search client, description, or amount…"
+            aria-label="Search payments"
+            className="pl-9"
+          />
+        </div>
+
         {/* Unpaid summary */}
         {unpaidTotal > 0 && (
           <Card className="p-4 flex items-center gap-3 border-amber-200 bg-amber-50/50">
@@ -207,8 +238,14 @@ export default function BillingPage() {
                       </p>
                     </TableCell>
                   </TableRow>
+                ) : visiblePayments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10 text-muted-foreground text-sm">
+                      No payments match “{search}”.
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  payments.map((p) => (
+                  visiblePayments.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell>
                         <Link href={`/admin/crm/clients/${p.client_id}`}>
@@ -255,8 +292,12 @@ export default function BillingPage() {
                   {" "}<Link href="/admin/crm/clients" className="text-brand-blue hover:underline font-medium">a client's page</Link>.
                 </p>
               </div>
+            ) : visiblePayments.length === 0 ? (
+              <div className="text-center py-10 px-6 text-sm text-muted-foreground">
+                No payments match “{search}”.
+              </div>
             ) : (
-              payments.map((p) => (
+              visiblePayments.map((p) => (
                 <div key={p.id} className="p-4">
                   <div className="flex items-center justify-between">
                     <div>

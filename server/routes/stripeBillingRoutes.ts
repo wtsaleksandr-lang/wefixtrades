@@ -147,6 +147,17 @@ export function registerStripeBillingRoutes(app: Express): void {
   });
 
   /* ═══════════════════════════════════════════
+     Billing config probe (admin) — lets the CRM
+     UI gate the "Charge" action when Stripe isn't
+     configured, instead of letting an admin fire a
+     checkout that 503s. Read-only, no secrets.
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/billing/config", requireAdmin, (_req: Request, res: Response) => {
+    res.json({ configured: !!getStripe() });
+  });
+
+  /* ═══════════════════════════════════════════
      Webhook Handler
      ═══════════════════════════════════════════ */
 

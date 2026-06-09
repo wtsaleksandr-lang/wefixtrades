@@ -124,7 +124,7 @@ function DeltaBadge({ value, suffix, invert }: { value: number | null; suffix?: 
 /* ─── Stat Card (reused CRM pattern) ─── */
 function StatCard({ label, value, icon: Icon, color }: {
   label: string;
-  value: string | number;
+  value: React.ReactNode;
   icon: React.ElementType;
   color: string;
 }) {
@@ -299,13 +299,13 @@ export default function MapguardDashboard() {
           <StatCard label="Improved" value={metrics.improved} icon={TrendingUp} color={metrics.improved > 0 ? "bg-emerald-500" : "bg-gray-400"} />
           <StatCard
             label="Avg Score"
-            value={metrics.avg_score !== null ? metrics.avg_score : "—"}
+            value={metrics.avg_score !== null ? metrics.avg_score : <span className="text-sm font-medium text-gray-400">No data</span>}
             icon={Zap}
             color="bg-blue-500"
           />
           <StatCard
             label="Tier Mix"
-            value={`${metrics.basic_count}B · ${metrics.pro_count}P`}
+            value={<span className="whitespace-nowrap">{metrics.basic_count} Basic · {metrics.pro_count} Pro</span>}
             icon={Users}
             color="bg-blue-600"
           />
