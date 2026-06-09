@@ -453,6 +453,70 @@ function TemplateRail({
   const scrollColorRow = (dir: -1 | 1) =>
     colorRowRef.current?.scrollBy({ left: dir * 132, behavior: "smooth" });
 
+  // Click-and-DRAG to pan the theme swatch row horizontally with the mouse
+  // cursor (not just the scrollbar / arrows). Mirrors the Build-tab template
+  // strip: pointerdown grabs, pointermove translates scrollLeft, grab/grabbing
+  // cursor. Only mouse/pen drags here — touch keeps native momentum swipe. A
+  // small movement threshold means a real click on a swatch still selects it
+  // (the swatch's onClick fires; only a deliberate drag suppresses it).
+  useEffect(() => {
+    const el = colorRowRef.current;
+    if (!el) return;
+    let isDown = false;
+    let moved = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    const DRAG_THRESHOLD = 4;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return; // native swipe owns touch
+      isDown = true;
+      moved = false;
+      startX = e.pageX - el.offsetLeft;
+      scrollLeft = el.scrollLeft;
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!isDown) return;
+      const x = e.pageX - el.offsetLeft;
+      const walk = x - startX;
+      if (!moved && Math.abs(walk) > DRAG_THRESHOLD) {
+        moved = true;
+        el.classList.add("is-dragging");
+        try { el.setPointerCapture(e.pointerId); } catch {}
+      }
+      if (moved) {
+        e.preventDefault();
+        el.scrollLeft = scrollLeft - walk;
+      }
+    };
+    const endDrag = (e: PointerEvent) => {
+      if (!isDown) return;
+      isDown = false;
+      el.classList.remove("is-dragging");
+      try { el.releasePointerCapture(e.pointerId); } catch {}
+      // Swallow the click that follows a real drag so it doesn't select a
+      // swatch the cursor happened to land on at release.
+      if (moved) {
+        const swallow = (ce: MouseEvent) => { ce.stopPropagation(); ce.preventDefault(); };
+        el.addEventListener("click", swallow, { capture: true, once: true });
+        // Safety: if no click fires, drop the one-shot listener next tick.
+        window.setTimeout(() => el.removeEventListener("click", swallow, true), 0);
+      }
+      moved = false;
+    };
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", endDrag);
+    el.addEventListener("pointercancel", endDrag);
+    el.addEventListener("pointerleave", endDrag);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", endDrag);
+      el.removeEventListener("pointercancel", endDrag);
+      el.removeEventListener("pointerleave", endDrag);
+    };
+  }, []);
+
   // Collapse per-layout variants (…_single_col/_two_col/_multi_col sharing a
   // display name) to ONE representative card per template. Layout is chosen
   // in-editor, not in this rail, so the same title must never appear 2–3×.
@@ -1034,7 +1098,15 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 padding: 5px 0 7px;
                 scrollbar-width: thin;
                 -webkit-overflow-scrolling: touch;
+                /* Drag-to-scroll affordance — grab cursor at rest, grabbing
+                   while a pointer drag is panning the row (JS toggles
+                   .is-dragging). */
+                cursor: grab;
               }
+              .tpl-color-row.is-dragging {
+                cursor: grabbing; user-select: none; scroll-behavior: auto;
+              }
+              .tpl-color-row.is-dragging .tpl-swatch { pointer-events: none; }
               .tpl-color-row > .tpl-swatch { flex: 0 0 auto; }
               .tpl-color-row::-webkit-scrollbar { height: 6px; }
               .tpl-color-row::-webkit-scrollbar-thumb {
@@ -1053,6 +1125,19 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 color: rgba(15,20,24,0.5); user-select: none;
               }
               .tpl-scroll-arrow:hover { color: rgba(15,20,24,0.85); }
+              /* Desktop preview only — the main "Get a Quote Now" CTA sat a
+                 touch too low, leaving an unbalanced gap above it. Trim the
+                 pitch block's bottom margin and lift the CTA button a few px
+                 so it sits better-balanced under the result. Scoped to the
+                 desktop live preview; mobile (≤760px) is left untouched. */
+              @media (min-width: 761px) {
+                [data-testid="template-live-preview"] [data-testid="advanced-cta-pitch"] {
+                  margin-bottom: 8px !important;
+                }
+                [data-testid="template-live-preview"] [data-testid="advanced-cta"] {
+                  margin-top: -6px;
+                }
+              }
               /* In the website PREVIEW the QuoteQuick brand badge + the
                  "Powered by WeFixTrades" footer are NON-clickable — they only
                  link out on the actually-deployed widget, never in this lite
@@ -1064,6 +1149,16 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               [data-testid="template-live-preview"] [data-testid="advanced-powered-by-root"] * {
                 pointer-events: none !important;
                 cursor: default !important;
+              }
+              /* Apple frosted-glass treatment for the preview's QuoteQuick brand
+                 bar (Alex request). Scoped to the preview container ONLY — the
+                 deployed/embedded QuoteWidget brandbar is untouched. */
+              [data-testid="template-live-preview"] [data-qq-brandbar] {
+                background: rgba(255, 255, 255, 0.55) !important;
+                -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+                backdrop-filter: blur(12px) saturate(160%) !important;
+                border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+                align-items: center !important;
               }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
@@ -1129,12 +1224,25 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               }
               .tpl-pager-btn:disabled { opacity: 0.35; cursor: default; }
 
-              .tpl-cats { display: flex; flex-direction: column; gap: 8px; }
+              /* Category block GROWS to absorb the rail's leftover height so the
+                 list reaches down toward the CTA instead of leaving dead space
+                 below a short fixed-height list. min-height:0 lets the inner
+                 scroller actually overflow inside the flex column. */
+              .tpl-cats { display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 0; }
               /* Relative shell for the scroll fade + chevron overlays. */
-              .tpl-cats-scroll { position: relative; }
+              .tpl-cats-scroll { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
               .tpl-cats-list {
                 display: flex; flex-direction: column; gap: 6px;
-                max-height: 176px; overflow-y: auto; scrollbar-width: thin;
+                /* Bounded, wheel-scrollable container. Flex-fills the available
+                   rail height (min 176px so the list never collapses); the
+                   parent .tpl-cats-scroll caps it, and overscroll-behavior:contain
+                   keeps the mouse wheel scrolling THIS list (not the page) once
+                   it overflows. */
+                flex: 1 1 auto;
+                min-height: 176px;
+                overflow-y: auto; scrollbar-width: thin;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
                 /* A little bottom padding so the fade masks a partial last row
                    rather than slicing one exactly in half. */
                 padding-bottom: 4px;
@@ -1176,18 +1284,29 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
               .tpl-preview { min-width: 0; display: flex; flex-direction: column; }
               /* Single device toggle that swaps its icon — pinned to the
-                 top-right corner of the preview card. */
+                 top-right of the preview, sitting inside the widget's white
+                 header strip. Apple-style FROSTED GLASS: a translucent surface
+                 + backdrop blur/saturate so the band behind it shows through
+                 softly, with a hairline ring. Vertically CENTERED in the ~38px
+                 header band (top:5 with a 28px control centers it at ~19px,
+                 lifting it off the old "too low" position). */
               .tpl-device-toggle {
-                /* Sits inside the widget's white header strip (band starts ~39px);
-                   28px at top:6 spans 6-34px so it never enters the coloured band. */
-                position: absolute; top: 6px; right: 8px; z-index: 5;
-                flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+                position: absolute; top: 5px; right: 8px; z-index: 5;
+                flex-shrink: 0; width: 28px; height: 28px; border-radius: 9px;
                 display: grid; place-items: center; cursor: pointer; border: none;
-                background: rgba(255,255,255,0.85); color: ${CS_LIGHT.ink};
-                box-shadow: inset 0 0 0 1px rgba(15,20,24,0.12), 0 2px 8px rgba(15,20,24,0.12);
+                background: rgba(255,255,255,0.55);
+                -webkit-backdrop-filter: blur(12px) saturate(160%);
+                backdrop-filter: blur(12px) saturate(160%);
+                color: ${CS_LIGHT.ink};
+                box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55),
+                            inset 0 0 0 1.5px rgba(15,20,24,0.08),
+                            0 2px 8px rgba(15,20,24,0.14);
                 transition: background 140ms ease, transform 120ms ease;
               }
-              .tpl-device-toggle:hover { transform: translateY(-1px); }
+              .tpl-device-toggle:hover {
+                transform: translateY(-1px);
+                background: rgba(255,255,255,0.72);
+              }
 
               /* Template-swap polish: remount the widget on selection with a
                  soft fade + rise. */
@@ -1216,6 +1335,12 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 .tpl-rail { order: 2; }
                 .tpl-preview { order: 1; }
                 .tpl-rail-cta { margin-top: 0; }
+                /* Theme swatch strip spans the FULL rail width on mobile (the
+                   312px desktop cap left it hugging the left edge). The scroll
+                   wrapper + row both stretch edge-to-edge; the row still scrolls
+                   horizontally when the swatches overflow. */
+                .tpl-color-scroll { width: 100%; max-width: none; }
+                .tpl-color-row { max-width: none; flex: 1 1 auto; min-width: 0; }
               }
             `}</style>
           </div>
