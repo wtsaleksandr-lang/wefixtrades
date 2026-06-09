@@ -34,6 +34,9 @@ import { pool } from "./db";
 import { setupPassport, impersonationMiddleware } from "./auth";
 import { createLogger } from "./lib/logger";
 import { requestId } from "./middleware/requestId";
+// res2: AI provider readiness diagnostics at boot. readyFallbackProviders()
+// only reads env (key presence) — safe to call synchronously in validateEnv().
+import { readyFallbackProviders } from "./services/llmFallbackChain";
 
 const logger = createLogger("Server");
 
@@ -41,12 +44,21 @@ const logger = createLogger("Server");
 function validateEnv(): void {
   const isProduction = process.env.NODE_ENV === "production";
 
+  // Boot-fatal in production: without these the server cannot serve ANY
+  // request safely (no DB, no session signing, no payment processing /
+  // webhook verification). Missing → process.exit(1).
+  //
+  // NOTE: ANTHROPIC_API_KEY was DEMOTED out of this list (res2). AI is a
+  // FEATURE, not a boot dependency — a redeploy that lands without the
+  // Anthropic key must still boot and serve everything-but-AI rather than
+  // refuse to start the entire platform. Its absence is now a LOUD warn
+  // below + surfaced in /api/healthz (ai → degraded, not down). The
+  // post-deploy verifier gates a fully keyless AI deploy.
   const critical = [
     "DATABASE_URL",
     "SESSION_SECRET",
     "STRIPE_SECRET_KEY",
     "STRIPE_BILLING_WEBHOOK_SECRET",
-    "ANTHROPIC_API_KEY",
   ];
 
   const missing = critical.filter((key) => !process.env[key]);
@@ -64,6 +76,42 @@ function validateEnv(): void {
       "Missing environment variables (non-fatal in development): " +
         missing.join(", "),
     );
+  }
+
+  /* ─── AI provider readiness (res2) ───
+     ANTHROPIC_API_KEY is no longer boot-fatal. Warn LOUDLY when the primary
+     AI key is absent so a keyless deploy is obvious in the boot log, and emit
+     a single structured `ai_provider_readiness` line listing which providers
+     have keys (primary + the OpenAI-compatible fallback chain). This reuses
+     the same presence helpers the /api/healthz AI probe uses, so the boot log
+     and the runtime health check agree. AI degradation is non-fatal — the
+     server keeps serving everything-but-AI. */
+  {
+    const anthropicReady = !!process.env.ANTHROPIC_API_KEY?.trim();
+    // readyFallbackProviders() reads env at call time (key presence). Wrapped
+    // defensively so a diagnostic can never crash boot.
+    let fallbackReady: string[] = [];
+    try {
+      fallbackReady = readyFallbackProviders();
+    } catch {
+      fallbackReady = [];
+    }
+    logger.info("ai_provider_readiness", {
+      anthropic_primary: anthropicReady,
+      fallback_providers: fallbackReady,
+      fallback_count: fallbackReady.length,
+      any_ai_ready: anthropicReady || fallbackReady.length > 0,
+    });
+    if (!anthropicReady) {
+      logger.warn(
+        "WARN: ANTHROPIC_API_KEY is not set — primary AI is DISABLED. " +
+          "The server is booting anyway (AI is a feature, not boot-critical). " +
+          (fallbackReady.length > 0
+            ? `Fallback LLM providers available: ${fallbackReady.join(", ")}. `
+            : "NO fallback LLM providers are configured either — ALL AI features will fail. ") +
+          "See /api/healthz (ai check) for live status.",
+      );
+    }
   }
 
   /* ─── QuoteQuick Stripe price sanity check ─── */

@@ -61,6 +61,34 @@ MODE_DOPPLER_CLI="doppler-cli"
 MODE_DOPPLER_HTTP="doppler-http-bootstrap-only"
 MODE_PLAIN="env-only"
 
+# res2 — loud secrets-load failure signal.
+#
+# When secrets did NOT load from Doppler in production (env-only boot, or a
+# token that can't read wefixtrades/prd), emit a single LOUD ERROR/FATAL-tagged
+# line so a keyless/secretless deploy is impossible to miss in the deploy log.
+#
+# Backward compatible: by default this only WARNS and the server still boots
+# (the fallback path is the safety net — see header). Set STRICT_SECRETS=1 to
+# turn this into a hard refusal (exit non-zero) for environments that must
+# never boot without Doppler secrets.
+#
+# $1 = human-readable reason.
+loud_secrets_failure() {
+  local reason="$1"
+  if [ "${NODE_ENV:-}" = "production" ]; then
+    echo "[start-prod] FATAL: secrets did NOT load from Doppler in production — ${reason}" >&2
+    echo "[start-prod] FATAL: the process is running on Replit Secrets / process env ONLY. Any secret that lives solely in Doppler/prd is MISSING (AI keys, etc.)." >&2
+    echo "[start-prod] FATAL: set a prd-scoped DOPPLER_TOKEN in Replit Production Secrets to fix. Verify live state at /api/healthz." >&2
+    if [ "${STRICT_SECRETS:-}" = "1" ]; then
+      echo "[start-prod] FATAL: STRICT_SECRETS=1 — refusing to boot without Doppler secrets." >&2
+      exit 1
+    fi
+  fi
+  # Explicit success so `set -e` doesn't abort on the non-strict path (the last
+  # evaluated test above is falsy and would otherwise return non-zero).
+  return 0
+}
+
 resolve_mode() {
   if [ -n "${DOPPLER_TOKEN:-}" ]; then
     if command -v doppler >/dev/null 2>&1; then
@@ -201,6 +229,7 @@ case "${MODE}" in
       exec doppler run --project wefixtrades --config prd -- node ./dist/index.cjs
     else
       echo "[start-prod] mode=${MODE} — DOPPLER_TOKEN cannot read wefixtrades/prd (likely a dev-scoped token); falling back to its default config. Swap DOPPLER_TOKEN in Replit to a prd-scoped service token to fix the prod secret mismatch." >&2
+      loud_secrets_failure "DOPPLER_TOKEN cannot read wefixtrades/prd (token scoped elsewhere)"
       exec doppler run -- node ./dist/index.cjs
     fi
     ;;
@@ -210,6 +239,7 @@ case "${MODE}" in
     ;;
   *)
     echo "[start-prod] mode=${MODE} — DOPPLER_TOKEN not set; running with Replit Secrets only. Set DOPPLER_TOKEN in Replit Production Secrets to enable Doppler." >&2
+    loud_secrets_failure "DOPPLER_TOKEN is not set (env-only mode)"
     exec node ./dist/index.cjs
     ;;
 esac
