@@ -14,7 +14,8 @@ import { aiChatRateLimiter } from "../services/rateLimiter";
 import { aiGateAllowed, recordAiSpend } from "../services/aiSystemGate";
 import { logUsage } from "../services/usageTracker";
 import { estimateCostMicroCents } from "../services/aiPricing";
-import { OPENAI_GPT_4O_MINI } from "../services/aiModels";
+import { OPENAI_GPT_4O_MINI, CLAUDE_HAIKU } from "../services/aiModels";
+import { chat as aiChat, NoAIProviderError } from "../services/aiService";
 import { noisyCatch } from "../lib/silentFailureGuard";
 // W-BB-1 — customer-widget multi-step agent loop wiring.
 // Importing customerWidgetTools registers the 6 customer-widget actions
@@ -127,6 +128,83 @@ async function gatedCompletion(
     });
   }
   return response;
+}
+
+/**
+ * Secondary-failover wrapper for the THREE text JSON generators
+ * (generate-pricing, generate-advanced-calculator, generate-formula).
+ *
+ * PRIMARY: OpenAI via `gatedCompletion` — keeps `response_format: json_object`,
+ * which strictly enforces JSON mode (the text fallback chain cannot). On the
+ * happy path this is the ONLY call and behaviour is identical to before.
+ *
+ * SECONDARY: only when the OpenAI call THROWS (provider error / outage), retry
+ * once via `aiChat()` (Anthropic → multi-provider fallback chain) using a Claude
+ * model. Claude is only *prompted* for JSON (no response_format) — the existing
+ * prompts already instruct "Return ONLY the JSON object", and the caller's
+ * tolerant `JSON.parse`-in-try/catch degrades a malformed result to the existing
+ * error path. We extract the same system/user text from the OpenAI params so the
+ * fallback sees the identical instruction.
+ *
+ * If the fallback ALSO fails (NoAIProviderError / provider error), the original
+ * OpenAI error is re-thrown so the handler's catch renders its existing 500/503
+ * response — we never crash.
+ *
+ * `AiGateDeniedError` from the primary gate is NOT retried (the surface is
+ * intentionally paused); it propagates so the handler returns its 503.
+ *
+ * Returns the raw assistant message CONTENT (string) — the same value the
+ * callers used to read from `completion.choices[0]?.message?.content`.
+ */
+async function gatedCompletionWithFallback(
+  surface: string,
+  params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+  meta: { sessionId?: string },
+): Promise<string> {
+  try {
+    const completion = await gatedCompletion(surface, params, meta);
+    return completion.choices[0]?.message?.content || "{}";
+  } catch (primaryErr: any) {
+    // A paused-surface denial is a deliberate stop, not an outage — do not
+    // burn the fallback on it; let the handler turn it into a 503.
+    if (primaryErr instanceof AiGateDeniedError) throw primaryErr;
+
+    // Extract the system + user prompt text from the OpenAI params so Claude
+    // receives the identical JSON-instructed prompt. The text generators send
+    // a single string-content user message and (currently) no system message.
+    const system = params.messages
+      .filter((m) => m.role === "system" && typeof m.content === "string")
+      .map((m) => m.content as string)
+      .join("\n");
+    const userMessages = params.messages
+      .filter((m) => m.role === "user" && typeof m.content === "string")
+      .map((m) => ({ role: "user" as const, content: m.content as string }));
+    if (userMessages.length === 0) throw primaryErr; // nothing textual to retry
+
+    log.warn("aiRoutes generator primary (OpenAI) failed — trying Claude fallback", {
+      surface,
+      error: primaryErr?.message?.slice(0, 200),
+    });
+    try {
+      return await aiChat({
+        system,
+        messages: userMessages,
+        maxTokens: params.max_tokens || 1024,
+        modelOverride: CLAUDE_HAIKU,
+        surface,
+      });
+    } catch (fallbackErr: any) {
+      // Fallback also unavailable (NoAIProviderError / provider error). Re-throw
+      // the ORIGINAL OpenAI error so the handler's existing catch renders the
+      // same response it always has (500, or 503 via AiGateDeniedError above).
+      log.error("aiRoutes generator Claude fallback also failed", {
+        surface,
+        fallbackError: fallbackErr?.message?.slice(0, 200),
+        isNoProvider: fallbackErr instanceof NoAIProviderError,
+      });
+      throw primaryErr;
+    }
+  }
 }
 
 const generatePricingBody = z.object({
@@ -249,13 +327,12 @@ Rules:
 
 Return ONLY the JSON pricing config object.`;
 
-      const completion = await gatedCompletion("quotequick", {
+      const content = await gatedCompletionWithFallback("quotequick", {
         model: GEN_MODEL,
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
       }, {});
 
-      const content = completion.choices[0]?.message?.content || "{}";
       let pricing;
       try {
         pricing = JSON.parse(content);
@@ -324,7 +401,7 @@ Rules:
 - Use realistic numbers for the trade.
 Return ONLY the JSON object.`;
 
-      const completion = await gatedCompletion("quotequick", {
+      const content = await gatedCompletionWithFallback("quotequick", {
         model: GEN_MODEL,
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
@@ -332,7 +409,7 @@ Return ONLY the JSON object.`;
 
       let raw: any;
       try {
-        raw = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        raw = JSON.parse(content || "{}");
       } catch {
         return res.status(500).json({ error: "AI returned invalid JSON" });
       }
@@ -400,7 +477,7 @@ Rules:
 
 Return JSON: { "formula": "<the formula expression>" }`;
 
-      const completion = await gatedCompletion("quotequick", {
+      const content = await gatedCompletionWithFallback("quotequick", {
         model: GEN_MODEL,
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
@@ -408,7 +485,7 @@ Return JSON: { "formula": "<the formula expression>" }`;
 
       let raw: any;
       try {
-        raw = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        raw = JSON.parse(content || "{}");
       } catch {
         return res.status(500).json({ error: "AI returned invalid JSON" });
       }
@@ -516,6 +593,24 @@ Return ONLY the JSON object.`;
       } catch (error: any) {
         if (error instanceof AiGateDeniedError) {
           return res.status(503).json({ error: "AI is temporarily unavailable. Please try again shortly." });
+        }
+        // Vision uses image_url; the text fallback chain can't see images, so
+        // there is no secondary path here. A provider outage / upstream error
+        // (5xx, 429, timeout, network) is transient — surface a clean 503
+        // ("image AI temporarily unavailable") rather than an opaque 500 so the
+        // wizard can prompt a retry. Only a genuine internal bug falls to 500.
+        const status = error?.status ?? error?.statusCode;
+        const isUpstreamOutage =
+          (typeof status === "number" && (status === 429 || status >= 500)) ||
+          error?.code === "ETIMEDOUT" ||
+          error?.code === "ECONNRESET" ||
+          error?.code === "ECONNREFUSED" ||
+          /timeout|ETIMEDOUT|ECONNRESET|socket hang up|fetch failed/i.test(String(error?.message || ""));
+        if (isUpstreamOutage) {
+          log.warn("AI quote-to-calculator upstream outage — returning 503", {
+            status, code: error?.code, message: error?.message?.slice(0, 200),
+          });
+          return res.status(503).json({ error: "Image AI is temporarily unavailable. Please try again shortly." });
         }
         log.error("AI quote-to-calculator error:", error);
         res.status(500).json({ error: "Failed to analyse the quote" });
