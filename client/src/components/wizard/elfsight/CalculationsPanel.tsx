@@ -28,23 +28,93 @@ function uid(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/** Words that carry no naming value at the start of a calc description:
+ *  imperative verbs ("multiply"), articles/prepositions, and connector filler.
+ *  Stripped from the FRONT only so a phrase like "Job Total" survives intact. */
+const FILLER_WORDS = new Set([
+  'calculate', 'compute', 'work', 'out', 'figure', 'find', 'get', 'give', 'show',
+  'multiply', 'add', 'sum', 'subtract', 'divide', 'total', 'tally', 'combine',
+  'take', 'make', 'set', 'return', 'output', 'estimate',
+  'the', 'a', 'an', 'of', 'by', 'to', 'with', 'and', 'plus', 'then', 'for',
+  'up', 'all', 'each', 'per', 'from', 'into', 'this', 'that', 'it', 'me',
+]);
+
 /** Derive a short, sensible calc name from the user's plain-English description.
- *  Takes the first few meaningful words, title-cases them, and trims to a
- *  reasonable length so the new row has a readable label instead of "Subtotal".
- *  De-duped against existing names by the caller. */
+ *  Strips leading imperative verbs / articles / connector filler and pure
+ *  numbers, then title-cases the first couple of meaningful words into a
+ *  noun-y label (e.g. "multiply quantity by 75 ..." → "Quantity") instead of
+ *  echoing the raw prompt. De-duped against existing names by the caller. */
 function nameFromDescription(desc: string, existing: TemplateCalculation[]): string {
   const cleaned = desc.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
-  const words = cleaned.split(' ').filter(Boolean).slice(0, 4);
-  let base = words.join(' ');
-  if (base.length > 40) base = base.slice(0, 40).trim();
+  let words = cleaned.split(' ').filter(Boolean);
+  // Drop leading filler / verbs / bare numbers so we land on the first real noun.
+  while (
+    words.length > 1
+    && (FILLER_WORDS.has(words[0].toLowerCase()) || /^\d+([.,]\d+)?$/.test(words[0]))
+  ) {
+    words.shift();
+  }
+  // Also drop any remaining bare-number tokens, then keep the first 2 nouny words.
+  words = words.filter((w) => !/^\d+([.,]\d+)?$/.test(w)).slice(0, 2);
+  let base = words
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+    .trim();
+  if (base.length > 28) base = base.slice(0, 28).trim();
   if (!base) base = 'Calculation';
-  // Capitalize the first letter; keep the rest as typed (names can be mixed case).
-  base = base.charAt(0).toUpperCase() + base.slice(1);
   const taken = new Set(existing.map((c) => c.name.toLowerCase()));
   if (!taken.has(base.toLowerCase())) return base;
   let n = 2;
   while (taken.has(`${base} ${n}`.toLowerCase())) n++;
   return `${base} ${n}`;
+}
+
+/** The blank-preview seed calc (buildBlankPreviewConfig in templatePresets.ts)
+ *  ships a single placeholder calc with this exact name + formula. We retire it
+ *  the moment the user adds their first real calc so it stops winning the
+ *  headline as a static $100 row. The formula is the unique signature — no real
+ *  template uses `[Service] * [Quantity] + [Add-ons]`, and we only match when
+ *  it's the SOLE calc, so populated templates (many of which legitimately ship
+ *  their own "Estimated Total") are never touched. */
+const SEED_CALC_NAME = 'Estimated Total';
+const SEED_CALC_FORMULA = '[Service] * [Quantity] + [Add-ons]';
+function isBlankSeedOnly(calcs: TemplateCalculation[]): boolean {
+  return (
+    calcs.length === 1
+    && calcs[0].name === SEED_CALC_NAME
+    && (calcs[0].formula || '').replace(/\s+/g, ' ').trim() === SEED_CALC_FORMULA
+  );
+}
+
+/** True when no existing calc is already flagged as the primary headline. */
+function hasPrimary(calcs: TemplateCalculation[]): boolean {
+  return calcs.some((c) => c.resultMode === 'primary');
+}
+
+/** Build the next calc list when appending `next`.
+ *  - If `next` carries a real formula AND nothing is currently primary AND the
+ *    only existing calc is the blank seed → drop the seed and make `next` the
+ *    primary headline. (First real calc becomes the big number.)
+ *  - Else if `next` is the first real calc and nothing is primary yet (empty
+ *    list) → still mark it primary so a from-scratch build gets a headline.
+ *  - Otherwise append unchanged (preserves templates with their own primary). */
+function appendCalc(
+  calcs: TemplateCalculation[], next: TemplateCalculation,
+): TemplateCalculation[] {
+  const hasFormula = (next.formula || '').trim() !== '';
+  if (!hasFormula || hasPrimary(calcs)) {
+    return [...calcs, next];
+  }
+  const primaryNext: TemplateCalculation = { ...next, resultMode: 'primary' };
+  if (isBlankSeedOnly(calcs)) {
+    // Retire the stale seed entirely — it would otherwise win `legacyHeadline`
+    // (via result_calc) and/or show as a $100 breakdown row.
+    return [primaryNext];
+  }
+  if (calcs.length === 0) {
+    return [primaryNext];
+  }
+  return [...calcs, next];
 }
 
 /** Default calc appended when the user clicks "Add calculation". */
@@ -59,7 +129,11 @@ function makeBlankCalc(existing: TemplateCalculation[]): TemplateCalculation {
     id: uid('calc'),
     name,
     formula: '',
-    format: 'number',
+    // Default to currency so both the breakdown row and (once it becomes the
+    // primary headline) the big number render as money — matching the shared
+    // `calc()` helper default in templatePresets.ts. Was 'number', which showed
+    // bare figures like `113.4` instead of `$113.40`.
+    format: 'currency',
   };
 }
 
@@ -81,7 +155,10 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
     const next = makeBlankCalc(calculations);
     setJustAddedId(next.id);
     seenRef.current.add(next.id);
-    onChange([...calculations, next]);
+    // Manual adds start with an EMPTY formula, so appendCalc just appends here
+    // (no primary seizing yet). The first real formula the user types in the
+    // row promotes it to the headline + retires the seed via handleRowChange.
+    onChange(appendCalc(calculations, next));
   };
 
   /** Generate a brand-new calculation from a plain-English description.
@@ -136,7 +213,10 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
       };
       setJustAddedId(next.id);
       seenRef.current.add(next.id);
-      onChange([...calculations, next]);
+      // The AI calc arrives WITH a formula, so appendCalc promotes it to the
+      // primary headline (and retires the stale blank seed) when nothing is
+      // primary yet — making the user's first generated calc the big number.
+      onChange(appendCalc(calculations, next));
       setAiPrompt('');
     } catch (err: any) {
       setAiError(String(err?.message ?? 'Network error'));
@@ -148,6 +228,25 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
   const handleRowChange = (idx: number, next: TemplateCalculation) => {
     const arr = [...calculations];
     arr[idx] = next;
+    // First-real-calc → headline (manual path): when the user types the FIRST
+    // formula into a freshly-added row and nothing is primary yet, promote this
+    // row to the primary headline and retire the stale blank seed if it's the
+    // only other calc. Mirrors the AI/append path so a manually-built calc also
+    // drives the big number instead of leaving the static $100 seed winning.
+    const becameReal =
+      (next.formula || '').trim() !== '' && (calculations[idx]?.formula || '').trim() === '';
+    if (becameReal && next.resultMode !== 'primary' && !hasPrimary(arr)) {
+      const others = arr.filter((_, i) => i !== idx);
+      if (others.length === 0 || isBlankSeedOnly(others)) {
+        // Drop the seed (if present) and make this row the headline.
+        const promoted: TemplateCalculation = { ...next, resultMode: 'primary' };
+        onChange([promoted]);
+        return;
+      }
+      // Other real calcs already exist but none is primary → still promote this
+      // one so the user gets a headline, but keep the others intact.
+      arr[idx] = { ...next, resultMode: 'primary' };
+    }
     onChange(arr);
   };
 
