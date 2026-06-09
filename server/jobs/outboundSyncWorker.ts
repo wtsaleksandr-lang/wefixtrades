@@ -26,7 +26,7 @@ import {
   prospectEvents,
 } from "@shared/schema";
 import { eq, and, sql, lt, isNull, or, gte } from "drizzle-orm";
-import { getOutreachAdapter } from "../services/outreachPlatform";
+import { getOutreachAdapter, isDryRun } from "../services/outreachPlatform";
 import { checkBlacklist } from "../services/outboundSafety";
 import { artifactOutreachEnabled } from "../services/outboundArtifactGenerator";
 import { createLogger } from "../lib/logger";
@@ -108,10 +108,12 @@ export async function processOutboundSync(): Promise<SyncResult> {
     if (!campaign.external_campaign_id) continue;
 
     const platform = campaign.platform as "instantly" | "smartlead";
+    const dryRun = isDryRun(campaign.metadata as Record<string, unknown> | null);
     let adapter: ReturnType<typeof getOutreachAdapter> | null = null;
 
     try {
-      adapter = getOutreachAdapter(platform);
+      // In dry-run, getOutreachAdapter returns the NoopAdapter — no key needed.
+      adapter = getOutreachAdapter(platform, campaign.metadata as Record<string, unknown> | null);
     } catch (err: any) {
       // API key not configured — skip platform silently
       log.warn("Skipping campaign — adapter unavailable", { campaignId: campaign.id, error: err.message });
@@ -299,6 +301,16 @@ export async function processOutboundSync(): Promise<SyncResult> {
         if (enrichment?.artifact_grade) customFields.audit_grade = enrichment.artifact_grade;
         if (enrichment?.artifact_headline) customFields.audit_finding = enrichment.artifact_headline;
 
+        // ── P1-2: push the per-prospect AI personalization tokens ───────────
+        // These become {{ai_first_line}} / {{ai_offer_angle}} / {{ai_cta_variant}}
+        // / {{ai_reason_to_target}} merge fields in the platform template. Written
+        // at assign time by personalizeForProspect (gated on the ANTHROPIC key);
+        // absent fields are simply omitted (template falls back to its default).
+        if (enrichment?.ai_first_line) customFields.ai_first_line = enrichment.ai_first_line;
+        if (enrichment?.ai_offer_angle) customFields.ai_offer_angle = enrichment.ai_offer_angle;
+        if (enrichment?.ai_cta_variant) customFields.ai_cta_variant = enrichment.ai_cta_variant;
+        if (enrichment?.ai_reason_to_target) customFields.ai_reason_to_target = enrichment.ai_reason_to_target;
+
         const pushResult = await adapter!.addLeadToCampaign(
           campaign.external_campaign_id!,
           {
@@ -307,7 +319,9 @@ export async function processOutboundSync(): Promise<SyncResult> {
             companyName: prospect.business_name,
             website: prospect.website_url || undefined,
             phone: prospect.primary_phone || undefined,
-            personalizationLine: enrichment?.ai_personalization_line || undefined,
+            // Prefer the refined ai_first_line over the legacy personalization line.
+            personalizationLine:
+              enrichment?.ai_first_line || enrichment?.ai_personalization_line || undefined,
             customFields: Object.keys(customFields).length ? customFields : undefined,
           }
         );
@@ -329,17 +343,22 @@ export async function processOutboundSync(): Promise<SyncResult> {
           .set({ status: "in_outreach", updated_at: contactedAt })
           .where(eq(prospects.id, cp.prospect_id));
 
-        // Task 9: sent_to_platform event — metadata includes campaign_id for rate-limit counting
+        // Task 9: event log — metadata includes campaign_id for rate-limit counting.
+        // In dry-run we log a distinct `dry_run_push` (no real lead was registered),
+        // so dashboards + rate-limit counters never treat a test as a real send.
         await db.insert(prospectEvents).values({
           prospect_id: cp.prospect_id,
           campaign_prospect_id: cp.id,
-          event_type: "sent_to_platform",
+          event_type: dryRun ? "dry_run_push" : "sent_to_platform",
           actor_type: "system",
           actor_name: "outbound_sync_worker",
-          summary: `Pushed to ${platform} campaign "${campaign.name}"`,
+          summary: dryRun
+            ? `DRY RUN — no external call. Would push to ${platform} campaign "${campaign.name}"`
+            : `Pushed to ${platform} campaign "${campaign.name}"`,
           metadata: {
             campaign_id: campaign.id,
             external_lead_id: pushResult.externalLeadId,
+            dry_run: dryRun,
           },
         });
 

@@ -11,6 +11,18 @@
 
 export type OutreachPlatform = "instantly" | "smartlead";
 
+/**
+ * A campaign is in dry-run mode when its metadata flag is set OR the global
+ * OUTBOUND_DRY_RUN env var is "true". In dry-run, the NoopAdapter is selected:
+ * it returns a `dryrun-<...>` lead id and makes ZERO external API calls — this
+ * is the test-mode safety guarantee for exercising a campaign without
+ * registering real leads into Instantly/Smartlead.
+ */
+export function isDryRun(campaignMetadata?: Record<string, unknown> | null): boolean {
+  if (process.env.OUTBOUND_DRY_RUN === "true") return true;
+  return campaignMetadata?.dry_run === true;
+}
+
 export interface OutreachLead {
   email: string;
   firstName?: string;
@@ -24,7 +36,7 @@ export interface OutreachLead {
 
 export interface OutreachLeadResult {
   externalLeadId: string;
-  status: "created" | "updated" | "exists";
+  status: "created" | "updated" | "exists" | "dry_run";
 }
 
 export interface OutreachWebhookEvent {
@@ -254,9 +266,53 @@ class SmartleadAdapter implements PlatformAdapter {
   }
 }
 
+/* ─── No-op (dry-run / test) adapter ─── */
+
+/**
+ * Test-mode adapter. Makes NO external network calls of any kind.
+ * Returns a deterministic `dryrun-<email>` lead id so callers can exercise
+ * the full sync path (status transitions, event logging, rate-limit counting)
+ * without registering a single real lead into Instantly/Smartlead.
+ *
+ * Selected by getOutreachAdapter() when isDryRun() is true. This is the
+ * hard safety boundary for campaign testing.
+ */
+export class NoopAdapter implements PlatformAdapter {
+  async addLeadToCampaign(
+    _campaignId: string,
+    lead: OutreachLead
+  ): Promise<OutreachLeadResult> {
+    return {
+      externalLeadId: `dryrun-${lead.email || "lead"}`,
+      status: "dry_run",
+    };
+  }
+
+  async pauseLead(): Promise<void> {
+    // no-op
+  }
+
+  async removeLead(): Promise<void> {
+    // no-op
+  }
+
+  parseWebhook(): OutreachWebhookEvent | null {
+    return null;
+  }
+}
+
 /* ─── Factory ─── */
 
-export function getOutreachAdapter(platform: OutreachPlatform): PlatformAdapter {
+export function getOutreachAdapter(
+  platform: OutreachPlatform,
+  campaignMetadata?: Record<string, unknown> | null
+): PlatformAdapter {
+  // Dry-run short-circuits BEFORE any key lookup or network setup — the no-op
+  // path never needs a platform API key and never touches the network.
+  if (isDryRun(campaignMetadata)) {
+    return new NoopAdapter();
+  }
+
   if (platform === "instantly") {
     const key = process.env.INSTANTLY_API_KEY;
     if (!key) throw new Error("INSTANTLY_API_KEY env var is not set");

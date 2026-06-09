@@ -31,6 +31,7 @@ interface Campaign {
   target_trade: string | null;
   target_region: string | null;
   sender_email: string | null;
+  metadata: { dry_run?: boolean } | null;
   created_at: string;
 }
 
@@ -71,17 +72,22 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
     target_trade: "",
     target_region: "",
     sender_email: "",
+    dry_run: false,
   });
 
   const mutation = useMutation({
     mutationFn: async () => {
+      const { dry_run, ...rest } = form;
       const res = await apiRequest("POST", "/api/admin/outbound/campaigns", {
-        ...form,
+        ...rest,
         external_campaign_id: form.external_campaign_id || null,
         description: form.description || null,
         target_trade: form.target_trade || null,
         target_region: form.target_region || null,
         sender_email: form.sender_email || null,
+        // Dry-run lives on campaign.metadata — the sync path reads metadata.dry_run
+        // to select the NoopAdapter (no external push, no real leads registered).
+        metadata: { dry_run },
         status: "active",
       });
       return res.json();
@@ -89,7 +95,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/campaigns"] });
       toast({ title: "Campaign created" });
-      setForm({ name: "", description: "", platform: "instantly", external_campaign_id: "", target_trade: "", target_region: "", sender_email: "" });
+      setForm({ name: "", description: "", platform: "instantly", external_campaign_id: "", target_trade: "", target_region: "", sender_email: "", dry_run: false });
       onClose();
     },
     onError: (err: any) => toast({ title: "Failed", description: err.message, variant: "destructive" }),
@@ -111,7 +117,22 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="instantly">Instantly</SelectItem>
-                  <SelectItem value="smartlead">Smartlead</SelectItem>
+                  {/* P0-2: Smartlead adapter is an unverified stub — disable until
+                      its endpoints + credentials are verified, so it can't be
+                      selected and silently fail on Push. */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="block">
+                        <SelectItem value="smartlead" disabled>
+                          Smartlead (coming soon)
+                        </SelectItem>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[240px] text-xs">
+                      Coming soon — verify credentials. The Smartlead integration is
+                      not yet verified, so it can't be selected for live campaigns.
+                    </TooltipContent>
+                  </Tooltip>
                 </SelectContent>
               </Select>
             </div>
@@ -147,6 +168,21 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
             <label className="text-xs font-medium text-muted-foreground">Description</label>
             <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Optional notes" />
           </div>
+          {/* P0-1: Dry-run toggle. When on, syncs use the no-op adapter — no leads
+              are registered into Instantly/Smartlead. Safe way to test a campaign. */}
+          <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={form.dry_run}
+              onChange={(e) => setForm({ ...form, dry_run: e.target.checked })}
+              data-testid="campaign-dry-run-toggle"
+            />
+            <span className="text-xs text-amber-800">
+              <span className="font-semibold">Dry-run (test mode)</span> — no real leads
+              are pushed to the platform. Syncs are logged as dry-run pushes only.
+            </span>
+          </label>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -182,7 +218,10 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/campaigns", campaignId] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/prospects"] });
-      toast({ title: "Sync complete", description: `${result.synced} synced, ${result.failed} failed` });
+      toast({
+        title: result.dry_run ? "Dry-run complete" : "Sync complete",
+        description: `${result.synced} ${result.dry_run ? "dry-run" : "synced"}, ${result.failed} failed`,
+      });
     },
     onError: (err: any) => toast({ title: "Sync failed", description: err.message, variant: "destructive" }),
   });
@@ -207,7 +246,14 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
     <div className="bg-card rounded-lg border border-border h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div>
-          <h3 className="font-semibold text-foreground">{campaign.name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-foreground">{campaign.name}</h3>
+            {campaign.metadata?.dry_run && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-700" data-testid="campaign-detail-dry-run-badge">
+                DRY RUN
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground capitalize">{campaign.platform} · {campaign.external_campaign_id || "no external ID"}</p>
         </div>
         <div className="flex gap-2">
@@ -300,9 +346,13 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
       <ConfirmDialog
         open={confirmSync}
         onOpenChange={setConfirmSync}
-        title={`Push ${pendingCount} lead${pendingCount !== 1 ? "s" : ""} into the live campaign?`}
-        description="This sends them into the connected outreach platform and starts contacting them. It can't be undone from here."
-        confirmLabel="Push to campaign"
+        title={campaign.metadata?.dry_run
+          ? `Dry-run push ${pendingCount} lead${pendingCount !== 1 ? "s" : ""}?`
+          : `Push ${pendingCount} lead${pendingCount !== 1 ? "s" : ""} into the live campaign?`}
+        description={campaign.metadata?.dry_run
+          ? "Dry-run mode: nothing is sent to the outreach platform. This only logs dry-run push events so you can verify the flow."
+          : "This sends them into the connected outreach platform and starts contacting them. It can't be undone from here."}
+        confirmLabel={campaign.metadata?.dry_run ? "Run dry-run" : "Push to campaign"}
         pending={syncMutation.isPending}
         onConfirm={() => { syncMutation.mutate(); setConfirmSync(false); }}
       />
@@ -377,6 +427,11 @@ export default function CampaignsPage() {
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ${STATUS_COLORS[c.status]}`}>
                           {c.status}
                         </span>
+                        {c.metadata?.dry_run && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-700" data-testid="campaign-dry-run-badge">
+                            DRY RUN
+                          </span>
+                        )}
                         {c.target_trade && (
                           <span className="text-xs text-muted-foreground">{c.target_trade}</span>
                         )}
