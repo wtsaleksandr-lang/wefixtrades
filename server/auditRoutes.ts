@@ -926,9 +926,29 @@ router.post("/speed", async (req: Request, res: Response) => {
       }
 
       const newWebsiteScore = Math.min(speedPts + qaPointsCalc + aiVisualPts, 20);
-      const oldTotal = existingData?.scores?.total || 0;
-      const oldWebsiteScore = existingData?.scores?.websiteQuality?.score || 0;
-      const newTotal = oldTotal - oldWebsiteScore + newWebsiteScore;
+      // Recompute the /100 total by renormalizing over the AVAILABLE categories —
+      // the same rule calculateScores uses — instead of additively swapping the
+      // website slice. Additive math is wrong once any category is excluded
+      // (the old total was already renormalized to a smaller denominator), so
+      // we rebuild from the per-category scores + the persisted dataQuality flags.
+      const exScores = existingData?.scores || {};
+      const exDq = existingData?.dataQuality || {};
+      const exKeywordAvailable = exDq.keywordDataAvailable !== false;
+      const exCompetitorAvailable = exDq.competitorDataAvailable !== false;
+      const totalParts: Array<{ score: number; max: number }> = [
+        { score: exScores.googleMaps?.score || 0, max: 25 },
+        { score: exScores.demandCoverage?.score || 0, max: 10 },
+        // Website now has speed data, so it always counts post-speed.
+        { score: newWebsiteScore, max: 20 },
+      ];
+      if (exKeywordAvailable) {
+        totalParts.push({ score: exScores.searchVisibility?.score || 0, max: 20 });
+        totalParts.push({ score: exScores.adOpportunity?.score || 0, max: 10 });
+      }
+      if (exCompetitorAvailable) totalParts.push({ score: exScores.competitorPositioning?.score || 0, max: 15 });
+      const earned = totalParts.reduce((sum, p) => sum + p.score, 0);
+      const availMax = totalParts.reduce((sum, p) => sum + p.max, 0);
+      const newTotal = availMax < 100 && availMax > 0 ? Math.round((earned / availMax) * 100) : earned;
 
       // Update scores in merge data
       mergeData.scores = {
@@ -1714,10 +1734,35 @@ function calculateScores(auditData: any) {
   if (auditData.isOpenWeekends) demandPts += 5;
   const demandScore = demandPts;
 
-  const baseTotal = googleMapsScore + searchVisibilityScore + competitorScore + adScore + demandScore;
-  const total = websiteScore === null
-    ? Math.round((baseTotal / 80) * 100)
-    : baseTotal + websiteScore;
+  // ─── Score renormalization over AVAILABLE categories ───
+  // Generalizes the long-standing websiteScore===null pattern (which divided the
+  // 80-pt remainder back up to /100 when website data was absent) to EVERY
+  // category whose external source dropped this run. A category whose source is
+  // unavailable is excluded from both the earned points and the denominator, so
+  // the remaining categories renormalize to /100 instead of the business being
+  // penalized to that category's floor. googleMaps + demandCoverage derive from
+  // always-present business data, so they are never excluded.
+  const dq = auditData.dataQuality || {};
+  // Default true preserves prior behavior for any caller/cache without dataQuality.
+  const keywordAvailable = dq.keywordDataAvailable !== false;
+  const competitorAvailable = dq.competitorDataAvailable !== false;
+  const categoryParts: Array<{ score: number; max: number }> = [
+    { score: googleMapsScore, max: 25 },
+    { score: demandScore, max: 10 },
+  ];
+  if (websiteScore !== null) categoryParts.push({ score: websiteScore, max: 20 });
+  if (keywordAvailable) {
+    categoryParts.push({ score: searchVisibilityScore, max: 20 });
+    categoryParts.push({ score: adScore, max: 10 });
+  }
+  if (competitorAvailable) categoryParts.push({ score: competitorScore, max: 15 });
+  const earnedPts = categoryParts.reduce((sum, p) => sum + p.score, 0);
+  const availableMax = categoryParts.reduce((sum, p) => sum + p.max, 0);
+  // Renormalize to /100 whenever the available max is below the full 100 (i.e.
+  // any category was excluded); otherwise the raw sum already IS the /100 total.
+  const total = availableMax < 100 && availableMax > 0
+    ? Math.round((earnedPts / availableMax) * 100)
+    : earnedPts;
   let grade: string;
   if (total >= 85) grade = "A";
   else if (total >= 70) grade = "B";
@@ -2521,6 +2566,19 @@ router.post("/generate", async (req: Request, res: Response) => {
     const websiteQaData = pick<any>(4);
     if (results[4]?.status === "rejected") log.error("Website QA failed:", (results[4] as any).reason?.message);
 
+    // ─── Data-quality flags (partial-data integrity) ───
+    // Each external source can fail or be cut off by the gather deadline. When a
+    // source drops, the categories that depend on it must be EXCLUDED from the
+    // /100 denominator (see calculateScores) rather than scored at their floor —
+    // otherwise a healthy business that merely had a source fail gets a
+    // misleadingly low grade. These flags are persisted on auditData.dataQuality
+    // and consumed by calculateScores, the report UI, and the outbound artifact.
+    const competitorDataAvailable = !!compData && Array.isArray(compData.competitors) && compData.competitors.length > 0;
+    const keywordDataAvailable = !!serperData && Array.isArray(serperData.keywords);
+    const reviewDataAvailable = !!reviewData;
+    if (!competitorDataAvailable) log.error("[audit/generate] competitor source unavailable — excluding competitor/ad categories from score");
+    if (!keywordDataAvailable) log.error("[audit/generate] keyword source unavailable — excluding search-visibility category from score");
+
     // PageSpeed runs separately in /api/audit/speed after report is returned to client
     const resolvedSpeedData: { mobile: any; desktop: any } = { mobile: null, desktop: null };
 
@@ -2618,6 +2676,15 @@ router.post("/generate", async (req: Request, res: Response) => {
       },
       trade,
       city,
+      // Which external sources actually loaded this run. Drives score
+      // renormalization (calculateScores), the missing-data note in the report
+      // UI, and the outbound-artifact gate.
+      dataQuality: {
+        competitorDataAvailable,
+        keywordDataAvailable,
+        reviewDataAvailable,
+        gatherTimedOut,
+      },
       speedData: { mobile: resolvedSpeedData?.mobile || null, desktop: resolvedSpeedData?.desktop || null },
       competitors,
       areaAverageReviews: compData?.areaAverageReviews || 0,
