@@ -517,6 +517,70 @@ function TemplateRail({
     };
   }, []);
 
+  // Click-and-DRAG to pan the CATEGORIES list VERTICALLY with the mouse cursor
+  // (grab/grabbing), mirroring the theme strip above but on the Y axis. Only
+  // mouse/pen drags — touch keeps native momentum scroll. A small movement
+  // threshold means a real click on a category still selects it; only a
+  // deliberate drag suppresses the click (so drag-to-scroll never fires a
+  // category-select).
+  useEffect(() => {
+    const el = catsListRef.current;
+    if (!el) return;
+    let isDown = false;
+    let moved = false;
+    let startY = 0;
+    let scrollTop = 0;
+    const DRAG_THRESHOLD = 4;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return; // native swipe owns touch
+      isDown = true;
+      moved = false;
+      startY = e.pageY - el.offsetTop;
+      scrollTop = el.scrollTop;
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!isDown) return;
+      const y = e.pageY - el.offsetTop;
+      const walk = y - startY;
+      if (!moved && Math.abs(walk) > DRAG_THRESHOLD) {
+        moved = true;
+        el.classList.add("is-dragging");
+        try { el.setPointerCapture(e.pointerId); } catch {}
+      }
+      if (moved) {
+        e.preventDefault();
+        el.scrollTop = scrollTop - walk;
+      }
+    };
+    const endDrag = (e: PointerEvent) => {
+      if (!isDown) return;
+      isDown = false;
+      el.classList.remove("is-dragging");
+      try { el.releasePointerCapture(e.pointerId); } catch {}
+      // Swallow the click that follows a real drag so it doesn't select a
+      // category the cursor happened to land on at release.
+      if (moved) {
+        const swallow = (ce: MouseEvent) => { ce.stopPropagation(); ce.preventDefault(); };
+        el.addEventListener("click", swallow, { capture: true, once: true });
+        // Safety: if no click fires, drop the one-shot listener next tick.
+        window.setTimeout(() => el.removeEventListener("click", swallow, true), 0);
+      }
+      moved = false;
+    };
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", endDrag);
+    el.addEventListener("pointercancel", endDrag);
+    el.addEventListener("pointerleave", endDrag);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", endDrag);
+      el.removeEventListener("pointercancel", endDrag);
+      el.removeEventListener("pointerleave", endDrag);
+    };
+  }, []);
+
   // Collapse per-layout variants (…_single_col/_two_col/_multi_col sharing a
   // display name) to ONE representative card per template. Layout is chosen
   // in-editor, not in this rail, so the same title must never appear 2–3×.
@@ -1159,6 +1223,16 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 backdrop-filter: blur(12px) saturate(160%) !important;
                 border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
                 align-items: center !important;
+                /* The bar is the topmost element of the preview; behind its
+                   rounded top corners there is no opaque backing, so the grey
+                   editor-section surround bled through the corner-box wedges
+                   OUTSIDE the 10px arc (visible grey triangles top-l / top-r).
+                   Flat-topping the PREVIEW bar removes those wedges — it reads
+                   as a clean embedded-widget toolbar connecting flat to the
+                   body below. Scoped to the preview ONLY; the deployed
+                   QuoteWidget brand bar keeps its rounded corners. */
+                border-top-left-radius: 0 !important;
+                border-top-right-radius: 0 !important;
               }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
@@ -1230,23 +1304,26 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                  scroller actually overflow inside the flex column. */
               .tpl-cats { display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 0; }
               /* Relative shell for the scroll fade + chevron overlays. */
-              .tpl-cats-scroll { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
+              .tpl-cats-scroll { position: relative; }
               .tpl-cats-list {
                 display: flex; flex-direction: column; gap: 6px;
-                /* Bounded, wheel-scrollable container. Flex-fills the available
-                   rail height (min 176px so the list never collapses); the
-                   parent .tpl-cats-scroll caps it, and overscroll-behavior:contain
-                   keeps the mouse wheel scrolling THIS list (not the page) once
-                   it overflows. */
-                flex: 1 1 auto;
-                min-height: 176px;
+                /* COMPACT, capped, wheel-scrollable container (restored from the
+                   pre-#1568 look): only a few rows show; the rest scroll. The
+                   176px cap — NOT flex-fill — keeps the list short so it doesn't
+                   unfold all ~16 categories down the rail. overscroll-behavior:
+                   contain keeps the mouse wheel scrolling THIS list (not the
+                   page) once it overflows. cursor: grab signals drag-to-scroll. */
+                max-height: 176px;
                 overflow-y: auto; scrollbar-width: thin;
                 overscroll-behavior: contain;
                 -webkit-overflow-scrolling: touch;
+                cursor: grab;
                 /* A little bottom padding so the fade masks a partial last row
                    rather than slicing one exactly in half. */
                 padding-bottom: 4px;
               }
+              .tpl-cats-list.is-dragging { cursor: grabbing; }
+              .tpl-cats-list.is-dragging .tpl-cat { pointer-events: none; }
               /* Bottom fade — blends the cut-off last row into the rail ground
                  (CS_LIGHT.bg = rgb(194,208,214)) so it reads as "scroll for
                  more", not a hard clip. pointer-events:none keeps clicks live. */
