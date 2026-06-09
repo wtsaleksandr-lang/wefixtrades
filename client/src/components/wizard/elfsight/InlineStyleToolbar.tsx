@@ -68,6 +68,17 @@ const FONT_SIZE_DEFAULT = 16;
 // Brand-blue active state.
 const ACTIVE_BG = '#0d3cfc';
 
+// BUG 4A — the inline-style toolbar only makes sense for text-bearing,
+// editable fields. Number / slider / select / radio / multi_select / toggle
+// / image_choice / divider / image / video / contact_form carry no rich text
+// for bold / italic / colour / font-size to act on, so the toolbar must NOT
+// surface for them (it was floating over the result + popping a stray badge
+// on every selection). Keep this set in sync with the FieldType union in
+// shared/templatePresets.ts.
+const TEXT_BEARING_FIELD_TYPES: ReadonlySet<TemplateField['type']> = new Set([
+  'text', 'heading', 'paragraph', 'button', 'link',
+]);
+
 interface Props {
   /** Live shell fields — used to resolve the selected id → TemplateField. */
   fields: TemplateField[];
@@ -94,6 +105,14 @@ interface ToolbarRect {
   flipped: boolean;
 }
 
+/** Does rect A (a toolbar box) intersect rect B (the result panel)? */
+function rectsIntersect(
+  aLeft: number, aTop: number, aRight: number, aBottom: number,
+  b: DOMRect,
+): boolean {
+  return aLeft < b.right && aRight > b.left && aTop < b.bottom && aBottom > b.top;
+}
+
 /** Read the selected element's bounding rect (viewport coords). */
 function measureSelected(
   container: HTMLElement,
@@ -108,12 +127,37 @@ function measureSelected(
   const r = node.getBoundingClientRect();
   if (r.width <= 0 || r.height <= 0) return null;
 
-  // Decide flip: prefer ABOVE; flip BELOW when there's not enough room.
-  const wantAbove = r.top - TOOLBAR_GAP_PX - toolbarHeight >= FLIP_BELOW_THRESHOLD_PX;
-  const flipped = !wantAbove;
-  const top = flipped
-    ? r.bottom + TOOLBAR_GAP_PX
-    : r.top - toolbarHeight - TOOLBAR_GAP_PX;
+  // BUG 4A — the result panel ("$100.00") sits at the TOP of the preview.
+  // Locate its bounds so we can guarantee the toolbar never lands on top of
+  // it. Same selector chain PreviewPane uses to resolve a `results` target.
+  const resultNode = container.querySelector<HTMLElement>(
+    '[data-testid="advanced-result-panel"]',
+  )
+    ?? container.querySelector<HTMLElement>('[data-testid="advanced-result"]')
+    ?? container.querySelector<HTMLElement>('.qq-result-block');
+  const resultRect = (resultNode && resultNode !== node && !node.contains(resultNode)
+    && !resultNode.contains(node))
+    ? resultNode.getBoundingClientRect()
+    : null;
+
+  // Clamp the toolbar within the preview container so it can't escape the
+  // canvas (and so a below-flip can't run past the bottom edge).
+  const cRect = container.getBoundingClientRect();
+  const clampTop = cRect.top + VIEWPORT_EDGE_PAD_PX;
+  const clampBottom = cRect.bottom - VIEWPORT_EDGE_PAD_PX;
+
+  // Decide flip: prefer ABOVE; flip BELOW when there's not enough room above
+  // the element OR when docking above would clear the top of the preview /
+  // result panel. A more generous threshold keeps near-top fields from
+  // covering the result.
+  const aboveTop = r.top - toolbarHeight - TOOLBAR_GAP_PX;
+  const belowTop = r.bottom + TOOLBAR_GAP_PX;
+  const roomAbove = r.top - TOOLBAR_GAP_PX - toolbarHeight >= FLIP_BELOW_THRESHOLD_PX;
+  // If the result panel is above (or overlapping the top of) this element,
+  // docking above would collide with it — prefer below.
+  const resultIsAbove = resultRect ? resultRect.top <= r.top : false;
+  let flipped = !roomAbove || (resultIsAbove && aboveTop < (resultRect?.bottom ?? -Infinity));
+  let top = flipped ? belowTop : aboveTop;
 
   // Center horizontally over the element, then clamp to viewport edges.
   const centerX = r.left + r.width / 2;
@@ -122,6 +166,26 @@ function measureSelected(
     - toolbarWidth - VIEWPORT_EDGE_PAD_PX;
   if (left < VIEWPORT_EDGE_PAD_PX) left = VIEWPORT_EDGE_PAD_PX;
   if (left > maxLeft) left = maxLeft;
+
+  // Final overlap guard — if the chosen position still intersects the result
+  // panel, relocate to the other side; if both sides intersect, dock just
+  // below the result panel. Never sit on top of the result.
+  if (resultRect && rectsIntersect(left, top, left + toolbarWidth, top + toolbarHeight, resultRect)) {
+    const altTop = flipped ? aboveTop : belowTop;
+    if (!rectsIntersect(left, altTop, left + toolbarWidth, altTop + toolbarHeight, resultRect)) {
+      flipped = !flipped;
+      top = altTop;
+    } else {
+      // Both candidate slots collide — drop the toolbar just under the result.
+      flipped = true;
+      top = resultRect.bottom + TOOLBAR_GAP_PX;
+    }
+  }
+
+  // Clamp vertically inside the preview so the toolbar can't overflow the
+  // canvas top/bottom after the overlap relocation.
+  if (top < clampTop) top = clampTop;
+  if (top + toolbarHeight > clampBottom) top = clampBottom - toolbarHeight;
 
   return {
     elemLeft: r.left, elemTop: r.top, elemWidth: r.width, elemHeight: r.height,
@@ -149,11 +213,15 @@ export default function InlineStyleToolbar({
   const [moreOpen, setMoreOpen] = useState(false);
   const rafRef = useRef<number | null>(null);
 
-  // Resolve selection → field (or null if not a field selection).
+  // Resolve selection → field (or null if not a TEXT-bearing field selection).
+  // BUG 4A — gate on the field type so the toolbar never appears for non-text
+  // controls (number / slider / dropdown / choice / checkbox / image / etc).
   const selectedField = useMemo<TemplateField | null>(() => {
     const sel = selection.selected;
     if (!sel || sel.kind !== 'field') return null;
-    return fields.find((f) => f.id === sel.id) ?? null;
+    const field = fields.find((f) => f.id === sel.id) ?? null;
+    if (!field || !TEXT_BEARING_FIELD_TYPES.has(field.type)) return null;
+    return field;
   }, [selection.selected, fields]);
 
   // Re-measure on selection change, scroll, resize, mutation.

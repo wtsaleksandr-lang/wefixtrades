@@ -243,15 +243,17 @@ export default function PreviewOverlay({
           z-index: 2;
           pointer-events: auto;
         }
-        /* Desktop / fine-pointer: reveal on button hover, keyboard
-         * focus-within, or when the field is the selected one. (The wrapper is
-         * pointer-events:none so a wrapper :hover can't fire — selection-on-
-         * click is the field-level reveal; button :hover is the corner reveal.) */
+        /* Desktop / fine-pointer: reveal on button hover or keyboard
+         * focus-within ONLY. (The wrapper is pointer-events:none so a wrapper
+         * :hover can't fire — button :hover is the corner reveal.)
+         * BUG 4B — selection no longer reveals it: a plain click-select used
+         * to pop a stray red "−" chip at the corner on EVERY field click. The
+         * remove affordance is now hover/keyboard-only, so selection alone is
+         * clean. Delete stays reachable via hover (pointer) and focus (kbd). */
         @media (pointer: fine) {
           .qq-preview-field-deco:focus-within .qq-preview-field-deco-remove,
           .qq-preview-field-deco-remove:hover,
-          .qq-preview-field-deco-remove:focus-visible,
-          .qq-preview-field-deco.is-selected .qq-preview-field-deco-remove {
+          .qq-preview-field-deco-remove:focus-visible {
             opacity: 1;
           }
         }
@@ -274,10 +276,12 @@ export default function PreviewOverlay({
         }
         /* Destructive intent is revealed on intent only: the resting glyph is a
          * neutral grey outline (reads as a plain control, not an error), and it
-         * turns red on hover/focus or when its field is the selected one. */
+         * turns red on hover/focus of the remove button itself.
+         * BUG 4B — selection no longer turns it red: the stray red corner chip
+         * on every field click came from the is-selected rule here. Red is now
+         * strictly a hover/focus affordance, keeping a plain select neutral. */
         .qq-preview-field-deco-remove:hover .qq-preview-field-deco-remove-glyph,
-        .qq-preview-field-deco-remove:focus-visible .qq-preview-field-deco-remove-glyph,
-        .qq-preview-field-deco.is-selected .qq-preview-field-deco-remove-glyph {
+        .qq-preview-field-deco-remove:focus-visible .qq-preview-field-deco-remove-glyph {
           color: ${p.colors.danger};
           border-color: ${p.colors.danger};
         }
