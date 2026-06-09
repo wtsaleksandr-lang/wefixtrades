@@ -119,7 +119,10 @@ export function registerPublicCheckoutRoutes(app: Express): void {
       if (items.length > 10) return res.status(400).json({ error: "Too many items" });
 
       /* ─── Look up all requested services ─── */
-      const services: Array<ServiceCatalogRow & { _resolvedPriceId: string }> = [];
+      const services: Array<ServiceCatalogRow & {
+        _resolvedPriceId: string | null;
+        _wantsYearly: boolean;
+      }> = [];
       for (const id of items) {
         const svc = await storage.getServiceById(id);
         if (!svc) return res.status(400).json({ error: `Unknown service: ${id}` });
@@ -129,11 +132,21 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         // for the TradeLine tier SKUs (see resolveStripePriceId).
         const wantsYearly = billingPeriod === "yearly" && svc.billing_period === "monthly";
         const resolvedPriceId = resolveStripePriceId(svc, wantsYearly);
-        if (!resolvedPriceId) {
+        // No live/env price id resolves → fall back to inline price_data built
+        // from the catalog default_price + billing_period (mirrors the
+        // citation-builder checkout). This keeps every active tier checkout-able
+        // at its catalog amount even before live Stripe prices are minted.
+        // Guard rails on the fallback:
+        //   - need a usable catalog amount (default_price > 0 cents), else reject.
+        //   - the catalog amount is the *monthly / one-time* price, so we can't
+        //     synthesize a correct *yearly* price from it — when the customer
+        //     asked for yearly and no yearly price id resolves, reject rather
+        //     than mis-bill the monthly amount on a yearly interval.
+        if (!resolvedPriceId && (wantsYearly || svc.default_price == null || svc.default_price <= 0)) {
           const missing = wantsYearly ? "yearly" : "default";
           return res.status(400).json({ error: `${svc.name} does not have a ${missing} price configured. Please contact us.` });
         }
-        services.push({ ...svc, _resolvedPriceId: resolvedPriceId });
+        services.push({ ...svc, _resolvedPriceId: resolvedPriceId, _wantsYearly: wantsYearly });
       }
 
       /* ─── Find or create CRM client ─── */
@@ -262,10 +275,32 @@ export function registerPublicCheckoutRoutes(app: Express): void {
       const hasSubscription = services.some(s => s.billing_period === "monthly");
       const mode = hasSubscription ? "subscription" : "payment";
 
-      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = services.map(svc => ({
-        price: svc._resolvedPriceId,
-        quantity: 1,
-      }));
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = services.map(svc => {
+        // Prefer a real live/env price id (durable wiring). Fall back to inline
+        // price_data built from the catalog default_price + billing_period when
+        // no price id resolves — same pattern as citationBuilderRoutes, extended
+        // with a `recurring` block for subscription tiers so the line item is
+        // valid in subscription mode. unit_amount is in cents (default_price is
+        // already cents in service_catalog).
+        if (svc._resolvedPriceId) {
+          return { price: svc._resolvedPriceId, quantity: 1 };
+        }
+        const isRecurring = svc.billing_period === "monthly";
+        const interval: Stripe.Checkout.SessionCreateParams.LineItem.PriceData.Recurring.Interval =
+          svc._wantsYearly ? "year" : "month";
+        return {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: svc.name,
+              ...(svc.description ? { description: svc.description } : {}),
+            },
+            unit_amount: svc.default_price ?? 0,
+            ...(isRecurring ? { recurring: { interval } } : {}),
+          },
+        };
+      });
 
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
 
