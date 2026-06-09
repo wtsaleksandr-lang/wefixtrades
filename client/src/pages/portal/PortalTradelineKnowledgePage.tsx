@@ -156,10 +156,10 @@ export default function PortalTradelineKnowledgePage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
               <BookOpen className="w-6 h-6 text-brand-blue" /> Knowledge Base
             </h1>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Anything you add here is read by your AI receptionist on every call and chat.
               Higher-priority entries are surfaced first.
             </p>
@@ -181,7 +181,7 @@ export default function PortalTradelineKnowledgePage() {
         </div>
 
         {/* Help cue — top-left, muted, per design-system rule. */}
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Tip: organize by kind (FAQ, Service, Policy…) and raise priority on entries the AI should quote verbatim.
         </p>
 
@@ -216,12 +216,12 @@ export default function PortalTradelineKnowledgePage() {
 
         {/* Error — clear message + retry. */}
         {isError && !isLoading && (
-          <Card className="p-6 bg-red-50 border-red-200">
+          <Card className="p-6 bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-800/60">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-red-800">Couldn't load your knowledge base</p>
-                <p className="text-xs text-red-700 mt-1">
+                <p className="text-sm font-medium text-red-800 dark:text-red-300">Couldn't load your knowledge base</p>
+                <p className="text-xs text-red-700 dark:text-red-400 mt-1">
                   {(entriesQ.error as Error | null)?.message ?? "The server didn't respond as expected."}
                 </p>
                 <Button
@@ -244,9 +244,9 @@ export default function PortalTradelineKnowledgePage() {
             created yet. Per-kind empty states still show inside each tab. */}
         {!isLoading && !isError && totalEntries === 0 && (
           <Card className="p-10 text-center">
-            <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm font-medium text-gray-700">No knowledge entries yet</p>
-            <p className="text-xs text-gray-500 mt-1 mb-4">
+            <BookOpen className="w-8 h-8 text-muted-foreground/50 mx-auto mb-3" />
+            <p className="text-sm font-medium text-foreground">No knowledge entries yet</p>
+            <p className="text-xs text-muted-foreground mt-1 mb-4">
               Add your first entry — FAQs, services, or pricing notes the AI should know about your business.
             </p>
             <Button
@@ -275,7 +275,7 @@ export default function PortalTradelineKnowledgePage() {
           {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
             <TabsContent key={k} value={k} className="space-y-2 mt-4">
               {grouped[k].length === 0 && (
-                <Card className="p-6 text-center text-gray-500 text-sm">
+                <Card className="p-6 text-center text-muted-foreground text-sm">
                   No {KIND_LABEL[k].toLowerCase()} yet. Add your first entry above.
                 </Card>
               )}
@@ -284,13 +284,13 @@ export default function PortalTradelineKnowledgePage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{entry.title}</span>
+                        <span className="font-medium text-foreground">{entry.title}</span>
                         {entry.status !== "active" && (
                           <Badge variant="secondary">{entry.status}</Badge>
                         )}
-                        <span className="text-xs text-gray-400">priority {entry.priority}</span>
+                        <span className="text-xs text-muted-foreground">priority {entry.priority}</span>
                       </div>
-                      <div className="text-sm text-gray-700 mt-1 whitespace-pre-wrap line-clamp-3">{entry.content}</div>
+                      <div className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-3">{entry.content}</div>
                     </div>
                     <div className="flex flex-col gap-1">
                       <Button size="icon" variant="ghost" disabled={idx === 0} onClick={() => move(entry.id, -1)} aria-label={`Move ${entry.title} up`}>
@@ -325,11 +325,11 @@ export default function PortalTradelineKnowledgePage() {
             {editing && (
               <div className="space-y-3">
                 <label className="block text-sm">
-                  <span className="text-gray-700 font-medium">Title</span>
+                  <span className="text-foreground font-medium">Title</span>
                   <Input className="mt-1" maxLength={255} value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
                 </label>
                 <label className="block text-sm">
-                  <span className="text-gray-700 font-medium">Content (markdown)</span>
+                  <span className="text-foreground font-medium">Content (markdown)</span>
                   <Textarea
                     className="mt-1"
                     rows={8}
@@ -341,9 +341,9 @@ export default function PortalTradelineKnowledgePage() {
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <label className="block text-sm">
-                    <span className="text-gray-700 font-medium">Kind</span>
+                    <span className="text-foreground font-medium">Kind</span>
                     <select
-                      className="mt-1 w-full border rounded px-3 py-2.5"
+                      className="mt-1 w-full border border-input bg-background text-foreground rounded px-3 py-2.5"
                       value={editing.kind}
                       onChange={(e) => setEditing({ ...editing, kind: e.target.value as Kind })}
                     >
@@ -351,7 +351,7 @@ export default function PortalTradelineKnowledgePage() {
                     </select>
                   </label>
                   <label className="block text-sm">
-                    <span className="text-gray-700 font-medium">Priority</span>
+                    <span className="text-foreground font-medium">Priority</span>
                     <Input
                       className="mt-1"
                       type="number"
@@ -360,9 +360,9 @@ export default function PortalTradelineKnowledgePage() {
                     />
                   </label>
                   <label className="block text-sm">
-                    <span className="text-gray-700 font-medium">Status</span>
+                    <span className="text-foreground font-medium">Status</span>
                     <select
-                      className="mt-1 w-full border rounded px-3 py-2.5"
+                      className="mt-1 w-full border border-input bg-background text-foreground rounded px-3 py-2.5"
                       value={editing.status}
                       onChange={(e) => setEditing({ ...editing, status: e.target.value as Entry["status"] })}
                     >
@@ -388,7 +388,7 @@ export default function PortalTradelineKnowledgePage() {
             <DialogHeader>
               <DialogTitle>How your AI sees this</DialogTitle>
             </DialogHeader>
-            <pre className="text-xs bg-gray-50 border rounded p-3 max-h-[60vh] overflow-auto whitespace-pre-wrap">{previewText}</pre>
+            <pre className="text-xs bg-muted text-foreground border border-border rounded p-3 max-h-[60vh] overflow-auto whitespace-pre-wrap">{previewText}</pre>
             <DialogFooter>
               <Button onClick={() => setShowPreview(false)}>Close</Button>
             </DialogFooter>

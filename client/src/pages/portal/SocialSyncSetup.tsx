@@ -185,60 +185,60 @@ export default function SocialSyncSetup() {
         <BackButton to="/portal/socialsync" label="Back to Social Media" />
         {/* Header */}
         <div>
-          <h1 className="text-lg font-bold text-gray-900">{isEditing ? "Edit SocialSync Settings" : "Set Up SocialSync"}</h1>
-          <p className="text-sm text-gray-500">{isEditing ? "Update your preferences and we'll adjust your content." : "Tell us about your business so we can create the right content for you."}</p>
+          <h1 className="text-lg font-bold text-foreground">{isEditing ? "Edit SocialSync Settings" : "Set Up SocialSync"}</h1>
+          <p className="text-sm text-muted-foreground">{isEditing ? "Update your preferences and we'll adjust your content." : "Tell us about your business so we can create the right content for you."}</p>
         </div>
 
         {/* Step indicator */}
         <div className="flex items-center gap-1">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-1 flex-1">
-              <div className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-brand-blue" : "bg-gray-200"}`} />
+              <div className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-brand-blue" : "bg-muted"}`} />
             </div>
           ))}
         </div>
-        <p className="text-xs text-gray-400 text-center">Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>
+        <p className="text-xs text-muted-foreground text-center">Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>
 
         {/* Step content */}
         <Card className="p-5">
           {step === 0 && (
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-gray-900">About your business</h2>
-              <p className="text-xs text-gray-500">This helps us write content that sounds like you, not generic AI.</p>
+              <h2 className="text-sm font-semibold text-foreground">About your business</h2>
+              <p className="text-xs text-muted-foreground">This helps us write content that sounds like you, not generic AI.</p>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">What type of business are you?</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">What type of business are you?</label>
                 <Input value={form.niche} onChange={e => setForm({ ...form, niche: e.target.value })} placeholder="e.g. Residential plumber, HVAC technician, Roofer" />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Where do you operate?</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">Where do you operate?</label>
                 <Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. Denver, CO or Greater Austin area" />
-                <p className="text-[10px] text-gray-400 mt-1">We'll mention your service area naturally in posts to build local trust.</p>
+                <p className="text-[10px] text-muted-foreground mt-1">We'll mention your service area naturally in posts to build local trust.</p>
               </div>
             </div>
           )}
 
           {step === 1 && (
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-gray-900">Your services</h2>
-              <p className="text-xs text-gray-500">List the services you offer. We'll create content around these.</p>
+              <h2 className="text-sm font-semibold text-foreground">Your services</h2>
+              <p className="text-xs text-muted-foreground">List the services you offer. We'll create content around these.</p>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Services you offer (comma-separated)</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">Services you offer (comma-separated)</label>
                 <Input value={form.services} onChange={e => setForm({ ...form, services: e.target.value })} placeholder="e.g. Drain cleaning, Water heater repair, Pipe replacement" />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Services to emphasize (optional)</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">Services to emphasize (optional)</label>
                 <Input value={form.service_focus} onChange={e => setForm({ ...form, service_focus: e.target.value })} placeholder="e.g. Emergency plumbing, Leak repair" />
-                <p className="text-[10px] text-gray-400 mt-1">If some services are more important to promote, list them here.</p>
+                <p className="text-[10px] text-muted-foreground mt-1">If some services are more important to promote, list them here.</p>
               </div>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-gray-900">Content preferences</h2>
-              <p className="text-xs text-gray-500">Set the tone and frequency for your posts.</p>
+              <h2 className="text-sm font-semibold text-foreground">Content preferences</h2>
+              <p className="text-xs text-muted-foreground">Set the tone and frequency for your posts.</p>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Tone of voice</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">Tone of voice</label>
                 <Select value={form.tone} onValueChange={v => setForm({ ...form, tone: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -247,7 +247,7 @@ export default function SocialSyncSetup() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Posting frequency</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">Posting frequency</label>
                 <Select value={form.frequency} onValueChange={v => setForm({ ...form, frequency: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -256,14 +256,14 @@ export default function SocialSyncSetup() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Platforms</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">Platforms</label>
                 <div className="flex gap-2 flex-wrap">
                   {["facebook", "instagram", "google_business"].map(p => {
                     const selected = form.platform_preferences.includes(p);
                     const label = p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1);
                     return (
                       <button key={p} type="button"
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selected ? "bg-brand-blue/10 text-brand-blue border-brand-blue" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selected ? "bg-brand-blue/10 text-brand-blue border-brand-blue" : "bg-card text-muted-foreground border-border hover:border-muted-foreground/40"}`}
                         onClick={() => setForm({
                           ...form,
                           platform_preferences: selected
@@ -285,19 +285,19 @@ export default function SocialSyncSetup() {
 
           {step === 3 && (
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-gray-900">Connect your accounts</h2>
-              <p className="text-xs text-gray-500">We need access to post on your behalf. You can connect these now or later.</p>
+              <h2 className="text-sm font-semibold text-foreground">Connect your accounts</h2>
+              <p className="text-xs text-muted-foreground">We need access to post on your behalf. You can connect these now or later.</p>
 
               {[
                 { platform: "Facebook", status: fbStatus, key: "facebook" },
                 { platform: "Instagram", status: igStatus, key: "instagram" },
                 { platform: "Google Business", status: gbpStatus, key: "google_business" },
               ].map(({ platform, status, key }) => (
-                <div key={key} className={`flex items-center justify-between p-3 rounded-lg border ${status?.connected ? "border-emerald-200 bg-emerald-50" : "border-gray-200"}`}>
+                <div key={key} className={`flex items-center justify-between p-3 rounded-lg border ${status?.connected ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/40" : "border-border"}`}>
                   <div className="flex items-center gap-2">
                     {status?.connected
                       ? <CheckCircle className="w-4 h-4 text-emerald-500" />
-                      : <Link2 className="w-4 h-4 text-gray-400" />
+                      : <Link2 className="w-4 h-4 text-muted-foreground" />
                     }
                     <span className="text-sm font-medium">{platform}</span>
                     {status?.connected && <span className="text-[10px] text-emerald-600">Connected</span>}
@@ -311,14 +311,14 @@ export default function SocialSyncSetup() {
                     status && status.configured === false ? (
                       <span className="text-xs text-amber-600">Connecting available soon</span>
                     ) : (
-                      <span className="text-xs text-gray-400">Your team will connect this</span>
+                      <span className="text-xs text-muted-foreground">Your team will connect this</span>
                     )
                   )}
                 </div>
               ))}
 
               {platformsConnected.length === 0 && (
-                <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg text-xs text-amber-800">
+                <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/40 rounded-lg text-xs text-amber-800 dark:text-amber-200">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <span>
                     {anyPlatformUnconfigured
@@ -332,8 +332,8 @@ export default function SocialSyncSetup() {
 
           {step === 4 && (
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-gray-900">Review your setup</h2>
-              <p className="text-xs text-gray-500">Here's what SocialSync will do for your business.</p>
+              <h2 className="text-sm font-semibold text-foreground">Review your setup</h2>
+              <p className="text-xs text-muted-foreground">Here's what SocialSync will do for your business.</p>
 
               <div className="space-y-2">
                 <ReviewRow label="Business" value={form.niche} />
@@ -346,7 +346,7 @@ export default function SocialSyncSetup() {
                 <ReviewRow label="Connected" value={platformsConnected.length > 0 ? platformsConnected.join(", ") : "None yet (admin will connect)"} />
               </div>
 
-              <div className="p-3 bg-[#EEF3FF] rounded-lg text-xs text-gray-700 space-y-1">
+              <div className="p-3 bg-brand-blue/10 rounded-lg text-xs text-foreground space-y-1">
                 <p className="font-medium text-brand-blue">What happens next:</p>
                 <p>• AI will generate content tailored to your {form.niche} business in {form.location}</p>
                 <p>• Posts will be scheduled and published automatically to your connected platforms</p>
@@ -380,9 +380,9 @@ export default function SocialSyncSetup() {
 
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between py-1.5 border-b border-gray-100 last:border-0">
-      <span className="text-xs text-gray-500">{label}</span>
-      <span className="text-xs font-medium text-gray-800 text-right max-w-[60%]">{value}</span>
+    <div className="flex items-start justify-between py-1.5 border-b border-border last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs font-medium text-foreground text-right max-w-[60%]">{value}</span>
     </div>
   );
 }
