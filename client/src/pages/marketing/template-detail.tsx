@@ -14,7 +14,7 @@
 // Unknown slug → redirect to /templates index (avoids dead-end SEO).
 
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useRoute, Redirect } from "wouter";
+import { Link, useRoute, useLocation, Redirect } from "wouter";
 import { ArrowRight, ArrowLeft, ChevronLeft, ChevronDown, Check, Zap, Clock, TrendingUp, ShieldCheck, Monitor, Smartphone, SlidersHorizontal, Calculator, Palette, UserPlus, Code2, Wand2, Globe } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
@@ -827,8 +827,23 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
   // any other template in place. The page's SEO (meta/canonical/breadcrumb/
   // JSON-LD) stays anchored to the URL `template`; the VISIBLE hero + preview
   // follow the selected one.
+  const [, navigate] = useLocation();
   const [selectedSlug, setSelectedSlug] = useState<string>(template.id);
   useEffect(() => setSelectedSlug(template.id), [template.id]);
+  // Selecting a template in the rail drives the URL (single source of truth):
+  // the route param `:slug` change re-derives `template`, which in turn updates
+  // PageMeta (title/canonical), breadcrumbs and JSON-LD — keeping SEO in sync
+  // with the visible preview. `setSelectedSlug` gives instant preview feedback;
+  // the rail may hand us a layout-variant id, so resolve to the canonical preset
+  // id before putting it in the URL. navigate fires only from this user handler
+  // (never an effect), so there is no navigation loop.
+  const handleSelect = (nextSlug: string) => {
+    setSelectedSlug(nextSlug);
+    const preset = getTemplatePreset(nextSlug);
+    const canonicalId = preset?.id ?? nextSlug;
+    if (canonicalId === template.id) return;
+    navigate(`/templates/${canonicalId}`, { replace: true });
+  };
   const activeTemplate = useMemo(
     () => getTemplatePreset(selectedSlug) ?? template,
     [selectedSlug, template],
@@ -1047,7 +1062,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Two-pane editor: template rail (colour selector + catalogue) on
                 the left, the title + live widget on the right. */}
             <div className="tpl-editor">
-              <TemplateRail selectedSlug={selectedSlug} onSelect={setSelectedSlug} accent={accent} combo={selectedCombo} setCombo={setCombo} />
+              <TemplateRail selectedSlug={selectedSlug} onSelect={handleSelect} accent={accent} combo={selectedCombo} setCombo={setCombo} />
               <div className="tpl-preview">
             {/* Full-width preview — NO card chrome/edges. The widget paints its
                 own theme background and fills the preview area edge-to-edge (it
