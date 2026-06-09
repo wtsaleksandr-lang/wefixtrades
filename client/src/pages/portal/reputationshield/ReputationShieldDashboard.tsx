@@ -462,6 +462,11 @@ export default function ReputationShieldDashboard() {
   const reputationScoreIllustrative =
     scoreStatsQuery.data?.data_status === "illustrative" ||
     (reputationScoreUsingFallback && reputationScoreFallback > 0);
+  // "Has data" for the headline gauge: real score value, or a non-zero (real)
+  // fallback. A brand-new account is 0/0 → empty-state, so it shows a neutral
+  // "Awaiting first reviews" instead of the alarming "Needs attention" verdict.
+  const reputationHasData =
+    !reputationScoreUsingFallback || reputationScoreFallback > 0;
 
   const repVerdict =
     scoreStatsQuery.data?.verdict ??
@@ -753,6 +758,8 @@ export default function ReputationShieldDashboard() {
               verdict={repVerdict}
               advice={repAdvice}
               size={200}
+              emptyState={!reputationHasData}
+              emptyStateMessage="Awaiting first reviews"
             />
           </Card>
 
@@ -766,6 +773,7 @@ export default function ReputationShieldDashboard() {
                 title="Sentiment mix"
                 segments={sentimentSegments}
                 size={130}
+                muted={sentimentIllustrative}
                 ariaLabel="Review sentiment mix"
               />
             </Card>

@@ -84,18 +84,37 @@ export function OnboardingWalkthrough({
   const [idx, setIdx] = useState<number>(0);
   const [rect, setRect] = useState<Rect | null>(null);
 
-  // On mount: open if storageKey not set yet.
+  // On mount: open if storageKey not set yet. We persist the "seen" flag the
+  // moment we decide to open — NOT only on finish() — so any dismissal path
+  // (Skip, Done, Escape, or even a hard refresh while the tour is up) prevents
+  // it from auto-reopening on the next visit. Previously the flag was written
+  // only in finish(); if the user reloaded mid-tour (or the highlight target
+  // couldn't be measured and the dismiss buttons never rendered), the tour
+  // re-fired on every load. (Fixes the ContentFlow "re-opens every visit" bug.)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       if (!window.localStorage.getItem(storageKey)) {
         setOpen(true);
+        window.localStorage.setItem(storageKey, String(Date.now()));
       }
     } catch {
       // private mode etc. — still show the tour; it just won't persist.
       setOpen(true);
     }
   }, [storageKey]);
+
+  // Escape always dismisses the overlay so a user is never trapped behind the
+  // dim layer (e.g. if the highlight target can't be measured).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") finish();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const updateRect = useCallback(() => {
     if (!open) return;

@@ -75,6 +75,7 @@ export function SecurityScoreCard({
           score={emptyState ? 0 : score}
           size="lg"
           showScore={!emptyState}
+          emptyState={emptyState}
         />
       </div>
 

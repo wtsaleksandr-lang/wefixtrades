@@ -267,6 +267,12 @@ export default function QuoteQuickDashboard() {
   const conversionRateIllustrative =
     scoreStatsQuery.data?.data_status === "illustrative" ||
     (conversionRateUsingFallback && conversionRateFallback > 0);
+  // "Has data" for the headline gauge: the score endpoint returned a real
+  // value, OR the (real) fallback is non-zero. A brand-new account is 0/0 →
+  // empty-state, so it shows a neutral "Awaiting first scan" instead of the
+  // alarming crimson "Below average" verdict.
+  const convHasData =
+    !conversionRateUsingFallback || conversionRateFallback > 0;
   const convVerdict =
     scoreStatsQuery.data?.verdict ??
     (conversionRate >= 15 ? "Strong conversion"
@@ -487,6 +493,8 @@ export default function QuoteQuickDashboard() {
               advice={convAdvice}
               unit="%"
               size={200}
+              emptyState={!convHasData}
+              emptyStateMessage="Awaiting first quotes"
             />
           </Card>
 
