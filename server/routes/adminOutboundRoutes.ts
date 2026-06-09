@@ -23,6 +23,7 @@ import {
   prospects, prospectEnrichment, outboundCampaigns, campaignProspects,
   prospectEvents, salesOpportunities, importBatches,
   outboundBlockedDomains, outboundBlockedEmails, outboundBlockedPhones,
+  outreachSequences, outreachSequenceSteps,
   type InsertProspect, type InsertProspectEnrichment,
   type InsertOutboundCampaign, type InsertCampaignProspect,
   type InsertProspectEvent, type InsertSalesOpportunity,
@@ -30,7 +31,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, ilike, and, or, inArray, sql, isNull, ne, gte, lt } from "drizzle-orm";
 import { runHeuristics, runAiEnrichment, computeBaseScore } from "../services/prospectEnrichment";
-import { getOutreachAdapter, parseOutreachWebhook } from "../services/outreachPlatform";
+import { getOutreachAdapter, parseOutreachWebhook, isDryRun } from "../services/outreachPlatform";
 import {
   generateFingerprint,
   scoreContactConfidence,
@@ -39,6 +40,7 @@ import {
 } from "../services/outboundSafety";
 import { assignTargetOffer, computePriorityScore } from "../services/prospectTargeting";
 import { classifyReplyFull } from "../services/replyIntelligence";
+import { personalizeForProspect } from "../services/copyEngine";
 import { createLogger } from "../lib/logger";
 import { z } from "zod";
 import { searchGoogleMaps, buildMapsQuery, OutscraperError, type OutscraperLead } from "../services/outscraperClient";
@@ -98,6 +100,88 @@ async function logEvent(
     summary,
     metadata: meta ?? null,
   });
+}
+
+/**
+ * P1-2 helper. Returns a PersonalizeContext for a campaign IFF it has at least
+ * one sequence with an ai_personalize step. Returns null when no sequence
+ * requests personalization (so the assign hook is a no-op for non-AI campaigns).
+ * The ICP / pain / offer fields come from the sequence header.
+ */
+async function getPersonalizationContext(
+  campaignId: number
+): Promise<{ icp: string; painPoint: string; offer: string } | null> {
+  const seqs = await db
+    .select()
+    .from(outreachSequences)
+    .where(and(
+      eq(outreachSequences.campaign_id, campaignId),
+      eq(outreachSequences.ai_personalize, true),
+    ))
+    .orderBy(desc(outreachSequences.updated_at))
+    .limit(1);
+
+  let seq = seqs[0];
+
+  // The header flag may be off while an individual step opts in — also accept a
+  // sequence on this campaign that has any ai_personalize step.
+  if (!seq) {
+    const stepSeqs = await db
+      .select({ s: outreachSequences })
+      .from(outreachSequenceSteps)
+      .innerJoin(outreachSequences, eq(outreachSequences.id, outreachSequenceSteps.sequence_id))
+      .where(and(
+        eq(outreachSequences.campaign_id, campaignId),
+        eq(outreachSequenceSteps.ai_personalize, true),
+      ))
+      .orderBy(desc(outreachSequences.updated_at))
+      .limit(1);
+    seq = stepSeqs[0]?.s;
+  }
+
+  if (!seq) return null;
+
+  return {
+    icp: seq.icp || "local home-services business",
+    painPoint: seq.pain_point || "losing after-hours leads with no instant-quote tool",
+    offer: seq.offer || "WeFixTrades instant-quote widget",
+  };
+}
+
+/** P1-2 helper. Upsert the four AI personalization tokens onto prospect_enrichment. */
+async function upsertPersonalizationTokens(
+  prospectId: number,
+  tokens: {
+    ai_first_line: string;
+    ai_reason_to_target: string;
+    ai_offer_angle: string;
+    ai_cta_variant: string;
+  }
+): Promise<void> {
+  const [existing] = await db
+    .select({ id: prospectEnrichment.id })
+    .from(prospectEnrichment)
+    .where(eq(prospectEnrichment.prospect_id, prospectId))
+    .limit(1);
+
+  const fields = {
+    ai_first_line: tokens.ai_first_line,
+    ai_reason_to_target: tokens.ai_reason_to_target,
+    ai_offer_angle: tokens.ai_offer_angle,
+    ai_cta_variant: tokens.ai_cta_variant,
+    updated_at: new Date(),
+  };
+
+  if (existing) {
+    await db.update(prospectEnrichment)
+      .set(fields)
+      .where(eq(prospectEnrichment.id, existing.id));
+  } else {
+    await db.insert(prospectEnrichment).values({
+      prospect_id: prospectId,
+      ...fields,
+    } as InsertProspectEnrichment);
+  }
 }
 
 /** Normalise a URL to a bare domain for dedup */
@@ -678,21 +762,37 @@ export function registerAdminOutboundRoutes(app: Express): void {
      ═══════════════════════════════════════════ */
 
   // GET /api/admin/outbound/prospects
-  // Query: status, trade, city, search, limit, offset, min_score
+  // Query: status, trade, trade_exact, city, country, zip, search, limit, offset, min_score, sort
+  //
+  // Label aliases (no separate columns — these map onto existing ones):
+  //   province = state, town = city, niche = trade (trade_category).
+  // `trade` is a substring (ilike) match by default; pass trade_exact=true|1
+  // for an exact-match on trade_category. `zip` matches the prospects.zip_code
+  // column (prefix-aware substring). `country` matches prospects.country.
   app.get("/api/admin/outbound/prospects", requireAdmin, async (req: Request, res: Response) => {
     try {
       const {
-        status, trade, city, search,
+        status, trade, trade_exact, city, country, zip, search,
         limit: lRaw, offset: oRaw, min_score, sort,
       } = req.query as Record<string, string>;
 
       const limit = Math.min(100, Math.max(1, parseInt(lRaw) || 50));
       const offset = Math.max(0, parseInt(oRaw) || 0);
 
+      const tradeExact = trade_exact === "true" || trade_exact === "1";
+
       const filters: ReturnType<typeof eq>[] = [];
       if (status) filters.push(eq(prospects.status, status));
-      if (trade) filters.push(ilike(prospects.trade_category, `%${trade}%`));
+      if (trade) {
+        filters.push(
+          tradeExact
+            ? eq(prospects.trade_category, trade)
+            : ilike(prospects.trade_category, `%${trade}%`),
+        );
+      }
       if (city) filters.push(ilike(prospects.city, `%${city}%`));
+      if (country) filters.push(ilike(prospects.country, `%${country}%`));
+      if (zip) filters.push(ilike(prospects.zip_code, `%${zip}%`));
       if (search) {
         filters.push(
           or(
@@ -709,27 +809,42 @@ export function registerAdminOutboundRoutes(app: Express): void {
       if (minScore > 0) filters.push(gte(prospectEnrichment.quality_score, minScore) as any);
       const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
-      // Join enrichment for score
+      // P2-1: when filtering by min_score, prospects with NO enrichment row must
+      // be excluded — a leftJoin leaves quality_score NULL and the gte() filter
+      // then drops them inconsistently from the page while the count query (same
+      // where) also drops them, but rows lacking enrichment that DON'T match the
+      // score still shouldn't appear. Use an INNER join so "no enrichment" == "no
+      // score" == excluded, keeping page + total perfectly consistent. Without a
+      // score filter, keep the leftJoin so un-enriched prospects are still listed.
+      const joinCondition = eq(prospectEnrichment.prospect_id, prospects.id);
+      const enrichmentRequired = minScore > 0;
+
       const orderClause = sort === "priority"
         ? [desc(prospects.priority_score), desc(prospectEnrichment.quality_score), desc(prospects.created_at)]
         : [desc(prospectEnrichment.quality_score), desc(prospects.created_at)];
 
-      const rows = await db
+      const rowsQuery = db
         .select({
           prospect: prospects,
           enrichment: prospectEnrichment,
         })
         .from(prospects)
-        .leftJoin(prospectEnrichment, eq(prospectEnrichment.prospect_id, prospects.id))
+        .$dynamic();
+      const rows = await (enrichmentRequired
+        ? rowsQuery.innerJoin(prospectEnrichment, joinCondition)
+        : rowsQuery.leftJoin(prospectEnrichment, joinCondition))
         .where(whereClause)
         .orderBy(...orderClause)
         .limit(limit)
         .offset(offset);
 
-      const totalRows = await db
+      const countQuery = db
         .select({ c: sql<number>`count(*)` })
         .from(prospects)
-        .leftJoin(prospectEnrichment, eq(prospectEnrichment.prospect_id, prospects.id))
+        .$dynamic();
+      const totalRows = await (enrichmentRequired
+        ? countQuery.innerJoin(prospectEnrichment, joinCondition)
+        : countQuery.leftJoin(prospectEnrichment, joinCondition))
         .where(whereClause);
 
       res.json({ data: rows, total: Number(totalRows[0]?.c ?? 0) });
@@ -1148,7 +1263,38 @@ export function registerAdminOutboundRoutes(app: Express): void {
         assigned.push(p.id);
       }
 
-      res.json({ assigned: assigned.length, skipped: skipped.length, blocked });
+      // ── P1-2: per-prospect AI personalization ───────────────
+      // When the campaign has a sequence with an ai_personalize step, generate
+      // the four token fields (ai_first_line / ai_offer_angle / ai_cta_variant /
+      // ai_reason_to_target) for each newly assigned prospect and persist them
+      // on prospect_enrichment. The sync worker then pushes them as customFields.
+      // Gated gracefully: skip entirely (no crash) when no ANTHROPIC key, or when
+      // no sequence requests personalization.
+      let personalized = 0;
+      if (assigned.length > 0) {
+        try {
+          const personalizeCtx = await getPersonalizationContext(campaignId);
+          if (personalizeCtx && process.env.ANTHROPIC_API_KEY) {
+            const toPersonalize = approved.filter((p) => assigned.includes(p.id));
+            for (const p of toPersonalize) {
+              try {
+                const tokens = await personalizeForProspect(p, personalizeCtx);
+                await upsertPersonalizationTokens(p.id, tokens);
+                personalized++;
+              } catch (perErr: any) {
+                // Per-prospect failure must not block the assignment — log + move on.
+                log.warn("[outbound] personalize failed", { prospect_id: p.id, error: perErr.message });
+              }
+            }
+          } else if (personalizeCtx && !process.env.ANTHROPIC_API_KEY) {
+            log.info("[outbound] ai_personalize requested but ANTHROPIC_API_KEY absent — skipping", { campaignId });
+          }
+        } catch (ctxErr: any) {
+          log.warn("[outbound] personalization context lookup failed", { campaignId, error: ctxErr.message });
+        }
+      }
+
+      res.json({ assigned: assigned.length, skipped: skipped.length, blocked, personalized });
     } catch (err: any) {
       log.error("[outbound] assign:", err.message);
       res.status(500).json({ error: "Assignment failed" });
@@ -1172,7 +1318,12 @@ export function registerAdminOutboundRoutes(app: Express): void {
         return res.status(400).json({ error: "Campaign has no external_campaign_id set" });
       }
 
-      const adapter = getOutreachAdapter(campaign.platform as "instantly" | "smartlead");
+      const dryRun = isDryRun(campaign.metadata as Record<string, unknown> | null);
+      // In dry-run, getOutreachAdapter returns the NoopAdapter — no key needed, no network call.
+      const adapter = getOutreachAdapter(
+        campaign.platform as "instantly" | "smartlead",
+        campaign.metadata as Record<string, unknown> | null,
+      );
 
       // Fetch pending leads
       const pending = await db
@@ -1218,9 +1369,14 @@ export function registerAdminOutboundRoutes(app: Express): void {
             .set({ status: "in_outreach", updated_at: new Date() })
             .where(eq(prospects.id, cp.prospect_id));
 
-          await logEvent(cp.prospect_id, "synced", actor,
-            `Synced to ${campaign.platform} campaign`,
-            { external_lead_id: result.externalLeadId },
+          await logEvent(
+            cp.prospect_id,
+            dryRun ? "dry_run_push" : "synced",
+            actor,
+            dryRun
+              ? `DRY RUN — no external call. Would sync to ${campaign.platform} campaign`
+              : `Synced to ${campaign.platform} campaign`,
+            { external_lead_id: result.externalLeadId, dry_run: dryRun },
             cp.id
           );
 
@@ -1234,7 +1390,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
         }
       }
 
-      res.json({ synced, failed, total: pending.length });
+      res.json({ synced, failed, total: pending.length, dry_run: dryRun });
     } catch (err: any) {
       log.error("[outbound] sync error:", err.message);
       res.status(500).json({ error: "Sync failed" });

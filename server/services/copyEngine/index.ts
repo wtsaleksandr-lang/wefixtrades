@@ -10,14 +10,12 @@
  *                                      (ai_first_line, ai_offer_angle,
  *                                      ai_cta_variant) for one prospect.
  *
- * NOTE (port): the original branch also shipped a persistSequence() that wrote
- * to outbound_sequence_templates / _steps. Those tables predate main's
- * outreach_sequences schema (migration 0037) and don't exist here, so
- * persistence is intentionally omitted from this port. generateSequence returns
- * its full result for the caller to use or persist against the current schema;
+ * NOTE (port): this module stays pure-AI (no DB coupling). Persistence against
+ * main's schema is done at the route layer — POST /sequences/generate with
+ * `persist: true` writes the returned steps into outreach_sequences +
+ * outreach_sequence_steps (see adminOutreachSequencesRoutes.ts, P1-3).
  * personalizeForProspect's tokens map directly onto the existing
- * prospect_enrichment columns. Wiring persistence to main's schema is a
- * follow-up.
+ * prospect_enrichment columns and are written by the campaign-assign hook (P1-2).
  */
 
 import {

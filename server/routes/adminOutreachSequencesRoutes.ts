@@ -41,6 +41,15 @@ const generateSequenceSchema = z.object({
   senderPersona: z.string().min(3).max(300),
   tone: z.enum(["direct", "warm", "playful", "technical"]).default("direct"),
   stepCount: z.number().int().min(2).max(8).default(4),
+  // P1-3: when persist is set, the generated steps are saved into
+  // outreach_sequences + outreach_sequence_steps and the new sequence id
+  // is returned. Without it, the route stays preview-only (legacy behaviour).
+  persist: z.boolean().optional().default(false),
+  name: z.string().min(2).max(200).optional(),
+  campaign_id: z.number().int().positive().nullable().optional(),
+  trade_filter: z.string().max(100).nullable().optional(),
+  region_filter: z.string().max(200).nullable().optional(),
+  ai_personalize: z.boolean().optional().default(false),
 });
 
 /* ─── Input schemas ─── */
@@ -77,13 +86,14 @@ const updateStepSchema = stepSchema.partial();
 
 /* ─── Route registration ─── */
 export function registerAdminOutreachSequencesRoutes(app: Express): void {
-  /* ─── AI: generate a multi-step sequence (preview) ───
+  /* ─── AI: generate a multi-step sequence (preview or persist) ───
    *
    * Runs the multi-agent copy engine (research → draft → edit → QA) and returns
-   * the generated brief + steps + QA report for the admin to review. Does NOT
-   * persist — the admin creates a sequence from the preview via the normal
-   * create flow (the outreach_sequences columns mirror these inputs). The
-   * engine routes through aiService, so it inherits the multi-provider failover.
+   * the generated brief + steps + QA report for the admin to review. By default
+   * it is preview-only. Pass `persist: true` (P1-3) to also save the generated
+   * steps into outreach_sequences + outreach_sequence_steps and get back the new
+   * `sequenceId`. The engine routes through aiService, so it inherits the
+   * multi-provider failover.
    */
   app.post("/api/admin/outbound/sequences/generate", requireAdmin, async (req: Request, res: Response) => {
     const parsed = generateSequenceSchema.safeParse(req.body);
@@ -91,13 +101,60 @@ export function registerAdminOutreachSequencesRoutes(app: Express): void {
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
     try {
-      const result = await generateSequence(parsed.data);
+      const input = parsed.data;
+      const result = await generateSequence(input);
+
+      let savedSequenceId: number | undefined;
+
+      // P1-3: optionally persist the AI-generated steps into the live tables.
+      // Each generated SequenceStepDraft maps to one outreach_sequence_steps row;
+      // we take the first subject variant as the step subject (the variants array
+      // is preserved in the response for the operator to A/B later).
+      if (input.persist) {
+        const ownerId = (req.user as any)?.id ?? null;
+        const seqName =
+          input.name?.trim() ||
+          `AI sequence — ${new Date().toISOString().slice(0, 10)}`;
+
+        const [seq] = await db.insert(outreachSequences).values({
+          name: seqName,
+          campaign_id: input.campaign_id ?? null,
+          trade_filter: input.trade_filter ?? null,
+          region_filter: input.region_filter ?? null,
+          icp: input.icp,
+          pain_point: input.painPoint,
+          offer: input.offer,
+          sender_persona: input.senderPersona,
+          tone: input.tone,
+          ai_personalize: input.ai_personalize ?? false,
+          status: "draft",
+          owner_id: ownerId,
+          metadata: { generated_run_id: result.runId, source: "ai_generate" },
+        } as InsertOutreachSequence).returning();
+
+        savedSequenceId = seq.id;
+
+        if (result.steps.length > 0) {
+          await db.insert(outreachSequenceSteps).values(
+            result.steps.map((s, i) => ({
+              sequence_id: seq.id,
+              order_index: s.stepNumber ?? i + 1,
+              delay_days: s.delayDays ?? 0,
+              subject_template: s.subjectVariants?.[0] ?? "",
+              body_template: s.body ?? "",
+              ai_personalize: input.ai_personalize ?? false,
+            } as InsertOutreachSequenceStep)),
+          );
+        }
+      }
+
       res.json({
         runId: result.runId,
         brief: result.brief,
         steps: result.steps,
         qaReport: result.qaReport,
         models: result.models,
+        ...(savedSequenceId !== undefined ? { sequenceId: savedSequenceId, persisted: true } : {}),
       });
     } catch (err: any) {
       log.error("[sequences] AI generate error:", err.message);
@@ -285,10 +342,11 @@ export function registerAdminOutreachSequencesRoutes(app: Express): void {
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
     try {
-      // TODO(ai-personalize): when ai_personalize=true, schedule a worker
-      //   that generates per-prospect ai_first_line / ai_offer_angle /
-      //   ai_cta_variant via Anthropic. Out of scope for this wave —
-      //   storage path exists on prospect_enrichment already.
+      // ai_personalize wiring (P1-2): when a step has ai_personalize=true, the
+      // campaign-assign route (adminOutboundRoutes) calls personalizeForProspect
+      // for each queued prospect and writes ai_first_line / ai_offer_angle /
+      // ai_cta_variant / ai_reason_to_target onto prospect_enrichment; the sync
+      // worker then pushes them as custom merge fields.
       const [created] = await db.insert(outreachSequenceSteps).values({
         sequence_id: id,
         ...parsed.data,

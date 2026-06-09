@@ -304,6 +304,15 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
         <div className="space-y-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-2">Steps ({steps.length})</h3>
+            {/* P2-2: be explicit that follow-up cadence is EXECUTED by the
+                outreach platform — the delay_days stored here is metadata that
+                gets mapped into the Instantly/Smartlead sequence, not a timer
+                WeFixTrades runs itself. Avoids a false "we send the follow-ups" expectation. */}
+            <p className="text-[11px] text-muted-foreground mb-2 rounded border border-border bg-muted/40 px-2 py-1.5">
+              WeFixTrades does not send these emails. Follow-up cadence (the
+              per-step delay days) is <span className="font-medium">executed by Instantly / Smartlead</span> —
+              the delays here are metadata that configures the platform sequence.
+            </p>
             {stepsQuery.isLoading ? (
               <p className="text-xs text-muted-foreground">Loading...</p>
             ) : steps.length === 0 ? (
@@ -344,7 +353,7 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
                   placeholder="Hi {{first_name}}, just bumping this up..."
                 />
               </FieldRow>
-              <FieldRow label="Delay days after previous step" tooltip="0 = same day; 3 = wait 3 days after step N-1.">
+              <FieldRow label="Delay days after previous step" tooltip="0 = same day; 3 = wait 3 days after step N-1. The wait itself is executed by Instantly/Smartlead — this value configures the platform sequence.">
                 <Input
                   type="number"
                   min={0}
