@@ -99,13 +99,17 @@ interface BudgetSnapshot {
   cumulative_usd: number;
   today_usd: number;
   images_used: number;
+  // `config` is null for ANONYMOUS users — they have no DB budget; usage is
+  // bounded by per-IP rate limits instead. Every consumer must null-guard it.
   config: {
     cap_lifetime_usd: number;
     soft_warn_pct: number;
     per_call_max_usd: number;
     daily_ceiling_usd: number;
     image_lifetime_cap: number;
-  };
+  } | null;
+  scope?: string;
+  tier?: string | null;
 }
 
 const HISTORY_KEY_PREFIX = 'qq_ai_chat_';
@@ -449,11 +453,17 @@ export default function AIBubble(props: AIBubbleProps) {
         if (!cancelled && res.ok) {
           const data = await res.json();
           setBudget(data);
-          const pct = data.config.cap_lifetime_usd > 0
-            ? data.cumulative_usd / data.config.cap_lifetime_usd
-            : 0;
-          if (data.cumulative_usd >= data.config.cap_lifetime_usd) setCapExceeded(true);
-          else if (pct >= data.config.soft_warn_pct / 100) setWarn(true);
+          // Anonymous users get `config: null` (no DB budget cap — bounded by
+          // per-IP rate limits). Only evaluate the cap/warn thresholds when a
+          // config is present.
+          const cfg = data.config;
+          if (cfg) {
+            const pct = cfg.cap_lifetime_usd > 0
+              ? data.cumulative_usd / cfg.cap_lifetime_usd
+              : 0;
+            if (data.cumulative_usd >= cfg.cap_lifetime_usd) setCapExceeded(true);
+            else if (pct >= cfg.soft_warn_pct / 100) setWarn(true);
+          }
         }
       } catch {}
       if (!cancelled) setBudgetLoaded(true);
@@ -753,7 +763,8 @@ export default function AIBubble(props: AIBubbleProps) {
           onDone: (final) => {
             setBudget(final.snapshot);
             if (final.warn) setWarn(true);
-            if (final.snapshot.cumulative_usd >= final.snapshot.config.cap_lifetime_usd) {
+            // Null config = anonymous (no DB cap) → never cap-exceeded here.
+            if (final.snapshot.config && final.snapshot.cumulative_usd >= final.snapshot.config.cap_lifetime_usd) {
               setCapExceeded(true);
             }
           },
@@ -860,7 +871,10 @@ export default function AIBubble(props: AIBubbleProps) {
   /* ─── Render ─── */
 
   const budgetMeter = useMemo(() => {
-    if (!budget) return null;
+    // No meter for anonymous users (config null = no DB budget cap; their
+    // ceiling is the per-IP rate limit). This guard is also what prevents the
+    // panel from crashing on open for anonymous sessions.
+    if (!budget || !budget.config) return null;
     const cap = budget.config.cap_lifetime_usd || 0;
     const used = budget.cumulative_usd;
     return (
