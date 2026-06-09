@@ -69,19 +69,19 @@ const COMBO_SHELL_BASE = {
 /** Per-theme one-line descriptions (tooltip copy). Keyed by combo id so a
  *  new combo without an entry still renders with a generic fallback. */
 const COMBO_DESCRIPTIONS: Record<string, string> = {
-  'black-yellow': 'White body, black result panel, high-vis yellow CTA.',
-  'car-rental': 'White body, crimson result panel + accent, near-black CTA.',
-  'mortgage': 'White body, soft sky-tint result panel, blue accent + CTA.',
-  'loan': 'White body, onyx result panel, signal-red accent + CTA.',
-  'emi': 'White body, azure result panel + accent, dark CTA.',
-  'bmi': 'White body, soft mint-tint result panel, green accent + CTA.',
-  'profit': 'White body, forest-green result panel + accent, dark CTA.',
-  'fees': 'White body, deep-navy result panel, blue accent + CTA.',
-  'reno': 'White body, olive result panel, warm-orange accent + CTA.',
-  'tshirt': 'White body, violet result panel + accent, dark CTA.',
-  'wedding': 'White body, royal-blue result panel, orange CTA.',
-  'carbon': 'White body, teal result panel + accent, dark CTA.',
-  'cake': 'White body, soft blush result panel, pink accent + CTA.',
+  'black-yellow': 'Faint graphite-tinted body, black result panel, high-vis yellow CTA.',
+  'car-rental': 'Soft crimson-tinted body, crimson result panel + accent, near-black CTA.',
+  'mortgage': 'Soft sky-tinted body, sky-tint result panel, blue accent + CTA.',
+  'loan': 'Faint red-tinted body, onyx result panel, signal-red accent + CTA.',
+  'emi': 'Soft azure-tinted body, azure result panel + accent, dark CTA.',
+  'bmi': 'Soft mint-tinted body, mint-tint result panel, green accent + CTA.',
+  'profit': 'Soft forest-tinted body, forest-green result panel + accent, dark CTA.',
+  'fees': 'Soft blue-tinted body, deep-navy result panel, blue accent + CTA.',
+  'reno': 'Warm amber-tinted body, olive result panel, warm-orange accent + CTA.',
+  'tshirt': 'Soft violet-tinted body, violet result panel + accent, dark CTA.',
+  'wedding': 'Soft royal-blue-tinted body, royal-blue result panel, orange CTA.',
+  'carbon': 'Soft teal-tinted body, teal result panel + accent, dark CTA.',
+  'cake': 'Soft blush-tinted body, blush result panel, pink accent + CTA.',
 };
 
 /**
