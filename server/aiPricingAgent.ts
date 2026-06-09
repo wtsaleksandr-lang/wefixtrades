@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import { type PricingIntake, type SampleQuote, type AIDraftResponse, aiDraftResponseSchema, type PricingAuditLog } from "@shared/schema";
 import { PRICING_TYPES, type PricingType, type PricingConfigV1, validatePricingConfig, CALL_FOR_QUOTE_FALLBACK, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
 import { createLogger } from "./lib/logger";
+import { chat } from "./services/aiService";
+import { CLAUDE_HAIKU } from "./services/aiModels";
 
 const log = createLogger("AIPricingAgent");
 
@@ -406,18 +408,39 @@ export async function generatePricingConfigDraft(
   try {
     const payload = buildPayload(intake, sampleQuotes);
     const userMessage = `Structured pricing intake:\n${JSON.stringify(payload, null, 2)}`;
+    const systemPrompt = buildSystemPrompt();
 
-    const completion = await openaiClient.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: buildSystemPrompt() },
-        { role: "user", content: userMessage },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.2,
-    });
+    let content: string;
+    try {
+      // PRIMARY: OpenAI gpt-4o-mini with native JSON mode.
+      const completion = await openaiClient.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+      });
+      content = completion.choices[0]?.message?.content || "{}";
+    } catch (openaiError: any) {
+      // SECONDARY (shared failover): OpenAI provider error/outage. Retry the
+      // SAME prompt via the Anthropic-backed chat() failover chain using the
+      // cheap Claude model. chat() has no temperature param (acceptable here —
+      // this path only runs when OpenAI is down) and no native JSON mode, so
+      // the prompt's strict-JSON instruction is what produces JSON; the same
+      // JSON.parse + validateAIResponse below still guards a malformed result.
+      log.warn("OpenAI pricing primary failed — attempting Claude failover:", {
+        detail: openaiError?.message || String(openaiError),
+      });
+      content = await chat({
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+        maxTokens: 1024,
+        modelOverride: CLAUDE_HAIKU,
+      });
+    }
 
-    const content = completion.choices[0]?.message?.content || "{}";
     let rawOutput: unknown;
     try {
       rawOutput = JSON.parse(content);
