@@ -113,6 +113,13 @@ export default function SocialSyncSetup() {
     gbpStatus?.connected && "Google Business",
   ].filter(Boolean);
 
+  /* Wave 30: any platform whose OAuth app isn't configured server-side yet.
+   * Drives an honest "available soon" note rather than implying an admin
+   * handoff that can't happen until creds are set. */
+  const anyPlatformUnconfigured = [fbStatus, igStatus, gbpStatus].some(
+    (s) => s && s.configured === false,
+  );
+
   /* Phase 1c: register the whole SocialSync setup wizard with the copilot.
    * The wizard is multi-step but state is one `form` object, so we register
    * every field at once regardless of the current step. */
@@ -295,8 +302,17 @@ export default function SocialSyncSetup() {
                     <span className="text-sm font-medium">{platform}</span>
                     {status?.connected && <span className="text-[10px] text-emerald-600">Connected</span>}
                   </div>
+                  {/* Honest preflight state (Wave 30): if the platform's OAuth
+                      app isn't configured on the server, self-serve connect
+                      can't work yet — say so instead of implying a silent
+                      handoff. `configured` defaults to true when the query
+                      hasn't resolved so we never flash a false "soon". */}
                   {!status?.connected && (
-                    <span className="text-xs text-gray-400">Your team will connect this</span>
+                    status && status.configured === false ? (
+                      <span className="text-xs text-amber-600">Connecting available soon</span>
+                    ) : (
+                      <span className="text-xs text-gray-400">Your team will connect this</span>
+                    )
                   )}
                 </div>
               ))}
@@ -304,7 +320,11 @@ export default function SocialSyncSetup() {
               {platformsConnected.length === 0 && (
                 <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg text-xs text-amber-800">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  <span>No platforms connected yet. Your admin team will connect your accounts. You can complete setup now and connect later.</span>
+                  <span>
+                    {anyPlatformUnconfigured
+                      ? "Account connecting isn't available just yet — we're finishing setup on our end. You can complete the rest of setup now; we'll let you know the moment connecting is ready."
+                      : "No platforms connected yet. Your admin team will connect your accounts. You can complete setup now and connect later."}
+                  </span>
                 </div>
               )}
             </div>

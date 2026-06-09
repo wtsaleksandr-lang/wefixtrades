@@ -34,6 +34,13 @@ import { createLogger } from "../../../lib/logger";
 
 const log = createLogger("SocialSyncAdapter");
 
+/* Mirror of wordpressQueue.MAX_ATTEMPTS. Duplicated locally (not imported)
+ * to avoid an adapter→queue→registry→adapter import cycle for a single
+ * primitive. The queue dead-letters a draft at attempts >= MAX_ATTEMPTS;
+ * we use the same ceiling to decide when to flip the linked socialsync_post
+ * to 'failed'. Keep in sync with wordpressQueue.ts if that value changes. */
+const MAX_ATTEMPTS = 3;
+
 export type SupportedSocialPlatform = "facebook" | "instagram" | "google_business";
 export type SocialAdapterType = "facebook" | "instagram" | "gbp_post";
 
@@ -125,6 +132,12 @@ async function persistDraftFailure(
 async function persistOnSocialSyncPost(
   postId: number,
   outcome: NormalisedPublishOutcome,
+  /** True when this dispatch is the draft's LAST attempt — i.e. the queue
+   * is about to dead-letter it (permanent failure, OR transient failure
+   * with attempts already at the MAX_ATTEMPTS ceiling). When terminal we
+   * flip the linked post to a real 'failed' state instead of leaving it
+   * silently in-flight. */
+  terminal = false,
 ): Promise<void> {
   try {
     if (outcome.success) {
@@ -134,7 +147,26 @@ async function persistOnSocialSyncPost(
         published_at: outcome.published_at ? new Date(outcome.published_at) : new Date(),
         last_error: null,
       } as any);
+    } else if (terminal) {
+      /* Terminal failure: the queue worker will NOT retry this draft
+       * (permanent auth/validation, OR MAX_ATTEMPTS exhausted → it
+       * dead-letters the draft to queue_status='failed'). If we only
+       * stamped last_error the linked post would be stranded as
+       * 'queued'/'ready' forever and the portal calendar/posts would keep
+       * showing it as in-flight — a fake-success dead-end. Flip the post
+       * to a real 'failed' state so the calendar maps it to the failed
+       * pill and the customer sees the truth. failure_reason is the real
+       * socialsync_posts column; last_error is not a column (Drizzle drops
+       * the unknown key) but kept for adapter-metadata symmetry. */
+      await storage.updateSocialSyncPost(postId, {
+        status: "failed",
+        failure_reason: outcome.error ?? "Publish failed",
+        last_error: outcome.error ?? null,
+      } as any);
     } else {
+      /* Transient / rate-limit with retries remaining: the queue will
+       * re-queue, so leave the post status in-flight and only record the
+       * last error. */
       await storage.updateSocialSyncPost(postId, {
         last_error: outcome.error ?? null,
       } as any);
@@ -204,7 +236,7 @@ export async function dispatchSocialPublish(input: DispatchInput): Promise<Publi
   if (outcome.success) {
     await persistDraftSuccess(draft.id, metadataKey, outcome);
     await persistOnSocialSyncPost(post.id, outcome);
-    await recordSuccess(draft.client_id, platform).catch(() => {});
+    await recordSuccess(draft.client_id, platform).catch((e) => log.warn(`${logPrefix} recordSuccess bookkeeping failed`, { error: String(e) }));
     log.info(`${logPrefix} draft=${draft.id} client=${draft.client_id} posted ok remote=${outcome.remote_post_id} duration_ms=${durationMs}`);
     log.info(`[contentflow][metrics][adapter] type=${metadataKey} draft=${draft.id} outcome=success duration_ms=${durationMs}`);
     return {
@@ -218,21 +250,33 @@ export async function dispatchSocialPublish(input: DispatchInput): Promise<Publi
   /* Failure path. */
   const errorMsg = outcome.error ?? "unknown publisher error";
   await persistDraftFailure(draft.id, metadataKey, errorMsg);
-  await persistOnSocialSyncPost(post.id, outcome);
+
+  /* Decide whether the queue is about to dead-letter this draft, mirroring
+   * the queue's own rule (wordpressQueue.drainSocialChannel): a permanent
+   * failure is non-retryable → dead-letter immediately; otherwise the draft
+   * dead-letters once attemptsAfter (= current attempts + 1) hits the
+   * MAX_ATTEMPTS ceiling. The draft passed in still carries the PRE-attempt
+   * count (the queue increments after we return), so this dispatch is the
+   * last one when attempts+1 >= MAX_ATTEMPTS. When terminal, flip the
+   * linked socialsync_post to 'failed' so it never silently stalls. */
+  const priorAttempts = Number(channelMeta.attempts ?? 0);
+  const isLastAttempt = priorAttempts + 1 >= MAX_ATTEMPTS;
+  const terminal = Boolean(outcome.permanent_failure) || isLastAttempt;
+  await persistOnSocialSyncPost(post.id, outcome, terminal);
 
   /* Cooldown bookkeeping + alert routing. */
   if (outcome.rate_limited) {
-    await recordRateLimit(draft.client_id, platform).catch(() => {});
+    await recordRateLimit(draft.client_id, platform).catch((e) => log.warn(`${logPrefix} recordRateLimit bookkeeping failed`, { error: String(e) }));
     if (isAlertingConfigured()) {
-      sendAlert(buildRateLimitedAlert(draft.client_id, platform, errorMsg)).catch(() => {});
+      sendAlert(buildRateLimitedAlert(draft.client_id, platform, errorMsg)).catch((e) => log.warn(`${logPrefix} rate-limited alert failed`, { error: String(e) }));
     }
   } else if (outcome.permanent_failure) {
-    await recordPermanentFailure(draft.client_id, platform, errorMsg).catch(() => {});
+    await recordPermanentFailure(draft.client_id, platform, errorMsg).catch((e) => log.warn(`${logPrefix} recordPermanentFailure bookkeeping failed`, { error: String(e) }));
     if (isAlertingConfigured()) {
-      sendAlert(buildPublishFailuresAlert(draft.client_id, null, platform, 1)).catch(() => {});
+      sendAlert(buildPublishFailuresAlert(draft.client_id, null, platform, 1)).catch((e) => log.warn(`${logPrefix} publish-failures alert failed`, { error: String(e) }));
     }
   } else {
-    await recordFailure(draft.client_id, platform).catch(() => {});
+    await recordFailure(draft.client_id, platform).catch((e) => log.warn(`${logPrefix} recordFailure bookkeeping failed`, { error: String(e) }));
   }
 
   const reason = normaliseReason(outcome);

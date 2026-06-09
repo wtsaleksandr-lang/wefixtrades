@@ -48,13 +48,14 @@ const EMPTY_PER_PLATFORM = {
   instagram: { ratePct: 0, empty: true },
   linkedin: { ratePct: 0, empty: true },
   whatsapp: { ratePct: 0, empty: true },
+  google_business: { ratePct: 0, empty: true },
 };
 
 const EMPTY_DASHBOARD_RESPONSE = {
   previewMode: true,
   kpis: EMPTY_KPIS,
   perPlatform: EMPTY_PER_PLATFORM,
-  connections: { facebook: false, instagram: false, linkedin: false, whatsapp: false },
+  connections: { facebook: false, instagram: false, linkedin: false, whatsapp: false, google_business: false },
 };
 
 function startOfIsoWeek(now = new Date()): Date {
@@ -126,12 +127,13 @@ export async function computeSocialsyncDashboardKpis(clientId: number) {
     .from(socialsyncPlatformConnections)
     .where(eq(socialsyncPlatformConnections.client_id, clientId));
 
-  const connections = { facebook: false, instagram: false, linkedin: false, whatsapp: false };
+  const connections = { facebook: false, instagram: false, linkedin: false, whatsapp: false, google_business: false };
   for (const row of connRows) {
     const isOk = row.status === "connected" || row.status === "expiring_soon";
     if (row.platform === "facebook") connections.facebook = isOk;
     else if (row.platform === "instagram") connections.instagram = isOk;
     else if (row.platform === "linkedin") connections.linkedin = isOk;
+    else if (row.platform === "google_business") connections.google_business = isOk;
     else if (row.platform === "whatsapp" || row.platform === "whatsapp_business") {
       connections.whatsapp = isOk;
     }
