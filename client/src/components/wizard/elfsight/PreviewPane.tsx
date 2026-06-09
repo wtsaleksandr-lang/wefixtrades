@@ -187,6 +187,12 @@ interface Props {
 const WIDGET_OFFSET_KEY = 'qq_widget_offset';
 const WIDGET_SIZE_KEY = 'qq_widget_size';
 const WIDGET_ZOOM_KEY = 'qq_widget_zoom';
+// fix/wizard-mobile-resize — per-device width override for the mobile-clean
+// preview (real phone viewport, <768px). null/absent = 100% (fit the pane).
+// Mirrors the WIDGET_SIZE_KEY persistence pattern, but stores only a width
+// (the mobile preview is natural-height + vertically scrollable, so no height
+// override is needed). Keyed by device so a phone and a tablet keep their own.
+const MOBILE_PREVIEW_WIDTH_KEY = 'qq_mobile_preview_width';
 const GRID_PX = 24; // matches BD-3a canvas grid
 
 interface WidgetOffset { x: number; y: number }
@@ -256,6 +262,24 @@ function loadWidgetSize(device: PreviewDevice): WidgetSize | null {
       ) {
         return { w: parsed.w, h: parsed.h };
       }
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * fix/wizard-mobile-resize — load the persisted mobile-clean preview width
+ * override for this device. Returns null when unset (→ render at 100% / fit)
+ * or when the stored value is invalid. Only a lower bound (MIN_W) is enforced
+ * here; the upper bound is the live pane width, clamped at render/drag time
+ * (the pane width isn't known at module load).
+ */
+function loadMobilePreviewWidth(device: PreviewDevice): number | null {
+  try {
+    const raw = localStorage.getItem(`${MOBILE_PREVIEW_WIDTH_KEY}_${device}`);
+    if (raw) {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= MIN_W) return n;
     }
   } catch {}
   return null;
@@ -429,6 +453,20 @@ export default function PreviewPane({
   // BD-3b — zoom level (0.25 .. 2.0). Persisted to sessionStorage.
   const [zoom, setZoom] = useState<number>(() => loadZoom(sessionId));
 
+  // fix/wizard-mobile-resize — width override for the MOBILE-CLEAN preview
+  // (real phone viewport). null = 100% / fit the pane. Persisted per-device,
+  // mirroring widgetSize. Lets the user set the preview to ANY width from
+  // MIN_W up to (and beyond, via horizontal scroll) the available pane width
+  // — both by dragging the right-edge handle and via the slim width bar.
+  const [mobilePreviewWidth, setMobilePreviewWidth] = useState<number | null>(
+    () => loadMobilePreviewWidth(device),
+  );
+  // Live pane width (CSS px) so the slider/handle can clamp to the real
+  // available space. Measured on mount + on resize via a ResizeObserver on
+  // the pane element. Default keeps the slider usable before the first
+  // measurement lands.
+  const [mobilePaneWidth, setMobilePaneWidth] = useState<number>(360);
+
   // Live mirrors so the mobile touch-drag listeners (attached once) always read
   // the current offset/zoom without re-binding on every drag frame.
   const widgetOffsetRef = useRef(widgetOffset);
@@ -441,7 +479,34 @@ export default function PreviewPane({
   useEffect(() => {
     setWidgetOffset(loadWidgetOffset(device));
     setWidgetSize(loadWidgetSize(device));
+    setMobilePreviewWidth(loadMobilePreviewWidth(device));
   }, [device]);
+
+  // fix/wizard-mobile-resize — track the live pane width so the mobile-clean
+  // slider/handle can clamp to the real available space. Only meaningful on a
+  // real phone viewport; the observer is cheap so it stays mounted regardless.
+  useEffect(() => {
+    const el = paneRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      if (Number.isFinite(w) && w > 0) setMobilePaneWidth(w);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isMobileViewport]);
+
+  // Persist the mobile-clean width override whenever it changes.
+  useEffect(() => {
+    try {
+      const key = `${MOBILE_PREVIEW_WIDTH_KEY}_${device}`;
+      if (mobilePreviewWidth == null) localStorage.removeItem(key);
+      else localStorage.setItem(key, String(mobilePreviewWidth));
+    } catch {}
+  }, [device, mobilePreviewWidth]);
 
   // Persist zoom whenever it changes.
   useEffect(() => {
@@ -924,6 +989,50 @@ export default function PreviewPane({
       localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffset));
     } catch {}
   }, [device, widgetSize, widgetOffset]);
+
+  // ── Mobile-clean preview resize (real phone viewport) ─────────────────
+  // The desktop bezel resize plumbing above is gated off on mobile (no stage,
+  // no zoom). The mobile preview instead gets a dedicated right-edge drag
+  // handle + a width slider, both driving `mobilePreviewWidth`. Width is
+  // clamped to [MIN_W, MAX_MOBILE_WIDTH] where the max lets the user pull the
+  // preview WIDER than the screen (the outer container scrolls horizontally).
+  const MAX_MOBILE_WIDTH = Math.max(MIN_W, Math.round(mobilePaneWidth * 3));
+  const clampMobileWidth = useCallback(
+    (w: number) => Math.max(MIN_W, Math.min(MAX_MOBILE_WIDTH, Math.round(w))),
+    [MAX_MOBILE_WIDTH],
+  );
+  // Drag state: the bezel's left edge (clientX) captured at pointer-down so the
+  // live width = pointerX - bezelLeft. Stored in a ref so the move handler is
+  // stable and doesn't re-bind per frame.
+  const mobileResizeRef = useRef<{ pointerId: number; bezelLeft: number } | null>(null);
+  const onMobileResizeDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // The handle sits on the bezel's right edge; the bezel is its offsetParent
+    // chain — measure the actual widget container to the handle's left.
+    const handle = e.currentTarget;
+    const bezel = handle.parentElement; // the qq-bezel--mobile-clean wrapper
+    const left = bezel ? bezel.getBoundingClientRect().left : handle.getBoundingClientRect().left;
+    mobileResizeRef.current = { pointerId: e.pointerId, bezelLeft: left };
+    try { handle.setPointerCapture(e.pointerId); } catch {}
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+  const onMobileResizeMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const st = mobileResizeRef.current;
+    if (!st || st.pointerId !== e.pointerId) return;
+    const next = clampMobileWidth(e.clientX - st.bezelLeft);
+    setMobilePreviewWidth(next);
+    e.preventDefault();
+  }, [clampMobileWidth]);
+  const onMobileResizeUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const st = mobileResizeRef.current;
+    if (!st || st.pointerId !== e.pointerId) return;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    mobileResizeRef.current = null;
+  }, []);
+  // The slider/number-field max tracks the pane (a sensible "any on-screen
+  // width" range); the drag handle can still exceed it for wider-than-screen.
+  const mobileSliderMax = MAX_MOBILE_WIDTH;
+  const mobileWidthValue = mobilePreviewWidth ?? Math.max(MIN_W, Math.round(mobilePaneWidth));
 
   // ── Zoom controls ────────────────────────────────────────────────────
   const clampZoom = useCallback((n: number) => {
@@ -2438,12 +2547,77 @@ export default function PreviewPane({
       className="qq-preview-mobile-clean"
       data-testid="preview-mobile-clean"
     >
+      {/* fix/wizard-mobile-resize — slim sticky width bar. Sits between the
+          sticky EditorTopBar and the scrollable preview so the user can dial in
+          ANY exact width without fiddly dragging. Title-in-field + help cue
+          top-left per the project input-field rules; theme-aware tokens (this
+          whole subtree is inside the data-theme="light" pane wrapper). */}
+      <div className="qq-mobile-width-bar" data-testid="preview-mobile-width-bar">
+        <div className="qq-mobile-width-bar__field">
+          <label className="qq-mobile-width-bar__label" htmlFor="qq-mobile-width-range">
+            Preview width
+          </label>
+          <span className="qq-mobile-width-bar__help">Drag the edge or set an exact size</span>
+          <div className="qq-mobile-width-bar__controls">
+            <input
+              id="qq-mobile-width-range"
+              type="range"
+              className="qq-mobile-width-bar__range"
+              min={MIN_W}
+              max={mobileSliderMax}
+              step={1}
+              value={Math.min(mobileWidthValue, mobileSliderMax)}
+              onChange={(e) => setMobilePreviewWidth(clampMobileWidth(Number(e.target.value)))}
+              aria-label="Preview width"
+              data-testid="preview-mobile-width-range"
+            />
+            <div className="qq-mobile-width-bar__num">
+              <input
+                type="number"
+                className="qq-mobile-width-bar__numinput"
+                min={MIN_W}
+                max={MAX_MOBILE_WIDTH}
+                step={1}
+                value={Math.round(mobileWidthValue)}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (Number.isFinite(v)) setMobilePreviewWidth(clampMobileWidth(v));
+                }}
+                aria-label="Preview width in pixels"
+                data-testid="preview-mobile-width-number"
+              />
+              <span className="qq-mobile-width-bar__unit">px</span>
+            </div>
+            <button
+              type="button"
+              className="qq-mobile-width-bar__reset"
+              onClick={() => setMobilePreviewWidth(null)}
+              disabled={mobilePreviewWidth == null}
+              data-testid="preview-mobile-width-reset"
+            >
+              Fit
+            </button>
+          </div>
+        </div>
+      </div>
+      {/* fix/wizard-mobile-resize — horizontal-scroll wrapper. The OUTER
+          container scrolls when the preview is pulled WIDER than the screen,
+          so the sticky-bearing bezel keeps overflow:clip (sticky-safe — see
+          project_overflow_clip_for_sticky). */}
+      <div className="qq-preview-mobile-hscroll" data-testid="preview-mobile-hscroll">
       {/* Direct render of the live widget — no bezel, no browser chrome, no
           phone bezel. The widget-scope class is preserved so the global
           widget-scope touch-action / contrast rules still apply. */}
       <div
         className="widget-scope qq-preview-mobile-widget-scope"
-        style={{ width: '100%' }}
+        style={{
+          // Override-aware width: the slider/handle value, else 100% / fit.
+          // margin:0 auto centers when narrower than the pane; max-width:100%
+          // keeps the default (no-override) case flush to the edges.
+          width: mobilePreviewWidth != null ? `${mobilePreviewWidth}px` : '100%',
+          maxWidth: mobilePreviewWidth != null ? 'none' : '100%',
+          margin: '0 auto',
+        }}
       >
         <div
           ref={(el) => {
@@ -2490,7 +2664,29 @@ export default function PreviewPane({
           {headerSel && (
             <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
           )}
+          {/* fix/wizard-mobile-resize — right-edge drag handle. Generous ≥24px
+              touch hit-area (the visual grip is slim, the hit-area is padded)
+              so it works on a real phone. Pointer events set the width live;
+              clamped in onMobileResizeMove. Lives INSIDE the bezel (its
+              offsetParent) so width = pointerX − bezelLeft. */}
+          <div
+            className="qq-mobile-resize-handle"
+            data-testid="preview-mobile-resize-handle"
+            role="slider"
+            aria-label="Drag to resize preview width"
+            aria-valuemin={MIN_W}
+            aria-valuemax={MAX_MOBILE_WIDTH}
+            aria-valuenow={Math.round(mobileWidthValue)}
+            onPointerDown={onMobileResizeDown}
+            onPointerMove={onMobileResizeMove}
+            onPointerUp={onMobileResizeUp}
+            onPointerCancel={onMobileResizeUp}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="qq-mobile-resize-handle__grip" aria-hidden="true" />
+          </div>
         </div>
+      </div>
       </div>
       {undo && (
         <div
@@ -3102,6 +3298,120 @@ export default function PreviewPane({
           padding: 0 !important;
           margin: 0;
           background: rgba(255,255,255,1) !important;
+        }
+        /* fix/wizard-mobile-resize — horizontal-scroll container. When the user
+         * pulls the preview WIDER than the screen, THIS outer wrapper scrolls
+         * horizontally; the sticky-bearing bezel keeps overflow:clip so the
+         * widget's internal sticky header/footer still work
+         * (project_overflow_clip_for_sticky). */
+        .qq-preview-mobile-hscroll {
+          width: 100%;
+          overflow-x: auto;
+          overflow-y: visible;
+          -webkit-overflow-scrolling: touch;
+          background: rgba(255,255,255,1) !important;
+        }
+        /* fix/wizard-mobile-resize — slim sticky width bar between the sticky
+         * top bar and the scrollable preview. Theme-aware tokens only. */
+        .qq-mobile-width-bar {
+          position: sticky;
+          top: 0;
+          z-index: 6;
+          width: 100%;
+          box-sizing: border-box;
+          padding: 8px 12px;
+          border-bottom: 1px solid var(--qq-border, rgba(0,0,0,0.08));
+          background: var(--qq-surface, rgba(255,255,255,1));
+        }
+        .qq-mobile-width-bar__field {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .qq-mobile-width-bar__label {
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.2;
+          color: var(--qq-text, rgba(17,24,39,1));
+        }
+        .qq-mobile-width-bar__help {
+          font-size: 11px;
+          line-height: 1.2;
+          color: var(--qq-text-muted, rgba(107,114,128,1));
+        }
+        .qq-mobile-width-bar__controls {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 2px;
+        }
+        .qq-mobile-width-bar__range {
+          flex: 1 1 auto;
+          min-width: 0;
+          accent-color: var(--qq-accent, #2563eb);
+          height: 24px;
+        }
+        .qq-mobile-width-bar__num {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+        }
+        .qq-mobile-width-bar__numinput {
+          width: 56px;
+          height: 28px;
+          box-sizing: border-box;
+          padding: 2px 6px;
+          font-size: 12px;
+          border: 1px solid var(--qq-border, rgba(0,0,0,0.16));
+          border-radius: 6px;
+          background: var(--qq-surface, rgba(255,255,255,1));
+          color: var(--qq-text, rgba(17,24,39,1));
+        }
+        .qq-mobile-width-bar__unit {
+          font-size: 11px;
+          color: var(--qq-text-muted, rgba(107,114,128,1));
+        }
+        .qq-mobile-width-bar__reset {
+          height: 28px;
+          padding: 0 10px;
+          font-size: 12px;
+          font-weight: 600;
+          border: 1px solid var(--qq-border, rgba(0,0,0,0.16));
+          border-radius: 6px;
+          background: transparent;
+          color: var(--qq-text, rgba(17,24,39,1));
+          cursor: pointer;
+        }
+        .qq-mobile-width-bar__reset:disabled {
+          opacity: 0.45;
+          cursor: default;
+        }
+        /* fix/wizard-mobile-resize — right-edge drag handle on the bezel. Slim
+         * visible grip, padded ≥24px touch hit-area for a real phone. */
+        .qq-mobile-resize-handle {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 24px;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: ew-resize;
+          touch-action: none;
+          z-index: 5;
+          background: transparent;
+        }
+        .qq-mobile-resize-handle__grip {
+          width: 4px;
+          height: 44px;
+          border-radius: 999px;
+          background: var(--qq-accent, #2563eb);
+          opacity: 0.55;
+          box-shadow: 0 0 0 1px var(--qq-surface, rgba(255,255,255,0.9));
+        }
+        .qq-mobile-resize-handle:active .qq-mobile-resize-handle__grip {
+          opacity: 0.9;
         }
         .qq-bezel--mobile-clean {
           width: 100%;
