@@ -83,7 +83,6 @@ client/src/pages/admin/MapguardDashboard.tsx:138:14	rule-c	square w-9 h-9
 client/src/pages/admin/MapguardDashboard.tsx:375:19	rule-c	square w-10 h-10
 client/src/pages/admin/MobilePreview/PreviewScreens.tsx:960:9	rule-c	square w-7 h-7
 client/src/pages/admin/MobilePreview/PreviewScreens.tsx:1039:58	rule-c	square w-10 h-10
-client/src/pages/admin/ProductDetailPage.tsx:662:33	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/ProfilePage.tsx:106:18	rule-c	square w-14 h-14
 client/src/pages/admin/QuoteQuickPage.tsx:80:32	rule-c	square w-28 h-28
 client/src/pages/admin/QuoteQuickPage.tsx:113:19	rule-c	square w-2 h-2

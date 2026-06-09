@@ -58,6 +58,7 @@ import { sendWelcomePackage } from "../lib/welcomeEmail";
 import { sendApprovalNotificationEmail } from "../lib/approvalNotificationEmail";
 import { runSiteLaunchFinalization } from "../services/sitelaunchFinalization";
 import { runPreFixAudit, runPostFixAudit } from "../services/webfixAuditService";
+import { validateStripePriceId } from "../services/stripeProductSync";
 import { compileAndSendAdFlowReport, previewAdFlowReportHtml } from "../services/adflowReports";
 import { sendAdflowCreativeApprovalEmail } from "../lib/adflowCreativeApprovalEmail";
 import crypto from "crypto";
@@ -623,7 +624,61 @@ export function registerAdminCrmRoutes(app: Express): void {
         });
       }
 
-      const updated = await storage.publishProductDraft(draft.id, svcId, draft.draft_data as Record<string, any>, u.id);
+      /* P0-2: a pasted stripe_price_id only had its FORMAT checked at draft
+       * save (stripeIdSchema). Before we publish, verify any pasted price_id
+       * actually charges the amount the catalog advertises — otherwise the
+       * site shows one number and Stripe charges another. We retrieve the
+       * Stripe Price and compare unit_amount/currency against the draft's
+       * default_price (parent) / tier price_cents. A confirmed mismatch is a
+       * hard 400; if Stripe can't be reached (key unset / API error) we don't
+       * block — the mismatch surfaces later as a sync warning instead. */
+      const draftData = draft.draft_data as Record<string, any>;
+      const priceIdChecks: Promise<{ ok: boolean; skipped?: boolean; warning?: string }>[] = [];
+
+      // Parent price_id: compare against draft default_price, falling back to
+      // the live row when the draft doesn't change the price.
+      if (typeof draftData.stripe_price_id === "string" && draftData.stripe_price_id) {
+        const expectedAmount =
+          typeof draftData.default_price === "number" ? draftData.default_price : live.default_price;
+        if (typeof expectedAmount === "number") {
+          priceIdChecks.push(
+            validateStripePriceId({
+              stripePriceId: draftData.stripe_price_id,
+              expectedAmountCents: expectedAmount,
+              label: svcId,
+            }),
+          );
+        }
+      }
+
+      // Tier price_ids: each tier's stripe_price_id must match its price_cents.
+      if (Array.isArray(draftData.tiers)) {
+        for (const t of draftData.tiers as Array<{ id?: string; price_cents?: number; stripe_price_id?: string | null }>) {
+          if (typeof t?.stripe_price_id === "string" && t.stripe_price_id && typeof t.price_cents === "number") {
+            priceIdChecks.push(
+              validateStripePriceId({
+                stripePriceId: t.stripe_price_id,
+                expectedAmountCents: t.price_cents,
+                label: `tier ${t.id ?? "?"}`,
+              }),
+            );
+          }
+        }
+      }
+
+      if (priceIdChecks.length > 0) {
+        const results = await Promise.all(priceIdChecks);
+        const mismatches = results.filter((r) => !r.ok).map((r) => r.warning ?? "price mismatch");
+        if (mismatches.length > 0) {
+          return res.status(400).json({
+            error: "Pasted Stripe price ID does not match the catalog price. Fix the amount or the price ID before publishing.",
+            code: "stripe_price_mismatch",
+            mismatches,
+          });
+        }
+      }
+
+      const { updatedRow: updated, stripeSync } = await storage.publishProductDraft(draft.id, svcId, draftData, u.id);
 
       // Q5f: surface tier-mirror summary so audit log readers can see which
       // sibling rows got updated by this publish. publishProductDraft handles
@@ -641,7 +696,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         action: "product.draft_published",
         entity_type: "service_catalog",
         entity_id: null,
-        summary: `Published draft for "${updated.name}" — changes are now live (${approvers.length}/${publishApprovalThreshold} approvals)${publishedTiers.length ? ` · mirrored ${publishedTiers.length} tier row(s)` : ""}`,
+        summary: `Published draft for "${updated.name}" — site is live (${approvers.length}/${publishApprovalThreshold} approvals)${publishedTiers.length ? ` · mirrored ${publishedTiers.length} tier row(s)` : ""}${stripeSync.ok ? "" : ` · ⚠ ${stripeSync.warnings.length} Stripe sync warning(s)`}`,
         metadata: {
           service_id: svcId,
           draft_id: draft.id,
@@ -649,10 +704,12 @@ export function registerAdminCrmRoutes(app: Express): void {
           mirrored_tier_ids: publishedTiers,
           approvals: approvers.length,
           threshold: publishApprovalThreshold,
+          stripe_sync_ok: stripeSync.ok,
+          stripe_sync_warnings: stripeSync.warnings,
         },
       });
 
-      res.json({ live: updated });
+      res.json({ live: updated, stripeSync });
     } catch (err: any) {
       log.error("[products publish POST] Error:", err.message);
       res.status(500).json({ error: "Failed to publish draft" });

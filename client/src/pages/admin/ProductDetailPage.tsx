@@ -280,23 +280,47 @@ export default function ProductDetailPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        const err = new Error(json.error || "Failed to publish") as Error & { code?: string };
+        const err = new Error(json.error || "Failed to publish") as Error & { code?: string; mismatches?: string[] };
         if (json.code) err.code = json.code;
+        if (Array.isArray(json.mismatches)) err.mismatches = json.mismatches;
         throw err;
       }
       return json;
     },
-    onSuccess: () => {
+    onSuccess: (json: { stripeSync?: { ok?: boolean; warnings?: string[] } }) => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${svcId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/services"] });
-      toast({ title: "Published", description: "Live everywhere — website, pricing page, customer portal." });
+      // P0-1: the publish route reports per-product Stripe sync status. The
+      // catalog/site write always succeeds, but Stripe sync is best-effort —
+      // if anything failed (missing stripe_product_id, Stripe down, key unset,
+      // skipped tier rows) we MUST NOT claim "Live everywhere", because the
+      // site shows the new price while Stripe still charges the old one.
+      const sync = json?.stripeSync;
+      if (sync && sync.ok === false) {
+        const warnings = Array.isArray(sync.warnings) ? sync.warnings : [];
+        toast({
+          title: "Published to site — Stripe sync needs attention",
+          description:
+            (warnings[0] ?? "Some changes did not reach Stripe.") +
+            (warnings.length > 1 ? ` (+${warnings.length - 1} more)` : "") +
+            " Customers may be charged the old amount until this is fixed.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Published", description: "Live everywhere — website, pricing page, customer portal." });
+      }
     },
-    onError: (err: Error & { code?: string }) => {
+    onError: (err: Error & { code?: string; mismatches?: string[] }) => {
       // Approvals-pending 409 returns with a clearer hint via the message,
       // but also refresh the draft so the UI shows the new approver count.
       if (err.code === "approvals_pending") {
         queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${svcId}`] });
         toast({ title: "More approvals needed", description: err.message });
+      } else if (err.code === "stripe_price_mismatch") {
+        // P0-2: a pasted price_id charges a different amount than the catalog
+        // advertises — publish was blocked before any write.
+        const detail = err.mismatches?.[0] ?? err.message;
+        toast({ title: "Stripe price ID mismatch — not published", description: detail, variant: "destructive" });
       } else {
         toast({ title: "Publish failed", description: err.message, variant: "destructive" });
       }
@@ -659,7 +683,7 @@ export default function ProductDetailPage() {
                       </span>
                       {tier.highlighted && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-                          <Star className="w-2.5 h-2.5" /> Featured
+                          <Star className="w-3 h-3" /> Featured
                         </span>
                       )}
                     </div>

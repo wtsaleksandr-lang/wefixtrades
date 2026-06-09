@@ -190,6 +190,23 @@ export interface WebCareOpsRow {
   last_downtime_alert_at: string | null;
 }
 
+/**
+ * Result of publishProductDraft. The catalog/site write always succeeds (the
+ * row in `updatedRow`), but Stripe sync is best-effort: `stripeSync.warnings`
+ * carries every sync that returned ok:false (Stripe down, missing
+ * stripe_product_id, skipped tier rows, etc) so the publish route + admin UI
+ * can show a non-success state instead of a misleading "Live everywhere".
+ */
+export interface PublishProductDraftResult {
+  updatedRow: ServiceCatalogRow;
+  stripeSync: {
+    /** true = every attempted Stripe sync succeeded (or none was needed). */
+    ok: boolean;
+    /** Human-readable warning for each sync that failed or was skipped. */
+    warnings: string[];
+  };
+}
+
 export interface IStorage {
   createCalculator(data: InsertCalculator): Promise<Calculator>;
   getCalculatorById(id: number): Promise<Calculator | undefined>;
@@ -317,7 +334,7 @@ export interface IStorage {
   // Product drafts (Q28)
   getLatestProductDraft(serviceId: string): Promise<ProductDraft | undefined>;
   upsertProductDraft(data: Omit<InsertProductDraft, "status">): Promise<ProductDraft>;
-  publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<ServiceCatalogRow>;
+  publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<PublishProductDraftResult>;
   addProductDraftApprover(draftId: number, userId: number, email: string | null): Promise<ProductDraft | undefined>;
   rejectProductDraft(draftId: number, rejectedBy: number | null, reason: string | null): Promise<ProductDraft>;
 
@@ -957,7 +974,19 @@ export class DatabaseStorage implements IStorage {
   upsertProductDraft(data: Omit<InsertProductDraft, "status">): Promise<ProductDraft> { return productsImpl.upsertProductDraft(data); }
   addProductDraftApprover(draftId: number, userId: number, email: string | null): Promise<ProductDraft | undefined> { return productsImpl.addProductDraftApprover(draftId, userId, email); }
 
-  async publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<ServiceCatalogRow> {
+  async publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<PublishProductDraftResult> {
+    /* Collect every best-effort Stripe-sync warning so the publish route can
+     * tell the admin "site updated, but Stripe needs attention" instead of a
+     * misleading "Live everywhere". A sync that returns ok:false (Stripe down,
+     * missing stripe_product_id, key unset) pushes its warning here; skipped
+     * tier rows (no matching sibling) are surfaced too. The site/catalog write
+     * still succeeds regardless — visibility, not blocking. */
+    const stripeWarnings: string[] = [];
+    const noteSync = (res: { ok: boolean; warning?: string }, context: string) => {
+      if (!res.ok) {
+        stripeWarnings.push(res.warning ? `${context}: ${res.warning}` : context);
+      }
+    };
     // Atomic-ish: update serviceCatalog with draft values, then mark draft as published.
     // Drizzle doesn't expose a clean txn helper here in this codebase, so we run sequentially.
     // If the second write fails, the catalog is updated but the draft still says 'draft' —
@@ -1014,11 +1043,12 @@ export class DatabaseStorage implements IStorage {
             : stripeProductIdChanged
               ? ((updatedRow.tagline as string | undefined) ?? (updatedRow.description as string | undefined))
               : undefined;
-          await syncProductMetadata({
+          const metaResult = await syncProductMetadata({
             stripeProductId,
             newName: pushName,
             newDescription: pushDescription,
           });
+          noteSync(metaResult, `Stripe product metadata for "${serviceId}"`);
         }
 
         // Price diff. default_price is in cents in our schema.
@@ -1035,6 +1065,7 @@ export class DatabaseStorage implements IStorage {
             newAmountCents: newPriceCents,
             period,
           });
+          noteSync(priceResult, `Stripe price for "${serviceId}"`);
           if (priceResult.ok && priceResult.newStripePriceId) {
             await db.update(serviceCatalog)
               .set({ stripe_price_id: priceResult.newStripePriceId, updated_at: new Date() })
@@ -1050,12 +1081,27 @@ export class DatabaseStorage implements IStorage {
               newAmountCents: monthlyToYearlyCents(newPriceCents),
               period: "yearly",
             });
+            noteSync(yearlyResult, `Stripe yearly price for "${serviceId}"`);
             if (yearlyResult.ok && yearlyResult.newStripeYearlyPriceId) {
               await db.update(serviceCatalog)
                 .set({ stripe_yearly_price_id: yearlyResult.newStripeYearlyPriceId, updated_at: new Date() })
                 .where(eq(serviceCatalog.id, serviceId));
             }
           }
+        }
+      } else {
+        // No stripe_product_id on this product, yet the admin changed a
+        // customer-facing field that Stripe should mirror. Without this the
+        // site shows the new value while Stripe keeps charging the old one and
+        // nobody is told. Surface it as a warning (don't block the site write).
+        const priceChanged =
+          typeof updates.default_price === "number" && updates.default_price !== prevRow.default_price;
+        const nameChanged = typeof updates.name === "string" && updates.name !== prevRow.name;
+        if (priceChanged || nameChanged) {
+          noteSync(
+            { ok: false, warning: `Product "${serviceId}" has no stripe_product_id — changes were NOT pushed to Stripe (Stripe still charges the old amount).` },
+            `Stripe sync for "${serviceId}"`,
+          );
         }
       }
     }
@@ -1080,6 +1126,10 @@ export class DatabaseStorage implements IStorage {
         const [siblingPrev] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, t.id)).limit(1);
         if (!siblingPrev) {
           log.warn("[publishProductDraft] tier id has no sibling row — skipped", { parent: serviceId, tier_id: t.id });
+          noteSync(
+            { ok: false, warning: `Tier "${t.id}" has no matching catalog row — its price/name edit was skipped and never reached the price customers pay. Create the sibling row first.` },
+            `Tier sync for "${t.id}"`,
+          );
           continue;
         }
         // Drizzle update accepts any subset of the table columns; the
@@ -1104,22 +1154,26 @@ export class DatabaseStorage implements IStorage {
          * Reads `stripe_product_id` from the sibling row itself — each per-tier
          * row keeps its own Stripe Product binding. */
         const tierStripeProductId = siblingPrev.stripe_product_id as string | null;
+        const tierNameChanged = typeof t.name === "string" && t.name !== siblingPrev.name;
+        const tierPriceChanged = typeof t.price_cents === "number" && t.price_cents !== siblingPrev.default_price;
         if (tierStripeProductId) {
           // Name change → stripe.products.update
-          if (typeof t.name === "string" && t.name !== siblingPrev.name) {
-            await syncProductMetadata({ stripeProductId: tierStripeProductId, newName: t.name });
+          if (tierNameChanged) {
+            const tierMetaResult = await syncProductMetadata({ stripeProductId: tierStripeProductId, newName: t.name });
+            noteSync(tierMetaResult, `Stripe product metadata for tier "${t.id}"`);
           }
           // Price change → new Stripe Price + archive old + persist new id
-          if (typeof t.price_cents === "number" && t.price_cents !== siblingPrev.default_price) {
+          if (tierPriceChanged) {
             const period: "monthly" | "yearly" | "one_time" =
               ((t.billing_period ?? siblingPrev.billing_period) === "one-time") ? "one_time" : "monthly";
             const priceResult = await syncProductPrice({
               serviceCatalogId: t.id,
               stripeProductId: tierStripeProductId,
               oldStripePriceId: siblingPrev.stripe_price_id as string | null,
-              newAmountCents: t.price_cents,
+              newAmountCents: t.price_cents as number,
               period,
             });
+            noteSync(priceResult, `Stripe price for tier "${t.id}"`);
             if (priceResult.ok && priceResult.newStripePriceId) {
               await db.update(serviceCatalog)
                 .set({ stripe_price_id: priceResult.newStripePriceId, updated_at: new Date() })
@@ -1130,9 +1184,10 @@ export class DatabaseStorage implements IStorage {
                 serviceCatalogId: t.id,
                 stripeProductId: tierStripeProductId,
                 oldStripePriceId: siblingPrev.stripe_yearly_price_id as string | null,
-                newAmountCents: monthlyToYearlyCents(t.price_cents),
+                newAmountCents: monthlyToYearlyCents(t.price_cents as number),
                 period: "yearly",
               });
+              noteSync(yearlyResult, `Stripe yearly price for tier "${t.id}"`);
               if (yearlyResult.ok && yearlyResult.newStripeYearlyPriceId) {
                 await db.update(serviceCatalog)
                   .set({ stripe_yearly_price_id: yearlyResult.newStripeYearlyPriceId, updated_at: new Date() })
@@ -1140,6 +1195,13 @@ export class DatabaseStorage implements IStorage {
               }
             }
           }
+        } else if (tierNameChanged || tierPriceChanged) {
+          // Tier row exists but has no Stripe Product binding — its price/name
+          // change can't be pushed to Stripe. Surface so it isn't silent.
+          noteSync(
+            { ok: false, warning: `Tier "${t.id}" has no stripe_product_id — its price/name change was NOT pushed to Stripe (Stripe still charges the old amount).` },
+            `Stripe sync for tier "${t.id}"`,
+          );
         }
       }
     }
@@ -1147,7 +1209,10 @@ export class DatabaseStorage implements IStorage {
     await db.update(productDrafts)
       .set({ status: "published", published_at: new Date(), published_by: publishedBy, updated_at: new Date() })
       .where(eq(productDrafts.id, draftId));
-    return updatedRow;
+    return {
+      updatedRow,
+      stripeSync: { ok: stripeWarnings.length === 0, warnings: stripeWarnings },
+    };
   }
 
   rejectProductDraft(draftId: number, rejectedBy: number | null, reason: string | null): Promise<ProductDraft> { return productsImpl.rejectProductDraft(draftId, rejectedBy, reason); }
