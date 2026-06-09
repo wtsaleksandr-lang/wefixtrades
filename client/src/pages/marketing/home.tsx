@@ -712,10 +712,12 @@ export default function HomePage() {
 
               <div className="hero-enter hero-cta-row">
                 <Link href="/wizard" className="hero-cta-primary-warm wf-cta-shimmer" data-testid="hero-cta-primary">
-                  {/* Wave L H1 — shortened from "Start free — no card" so it
-                   * doesn't truncate on 390px mobile. The "no card required"
-                   * note is still present below as `hero-cta-note`. */}
-                  <span>Start free</span>
+                  {/* Canonical /wizard CTA label — standardized to one string
+                   * across nav, hero, and product pages. On ≤640px the warm CTA
+                   * row already clamps with white-space:nowrap + ellipsis, so a
+                   * longer label degrades cleanly instead of breaking layout;
+                   * the "no card" promise is also reinforced by hero-cta-note. */}
+                  <span>Start free — no card</span>
                   <ArrowRight size={16} strokeWidth={2.5} />
                 </Link>
                 <Link href="/demo" className="hero-cta-secondary-warm" data-testid="hero-cta-secondary">

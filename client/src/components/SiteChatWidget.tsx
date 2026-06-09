@@ -81,6 +81,16 @@ export default function SiteChatWidget() {
 
   const hasConversation = messages.length > 1;
 
+  /* Route-aware launcher offset. On the high-intent conversion forms (/signup,
+   * /login) the fixed launcher (bottom-right, z-index 9998) otherwise overlaps
+   * the email input's tap area at 375px — a mis-tap trap on the #1 conversion
+   * form. On those routes we lift the launcher to bottom:88px so no input's
+   * bounding box intersects it, while keeping the launcher fully reachable.
+   * Matches sub-paths too (e.g. /signup/...) and is case-insensitive. */
+  const path = (location || "").toLowerCase();
+  const onConversionForm = path === "/signup" || path === "/login"
+    || path.startsWith("/signup/") || path.startsWith("/login/");
+
   // Persist messages and open state
   useEffect(() => { saveMessages(messages); }, [messages]);
   useEffect(() => { saveOpenState(open); }, [open]);
@@ -212,7 +222,7 @@ export default function SiteChatWidget() {
         <button
           onClick={openChat}
           aria-label={showDot ? "Open chat, 1 unread message" : "Open chat"}
-          className="wft-chat-bubble"
+          className={`wft-chat-bubble${onConversionForm ? " wft-chat-bubble--lifted" : ""}`}
           style={{
             position: "fixed",
             right: 24,
@@ -613,10 +623,16 @@ export default function SiteChatWidget() {
           box-shadow: inset 0 0 0 1.5px rgba(13,60,252,0.45);
         }
         .wft-chat-bubble { bottom: 24px; }
+        /* Conversion-form routes (/signup, /login): lift the launcher clear of
+           the email/password input tap area so it can't be mis-tapped. */
+        .wft-chat-bubble--lifted { bottom: 88px !important; }
         @media (max-width: 480px) {
           .wft-chat-bubble {
             bottom: calc(24px + var(--mkt-sticky-bar-h, 0px) + 8px);
             transition: bottom 320ms cubic-bezier(0.4, 0, 0.6, 1);
+          }
+          .wft-chat-bubble--lifted {
+            bottom: calc(88px + var(--mkt-sticky-bar-h, 0px) + 8px) !important;
           }
         }
         @media (max-width: 480px) {

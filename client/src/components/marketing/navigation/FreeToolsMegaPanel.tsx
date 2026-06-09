@@ -15,6 +15,7 @@
 
 import { Link } from "wouter";
 import type { FC } from "react";
+import { Lock } from "lucide-react";
 import type { NavItemChild, NavSubgroup } from "@/site/navigation";
 import { NavIcon } from "./NavIcon";
 import { mkt } from "@/theme/tokens";
@@ -111,11 +112,23 @@ function FreeToolsItem({
       <div className="mkt-menu-card-icon" style={{ color: mkt.accent }} aria-hidden>
         <NavIcon icon={item.icon} />
       </div>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 650, color: mkt.text, lineHeight: 1.2 }}>
           {item.label}
         </div>
       </div>
+      {item.portalGated && (
+        // Signpost the auth+paid gate BEFORE the click so logged-out users
+        // aren't silently bounced to /login. Subtle lock pill, not a shout.
+        <span
+          className="ft-mega__lock"
+          title="Sign in required — opens in your portal"
+          aria-label="Sign in required"
+        >
+          <Lock size={12} strokeWidth={2.4} aria-hidden />
+          <span className="ft-mega__lock-text">Sign in</span>
+        </span>
+      )}
     </Link>
   );
 }
@@ -173,6 +186,38 @@ const CSS = `
 }
 /* Items render as the shared .mkt-menu-card (see FreeToolsItem) so their
    size + badge + hover match the Products/Resources dropdown exactly. */
+
+/* Portal-gated lock pill — flags the 7 Widgets that require sign-in. Muted
+   by default; brightens on row hover so it reads as a quiet status, not a
+   competing CTA. Theme-aware via mkt tokens. */
+.ft-mega__lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid ${mkt.onDarkBorder};
+  background: rgba(255, 255, 255, 0.04);
+  color: ${mkt.onDarkMuted};
+  font-family: 'DM Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+.mkt-menu-card:hover .ft-mega__lock {
+  color: ${mkt.accent};
+  border-color: ${mkt.accent};
+}
+.ft-mega__lock-text { white-space: nowrap; }
+@media (max-width: 720px) {
+  /* Keep the icon, drop the word on very narrow columns to avoid wrap. */
+  .ft-mega__lock-text { display: none; }
+}
 
 .ft-mega__more {
   display: inline-flex;

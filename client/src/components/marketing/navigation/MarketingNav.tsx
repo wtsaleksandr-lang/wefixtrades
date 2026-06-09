@@ -299,8 +299,12 @@ export function MarketingNav() {
                       fontSize: 12,
                       fontWeight: 600,
                       fontFamily: "'DM Mono', monospace",
-                      textTransform: "uppercase" as const,
-                      letterSpacing: "0.08em",
+                      /* Canonical /wizard CTA label is the mixed-case
+                       * "Start free — no card" (matches hero + product). The
+                       * desktop header button is nowrap and space-constrained,
+                       * so we drop the uppercase transform here to keep the
+                       * longer canonical label from overflowing the header. */
+                      letterSpacing: "0.04em",
                       textDecoration: "none",
                       display: "inline-block",
                       whiteSpace: "nowrap",
@@ -315,7 +319,7 @@ export function MarketingNav() {
                         mkt.buttonBg;
                     }}
                   >
-                    START FREE
+                    Start free — no card
                   </Link>
                   <Link
                     href="/demo"
@@ -505,13 +509,12 @@ export function MarketingNav() {
                 color: mkt.buttonText,
                 fontSize: 15,
                 fontWeight: 500,
-                textTransform: "uppercase" as const,
-                letterSpacing: "0.04em",
+                letterSpacing: "0.02em",
                 textAlign: "center",
                 textDecoration: "none",
               }}
             >
-              START FREE
+              Start free — no card
             </Link>
             <Link
               href="/demo"
