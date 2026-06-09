@@ -148,7 +148,7 @@ export default function PaymentMethodsPage() {
             <ChevronLeft className="w-3.5 h-3.5" />
             Back to Billing
           </Link>
-          <h1 className="text-xl font-semibold text-gray-900">Payment Methods</h1>
+          <h1 className="text-xl font-semibold text-foreground">Payment Methods</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Configure which payment options your customers see on invoice pages.
           </p>

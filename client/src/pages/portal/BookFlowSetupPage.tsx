@@ -325,7 +325,7 @@ export default function BookFlowSetupPage() {
               Back to Today's jobs
             </a>
           </Link>
-          <h1 className="text-xl font-semibold text-gray-900">Booking Page Setup</h1>
+          <h1 className="text-xl font-semibold text-foreground">Booking Page Setup</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Configure the online booking page customers use to schedule appointments with you.
           </p>

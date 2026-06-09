@@ -246,7 +246,7 @@ export default function PortalOnboarding() {
           <>
             {/* Header */}
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-foreground">
                 Let's set up your {data.service_name ?? "service"}
               </h1>
               <p className="text-sm text-gray-500 mt-0.5">
