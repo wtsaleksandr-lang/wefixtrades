@@ -157,6 +157,90 @@ export async function syncProductPrice(change: PriceChange): Promise<SyncResult>
   return result;
 }
 
+export interface PriceValidationResult {
+  /** true = the pasted price matches catalog amount/currency (or validation was safely skipped). */
+  ok: boolean;
+  /** true when validation could not run (key unset / Stripe error) — caller should treat as a soft warning, not a hard reject. */
+  skipped?: boolean;
+  /** Human-readable mismatch / skip reason. */
+  warning?: string;
+}
+
+/**
+ * Validate that a pasted `stripe_price_id` actually charges the amount +
+ * currency our catalog advertises. Stripe Prices are the source of truth for
+ * what a customer is billed; if an admin pastes a price_id whose unit_amount
+ * differs from the catalog price, the site shows one number and Stripe charges
+ * another. This retrieves the price and asserts unit_amount/currency match.
+ *
+ * Returns ok:false on a real mismatch (caller should reject/warn).
+ * Returns ok:true, skipped:true when validation can't run (key unset, price
+ * not found, Stripe error) — never blocks publish on infra trouble, only on a
+ * confirmed mismatch.
+ */
+export async function validateStripePriceId(args: {
+  stripePriceId: string;
+  expectedAmountCents: number;
+  /** Defaults to "usd" (our catalog has no currency column). */
+  expectedCurrency?: string;
+  /** For log/warning context, e.g. service id or tier id. */
+  label?: string;
+}): Promise<PriceValidationResult> {
+  const { stripePriceId, expectedAmountCents } = args;
+  const expectedCurrency = (args.expectedCurrency ?? "usd").toLowerCase();
+  const label = args.label ? `${args.label} ` : "";
+
+  if (!stripePriceId) return { ok: true };
+  const stripe = getStripe();
+  if (!stripe) {
+    return {
+      ok: true,
+      skipped: true,
+      warning: `STRIPE_SECRET_KEY not configured — could not verify ${label}price ${stripePriceId} amount`,
+    };
+  }
+
+  let price: Stripe.Price;
+  try {
+    price = await stripe.prices.retrieve(stripePriceId);
+  } catch (err: any) {
+    log.warn("Stripe price retrieve failed during validation", {
+      stripePriceId,
+      label: args.label,
+      err: err?.message,
+    });
+    return {
+      ok: true,
+      skipped: true,
+      warning: `Could not verify ${label}price ${stripePriceId} against Stripe: ${err?.message ?? "unknown error"}`,
+    };
+  }
+
+  const actualAmount = price.unit_amount;
+  const actualCurrency = (price.currency ?? "").toLowerCase();
+
+  if (typeof actualAmount !== "number") {
+    // Tiered/metered prices have no flat unit_amount — can't compare cleanly.
+    return {
+      ok: true,
+      skipped: true,
+      warning: `${label}price ${stripePriceId} has no flat unit_amount (tiered/metered) — amount not verified`,
+    };
+  }
+
+  if (actualAmount !== expectedAmountCents || actualCurrency !== expectedCurrency) {
+    return {
+      ok: false,
+      warning:
+        `${label}Stripe price ${stripePriceId} charges ` +
+        `${actualAmount} ${actualCurrency} but the catalog advertises ` +
+        `${expectedAmountCents} ${expectedCurrency}. Customers would be charged a different amount than the site shows.`,
+    };
+  }
+
+  return { ok: true };
+}
+
 /**
  * Compute the yearly amount from a monthly amount using the standard
  * WeFixTrades 10% annual discount (matches `sync-stripe.ts`).
