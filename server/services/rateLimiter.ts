@@ -102,6 +102,66 @@ export const aiChatRateLimiter = new RateLimiter(
   60_000,
 );
 
+/* ───────────────────────────────────────────────────────────────────────────
+ * Wave WAI — anonymous QuoteQuick wizard AI limiters.
+ *
+ * The wizard AI assistant (chat / formula-help / image-to-template) is now
+ * fully anonymous + free (matches "all wizard features free"). Anonymous LLM
+ * access is a real cost/abuse surface, so anonymous callers are bounded by a
+ * strict per-IP rate limit *and* a per-IP daily cap. There is no DB budget row
+ * for an anonymous visitor (the budget service is keyed on a numeric user id),
+ * so these limiters ARE the anonymous spend ceiling — keep them conservative.
+ *
+ * Logged-in callers keep the existing per-user budget caps (DB-backed) and are
+ * NOT subject to these anon limiters; the routes key the limiter on userId when
+ * present and on req.ip only when the caller is anonymous.
+ *
+ * All counts are env-overridable so we can tune without a redeploy.
+ * ──────────────────────────────────────────────────────────────────────────*/
+
+/** Parse a positive-integer env override, falling back to `dflt`. */
+function envInt(name: string, dflt: number): number {
+  const raw = process.env[name];
+  if (!raw) return dflt;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : dflt;
+}
+
+const DAY_MS = 24 * 60 * 60_000;
+
+/** Anonymous wizard chat / formula-help — per-IP per-minute burst cap. */
+export const anonWizardAiPerMinLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ANON_WIZARD_AI_PER_MIN", 10), // ~10 AI messages / minute / IP
+  60_000,
+);
+
+/** Anonymous wizard chat / formula-help — per-IP per-day cap. The hard
+ *  anonymous spend ceiling: an anonymous IP can send at most this many AI
+ *  messages in a rolling 24h window. */
+export const anonWizardAiPerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ANON_WIZARD_AI_PER_DAY", 50), // ~50 AI messages / day / IP
+  DAY_MS,
+);
+
+/** Anonymous image-to-template (vision — the most expensive call) — per-IP
+ *  per-minute cap. Strictly tighter than text so a single IP can't pump
+ *  vision calls. */
+export const anonImageToTemplatePerMinLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ANON_IMG2TMPL_PER_MIN", 2), // 2 vision calls / minute / IP
+  60_000,
+);
+
+/** Anonymous image-to-template — per-IP per-day cap. The hard anonymous
+ *  vision-spend ceiling. */
+export const anonImageToTemplatePerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ANON_IMG2TMPL_PER_DAY", 10), // 10 vision calls / day / IP
+  DAY_MS,
+);
+
 /**
  * Per-user cap for the QuoteQuick portal AI free-tools — AI Quote Writer
  * (POST /api/portal/free-tools/quote-writer) and AI Review Responder
