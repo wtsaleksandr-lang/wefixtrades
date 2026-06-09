@@ -1150,6 +1150,16 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 pointer-events: none !important;
                 cursor: default !important;
               }
+              /* Apple frosted-glass treatment for the preview's QuoteQuick brand
+                 bar (Alex request). Scoped to the preview container ONLY — the
+                 deployed/embedded QuoteWidget brandbar is untouched. */
+              [data-testid="template-live-preview"] [data-qq-brandbar] {
+                background: rgba(255, 255, 255, 0.55) !important;
+                -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+                backdrop-filter: blur(12px) saturate(160%) !important;
+                border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+                align-items: center !important;
+              }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
                 display: grid; place-items: center;
