@@ -215,8 +215,10 @@ export default function MobileBottomSheet({
     const vh = typeof window !== 'undefined' ? window.innerHeight : 0;
     const safe = readSafeAreaBottom();
     const workAreaPx = Math.max(0, vh - TOPBAR_PX - BOTTOM_BAR_PX - safe);
-    // Largest sheet height leaves at least MIN_PREVIEW_PX of preview.
-    const maxPx = Math.max(COLLAPSED_PX, workAreaPx - MIN_PREVIEW_PX);
+    // Largest sheet height fills the full work area — the sheet can drag all the
+    // way up to just under the top bar, covering the preview. (Previously this
+    // reserved MIN_PREVIEW_PX of preview, which capped the sheet at ~50%.)
+    const maxPx = Math.max(COLLAPSED_PX, workAreaPx);
     geomRef.current = { workAreaPx, maxPx };
     return geomRef.current;
   }, []);
