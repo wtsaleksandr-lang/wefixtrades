@@ -84,10 +84,28 @@ export function registerFounderNotifyRoutes(app: Express): void {
         .select({ n: sql<number>`count(*)::int` })
         .from(adminNotices)
         .where(eq(adminNotices.status, "unread"));
-      res.json({ notices: rows, unread_count: unread?.n ?? 0 });
+      res.json({ notices: rows, unread_count: unread?.n ?? 0, degraded: false });
     } catch (err: any) {
+      // Degrade gracefully instead of hard-500ing the whole AI Agenda page.
+      // The most likely prod cause is a schema drift — the `admin_notices`
+      // table or one of its columns isn't present yet (this repo syncs schema
+      // via `drizzle-kit push`, not SQL migrations, so a newly-added table /
+      // column only exists after a prod push). A missing-relation / missing-
+      // column error must not take the page down: return an empty, clearly-
+      // degraded payload (HTTP 200) so the UI shows an empty state with a
+      // banner rather than a blank 500. Any unexpected error still degrades
+      // rather than 500s — the agenda is read-only and non-critical.
+      const msg: string = String(err?.message ?? "");
+      const isSchemaDrift = /relation .* does not exist|column .* does not exist|undefined (table|column)/i.test(msg);
       log.error("[notices] GET error:", err?.message);
-      res.status(500).json({ error: "Failed to load notices" });
+      res.json({
+        notices: [],
+        unread_count: 0,
+        degraded: true,
+        degraded_reason: isSchemaDrift
+          ? "notices table/column missing on this environment (pending schema push)"
+          : "notices temporarily unavailable",
+      });
     }
   });
 

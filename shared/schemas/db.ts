@@ -1354,7 +1354,14 @@ export const adminNotices = pgTable("admin_notices", {
   // unread | read | actioned
   created_at: timestamp("created_at").defaultNow(),
   read_at: timestamp("read_at"),
-});
+}, (table) => ({
+  // Declared here to match migration 0079_admin_notices.sql (schema-drift
+  // guard) — the AI Agenda lists newest-first and counts unread. Bare `DESC`
+  // in the migration → `.desc().nullsFirst()` here so drizzle-kit doesn't
+  // propose a drop/recreate on the NULLS ordering (see map_snapshots note).
+  createdAtIdx: index("admin_notices_created_at_idx").on(table.created_at.desc().nullsFirst()),
+  statusIdx: index("admin_notices_status_idx").on(table.status),
+}));
 export const insertAdminNoticeSchema = createInsertSchema(adminNotices).omit({ id: true, created_at: true });
 export type InsertAdminNotice = z.infer<typeof insertAdminNoticeSchema>;
 export type AdminNotice = typeof adminNotices.$inferSelect;

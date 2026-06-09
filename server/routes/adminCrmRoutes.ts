@@ -3227,9 +3227,19 @@ export function registerAdminCrmRoutes(app: Express): void {
       const vapiAssistantId = config.assistant?.vapiAssistantId;
       if (vapiAssistantId) {
         try {
-          const { getVapiConfig } = await import("../services/vapiService");
+          const { getVapiConfig, buildConversationUrl, VAPI_TRADELINE_MODEL } = await import("../services/vapiService");
           const vapiConfig = getVapiConfig();
           if (vapiConfig.apiKey) {
+            // A PATCH that includes a `model` object must satisfy Vapi's
+            // custom-llm contract: `model.model` MUST be a non-empty string and
+            // `model.url` MUST be a fully-qualified https URL. The previous
+            // payload sent `{ provider, url: "_disabled_", messages }` with NO
+            // `model` string and an invalid URL → Vapi rejected the disable with
+            // HTTP 400 `model.model must be a string` (same bug family as the
+            // create path fixed in Wave 12D), so the kill-switch silently failed
+            // to deactivate the live assistant. Send a contract-valid model
+            // object; the disable behaviour is carried by firstMessage + the
+            // system message that forces the unavailable response.
             const resp = await fetch(`https://api.vapi.ai/assistant/${vapiAssistantId}`, {
               method: "PATCH",
               headers: {
@@ -3238,7 +3248,7 @@ export function registerAdminCrmRoutes(app: Express): void {
               },
               body: JSON.stringify({
                 firstMessage: "We're sorry, this service is temporarily unavailable. Please try again later or contact the business directly.",
-                model: { provider: "custom-llm", url: "_disabled_", messages: [{ role: "system", content: "This assistant has been disabled. Respond only with: This service is temporarily unavailable." }] },
+                model: { provider: "custom-llm", model: VAPI_TRADELINE_MODEL, url: buildConversationUrl(vapiConfig.serverUrl), messages: [{ role: "system", content: "This assistant has been disabled. Respond only with: This service is temporarily unavailable." }] },
               }),
             });
             vapiResult = resp.ok ? "disabled_via_api" : `api_error_${resp.status}`;

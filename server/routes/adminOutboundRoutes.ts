@@ -74,6 +74,25 @@ function safeEqual(provided: string | string[] | undefined, expected: string): b
 
 const log = createLogger("AdminOutbound");
 
+/**
+ * True when a query failed because the `prospect_enrichment` table — or one of
+ * its newer columns (e.g. the `artifact_*` set added 2026-05-30, PR #1091) —
+ * does not yet exist on this environment's database. This repo syncs schema via
+ * `drizzle-kit push` (no SQL migration files), so a freshly-added column only
+ * lands after a prod push; until then Postgres throws `column ... does not
+ * exist` / `relation ... does not exist`. Routes that read those columns must
+ * degrade to a clear empty/partial state rather than 500 the whole page.
+ * NOTE: the schema already defines the table + columns correctly — the fix is a
+ * pending `drizzle-kit push` to prod (a DB action for Alex), NOT a code change.
+ */
+function isSchemaDriftError(err: any): boolean {
+  // Postgres SQLSTATE 42703 = undefined_column, 42P01 = undefined_table.
+  const code = err?.code ?? err?.cause?.code;
+  if (code === "42703" || code === "42P01") return true;
+  const msg: string = err?.message ?? "";
+  return /relation .* does not exist|column .* does not exist|undefined (table|column)/i.test(msg);
+}
+
 /* ─── helpers ─── */
 
 function actorMeta(req: Request) {
@@ -361,6 +380,19 @@ export function registerAdminOutboundRoutes(app: Express): void {
         recent: recentRows,
       });
     } catch (err: any) {
+      // Degrade gracefully when prospect_enrichment / its artifact_* columns
+      // aren't on this DB yet (pending schema push) — return an empty, clearly-
+      // degraded payload (HTTP 200) so the page shows an empty state + banner
+      // instead of a hard 500.
+      if (isSchemaDriftError(err)) {
+        log.warn("[outbound] artifact-stats degraded — prospect_enrichment schema not yet pushed:", err.message);
+        return res.json({
+          enabled: process.env.ARTIFACT_OUTREACH_ENABLED === "true",
+          generated: 0, pending: 0, failed: 0, skipped: 0, viewed: 0, recent: [],
+          degraded: true,
+          degraded_reason: "prospect_enrichment table/columns missing on this environment (pending schema push)",
+        });
+      }
       log.error("[outbound] artifact-stats error:", err.message);
       res.status(500).json({ error: "Failed to load artifact stats" });
     }
@@ -849,6 +881,19 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       res.json({ data: rows, total: Number(totalRows[0]?.c ?? 0) });
     } catch (err: any) {
+      // Degrade gracefully when prospect_enrichment isn't on this DB yet
+      // (pending schema push): the page reads enrichment columns via JOIN, so a
+      // missing table/column would otherwise 500 the whole prospects list.
+      // Return an empty page (HTTP 200) with a degraded flag so the admin sees a
+      // clear empty state + banner rather than a blank failure.
+      if (isSchemaDriftError(err)) {
+        log.warn("[outbound] list prospects degraded — prospect_enrichment schema not yet pushed:", err.message);
+        return res.json({
+          data: [], total: 0,
+          degraded: true,
+          degraded_reason: "prospect_enrichment table/columns missing on this environment (pending schema push)",
+        });
+      }
       log.error("[outbound] list prospects:", err.message);
       res.status(500).json({ error: "Failed to list prospects" });
     }
