@@ -420,7 +420,7 @@ export default function RankFlowDashboard() {
             <Button asChild variant="outline" size="sm">
               <Link href="/portal/articles">
                 <Search className="h-4 w-4 mr-2" />
-                Articles
+                ContentFlow
               </Link>
             </Button>
           </div>

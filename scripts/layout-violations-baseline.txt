@@ -136,7 +136,7 @@ client/src/pages/portal/FreeTools/ServiceAreaMap.tsx:242:7	rule-b	<div> contains
 client/src/pages/portal/PortalBilling.tsx:167:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBilling.tsx:178:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBilling.tsx:189:24	rule-c	square w-9 h-9
-client/src/pages/portal/PortalBrandKitsPage.tsx:140:23	rule-c	size={10}
+client/src/pages/portal/PortalBrandKitsPage.tsx:164:23	rule-c	size={10}
 client/src/pages/portal/PortalCompetitors.tsx:165:18	rule-c	square w-12 h-12
 client/src/pages/portal/PortalOnboarding.tsx:433:5	rule-b	<div> contains 3 cues
 client/src/pages/portal/PortalOnboarding.tsx:434:12	rule-c	square w-12 h-12
@@ -148,8 +148,8 @@ client/src/pages/portal/PortalReviews.tsx:986:46	rule-c	square w-1.5 h-1.5
 client/src/pages/portal/PortalReviewsSetup.tsx:154:17	rule-c	square w-12 h-12
 client/src/pages/portal/PortalServiceDetail.tsx:691:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalServices.tsx:144:22	rule-c	square w-9 h-9
-client/src/pages/portal/PortalSettings.tsx:1633:13	rule-c	square w-16 h-16
-client/src/pages/portal/PortalSettings.tsx:1638:16	rule-c	square w-16 h-16
+client/src/pages/portal/PortalSettings.tsx:1685:13	rule-c	square w-16 h-16
+client/src/pages/portal/PortalSettings.tsx:1690:16	rule-c	square w-16 h-16
 client/src/pages/portal/PortalSocialSync.tsx:389:26	rule-c	square w-14 h-14
 client/src/pages/portal/PortalSocialSync.tsx:394:26	rule-c	square w-14 h-14
 client/src/pages/portal/PortalWidget.tsx:459:17	rule-c	square w-12 h-12

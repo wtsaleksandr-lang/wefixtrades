@@ -21,6 +21,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, CheckCircle2, MessageSquareWarning, XCircle, FileText, ExternalLink, Clock, Share2, Instagram, Facebook, Globe, Mail, Calendar, Video, Sparkles, Wand2, MapPin, Megaphone, Type } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -214,6 +215,7 @@ function AICopilotPanel({ draftId, draftBody }: { draftId: number | null; draftB
 /* ─── Page ────────────────────────────────────────────────────────── */
 
 export default function PortalArticles() {
+  usePageTitle("ContentFlow");
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -369,7 +371,7 @@ export default function PortalArticles() {
     <PortalLayout>
       <div className="space-y-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Content</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">ContentFlow</h1>
           <p className="text-sm text-muted-foreground">
             {videoFeatureVisible
               ? "Review articles and see what social posts and videos are going out on your channels."

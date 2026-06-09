@@ -12,6 +12,7 @@ import { Phone, MapPin, CheckCircle, ChevronLeft, ChevronRight, Calendar } from 
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 interface Appointment {
   id: number;
@@ -60,6 +61,7 @@ function mapsUrl(address: string): string {
 }
 
 export default function DispatchPage() {
+  usePageTitle("Dispatch");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -122,12 +124,14 @@ export default function DispatchPage() {
   const completedCount = list.filter((a) => a.status === "completed").length;
 
   return (
-    <PortalLayout breadcrumb="Today's jobs" compact>
-    <div data-theme="light" style={{ maxWidth: 600, margin: "0 auto", padding: "16px" }}>
-      {/* Header — Dispatch is mobile-first for tradespeople in the field.
-          PortalLayout's compact mode drops outer chrome on small screens so
-          this surface still feels like a stripped-down field app, while
-          desktop users get the full sidebar nav. */}
+    <PortalLayout breadcrumb="Today's jobs">
+    {/* Header is left-aligned with a breadcrumb to match every other portal
+        page (PortalLayout renders the Portal › Dispatch trail above). The
+        content column stays a readable max-width but is left-aligned (no
+        mx-auto) so the H1 lines up with the standard portal header pattern.
+        data-theme="light" is retained because the job cards below use
+        hardcoded light surface colors. */}
+    <div data-theme="light" style={{ maxWidth: 600, margin: 0 }}>
       <h1 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>
         Dispatch
       </h1>

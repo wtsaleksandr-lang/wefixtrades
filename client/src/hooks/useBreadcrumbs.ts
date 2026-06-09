@@ -178,6 +178,15 @@ const PORTAL_ROUTES: StaticRoute[] = [
     match: /^\/portal\/invoices\/?$/,
     build: () => [PORTAL_ROOT, { label: "Invoices" }],
   },
+  // /portal/articles  → Portal › ContentFlow
+  // The /portal/articles route is the ContentFlow surface. Map it explicitly
+  // so the breadcrumb reads "ContentFlow" (the canonical product brand)
+  // rather than the humanised path segment "Articles" — keeping nav,
+  // breadcrumb, and H1 on a single label.
+  {
+    match: /^\/portal\/articles\/?$/,
+    build: () => [PORTAL_ROOT, { label: "ContentFlow" }],
+  },
 ];
 
 /** Fallback — split the path, drop the leading root, humanise the rest. */
