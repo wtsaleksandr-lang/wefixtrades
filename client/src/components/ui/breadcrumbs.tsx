@@ -49,7 +49,7 @@ export function Breadcrumbs({
       data-testid="breadcrumbs"
     >
       {/* Mobile (collapsed) — visible <sm only */}
-      <ol className="flex sm:hidden flex-wrap items-center gap-1 text-sm text-gray-500">
+      <ol className="flex sm:hidden flex-wrap items-center gap-1 text-sm text-muted-foreground">
         {collapsedMobile.map((seg, idx) => (
           <BreadcrumbSegmentLi
             key={idx}
@@ -59,7 +59,7 @@ export function Breadcrumbs({
         ))}
       </ol>
       {/* Desktop (full trail) — visible sm and up */}
-      <ol className="hidden sm:flex flex-wrap items-center gap-1.5 text-sm text-gray-500">
+      <ol className="hidden sm:flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
         {items.map((seg, idx) => (
           <BreadcrumbSegmentLi
             key={idx}
@@ -83,14 +83,14 @@ function BreadcrumbSegmentLi({
     return (
       <li className="inline-flex items-center gap-1.5">
         <span
-          className="inline-flex items-center text-gray-400"
+          className="inline-flex items-center text-muted-foreground/70"
           aria-hidden="true"
         >
           <MoreHorizontal className="w-3.5 h-3.5" />
           <span className="sr-only">More</span>
         </span>
         <ChevronRight
-          className="w-3.5 h-3.5 text-gray-300 shrink-0"
+          className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0"
           aria-hidden="true"
         />
       </li>
@@ -102,21 +102,21 @@ function BreadcrumbSegmentLi({
       {isLast || !seg.to ? (
         <span
           aria-current={isLast ? "page" : undefined}
-          className="font-semibold text-gray-900 truncate max-w-[16rem]"
+          className="font-semibold text-foreground truncate max-w-[16rem]"
         >
           {seg.label}
         </span>
       ) : (
         <Link
           href={seg.to}
-          className="text-gray-500 hover:text-brand-blue transition-colors truncate max-w-[12rem]"
+          className="text-muted-foreground hover:text-brand-blue transition-colors truncate max-w-[12rem]"
         >
           {seg.label}
         </Link>
       )}
       {!isLast && (
         <ChevronRight
-          className="w-3.5 h-3.5 text-gray-300 shrink-0"
+          className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0"
           aria-hidden="true"
         />
       )}

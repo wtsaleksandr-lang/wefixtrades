@@ -201,7 +201,11 @@ function FunnelBar({ stage, reduce }: { stage: Stage; reduce: boolean }) {
             className={
               stage.hero
                 ? "text-xs font-semibold uppercase tracking-wide text-foreground"
-                : "text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+                // Labels sit on a faint 12% chart-tint that is nearly the card
+                // colour, so muted-grey text fell to ~1.1–2.0:1 in BOTH themes.
+                // text-foreground is theme-aware and rides the tint at full
+                // contrast (dark-on-tint in light, light-on-tint in dark).
+                : "text-[11px] font-semibold uppercase tracking-wide text-foreground"
             }
           >
             {stage.label}

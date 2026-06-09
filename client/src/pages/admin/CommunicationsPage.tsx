@@ -398,7 +398,10 @@ function SmsPanel({
                       onClick={() => onSelectContact(t.contact)}
                       className={cn(
                         "w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors",
-                        active && "bg-[#EEF3FF] hover:bg-[#EEF3FF]"
+                        // Rule 4 — selected = subtle tint + inset outline bar, NOT a
+                        // bright fill. Theme-aware so the row stays readable in dark.
+                        active &&
+                          "relative bg-brand-blue/5 dark:bg-brand-blue/15 hover:bg-brand-blue/10 dark:hover:bg-brand-blue/20 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-brand-blue"
                       )}
                       data-testid={`twilio-thread-${normalizeContact(t.contact)}`}
                     >

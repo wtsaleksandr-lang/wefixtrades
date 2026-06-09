@@ -43,12 +43,12 @@ function microCentsToDollars(mc: number): string {
  * "soft tint" approximations needed across this page. */
 type PillTone = "blue" | "green" | "amber" | "red" | "gray" | "cyan";
 const PILL_TONES: Record<PillTone, string> = {
-  blue: "bg-blue-50 text-blue-700",
-  green: "bg-emerald-50 text-emerald-700",
-  amber: "bg-amber-50 text-amber-700",
-  red: "bg-red-50 text-red-700",
+  blue: "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 dark:border dark:border-blue-800/50",
+  green: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border dark:border-emerald-800/50",
+  amber: "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 dark:border dark:border-amber-800/50",
+  red: "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 dark:border dark:border-red-800/50",
   gray: "bg-muted text-muted-foreground",
-  cyan: "bg-cyan-50 text-cyan-700",
+  cyan: "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300 dark:border dark:border-cyan-800/50",
 };
 function Pill({ children, tone = "blue" }: { children: React.ReactNode; tone?: PillTone }) {
   return (
@@ -306,12 +306,12 @@ function VapiStatusPanel() {
               key={key}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
                 val
-                  ? "bg-emerald-50/60 border-emerald-200 text-foreground"
+                  ? "bg-emerald-50/60 border-emerald-200 text-foreground dark:bg-emerald-950/40 dark:border-emerald-800/50"
                   : "bg-muted/50 border-border text-muted-foreground"
               }`}
             >
               {val ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               ) : (
                 <XCircle className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
               )}

@@ -158,8 +158,8 @@ export default function SupportInboxPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">Support Tickets</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-lg font-semibold text-foreground">Support Tickets</h1>
+            <p className="text-sm text-muted-foreground">
               {counts ? `${counts.open + counts.in_progress + counts.waiting_on_customer} unresolved` : ""}
             </p>
           </div>
