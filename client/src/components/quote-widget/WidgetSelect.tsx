@@ -144,9 +144,17 @@ export default function WidgetSelect({
         <label
           htmlFor={id}
           title={label}
+          className="qq-w-grouplabel"
           style={{
             position: 'absolute', left: 14, top: 4, fontSize: 12, fontWeight: 700,
+            // Mirror the contrast-guarded label colour into --qq-w-grouplabel so
+            // the editor-dark-mode override (index.css `.qq-w-grouplabel`) can
+            // re-assert it past the editor chrome's blanket
+            // `label { color: var(--qq-text) !important }` rule, which would
+            // otherwise paint this floated SELECT caption near-white on the
+            // light widget surface (≈1.1:1, invisible).
             letterSpacing: '0.015em', color: labelColor, pointerEvents: 'none',
+            ['--qq-w-grouplabel' as any]: labelColor,
             lineHeight: 1, background: 'transparent', padding: '0 2px',
             // Clamp the floated label to ONE line so a long question
             // ("How often do you want service?") can't wrap to 2 lines and

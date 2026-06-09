@@ -1140,6 +1140,33 @@
 .qq-editor-shell[data-theme="dark"] legend {
   color: var(--qq-text) !important;
 }
+/* WIDGET-PREVIEW LABEL CONTRAST FIX — the blanket `label` rule above paints
+ * EVERY <label> in the editor chrome near-white (`--qq-text`) with !important.
+ * That blanket also reaches INTO the live widget preview
+ * (`[data-testid="advanced-calculator"]`), clobbering the widget's OWN
+ * theme-aware, contrast-guarded field-label colours — the floated field
+ * titles ("Service type" / "Quantity") and group captions ("Add-ons") then
+ * render #f1f5f9 near-white on the widget's WHITE input surface (≈1.1:1,
+ * invisible). The widget already computes a correct, surface-guarded colour
+ * (`--qq-w-label` resting, `--qq-w-label-focus` floated/select, and an inline
+ * `color` on group captions exposed here as `--qq-w-grouplabel`); we simply
+ * re-assert those WITHIN the preview subtree at higher specificity so the
+ * editor chrome's blanket can't override them. The widget owns its contrast
+ * in BOTH light + dark widget themes, so this is correct on every theme.
+ * Scoped to the calculator root → editor-chrome labels are untouched. */
+.qq-editor-shell[data-theme="dark"] [data-testid="advanced-calculator"] .qq-w-float > label {
+  color: var(--qq-w-label, #5b6573) !important;
+}
+.qq-editor-shell[data-theme="dark"] [data-testid="advanced-calculator"] .qq-w-float > input.qq-w-input:focus + label,
+.qq-editor-shell[data-theme="dark"] [data-testid="advanced-calculator"] .qq-w-float > input.qq-w-input:not(:placeholder-shown) + label,
+.qq-editor-shell[data-theme="dark"] [data-testid="advanced-calculator"] .qq-w-float > textarea.qq-w-input:focus + label,
+.qq-editor-shell[data-theme="dark"] [data-testid="advanced-calculator"] .qq-w-float > textarea.qq-w-input:not(:placeholder-shown) + label,
+.qq-editor-shell[data-theme="dark"] [data-testid="advanced-calculator"] .qq-w-float > select.qq-w-input + label {
+  color: var(--qq-w-label-focus, #0d3cfc) !important;
+}
+.qq-editor-shell[data-theme="dark"] [data-testid="advanced-calculator"] .qq-w-grouplabel {
+  color: var(--qq-w-grouplabel, inherit) !important;
+}
 /* Slightly dimmed variants for help-text / hint copy in dark mode. */
 .qq-editor-shell[data-theme="dark"] .qq-fields-sub,
 .qq-editor-shell[data-theme="dark"] .qq-fields-empty-sub,

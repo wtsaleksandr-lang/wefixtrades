@@ -863,24 +863,32 @@ function bodyIsDarkBg(bg: string | undefined): boolean {
 // its sibling field labels instead of looking like a different, lesser element.
 const groupHeaderStyle = (
   c: WidgetTheme, bodyIsDark: boolean, labelColor?: string,
-): React.CSSProperties => ({
-  fontSize: '13px', fontWeight: 700,
+): React.CSSProperties => {
   // Prefer the field-label resting colour the caller resolved (matches the
   // floated/resting label on sibling single-input fields). Fall back to the
   // body-bg-adaptive choice when a caller doesn't pass one — still readable on
   // light AND dark bodies, run through the contrast guard either way.
-  color: labelColor ?? guardTextColor(
+  const resolved = labelColor ?? guardTextColor(
     bodyIsDark ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.88)',
     c.bg,
     'groupHeader',
-  ),
+  );
+  return {
+  fontSize: '13px', fontWeight: 700,
+  color: resolved,
+  // Mirror the resolved colour into a CSS var so the editor-dark-mode override
+  // (index.css `.qq-w-grouplabel`) can re-assert it past the editor chrome's
+  // blanket `label { color: var(--qq-text) !important }` rule, which would
+  // otherwise paint this caption near-white on the light widget surface.
+  ['--qq-w-grouplabel' as any]: resolved,
   display: 'block',
   // Sentence case (natural config casing) to MATCH the stacked select labels —
   // every field/group caption in the widget now uses one consistent treatment.
   // Left-aligned to match the field labels on sibling inputs (was centered).
   marginBottom: '8px', letterSpacing: '-0.005em',
   textAlign: 'left',
-});
+  } as React.CSSProperties;
+};
 
 /**
  * BD-2a-sticky — bottom-stuck action footer.
@@ -3941,12 +3949,17 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   // grey help line below. Gated behind `labelLayout === 'stacked'` so the
   // legacy title-in-field float pattern is the unchanged default.
   const stacked = labelLayout === 'stacked';
+  // Guard the stacked title against the body bg it renders on (c.bg — no
+  // dedicated body-bg var is in this component's scope). 14px bold → large
+  // text floor.
+  const stackedLabelColor = guardTextColor(c.text, c.bg, 'fieldLabelStacked', { largeText: true });
   const stackedLabelStyle: React.CSSProperties = {
     display: 'block', fontSize: '14px', fontWeight: 700,
-    // Guard the stacked title against the body bg it renders on (c.bg — no
-    // dedicated body-bg var is in this component's scope). 14px bold → large
-    // text floor.
-    color: guardTextColor(c.text, c.bg, 'fieldLabelStacked', { largeText: true }),
+    color: stackedLabelColor,
+    // Mirror into the group-label var so the editor-dark-mode override
+    // (`.qq-w-grouplabel`) re-asserts THIS colour (not `inherit`) when a
+    // grouped field uses the stacked layout — keeps stacked captions correct.
+    ['--qq-w-grouplabel' as any]: stackedLabelColor,
     margin: '0 0 7px', letterSpacing: '-0.005em', lineHeight: 1.3,
     fontFamily,
   };
@@ -4457,6 +4470,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
             on one line (ellipsized) with the toggle card under it, instead of
             centering + wrapping to 2-3 lines and colliding. */}
         <label
+          className="qq-w-grouplabel"
           title={f.label}
           style={stacked ? stackedLabelStyle : {
             ...groupHeaderStyle(c, bodyIsDark, groupLabelColor),
@@ -4539,7 +4553,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     }
     return (
       <div>
-        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}>{f.label}</label>
+        <label className="qq-w-grouplabel" style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}>{f.label}</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
@@ -4600,7 +4614,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     // image is uploaded yet. Tap target ≥44px (minHeight 120px covers it).
     return (
       <div>
-        <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}>{f.label}</label>
+        <label className="qq-w-grouplabel" style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}>{f.label}</label>
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -4675,7 +4689,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   else if (maxSelect) hint = `Pick up to ${maxSelect}`;
   return (
     <div>
-      <label style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}>{f.label}</label>
+      <label className="qq-w-grouplabel" style={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}>{f.label}</label>
       {hint && (
         <p
           data-testid={`adv-multiselect-hint-${f.id}`}
