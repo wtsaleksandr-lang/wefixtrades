@@ -4788,23 +4788,79 @@ export interface ThemeCombo {
   resultsBg: string; accent: string; ctaColor: string;
 }
 
-// Shared light body — identical across all 13 (white body, dark text).
-const COMBO_BODY = { bg: 'rgba(255,255,255,1)', text: '#171717', surface: '#f6f7f9', border: '#e5e7eb' } as const;
+// ── Per-combo body derivation ────────────────────────────────────────
+// Earlier every combo spread an IDENTICAL flat-white body (`#fff` bg,
+// `#f6f7f9` surface, `#e5e7eb` border), so only the result panel + accents
+// picked up the theme and the widget read as a coloured card floating in a
+// white shell. We now DERIVE a subtle, theme-coherent light body from each
+// combo's accent: a faintly accent-tinted canvas, an accent-tinted field
+// surface, and a low-alpha accent border. The body stays light with dark
+// text (readability first — this is a customer-fill calculator); the
+// renderer still funnels every text colour through `guardTextColor`, so the
+// tint can never push contrast below AA.
+
+/** Parse `#rgb` / `#rrggbb` into 0-255 channels. Falls back to mid-grey for
+ *  any non-hex value so the math never throws. */
+function parseHexRgb(hex: string): { r: number; g: number; b: number } {
+  let h = hex.trim().replace(/^#/, '');
+  if (h.length === 3) h = h.split('').map((ch) => ch + ch).join('');
+  if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return { r: 128, g: 128, b: 128 };
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+/** Mix `color` over opaque white at `amount` (0-1) → an opaque hex tint.
+ *  Used so the canvas/surface read as a very light wash of the accent
+ *  while staying near-white and fully readable. */
+function tintOverWhite(color: string, amount: number): string {
+  const { r, g, b } = parseHexRgb(color);
+  const mix = (c: number) => Math.round(255 + (c - 255) * amount);
+  const toHex = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
+
+/** A low-alpha accent border (rgba) — themes the resting field/input
+ *  hairlines without the harsh flat grey, and stays subtle on the light
+ *  canvas. */
+function accentBorder(color: string, alpha: number): string {
+  const { r, g, b } = parseHexRgb(color);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * Derive a subtle, theme-coherent LIGHT body from a combo's accent.
+ * Tasteful by design: the canvas (`bg`) is a ~2.5% accent wash over white,
+ * field surfaces (`surface`) a ~5% wash, and the border a low-alpha accent
+ * hairline. Text stays near-`#171717` so it remains legible on the tint
+ * (and the renderer re-guards it through `guardTextColor`). Pure + total
+ * — same input always yields the same body, no side effects.
+ */
+export function deriveComboBody(accent: string): { bg: string; text: string; surface: string; border: string } {
+  return {
+    bg: tintOverWhite(accent, 0.025),     // ~2.5% accent wash — canvas reads as part of the theme, still near-white
+    surface: tintOverWhite(accent, 0.05), // ~5% accent wash — field fills sit a touch above the canvas, theme-coherent
+    border: accentBorder(accent, 0.18),   // low-alpha accent hairline — replaces flat #e5e7eb, themes resting field borders
+    text: '#171717',                      // dark body text — legibility first; guardTextColor re-checks AA at render
+  };
+}
 
 export const THEME_COMBOS: readonly ThemeCombo[] = [
-  { id: 'black-yellow', name: 'Black · Yellow', ...COMBO_BODY, resultsBg: '#0d0d0d', accent: '#0d0d0d', ctaColor: '#ffd60a' },
-  { id: 'car-rental',   name: 'Crimson',        ...COMBO_BODY, resultsBg: '#d83a3d', accent: '#d83a3d', ctaColor: '#141414' },
-  { id: 'mortgage',     name: 'Sky Tint',       ...COMBO_BODY, resultsBg: '#eaf1fb', accent: '#2563eb', ctaColor: '#2563eb' },
-  { id: 'loan',         name: 'Onyx · Red',     ...COMBO_BODY, resultsBg: '#1a1a1a', accent: '#ed3237', ctaColor: '#ed3237' },
-  { id: 'emi',          name: 'Azure',          ...COMBO_BODY, resultsBg: '#29abe2', accent: '#29abe2', ctaColor: '#141414' },
-  { id: 'bmi',          name: 'Mint Tint',      ...COMBO_BODY, resultsBg: '#e8f3e9', accent: '#2e9e3f', ctaColor: '#2e9e3f' },
-  { id: 'profit',       name: 'Forest',         ...COMBO_BODY, resultsBg: '#4a7a4e', accent: '#4a7a4e', ctaColor: '#141414' },
-  { id: 'fees',         name: 'Navy',           ...COMBO_BODY, resultsBg: '#1e2a44', accent: '#2f6be0', ctaColor: '#2f6be0' },
-  { id: 'reno',         name: 'Olive · Orange', ...COMBO_BODY, resultsBg: '#4a5240', accent: '#e8821e', ctaColor: '#e8821e' },
-  { id: 'tshirt',       name: 'Violet',         ...COMBO_BODY, resultsBg: '#7c5cc4', accent: '#7c5cc4', ctaColor: '#141414' },
-  { id: 'wedding',      name: 'Royal · Orange', ...COMBO_BODY, resultsBg: '#1e6fd4', accent: '#1e6fd4', ctaColor: '#e8821e' },
-  { id: 'carbon',       name: 'Teal',           ...COMBO_BODY, resultsBg: '#1a9b8e', accent: '#1a9b8e', ctaColor: '#141414' },
-  { id: 'cake',         name: 'Blush',          ...COMBO_BODY, resultsBg: '#fce7f0', accent: '#ec4899', ctaColor: '#ec4899' },
+  { id: 'black-yellow', name: 'Black · Yellow', ...deriveComboBody('#0d0d0d'), resultsBg: '#0d0d0d', accent: '#0d0d0d', ctaColor: '#ffd60a' },
+  { id: 'car-rental',   name: 'Crimson',        ...deriveComboBody('#d83a3d'), resultsBg: '#d83a3d', accent: '#d83a3d', ctaColor: '#141414' },
+  { id: 'mortgage',     name: 'Sky Tint',       ...deriveComboBody('#2563eb'), resultsBg: '#eaf1fb', accent: '#2563eb', ctaColor: '#2563eb' },
+  { id: 'loan',         name: 'Onyx · Red',     ...deriveComboBody('#ed3237'), resultsBg: '#1a1a1a', accent: '#ed3237', ctaColor: '#ed3237' },
+  { id: 'emi',          name: 'Azure',          ...deriveComboBody('#29abe2'), resultsBg: '#29abe2', accent: '#29abe2', ctaColor: '#141414' },
+  { id: 'bmi',          name: 'Mint Tint',      ...deriveComboBody('#2e9e3f'), resultsBg: '#e8f3e9', accent: '#2e9e3f', ctaColor: '#2e9e3f' },
+  { id: 'profit',       name: 'Forest',         ...deriveComboBody('#4a7a4e'), resultsBg: '#4a7a4e', accent: '#4a7a4e', ctaColor: '#141414' },
+  { id: 'fees',         name: 'Navy',           ...deriveComboBody('#2f6be0'), resultsBg: '#1e2a44', accent: '#2f6be0', ctaColor: '#2f6be0' },
+  { id: 'reno',         name: 'Olive · Orange', ...deriveComboBody('#e8821e'), resultsBg: '#4a5240', accent: '#e8821e', ctaColor: '#e8821e' },
+  { id: 'tshirt',       name: 'Violet',         ...deriveComboBody('#7c5cc4'), resultsBg: '#7c5cc4', accent: '#7c5cc4', ctaColor: '#141414' },
+  { id: 'wedding',      name: 'Royal · Orange', ...deriveComboBody('#1e6fd4'), resultsBg: '#1e6fd4', accent: '#1e6fd4', ctaColor: '#e8821e' },
+  { id: 'carbon',       name: 'Teal',           ...deriveComboBody('#1a9b8e'), resultsBg: '#1a9b8e', accent: '#1a9b8e', ctaColor: '#141414' },
+  { id: 'cake',         name: 'Blush',          ...deriveComboBody('#ec4899'), resultsBg: '#fce7f0', accent: '#ec4899', ctaColor: '#ec4899' },
 ];
 
 export const DEFAULT_THEME_COMBO: ThemeCombo = THEME_COMBOS.find(c => c.id === 'mortgage')!;
