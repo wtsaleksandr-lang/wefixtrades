@@ -33,6 +33,7 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import { apiRequest } from '@/lib/queryClient';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { validateFormula } from '@shared/formulaEngine';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
@@ -380,6 +381,14 @@ function MenuSpotSelectionSync({
 
 export default function WizardShell({ embed = false }: Props) {
   const [, navigate] = useLocation();
+  // fix/wizard-save-anon — the autosave POST /api/calculators requires a
+  // signed-in owner AND a non-empty business name (server Zod `.min(1)`).
+  // On a fresh anonymous session both are missing, so the POST 400s and the
+  // mutation's onError fired a scary destructive toast — even though the full
+  // draft is already persisted to localStorage (qq_elfsight_shell) and nothing
+  // is lost. We detect auth via the existing useAuth hook (backed by
+  // GET /api/auth/me) and gate every autosave-style call below.
+  const { isAuthenticated } = useAuth();
   const [state, setStateInner] = useState<ShellState>(() => loadShellState());
   const [activeTab, setActiveTab] = useState<EditorTab>('build');
   // BH-1 — device preset persisted in sessionStorage so the user's pick
@@ -1357,6 +1366,18 @@ export default function WizardShell({ embed = false }: Props) {
         });
         return;
       }
+      // fix/wizard-save-anon — defense in depth. The autosave/publish paths are
+      // now gated so an anonymous / no-business-name save never POSTs, but if a
+      // 400/401 from those specific conditions ever reaches here, do NOT show
+      // the scary destructive "try again" toast: the draft is already safe in
+      // localStorage and the user just needs to sign up / add a name. apiRequest
+      // throws Error("<status>: <body>"); match the auth/validation statuses.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/^(400|401|403):/.test(msg)) {
+        return;
+      }
+      // Genuine save errors for authenticated users with a real business name
+      // (5xx, network, unexpected) still report normally.
       toast({
         variant: 'destructive',
         title: "Couldn't save your calculator",
@@ -1364,6 +1385,50 @@ export default function WizardShell({ embed = false }: Props) {
       });
     },
   });
+
+  // fix/wizard-save-anon — a remote save (POST /api/calculators) can only
+  // succeed when the user is signed in AND has entered a business name (server
+  // requires both). The full draft is ALWAYS persisted to localStorage
+  // independently, so when we can't save remotely we simply skip the POST
+  // instead of letting it 400 with a destructive toast.
+  const canSaveRemotely = useCallback(
+    () => isAuthenticated && !!state.businessName.trim(),
+    [isAuthenticated, state.businessName],
+  );
+
+  // Background autosave (inline-title commit, mobile sheet save, etc.) — fire
+  // the remote save only when it can actually succeed; otherwise the work is
+  // already safe in localStorage and we stay silent (no toast, no 400).
+  const autosaveDraft = useCallback(() => {
+    if (!canSaveRemotely()) return;
+    saveDraftMutation.mutate();
+  }, [canSaveRemotely, saveDraftMutation]);
+
+  // Publish — when anonymous, don't POST (it would 400). Instead route to the
+  // sign-up flow with a friendly nudge; the localStorage draft is untouched so
+  // the user returns to exactly what they built. When signed in but missing a
+  // business name, prompt for that inline rather than firing a doomed save.
+  const handlePublish = useCallback(() => {
+    if (!isAuthenticated) {
+      toast({
+        title: 'Create a free account to save & publish',
+        description:
+          'Your calculator is saved on this device — sign up to publish it and get your embed code.',
+      });
+      navigate('/signup');
+      return;
+    }
+    if (!state.businessName.trim()) {
+      toast({
+        title: 'Add a business name first',
+        description: 'Your calculator needs a business name before it can be published.',
+      });
+      setActiveTab('build');
+      return;
+    }
+    saveDraftMutation.mutate();
+    setPublishOpen(true);
+  }, [isAuthenticated, state.businessName, saveDraftMutation, navigate]);
 
   const reduceMotion = useMemo(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return false;
@@ -1741,7 +1806,7 @@ export default function WizardShell({ embed = false }: Props) {
               mobile={isMobile}
               businessName={state.businessName}
               onBusinessNameChange={setBusinessName}
-              onPublish={() => { saveDraftMutation.mutate(); setPublishOpen(true); }}
+              onPublish={handlePublish}
               isPublishing={saveDraftMutation.isPending}
             />
 
@@ -1907,7 +1972,21 @@ export default function WizardShell({ embed = false }: Props) {
                     <div className="qq-editor-actions">
                       <button
                         type="button"
-                        onClick={() => saveDraftMutation.mutate()}
+                        /* fix/wizard-save-anon — anonymous users can type a
+                           business name and click Save, which previously 400'd
+                           (server requires a signed-in owner). Route them to
+                           the friendly sign-up nudge instead; the draft is
+                           already safe in localStorage. Authed users save as
+                           normal. */
+                        onClick={() => {
+                          if (canSaveRemotely()) { saveDraftMutation.mutate(); return; }
+                          toast({
+                            title: 'Create a free account to save',
+                            description:
+                              'Your calculator is saved on this device — sign up to save it to your account.',
+                          });
+                          navigate('/signup');
+                        }}
                         disabled={saveDraftMutation.isPending || !state.businessName.trim()}
                         data-testid="quotequick-save-draft"
                         className="qq-editor-btn"
@@ -1968,7 +2047,7 @@ export default function WizardShell({ embed = false }: Props) {
                      inline title edit is committed (debounced inside PreviewPane)
                      so a title typed on the mockup survives navigation without a
                      separate "Save draft" click. Reuses the existing mutation. */
-                  onCommitTitle={() => saveDraftMutation.mutate()}
+                  onCommitTitle={() => autosaveDraft()}
                   logo={state.logo ?? null}
                   layout={state.layout}
                   device={device}
@@ -2040,7 +2119,27 @@ export default function WizardShell({ embed = false }: Props) {
                 activeTab={activeTab}
                 onTabChange={(tab) => { setActiveTab(tab); setMobileSheetOpen(true); }}
                 onResetTab={resetActiveTab}
-                onSave={() => saveDraftMutation.mutate()}
+                /* fix/wizard-save-anon — explicit mobile Save: when it can't
+                   save remotely (anonymous or no business name) the draft is
+                   already safe in localStorage, so show a friendly nudge to
+                   create an account instead of firing a doomed 400. */
+                onSave={() => {
+                  if (canSaveRemotely()) { saveDraftMutation.mutate(); return; }
+                  if (!isAuthenticated) {
+                    toast({
+                      title: 'Create a free account to save',
+                      description:
+                        'Your calculator is saved on this device — sign up to save it to your account.',
+                    });
+                    navigate('/signup');
+                  } else {
+                    toast({
+                      title: 'Add a business name first',
+                      description: 'Your calculator needs a business name before it can be saved.',
+                    });
+                    setActiveTab('build');
+                  }
+                }}
                 onHelp={() => setShowHelp(true)}
                 isBusy={saveDraftMutation.isPending}
               >
