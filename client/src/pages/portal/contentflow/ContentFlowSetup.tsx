@@ -108,11 +108,29 @@ export default function ContentFlowSetup() {
   ];
 
   async function persist(state: WizardState) {
+    /* Map the wizard's camelCase state into the snake_case keys the server
+     * mapper (server/services/contentflow/onboardingMapper.ts) reads. Sending
+     * the raw `state` made every field miss — the mapper looks up voice_tone /
+     * content_industries / ready_to_connect_socials, not brandVoiceTone /
+     * tradeName / connectedPlatforms. Mirror how QuoteQuick/AdFlow wizards send
+     * an explicit `responses` map. */
+    const channels = (state.connectedPlatforms as string[] | undefined) ?? [];
+    const tradeName = (state.tradeName as string | undefined) ?? "";
+    const tone = (state.brandVoiceTone as string | undefined) ?? "";
+    const responses: Record<string, unknown> = {
+      voice_tone: tone,
+      content_industries: tradeName,
+      // The customer picked channels here, so they're ready to connect now.
+      ready_to_connect_socials: channels.length > 0 ? "yes" : "no",
+      // Surface the chosen channels for downstream social adapters.
+      channels,
+    };
+
     const res = await fetch("/api/portal/onboarding/submit", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ product: "contentflow", responses: state }),
+      body: JSON.stringify({ product: "contentflow", responses }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));

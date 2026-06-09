@@ -75,14 +75,22 @@ export function WebsiteConnectStep({ state, setState }: WizardRenderContext) {
           data-testid="onboarding-website-url"
         />
       </div>
-      {cms && (
+      {url.trim().length > 4 && (
         <p
           className="text-[11px] text-muted-foreground"
           data-testid="onboarding-website-cms"
         >
-          Detected platform: <span className="font-medium text-foreground">{CMS_LABEL[cms]}</span>
-          {cms === "wordpress" && " — we'll offer our 1-click WordPress plugin."}
-          {cms === "shopify" && " — connect via the Shopify app post-setup."}
+          {cms && cms !== "custom" ? (
+            <>
+              Looks like <span className="font-medium text-foreground">{CMS_LABEL[cms]}</span>
+              {cms === "wordpress" && " — we'll offer our 1-click WordPress plugin."}
+              {cms === "shopify" && " — connect via the Shopify app post-setup."}
+            </>
+          ) : (
+            // The heuristic can't confirm a platform from a normal domain — don't
+            // over-promise a (usually wrong) "detected" result. We confirm on connect.
+            <>We'll detect your platform when you connect.</>
+          )}
         </p>
       )}
     </div>

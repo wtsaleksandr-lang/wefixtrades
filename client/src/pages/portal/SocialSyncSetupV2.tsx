@@ -3,9 +3,10 @@
  *
  * Wave 33 refactor of the legacy SocialSyncSetup.tsx. The legacy wizard
  * was a 5-step survey form that violated the under-5-min target. This
- * v2 keeps the same persistence endpoint
- * (/api/portal/socialsync-profile) but cuts the flow to 3 questions
- * via the shared OnboardingWizard scaffold.
+ * v2 persists via the generic self-serve onboarding endpoint
+ * (POST /api/portal/onboarding/submit, product "socialsync"), whose
+ * server hook copies the answers into socialsync_profiles. The flow is
+ * cut to 3 questions via the shared OnboardingWizard scaffold.
  *
  *   Step 1: PlatformConnect (social mode) → which channels to manage
  *   Step 2: BrandVoice                    → tone selection
