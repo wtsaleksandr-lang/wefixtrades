@@ -35,6 +35,12 @@ export type NavItemChild = {
   href: string;
   description?: string;
   icon: NavIconKey;
+  /** When true, this destination lives inside the authenticated portal and is
+   *  auth + paid gated. Logged-out users who click it bounce to /login. The
+   *  nav renders a subtle lock badge so the gate is signposted BEFORE the
+   *  click (otherwise it's a silent dead-end). Used by the Free Tools →
+   *  Widgets column (/portal/free-tools/*). */
+  portalGated?: boolean;
 };
 
 export type NavSubgroup = {
@@ -116,7 +122,9 @@ export const NAV_LINKS: NavItem[] = [
           { label: "Citation Checker", href: "/tools/citation-checker", icon: "search" },
           { label: "Local Rank Grid", href: "/tools/local-rank-grid", icon: "mapPinned" },
           { label: "Local Rank Tracker", href: "/tools/local-rank-tracker", icon: "trendingUp" },
-          { label: "Local SERP Checker", href: "/tools/local-serp-checker", icon: "search" },
+          // Visible label de-jargoned for non-technical trades owners; the
+          // /tools/local-serp-checker slug/route is unchanged for SEO.
+          { label: "Google Ranking Checker", href: "/tools/local-serp-checker", icon: "search" },
           { label: "Local Rankflux", href: "/tools/local-rankflux", icon: "trendingUp" },
           { label: "Google Review Link Gen", href: "/tools/google-review-link-generator", icon: "shieldCheck" },
         ],
@@ -136,13 +144,13 @@ export const NAV_LINKS: NavItem[] = [
         heading: "Widgets",
         hubAnchor: "/free-tools#widgets",
         items: [
-          { label: "Schema Generator", href: "/portal/free-tools/schema", icon: "fileText" },
-          { label: "FAQ Widget", href: "/portal/free-tools/faq", icon: "messageSquare" },
-          { label: "Hours Widget", href: "/portal/free-tools/hours", icon: "layout" },
-          { label: "Trust Badges", href: "/portal/free-tools/trust-badges", icon: "shieldCheck" },
-          { label: "Review Link", href: "/portal/free-tools/review-link", icon: "sparkles" },
-          { label: "Callback Form", href: "/portal/free-tools/callback", icon: "phoneCall" },
-          { label: "Service Area Map", href: "/portal/free-tools/service-area", icon: "mapPinned" },
+          { label: "Schema Generator", href: "/portal/free-tools/schema", icon: "fileText", portalGated: true },
+          { label: "FAQ Widget", href: "/portal/free-tools/faq", icon: "messageSquare", portalGated: true },
+          { label: "Hours Widget", href: "/portal/free-tools/hours", icon: "layout", portalGated: true },
+          { label: "Trust Badges", href: "/portal/free-tools/trust-badges", icon: "shieldCheck", portalGated: true },
+          { label: "Review Link", href: "/portal/free-tools/review-link", icon: "sparkles", portalGated: true },
+          { label: "Callback Form", href: "/portal/free-tools/callback", icon: "phoneCall", portalGated: true },
+          { label: "Service Area Map", href: "/portal/free-tools/service-area", icon: "mapPinned", portalGated: true },
         ],
       },
     ],

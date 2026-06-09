@@ -412,10 +412,24 @@ export function Reveal({
     }
   }, []);
 
+  // Failsafe: never leave content permanently invisible. If useInView (and the
+  // IntersectionObserver under it) never fires — observer unsupported, a
+  // virtualised/overflow:clip ancestor, fast route swap — a below-fold card
+  // would otherwise stay armed-but-not-inView at opacity:0 forever (the blank
+  // product-card bug). After a short grace period we force-disarm so the
+  // animate target falls back to the visible state. Reveal becomes a pure
+  // opacity transition that always ends visible; it never gates content.
+  useEffect(() => {
+    if (!armed) return;
+    const t = window.setTimeout(() => setArmed(false), 1200);
+    return () => window.clearTimeout(t);
+  }, [armed]);
+
   if (reduced) return <div style={style}>{children}</div>;
 
   // armed && !inView → below-fold and not yet scrolled to: hidden.
-  // Everything else (pre-mount, on-screen at mount, scrolled into view): visible.
+  // Everything else (pre-mount, on-screen at mount, scrolled into view, or the
+  // failsafe disarm): visible.
   const hidden = armed && !inView;
   return (
     <motion.div

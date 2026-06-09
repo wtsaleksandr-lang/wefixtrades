@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Plus } from "lucide-react";
+import { Plus, Lock } from "lucide-react";
 import type { NavItemChild, NavSubgroup } from "@/site/navigation";
 import { NavIcon } from "./NavIcon";
 import { mkt } from "@/theme/tokens";
@@ -325,7 +325,7 @@ function MobileSubgroup({
         }}
       >
         <div ref={innerRef} style={{ padding: "2px 10px 10px" }}>
-          {group.items.map(({ label: cl, href: ch, icon }) => (
+          {group.items.map(({ label: cl, href: ch, icon, portalGated }) => (
             <a
               key={ch + cl}
               href={ch}
@@ -353,6 +353,8 @@ function MobileSubgroup({
               </div>
               <div
                 style={{
+                  flex: 1,
+                  minWidth: 0,
                   fontSize: 13,
                   fontWeight: 600,
                   color: mkt.text,
@@ -365,6 +367,32 @@ function MobileSubgroup({
               >
                 {cl}
               </div>
+              {portalGated && (
+                // Sign-in cue so logged-out users aren't silently bounced.
+                <span
+                  aria-label="Sign in required"
+                  title="Sign in required — opens in your portal"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    flexShrink: 0,
+                    padding: "2px 7px",
+                    borderRadius: 999,
+                    border: `1px solid ${mkt.border}`,
+                    color: mkt.textMuted,
+                    fontFamily: "'DM Mono', monospace",
+                    fontSize: 9.5,
+                    fontWeight: 600,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    lineHeight: 1,
+                  }}
+                >
+                  <Lock size={12} strokeWidth={2.4} aria-hidden />
+                  Sign in
+                </span>
+              )}
             </a>
           ))}
         </div>

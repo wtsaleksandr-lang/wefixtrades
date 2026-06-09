@@ -322,8 +322,10 @@ function MarketingFooter() {
             {/* Wave 49 — labels shortened so each fits one line at the
                 current column width. hrefs unchanged. */}
             <FtLink href="/tools/google-review-link-generator">Review Link Generator</FtLink>
-            {/* Wave 6E — BrightLocal-parity SERP viewer (Google + Maps, multi-country / language). */}
-            <FtLink href="/tools/local-serp-checker">SERP Checker</FtLink>
+            {/* Wave 6E — BrightLocal-parity SERP viewer (Google + Maps, multi-country / language).
+                Visible label de-jargoned to "Google Ranking Checker"; the
+                /tools/local-serp-checker slug/route is unchanged for SEO. */}
+            <FtLink href="/tools/local-serp-checker">Google Ranking Checker</FtLink>
             {/* Wave 6F — single-business multi-engine rank snapshot (Google + Brave + Maps). */}
             <FtLink href="/tools/local-rank-tracker">Rank Tracker</FtLink>
             <FtLink href="/tools/citation-checker">Citation Checker</FtLink>

@@ -441,7 +441,7 @@ export default function ProductPage() {
                     display: "inline-block",
                   }}
                 >
-                  Start Free
+                  Start free — no card
                 </Link>
                 <Link
                   href="/demo"
@@ -766,7 +766,7 @@ export default function ProductPage() {
                   display: "inline-block", padding: "15px 36px", fontSize: 16, textDecoration: "none",
                 }}
               >
-                Start Free
+                Start free — no card
               </Link>
               <Link
                 href="/contact"
