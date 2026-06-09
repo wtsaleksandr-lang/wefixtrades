@@ -30,6 +30,7 @@ import { requireClient } from "../../auth";
 import { storage } from "../../storage";
 import { db } from "../../db";
 import { clients } from "@shared/schema";
+import type { ContentDraft } from "@shared/schema";
 import {
   readBrandProfile,
   mergeBrandProfile,
@@ -55,7 +56,6 @@ import {
   prefillPromptTokens,
   defaultSelectionsFromProfile,
   type ExtractedBusinessProfile,
-  type PrefilledToken,
 } from "../../services/contentflow/profilePrefill";
 import { generateImageViaOrchestrator } from "../../services/contentflow/imageOrchestrator";
 import { generateVideoViaOrchestrator } from "../../services/contentflow/videoOrchestrator";
@@ -66,6 +66,8 @@ import { writeAudit } from "../../lib/auditLog";
 import { createLogger } from "../../lib/logger";
 import { encryptToken, isEncryptionConfigured } from "../../services/socialSync/tokenEncryption";
 import { withClientIdOrPreview } from "../../middleware/adminPreviewSafe";
+import { uploadToR2, isR2Configured } from "../../lib/r2Upload";
+import { scheduleDraftToSocialSync } from "../../services/contentflow/socialSyncHandoff";
 
 const log = createLogger("PortalContentflow");
 
@@ -450,71 +452,6 @@ export function registerPortalContentflowRoutes(app: Express) {
     } catch (err: any) {
       log.error("[portal/prompts][prefill]", err?.message || err);
       res.status(500).json({ error: err?.message || "prefill failed" });
-    }
-  });
-
-  /**
-   * POST /api/portal/contentflow/prompts/:id/draft
-   * Body: { tokens: PrefilledToken[], finalPrompt: string }
-   *
-   * Step 5 stub. Records the current prompt state to clients.metadata
-   * for the Phase 3 worker to pick up. No actual generation — the
-   * client toasts "Phase 3 ships generation pipeline" and stores the
-   * draft so nothing is lost between sessions.
-   *
-   * Persisted to clients.metadata.content_brand.last_draft as
-   *   { template_id, tokens, final_prompt, saved_at }
-   *
-   * Phase 3 will replace this with a real content_drafts row.
-   */
-  app.post("/api/portal/contentflow/prompts/:id/draft", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const tmpl = getPromptTemplate(String(req.params.id || ""));
-      if (!tmpl) return res.status(404).json({ error: "prompt not found", code: "prompt_not_found" });
-
-      const rawTokens = Array.isArray(req.body?.tokens) ? (req.body.tokens as unknown[]) : [];
-      const finalPrompt = typeof req.body?.finalPrompt === "string" ? req.body.finalPrompt.slice(0, 8_000) : "";
-
-      const tokens: PrefilledToken[] = [];
-      for (const t of rawTokens.slice(0, 16)) {
-        if (!t || typeof t !== "object") continue;
-        const placeholder = (t as any).placeholder;
-        const selected = (t as any).selected;
-        const alternatives = (t as any).alternatives;
-        if (typeof placeholder !== "string") continue;
-        if (typeof selected !== "string") continue;
-        if (!Array.isArray(alternatives)) continue;
-        tokens.push({
-          placeholder: placeholder as keyof PromptVariables,
-          selected: selected.slice(0, 300),
-          alternatives: alternatives.filter((a) => typeof a === "string").slice(0, 6).map((a: string) => a.slice(0, 300)),
-        });
-      }
-
-      const client = await storage.getClientById(clientId);
-      const meta = ((client?.metadata as Record<string, any>) || {}) as Record<string, any>;
-      const cb = (meta.content_brand && typeof meta.content_brand === "object" ? meta.content_brand : {}) as Record<string, any>;
-      const updatedMeta = {
-        ...meta,
-        content_brand: {
-          ...cb,
-          last_draft: {
-            template_id: tmpl.id,
-            tokens,
-            final_prompt: finalPrompt,
-            saved_at: new Date().toISOString(),
-          },
-        },
-      };
-      await storage.updateClient(clientId, { metadata: updatedMeta } as any);
-
-      res.json({ ok: true, template_id: tmpl.id, saved_at: updatedMeta.content_brand.last_draft.saved_at });
-    } catch (err: any) {
-      log.error("[portal/prompts][draft]", err?.message || err);
-      res.status(500).json({ error: err?.message || "draft save failed" });
     }
   });
 
@@ -922,12 +859,23 @@ export function registerPortalContentflowRoutes(app: Express) {
           customerTier: tier,
         });
         if (orch.ok) {
-          /* Persist as a data URI for now — Phase 3 ships without R2
-           * coupling on this surface; the existing publish pipeline
-           * uses R2, but here the asset is shown directly in the
-           * browser. Cap at ~1.2 MB to stay metadata-safe. */
-          const b64 = orch.imageBuffer.toString("base64");
-          assetUrl = `data:image/png;base64,${b64}`;
+          /* Prefer a durable R2 https URL when R2 is configured — a data
+           * URI bloats the content_drafts.metadata JSON (and can't be
+           * shared/scheduled cleanly). Fall back to the base64 data URI
+           * only when R2 is unset or the upload fails, so the surface
+           * still works in dev / un-configured environments. */
+          if (isR2Configured()) {
+            const key = `contentflow/portal/${clientId}/${draftId}-${crypto.randomBytes(4).toString("hex")}.png`;
+            const up = await uploadToR2({ key, contentType: "image/png", buffer: orch.imageBuffer });
+            if (up.ok && up.url) {
+              assetUrl = up.url;
+            } else {
+              log.warn("[generate] R2 upload failed; falling back to data URI", { draftId, err: up.error });
+              assetUrl = `data:image/png;base64,${orch.imageBuffer.toString("base64")}`;
+            }
+          } else {
+            assetUrl = `data:image/png;base64,${orch.imageBuffer.toString("base64")}`;
+          }
         } else {
           errors.push(`image:${orch.reason}`);
         }
@@ -1041,6 +989,206 @@ export function registerPortalContentflowRoutes(app: Express) {
     } catch (err: any) {
       log.error("[portal/contentflow/generate]", err?.message || err);
       res.status(500).json({ error: err?.message || "generate failed" });
+    }
+  });
+
+  /* ─── Customer content library (generated drafts) ─────────────────
+   *
+   * The generate endpoint persists every generation as a content_drafts
+   * row (surface='contentflow_portal'). These endpoints give the
+   * customer a real home for that library: list, edit, keep/pin,
+   * delete, and hand off to SocialSync. All are strictly tenant-scoped:
+   * the draft is fetched by id and its client_id is checked against the
+   * session's resolved client_id before any read or write. The URL id is
+   * NEVER trusted on its own.
+   */
+
+  /**
+   * GET /api/portal/contentflow/drafts
+   *
+   * Query (optional): surface (default 'contentflow_portal'), kind,
+   * status, limit (<=100), offset.
+   *
+   * Returns the calling client's generated assets, newest first, in a
+   * compact shape the Library UI renders. Image/article bodies are
+   * included so open/download/edit work without a second round-trip;
+   * the rendered prompt is surfaced for "Generate variation".
+   */
+  app.get("/api/portal/contentflow/drafts", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res, { drafts: [] });
+      if (!clientId) return;
+
+      const surface = typeof req.query.surface === "string" && req.query.surface.trim()
+        ? req.query.surface.trim()
+        : "contentflow_portal";
+      const kind = typeof req.query.kind === "string" && req.query.kind.trim() ? req.query.kind.trim() : undefined;
+      const status = typeof req.query.status === "string" && req.query.status.trim() ? req.query.status.trim() : undefined;
+      const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10) || 50));
+      const offset = Math.max(0, parseInt(String(req.query.offset ?? "0"), 10) || 0);
+
+      const rows = await storage.listContentDrafts({ client_id: clientId, surface, kind, status, limit, offset });
+      const drafts = rows.map((d) => formatPortalDraft(d));
+      res.json({ drafts });
+    } catch (err: any) {
+      log.error("[portal/contentflow/drafts][list]", err?.message || err);
+      res.status(500).json({ error: err?.message || "Failed to load library" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/contentflow/drafts/:id
+   * Body (any subset): { body?, title?, metadata? }
+   *
+   * Lets the customer edit a generated draft (article body / caption /
+   * title). metadata is shallow-merged onto the existing metadata so we
+   * never clobber generation provenance (template_id, media_plan, etc.).
+   */
+  app.patch("/api/portal/contentflow/drafts/:id", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res, { ok: true, persisted: false }, "write");
+      if (!clientId) return;
+
+      const draft = await loadOwnedDraft(req, res, clientId);
+      if (!draft) return;
+
+      const updates: Record<string, unknown> = {};
+      if (typeof req.body?.body === "string") updates.body = req.body.body.slice(0, 100_000);
+      if (typeof req.body?.title === "string") updates.title = req.body.title.slice(0, 500);
+      if (req.body?.metadata && typeof req.body.metadata === "object" && !Array.isArray(req.body.metadata)) {
+        const existing = (draft.metadata as Record<string, any> | null) ?? {};
+        updates.metadata = { ...existing, ...(req.body.metadata as Record<string, any>) };
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "nothing to update", code: "empty_patch" });
+      }
+
+      const updated = await storage.updateContentDraft(draft.id, updates as any);
+      writeAudit({
+        actorType: "system",
+        actorId: req.user?.id ?? null,
+        action: "contentflow.draft.edited",
+        entityType: "content_draft",
+        entityId: String(draft.id),
+        metadata: { client_id: clientId, fields: Object.keys(updates) },
+      });
+      res.json({ ok: true, draft: updated ? formatPortalDraft(updated) : null });
+    } catch (err: any) {
+      log.error("[portal/contentflow/drafts][patch]", err?.message || err);
+      res.status(500).json({ error: err?.message || "Failed to save draft" });
+    }
+  });
+
+  /**
+   * POST /api/portal/contentflow/drafts/:id/keep
+   *
+   * "Save asset" / "Keep" — pin a generated draft so it persists in the
+   * library independently of the prompt. Flips status draft → kept and
+   * stamps metadata.kept_at. Distinct from "Save prompt" (custom-prompts),
+   * which saves the PROMPT not the generated asset.
+   */
+  app.post("/api/portal/contentflow/drafts/:id/keep", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res, { ok: true, persisted: false }, "write");
+      if (!clientId) return;
+
+      const draft = await loadOwnedDraft(req, res, clientId);
+      if (!draft) return;
+
+      const existing = (draft.metadata as Record<string, any> | null) ?? {};
+      const updated = await storage.updateContentDraft(draft.id, {
+        status: "kept",
+        metadata: { ...existing, kept_at: new Date().toISOString() },
+      } as any);
+
+      writeAudit({
+        actorType: "system",
+        actorId: req.user?.id ?? null,
+        action: "contentflow.draft.kept",
+        entityType: "content_draft",
+        entityId: String(draft.id),
+        metadata: { client_id: clientId },
+      });
+      res.json({ ok: true, draft: updated ? formatPortalDraft(updated) : null });
+    } catch (err: any) {
+      log.error("[portal/contentflow/drafts][keep]", err?.message || err);
+      res.status(500).json({ error: err?.message || "Failed to keep draft" });
+    }
+  });
+
+  /**
+   * DELETE /api/portal/contentflow/drafts/:id
+   * Removes a generated draft from the customer's library.
+   */
+  app.delete("/api/portal/contentflow/drafts/:id", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res, { ok: true, persisted: false }, "write");
+      if (!clientId) return;
+
+      const draft = await loadOwnedDraft(req, res, clientId);
+      if (!draft) return;
+
+      await storage.deleteContentDraftCascade(draft.id, draft.linked_social_post_id ?? undefined);
+      writeAudit({
+        actorType: "system",
+        actorId: req.user?.id ?? null,
+        action: "contentflow.draft.deleted",
+        entityType: "content_draft",
+        entityId: String(draft.id),
+        metadata: { client_id: clientId },
+      });
+      res.json({ ok: true, deleted_id: draft.id });
+    } catch (err: any) {
+      log.error("[portal/contentflow/drafts][delete]", err?.message || err);
+      res.status(500).json({ error: err?.message || "Failed to delete draft" });
+    }
+  });
+
+  /**
+   * POST /api/portal/contentflow/drafts/:id/schedule-to-socialsync
+   * Body (optional): { platform?, scheduled_for? }
+   *
+   * Hand a generated portal draft off to SocialSync: creates a
+   * socialsync_posts row (status='draft') and wires the two-way
+   * back-reference (content_draft_id ↔ linked_social_post_id) so
+   * SocialSync status-sync works. Idempotent — re-calling returns the
+   * already-linked post. The customer schedules/approves in SocialSync;
+   * we never auto-publish here.
+   */
+  app.post("/api/portal/contentflow/drafts/:id/schedule-to-socialsync", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res, { ok: true, persisted: false }, "write");
+      if (!clientId) return;
+
+      const draft = await loadOwnedDraft(req, res, clientId);
+      if (!draft) return;
+
+      const platform = typeof req.body?.platform === "string" ? req.body.platform : undefined;
+      const scheduledFor = typeof req.body?.scheduled_for === "string" ? req.body.scheduled_for : null;
+
+      const { post, reused } = await scheduleDraftToSocialSync({ draft, platform, scheduledFor });
+
+      writeAudit({
+        actorType: "system",
+        actorId: req.user?.id ?? null,
+        action: "contentflow.draft.scheduled_to_socialsync",
+        entityType: "content_draft",
+        entityId: String(draft.id),
+        metadata: { client_id: clientId, social_post_id: post.id, platform: post.platform, reused },
+      });
+
+      res.json({
+        ok: true,
+        reused,
+        social_post_id: post.id,
+        platform: post.platform,
+        status: post.status,
+        draft_id: draft.id,
+      });
+    } catch (err: any) {
+      log.error("[portal/contentflow/drafts][schedule-to-socialsync]", err?.message || err);
+      res.status(500).json({ error: err?.message || "Failed to schedule to SocialSync" });
     }
   });
 
@@ -1334,6 +1482,59 @@ export function registerPortalContentflowRoutes(app: Express) {
       res.status(500).json({ error: "Failed to save CMS config" });
     }
   });
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Library helpers — owned-draft loader + compact serializer.
+ * ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Load the draft named by :id and enforce tenant ownership. Sends the
+ * appropriate response (400 invalid id, 404 not found / not owned) and
+ * returns null when the caller should bail. The 404 for a foreign-tenant
+ * draft is deliberate — it never leaks that the id exists for another
+ * client.
+ */
+async function loadOwnedDraft(
+  req: Request,
+  res: Response,
+  clientId: number,
+): Promise<ContentDraft | null> {
+  const id = parseInt(String(req.params.id ?? ""), 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    res.status(400).json({ error: "invalid draft id", code: "invalid_id" });
+    return null;
+  }
+  const draft = await storage.getContentDraftById(id);
+  if (!draft || draft.client_id !== clientId) {
+    res.status(404).json({ error: "draft not found", code: "draft_not_found" });
+    return null;
+  }
+  return draft;
+}
+
+/** Compact shape the Library UI renders. */
+function formatPortalDraft(d: ContentDraft) {
+  const meta = (d.metadata as Record<string, any> | null) ?? {};
+  const mp = meta.media_plan && typeof meta.media_plan === "object" ? meta.media_plan : null;
+  return {
+    id: d.id,
+    kind: d.kind,
+    title: d.title,
+    body: d.body,
+    excerpt: d.excerpt,
+    status: d.status,
+    surface: d.surface,
+    target_platform: d.target_platform,
+    image_url: (mp?.image_url ?? mp?.url ?? null) as string | null,
+    rendered_prompt: typeof meta.rendered_prompt === "string" ? meta.rendered_prompt : null,
+    template_id: typeof meta.template_id === "string" ? meta.template_id : null,
+    style_preset: typeof meta.style_preset === "string" ? meta.style_preset : null,
+    generation_status: typeof meta.generation_status === "string" ? meta.generation_status : null,
+    linked_social_post_id: d.linked_social_post_id ?? null,
+    created_at: d.created_at,
+    updated_at: d.updated_at,
+  };
 }
 
 /* ──────────────────────────────────────────────────────────────────

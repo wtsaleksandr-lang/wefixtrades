@@ -272,6 +272,7 @@ const PortalContentPreferences = lazy(() => import("@/pages/portal/PortalContent
 const PortalContentFlow = lazy(() => import("@/pages/portal/PortalContentFlow"));
 const ContentExamplesPage = lazy(() => import("@/pages/portal/contentflow/ContentExamplesPage"));
 const PortalContentFlowDashboard = lazy(() => import("@/pages/portal/contentflow/PortalContentFlowDashboard"));
+const ContentFlowLibrary = lazy(() => import("@/pages/portal/contentflow/ContentFlowLibrary"));
 const PortalChatHistoryPage = lazy(() => import("@/pages/portal/PortalChatHistoryPage"));
 const DispatchPage = lazy(() => import("@/pages/portal/DispatchPage"));
 const InvoicesPage = lazy(() => import("@/pages/portal/InvoicesPage"));
@@ -547,6 +548,7 @@ function Router() {
       {/* ContentFlow Phase 1 — prompt-library picker. */}
       <Route path="/portal/contentflow/examples">{() => <RequireClient><ContentExamplesPage /></RequireClient>}</Route>
       <Route path="/portal/contentflow/dashboard">{() => <RequireClient><PortalContentFlowDashboard /></RequireClient>}</Route>
+      <Route path="/portal/contentflow/library">{() => <RequireClient><ContentFlowLibrary /></RequireClient>}</Route>
       {/* Wave 33 — ContentFlow 3-question customer-facing setup wizard. */}
       <Route path="/portal/contentflow/setup">{() => <RequireClient><ContentFlowSetup /></RequireClient>}</Route>
       <Route path="/portal/contentflow">{() => <RequireClient><PortalContentFlow /></RequireClient>}</Route>

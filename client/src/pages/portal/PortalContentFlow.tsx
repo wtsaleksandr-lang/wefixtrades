@@ -33,6 +33,8 @@ import {
   Save,
   RefreshCw,
   AlertCircle,
+  Send,
+  FolderOpen,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
@@ -283,17 +285,6 @@ export default function PortalContentFlow() {
     },
   });
 
-  const draftMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedId) throw new Error("no prompt selected");
-      const res = await apiRequest("POST", `/api/portal/contentflow/prompts/${selectedId}/draft`, {
-        tokens: prefilled?.tokens ?? [],
-        finalPrompt: previewEdit,
-      });
-      return await res.json();
-    },
-  });
-
   /* Phase 3: generation + custom-prompt save state + mutations. */
   type GenerateResult = {
     ok: boolean;
@@ -308,6 +299,14 @@ export default function PortalContentFlow() {
   };
   const [generateResult, setGenerateResult] = useState<GenerateResult | null>(null);
   const [generateError, setGenerateError] = useState<GenerateResult | null>(null);
+
+  /* Result-modal editor: the customer can tweak the generated article /
+   * caption body before keeping or scheduling it. Initialised from the
+   * generation result when a draft lands. */
+  const [resultEditing, setResultEditing] = useState<boolean>(false);
+  const [resultBody, setResultBody] = useState<string>("");
+  const [resultKept, setResultKept] = useState<boolean>(false);
+  const [resultScheduled, setResultScheduled] = useState<boolean>(false);
 
   const generateMutation = useMutation<GenerateResult, Error, void>({
     mutationFn: async () => {
@@ -332,6 +331,10 @@ export default function PortalContentFlow() {
     onSuccess: (data) => {
       setGenerateResult(data);
       setGenerateError(null);
+      setResultBody(data.content ?? "");
+      setResultEditing(false);
+      setResultKept(false);
+      setResultScheduled(false);
     },
     onError: (err: any) => {
       const r: GenerateResult = err?.result || { ok: false, error: err?.message };
@@ -365,8 +368,8 @@ export default function PortalContentFlow() {
     },
     onSuccess: () => {
       toast({
-        title: "Saved to your library",
-        description: "You can re-use this customized prompt from the library tab.",
+        title: "Prompt saved",
+        description: "You can re-use this customized prompt from your saved prompts.",
       });
     },
     onError: (err: any) => {
@@ -378,6 +381,67 @@ export default function PortalContentFlow() {
         description: r.error || err?.message || "Try again",
         variant: "destructive",
       });
+    },
+  });
+
+  /* Phase: save (edit) the generated draft body. */
+  const saveDraftEditMutation = useMutation<{ ok: boolean }, Error, void>({
+    mutationFn: async () => {
+      const draftId = generateResult?.draftId;
+      if (!draftId) throw new Error("no draft to save");
+      const res = await apiRequest("PATCH", `/api/portal/contentflow/drafts/${draftId}`, { body: resultBody });
+      const json = await res.json();
+      if (!res.ok) throw Object.assign(new Error(json.error || "Save failed"), { result: json });
+      return json;
+    },
+    onSuccess: () => {
+      setGenerateResult((r) => (r ? { ...r, content: resultBody } : r));
+      setResultEditing(false);
+      toast({ title: "Changes saved", description: "Your edits are stored in your library." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not save changes", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  /* Phase: "Keep" / "Save asset" — pin the generated draft in the library. */
+  const keepAssetMutation = useMutation<{ ok: boolean }, Error, void>({
+    mutationFn: async () => {
+      const draftId = generateResult?.draftId;
+      if (!draftId) throw new Error("no draft to keep");
+      const res = await apiRequest("POST", `/api/portal/contentflow/drafts/${draftId}/keep`, {});
+      const json = await res.json();
+      if (!res.ok) throw Object.assign(new Error(json.error || "Keep failed"), { result: json });
+      return json;
+    },
+    onSuccess: () => {
+      setResultKept(true);
+      toast({ title: "Saved to library", description: "This asset is pinned in your library." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not save asset", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  /* Phase: hand the generated draft off to SocialSync. */
+  const scheduleToSocialSyncMutation = useMutation<{ ok: boolean; reused?: boolean }, Error, void>({
+    mutationFn: async () => {
+      const draftId = generateResult?.draftId;
+      if (!draftId) throw new Error("no draft to schedule");
+      const res = await apiRequest("POST", `/api/portal/contentflow/drafts/${draftId}/schedule-to-socialsync`, {});
+      const json = await res.json();
+      if (!res.ok) throw Object.assign(new Error(json.error || "Schedule failed"), { result: json });
+      return json;
+    },
+    onSuccess: (data) => {
+      setResultScheduled(true);
+      toast({
+        title: data.reused ? "Already in SocialSync" : "Sent to SocialSync",
+        description: "Open SocialSync to schedule and publish this post.",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not send to SocialSync", description: err?.message || "Try again", variant: "destructive" });
     },
   });
 
@@ -461,29 +525,35 @@ export default function PortalContentFlow() {
   );
 
   function handleGenerate() {
-    /* Phase 3: persist the prompt draft (best-effort, no toast) then
-     * fire the real generation pipeline. The draft mutation is kept
-     * for analytics — it stamps clients.metadata.last_draft so the
-     * customer's prompt isn't lost if the generate call fails. */
     setGenerateError(null);
     setGenerateResult(null);
-    draftMutation.mutate(undefined);
     generateMutation.mutate();
   }
 
   function closeResult() {
     setGenerateResult(null);
     setGenerateError(null);
+    setResultEditing(false);
+    setResultBody("");
+    setResultKept(false);
+    setResultScheduled(false);
   }
 
   return (
     <PortalLayout>
       <div className="px-4 py-6 sm:px-6 lg:px-8" data-testid="portal-contentflow">
-        <div className="mb-6 flex flex-col gap-1">
-          <h1 className="text-2xl font-bold tracking-tight">ContentFlow — Prompt Library</h1>
-          <p className="text-sm text-muted-foreground">
-            60 trade-adapted prompts across 12 named patterns. Pick one, preview it filled with your brand details, then generate.
-          </p>
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold tracking-tight">ContentFlow — Prompt Library</h1>
+            <p className="text-sm text-muted-foreground">
+              60 trade-adapted prompts across 12 named patterns. Pick one, preview it filled with your brand details, then generate.
+            </p>
+          </div>
+          <Link href="/portal/contentflow/library">
+            <Button variant="outline" size="sm" className="shrink-0" data-testid="contentflow-library-link">
+              <FolderOpen className="mr-1 h-3.5 w-3.5" /> My library
+            </Button>
+          </Link>
         </div>
 
         {/* Phase 4 wire-up: monthly usage bars (images / articles / videos).
@@ -837,9 +907,46 @@ export default function PortalContentFlow() {
                   </div>
                 )}
                 {generateResult.content && (
-                  <div className="max-h-[400px] overflow-auto rounded-md border border-border bg-muted/10 p-3 text-sm leading-relaxed">
-                    <pre className="whitespace-pre-wrap font-sans" data-testid="generate-result-article">{generateResult.content}</pre>
-                  </div>
+                  resultEditing ? (
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <Edit2 className="h-3 w-3" aria-hidden /> Edit your content
+                      </label>
+                      <Textarea
+                        rows={12}
+                        value={resultBody}
+                        onChange={(e) => setResultBody(e.target.value)}
+                        className="text-sm leading-relaxed"
+                        data-testid="generate-result-editor"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => saveDraftEditMutation.mutate()}
+                          disabled={saveDraftEditMutation.isPending || !resultBody.trim()}
+                          data-testid="generate-result-save-edit"
+                        >
+                          {saveDraftEditMutation.isPending ? (
+                            <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Saving…</>
+                          ) : (
+                            <><Save className="mr-1 h-3.5 w-3.5" /> Save changes</>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => { setResultEditing(false); setResultBody(generateResult.content ?? ""); }}
+                          data-testid="generate-result-cancel-edit"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="max-h-[400px] overflow-auto rounded-md border border-border bg-muted/10 p-3 text-sm leading-relaxed">
+                      <pre className="whitespace-pre-wrap font-sans" data-testid="generate-result-article">{generateResult.content}</pre>
+                    </div>
+                  )
                 )}
                 {generateResult.stylePreset && (
                   <div className="text-xs text-muted-foreground">
@@ -877,6 +984,34 @@ export default function PortalContentFlow() {
                       <Download className="mr-1 h-3.5 w-3.5" /> Download text
                     </Button>
                   )}
+                  {/* Edit — only for text content, when not already editing. */}
+                  {generateResult.content && !resultEditing && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setResultBody(generateResult.content ?? ""); setResultEditing(true); }}
+                      data-testid="generate-result-edit"
+                    >
+                      <Edit2 className="mr-1 h-3.5 w-3.5" /> Edit
+                    </Button>
+                  )}
+                  {/* Keep / Save asset — pins the generated DRAFT in the library. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => keepAssetMutation.mutate()}
+                    disabled={keepAssetMutation.isPending || resultKept}
+                    data-testid="generate-result-keep-asset"
+                  >
+                    {keepAssetMutation.isPending ? (
+                      <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Saving…</>
+                    ) : resultKept ? (
+                      <><Save className="mr-1 h-3.5 w-3.5" /> Saved</>
+                    ) : (
+                      <><Save className="mr-1 h-3.5 w-3.5" /> Save asset</>
+                    )}
+                  </Button>
+                  {/* Save PROMPT — distinct from saving the asset. */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -887,7 +1022,23 @@ export default function PortalContentFlow() {
                     {saveCustomMutation.isPending ? (
                       <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Saving…</>
                     ) : (
-                      <><Save className="mr-1 h-3.5 w-3.5" /> Save to library</>
+                      <><Save className="mr-1 h-3.5 w-3.5" /> Save prompt</>
+                    )}
+                  </Button>
+                  {/* Schedule to SocialSync — hands the draft to the publishing pipeline. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => scheduleToSocialSyncMutation.mutate()}
+                    disabled={scheduleToSocialSyncMutation.isPending || resultScheduled || !generateResult.draftId}
+                    data-testid="generate-result-schedule-socialsync"
+                  >
+                    {scheduleToSocialSyncMutation.isPending ? (
+                      <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Sending…</>
+                    ) : resultScheduled ? (
+                      <><Send className="mr-1 h-3.5 w-3.5" /> In SocialSync</>
+                    ) : (
+                      <><Send className="mr-1 h-3.5 w-3.5" /> Schedule to SocialSync</>
                     )}
                   </Button>
                   <Button
