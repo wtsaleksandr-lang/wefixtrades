@@ -167,6 +167,30 @@ export default function MobileBottomSheet({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const reduceMotion = useMemo(readPrefersReduced, []);
 
+  // ── Mirror the editor shell's live theme onto the portal ───────────
+  // The sheet portals to document.body — OUTSIDE `.qq-editor-shell` — so the
+  // editor's dark rules (scoped under `.qq-editor-shell[data-theme="dark"] …`)
+  // never match it and the whole sheet renders light even in dark mode. Same
+  // fix AIBubble/AddFieldMenu use: read the shell's real data-theme and put a
+  // `qq-editor-shell` wrapper (with the mirrored theme) AROUND the portal
+  // content so every existing editor dark rule applies inside the sheet too.
+  // The wrapper is out-of-flow-collapsing (its only child is position:fixed),
+  // so the shell's `background !important` paints nothing visible. Light mode
+  // is unaffected — the mirror just resolves to "light" and nothing changes.
+  const [portalTheme, setPortalTheme] = useState<'light' | 'dark'>('light');
+  useEffect(() => {
+    const shell = typeof document !== 'undefined'
+      ? document.querySelector<HTMLElement>('.qq-editor-shell[data-theme]')
+      : null;
+    const read = () =>
+      setPortalTheme(shell?.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+    read();
+    if (!shell) return;
+    const mo = new MutationObserver(read);
+    mo.observe(shell, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => mo.disconnect();
+  }, [open]);
+
   // Persisted resting height as a fraction of the work area (0..1).
   const heightFracRef = useRef<number>(loadHeightFrac(DEFAULT_HEIGHT_FRAC));
   // The current OPEN resting height in px (derived from the fraction, clamped
@@ -390,13 +414,18 @@ export default function MobileBottomSheet({
   // Portal to document.body so the fixed-position sheet anchors to the
   // VIEWPORT, not to any transformed/filtered editor ancestor.
   return createPortal(
-    <>
+    // Wrap the portal in a `qq-editor-shell` carrying the editor's MIRRORED
+    // theme so every `.qq-editor-shell[data-theme="dark"] .qq-…` rule (the
+    // sheet's own surfaces AND each tab body's controls/labels/inputs) applies
+    // inside the off-tree sheet. `qq-editor-shell` base only declares CSS vars;
+    // its dark `background !important` paints nothing because this wrapper has
+    // no flow size (its only child is position:fixed). Light mode is unchanged.
+    <div className="qq-editor-shell qq-sheet-portal" data-theme={portalTheme}>
       {/* No backdrop: the sheet is docked, not modal — the preview must stay
           fully visible, unblurred, and interactive at every snap. */}
 
       <div
         ref={sheetRef}
-        data-theme="light"
         className={`qq-sheet${open ? ' is-open' : ''}${isDragging ? ' is-dragging' : ''}${isCollapsed ? ' is-collapsed' : ''}${reduceMotion ? ' is-reduced-motion' : ''}`}
         data-testid="wizard-bottom-sheet"
         data-open={open ? 'true' : 'false'}
@@ -696,8 +725,20 @@ export default function MobileBottomSheet({
         .qq-sheet.is-reduced-motion {
           transition: none !important;
         }
+
+        /* The portal wrapper carries the mirrored editor theme so the sheet's
+           dark rules match off-tree. It must NOT establish a containing block
+           or paint a backdrop: it has no flow size (only a fixed child) and is
+           kept fully transparent / non-interactive so it never intercepts taps
+           on the preview that shows through around the docked sheet. */
+        .qq-sheet-portal {
+          background: transparent !important;
+          pointer-events: none;
+        }
+        .qq-sheet-portal > .qq-sheet { pointer-events: none; }
+        .qq-sheet-portal > .qq-sheet.is-open { pointer-events: auto; }
       `}</style>
-    </>,
+    </div>,
     document.body,
   );
 }

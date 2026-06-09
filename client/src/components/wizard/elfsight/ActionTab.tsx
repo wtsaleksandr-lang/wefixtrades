@@ -976,6 +976,83 @@ export default function ActionTab({
           text-decoration: none;
         }
         .qq-integ-link:hover { text-decoration: underline; }
+
+        /* ── Dark editor theme ──────────────────────────────────────────────
+         * The Action panel's own surfaces were authored light-only, so in the
+         * editor's dark mode the cards rendered as a white island. These rules
+         * flip the surfaces using the editor shell's CSS vars (--qq-surface /
+         * --qq-text / --qq-border / --qq-muted), matching the StyleTab pattern.
+         * Scoped under .qq-editor-shell[data-theme=dark] so they ONLY apply
+         * in dark mode — light mode is unchanged. On mobile the sheet portals
+         * outside the shell, but MobileBottomSheet wraps the portal in a
+         * qq-editor-shell carrying the mirrored theme, so this selector matches
+         * there too. (The local section's data-theme=light doesn't block these
+         * — they key off the shell ancestor, not the immediate parent.) */
+        .qq-editor-shell[data-theme="dark"] .qq-action-card {
+          background: var(--qq-surface);
+          border-color: var(--qq-border);
+          box-shadow: none;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-card-head {
+          border-bottom-color: var(--qq-border);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-card-title,
+        .qq-editor-shell[data-theme="dark"] .qq-action-iconrow-label,
+        .qq-editor-shell[data-theme="dark"] .qq-action-seg-hint,
+        .qq-editor-shell[data-theme="dark"] .qq-action-fieldtype,
+        .qq-editor-shell[data-theme="dark"] .qq-action-noaction-help,
+        .qq-editor-shell[data-theme="dark"] .qq-integ-hint,
+        .qq-editor-shell[data-theme="dark"] .qq-integ-secret-label {
+          color: var(--qq-muted);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-fieldname,
+        .qq-editor-shell[data-theme="dark"] .qq-action-toggle-title,
+        .qq-editor-shell[data-theme="dark"] .qq-action-soonrow-label,
+        .qq-editor-shell[data-theme="dark"] .qq-integ-secret-value {
+          color: var(--qq-text);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-seg-btn,
+        .qq-editor-shell[data-theme="dark"] .qq-action-fieldrow,
+        .qq-editor-shell[data-theme="dark"] .qq-action-soon,
+        .qq-editor-shell[data-theme="dark"] .qq-action-soonrow,
+        .qq-editor-shell[data-theme="dark"] .qq-action-iconbtn,
+        .qq-editor-shell[data-theme="dark"] .qq-integ-secret {
+          background: rgba(255, 255, 255, 0.04);
+          border-color: var(--qq-border);
+          color: var(--qq-muted);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-fieldname,
+        .qq-editor-shell[data-theme="dark"] .qq-action-soonrow-label {
+          color: var(--qq-text);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-seg-btn:hover:not(.is-active) {
+          color: var(--qq-text);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-seg-btn.is-active {
+          background: ${AE.color.accentTint};
+          color: ${AE.color.accent};
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-fieldicon,
+        .qq-editor-shell[data-theme="dark"] .qq-action-iconbtn,
+        .qq-editor-shell[data-theme="dark"] .qq-integ-iconbtn,
+        .qq-editor-shell[data-theme="dark"] .qq-integ-secret-value {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: var(--qq-border);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-iconbtn,
+        .qq-editor-shell[data-theme="dark"] .qq-integ-iconbtn {
+          color: var(--qq-text);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-addfield {
+          border-color: var(--qq-border);
+          color: var(--qq-muted);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-subfields {
+          border-left-color: var(--qq-border);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-action-soonrow-chevron {
+          color: var(--qq-muted);
+        }
       `}</style>
     </section>
   );
