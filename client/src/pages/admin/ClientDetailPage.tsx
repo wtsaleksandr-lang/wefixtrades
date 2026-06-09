@@ -655,6 +655,18 @@ export default function ClientDetailPage() {
   });
 
   // Stripe checkout
+  /* Whether Stripe is configured on the server. Gates the "Charge" action so
+   * an admin can't fire a checkout that immediately 503s ("Stripe not
+   * configured"). Read-only probe; no secrets returned. */
+  const { data: billingConfig } = useQuery<{ configured: boolean }>({
+    queryKey: ["/api/billing/config"],
+  });
+  const stripeConfigured = billingConfig?.configured ?? false;
+  /* Pending charge awaiting explicit admin confirmation. Money safety: unlike
+   * the sibling "Remove" action, charging hits Stripe and moves real money, so
+   * it must never fire on a single click — we stage it here and require the
+   * confirm dialog below to commit. */
+  const [chargeTarget, setChargeTarget] = useState<{ serviceId: string; name: string; amount: string } | null>(null);
   const startCheckout = useMutation({
     mutationFn: async ({ serviceId }: { serviceId: string }) => {
       const res = await apiRequest("POST", "/api/billing/checkout", {
@@ -664,12 +676,14 @@ export default function ClientDetailPage() {
       return res.json();
     },
     onSuccess: (data: { checkout_url: string }) => {
+      setChargeTarget(null);
       if (data.checkout_url) {
         window.open(data.checkout_url, "_blank");
         toast({ title: "Checkout opened", description: "Complete payment in the new tab" });
       }
     },
     onError: () => {
+      setChargeTarget(null);
       toast({ title: "Checkout failed", description: "Could not create checkout session. Stripe may not be configured yet.", variant: "destructive" });
     },
   });
@@ -1016,15 +1030,25 @@ export default function ClientDetailPage() {
                           <TableCell className="text-sm">
                             <div className="flex gap-1">
                               {s.status === "pending" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs text-brand-blue hover:bg-[#EEF3FF]"
-                                  onClick={() => startCheckout.mutate({ serviceId: s.service_id })}
-                                  disabled={startCheckout.isPending}
-                                >
-                                  <CreditCard className="w-3 h-3 mr-1" /> Charge
-                                </Button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    {/* span wrapper so the tooltip still fires when the button is disabled */}
+                                    <span className="inline-flex">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs text-brand-blue hover:bg-[#EEF3FF]"
+                                        onClick={() => setChargeTarget({ serviceId: s.service_id, name: s.service_name || s.service_id, amount: fmt(s.price_cents) })}
+                                        disabled={startCheckout.isPending || !stripeConfigured}
+                                      >
+                                        <CreditCard className="w-3 h-3 mr-1" /> Charge
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {stripeConfigured ? "Create a Stripe checkout for this service" : "Stripe is not configured on this server"}
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                               {s.billing_period === "monthly" && s.status === "active" && (
                                 <Button
@@ -1093,8 +1117,9 @@ export default function ClientDetailPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2 text-xs text-brand-blue hover:bg-[#EEF3FF]"
-                            onClick={() => startCheckout.mutate({ serviceId: s.service_id })}
-                            disabled={startCheckout.isPending}
+                            onClick={() => setChargeTarget({ serviceId: s.service_id, name: s.service_name || s.service_id, amount: fmt(s.price_cents) })}
+                            disabled={startCheckout.isPending || !stripeConfigured}
+                            title={stripeConfigured ? undefined : "Stripe is not configured on this server"}
                           >
                             <CreditCard className="w-3 h-3 mr-1" /> Charge
                           </Button>
@@ -1732,6 +1757,41 @@ export default function ClientDetailPage() {
                 }}
               >
                 {deleteClientService.isPending ? "Removing…" : "Remove"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Charge confirm — money safety. Charging opens a Stripe checkout and
+            moves real money, so it must require explicit confirmation (parity
+            with the Remove action) rather than firing on a single click. */}
+        <AlertDialog
+          open={chargeTarget !== null}
+          onOpenChange={(open) => { if (!open && !startCheckout.isPending) setChargeTarget(null); }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Charge {client.business_name} for {chargeTarget?.name}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This opens a Stripe checkout for {chargeTarget?.amount} in a new tab.
+                A Stripe customer is created for this client if one doesn't exist
+                yet. No money moves until the customer completes payment in checkout.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={startCheckout.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-brand-blue hover:bg-brand-blue-600 text-white"
+                disabled={startCheckout.isPending}
+                onClick={(e) => {
+                  // Keep the dialog open while the mutation runs; close on settle.
+                  e.preventDefault();
+                  if (chargeTarget) startCheckout.mutate({ serviceId: chargeTarget.serviceId });
+                }}
+              >
+                {startCheckout.isPending ? "Opening checkout…" : "Open checkout"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

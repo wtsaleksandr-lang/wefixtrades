@@ -602,13 +602,14 @@ export default function ProspectsPage() {
         {/* Artifact-first outreach */}
         <ArtifactStatsCard />
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        {/* Header — stacks on mobile so the title doesn't collide with the
+            action buttons at 375px; row layout from sm up. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Lead Review Queue</h2>
             <p className="text-sm text-muted-foreground">{overview?.total_prospects ?? 0} total prospects</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {selected.length > 0 && (
               <Button
                 size="sm"

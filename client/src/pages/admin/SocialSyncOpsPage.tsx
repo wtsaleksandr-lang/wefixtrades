@@ -320,7 +320,7 @@ export default function SocialSyncOpsPage() {
         )}
         <span className="text-xs text-gray-400">{filtered.length} client(s)</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" onClick={() => processQueue.mutate()} disabled={processQueue.isPending}>
           {processQueue.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Process Queue"}
         </Button>
@@ -385,12 +385,12 @@ export default function SocialSyncOpsPage() {
             <Card className="p-4 h-full">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Business</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <BizStat label="Revenue/mo" value={profitData ? `$${profitData.totals.revenue}` : "—"} tone="emerald" />
-                <BizStat label="Cost/mo" value={profitData ? `$${profitData.totals.cost}` : "—"} />
+                <BizStat label="Revenue/mo" value={profitData ? `$${profitData.totals.revenue}` : "No data"} tone={profitData ? "emerald" : undefined} />
+                <BizStat label="Cost/mo" value={profitData ? `$${profitData.totals.cost}` : "No data"} />
                 <BizStat
                   label="Margin"
-                  value={profitData?.totals.margin_pct != null ? `${profitData.totals.margin_pct}%` : "—"}
-                  tone={profitData?.totals.margin_pct != null && profitData.totals.margin_pct >= 60 ? "emerald" : "amber"}
+                  value={profitData?.totals.margin_pct != null ? `${profitData.totals.margin_pct}%` : "No data"}
+                  tone={profitData?.totals.margin_pct != null ? (profitData.totals.margin_pct >= 60 ? "emerald" : "amber") : undefined}
                 />
               </div>
             </Card>
@@ -416,8 +416,12 @@ export default function SocialSyncOpsPage() {
 
         {/* Table */}
         <Card>
-          {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto">
+          {/* Desktop table — only at lg+; below that the 13-column table is
+              wider than the viewport (scrollWidth ~1218) and clips the right
+              columns (Pub 7d / Fails), so we fall back to the card list. At lg+
+              the container still scrolls horizontally for narrow laptops, with
+              a visible scrollbar as the affordance. */}
+          <div className="hidden lg:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -532,8 +536,8 @@ export default function SocialSyncOpsPage() {
             </Table>
           </div>
 
-          {/* Mobile cards */}
-          <div className="divide-y divide-gray-100 md:hidden">
+          {/* Mobile cards — shown below lg (table is too wide to fit) */}
+          <div className="divide-y divide-gray-100 lg:hidden">
             {filtered.map((c) => {
               const p = profitMap.get(c.client_id);
               const toggling = toggleEnabled.isPending && toggleEnabled.variables?.clientId === c.client_id;
@@ -681,10 +685,13 @@ function ApiLinkStat({
 }
 
 function BizStat({ label, value, tone }: { label: string; value: string; tone?: "emerald" | "amber" }) {
-  const color = tone === "emerald" ? "text-emerald-700" : tone === "amber" ? "text-amber-700" : "text-gray-900";
+  const isEmpty = value === "No data";
+  const color = isEmpty
+    ? "text-gray-400 font-medium"
+    : tone === "emerald" ? "text-emerald-700" : tone === "amber" ? "text-amber-700" : "text-gray-900";
   return (
     <div className="rounded-lg border border-gray-200 p-2 text-center">
-      <p className={`text-base font-bold leading-none ${color}`}>{value}</p>
+      <p className={`leading-none ${isEmpty ? "text-xs" : "text-base font-bold"} ${color}`}>{value}</p>
       <p className="mt-1 text-[10px] text-gray-500">{label}</p>
     </div>
   );
