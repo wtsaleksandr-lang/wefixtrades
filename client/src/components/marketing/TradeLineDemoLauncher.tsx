@@ -280,32 +280,19 @@ function ChatBody({ open }: { open: boolean }) {
    VOICE BODY — useVapiCall
    ────────────────────────────────────────────────────────────────── */
 
-// Cache the demo prompt across mounts so we don't refetch on every tab switch.
-let cachedDemoPrompt: string | null = null;
-async function loadDemoPrompt(): Promise<string> {
-  if (cachedDemoPrompt) return cachedDemoPrompt;
-  const res = await fetch("/api/tradeline-demo/prompt");
-  if (!res.ok) throw new Error(`prompt fetch ${res.status}`);
-  cachedDemoPrompt = await res.text();
-  return cachedDemoPrompt;
-}
-
 function VoiceBody() {
-  // Push the SAME persona to Vapi that chat uses, so voice and chat
-  // give matching answers across all 35+ trades. Other model fields
-  // (provider, model, voice, temperature) inherit from the Vapi
-  // dashboard assistant config.
-  const vapi = useVapiCall({
-    assistantOverrides: async () => {
-      try {
-        const prompt = await loadDemoPrompt();
-        return { model: { messages: [{ role: "system", content: prompt }] } };
-      } catch {
-        // If the override fetch fails, fall back to dashboard prompt
-        return undefined;
-      }
-    },
-  });
+  // The web-demo Vapi assistant (VAPI_ASSISTANT_ID) is a `custom-llm`
+  // assistant: Vapi POSTs every turn to our /api/vapi/conversation endpoint,
+  // which builds the system prompt SERVER-SIDE. It does NOT read a
+  // client-supplied `model.messages` array to generate replies, so injecting
+  // the demo prompt via `assistantOverrides.model` did nothing useful — and a
+  // `model` object with only `messages` (no provider/model) is rejected by
+  // Vapi's /call/web with HTTP 400 (`model.provider must be one of …`), which
+  // killed the call before it connected. We therefore start the assistant
+  // with NO model override; the persona is owned by the server prompt builder
+  // (surface "vapi"). See server/services/vapiService.ts (buildAssistantConfig
+  // → provider: "custom-llm") and server/routes/vapiRoutes.ts (/conversation).
+  const vapi = useVapiCall();
   const isInCall = vapi.status === "active";
   const isConnecting = vapi.status === "connecting" || vapi.status === "loading";
   const isEnded = vapi.status === "ended";

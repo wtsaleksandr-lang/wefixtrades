@@ -2,7 +2,9 @@
  * BF-5 + Wave 64 — Wizard "pricing doc → calculator template" endpoint.
  *
  * POST /api/ai/wizard/image-to-template
- *   Auth: requireAuth (wizard owner only — anonymous rejected).
+ *   Auth: anonymous + free (Wave WAI). Vision is the most expensive call, so
+ *     anonymous callers get the STRICTEST per-IP caps (per-minute + per-day);
+ *     logged-in callers keep the per-user hourly cap.
  *   Body: multipart/form-data { image: File }   (field name kept as
  *         `image` for backward compatibility with the wizard's existing
  *         AIBubble client; the file can now be a PDF / XLSX / TXT / EML
@@ -35,10 +37,13 @@
 import type { Express, Request, Response } from "express";
 import multer from "multer";
 import { z } from "zod";
-import { requireAuth } from "../auth";
 import { createLogger } from "../lib/logger";
 import { chat as aiChat, validateConfig } from "../services/aiService";
-import { imageToTemplateRateLimiter } from "../services/rateLimiter";
+import {
+  imageToTemplateRateLimiter,
+  anonImageToTemplatePerMinLimiter,
+  anonImageToTemplatePerDayLimiter,
+} from "../services/rateLimiter";
 import { AI_SURFACES } from "../services/aiSurfaces";
 import { writeAudit } from "../lib/auditLog";
 import {
@@ -180,21 +185,55 @@ function extractJson(raw: string): unknown | null {
 export function registerAiImageToTemplateRoutes(app: Express): void {
   app.post(
     "/api/ai/wizard/image-to-template",
-    requireAuth,
     upload.single("image"),
     async (req: Request, res: Response) => {
-      const userId = (req.user as Express.User).id;
-      const rlKey = `image2tmpl:${userId}`;
+      /* Wave WAI — anonymous + free. `req.user` may be absent (most wizard
+       * traffic is anonymous). Null-safe: never dereference a missing user. */
+      const userId = (req.user as Express.User | undefined)?.id ?? null;
+      const ip = req.ip || req.socket?.remoteAddress || "unknown";
 
-      /* (1) Rate-limit — vision is expensive, text-mode less so but we
-       *     share the bucket for v1. */
-      const ok = await imageToTemplateRateLimiter.check(rlKey);
-      if (!ok) {
-        return res.status(429).json({
-          error: "rate_limited",
-          message:
-            "You can only generate 5 templates from documents per hour. Try again later.",
-        });
+      /* Audit identity — authed callers are attributed by user id; anonymous
+       * callers by their IP (so the audit trail still distinguishes sources).
+       * `actorType` is constrained to admin|system|user by the shared audit
+       * type, so anonymous maps to "system" with an `ip:`-prefixed actorId +
+       * `anon:` entity id to keep it greppable. Used by every writeAudit()
+       * below + the entity id. */
+      const auditActorId = userId != null ? String(userId) : `ip:${ip}`;
+      const auditActorType: "user" | "system" = userId != null ? "user" : "system";
+      const auditEntityId = userId != null ? `user:${userId}` : `anon:${ip}`;
+
+      /* (1) Rate-limit — vision is the most expensive call.
+       *       - Authed: per-user 5/hour (imageToTemplateRateLimiter).
+       *       - Anonymous: STRICT per-IP per-minute AND per-day caps (the only
+       *         ceiling, since there's no DB budget row for an anonymous IP). */
+      if (userId != null) {
+        const ok = await imageToTemplateRateLimiter.check(`image2tmpl:${userId}`);
+        if (!ok) {
+          return res.status(429).json({
+            error: "rate_limited",
+            message:
+              "You can only generate 5 templates from documents per hour. Try again later.",
+          });
+        }
+      } else {
+        const dayOk = await anonImageToTemplatePerDayLimiter.check(`anon-img2tmpl-day:${ip}`);
+        if (!dayOk) {
+          return res.status(429).json({
+            error: "rate_limited",
+            scope: "daily",
+            message:
+              "You've reached today's free document-to-template limit. Create a free account or try again tomorrow.",
+          });
+        }
+        const minOk = await anonImageToTemplatePerMinLimiter.check(`anon-img2tmpl-min:${ip}`);
+        if (!minOk) {
+          return res.status(429).json({
+            error: "rate_limited",
+            scope: "minute",
+            message:
+              "You're generating templates too quickly. Please wait a moment and try again.",
+          });
+        }
       }
 
       /* (2) Multer accepted file? */
@@ -232,11 +271,11 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
       } catch (err: any) {
         if (err instanceof ExtractionError) {
           writeAudit({
-            actorId: String(userId),
-            actorType: "user",
+            actorId: auditActorId,
+            actorType: auditActorType,
             action: "ai_pricing_doc_to_template",
             entityType: "quotequick_calculator",
-            entityId: `user:${userId}`,
+            entityId: auditEntityId,
             metadata: {
               outcome: "extraction_failed",
               code: err.code,
@@ -279,7 +318,10 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
             maxTokens: 900,
             modelOverride: process.env.CLAUDE_VISION_MODEL || "claude-sonnet-4-6",
             surface: AI_SURFACES.quotequick,
-            userId,
+            // Anonymous (null) → undefined so aiService attributes the spend to
+            // the quotequick surface without a user id (anon usage is bounded
+            // by the per-IP rate limiter above, not a per-user budget row).
+            userId: userId ?? undefined,
           });
         } else {
           // Text-mode: preamble + extraction prompt + the extracted text.
@@ -299,7 +341,10 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
             ],
             maxTokens: 900,
             surface: AI_SURFACES.quotequick,
-            userId,
+            // Anonymous (null) → undefined so aiService attributes the spend to
+            // the quotequick surface without a user id (anon usage is bounded
+            // by the per-IP rate limiter above, not a per-user budget row).
+            userId: userId ?? undefined,
           });
         }
       } catch (err: any) {
@@ -309,11 +354,11 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
           mode: extraction.kind,
         });
         writeAudit({
-          actorId: String(userId),
-          actorType: "user",
+          actorId: auditActorId,
+          actorType: auditActorType,
           action: "ai_pricing_doc_to_template",
           entityType: "quotequick_calculator",
-          entityId: `user:${userId}`,
+          entityId: auditEntityId,
           metadata: {
             outcome: "ai_call_failed",
             bytes: file.size,
@@ -342,11 +387,11 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
           issues: parsed.error.issues.slice(0, 4),
         });
         writeAudit({
-          actorId: String(userId),
-          actorType: "user",
+          actorId: auditActorId,
+          actorType: auditActorType,
           action: "ai_pricing_doc_to_template",
           entityType: "quotequick_calculator",
-          entityId: `user:${userId}`,
+          entityId: auditEntityId,
           metadata: {
             outcome: "schema_invalid",
             bytes: file.size,
@@ -369,11 +414,11 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
       /* (7) Audit success. Includes notes (e.g. multi-sheet xlsx) for
        *     dashboards tracking limitation hits. */
       writeAudit({
-        actorId: String(userId),
-        actorType: "user",
+        actorId: auditActorId,
+        actorType: auditActorType,
         action: "ai_pricing_doc_to_template",
         entityType: "quotequick_calculator",
-        entityId: `user:${userId}`,
+        entityId: auditEntityId,
         metadata: {
           outcome: "ok",
           bytes: file.size,
@@ -394,11 +439,11 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
        *      doesn't have a legacy peer. */
       if (extraction.kind === "image") {
         writeAudit({
-          actorId: String(userId),
-          actorType: "user",
+          actorId: auditActorId,
+          actorType: auditActorType,
           action: "ai_image_to_template",
           entityType: "quotequick_calculator",
-          entityId: `user:${userId}`,
+          entityId: auditEntityId,
           metadata: {
             outcome: "ok",
             bytes: file.size,

@@ -319,8 +319,19 @@ const cspDirectives = {
     "https://*.vapi.ai",
     "wss://api.vapi.ai",
     "wss://*.vapi.ai",
+    "https://*.daily.co",                      // Vapi web voice uses Daily.co for WebRTC signalling/ICE
+    "wss://*.daily.co",                        // Daily.co WebSocket transport for the call
     "https://cloudflareinsights.com",         // CF Web Analytics beacon RUM endpoint (/cdn-cgi/rum)
     "https://static.cloudflareinsights.com",
+  ],
+  // Vapi web voice plays assistant audio through Daily.co media streams.
+  // No mediaSrc was set before, so playback fell back to defaultSrc ('self')
+  // — explicitly allow self/blob + Daily so the audio element is not blocked
+  // once CSP graduates from report-only to enforce mode.
+  mediaSrc: [
+    "'self'",
+    "blob:",
+    "https://*.daily.co",
   ],
   frameSrc: [
     "'self'",

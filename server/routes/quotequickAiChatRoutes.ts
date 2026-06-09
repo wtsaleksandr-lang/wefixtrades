@@ -3,7 +3,8 @@
  *
  * POST /api/quotequick/ai/chat
  *   Body: { message, image?, history[], shellState }
- *   Auth: requireAuth
+ *   Auth: anonymous + free (Wave WAI). Logged-in callers keep the DB budget
+ *     caps; anonymous callers are bounded by a strict per-IP rate limiter.
  *   Streams: server-sent events (text deltas + tool calls + final budget summary)
  *
  * Model routing:
@@ -20,7 +21,6 @@
 import type { Express, Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { requireAuth } from "../auth";
 import { createLogger } from "../lib/logger";
 import { getSharedClient, validateConfig } from "../services/aiService";
 import {
@@ -30,7 +30,11 @@ import {
   recordSpend,
   type SupportedModel,
 } from "../services/quotequickAiBudget";
-import { chatRateLimiter } from "../services/rateLimiter";
+import {
+  chatRateLimiter,
+  anonWizardAiPerMinLimiter,
+  anonWizardAiPerDayLimiter,
+} from "../services/rateLimiter";
 import { QUOTEQUICK_AI_TOOLS, QUOTEQUICK_SYSTEM_PROMPT } from "../services/quotequickAiTools";
 import { validateFormula } from "@shared/formulaEngine";
 import { getEffectiveTemplates } from "../lib/applyQuoteQuickOverrides";
@@ -78,6 +82,74 @@ function parseImage(input: string): { mediaType: "image/jpeg" | "image/png" | "i
 function sseWrite(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+/**
+ * Wave WAI — the wizard AI assistant is anonymous + free. `req.user` may or may
+ * not be present (passport still populates it when a logged-in session exists,
+ * but most wizard traffic is anonymous). This helper returns the numeric user
+ * id when authed, else `null` — never throws, never dereferences a null user.
+ */
+function optionalUserId(req: Request): number | null {
+  const u = req.user as Express.User | undefined;
+  return u?.id ?? null;
+}
+
+/**
+ * Wave WAI — abuse control for the anonymous wizard AI surface.
+ *
+ * For an ANONYMOUS caller there is no DB budget row (the budget service is
+ * keyed on a numeric user id), so a strict per-IP rate limit is the spend
+ * ceiling: a per-minute burst cap AND a per-day cap, both keyed on the
+ * caller's IP. LOGGED-IN callers are exempt here — they keep the DB budget
+ * caps downstream.
+ *
+ * Returns null when the request may proceed, or a `{ status, body }` to send
+ * (always 429) when the caller is rate-limited.
+ *
+ * Both the per-minute and per-day buckets are SHARED across the anonymous
+ * wizard AI text surfaces (chat + formula-help). That's deliberately stricter
+ * than a per-surface bucket: a single IP's total anonymous AI text usage is
+ * capped in aggregate, so it can't pump the per-minute/per-day ceiling
+ * separately on each endpoint.
+ */
+async function enforceAnonAiLimits(
+  req: Request,
+  userId: number | null,
+): Promise<{ status: number; body: Record<string, unknown> } | null> {
+  // Authed users are bounded by their DB budget; skip the anon IP limiters.
+  if (userId != null) return null;
+
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
+
+  // Per-day cap first (the hard ceiling), then the per-minute burst cap.
+  const dayOk = await anonWizardAiPerDayLimiter.check(`anon-wizard-ai-day:${ip}`);
+  if (!dayOk) {
+    return {
+      status: 429,
+      body: {
+        error: "rate_limited",
+        scope: "daily",
+        message:
+          "You've reached today's free AI usage limit. Create a free account or try again tomorrow.",
+      },
+    };
+  }
+
+  const minOk = await anonWizardAiPerMinLimiter.check(`anon-wizard-ai-min:${ip}`);
+  if (!minOk) {
+    return {
+      status: 429,
+      body: {
+        error: "rate_limited",
+        scope: "minute",
+        message:
+          "You're sending messages too quickly. Please wait a moment and try again.",
+      },
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -133,10 +205,28 @@ async function loadQuoteQuickOnboardingBlock(userId: number): Promise<string> {
 }
 
 export function registerQuoteQuickAiChatRoutes(app: Express): void {
-  /* ─── Budget snapshot (GET) ────────────────────────────────────────── */
-  app.get("/api/quotequick/ai/budget", requireAuth, async (req: Request, res: Response) => {
+  /* ─── Budget snapshot (GET) ──────────────────────────────────────────
+   * Wave WAI — anonymous + free. No requireAuth. Anonymous callers have no
+   * DB budget row, so we return a benign "anonymous" snapshot (no spend, no
+   * caps surfaced) rather than a 401. The client's budget meter then simply
+   * shows nothing to enforce for anonymous use; the per-IP rate limiter on
+   * the chat endpoint is the real anonymous ceiling. */
+  app.get("/api/quotequick/ai/budget", async (req: Request, res: Response) => {
+    const userId = optionalUserId(req);
+    if (userId == null) {
+      // Anonymous — no per-user budget exists. Report an empty, uncapped-
+      // looking snapshot. Spend is bounded by the per-IP rate limiter, not
+      // by a DB budget row.
+      return res.json({
+        cumulative_usd: 0,
+        today_usd: 0,
+        images_used: 0,
+        config: null,
+        scope: "anonymous",
+        tier: null,
+      });
+    }
     try {
-      const userId = (req.user as Express.User).id;
       const snapshot = await getUserBudgetSnapshot(userId);
       res.json({
         cumulative_usd: snapshot.cumulative_usd,
@@ -152,19 +242,29 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
     }
   });
 
-  /* ─── Streaming chat (POST) ────────────────────────────────────────── */
-  app.post("/api/quotequick/ai/chat", requireAuth, async (req: Request, res: Response) => {
-    const userId = (req.user as Express.User).id;
+  /* ─── Streaming chat (POST) ──────────────────────────────────────────
+   * Wave WAI — anonymous + free, all tiers. No requireAuth, no Business-tier
+   * gate. Logged-in callers keep the DB budget caps; anonymous callers are
+   * bounded by the per-IP rate limiter (the anonymous spend ceiling). */
+  app.post("/api/quotequick/ai/chat", async (req: Request, res: Response) => {
+    const userId = optionalUserId(req);
 
-    /* (0) Per-user rate limit — ~20 chats/min/user. Keyed on userId (this is
-     *     an authed endpoint), falling back to IP if the id is somehow absent.
-     *     Runs before any SSE headers so we can return a clean JSON 429. */
-    const rlKey = `qq-ai-chat:${userId ?? req.ip}`;
-    if (!(await chatRateLimiter.check(rlKey))) {
-      return res.status(429).json({
-        error: "rate_limited",
-        message: "You're sending messages too quickly. Please wait a moment and try again.",
-      });
+    /* (0) Rate limit — runs before any SSE headers so we can return a clean
+     *     JSON 429.
+     *       - Authed: ~20 chats/min/user, keyed on userId (DB budget caps
+     *         downstream are the real ceiling).
+     *       - Anonymous: strict per-IP per-minute + per-day caps (the only
+     *         ceiling, since there's no DB budget row). */
+    if (userId != null) {
+      if (!(await chatRateLimiter.check(`qq-ai-chat:${userId}`))) {
+        return res.status(429).json({
+          error: "rate_limited",
+          message: "You're sending messages too quickly. Please wait a moment and try again.",
+        });
+      }
+    } else {
+      const limited = await enforceAnonAiLimits(req, userId);
+      if (limited) return res.status(limited.status).json(limited.body);
     }
 
     /* (1) Validate input. */
@@ -173,27 +273,6 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
       return res.status(400).json({ error: "invalid_request", details: parsed.error.format() });
     }
     const { message, image, history, shellState } = parsed.data;
-
-    /* Wave Q-Hotfix — plan-tier gate. The AI quote assistant is a Business
-     * tier ($79/mo) feature per the Wave Q pricing page. Free and Pro
-     * tiers get a 402 + a structured upgrade hint instead of a generic
-     * budget error. We resolve the tier off the user's most-recent
-     * QuoteQuick calculator (same heuristic as the budget service). */
-    try {
-      const { resolveUserPlanTier } = await import("../services/quotequickAiBudget");
-      const planTier = await resolveUserPlanTier(userId);
-      const allowed = planTier === "business";
-      if (!allowed) {
-        return res.status(402).json({
-          error: "business_tier_required",
-          current_tier: planTier,
-          upgrade_url: "/pricing/quotequick",
-          message: "The AI quote assistant is a Business plan feature. Upgrade to unlock it.",
-        });
-      }
-    } catch (err: any) {
-      log.warn("plan_tier resolution failed; falling back to budget-only gate", { error: err?.message });
-    }
 
     /* (2) Validate the Anthropic key. We don't 500 the whole API just
      *     because the key is missing — give the client a clean code. */
@@ -206,15 +285,9 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
     const hasImage = Boolean(image && parseImage(image));
     const model: SupportedModel = hasImage ? VISION_MODEL : TEXT_MODEL;
 
-    /* (4) Estimate this call's cost and gate against the budget. */
-    let snapshot;
-    try {
-      snapshot = await getUserBudgetSnapshot(userId);
-    } catch (err: any) {
-      log.error("budget snapshot failed pre-call", { error: err?.message });
-      return res.status(503).json({ error: "budget_lookup_failed" });
-    }
-
+    /* (4) Estimate this call's cost and, for AUTHED callers, gate against the
+     *     DB budget. Anonymous callers have no budget row; their ceiling is
+     *     the per-IP rate limiter applied in step (0). */
     const historyTokens = history.reduce((acc, h) => acc + approxTokens(h.content), 0);
     const messageTokens = approxTokens(message);
     const estimate = estimateCallCost({
@@ -224,19 +297,31 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
       messageTokens,
       hasImage,
     });
-    const decision = gateDecision(snapshot, estimate, hasImage);
-    if (!decision.allowed) {
-      return res.status(403).json({
-        error: "budget_exceeded",
-        code: decision.code,
-        snapshot: {
-          cumulative_usd: snapshot.cumulative_usd,
-          today_usd: snapshot.today_usd,
-          images_used: snapshot.images_used,
-          config: snapshot.config,
-          scope: snapshot.scope,
-        },
-      });
+
+    let decision: ReturnType<typeof gateDecision> | null = null;
+    if (userId != null) {
+      let snapshot;
+      try {
+        snapshot = await getUserBudgetSnapshot(userId);
+      } catch (err: any) {
+        log.error("budget snapshot failed pre-call", { error: err?.message });
+        return res.status(503).json({ error: "budget_lookup_failed" });
+      }
+
+      decision = gateDecision(snapshot, estimate, hasImage);
+      if (!decision.allowed) {
+        return res.status(403).json({
+          error: "budget_exceeded",
+          code: decision.code,
+          snapshot: {
+            cumulative_usd: snapshot.cumulative_usd,
+            today_usd: snapshot.today_usd,
+            images_used: snapshot.images_used,
+            config: snapshot.config,
+            scope: snapshot.scope,
+          },
+        });
+      }
     }
 
     /* (5) Headers for SSE. */
@@ -285,7 +370,8 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
     }
 
     // W-AZ-3: pull QuoteQuick onboarding answers into the AI prompt context.
-    const onboardingBlock = await loadQuoteQuickOnboardingBlock(userId);
+    // Anonymous callers have no onboarding row — skip the lookup entirely.
+    const onboardingBlock = userId != null ? await loadQuoteQuickOnboardingBlock(userId) : "";
 
     const systemBlocks = [
       {
@@ -350,29 +436,38 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
       inputTokens = freshInput + cacheRead + cacheCreation;
       outputTokens = usage.output_tokens ?? 0;
 
-      /* (8) Record actual spend. */
-      const { cost_usd } = await recordSpend({
-        userId,
-        model,
-        inputTokens: freshInput,
-        outputTokens,
-        imageCount: hasImage ? 1 : 0,
-        cacheCreationTokens: cacheCreation,
-        cacheReadTokens: cacheRead,
-      });
+      /* (8) Record actual spend — AUTHED callers only. Anonymous callers have
+       *     no DB budget row to debit; their usage is bounded by the per-IP
+       *     rate limiter, so we skip recordSpend (it requires a numeric user
+       *     id) and report a zeroed snapshot to the client. */
+      let cost_usd = 0;
+      let after: Awaited<ReturnType<typeof getUserBudgetSnapshot>> | null = null;
+      if (userId != null) {
+        ({ cost_usd } = await recordSpend({
+          userId,
+          model,
+          inputTokens: freshInput,
+          outputTokens,
+          imageCount: hasImage ? 1 : 0,
+          cacheCreationTokens: cacheCreation,
+          cacheReadTokens: cacheRead,
+        }));
+        after = await getUserBudgetSnapshot(userId);
+      }
 
-      const after = await getUserBudgetSnapshot(userId);
       sseWrite(res, "done", {
         cost_usd,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
-        snapshot: {
-          cumulative_usd: after.cumulative_usd,
-          today_usd: after.today_usd,
-          images_used: after.images_used,
-          config: after.config,
-        },
-        warn: decision.allowed ? decision.warn : false,
+        snapshot: after
+          ? {
+              cumulative_usd: after.cumulative_usd,
+              today_usd: after.today_usd,
+              images_used: after.images_used,
+              config: after.config,
+            }
+          : { cumulative_usd: 0, today_usd: 0, images_used: 0, config: null },
+        warn: decision?.allowed ? decision.warn : false,
       });
       res.end();
     } catch (err: any) {
@@ -395,17 +490,23 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
     precedingCalcs: z.array(z.string().min(1).max(120)).max(20).default([]),
   });
 
-  app.post("/api/ai/formula-help", requireAuth, async (req: Request, res: Response) => {
-    const userId = (req.user as Express.User).id;
+  app.post("/api/ai/formula-help", async (req: Request, res: Response) => {
+    const userId = optionalUserId(req);
 
-    /* (0) Per-user rate limit — ~20 formula-help calls/min/user, keyed on
-     *     userId (authed endpoint), IP fallback. */
-    const rlKey = `qq-formula-help:${userId ?? req.ip}`;
-    if (!(await chatRateLimiter.check(rlKey))) {
-      return res.status(429).json({
-        error: "rate_limited",
-        message: "You're requesting formula help too quickly. Please wait a moment and try again.",
-      });
+    /* (0) Rate limit.
+     *       - Authed: ~20 formula-help calls/min/user, keyed on userId.
+     *       - Anonymous: strict per-IP per-minute + per-day caps (shared anon
+     *         wizard-AI buckets — the only ceiling, no DB budget row). */
+    if (userId != null) {
+      if (!(await chatRateLimiter.check(`qq-formula-help:${userId}`))) {
+        return res.status(429).json({
+          error: "rate_limited",
+          message: "You're requesting formula help too quickly. Please wait a moment and try again.",
+        });
+      }
+    } else {
+      const limited = await enforceAnonAiLimits(req, userId);
+      if (limited) return res.status(limited.status).json(limited.body);
     }
 
     const parsed = formulaHelpSchema.safeParse(req.body);
@@ -445,39 +546,40 @@ Rules:
 - Return ONE formula expression — no explanation, no prose.
 - Respond as JSON: { "formula": "<the formula expression>" }`;
 
-    /* Budget snapshot + pre-call gate — mirrors /api/quotequick/ai/chat and the
-     * portal free-tool routes so this Haiku call counts against (and is bounded
-     * by) the same lifetime / daily / per-call caps. Previously this endpoint
-     * was gate-less + unmetered: an authed user could loop it for uncapped
-     * Haiku spend. */
-    let snapshot;
-    try {
-      snapshot = await getUserBudgetSnapshot(userId);
-    } catch (err: any) {
-      log.error("budget snapshot failed pre-call (formula-help)", { error: err?.message });
-      return res.status(503).json({ error: "budget_lookup_failed" });
-    }
+    /* Budget snapshot + pre-call gate — AUTHED callers only. Mirrors
+     * /api/quotequick/ai/chat so this Haiku call counts against the same
+     * lifetime / daily / per-call caps. Anonymous callers have no budget row;
+     * their ceiling is the per-IP rate limiter in step (0). */
+    if (userId != null) {
+      let snapshot;
+      try {
+        snapshot = await getUserBudgetSnapshot(userId);
+      } catch (err: any) {
+        log.error("budget snapshot failed pre-call (formula-help)", { error: err?.message });
+        return res.status(503).json({ error: "budget_lookup_failed" });
+      }
 
-    const estimate = estimateCallCost({
-      model: TEXT_MODEL,
-      systemPromptTokens: approxTokens(system),
-      historyTokens: 0,
-      messageTokens: approxTokens(prompt),
-      hasImage: false,
-    });
-    const decision = gateDecision(snapshot, estimate, false);
-    if (!decision.allowed) {
-      return res.status(402).json({
-        error: "budget_exceeded",
-        code: decision.code,
-        message: "Your AI budget for this period has been reached. Please try again later.",
-        snapshot: {
-          cumulative_usd: snapshot.cumulative_usd,
-          today_usd: snapshot.today_usd,
-          config: snapshot.config,
-          scope: snapshot.scope,
-        },
+      const estimate = estimateCallCost({
+        model: TEXT_MODEL,
+        systemPromptTokens: approxTokens(system),
+        historyTokens: 0,
+        messageTokens: approxTokens(prompt),
+        hasImage: false,
       });
+      const decision = gateDecision(snapshot, estimate, false);
+      if (!decision.allowed) {
+        return res.status(402).json({
+          error: "budget_exceeded",
+          code: decision.code,
+          message: "Your AI budget for this period has been reached. Please try again later.",
+          snapshot: {
+            cumulative_usd: snapshot.cumulative_usd,
+            today_usd: snapshot.today_usd,
+            config: snapshot.config,
+            scope: snapshot.scope,
+          },
+        });
+      }
     }
 
     try {
@@ -489,24 +591,28 @@ Rules:
         messages: [{ role: "user", content: prompt }],
       });
 
-      /* Record real spend against the same caps. recordSpend failure must
+      /* Record real spend against the same caps — AUTHED callers only
+       * (recordSpend requires a numeric user id). Anonymous usage is bounded
+       * by the per-IP rate limiter, not the DB budget. recordSpend failure must
        * never swallow a successful generation — log it (don't silently catch)
        * so the cap counters can be reconciled, then still return the formula. */
       const usage = (completion as any)?.usage ?? {};
-      try {
-        await recordSpend({
-          userId,
-          model: TEXT_MODEL,
-          inputTokens: usage.input_tokens ?? 0,
-          outputTokens: usage.output_tokens ?? 0,
-          imageCount: 0,
-          cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
-          cacheReadTokens: usage.cache_read_input_tokens ?? 0,
-        });
-      } catch (spendErr: any) {
-        log.error("recordSpend failed (formula already generated)", {
-          error: spendErr?.message,
-        });
+      if (userId != null) {
+        try {
+          await recordSpend({
+            userId,
+            model: TEXT_MODEL,
+            inputTokens: usage.input_tokens ?? 0,
+            outputTokens: usage.output_tokens ?? 0,
+            imageCount: 0,
+            cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+            cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+          });
+        } catch (spendErr: any) {
+          log.error("recordSpend failed (formula already generated)", {
+            error: spendErr?.message,
+          });
+        }
       }
 
       // Pull the first text block.

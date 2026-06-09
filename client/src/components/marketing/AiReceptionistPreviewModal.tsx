@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { X, Phone, MessageCircle, Send, PhoneOff, Loader2 } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 import { useVapiCall } from "@/hooks/useVapiCall";
@@ -34,18 +34,14 @@ export default function AiReceptionistPreviewModal({ data, initialMode, onClose 
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const voiceOverride = useMemo(() => ({
-    model: {
-      messages: [{
-        role: "system",
-        content:
-          `You are the AI demo receptionist for a ${data.label} business, on the WeFixTrades marketing site. ` +
-          `Greet the caller warmly, answer ${data.label.toLowerCase()} questions, and offer to book a job or give a rough estimate. ` +
-          `This is a demo — don't actually book anything. Keep replies to 1-2 short sentences. ` +
-          `Never claim to be human; you're an AI demo of a ${data.label.toLowerCase()} receptionist.`,
-      }],
-    },
-  }), [data.label]);
+  // NOTE: we intentionally pass NO assistantOverrides to the voice call.
+  // The web-demo Vapi assistant is a `custom-llm` assistant — Vapi POSTs each
+  // turn to our /api/vapi/conversation endpoint, which owns the system prompt
+  // server-side. A client-supplied `{ model: { messages: [...] } }` override is
+  // (a) ignored by Vapi for a custom-llm model and (b) rejected by POST
+  // /call/web with HTTP 400 because the `model` object has no `provider`/`model`
+  // — which previously broke this voice demo entirely. See useVapiCall.ts and
+  // server/services/vapiService.ts (provider: "custom-llm").
 
   return (
     <div
@@ -91,7 +87,7 @@ export default function AiReceptionistPreviewModal({ data, initialMode, onClose 
         </div>
 
         {mode === "voice"
-          ? <VoiceTab override={voiceOverride} />
+          ? <VoiceTab />
           : <ChatTab slug={data.id} label={data.label} />}
       </div>
     </div>
@@ -114,8 +110,8 @@ function TabBtn({ active, onClick, icon, label }: { active: boolean; onClick: ()
 }
 
 /* ── Voice ── */
-function VoiceTab({ override }: { override: unknown }) {
-  const call = useVapiCall({ assistantOverrides: override });
+function VoiceTab() {
+  const call = useVapiCall();
   const live = call.status === "active" || call.status === "connecting" || call.status === "loading";
 
   return (
