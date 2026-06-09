@@ -25,6 +25,8 @@ import { db } from "../db";
 import { marketingChatSessions } from "@shared/schema";
 import { chat as aiChat } from "../services/aiService";
 import { chatRateLimiter } from "../services/rateLimiter";
+import { notifyFounder } from "../services/founderNotify";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import {
   COPILOT_PROMPT_INSTRUCTION,
   COPILOT_CARDS_INSTRUCTION,
@@ -246,8 +248,11 @@ export function registerMarketingChatRoutes(app: Express): void {
 
   /**
    * POST /api/marketing/chat/capture-lead — store lead email/phone against
-   * the session. Sales tooling reads marketing_chat_sessions; we don't fire
-   * an email here (that's a separate Wave 12B job).
+   * the session, then notify sales (Wave 12B). Notification reuses the
+   * shared notifyFounder() dispatcher (admin_notices agenda row + optional
+   * SMS/WhatsApp ping) — the same mechanism the inbound-email lead source
+   * uses. It is fail-soft: a notification failure must never break the
+   * lead-capture response, so it is fire-and-forget via noisyCatch().
    */
   app.post("/api/marketing/chat/capture-lead", async (req: Request, res: Response) => {
     const parsed = leadSchema.safeParse(req.body);
@@ -269,11 +274,49 @@ export function registerMarketingChatRoutes(app: Express): void {
           last_active_at: new Date(),
         })
         .where(eq(marketingChatSessions.session_id, session_id))
-        .returning({ id: marketingChatSessions.id });
+        .returning({
+          id: marketingChatSessions.id,
+          recommended_product: marketingChatSessions.recommended_product,
+          landing_path: marketingChatSessions.landing_path,
+          message_count: marketingChatSessions.message_count,
+        });
       if (result.length === 0) {
         return res.status(404).json({ error: "Session not found" });
       }
+      const captured = result[0];
       log.info("[marketing-chat] lead captured", { session_id, has_email: !!email, has_phone: !!phone });
+
+      // Notify sales about the new website-chat lead. Reuses the shared
+      // notifyFounder() dispatcher (admin_notices row + optional SMS), the
+      // same path the inbound-email lead source uses. Fire-and-forget so a
+      // notification failure can never break the capture response; noisyCatch
+      // logs any rejection loudly (no silent swallow).
+      const contactBits = [
+        name ? `Name: ${name}` : null,
+        email ? `Email: ${email}` : null,
+        phone ? `Phone: ${phone}` : null,
+      ].filter(Boolean).join("\n");
+      const productBit = captured.recommended_product
+        ? `\nRecommended product: ${captured.recommended_product}`
+        : "";
+      const pageBit = captured.landing_path ? `\nLanding page: ${captured.landing_path}` : "";
+      noisyCatch(
+        notifyFounder({
+          type: "marketing_chat_lead",
+          title: `New website chat lead: ${name || email || phone}`,
+          summary:
+            `A visitor left their details in the website chat widget.\n\n${contactBits}` +
+            `${productBit}${pageBit}\n\nConversation turns: ${captured.message_count ?? 0}\n` +
+            `Session: ${session_id}\n\nOpen the marketing_chat_sessions record to read the full transcript and follow up.`,
+          entityType: "marketing_chat_session",
+          entityId: captured.id,
+        }),
+        {
+          op: "marketingChat.leadNotify",
+          meta: { session_id, lead_id: captured.id, has_email: !!email, has_phone: !!phone },
+        },
+      );
+
       return res.json({ ok: true });
     } catch (err) {
       log.error("[marketing-chat] lead capture failed", { error: String(err) });
