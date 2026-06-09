@@ -1,5 +1,6 @@
 import twilio from "twilio";
 const { validateRequest } = twilio as any;
+import { randomUUID } from "crypto";
 import type { Request } from "express";
 import { db } from "./db";
 import {
@@ -17,6 +18,73 @@ import { calculateSmsSegments } from "./lib/smsSegments";
 import { recordSmsCostForClient } from "./services/clientCostBilling";
 
 const smsLog = createLogger("twilio-sms");
+
+/**
+ * W-TWILIO hardening — typed Twilio errors.
+ *
+ * Replaces the bare `new Error("Twilio credentials not configured")` throws
+ * so route boundaries can distinguish a config gap (→ 503) from a real send
+ * failure (→ 502) instead of letting both surface as an uncaught 500.
+ *
+ *   - TwilioConfigError → credentials / sender number not configured.
+ *     Mapped to HTTP 503 `twilio_not_configured` at the route boundary.
+ *   - TwilioSendError   → the Twilio API rejected/failed the send.
+ *     Mapped to HTTP 502 at the route boundary.
+ */
+export class TwilioConfigError extends Error {
+  readonly code = "twilio_not_configured";
+  constructor(message = "Twilio credentials not configured") {
+    super(message);
+    this.name = "TwilioConfigError";
+  }
+}
+
+export class TwilioSendError extends Error {
+  readonly code = "twilio_send_failed";
+  readonly cause?: unknown;
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = "TwilioSendError";
+    this.cause = cause;
+  }
+}
+
+/**
+ * W-TWILIO hardening — dry-run / test mode.
+ *
+ * When dry-run is active, outbound sends are LOGGED and return a synthetic
+ * `{ sid: 'DRYRUN-<uuid>', status: 'dry_run' }` instead of calling Twilio's
+ * `messages.create`. This makes it impossible to fire a real SMS/voice event
+ * from a non-production environment or from a keyless boot.
+ *
+ * Dry-run defaults ON unless ALL of the following hold:
+ *   - `TWILIO_DRY_RUN` is not explicitly "true"/"1" (an explicit truthy value
+ *     forces dry-run on even in production — a safety override), AND
+ *   - NODE_ENV === "production", AND
+ *   - Twilio is actually configured (isTwilioConfigured()).
+ *
+ * Equivalently: real sends happen ONLY in production, with creds present, and
+ * with dry-run not explicitly enabled. `TWILIO_DRY_RUN=false` does NOT force a
+ * real send outside production — it only narrows, never widens, the live path.
+ */
+export function isTwilioDryRun(): boolean {
+  const explicit = (process.env.TWILIO_DRY_RUN ?? "").trim().toLowerCase();
+  if (explicit === "true" || explicit === "1") return true;
+  // Default-ON whenever we're not in a fully-live posture.
+  if (process.env.NODE_ENV !== "production") return true;
+  if (!isTwilioConfigured()) return true;
+  return false;
+}
+
+export interface TwilioSendResult {
+  sid: string;
+  status: string;
+}
+
+/** Synthetic send result used by the dry-run path (no Twilio call made). */
+function dryRunResult(): TwilioSendResult {
+  return { sid: `DRYRUN-${randomUUID()}`, status: "dry_run" };
+}
 
 /**
  * Wave 84 — per-tenant SMS monthly cost cap (USD).
@@ -114,7 +182,7 @@ export function isTwilioConfigured(): boolean {
 
 export function getTwilioClient() {
   if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-    throw new Error("Twilio credentials not configured");
+    throw new TwilioConfigError("Twilio credentials not configured");
   }
   return twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 }
@@ -382,19 +450,23 @@ export async function sendSMS(
     }
   }
 
-  const client = getTwilioClient();
+  // W-TWILIO hardening — dry-run short-circuit. When dry-run is active we
+  // resolve the sender (so a misconfiguration still surfaces in dev) but do
+  // NOT call Twilio. We log and return a synthetic DRYRUN sid. Real sends are
+  // gated to production + creds present + dry-run off (see isTwilioDryRun).
+  const dryRun = isTwilioDryRun();
 
   let from: string;
   let toFormatted: string;
 
   if (channel === "whatsapp") {
     const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || getTwilioFromNumber();
-    if (!whatsappNumber) throw new Error("WhatsApp number not configured");
+    if (!whatsappNumber) throw new TwilioConfigError("WhatsApp number not configured");
     from = `whatsapp:${whatsappNumber}`;
     toFormatted = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
   } else {
     const fromNumber = fromOverride || getTwilioFromNumber();
-    if (!fromNumber) throw new Error("TWILIO_FROM_NUMBER (or TWILIO_PHONE_NUMBER) not configured");
+    if (!fromNumber) throw new TwilioConfigError("TWILIO_FROM_NUMBER (or TWILIO_PHONE_NUMBER) not configured");
     from = fromNumber;
     toFormatted = to;
   }
@@ -409,7 +481,26 @@ export async function sendSMS(
   createParams.statusCallback = `${publicBaseUrl}/api/twilio/sms-status`;
   createParams.statusCallbackMethod = "POST";
 
-  const message = await client.messages.create(createParams as any);
+  let message: { sid: string; status?: string };
+  if (dryRun) {
+    const synthetic = dryRunResult();
+    smsLog.info(
+      `[dry-run] outbound ${channel} NOT sent (TWILIO_DRY_RUN active) — ` +
+        `from=${from} to=${toFormatted} bodyLen=${body.length} sid=${synthetic.sid}`,
+    );
+    message = synthetic;
+  } else {
+    // Real send — only reached in production, with creds, dry-run off.
+    try {
+      const client = getTwilioClient();
+      message = await client.messages.create(createParams as any);
+    } catch (err: any) {
+      // Surface a config gap as TwilioConfigError (→503); any other Twilio
+      // failure as TwilioSendError (→502) so the route never leaks a 500.
+      if (err instanceof TwilioConfigError) throw err;
+      throw new TwilioSendError(err?.message ?? "Twilio send failed", err);
+    }
+  }
 
   // Wave 84 — single chokepoint for per-tenant SMS cost attribution.
   // Every outbound send funnels through here, so this is the only
@@ -608,11 +699,24 @@ export function verifyTwilioSignature(req: Request): boolean {
   const signature = req.header("x-twilio-signature") || "";
   if (!authToken || !signature) return false;
 
-  const protocol = (req.headers["x-forwarded-proto"] as string) || "https";
-  const host = req.headers.host;
-  if (!host) return false;
-
-  const url = `${protocol}://${host}${req.originalUrl}`;
+  // W-TWILIO hardening (CONSERVATIVE host pinning) — Twilio validates the
+  // signature against the EXACT public URL it POSTed to. A spoofable `Host`
+  // header could be abused to make the rebuilt URL diverge from the real
+  // public origin. Prefer the server-controlled PUBLIC_BASE_URL when it is
+  // set; FALL BACK to the existing forwarded-proto + Host-header behavior
+  // when it is unset so we never break webhook verification on deployments
+  // that don't configure PUBLIC_BASE_URL. (Same env convention used by the
+  // statusCallback URL in sendSMS and sitemap/robots routes.)
+  let url: string;
+  const publicBase = process.env.PUBLIC_BASE_URL?.replace(/\/$/, "");
+  if (publicBase) {
+    url = `${publicBase}${req.originalUrl}`;
+  } else {
+    const protocol = (req.headers["x-forwarded-proto"] as string) || "https";
+    const host = req.headers.host;
+    if (!host) return false;
+    url = `${protocol}://${host}${req.originalUrl}`;
+  }
 
   // Twilio sends URL-encoded form data; Express has already parsed it into req.body
   const params = req.body ?? {};

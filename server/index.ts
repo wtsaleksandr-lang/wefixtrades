@@ -162,6 +162,59 @@ function validateEnv(): void {
     }
   }
 
+  /* ─── Twilio capability readiness (W-TWILIO hardening P1-4) ───
+     NON-FATAL by design — Twilio is a feature, not a boot dependency, so it
+     stays OUT of the critical[] list above. But a keyless / partially-keyed
+     boot must be VISIBLE rather than silently degrading SMS + voice. Emit one
+     structured `twilio_capability_readiness` line enumerating which capability
+     groups are degraded by inspecting the TWILIO_* vars. dry_run reflects the
+     effective send posture (default-ON outside production / without creds). */
+  {
+    const hasAccount = !!process.env.TWILIO_ACCOUNT_SID?.trim();
+    const hasToken = !!process.env.TWILIO_AUTH_TOKEN?.trim();
+    const hasFromNumber = !!(
+      process.env.TWILIO_FROM_NUMBER?.trim() || process.env.TWILIO_PHONE_NUMBER?.trim()
+    );
+    // Voice JS SDK token mint needs API key + secret + TwiML app SID.
+    const voiceKeys = ["TWILIO_API_KEY", "TWILIO_API_KEY_SECRET", "TWILIO_APP_SID"];
+    const voiceMissing = voiceKeys.filter((k) => !process.env[k]?.trim());
+
+    const smsReady = hasAccount && hasToken && hasFromNumber;
+    const voiceReady = hasAccount && hasToken && voiceMissing.length === 0;
+
+    const smsMissing = [
+      hasAccount ? null : "TWILIO_ACCOUNT_SID",
+      hasToken ? null : "TWILIO_AUTH_TOKEN",
+      hasFromNumber ? null : "TWILIO_PHONE_NUMBER",
+    ].filter(Boolean) as string[];
+
+    // Effective dry-run posture (mirrors isTwilioDryRun in twilioClient.ts
+    // without importing it, to keep this diagnostic dependency-free at boot).
+    const dryRunForced =
+      ["true", "1"].includes((process.env.TWILIO_DRY_RUN ?? "").trim().toLowerCase());
+    const dryRun = dryRunForced || !isProduction || !smsReady;
+
+    logger.info("twilio_capability_readiness", {
+      sms_ready: smsReady,
+      voice_ready: voiceReady,
+      sms_missing: smsMissing,
+      voice_missing: voiceMissing,
+      dry_run: dryRun,
+    });
+    if (!smsReady || !voiceReady) {
+      logger.warn(
+        "Twilio partially configured (non-fatal) — degraded capabilities: " +
+          [
+            smsReady ? null : `SMS (missing: ${smsMissing.join(", ") || "n/a"})`,
+            voiceReady ? null : `voice (missing: ${voiceMissing.join(", ") || "n/a"})`,
+          ]
+            .filter(Boolean)
+            .join("; ") +
+          `. dry_run=${dryRun}. The server is booting anyway.`,
+      );
+    }
+  }
+
   /* ─── Dev-tool guard: these flags must NEVER be set in production ─── */
   if (isProduction && process.env.DEV_TOOLS_ENABLED) {
     logger.error(

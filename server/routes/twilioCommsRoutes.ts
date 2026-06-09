@@ -29,6 +29,9 @@ import {
   isTwilioConfigured,
   normalizePhone,
   verifyTwilioSignature,
+  sendSMS,
+  TwilioConfigError,
+  TwilioSendError,
 } from "../twilioClient";
 import {
   mintAccessToken,
@@ -236,13 +239,39 @@ export function registerTwilioCommsRoutes(app: Express): void {
     }
 
     try {
-      const client = getTwilioClient();
-      const msg = await client.messages.create({ from: fromNumber, to, body });
-      log.info("admin SMS sent", { to, sid: msg.sid, length: body.length });
-      res.json({ sid: msg.sid, status: msg.status, to: msg.to, from: msg.from });
+      // W-TWILIO hardening (P1-3) — route the admin direct-send through
+      // sendSMS() instead of calling client.messages.create() directly. The
+      // old direct call bypassed every safety rail (opt-out enforcement,
+      // per-tenant cost cap, quiet-hours, delivery status-callback wiring,
+      // and the dry-run guard) — a TCPA + toll-cost risk. sendSMS applies
+      // them all and returns the message SID (or a synthetic DRYRUN sid).
+      const sid = await sendSMS({ to, body });
+      log.info("admin SMS sent", { to, sid, length: body.length });
+      // `from` echoes the resolved sender for the UI; status is best-effort
+      // (sendSMS returns only the SID, so we don't have Twilio's queued state).
+      res.json({ sid, status: sid.startsWith("DRYRUN-") ? "dry_run" : "queued", to, from: fromNumber });
     } catch (err: any) {
-      log.error("admin SMS send failed", { to, message: err?.message });
-      res.status(500).json({ error: "twilio_send_failed", message: err?.message ?? "Unknown error" });
+      // P2-3 — log full detail server-side, return a generic message to the
+      // client so we never leak Twilio internals / opt-out reasons to the UI.
+      log.error("admin SMS send failed", { to, message: err?.message, name: err?.name });
+      if (err instanceof TwilioConfigError) {
+        return res.status(503).json({ error: "twilio_not_configured", message: "SMS is not configured." });
+      }
+      // Opt-out / cap / quiet-hours rejections from sendSMS surface as plain
+      // Errors with a machine code in the message — map the known ones to a
+      // 422 with a safe, generic note; everything else is a 502 send failure.
+      const m = String(err?.message ?? "");
+      if (m === "sms_recipient_opted_out") {
+        return res.status(422).json({ error: "recipient_opted_out", message: "This recipient has opted out of SMS." });
+      }
+      if (m === "sms_cap_reached") {
+        return res.status(422).json({ error: "cap_reached", message: "Monthly SMS limit reached." });
+      }
+      if (m === "sms_quiet_hours_blocked") {
+        return res.status(422).json({ error: "quiet_hours", message: "Outside allowed messaging hours for this recipient." });
+      }
+      const status = err instanceof TwilioSendError ? 502 : 500;
+      res.status(status).json({ error: "twilio_send_failed", message: "Failed to send message." });
     }
   });
 
@@ -410,8 +439,9 @@ export function registerTwilioCommsRoutes(app: Express): void {
       const token = mintAccessToken({ userId });
       res.json(token);
     } catch (err: any) {
+      // P2-3 — log detail server-side; return a generic message to the client.
       log.error("voice token mint failed", { message: err?.message });
-      res.status(500).json({ error: "voice_token_failed", message: err?.message });
+      res.status(500).json({ error: "voice_token_failed", message: "Failed to mint voice token." });
     }
   });
 
