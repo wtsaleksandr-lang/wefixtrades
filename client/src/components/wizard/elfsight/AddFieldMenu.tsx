@@ -153,6 +153,29 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
     return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
   });
   const [anchor, setAnchor] = useState<AnchorRect | null>(null);
+  // The popover/sheet PORTALS to document.body — outside `.qq-editor-shell` —
+  // so the index.css `.qq-editor-shell[data-theme="dark"] .qq-addfield-*`
+  // rules never match it (it would fall back to white). Mirror the shell's
+  // live `data-theme` onto the portaled roots (same trick AIBubble uses) and
+  // pair it with self-/descendant-scoped `[data-theme="dark"]` rules in this
+  // component's own <style> block so the menu themes correctly off-tree.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [portalTheme, setPortalTheme] = useState<'light' | 'dark'>('light');
+  useEffect(() => {
+    if (!open) return;
+    // NB: the local root wrapper hardcodes data-theme="light" (to keep the
+    // trigger light), so target the editor shell explicitly to read the REAL
+    // theme rather than that wrapper.
+    const shell = rootRef.current?.closest<HTMLElement>('.qq-editor-shell[data-theme]');
+    const read = () =>
+      setPortalTheme(shell?.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+    read();
+    if (!shell) return;
+    // Keep in sync with the editor's live day/night toggle.
+    const mo = new MutationObserver(read);
+    mo.observe(shell, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => mo.disconnect();
+  }, [open]);
 
   // Track viewport size — switches between dropdown (desktop) and bottom sheet (mobile).
   useEffect(() => {
@@ -248,6 +271,7 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
       <div
         data-testid="add-field-portal"
         className="qq-addfield-sheet-root"
+        data-theme={portalTheme}
         role="presentation"
         onMouseDown={(e) => {
           // Tap on the backdrop (root) closes; taps inside the sheet stop.
@@ -287,6 +311,7 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
         data-testid="add-field-menu"
         data-add-field-variant="dropdown"
         className="qq-addfield-menu"
+        data-theme={portalTheme}
         style={desktopMenuStyle}
       >
         <p className="qq-addfield-menu-title">Pick a field type</p>
@@ -305,7 +330,7 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
   ) : null;
 
   return (
-    <div data-theme="light" className="qq-addfield-root" data-testid="add-field-root">
+    <div ref={rootRef} data-theme="light" className="qq-addfield-root" data-testid="add-field-root">
       <button
         ref={triggerRef}
         type="button"
@@ -511,6 +536,60 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
           border: 1px solid ${p.colors.borderLight};
           border-radius: 10px;
           min-height: 48px;
+        }
+
+        /* ── Dark mode (portaled — see the data-theme mirror above) ──────────
+         * The popover/sheet portals to document.body, so the index.css rules
+         * scoped under .qq-editor-shell[data-theme="dark"] can't reach it.
+         * We mirror the shell's data-theme onto the portal roots
+         * (.qq-addfield-menu / .qq-addfield-sheet-root) and re-state the dark
+         * styling here, self-/descendant-scoped to that mirrored attribute so
+         * it matches off-tree. Values mirror the index.css dark palette
+         * (#1e293b surface, #0f172a bg, #243149 item, #e2e8f0 text). Light
+         * mode is unaffected — these only apply when data-theme="dark". */
+        .qq-addfield-menu[data-theme="dark"] {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.10);
+          color: #e2e8f0;
+        }
+        .qq-addfield-menu[data-theme="dark"] .qq-addfield-menu-title {
+          color: #94a3b8;
+        }
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-sheet,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-sheet-cancel {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.10);
+          color: #e2e8f0;
+        }
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-sheet-title {
+          color: #e2e8f0;
+        }
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-sheet-handle {
+          background: rgba(255,255,255,0.18);
+        }
+        /* Option cards (shared by dropdown + sheet). */
+        [data-theme="dark"].qq-addfield-menu .qq-addfield-item,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-item {
+          background: #243149;
+          border-color: rgba(255,255,255,0.10);
+          color: #e2e8f0;
+        }
+        [data-theme="dark"].qq-addfield-menu .qq-addfield-item:hover,
+        [data-theme="dark"].qq-addfield-menu .qq-addfield-item:focus-visible,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-item:hover,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-item:focus-visible {
+          background: rgba(13, 60, 252, 0.18);
+          border-color: #0d3cfc;
+        }
+        [data-theme="dark"].qq-addfield-menu .qq-addfield-label,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-label {
+          color: #e2e8f0;
+        }
+        [data-theme="dark"].qq-addfield-menu .qq-addfield-hint,
+        [data-theme="dark"].qq-addfield-menu .qq-addfield-desc,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-hint,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-desc {
+          color: #94a3b8;
         }
 
         /* Wave N — secondary-sized "+ Add field" trigger on phones. The

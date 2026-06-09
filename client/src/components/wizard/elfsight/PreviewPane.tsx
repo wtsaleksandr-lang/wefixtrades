@@ -2724,7 +2724,13 @@ export default function PreviewPane({
                 <div
                   style={{
                     flex: 1, maxWidth: 300, margin: '0 auto', textAlign: 'center',
-                    fontSize: 11, fontWeight: 500, color: p.colors.subtle,
+                    fontSize: 11, fontWeight: 500,
+                    // A11y — the fake browser address bar paints on solid white
+                    // (`background: '#fff'` below). `p.colors.subtle` (#9ca3af)
+                    // is only 2.54:1 on white → fails AA for this 11px text.
+                    // Use a darker grey locally (4.83:1 on white) just for this
+                    // decorative URL; the shared `subtle` token is unchanged.
+                    color: '#6b7280',
                     background: '#fff', border: `1px solid ${p.colors.borderLight}`,
                     borderRadius: 999, padding: '3px 12px',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

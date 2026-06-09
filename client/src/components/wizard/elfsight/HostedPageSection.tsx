@@ -580,6 +580,63 @@ export default function HostedPageSection({
           .qq-w-slider::-webkit-slider-thumb,
           .qq-w-slider::-moz-range-thumb { transition: none; }
         }
+
+        /* AUDIT dm3 + dm-followup — dark-mode re-theme. The section hardcodes
+         * data-theme="light" on ITSELF, but the editor renders it in dark mode
+         * in TWO contexts that both set data-theme="dark" on the ancestor:
+         *   1. inline in the editor shell  → .qq-editor-shell[data-theme="dark"]
+         *   2. the Publish overlay, which portals the Install tab to
+         *      document.body inside .qq-editor-help[data-theme="dark"] — this
+         *      portal is OUTSIDE .qq-editor-shell, so a shell-only selector
+         *      never matched here and the WHOLE card stayed light grey-blue
+         *      (rgb(162,182,191)) with near-white body/help text on top
+         *      (~1.9:1, invisible — the bug the visual-review gate caught).
+         * Both ancestor classes are matched via :is() so the card goes dark in
+         * either context; LIGHT mode is untouched (selectors require the dark
+         * data-theme). Palette matches the sibling tabs (#0f172a panel,
+         * #f5f7fa text). The .qq-hosted-section background carries !important
+         * so it beats the editor-help portal's own surface/blanket rules. */
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section {
+          background: #0f172a !important;
+          border-color: rgba(255,255,255,0.08);
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-install-h {
+          color: #f5f7fa;
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-install-sub {
+          color: #cbd5e1 !important;
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-block-h {
+          color: #f5f7fa;
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-preset-label {
+          color: #cbd5e1;
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-preset,
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-upload-btn,
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-color-input,
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-color-text,
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-icon-btn,
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-thumb {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.14);
+          color: #f1f5f9;
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-upload-btn:hover {
+          background: #243149;
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-mini-label {
+          color: #94a3b8;
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-foot {
+          color: #cbd5e1 !important;
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-switch-title {
+          color: #f5f7fa;
+        }
+        :is(.qq-editor-shell, .qq-editor-help)[data-theme="dark"] .qq-hosted-section .qq-hosted-switch-sub {
+          color: #cbd5e1;
+        }
       `}</style>
     </section>
   );

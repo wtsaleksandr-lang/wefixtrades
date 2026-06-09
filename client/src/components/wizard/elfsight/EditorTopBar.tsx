@@ -436,14 +436,31 @@ export default function EditorTopBar({
             style={{ background: device === mode ? AE.color.bg : 'transparent' }}
           >
             <Icon
+              className="qq-editor-device-icon"
+              data-active={device === mode ? 'true' : 'false'}
               style={{
                 width: 14, height: 14,
-                color: device === mode ? AE.color.accent : AE.color.secondary,
+                // Active stays brand blue. Inactive uses a token that defaults
+                // to the Apple light gray (#6e6e73) but is overridden to a
+                // lighter slate under the dark editor shell (see <style> below)
+                // so it clears 4.5:1 on the dark top bar instead of ~2.9.
+                color: device === mode
+                  ? AE.color.accent
+                  : `var(--qq-device-inactive, ${AE.color.secondary})`,
               }}
             />
           </button>
         ))}
       </div>
+
+      {/* Dark editor chrome — lift the INACTIVE device-toggle icons off the
+          dark top bar. Active icon keeps its inline brand blue (unaffected by
+          this var). Light mode is untouched (the var only resolves here). */}
+      <style>{`
+        .qq-editor-shell[data-theme="dark"] .qq-editor-device {
+          --qq-device-inactive: var(--qq-muted, #94a3b8);
+        }
+      `}</style>
 
       {/* 2026-06-04 — the "Preview as bubble" toggle was removed from the top
        *  bar. It consumed ~151px (16px icon + visible label + pill padding)

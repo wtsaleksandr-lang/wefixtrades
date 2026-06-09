@@ -441,6 +441,34 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
           margin: 0 0 10px; max-width: 360px;
           font-size: 12.5px; color: ${p.colors.muted}; line-height: 1.55;
         }
+        /* ── Dark editor chrome ─────────────────────────────────────────
+           The panel hardcodes light-theme grays (#374151 title, a
+           light-lavender AI card with a white textarea) that read
+           dark-on-dark / visually inconsistent on the #1e293b dark editor.
+           Repaint under the shared dark tokens; light mode is untouched. */
+        .qq-editor-shell[data-theme="dark"] .qq-calcs-title {
+          color: var(--qq-text, #f1f5f9);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-calcs-sub {
+          color: var(--qq-muted, #94a3b8);
+        }
+        /* Re-theme the "Describe a calculation" AI island for dark mode:
+           dark panel + border, light title, and a dark (not white) textarea. */
+        .qq-editor-shell[data-theme="dark"] .qq-calcs-ai {
+          background: var(--qq-surface, #243149);
+          border-color: var(--qq-border, rgba(255,255,255,0.12));
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-calcs-ai-title {
+          color: var(--qq-text, #f1f5f9);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-calcs-ai-input {
+          background: #1e293b;
+          color: var(--qq-text, #f1f5f9);
+          border-color: var(--qq-border, rgba(255,255,255,0.14));
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-calcs-ai-input::placeholder {
+          color: var(--qq-muted, #94a3b8);
+        }
       `}</style>
     </section>
   );

@@ -1261,6 +1261,79 @@ export default function InstallTab({
           .qq-install-mode { grid-template-columns: 1fr; }
           .qq-install-guide-card { min-height: 56px; }
         }
+
+        /* AUDIT dm3 — dark-mode contrast fixes.
+         *
+         * (A) Hosted-link card. The card bg is the near-white cardMuted pill
+         * and had no dark override, so in dark mode it rendered as a LIGHT
+         * island inside the slate editor, and .qq-install-hosted-foot
+         * (#f1f5f9 light text) sat on it at ~1:1 — invisible. The card was
+         * always *intended* to read on slate in dark mode (the is-ok/is-warn
+         * status overrides above say "on the slate hosted card surface"), so
+         * the correct fix is to dark-theme the card surface and make its text
+         * light — NOT to darken the text on a white pill. The inner URL/edit
+         * inputs go dark too so nothing stays a white island. Light mode is
+         * untouched (all scoped under the dark shell). */
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-card {
+          background: #0f172a;
+          border-color: rgba(255,255,255,0.08);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-foot {
+          color: #94a3b8;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-url,
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-input {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.14);
+          color: #f1f5f9;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-open {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.14);
+          color: #f1f5f9;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-open:hover {
+          background: #243149;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-trigger,
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-cancel {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.14);
+          color: #cbd5e1;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-prefix,
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-suffix {
+          color: #94a3b8;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-card .qq-install-code-inline {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.14);
+          color: #f1f5f9;
+        }
+
+        /* (B) Embed-mode option cards. The base card bg was #fff (a light
+         * island in dark mode) and the SELECTED state layered a faint blue
+         * tint over white with dark label/hint text — which on the dark
+         * editor read as near-black text on a bright-blue chip (label ~2.6,
+         * hint ~1.5, both fail AA) AND violated the hard UI rule
+         * "selected = OUTLINE, not bright fill". Dark-theme the card and make
+         * selected an OUTLINE: a tinted-dark fill + accent border/inset +
+         * LIGHT text — mirroring the Style-tab segmented active state. */
+        .qq-editor-shell[data-theme="dark"] .qq-install-mode-opt {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.14);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-mode-opt[data-state="on"] {
+          background: rgba(13, 60, 252, 0.16);
+          border-color: var(--qq-accent, #4f7cff);
+          box-shadow: 0 0 0 1px var(--qq-accent, #4f7cff) inset;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-mode-opt-label {
+          color: #f5f7fa;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-mode-opt-hint {
+          color: #cbd5e1;
+        }
       `}</style>
     </div>
   );
