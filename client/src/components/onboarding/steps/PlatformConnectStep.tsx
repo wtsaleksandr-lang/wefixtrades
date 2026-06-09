@@ -12,6 +12,7 @@
  * Writes: { connectedPlatforms: string[] }
  */
 
+import { useEffect } from "react";
 import { Check } from "lucide-react";
 import type { WizardRenderContext } from "@/components/ui/visual-primitives";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,16 @@ export function renderPlatformConnect(mode: PlatformMode) {
   return function PlatformConnectStep({ state, setState }: WizardRenderContext) {
     const selected =
       (state.connectedPlatforms as string[] | undefined) ?? defaultSelection;
+
+    // First-render: commit the visible default into wizard state so it lands
+    // in `responses` and validatePlatformConnect passes even if the customer
+    // clicks Next without toggling. Mirrors ServiceAreaStep's radius default.
+    useEffect(() => {
+      if (state.connectedPlatforms === undefined) {
+        setState({ connectedPlatforms: defaultSelection });
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const toggle = (id: string) => {
       const cur = selected;

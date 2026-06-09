@@ -18,20 +18,27 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 import { ChoiceCard } from "./ChoiceCard";
 import { OptionANewNumber } from "./OptionANewNumber";
 import { OptionBForward } from "./OptionBForward";
 import { OptionCPort } from "./OptionCPort";
-import { PhoneCall, Loader2 } from "lucide-react";
+import { PhoneCall, Loader2, Sparkles } from "lucide-react";
 import type { TradelinePhoneSetup, TradelineSetupMode } from "@shared/schema";
+import { AI_RECEPTIONISTS } from "@/data/aiReceptionists";
 import { apiFetch } from "./apiClient";
 
 interface SetupStateResponse {
   setup: TradelinePhoneSetup;
   testMode?: boolean;
+}
+
+interface AssistantSettings {
+  voice_id: string | null;
+  greeting: string | null;
+  response_style: string | null;
 }
 
 const DRAFT_KEY = "tradeline-setup-draft";
@@ -43,8 +50,56 @@ interface DraftState {
 export default function TradelineSetupPage() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const [forceShowChoice, setForceShowChoice] = useState(false);
   const [resumedFromDraft, setResumedFromDraft] = useState(false);
+
+  /* "Use this" links from /portal/ai-receptionists pass ?template=<slug>
+   * (see PortalAiReceptionists.tsx). Resolve the chosen persona so we can
+   * pre-apply it to the client's assistant settings — previously the param
+   * was dropped on the floor and the picked receptionist had no effect. */
+  const templateSlug = new URLSearchParams(search).get("template");
+  const template = templateSlug
+    ? AI_RECEPTIONISTS.find((r) => r.slug === templateSlug) ?? null
+    : null;
+  const [appliedTemplate, setAppliedTemplate] = useState<string | null>(null);
+
+  /* Pre-seed the assistant greeting from the chosen persona, but only if the
+   * client hasn't set their own greeting yet — never clobber existing config.
+   * The greeting/response_style are the persona-bearing fields the receptionist
+   * actually uses (tradeline_assistant_settings); the trade itself flows from
+   * the greeting copy. Persisted via the same PATCH the VoicePicker uses. */
+  useEffect(() => {
+    if (!template) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { settings } = await apiFetch<{ settings: AssistantSettings | null }>(
+          "/api/portal/tradeline/settings",
+        );
+        if (cancelled) return;
+        // Show the banner regardless; only write if there's nothing to clobber.
+        setAppliedTemplate(template.label);
+        if (settings?.greeting && settings.greeting.trim().length > 0) return;
+        const greeting = `Thanks for calling — you've reached the ${template.label} team. How can I help you today?`;
+        await apiFetch("/api/portal/tradeline/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ greeting, response_style: "friendly" }),
+        });
+        if (!cancelled) {
+          queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline/settings"] });
+        }
+      } catch {
+        /* Pre-seed is best-effort — the customer can still pick a persona
+         * manually on the voice page; don't block the setup wizard on it. */
+        if (!cancelled) setAppliedTemplate(template.label);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateSlug]);
 
   /* Item 29 — restore any in-progress wizard state from localStorage on mount.
    * The bulk of wizard progress lives server-side; this only persists the
@@ -140,6 +195,19 @@ export default function TradelineSetupPage() {
         >
           This wizard sets up your AI receptionist. We save your progress as you go — refresh or come back anytime.
         </FirstVisitTooltip>
+
+        {appliedTemplate && (
+          <div
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs text-emerald-900 flex items-center gap-2"
+            data-testid="tradeline-template-applied-banner"
+          >
+            <Sparkles className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>
+              <span className="font-semibold">{appliedTemplate}</span> receptionist applied — we've
+              pre-set your AI persona. Fine-tune the voice and greeting any time.
+            </span>
+          </div>
+        )}
 
         {resumedFromDraft && (
           <div

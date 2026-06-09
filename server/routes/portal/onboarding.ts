@@ -105,6 +105,35 @@ async function applyOnboardingSubmit(
         });
       }
 
+      if (cs && cs.service_id.startsWith("socialsync")) {
+        try {
+          /* SocialSync quick-setup wizard sends explicit snake_case responses:
+           * { platform_preferences: string[], tone: string, auto_approve: bool }.
+           * Copy them into socialsync_profiles — the table the SocialSync
+           * generator reads (orchestrator selectPlatforms() / tone). The
+           * wizard's auto_approve maps to the profile's `autopilot` flag
+           * (drives auto-approve of generated drafts). */
+          const raw = responses as Record<string, unknown>;
+          const platformPrefs = Array.isArray(raw.platform_preferences)
+            ? (raw.platform_preferences as unknown[]).filter((p): p is string => typeof p === "string")
+            : undefined;
+          const tone = typeof raw.tone === "string" && raw.tone.trim() ? raw.tone.trim() : undefined;
+          const autopilot = typeof raw.auto_approve === "boolean" ? raw.auto_approve : undefined;
+
+          if (platformPrefs || tone || autopilot !== undefined) {
+            await storage.upsertSocialSyncProfile({
+              client_id: clientId,
+              enabled: true,
+              ...(platformPrefs ? { platform_preferences: platformPrefs } : {}),
+              ...(tone ? { tone } : {}),
+              ...(autopilot !== undefined ? { autopilot } : {}),
+            } as any);
+          }
+        } catch (err) {
+          log.warn("Portal onboarding: failed SocialSync mapper hook:", { error: String(err) });
+        }
+      }
+
       if (cs && cs.service_id.startsWith("contentflow")) {
         try {
           const patch = mapContentFlowOnboardingToBrandProfile(responses);
