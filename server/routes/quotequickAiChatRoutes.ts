@@ -22,7 +22,7 @@ import type { Express, Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { createLogger } from "../lib/logger";
-import { getSharedClient, validateConfig } from "../services/aiService";
+import { chat, getSharedClient, NoAIProviderError, validateConfig } from "../services/aiService";
 import {
   estimateCallCost,
   gateDecision,
@@ -584,30 +584,43 @@ Rules:
     }
 
     try {
-      const client = getSharedClient();
-      const completion = await client.messages.create({
-        model: TEXT_MODEL,
-        max_tokens: 256,
-        system,
-        messages: [{ role: "user", content: prompt }],
-      });
+      /* Single non-streaming call via the shared multi-provider engine.
+       * chat() AUTOMATICALLY fails over to backup providers (OpenAI → Groq →
+       * Together → …) when Anthropic is absent / 401-403 / 5xx-exhausted, so a
+       * single-provider outage degrades gracefully instead of hard-failing the
+       * caller. We deliberately do NOT pass `opts.surface`: this route uses the
+       * QuoteQuick budget system (gateDecision / recordSpend) above, NOT the
+       * ai_system_gates surface table — passing a surface would double-gate. */
+      const text = (
+        await chat({
+          system,
+          messages: [{ role: "user", content: prompt }],
+          maxTokens: 256,
+          modelOverride: TEXT_MODEL,
+        })
+      ).trim();
 
       /* Record real spend against the same caps — AUTHED callers only
        * (recordSpend requires a numeric user id). Anonymous usage is bounded
-       * by the per-IP rate limiter, not the DB budget. recordSpend failure must
-       * never swallow a successful generation — log it (don't silently catch)
-       * so the cap counters can be reconciled, then still return the formula. */
-      const usage = (completion as any)?.usage ?? {};
+       * by the per-IP rate limiter, not the DB budget. chat() returns only a
+       * string (no usage object — and a fallback provider's token counts
+       * wouldn't match Anthropic's anyway), so we record an ESTIMATE from the
+       * input + output character length via approxTokens(). recordSpend failure
+       * must never swallow a successful generation — log it (don't silently
+       * catch) so the cap counters can be reconciled, then still return the
+       * formula. */
       if (userId != null) {
+        const inputTokens = approxTokens(system) + approxTokens(prompt);
+        const outputTokens = approxTokens(text);
         try {
           await recordSpend({
             userId,
             model: TEXT_MODEL,
-            inputTokens: usage.input_tokens ?? 0,
-            outputTokens: usage.output_tokens ?? 0,
+            inputTokens,
+            outputTokens,
             imageCount: 0,
-            cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
-            cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
           });
         } catch (spendErr: any) {
           log.error("recordSpend failed (formula already generated)", {
@@ -616,12 +629,6 @@ Rules:
         }
       }
 
-      // Pull the first text block.
-      const text = (completion.content || [])
-        .filter((b: any) => b?.type === "text")
-        .map((b: any) => b.text)
-        .join("")
-        .trim();
       // Tolerate either bare JSON or JSON wrapped in prose.
       let raw: any = null;
       try { raw = JSON.parse(text); } catch {
@@ -645,6 +652,18 @@ Rules:
       }
       return res.json({ formula });
     } catch (err: any) {
+      /* All providers unavailable (Anthropic absent AND no fallback key) —
+       * chat() throws a typed NoAIProviderError. Map it to the same clean 503
+       * the key-present guard uses, not an opaque 500. */
+      if (err instanceof NoAIProviderError) {
+        log.error("no AI provider available (primary + all fallbacks down)", {
+          error: err?.message,
+        });
+        return res.status(503).json({
+          error: "ai_unavailable",
+          message: "The AI service is temporarily unavailable. Please try again in a moment.",
+        });
+      }
       log.error("formula-help failed", { error: err?.message, status: err?.status });
       return res.status(500).json({ error: "ai_error", message: String(err?.message ?? "Failed to generate formula") });
     }
