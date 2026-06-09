@@ -53,15 +53,21 @@ export interface UseVapiCallReturn extends VapiCallState {
 
 export interface UseVapiCallOptions {
   /**
-   * Optional assistantOverrides passed to vapi.start(). Useful for pushing
-   * a per-page system prompt (e.g. the TradeLine demo persona) without
-   * editing the assistant in the Vapi dashboard. Can be a value or a
-   * thunk — the thunk is awaited at call-start time so prompts can be
-   * fetched lazily.
+   * Optional assistantOverrides passed to vapi.start(). Can be a value or a
+   * thunk — the thunk is awaited at call-start time so values can be fetched
+   * lazily.
    *
-   * Vapi shape: { model: { messages: [{ role: "system", content: "..." }] } }
-   * Other model fields (provider, model name, temperature, etc.) inherit
-   * from the dashboard assistant config.
+   * IMPORTANT — Vapi's POST /call/web validates `assistantOverrides.model`
+   * against its real schema: if you send a `model` object it MUST include a
+   * valid `provider` (openai | anthropic | custom-llm | …) and `model`.
+   * Sending `{ model: { messages: [...] } }` with no provider/model is
+   * rejected with HTTP 400 and the call never connects.
+   *
+   * For a `custom-llm` assistant (the WeFixTrades web demo), the system prompt
+   * is owned SERVER-SIDE by the /api/vapi/conversation endpoint, so there is
+   * normally no reason to override `model` at all — leave this undefined.
+   * If you need a per-call tweak, prefer overrides that don't redeclare the
+   * model, e.g. `firstMessage`, `variableValues`, or `metadata`.
    */
   assistantOverrides?: unknown | (() => Promise<unknown> | unknown);
 }
