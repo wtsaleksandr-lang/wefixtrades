@@ -1509,10 +1509,16 @@ export default function WizardShell({ embed = false }: Props) {
   const onPreviewSpotEdit = useCallback((tab: EditorTab, targetKey: string) => {
     setActiveTab(tab);
     if (isMobile) {
-      // Sheet is folded — pulse the tab to hint, and stash the highlight to
-      // run when the user opens that tab's sheet.
+      // feat/mobile-wizard-gestures (F3) — tapping a field in the preview now
+      // JUMPS the editor straight to that field: stash the highlight, switch
+      // to the target's tab (setActiveTab above), and OPEN the sheet. The
+      // deferred effect below (keyed on mobileSheetOpen + activeTab) runs
+      // applyEditHighlight as soon as the sheet is open — auto-expanding the
+      // owning collapsed section, scrolling the control into view, and pulsing
+      // it. We still pulse the bottom tab as a secondary hint cue.
       pendingMobileHighlightRef.current = targetKey;
       setPulseTab(tab);
+      setMobileSheetOpen(true);
       if (clearPulseTimerRef.current != null) window.clearTimeout(clearPulseTimerRef.current);
       clearPulseTimerRef.current = window.setTimeout(() => {
         setPulseTab(null);

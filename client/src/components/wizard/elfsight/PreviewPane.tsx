@@ -28,6 +28,7 @@
 //    25%–200% range. Zoom persists in sessionStorage by calculator id.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus, Crosshair, Calculator, X } from 'lucide-react';
@@ -370,6 +371,151 @@ function mapPreviewSpot(
   return COMPONENT_EDIT_MAP[type] ?? null;
 }
 
+/* ─── feat/mobile-wizard-gestures (F2) — pinch-to-zoom for the mobile preview ───
+ *
+ * Ported from the marketing template-detail `PreviewGestureLayer` and adapted
+ * for the wizard. Gesture model (composes with F1 native scroll + F3 tap):
+ *   • 2 fingers              → pinch zoom, clamp(z, 1, 4).
+ *   • 1 finger @ z=1         → DO NOT claim → native vertical scroll (F1) works,
+ *                              and a stationary tap reaches onBezelClick (F3).
+ *   • 1 finger @ z>1         → pan the zoomed widget.
+ *   • touch on a form control → pass through (calculator stays usable).
+ * The long-press "pick up to move" from the reference is intentionally DROPPED
+ * (the wizard widget isn't draggable at z=1).
+ *
+ * CRITICAL placement: the scale transform is applied to the wrapper around
+ * `children` (= the rendered QuoteWidget ONLY). This wrapper is mounted INSIDE
+ * the bezel/overlay host (`.qq-bezel--mobile-clean` = overlayHostRef /
+ * setBezelRef) but the host itself is NEVER inside a transformed ancestor — so
+ * `host.getBoundingClientRect().width / host.offsetWidth` stays exactly 1 (the
+ * inline-title-editor scale assumption) and PreviewOverlay's getBoundingClient-
+ * Rect measurements stay in the host's unscaled space. The field overlays are
+ * suppressed by the parent while z>1 (they'd be misaligned over scaled widget
+ * geometry), so the zoom only ever transforms widget pixels, never the
+ * measured/edited overlay layer.
+ *
+ * Non-passive listeners + preventDefault ONLY during an engaged pinch/pan, so a
+ * plain one-finger scroll or a stationary tap is never trapped. A transform
+ * ancestor creates a containing block that can break the widget's internal
+ * position:sticky stepper/CTA — but only WHILE zoomed; at the default z=1 the
+ * transform is the identity and we still render it, so to keep sticky behaving
+ * at rest we omit the transform/willChange entirely when at the identity state. */
+const WIZARD_ZOOM_MIN = 1;
+const WIZARD_ZOOM_MAX = 4;
+function WizardPinchZoom({
+  children,
+  onZoomChange,
+}: {
+  children: ReactNode;
+  onZoomChange?: (z: number) => void;
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [tf, setTf] = useState({ z: 1, x: 0, y: 0 });
+  const tfRef = useRef(tf);
+  tfRef.current = tf;
+  const transformed = tf.z !== 1 || tf.x !== 0 || tf.y !== 0;
+
+  useEffect(() => { onZoomChange?.(tf.z); }, [tf.z, onZoomChange]);
+
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+    const isControl = (t: EventTarget | null) =>
+      t instanceof Element &&
+      !!t.closest('input, select, textarea, button, a, label, [role="slider"], [contenteditable]');
+    const dist = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    let mode: 'pan' | 'pinch' | 'control' | null = null;
+    let sx = 0, sy = 0, bx = 0, by = 0, pd = 0, pz = 1;
+    const beginPan = (t: Touch) => {
+      mode = 'pan'; sx = t.clientX; sy = t.clientY; bx = tfRef.current.x; by = tfRef.current.y;
+    };
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        mode = 'pinch'; pd = dist(e.touches[0], e.touches[1]); pz = tfRef.current.z;
+        return;
+      }
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (isControl(t.target)) { mode = 'control'; return; }
+      // Zoomed in → pan the zoomed widget (Apple-Photos pattern).
+      if (tfRef.current.z > 1) { beginPan(t); return; }
+      // At 1× we DON'T claim a single finger: a stationary tap must still reach
+      // onBezelClick (F3 selection) and a swipe must scroll the band (F1). No
+      // long-press lift in the wizard.
+      mode = null;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (mode === 'control') return;
+      if (mode === 'pinch' && e.touches.length >= 2) {
+        e.preventDefault();
+        const z = clamp(pz * (dist(e.touches[0], e.touches[1]) / (pd || 1)), WIZARD_ZOOM_MIN, WIZARD_ZOOM_MAX);
+        setTf((p) => {
+          // Snap back to identity at z=1 so pan offsets reset on full zoom-out.
+          if (z === 1) return { z: 1, x: 0, y: 0 };
+          return { ...p, z };
+        });
+        return;
+      }
+      if (mode === 'pan' && e.touches.length === 1) {
+        e.preventDefault();
+        const t = e.touches[0];
+        setTf((p) => ({ ...p, x: bx + (t.clientX - sx), y: by + (t.clientY - sy) }));
+        return;
+      }
+      // mode === null (single finger @ z=1): never preventDefault → native
+      // vertical scroll + stationary-tap selection flow through untouched.
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) { mode = null; return; }
+      // A finger lifted from a pinch → keep panning if still zoomed.
+      if (e.touches.length === 1 && !isControl(e.touches[0].target) && tfRef.current.z > 1) {
+        beginPan(e.touches[0]);
+      } else if (e.touches.length === 1) {
+        mode = null;
+      }
+    };
+    el.addEventListener('touchstart', onStart, { passive: false });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd, { passive: false });
+    el.addEventListener('touchcancel', onEnd, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+    };
+  }, []);
+
+  return (
+    <div ref={hostRef} className="qq-wizard-pinch-host" data-testid="preview-wizard-pinch">
+      <div
+        className="qq-wizard-pinch-scale"
+        data-zoomed={transformed ? '1' : undefined}
+        style={transformed ? {
+          transform: `translate(${tf.x}px, ${tf.y}px) scale(${tf.z})`,
+          transformOrigin: 'center top',
+          willChange: 'transform',
+        } : undefined}
+      >
+        {children}
+      </div>
+      {transformed && (
+        <button
+          type="button"
+          onClick={() => setTf({ z: 1, x: 0, y: 0 })}
+          className="qq-wizard-pinch-reset"
+          data-testid="preview-wizard-zoom-reset"
+          aria-label="Reset preview zoom to 100 percent"
+        >
+          <ZoomOut size={14} aria-hidden="true" />
+          {Math.round(tf.z * 100)}% · Reset
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function PreviewPane({
   businessName, onBusinessNameChange, onHeaderTitleChange, onCommitTitle,
   onHeaderSubtitleChange, onResultsTextChange, logo, layout, device, fields, calculations,
@@ -466,6 +612,14 @@ export default function PreviewPane({
   // the pane element. Default keeps the slider usable before the first
   // measurement lands.
   const [mobilePaneWidth, setMobilePaneWidth] = useState<number>(360);
+
+  // feat/mobile-wizard-gestures (F2) — live pinch-zoom factor of the mobile
+  // preview widget (1×–4×). While >1 the field-selection overlays are
+  // suppressed: they measure unscaled host geometry via getBoundingClientRect
+  // and would render misaligned over the scaled widget. At 1× (the default)
+  // overlays + tap-to-edit behave exactly as before.
+  const [mobileZoom, setMobileZoom] = useState(1);
+  const isMobileZoomed = mobileZoom > 1;
 
   // Live mirrors so the mobile touch-drag listeners (attached once) always read
   // the current offset/zoom without re-binding on every drag frame.
@@ -2636,10 +2790,21 @@ export default function PreviewPane({
              widget; light templates keep their white. */
           style={{ position: 'relative', width: '100%', background: previewBodyBg }}
         >
-          {renderPreviewWidget}
+          {/* feat/mobile-wizard-gestures (F2) — pinch-to-zoom wraps ONLY the
+              rendered widget, INSIDE the overlay host (this bezel). The host
+              itself is never inside a transformed ancestor, so the inline-title
+              scale derivation (getBoundingClientRect().width / offsetWidth) stays
+              exactly 1 and PreviewOverlay's measurements stay in unscaled host
+              space. Overlays below are suppressed while zoomed. */}
+          <WizardPinchZoom onZoomChange={setMobileZoom}>
+            {renderPreviewWidget}
+          </WizardPinchZoom>
           {/* Clean mobile preview — selection ring stays, but the per-field
-              remove (−) badge is hidden (removal moves to the Build panel). */}
-          {shellFields.length > 0 && onRemoveField && (
+              remove (−) badge is hidden (removal moves to the Build panel).
+              While pinch-zoomed (z>1) the overlays are hidden: they measure the
+              host's UNSCALED geometry and would sit misaligned over the scaled
+              widget; they return at 1×. */}
+          {!isMobileZoomed && shellFields.length > 0 && onRemoveField && (
             <PreviewOverlay
               fields={shellFields}
               containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
@@ -2647,7 +2812,7 @@ export default function PreviewPane({
               hideRemove
             />
           )}
-          {shellFields.length > 0 && onUpdateField && (
+          {!isMobileZoomed && shellFields.length > 0 && onUpdateField && (
             <InlineStyleToolbar
               fields={shellFields}
               containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
@@ -3275,12 +3440,18 @@ export default function PreviewPane({
           display: block;
           padding: 0 !important;
           margin: 0;
-          /* Vertical scroll only — the widget is natural-width and the column
-           * scrolls between the top bar and the bottom tab bar. Allow native
-           * vertical panning (the desktop pinch surface is not mounted here). */
+          /* feat/mobile-wizard-gestures (F1) — the SOLE vertical scroller on
+           * mobile is the ANCESTOR .qq-editor-body.is-mobile-sheet
+           * .qq-editor-right (WizardShell), whose height tracks the docked
+           * sheet via --qq-sheet-h so the visible preview band resizes/scrolls
+           * live. This pane must therefore be NATURAL-HEIGHT (overflow-y:
+           * visible) — a second overflow-y:auto here created nested vertical
+           * scroll contexts ("which one scrolls?" ambiguity on iOS). We keep
+           * touch-action:pan-y so the native vertical pan flows up to the
+           * editor-right scroller, and overflow-x is left default (the
+           * dedicated .qq-preview-mobile-hscroll owns horizontal scroll). */
           touch-action: pan-y;
-          overflow-y: auto;
-          -webkit-overflow-scrolling: touch;
+          overflow-y: visible;
           background: rgba(255,255,255,1) !important;
         }
         .qq-preview-mobile-clean {
@@ -3310,6 +3481,46 @@ export default function PreviewPane({
           overflow-y: visible;
           -webkit-overflow-scrolling: touch;
           background: rgba(255,255,255,1) !important;
+        }
+        /* feat/mobile-wizard-gestures (F2) — pinch-zoom host + scale wrapper.
+         * The host is the touch surface; the scale wrapper carries the live
+         * transform (only mounted while zoomed, so position:sticky inside the
+         * widget is unaffected at rest). touch-action:none on the host while
+         * zoomed lets the pan gesture own the finger; at rest the inner
+         * widget-scope rules hand single-finger interaction back. */
+        .qq-wizard-pinch-host {
+          position: relative;
+          width: 100%;
+        }
+        .qq-wizard-pinch-scale {
+          width: 100%;
+        }
+        .qq-wizard-pinch-scale[data-zoomed="1"] {
+          /* While zoomed, swallow native pan/zoom inside the scaled layer so the
+           * gesture handler drives pan; the page band scroll (F1) resumes at 1×. */
+          touch-action: none;
+        }
+        .qq-wizard-pinch-reset {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          z-index: 6;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 10px;
+          border: none;
+          border-radius: 999px;
+          cursor: pointer;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          color: var(--qq-on-accent, rgba(255,255,255,1));
+          background: var(--qq-accent, rgba(13,60,252,0.92));
+          box-shadow: 0 2px 10px rgba(13,60,252,0.28);
+        }
+        .qq-wizard-pinch-reset:active {
+          opacity: 0.85;
         }
         /* fix/wizard-mobile-resize — slim sticky width bar between the sticky
          * top bar and the scrollable preview. Theme-aware tokens only. */
