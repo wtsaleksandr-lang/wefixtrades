@@ -762,6 +762,7 @@ function TemplateRail({
             ref={catsListRef}
             className="tpl-cats-list"
             onScroll={syncCatsOverflow}
+            data-lenis-prevent
           >
             {categories.map(([name, count]) => {
               const on = category === name;
@@ -1236,18 +1237,20 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 background: rgba(255, 255, 255, 0.55) !important;
                 -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
                 backdrop-filter: blur(12px) saturate(160%) !important;
-                border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
                 align-items: center !important;
-                /* The bar is the topmost element of the preview; behind its
-                   rounded top corners there is no opaque backing, so the grey
-                   editor-section surround bled through the corner-box wedges
-                   OUTSIDE the 10px arc (visible grey triangles top-l / top-r).
-                   Flat-topping the PREVIEW bar removes those wedges — it reads
-                   as a clean embedded-widget toolbar connecting flat to the
-                   body below. Scoped to the preview ONLY; the deployed
-                   QuoteWidget brand bar keeps its rounded corners. */
-                border-top-left-radius: 0 !important;
-                border-top-right-radius: 0 !important;
+                /* Wrap the preview brand bar in a subtle, even thin border on
+                   ALL FOUR sides with clean rounded corners — it reads as a
+                   tasteful enclosed pill, not a flat-topped toolbar. (Replaces
+                   the prior flat-top + faint single bottom border.) */
+                border: 1px solid rgba(15, 23, 42, 0.18) !important;
+                border-radius: 10px !important;
+                /* Inset the bar from the preview's overflow:hidden ancestors
+                   (the fold-viewport wrapper + the rounded preview container) so
+                   the rounded corners have room to render and aren't clipped on
+                   the top/left/right edges. The clipping ancestor must keep its
+                   overflow (sticky needs it per project_overflow_clip_for_sticky)
+                   — so we inset the bar instead of removing the clip. */
+                margin: 6px 6px 0 !important;
               }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
