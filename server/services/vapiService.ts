@@ -41,6 +41,16 @@ import { eq, and, desc } from "drizzle-orm";
 import { applyOnboardingToAIConfig, type AIConfigPatch } from "./onboardingMappers";
 import { z } from "zod";
 
+/* ─── custom-llm model identifiers ───
+ * Vapi requires `model.model` to be a NON-EMPTY STRING for the custom-llm
+ * provider (it is forwarded to our /api/vapi/conversation endpoint as the model
+ * identifier). These are the canonical string values — referenced from every
+ * place that constructs a Vapi `model` object so a future edit can't silently
+ * drop or mistype the field and re-trigger the 400 `model.model must be a
+ * string` provisioning failure (see Wave 12D fix). */
+export const VAPI_BRAND_MODEL = "wefixtrades-brand-v1" as const;
+export const VAPI_TRADELINE_MODEL = "wefixtrades-tradeline-v1" as const;
+
 /* ─── Wave 12D — Zod schema for the Vapi assistant create/update payload ───
  *
  * Catches the `model.model must be a string` class of bug at the boundary
@@ -985,7 +995,7 @@ export function buildAssistantConfig(): Record<string, any> {
       name: "WeFixTrades Sales & Support",
       // `model.model` string is required by Vapi for custom-llm provider —
       // see fix in upsertVapiAssistant() below.
-      model: { provider: "custom-llm", model: "wefixtrades-brand-v1", url: buildConversationUrl(config.serverUrl) },
+      model: { provider: "custom-llm", model: VAPI_BRAND_MODEL, url: buildConversationUrl(config.serverUrl) },
       voice: buildVapiVoiceBlock(process.env.VAPI_WFT_VOICE_ID || ELEVENLABS_RACHEL_VOICE_ID),
       firstMessage: "WeFixTrades, this is Riley — how can I help?",
       endCallMessage: "Thanks for calling WeFixTrades. We'll follow up by email shortly — have a great rest of your day.",
@@ -1043,7 +1053,7 @@ export async function buildTradeLineAssistantConfig(resolved: ResolvedTradeLineC
     name: `TradeLine — ${resolved.client.business_name}`,
     // `model.model` string is required by Vapi for custom-llm provider —
     // see fix in upsertVapiAssistant() below.
-    model: { provider: "custom-llm", model: "wefixtrades-tradeline-v1", url: buildConversationUrl(config.serverUrl) },
+    model: { provider: "custom-llm", model: VAPI_TRADELINE_MODEL, url: buildConversationUrl(config.serverUrl) },
     voice: buildVapiVoiceBlock(voiceId),
     firstMessage: ctx.mode === "after_hours"
       ? `Hi, thanks for calling ${ctx.businessName}! We're closed for the day, but I can help make sure you're looked after.`
@@ -1102,7 +1112,7 @@ export async function upsertVapiAssistant(
     name: assistantName,
     model: {
       provider: "custom-llm" as const,
-      model: "wefixtrades-tradeline-v1",
+      model: VAPI_TRADELINE_MODEL,
       url: buildConversationUrl(config.serverUrl),
       messages: [{ role: "system", content: systemPrompt }],
     },
