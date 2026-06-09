@@ -56,6 +56,16 @@ export type SemiGaugeProps = {
   size?: number;
   /** Show a needle indicator. Default true. */
   showNeedle?: boolean;
+  /**
+   * "No data yet" flag. When true the gauge renders NEUTRAL (grey arc, "—"
+   * value, no crimson threshold color) and swaps the verdict/advice for a
+   * calm "awaiting data" message — so a brand-new account never sees a red
+   * "Below average" / "Needs attention" failure verdict before any data
+   * exists. Overrides the threshold palette + verdict/advice entirely.
+   */
+  emptyState?: boolean;
+  /** Message shown in place of the verdict line when `emptyState`. */
+  emptyStateMessage?: string;
   /** Formatter for the centre number. Defaults to toFixed(0). */
   formatValue?: (n: number) => string;
   className?: string;
@@ -107,6 +117,8 @@ export function SemiGauge({
   palette,
   size = 220,
   showNeedle = true,
+  emptyState = false,
+  emptyStateMessage = "Awaiting first scan",
   formatValue,
   className,
   ariaLabel,
@@ -116,10 +128,13 @@ export function SemiGauge({
 
   const range = Math.max(0.0001, max - min);
   const clamped = Math.min(max, Math.max(min, value));
-  const pct = ((clamped - min) / range) * 100;
+  const pct = emptyState ? 0 : ((clamped - min) / range) * 100;
 
+  // In empty-state the arc/value/verdict are forced neutral grey — never the
+  // crimson "failure" read a fresh account would otherwise get at value 0.
+  const NEUTRAL_VAR = "var(--muted-foreground)";
   const resolvedPalette = palette ?? thresholdPalette(pct);
-  const colorVar = PALETTE_VAR[resolvedPalette];
+  const colorVar = emptyState ? NEUTRAL_VAR : PALETTE_VAR[resolvedPalette];
 
   // SVG geometry — viewBox is 200 wide × 130 tall so the half-arc fits with
   // breathing room for the needle pivot dot.
@@ -180,9 +195,11 @@ export function SemiGauge({
 
   const ariaText =
     ariaLabel ??
-    `${label ?? "Gauge"}: ${clamped}${unit} out of ${max}${unit}${
-      verdict ? `, ${verdict}` : ""
-    }`;
+    (emptyState
+      ? `${label ?? "Gauge"}: ${emptyStateMessage}`
+      : `${label ?? "Gauge"}: ${clamped}${unit} out of ${max}${unit}${
+          verdict ? `, ${verdict}` : ""
+        }`);
 
   return (
     <div
@@ -256,26 +273,41 @@ export function SemiGauge({
           className="text-3xl font-semibold tabular-nums leading-none"
           style={{ color: `hsl(${colorVar})` }}
         >
-          <AnimatedCounter
-            value={displayedValue}
-            duration={shouldAnimate ? 600 : 0}
-            decimals={0}
-            suffix={unit}
-          />
+          {emptyState ? (
+            <span aria-hidden="true">—</span>
+          ) : (
+            <AnimatedCounter
+              value={displayedValue}
+              duration={shouldAnimate ? 600 : 0}
+              decimals={0}
+              suffix={unit}
+            />
+          )}
         </div>
-        {verdict && (
+        {emptyState ? (
           <div
-            className="text-sm font-medium leading-tight"
-            style={{ color: `hsl(${colorVar})` }}
-            data-testid="semi-gauge-verdict"
+            className="text-sm font-medium leading-tight text-muted-foreground"
+            data-testid="semi-gauge-empty-state"
           >
-            {verdict}
+            {emptyStateMessage}
           </div>
-        )}
-        {advice && (
-          <p className="text-xs text-muted-foreground leading-snug max-w-[260px]">
-            {advice}
-          </p>
+        ) : (
+          <>
+            {verdict && (
+              <div
+                className="text-sm font-medium leading-tight"
+                style={{ color: `hsl(${colorVar})` }}
+                data-testid="semi-gauge-verdict"
+              >
+                {verdict}
+              </div>
+            )}
+            {advice && (
+              <p className="text-xs text-muted-foreground leading-snug max-w-[260px]">
+                {advice}
+              </p>
+            )}
+          </>
         )}
       </div>
       <ChartTooltip state={tip} />

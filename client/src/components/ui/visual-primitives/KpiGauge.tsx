@@ -169,7 +169,11 @@ export function KpiGauge({
   // empty-state, we fall through to the resolved color but render at 50%
   // opacity via the wrapper.
   let colorVar: string;
-  if (palette) {
+  if (emptyState) {
+    // No data yet → neutral grey, never the auto-threshold red that value=0
+    // (or value=min) would otherwise resolve to.
+    colorVar = "var(--muted-foreground)";
+  } else if (palette) {
     colorVar = PALETTE_VAR[palette];
   } else {
     const resolvedColor = color === "auto" ? autoColor(pct) : color;
@@ -390,12 +394,19 @@ export function KpiGauge({
           )}
           style={{ color: `hsl(${colorVar})` }}
         >
-          <AnimatedCounter
-            value={emptyState ? min : displayedValue}
-            duration={shouldAnimate ? 400 : 0}
-            decimals={0}
-            suffix={unit}
-          />
+          {emptyState ? (
+            // Show a neutral dash, NOT the numeric `min` — a gauge whose min
+            // is non-zero (e.g. uptime min=90) would otherwise display a
+            // misleading "90%" on an account with no data.
+            <span aria-hidden="true">—</span>
+          ) : (
+            <AnimatedCounter
+              value={displayedValue}
+              duration={shouldAnimate ? 400 : 0}
+              decimals={0}
+              suffix={unit}
+            />
+          )}
         </div>
         <div
           className={cn(

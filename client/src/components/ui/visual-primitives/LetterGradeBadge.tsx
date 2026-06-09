@@ -16,6 +16,14 @@ export type LetterGradeBadgeProps = {
   size?: "sm" | "md" | "lg";
   variant?: "solid" | "outline";
   showScore?: boolean;
+  /**
+   * "No data yet" flag. When true the badge renders a NEUTRAL grey "—" instead
+   * of a grade — so a brand-new account never sees an alarming "F" before any
+   * scan has run. Overrides the score-derived grade + tone entirely.
+   */
+  emptyState?: boolean;
+  /** Glyph shown in place of the grade letter when `emptyState`. Default "—". */
+  emptyStateLabel?: string;
   className?: string;
 };
 
@@ -58,10 +66,13 @@ export function LetterGradeBadge({
   size = "md",
   variant = "solid",
   showScore = false,
+  emptyState = false,
+  emptyStateLabel = "—",
   className,
 }: LetterGradeBadgeProps) {
   const band = gradeFor(score);
-  const tone = TONE_VAR[band.tone];
+  // Neutral tone for the "no data yet" state so a fresh account never sees "F".
+  const tone = emptyState ? "var(--muted-foreground)" : TONE_VAR[band.tone];
 
   const sizeClass =
     size === "sm"
@@ -71,9 +82,10 @@ export function LetterGradeBadge({
         : "text-sm px-2.5 py-1 min-w-[2.5rem]";
 
   // Solid: token-coloured fill with white text. Outline: transparent fill,
-  // token-coloured border + text.
+  // token-coloured border + text. Empty-state always renders as a quiet
+  // neutral outline (never a solid grey blob) regardless of `variant`.
   const variantStyle =
-    variant === "solid"
+    variant === "solid" && !emptyState
       ? {
           backgroundColor: `hsl(${tone})`,
           color: "hsl(var(--primary-foreground))",
@@ -94,11 +106,16 @@ export function LetterGradeBadge({
       )}
       style={variantStyle}
       data-testid="letter-grade-badge"
-      data-grade={band.letter}
-      aria-label={`Grade ${band.letter}${showScore ? `, score ${score}` : ""}`}
+      data-grade={emptyState ? "none" : band.letter}
+      data-empty-state={emptyState ? "true" : undefined}
+      aria-label={
+        emptyState
+          ? "Grade not available yet — awaiting first scan"
+          : `Grade ${band.letter}${showScore ? `, score ${score}` : ""}`
+      }
     >
-      <span>{band.letter}</span>
-      {showScore ? (
+      <span>{emptyState ? emptyStateLabel : band.letter}</span>
+      {!emptyState && showScore ? (
         <>
           <span
             className="opacity-50"

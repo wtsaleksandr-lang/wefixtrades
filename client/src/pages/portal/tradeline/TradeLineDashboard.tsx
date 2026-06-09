@@ -275,6 +275,10 @@ export default function TradeLineDashboard() {
   const csatIllustrative =
     scoreStatsQuery.data?.data_status === "illustrative" ||
     (csatScoreUsingFallback && csatScoreFallback > 0);
+  // "Has data" for the headline gauge: real score value, or a non-zero (real)
+  // fallback. A brand-new account is 0/0 → empty-state, so it shows a neutral
+  // "Awaiting first calls" instead of the alarming "Needs attention" verdict.
+  const csatHasData = !csatScoreUsingFallback || csatScoreFallback > 0;
   const csatVerdict =
     scoreStatsQuery.data?.verdict ??
     (csatScore >= 80 ? "Excellent" : csatScore >= 50 ? "Good, room to improve" : "Needs attention");
@@ -444,6 +448,8 @@ export default function TradeLineDashboard() {
               advice={csatAdvice}
               unit=""
               size={200}
+              emptyState={!csatHasData}
+              emptyStateMessage="Awaiting first calls"
             />
           </Card>
 

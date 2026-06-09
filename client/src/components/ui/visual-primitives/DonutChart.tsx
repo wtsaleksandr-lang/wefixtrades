@@ -51,6 +51,13 @@ export type DonutChartProps = {
   showLegend?: boolean;
   /** Formatter for legend + tooltip values. */
   formatValue?: (n: number) => string;
+  /**
+   * Render the ring + legend dots in neutral grey at reduced opacity. Use this
+   * for SAMPLE / illustrative data so a non-zero example mix doesn't read as
+   * the client's real numbers when it sits beside real (0) bars. The
+   * "Example data" badge alone is ambiguous; greying the chart disambiguates.
+   */
+  muted?: boolean;
   className?: string;
   ariaLabel?: string;
 };
@@ -123,11 +130,14 @@ export function DonutChart({
   thickness = 0.3,
   showLegend = true,
   formatValue = defaultFormat,
+  muted = false,
   className,
   ariaLabel,
 }: DonutChartProps) {
   const reduceMotion = useReducedMotion();
   const shouldAnimate = !reduceMotion;
+  // `muted` (sample/illustrative data) is applied as a container-level
+  // grayscale + dim below so the example mix doesn't read as real figures.
 
   const cx = size / 2;
   const cy = size / 2;
@@ -224,8 +234,13 @@ export function DonutChart({
   return (
     <div
       ref={containerRef}
-      className={cn("relative inline-flex flex-col gap-3", className)}
+      className={cn(
+        "relative inline-flex flex-col gap-3",
+        muted && "opacity-60 saturate-0",
+        className
+      )}
       data-testid="donut-chart"
+      data-muted={muted ? "true" : undefined}
     >
       {title && <div className="text-sm font-medium">{title}</div>}
       <div className="flex items-center gap-4">

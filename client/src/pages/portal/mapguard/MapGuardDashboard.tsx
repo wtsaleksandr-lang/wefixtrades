@@ -417,20 +417,25 @@ export default function MapGuardDashboard() {
             >
               {META.citationHealth.label}
             </span>
-            <LetterGradeBadge
-              score={(() => {
-                const total =
-                  (kpis?.citationHealth.found ?? 0) +
-                  (kpis?.citationHealth.missing ?? 0) +
-                  (kpis?.citationHealth.inconsistent ?? 0);
-                if (total === 0) return 0;
-                return Math.round(
-                  ((kpis?.citationHealth.found ?? 0) / total) * 100,
-                );
-              })()}
-              size="md"
-              showScore
-            />
+            {(() => {
+              const total =
+                (kpis?.citationHealth.found ?? 0) +
+                (kpis?.citationHealth.missing ?? 0) +
+                (kpis?.citationHealth.inconsistent ?? 0);
+              // No directories scanned yet → neutral badge, never "F·0".
+              const citationEmpty = total === 0;
+              const score = citationEmpty
+                ? 0
+                : Math.round(((kpis?.citationHealth.found ?? 0) / total) * 100);
+              return (
+                <LetterGradeBadge
+                  score={score}
+                  size="md"
+                  showScore={!citationEmpty}
+                  emptyState={citationEmpty}
+                />
+              );
+            })()}
             <span className="text-[10px] text-muted-foreground/80">
               {kpis &&
               kpis.citationHealth.found +
@@ -452,24 +457,46 @@ export default function MapGuardDashboard() {
             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               {META.gbpHealth.label}
             </span>
-            <span className="text-2xl font-semibold text-foreground">
-              <AnimatedCounter
-                value={kpis?.gbpHealth ?? 0}
-                suffix="%"
-                duration={900}
-              />
-            </span>
-            <Sparkline
-              values={kpisQuery.data?.gbpTrend14d ?? []}
-              width={96}
-              height={22}
-              variant="area"
-              color="auto"
-              ariaLabel="14-day GBP health trend"
-            />
-            <span className="text-[10px] text-muted-foreground/80">
-              14-day trend
-            </span>
+            {(() => {
+              // No GBP data yet (health 0 + empty trend) → neutral "—", never a
+              // failing-looking "0%".
+              const gbpTrend = kpisQuery.data?.gbpTrend14d ?? [];
+              const gbpEmpty = (kpis?.gbpHealth ?? 0) === 0 && gbpTrend.length === 0;
+              return gbpEmpty ? (
+                <>
+                  <span
+                    className="text-2xl font-semibold text-muted-foreground"
+                    aria-label="GBP health: awaiting first scan"
+                  >
+                    —
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/80">
+                    Awaiting first scan
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-2xl font-semibold text-foreground">
+                    <AnimatedCounter
+                      value={kpis?.gbpHealth ?? 0}
+                      suffix="%"
+                      duration={900}
+                    />
+                  </span>
+                  <Sparkline
+                    values={gbpTrend}
+                    width={96}
+                    height={22}
+                    variant="area"
+                    color="auto"
+                    ariaLabel="14-day GBP health trend"
+                  />
+                  <span className="text-[10px] text-muted-foreground/80">
+                    14-day trend
+                  </span>
+                </>
+              );
+            })()}
           </Card>
           </AdvancedOnly>
         </div>
@@ -497,6 +524,7 @@ export default function MapGuardDashboard() {
                 title="Citation directory mix"
                 segments={citationDirectorySegments}
                 size={130}
+                muted={citationDirectoryIllustrative}
                 ariaLabel="MapGuard citation directory mix"
               />
             </Card>

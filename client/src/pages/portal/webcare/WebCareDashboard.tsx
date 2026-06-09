@@ -277,6 +277,12 @@ export default function WebCareDashboard() {
   const siteHealthIllustrative =
     scoreStatsQuery.data?.data_status === "illustrative" ||
     (siteHealthUsingFallback && siteHealthScoreFallback > 0);
+  // "Has data" for the headline gauge: a monitored service exists AND we have a
+  // real score (or a non-zero fallback). A brand-new/unmonitored account →
+  // empty-state, so it shows a neutral "Awaiting first scan" instead of the
+  // alarming "Action required" verdict.
+  const siteHealthHasData =
+    hasService && (!siteHealthUsingFallback || siteHealthScoreFallback > 0);
 
   const siteHealthVerdict =
     scoreStatsQuery.data?.verdict ??
@@ -458,6 +464,8 @@ export default function WebCareDashboard() {
               verdict={siteHealthVerdict}
               advice={siteHealthAdvice}
               size={200}
+              emptyState={!siteHealthHasData}
+              emptyStateMessage="Awaiting first scan"
             />
           </Card>
 
