@@ -156,12 +156,14 @@ function loadShellState(): ShellState {
         ...INITIAL_SHELL_STATE,
         ...parsed,
         layout,
-        fields: hasFields
-          ? parsed.fields
-          : (parsed.fields === undefined ? seedFields(layout) : []),
-        calculations: hasCalcs
-          ? parsed.calculations
-          : (parsed.calculations === undefined ? seedCalculations(layout) : []),
+        // Re-seed the 3-field starter whenever the persisted fields are missing
+        // OR an empty array (length 0). A returning user whose localStorage held
+        // `fields: []` used to land on a truly blank "Add your first field"
+        // canvas; seeding on empty (not just undefined) guarantees the starter
+        // calculator always renders. hasUserAuthoredContent() still guards real
+        // saved work — a non-empty fields array is preserved untouched.
+        fields: hasFields ? parsed.fields : seedFields(layout),
+        calculations: hasCalcs ? parsed.calculations : seedCalculations(layout),
         header: parsed.header ?? {},
         results: parsed.results ?? {},
         resultCalcId: parsed.resultCalcId,
