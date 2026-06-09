@@ -113,7 +113,7 @@ export default function ChatWidgetInstallOnboarding() {
   if (!id) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl text-sm text-rose-700">No install request id in URL.</div>
+        <div className="max-w-3xl text-sm text-rose-700 dark:text-rose-400">No install request id in URL.</div>
       </PortalLayout>
     );
   }
@@ -132,7 +132,7 @@ export default function ChatWidgetInstallOnboarding() {
   if (!detail.data) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl text-sm text-rose-700">Couldn't load the install request.</div>
+        <div className="max-w-3xl text-sm text-rose-700 dark:text-rose-400">Couldn't load the install request.</div>
       </PortalLayout>
     );
   }
@@ -141,12 +141,12 @@ export default function ChatWidgetInstallOnboarding() {
     return (
       <PortalLayout>
         <div className="max-w-2xl space-y-4">
-          <Card className="p-5 border-emerald-200 bg-emerald-50">
+          <Card className="p-5 border-emerald-200 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/40">
             <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Form submitted</h3>
-                <p className="text-sm text-gray-700">
+                <h3 className="font-semibold text-foreground mb-1">Form submitted</h3>
+                <p className="text-sm text-muted-foreground">
                   We're on it. Status: <strong>{detail.data.status}</strong>. We'll email you within 1 business day with
                   the install confirmation.
                 </p>
@@ -163,8 +163,8 @@ export default function ChatWidgetInstallOnboarding() {
       <div className="max-w-3xl space-y-5">
         <BackButton to="/portal/tradeline/chat-widget/install" label="Back" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tell us about your site</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Tell us about your site</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             {justPaid
               ? "Thanks — payment received. A few quick details and we'll handle the rest."
               : detail.data.is_pro_at_request === 1
@@ -189,7 +189,7 @@ export default function ChatWidgetInstallOnboarding() {
             <select
               value={platform}
               onChange={(e) => setPlatform(e.target.value)}
-              className="w-full mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full mt-1 rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
             >
               {PLATFORMS.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
@@ -201,7 +201,7 @@ export default function ChatWidgetInstallOnboarding() {
             <Label>How will we get access?</Label>
             <div className="space-y-2 mt-1">
               {ACCESS_OPTIONS.map((o) => (
-                <label key={o.value} className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                <label key={o.value} className="flex items-start gap-2 text-sm text-muted-foreground cursor-pointer">
                   <input
                     type="radio"
                     name="access"
@@ -224,7 +224,7 @@ export default function ChatWidgetInstallOnboarding() {
               />
             )}
             {accessMethod === "collaborator" && (
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 We'll send you the email address to add as a collaborator/admin once you submit this form.
               </p>
             )}
@@ -235,7 +235,7 @@ export default function ChatWidgetInstallOnboarding() {
             <select
               value={position}
               onChange={(e) => setPosition(e.target.value)}
-              className="w-full mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full mt-1 rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
             >
               {POSITIONS.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
@@ -283,7 +283,7 @@ export default function ChatWidgetInstallOnboarding() {
           >
             {submit.isPending ? "Submitting…" : "Submit — we'll install within 1 business day"}
           </Button>
-          {submit.error && <p className="text-xs text-rose-700">{(submit.error as Error).message}</p>}
+          {submit.error && <p className="text-xs text-rose-700 dark:text-rose-400">{(submit.error as Error).message}</p>}
         </Card>
       </div>
     </PortalLayout>

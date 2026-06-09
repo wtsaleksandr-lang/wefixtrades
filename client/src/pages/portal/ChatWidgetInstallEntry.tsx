@@ -70,18 +70,18 @@ export default function ChatWidgetInstallEntry() {
       <div className="max-w-3xl space-y-6">
         <BackButton to="/portal/tradeline/chat-widget" label="Back to chat widget" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Have us install your chat widget</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Have us install your chat widget</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             We'll add the WeFixTrades chat widget to your website for you. One-time service, included
             free on Pro or $79 on Starter.
           </p>
         </div>
 
         {cancelled && (
-          <Card className="p-4 border-amber-200 bg-amber-50">
+          <Card className="p-4 border-amber-200 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40">
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-amber-900">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-900 dark:text-amber-200">
                 Checkout cancelled. No charge was made. You can start again any time.
               </p>
             </div>
@@ -89,19 +89,19 @@ export default function ChatWidgetInstallEntry() {
         )}
 
         {fallbackMsg && (
-          <Card className="p-4 border-blue-200 bg-blue-50">
-            <p className="text-sm text-blue-900">{fallbackMsg}</p>
+          <Card className="p-4 border-blue-200 bg-blue-50 dark:border-blue-800/60 dark:bg-blue-950/40">
+            <p className="text-sm text-blue-900 dark:text-blue-200">{fallbackMsg}</p>
           </Card>
         )}
 
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-3">
             <MessageSquare className="w-5 h-5 text-brand-blue-600" />
-            <h2 className="font-semibold text-gray-900">What's included</h2>
+            <h2 className="font-semibold text-foreground">What's included</h2>
           </div>
           <ul className="space-y-2 mb-5">
             {BENEFITS.map((b) => (
-              <li key={b} className="flex gap-2 text-sm text-gray-700">
+              <li key={b} className="flex gap-2 text-sm text-muted-foreground">
                 <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                 <span>{b}</span>
               </li>
@@ -110,11 +110,11 @@ export default function ChatWidgetInstallEntry() {
 
           <div className="flex items-end justify-between gap-3 flex-wrap">
             <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Price</p>
-              <p className="text-2xl font-bold text-gray-900">
-                $79 <span className="text-sm font-normal text-gray-500">one-time</span>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Price</p>
+              <p className="text-2xl font-bold text-foreground">
+                $79 <span className="text-sm font-normal text-muted-foreground">one-time</span>
               </p>
-              <p className="text-xs text-emerald-700 mt-0.5">
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
                 <Sparkles className="w-3 h-3 inline mr-0.5" /> Free on Pro tier (auto-detected)
               </p>
             </div>
@@ -130,13 +130,13 @@ export default function ChatWidgetInstallEntry() {
           </div>
 
           {startMutation.error && (
-            <p className="text-xs text-rose-700 mt-3">{(startMutation.error as Error).message}</p>
+            <p className="text-xs text-rose-700 dark:text-rose-400 mt-3">{(startMutation.error as Error).message}</p>
           )}
         </Card>
 
         <Card className="p-5">
-          <h3 className="font-semibold text-gray-900 mb-2">Prefer to install it yourself?</h3>
-          <p className="text-sm text-gray-600 mb-3">
+          <h3 className="font-semibold text-foreground mb-2">Prefer to install it yourself?</h3>
+          <p className="text-sm text-muted-foreground mb-3">
             We give every Starter and Pro account a copy/paste snippet you can drop into your site
             yourself — no install service required.
           </p>

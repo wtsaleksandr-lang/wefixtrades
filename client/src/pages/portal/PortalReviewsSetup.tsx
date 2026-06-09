@@ -141,7 +141,7 @@ export default function PortalReviewsSetup() {
     return (
       <PortalLayout>
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       </PortalLayout>
     );
@@ -151,9 +151,9 @@ export default function PortalReviewsSetup() {
     return (
       <PortalLayout>
         <div className="max-w-3xl py-12 text-center space-y-3">
-          <Star className="w-12 h-12 text-gray-300 mx-auto" />
-          <h2 className="text-lg font-semibold text-gray-900">ReputationShield setup</h2>
-          <p className="text-sm text-gray-500">ReputationShield isn't active on your account yet.</p>
+          <Star className="w-12 h-12 text-muted-foreground/50 mx-auto" />
+          <h2 className="text-lg font-semibold text-foreground">ReputationShield setup</h2>
+          <p className="text-sm text-muted-foreground">ReputationShield isn't active on your account yet.</p>
         </div>
       </PortalLayout>
     );
@@ -172,19 +172,19 @@ export default function PortalReviewsSetup() {
       <div className="max-w-3xl space-y-5">
         <Link
           href="/portal/reviews"
-          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="w-3.5 h-3.5" /> Back to Reviews
         </Link>
 
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">Set up ReputationShield</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-lg font-semibold text-foreground">Set up ReputationShield</h1>
+            <p className="text-sm text-muted-foreground">
               Three quick steps and your reviews start growing on autopilot.
             </p>
           </div>
-          <span className="text-sm text-gray-500 shrink-0">
+          <span className="text-sm text-muted-foreground shrink-0">
             Step {currentStep}/{totalSteps}
           </span>
         </div>
@@ -224,7 +224,7 @@ export default function PortalReviewsSetup() {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Channel</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Channel</label>
               <Select value={channel} onValueChange={setChannel}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -235,7 +235,7 @@ export default function PortalReviewsSetup() {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Send delay after job</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Send delay after job</label>
               <Select value={delay} onValueChange={setDelay}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -275,7 +275,7 @@ export default function PortalReviewsSetup() {
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qr.qrUrl)}&margin=6`}
                 alt="Your review QR code"
-                className="rounded-lg border border-gray-200"
+                className="rounded-lg border border-border"
                 width={120}
                 height={120}
               />
@@ -288,15 +288,15 @@ export default function PortalReviewsSetup() {
               </a>
             </div>
           ) : (
-            <p className="text-xs text-gray-400">Your QR code will appear here once setup is ready.</p>
+            <p className="text-xs text-muted-foreground">Your QR code will appear here once setup is ready.</p>
           )}
         </StepCard>
 
         {/* ─ Done ─ */}
-        <Card className="p-5 bg-emerald-50/50 border-emerald-200 flex items-center justify-between">
+        <Card className="p-5 bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800/60 flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-gray-900">That's the setup.</p>
-            <p className="text-xs text-gray-600 mt-0.5">
+            <p className="text-sm font-semibold text-foreground">That's the setup.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
               {googleConnected
                 ? "You're live — reviews and replies are running. Head to your dashboard."
                 : "Connect Google above to go live. You can do the rest any time."}
@@ -332,20 +332,20 @@ function StepCard({
           {done ? (
             <CheckCircle2 className="w-6 h-6 text-emerald-500" />
           ) : (
-            <Circle className="w-6 h-6 text-gray-300" />
+            <Circle className="w-6 h-6 text-muted-foreground/50" />
           )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <Icon className="w-4 h-4 text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-900">
+            <Icon className="w-4 h-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold text-foreground">
               Step {n}: {title}
             </h2>
             {optional && (
-              <span className="text-[10px] uppercase tracking-wide text-gray-400">Optional</span>
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Optional</span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-0.5 mb-3">{desc}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 mb-3">{desc}</p>
           {children}
         </div>
       </div>
