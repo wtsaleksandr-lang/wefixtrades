@@ -51,8 +51,10 @@ import {
   sendFacebookMessengerReply,
   subscribePageToMessagingWebhooks,
   updateFacebookPageMetadata,
+  validateFacebookConfig,
   type UpdateFacebookPageMetadataInput,
 } from "../../services/socialSync/facebookService";
+import { validateGoogleBusinessConfig } from "../../services/socialSync/googleBusinessService";
 import { sendWhatsappMessage } from "../../services/whatsappCloudService";
 import { withClientIdOrPreview } from "../../middleware/adminPreviewSafe";
 
@@ -365,13 +367,34 @@ export function registerPortalSocialsyncRoutes(app: Express) {
       if (!clientId) return;
 
       const connections = await storage.listSocialSyncConnections(clientId);
-      const conn = connections.find(c => c.platform === req.params.platform);
+      const platform = req.params.platform;
+      const conn = connections.find(c => c.platform === platform);
+
+      /* Creds preflight (Wave 30): is the platform's OAuth app actually
+       * configured on the server? If the env vars are unset, self-serve
+       * connecting can't work — the UI must show an honest "not yet
+       * configured / available soon" state instead of a silent no-op.
+       * Facebook + Instagram share the Facebook OAuth app, so both map to
+       * validateFacebookConfig(). google_business has its own validator.
+       * WhatsApp / other platforms are admin-provisioned → treated as
+       * configured here (no self-serve OAuth gate to surface). */
+      let cfg: { valid: boolean; missing: string[] };
+      if (platform === "facebook" || platform === "instagram") {
+        cfg = validateFacebookConfig();
+      } else if (platform === "google_business") {
+        cfg = validateGoogleBusinessConfig();
+      } else {
+        cfg = { valid: true, missing: [] };
+      }
 
       res.json({
         connected: conn?.connection_status === "connected" || conn?.connection_status === "expiring_soon",
         status: conn?.connection_status || "not_connected",
         external_page_id: conn?.external_page_id ?? null,
         external_account_id: conn?.external_account_id ?? null,
+        // True when the server has the OAuth app credentials needed for a
+        // customer to connect this platform themselves.
+        configured: cfg.valid,
       });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to check connection" });
