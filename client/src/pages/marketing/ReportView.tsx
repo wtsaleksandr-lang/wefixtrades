@@ -901,6 +901,22 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
   const ai = report?.narrative || report?.aiNarrative || {};
   const scores = report?.scores || {};
+  // Partial-data note: prefer the AI-authored note, else derive one from the
+  // deterministic dataQuality flags so a dropped source is never silent. The
+  // score above is renormalized over the categories that DID load.
+  const dataQuality = report?.dataQuality || {};
+  const missingDataNote: string | null = (() => {
+    const aiNote = ai?.reportDataQuality?.missingDataNote;
+    if (typeof aiNote === 'string' && aiNote.trim()) return aiNote.trim();
+    const missing: string[] = [];
+    if (dataQuality.competitorDataAvailable === false) missing.push('competitor');
+    if (dataQuality.keywordDataAvailable === false) missing.push('search-ranking');
+    if (dataQuality.reviewDataAvailable === false) missing.push('review');
+    if (!missing.length && dataQuality.gatherTimedOut !== true) return null;
+    const what = missing.length ? `${missing.join(' and ')} data` : 'some data';
+    return `We couldn't load ${what} this run, so it's excluded from your score — refresh to retry.`;
+  })();
+  const competitorDataMissing = dataQuality.competitorDataAvailable === false;
   const keywords = report?.keywords || [];
   const loss = report?.estimatedRevenueLoss || {};
   const speed = liveSpeedData || report?.speedData || {};
@@ -1022,9 +1038,26 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
   const liveTotal = useMemo(() => {
     if (liveWebsiteScore === null) return scores.total || 0;
-    const oldWebsite = scores.websiteQuality?.score || 0;
-    return (scores.total || 0) - oldWebsite + liveWebsiteScore;
-  }, [liveWebsiteScore, scores]);
+    // Renormalize over the AVAILABLE categories — mirrors the server's
+    // calculateScores rule — so swapping in the live website score stays correct
+    // even when a source dropped and the total is renormalized to a smaller
+    // denominator (additive swap would be wrong in that case).
+    const keywordAvailable = dataQuality.keywordDataAvailable !== false;
+    const competitorAvailable = dataQuality.competitorDataAvailable !== false;
+    const parts: Array<{ score: number; max: number }> = [
+      { score: scores.googleMaps?.score || 0, max: 25 },
+      { score: scores.demandCoverage?.score || 0, max: 10 },
+      { score: liveWebsiteScore, max: 20 },
+    ];
+    if (keywordAvailable) {
+      parts.push({ score: scores.searchVisibility?.score || 0, max: 20 });
+      parts.push({ score: scores.adOpportunity?.score || 0, max: 10 });
+    }
+    if (competitorAvailable) parts.push({ score: scores.competitorPositioning?.score || 0, max: 15 });
+    const earned = parts.reduce((sum, p) => sum + p.score, 0);
+    const availMax = parts.reduce((sum, p) => sum + p.max, 0);
+    return availMax < 100 && availMax > 0 ? Math.round((earned / availMax) * 100) : earned;
+  }, [liveWebsiteScore, scores, dataQuality]);
 
   const animateScore = (from: number, to: number) => {
     const duration = 1200;
@@ -1228,6 +1261,15 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           ))}
         </div>
       </div>}
+
+      {/* Partial-data banner — shown on every tab when a source dropped this run,
+          so a renormalized (lower-denominator) score is never presented as if
+          every category loaded. */}
+      {missingDataNote && (
+        <div data-testid="audit-missing-data-banner" style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: '10px 14px', margin: '12px 0', fontSize: 13, color: '#92400E', lineHeight: 1.5 }}>
+          {missingDataNote}
+        </div>
+      )}
 
       {/* ═══ FRIENDLY HERO SUMMARY — plain English on every tab ═══
           Visible on Maps / Website / Plan when unlocked. Reuses the
@@ -1626,6 +1668,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           (b) per-competitor "+N" delta arrows showing positions the user
           could gain by passing them, (c) checkmark on the You row when
           already top-3. All animations respect prefers-reduced-motion. */}
+      {/* Partial-data fallback: when the competitor source dropped this run the
+          competitor grid below renders nothing — show the missing-data note so
+          the empty card is never silent. */}
+      {activeTab === 'maps' && competitors.length === 0 && (missingDataNote || competitorDataMissing) && (
+        <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: 24, marginBottom: 10 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 8 }}>Your Market Position</div>
+          <div data-testid="audit-missing-data-note" style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#92400E', lineHeight: 1.5 }}>
+            {missingDataNote || "We couldn't load competitor data this run — refresh to retry."}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'maps' && competitors.length > 0 && (
         <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: 24, marginBottom: 10 }}>
           <style>{`

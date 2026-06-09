@@ -151,6 +151,20 @@ export default function SharedAuditReport() {
   const speedData = ad?.speedData || {};
   const actionPlan = narrative?.actionPlan || [];
   const quickWin = narrative?.quickWin;
+  // Partial-data note: prefer the AI-authored note, else derive one from the
+  // deterministic dataQuality flags so a dropped source is never silent.
+  const dataQuality = ad?.dataQuality || {};
+  const missingDataNote: string | null = (() => {
+    const aiNote = narrative?.reportDataQuality?.missingDataNote;
+    if (typeof aiNote === "string" && aiNote.trim()) return aiNote.trim();
+    const missing: string[] = [];
+    if (dataQuality.competitorDataAvailable === false) missing.push("competitor");
+    if (dataQuality.keywordDataAvailable === false) missing.push("search-ranking");
+    if (dataQuality.reviewDataAvailable === false) missing.push("review");
+    if (!missing.length && dataQuality.gatherTimedOut !== true) return null;
+    const what = missing.length ? `${missing.join(" and ")} data` : "some data";
+    return `We couldn't load ${what} this run, so it's excluded from the score above — refresh to retry.`;
+  })();
   const overall = scores?.overall ?? 0;
   const grade = scores?.grade || "D";
   const maxVol = Math.max(...keywords.map((k: any) => k.monthlySearches || 0), 1);
@@ -274,6 +288,7 @@ export default function SharedAuditReport() {
             </div>
           </div>
           {narrative.executiveSummary && <div className={s.heroSummary}>{narrative.executiveSummary}</div>}
+          {missingDataNote && <div className={s.calloutAmber} data-testid="audit-missing-data-note">{missingDataNote}</div>}
           <div className={s.heroFooter}>
             Generated on {data.createdAt ? new Date(data.createdAt).toLocaleDateString() : "N/A"} · Powered by WeFixTrades AI · Viewed {data.viewCount || 1} times
           </div>

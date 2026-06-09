@@ -1,8 +1,8 @@
 # Audit Report Architecture Analysis
 
-> **Status:** Planning & system design (no implementation)
-> **Date:** 2026-03-29
-> **Goal:** Define data structure, system architecture, and gaps for social sharing, email delivery, and PDF generation
+> **Status:** Implemented — OG meta/image, email delivery, PDF generation, and share UI all ship in production
+> **Date:** 2026-03-29 (design) · refreshed 2026-06-09 (post-implementation)
+> **Goal:** Document the report data structure, system architecture, and the now-built social sharing / email / PDF features
 
 ---
 
@@ -77,7 +77,9 @@ Calculated in `calculateScores()` in `server/auditRoutes.ts`:
 | Demand Coverage | 10 | Open evenings + weekends |
 | **Total** | **100** | |
 
-Grades: A (70-100), B (55-69), C (40-54), D (0-39)
+Grades: A (≥85), B (70–84), C (55–69), D (<55)
+
+**Partial-data renormalization:** when an external source drops (timeout/failure), the dependent category is excluded from the /100 denominator and the remaining categories renormalize to /100. Tracked via `audit_data.dataQuality` (`competitorDataAvailable`, `keywordDataAvailable`, `reviewDataAvailable`, `gatherTimedOut`). googleMaps + demandCoverage derive from always-present business data and are never excluded.
 
 ### 1.3 Data Flow
 
@@ -131,41 +133,44 @@ Share URL format: `${origin}/audit/report/${reportId}`
 
 ---
 
-## 2. Identified Gaps and Risks
+## 2. Feature Status (refreshed 2026-06-09)
+
+The social-sharing, email, and PDF features below were all **built and shipped**. Endpoints live in `server/auditRoutes.ts` (`/report/:id/og-image`, `/report/:id/send-email`, `/report/:id/pdf`), with `server/lib/emailTransport.ts` as the shared transporter (now imported by 20+ email modules) and `server/lib/pdfGenerator.ts` for PDF rendering.
 
 ### A. Social Sharing
 
-| Item | Status | Gap |
-|------|--------|-----|
+| Item | Status | Notes |
+|------|--------|-------|
 | Canonical report URL | **Exists** | `/audit/report/:id` works |
-| OG meta tags | **Missing** | No og:title, og:description, og:image, twitter:card |
-| SSR for meta tags | **Missing** | SPA serves same index.html for all routes — crawlers see nothing |
-| Share preview image | **Missing** | No report screenshot/thumbnail generation |
-
-**Risk:** Social shares (Facebook, Twitter, WhatsApp, LinkedIn) will show a blank preview card. This is the #1 blocker for effective social sharing.
-
-**Root cause:** The app is a pure SPA. Social media crawlers don't execute JavaScript. Without server-side injection of `<meta>` tags for `/audit/report/:id` routes, all shared links will display the same generic (or empty) preview.
+| OG meta tags | **Exists** | Injected for `/audit/report/:id` so crawlers see real previews |
+| Share preview image | **Exists** | `GET /api/audit/report/:id/og-image` renders a branded card |
+| Share buttons | **Exists** | Email/WhatsApp/Facebook/X/Copy in ReportView; SharedAuditReport public view |
 
 ### B. Email Sending
 
-| Item | Status | Gap |
-|------|--------|-----|
-| SMTP transport | **Exists** | nodemailer configured in multiple files |
-| Shared transport utility | **Missing** | Each file creates its own transporter |
-| Audit email endpoint | **Missing** | No `POST /api/reports/:id/send-email` |
-| Email HTML template | **Missing** | No audit-specific email template |
-| Rate limiting | **Missing** | No protection against email abuse |
-| Email validation | **Missing** | No server-side email format validation |
+| Item | Status | Notes |
+|------|--------|-------|
+| SMTP transport | **Exists** | nodemailer via shared `getEmailTransporter()` |
+| Shared transport utility | **Exists** | `server/lib/emailTransport.ts` — `getEmailTransporter()` / `getFromAddress()` |
+| Audit email endpoint | **Exists** | `POST /api/audit/report/:id/send-email` |
+| Email HTML template | **Exists** | Audit-specific template with branding + CTA link |
+| Rate limiting | **Exists** | `auditWriteRateLimiter` guards the email + write endpoints |
 
 ### C. PDF Generation
 
-| Item | Status | Gap |
-|------|--------|-----|
-| PDF library | **Missing** | No jspdf, puppeteer, react-pdf, or similar installed |
-| Print stylesheet | **Missing** | No `@media print` rules in CSS |
-| PDF-friendly layout | **Missing** | Current UI is interactive (tabs, animations, chat) — not printable |
-| PDF endpoint | **Missing** | No `GET /api/reports/:id/pdf` |
-| PDF storage | **Missing** | No strategy for caching generated PDFs |
+| Item | Status | Notes |
+|------|--------|-------|
+| PDF generator | **Exists** | `server/lib/pdfGenerator.ts` (`generateReportPdf`) |
+| PDF endpoint | **Exists** | `GET /api/audit/report/:id/pdf` (`?inline=true` for preview) |
+
+### D. Partial-Data Integrity (added 2026-06-09)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `audit_data.dataQuality` | **Exists** | `{ competitorDataAvailable, keywordDataAvailable, reviewDataAvailable, gatherTimedOut }` persisted per run |
+| Score renormalization | **Exists** | `calculateScores()` excludes a dropped category's max from the /100 denominator and renormalizes over available categories (same rule as the legacy `websiteScore===null` path) |
+| Missing-data note in UI | **Exists** | ReportView + SharedAuditReport surface `narrative.reportDataQuality.missingDataNote` (or a flag-derived note) so a dropped source is never silent |
+| Outbound-artifact gate | **Exists** | `outboundArtifactGenerator` skips artifact generation when `gatherTimedOut` or competitor data is unavailable, and headline branches are guarded on the `dataQuality` flags |
 
 ### D. Backend Readiness
 
@@ -297,8 +302,8 @@ type SpeedMetrics = {
 type ReportOGMetadata = {
   title: string;         // "{businessName} — Local Business Audit | WeFixTrades"
   description: string;   // "Scored {total}/100 ({grade}). {executiveSummary truncated to 155 chars}"
-  url: string;           // "https://wefixtrades.co.uk/audit/report/{id}"
-  image: string;         // "https://wefixtrades.co.uk/api/audit/report/{id}/og-image"
+  url: string;           // "https://wefixtrades.com/audit/report/{id}"
+  image: string;         // "https://wefixtrades.com/api/audit/report/{id}/og-image"
   type: 'website';
 };
 ```
@@ -482,7 +487,7 @@ This is lightweight (one DB query) and doesn't require full SSR. Social crawlers
 4. **No authentication** is required to view shared reports (current behavior)
 5. **Base64 screenshots** in `audit_data.websiteScreenshot` can be used in PDF/email but may be large (~500KB+)
 6. **Report data is immutable** after generation — PDF can be cached indefinitely per reportId
-7. **The domain** is `wefixtrades.co.uk` (verify for OG tag URLs)
+7. **The domain** is `wefixtrades.com` (production; `PUBLIC_BASE_URL` env overrides for absolute URLs in OG tags and emails)
 8. **No CDN or blob storage** is currently configured — PDFs and OG images would need to be generated on-demand or stored locally
 9. **The existing share buttons** in ReportView.tsx are the only share UI — SharedAuditReport.tsx does not have share buttons (gap to address)
 10. **Rate limiting** is not implemented anywhere in the current app — email sending will be the first feature to need it
