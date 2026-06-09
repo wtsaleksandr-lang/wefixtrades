@@ -27,6 +27,23 @@ import { brandLineInboundRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("Twilio");
 
+/**
+ * W-TWILIO hardening (P2-2) — escape XML special chars before interpolating
+ * ANY dynamic value into a TwiML `<Message>` body. Tenant-controlled fields
+ * (business_name, support email/phone), classifier output, and AI replies were
+ * spliced into TwiML unescaped, so a `<`, `&`, or a stray `</Message>` could
+ * break the document or inject markup. Mirrors the escapeXml helper already
+ * used in twilioVoiceCallbackRoutes.ts.
+ */
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 /* ─── MessageSid dedupe cache (TTL-based, max 1000 entries) ─── */
 const SEEN_SIDS = new Map<string, number>();
 const DEDUPE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -55,7 +72,8 @@ export function registerTwilioRoutes(app: Express): void {
   app.post("/api/twilio/inbound", async (req, res) => {
     const twimlError = (msg: string) => {
       res.set("Content-Type", "text/xml");
-      res.send(`<Response><Message>${msg}</Message></Response>`);
+      // P2-2 — escape: callers interpolate business_name (tenant-controlled).
+      res.send(`<Response><Message>${escapeXml(msg)}</Message></Response>`);
     };
 
     try {
@@ -186,7 +204,8 @@ export function registerTwilioRoutes(app: Express): void {
             `${brand} SMS support. Reply STOP to unsubscribe. ` +
             `Msg & data rates may apply. ${contactSuffix}`;
           res.set("Content-Type", "text/xml");
-          return res.send(`<Response><Message>${reply}</Message></Response>`);
+          // P2-2 — escape: brand/email/phone are tenant-controlled.
+          return res.send(`<Response><Message>${escapeXml(reply)}</Message></Response>`);
         }
 
         // START / UNSTOP — clear the opt-out row so the sender can opt
@@ -296,8 +315,9 @@ export function registerTwilioRoutes(app: Express): void {
               ? `${decision.awayMessage} `
               : "Thanks for reaching out — our team will get back to you within 1 hour. ";
             const ref = decision.ticketId ? `Reference: T-${decision.ticketId}` : "";
+            // P2-2 — escape: awayMessage is classifier/config-derived text.
             return res.send(
-              `<Response><Message>${awayPart}${ref}</Message></Response>`
+              `<Response><Message>${escapeXml(`${awayPart}${ref}`)}</Message></Response>`
             );
           }
           case "reply":
@@ -453,7 +473,8 @@ export function registerTwilioRoutes(app: Express): void {
       });
 
       res.set("Content-Type", "text/xml");
-      res.send(`<Response><Message>${shortReply}</Message></Response>`);
+      // P2-2 — escape: shortReply is AI-generated free text.
+      res.send(`<Response><Message>${escapeXml(shortReply)}</Message></Response>`);
     } catch (error: any) {
       log.error("[Twilio] Inbound webhook error:", error);
       twimlError("Thanks for reaching out! We'll get back to you soon.");
