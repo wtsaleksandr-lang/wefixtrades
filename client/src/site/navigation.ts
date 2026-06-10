@@ -76,9 +76,11 @@ export type NavItem = {
  *
  * At 900, items crop on intermediate widths (~900–1024) before the hamburger
  * kicks in. Lifted to 1024 so the desktop nav always has room for: logo + 6
- * top-level menus + auth CTA. Below 1024 we go straight to hamburger.
+ * top-level menus + auth CTA. Below 1130 we go straight to hamburger
+ * (measured: the full desktop row needs ~1120px (measured maxRight 1118) before the right CTA
+ * cluster clips — see MarketingNav FIX 2).
  */
-export const NAV_MOBILE_BREAKPOINT = 1024;
+export const NAV_MOBILE_BREAKPOINT = 1130;
 
 export const NAV_LINKS: NavItem[] = [
   {

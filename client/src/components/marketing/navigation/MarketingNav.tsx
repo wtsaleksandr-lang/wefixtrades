@@ -6,7 +6,7 @@ import Logo from "@/components/primitives/Logo";
 import { NAV_LINKS, NAV_MOBILE_BREAKPOINT } from "@/site/navigation";
 import { Menu, MenuItem } from "@/components/ui/navbar-menu";
 import { MobileNavItem } from "./MobileNavItem";
-import { mkt } from "@/theme/tokens";
+import { mkt, typography } from "@/theme/tokens";
 import { useStickyBarVisible } from "@/hooks/useStickyBarVisible";
 
 const DESKTOP_NAV_HEIGHT = 68;
@@ -289,34 +289,22 @@ export function MarketingNav() {
                   </Link>
                   <Link
                     href="/templates"
-                    className="mkt-btn-primary"
+                    className="mkt-btn-primary nav-cta-start-free"
                     data-testid="nav-cta-start-free"
                     style={{
                       padding: "8px 18px",
                       borderRadius: 10,
                       background: mkt.buttonBg,
                       color: mkt.buttonText,
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: 600,
-                      fontFamily: "'DM Mono', monospace",
-                      /* Canonical /wizard CTA label is the mixed-case
-                       * "Start free — no card" (matches hero + product). The
-                       * desktop header button is nowrap and space-constrained,
-                       * so we drop the uppercase transform here to keep the
-                       * longer canonical label from overflowing the header. */
-                      letterSpacing: "0.04em",
+                      fontFamily: typography.fontFamily,
+                      /* Mixed-case canonical label — matches hero + product
+                       * pages. No uppercase, no mono tracking. */
+                      letterSpacing: "0",
                       textDecoration: "none",
                       display: "inline-block",
                       whiteSpace: "nowrap",
-                      transition: "background 0.2s ease, box-shadow 0.2s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background =
-                        mkt.buttonHoverBg;
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background =
-                        mkt.buttonBg;
                     }}
                   >
                     Start free — no card
@@ -408,13 +396,69 @@ export function MarketingNav() {
         @media (max-width: 430px) {
           .mkt-nav-bar { border-radius: 18px !important; }
         }
-        /* Responsive: between 1024px (mobile breakpoint) and 1280px there's
-         * not enough room for 6 menu items + Login + START FREE + the
-         * TRADELINE 24/7 DEMO CTA, so the demo button (lowest-priority of
-         * the three CTAs) hides until the viewport can fit everything
-         * comfortably. Login + START FREE always stay visible. */
-        @media (max-width: 1279px) {
+
+        /* ── FIX 1: "Start free — no card" premium hover ───────────────────
+         * Override the generic .mkt-btn-primary hover with a more prominent
+         * accent-blue variant scoped to the nav button. translateY(-1px) lift
+         * + soft blue glow + inset accent ring. 160ms feels snappy but
+         * controlled. The base .mkt-btn-primary already carries the
+         * transition property so we only override what changes here. */
+        .nav-cta-start-free {
+          transition:
+            background 0.16s ease,
+            box-shadow 0.16s ease,
+            transform 0.16s ease !important;
+        }
+        .nav-cta-start-free:hover {
+          background: ${mkt.buttonHoverBg} !important;
+          transform: translateY(-1px);
+          box-shadow:
+            inset 0 0 0 1.5px rgba(13,60,252,0.55),
+            0 4px 14px rgba(13,60,252,0.22),
+            0 1px 3px rgba(0,0,0,0.10) !important;
+        }
+        .nav-cta-start-free:active {
+          transform: translateY(0px) scale(0.985);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .nav-cta-start-free,
+          .nav-cta-start-free:hover {
+            transform: none !important;
+            transition: background 0.16s ease, box-shadow 0.16s ease !important;
+          }
+        }
+
+        /* ── FIX 2: Right CTA cluster — no clipping at intermediate widths ──
+         * Measured (visual review): the full desktop row (logo + menus +
+         * Login + Start free) needs ~1120px (measured), and the TRADELINE demo pill's
+         * right edge lands at ~1390px when shown. So: the demo pill
+         * only renders from 1430px (8px+ margin — the pill width itself rounds with viewport) (it FULLY fits once shown), and the
+         * desktop nav itself only renders from 1130px (NAV_MOBILE_BREAKPOINT)
+         * — below that the hamburger takes over. Compressed CTA padding
+         * keeps the 1130–1199px band comfortable. */
+        @media (max-width: 1429px) {
           .mkt-btn-demo { display: none !important; }
+        }
+        @media (min-width: 1130px) and (max-width: 1199px) {
+          .nav-cta-start-free {
+            padding: 7px 12px !important;
+            font-size: 12px !important;
+          }
+        }
+
+        /* ── FIX 3: "Fix" wordmark glow on dark nav ────────────────────────
+         * The Logo component renders:
+         *   <span style="color: #0d3cfc">Fix</span>
+         * inside the wordmark. On the near-black nav the blue fill is hard
+         * to read. A soft luminance halo behind the letterform makes it pop
+         * without altering the fill colour or any geometry. Scoped to
+         * .mkt-nav-bar so this ONLY applies to the dark nav context. */
+        .mkt-nav-bar a span[style*="color: rgb(13, 60, 252)"],
+        .mkt-nav-bar a span[style*="color:#0d3cfc"],
+        .mkt-nav-bar a span[style*="color: #0d3cfc"] {
+          text-shadow:
+            0 0 12px rgba(13,60,252,0.60),
+            0 0 3px rgba(255,255,255,0.15);
         }
       `}</style>
 
