@@ -1230,27 +1230,55 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 pointer-events: none !important;
                 cursor: default !important;
               }
-              /* Apple frosted-glass treatment for the preview's QuoteQuick brand
-                 bar (Alex request). Scoped to the preview container ONLY — the
-                 deployed/embedded QuoteWidget brandbar is untouched. */
+              /* Preview chrome bar — mock browser chrome treatment. Scoped to the
+                 preview container ONLY; the deployed/embedded QuoteWidget
+                 brandbar is untouched.
+
+                 Design intent: the brand bar + device toggle read as ONE
+                 intentional chrome strip — white frosted glass, macOS traffic-
+                 light dots on the left via ::before, badge padded after the dots,
+                 toggle right-anchored and flush with the bar height. Together they
+                 look like a mini browser address bar, not a cheap gray header. */
               [data-testid="template-live-preview"] [data-qq-brandbar] {
-                background: rgba(255, 255, 255, 0.55) !important;
-                -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
-                backdrop-filter: blur(12px) saturate(160%) !important;
+                position: relative !important;
+                /* Clean white frosted-glass chrome bar */
+                background: rgba(255, 255, 255, 0.82) !important;
+                -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+                backdrop-filter: blur(16px) saturate(180%) !important;
+                /* Full-width bar spanning preview top — square-topped by default;
+                   border-radius clips to the preview container's own border-radius
+                   (16px) via overflow:hidden on the parent.  */
+                border-radius: 0 !important;
+                border: none !important;
+                border-bottom: 1px solid rgba(15, 23, 42, 0.10) !important;
+                /* No margin inset — the bar spans edge-to-edge at the top of the
+                   preview, inside the container's 16px overflow:hidden clip.
+                   The container clips the top-left/top-right corners for us. */
+                margin: 0 !important;
+                /* Fixed height so the toggle can center reliably */
+                min-height: 42px !important;
+                height: 42px !important;
+                padding: 0 44px 0 56px !important;
                 align-items: center !important;
-                /* Wrap the preview brand bar in a subtle, even thin border on
-                   ALL FOUR sides with clean rounded corners — it reads as a
-                   tasteful enclosed pill, not a flat-topped toolbar. (Replaces
-                   the prior flat-top + faint single bottom border.) */
-                border: 1px solid rgba(15, 23, 42, 0.18) !important;
-                border-radius: 10px !important;
-                /* Inset the bar from the preview's overflow:hidden ancestors
-                   (the fold-viewport wrapper + the rounded preview container) so
-                   the rounded corners have room to render and aren't clipped on
-                   the top/left/right edges. The clipping ancestor must keep its
-                   overflow (sticky needs it per project_overflow_clip_for_sticky)
-                   — so we inset the bar instead of removing the clip. */
-                margin: 6px 6px 0 !important;
+                box-sizing: border-box !important;
+              }
+              /* macOS traffic-light dots — CSS-only, three circles via box-shadow.
+                 Colors at ~35% saturation to stay classy (not toy-bright). */
+              [data-testid="template-live-preview"] [data-qq-brandbar]::before {
+                content: "" !important;
+                position: absolute !important;
+                left: 16px !important;
+                top: 50% !important;
+                transform: translateY(-50%) !important;
+                width: 10px !important;
+                height: 10px !important;
+                border-radius: 50% !important;
+                /* close (red), minimize (amber), maximize (green) — muted tones */
+                background: #d4706a !important;
+                box-shadow:
+                  16px 0 0 #d4b56a,
+                  32px 0 0 #6db36d !important;
+                flex-shrink: 0 !important;
               }
               .tpl-swatch {
                 width: 32px; height: 32px; border-radius: 9px; border: none; cursor: pointer;
@@ -1378,29 +1406,23 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               }
 
               .tpl-preview { min-width: 0; display: flex; flex-direction: column; }
-              /* Single device toggle that swaps its icon — pinned to the
-                 top-right of the preview, sitting inside the widget's white
-                 header strip. Apple-style FROSTED GLASS: a translucent surface
-                 + backdrop blur/saturate so the band behind it shows through
-                 softly, with a hairline ring. Vertically CENTERED in the ~38px
-                 header band (top:5 with a 28px control centers it at ~19px,
-                 lifting it off the old "too low" position). */
+              /* Device toggle — right-anchored inside the chrome bar row.
+                 Ghost style: no heavy border/shadow, just a subtle hover bg so
+                 it belongs to the chrome without fighting the traffic-light dots
+                 or the badge. Vertically centered in the 42px bar height. */
               .tpl-device-toggle {
-                position: absolute; top: 5px; right: 8px; z-index: 5;
-                flex-shrink: 0; width: 28px; height: 28px; border-radius: 9px;
+                position: absolute;
+                /* Center in the 42px bar: (42 - 30) / 2 = 6px from top */
+                top: 6px; right: 8px; z-index: 5;
+                flex-shrink: 0; width: 30px; height: 30px; border-radius: 7px;
                 display: grid; place-items: center; cursor: pointer; border: none;
-                background: rgba(255,255,255,0.55);
-                -webkit-backdrop-filter: blur(12px) saturate(160%);
-                backdrop-filter: blur(12px) saturate(160%);
-                color: ${CS_LIGHT.ink};
-                box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55),
-                            inset 0 0 0 1.5px rgba(15,20,24,0.08),
-                            0 2px 8px rgba(15,20,24,0.14);
-                transition: background 140ms ease, transform 120ms ease;
+                background: transparent;
+                color: rgba(15, 23, 42, 0.55);
+                transition: background 140ms ease, color 140ms ease;
               }
               .tpl-device-toggle:hover {
-                transform: translateY(-1px);
-                background: rgba(255,255,255,0.72);
+                background: rgba(15, 23, 42, 0.07);
+                color: ${CS_LIGHT.ink};
               }
 
               /* Template-swap polish: remount the widget on selection with a
