@@ -31,6 +31,19 @@ export interface ImageAddon {
   type: 'checkbox' | 'quantity';
 }
 
+/**
+ * Wave 65 — a quantity-driven PRIMARY line item (N windows @ $P each,
+ * per-room, per-hour, per-sq-ft). Each becomes an EDITABLE quantity number
+ * field defaulting to the quoted count, with unit price baked into the
+ * formula — so the customer can change how many units the job covers.
+ */
+export interface ImageLineItem {
+  label: string;
+  unitPrice: number | null;
+  quantity: number | null;
+  unit?: string | null;
+}
+
 export interface ImageModifier {
   label: string;
   type: 'percent' | 'fixed';
@@ -41,6 +54,7 @@ export interface ImageModifier {
 export interface ImageTemplate {
   title: string | null;
   basePrice: number | null;
+  lineItems?: ImageLineItem[];
   currency: string;
   addons: ImageAddon[];
   modifiers: ImageModifier[];
@@ -70,19 +84,66 @@ export function imageTemplateToConfig(t: ImageTemplate): TemplateConfig {
   const fields: TemplateField[] = [];
   const calcs: TemplateCalculation[] = [];
 
-  /* ─── Base price field ─── */
+  /* ─── Primary product line items (Wave 65) ─── */
+  // When the quote prices multiple units/products (N windows @ $P each,
+  // per-room, per-hour, …) each becomes an EDITABLE quantity number field
+  // defaulting to the quoted count, with the unit price in the formula. The
+  // single-flat-service path (basePrice only, no line items) is preserved
+  // verbatim below.
+  const lineItems = (t.lineItems ?? []).filter(
+    (li): li is ImageLineItem =>
+      !!li && typeof li.label === 'string' && typeof li.unitPrice === 'number',
+  );
+  const hasLineItems = lineItems.length > 0;
+
+  /* ─── Base price field ───
+   * Always present for the single-service case. When line items drive the
+   * price we still keep a base field for any flat charge the AI returned
+   * (basePrice), but default it to 0 if the AI (correctly) left it null —
+   * the prompt instructs basePrice=null when line items are used. */
   const baseId = uniqId('base_price', used);
-  fields.push({
-    id: baseId,
-    name: baseId,
-    label: 'Base price',
-    type: 'number',
-    required: true,
-    default_value: typeof t.basePrice === 'number' ? t.basePrice : 0,
-    min: 0,
-    step: 1,
-    unit: t.currency || 'USD',
-  });
+  const baseDefault = typeof t.basePrice === 'number' ? t.basePrice : 0;
+  // Skip a $0 base field entirely when line items carry the whole price, so
+  // the customer isn't shown a redundant "Base price: 0" input.
+  const includeBaseField = !hasLineItems || baseDefault > 0;
+  if (includeBaseField) {
+    fields.push({
+      id: baseId,
+      name: baseId,
+      label: hasLineItems ? 'Base / call-out fee' : 'Base price',
+      type: 'number',
+      required: !hasLineItems,
+      default_value: baseDefault,
+      min: 0,
+      step: 1,
+      unit: t.currency || 'USD',
+    });
+  }
+
+  /* Per-line-item quantity fields + formula terms (qty × unit price). */
+  const lineItemExprs: string[] = [];
+  for (const li of lineItems) {
+    const unitPrice = li.unitPrice as number; // narrowed by the filter above
+    const qty =
+      typeof li.quantity === 'number' && isFinite(li.quantity) && li.quantity > 0
+        ? li.quantity
+        : 1; // trust: default to the quoted count, never 0
+    const labelSeed = slugify(li.label, 'item');
+    const id = uniqId(`item_${labelSeed}`, used);
+    const unitSuffix = li.unit && li.unit.trim() ? ` (${li.unit.trim()})` : '';
+    fields.push({
+      id,
+      name: id,
+      label: `${li.label}${unitSuffix}`,
+      type: 'number',
+      required: false,
+      default_value: qty, // editable: customer can change the count
+      min: 0,
+      step: 1,
+      help: `$${unitPrice} each`,
+    });
+    lineItemExprs.push(`(${id} * ${unitPrice})`);
+  }
 
   /* ─── Addon fields ─── */
   const addonExprs: string[] = [];
@@ -99,7 +160,9 @@ export function imageTemplateToConfig(t: ImageTemplate): TemplateConfig {
         label: addon.label,
         type: 'number',
         required: false,
-        default_value: 0,
+        // Trust: default a quantity add-on to 1 (not 0) so the preview
+        // reflects a realistic job total immediately; customer adjusts.
+        default_value: 1,
         min: 0,
         step: 1,
         on_value: price,
@@ -152,32 +215,43 @@ export function imageTemplateToConfig(t: ImageTemplate): TemplateConfig {
   }
 
   /* ─── Calculations ─── */
-  // Subtotal = base + addons + (modifiers that apply to base)
+  // Subtotal = base (if present) + line items + addons + (base modifiers)
   const baseModifiers = modifierExprs.filter((m) => m.appliesTo === 'base');
   const totalModifiers = modifierExprs.filter((m) => m.appliesTo === 'total');
 
-  const subtotalParts = [baseId, ...addonExprs, ...baseModifiers.map((m) => m.expr)];
+  const subtotalParts = [
+    ...(includeBaseField ? [baseId] : []),
+    ...lineItemExprs,
+    ...addonExprs,
+    ...baseModifiers.map((m) => m.expr),
+  ];
   const subtotalExpr = subtotalParts.join(' + ');
   const subtotalCalcId = uniqId('subtotal_calc', used);
+  const subtotalName = 'Subtotal';
   calcs.push({
     id: subtotalCalcId,
-    name: 'Subtotal',
-    formula: subtotalExpr || baseId,
+    name: subtotalName,
+    // Fall back to 0 (not an undefined id) when nothing priced was extracted.
+    formula: subtotalExpr || '0',
     format: 'currency',
     resultMode: 'secondary',
     showInResults: totalModifiers.length > 0, // hide when redundant with Total
   });
 
-  // Total = subtotal + total modifiers (multiplicative percent against Subtotal
-  // collapses to subtotal × (1 + sum_pct/100), but we approximate by adding the
-  // pre-computed `(toggle * pct/100) * subtotal` terms. To keep the formula
-  // valid against the engine we expand mods relative to the subtotal name.)
-  const totalParts = [subtotalCalcId];
+  // Total = Subtotal + total modifiers.
+  // CRITICAL (the "$0.00 headline" fix): the formula engine chains calcs BY
+  // NAME (runCalculations seeds ctx[calc.name]), so a later calc must
+  // reference an earlier one by its NAME, never its id. Referencing the
+  // subtotal calc's *id* left it undefined → resolved to 0 → the headline
+  // Total read $0.00 even though Subtotal computed correctly. Use the
+  // bracketed name form `[Subtotal]` so the engine resolves the real value.
+  const subtotalRef = `[${subtotalName}]`;
+  const totalParts = [subtotalRef];
   for (const mod of totalModifiers) {
     // multiply the toggle/value expression by the subtotal so percent applies
     // proportionally; fixed mods just add.
     if (mod.expr.includes('/ 100')) {
-      totalParts.push(`(${mod.expr} * ${subtotalCalcId})`);
+      totalParts.push(`(${mod.expr} * ${subtotalRef})`);
     } else {
       totalParts.push(mod.expr);
     }
@@ -188,7 +262,7 @@ export function imageTemplateToConfig(t: ImageTemplate): TemplateConfig {
     name: 'Total',
     formula: totalParts.join(' + '),
     format: 'currency',
-    resultMode: 'primary',
+    resultMode: 'primary', // headline: drives the big "Estimated price" number
   });
 
   /* ─── Header / results ─── */

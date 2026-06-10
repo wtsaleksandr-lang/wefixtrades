@@ -21,6 +21,7 @@
     "check:database-url": "node scripts/check-database-url.mjs",
     "smoke:quick": "tsx script/smoke.ts",
     "test:formula": "tsx scripts/check-formula.ts",
+    "test:image-template": "tsx scripts/check-image-template.ts",
     "audit": "npm run build && playwright test --config audit.config.ts",
     "audit:update": "npm run build && playwright test --config audit.config.ts --update-snapshots",
     "db:push:dev": "node scripts/check-not-prod.mjs && drizzle-kit push --config=scripts/db/drizzle.config.dev.ts",
