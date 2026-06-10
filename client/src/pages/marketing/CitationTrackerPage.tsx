@@ -130,6 +130,7 @@ export default function CitationTrackerPage() {
         <CitationTrackerPricing />
         <CitationTrackerHowItWorks />
         <CitationTrackerWhyTrustUs />
+        <CitationTrackerBuilderCta />
         <CitationTrackerFAQ />
       </div>
 
@@ -665,6 +666,81 @@ function CitationTrackerHowItWorks() {
   );
 }
 
+/* Wave 39 — cross-CTA: Tracker → Builder funnel bridge.
+   Light-surface accent-tinted card between WhyTrustUs and FAQ. */
+function CitationTrackerBuilderCta() {
+  return (
+    <section
+      data-testid="citation-tracker-builder-cta"
+      style={{ padding: "60px 16px", background: "rgb(255,255,255)" }}
+    >
+      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+        <div
+          style={{
+            padding: "28px 24px",
+            borderRadius: 16,
+            background: "rgba(13,60,252,0.04)",
+            border: "1px solid rgba(13,60,252,0.14)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "rgb(13,60,252)",
+              marginBottom: 8,
+            }}
+          >
+            Don't have citations yet?
+          </div>
+          <h3
+            style={{
+              margin: "0 0 10px",
+              fontSize: 20,
+              fontWeight: 800,
+              color: "rgb(11,18,32)",
+              lineHeight: 1.2,
+            }}
+          >
+            Get listed first with Citation Builder
+          </h3>
+          <p
+            style={{
+              margin: "0 0 18px",
+              fontSize: 14,
+              color: "rgba(55,65,81,1)",
+              lineHeight: 1.6,
+              maxWidth: 520,
+            }}
+          >
+            Citation Tracker monitors your listings. Citation Builder creates them — 25–100+ directories, done for you in 7 days.
+          </p>
+          <Link
+            href="/citation-builder"
+            data-testid="cta-tracker-to-builder"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "rgb(13,60,252)",
+              color: "rgb(255,255,255)",
+              padding: "10px 18px",
+              borderRadius: 10,
+              fontSize: 14,
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            Start Citation Builder from $79 <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function CitationTrackerFAQ() {
   return (
     <section style={{ padding: "60px 16px", background: "rgba(248,250,252,1)" }}>
@@ -674,7 +750,14 @@ function CitationTrackerFAQ() {
           {FAQ_ITEMS.map((f) => (
             <details key={f.question} style={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, padding: "12px 14px", background: "rgba(255,255,255,1)" }}>
               <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 14, color: "#0b1220" }}>{f.question}</summary>
-              <p style={{ margin: "8px 0 0", fontSize: 14, color: "#374151", lineHeight: 1.55 }}>{f.answer}</p>
+              {f.question === "How is Citation Tracker different from Citation Builder?" ? (
+                <p style={{ margin: "8px 0 0", fontSize: 14, color: "#374151", lineHeight: 1.55 }}>
+                  <Link href="/citation-builder" style={{ color: "rgb(13,60,252)", fontWeight: 600, textDecoration: "underline" }}>Citation Builder</Link>
+                  {" "}is a one-shot $79–$299 service: we list you on 25–100+ directories. Citation Tracker is recurring $19/mo (or $5/mo as a MapGuard add-on): we continuously monitor those listings for NAP changes, new auto-spawn citations, and removals — and alert you the moment something drifts.
+                </p>
+              ) : (
+                <p style={{ margin: "8px 0 0", fontSize: 14, color: "#374151", lineHeight: 1.55 }}>{f.answer}</p>
+              )}
             </details>
           ))}
         </div>

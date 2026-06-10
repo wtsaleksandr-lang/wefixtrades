@@ -811,6 +811,78 @@ export default function CitationBuilderPage() {
         </div>
       </section>
 
+      {/* ── Citation Tracker cross-CTA ──────────────────────────────── */}
+      {/* Wave 39 — funnel bridge: after listings are created, keep them accurate. */}
+      <section
+        data-testid="citation-builder-tracker-cta"
+        style={{ padding: "64px 16px", background: "rgba(236,242,244,0.5)" }}
+      >
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          <div
+            style={{
+              padding: "28px 24px",
+              borderRadius: 16,
+              background: "rgb(255,255,255)",
+              border: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: mkt.accent,
+                marginBottom: 8,
+              }}
+            >
+              After you're listed
+            </div>
+            <h3
+              style={{
+                margin: "0 0 10px",
+                fontSize: 20,
+                fontWeight: 800,
+                color: "#111827",
+                lineHeight: 1.2,
+              }}
+            >
+              Keep them accurate with Citation Tracker
+            </h3>
+            <p
+              style={{
+                margin: "0 0 18px",
+                fontSize: 14,
+                color: "rgba(0,0,0,0.62)",
+                lineHeight: 1.6,
+                maxWidth: 520,
+              }}
+            >
+              Directories drift. Citation Tracker watches all 50+ daily and alerts you the moment something changes — $19/mo, or $5/mo as a MapGuard add-on.
+            </p>
+            <Link
+              href="/citation-tracker"
+              data-testid="cta-builder-to-tracker"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: "#0b1220",
+                color: "rgb(255,255,255)",
+                padding: "10px 18px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 700,
+                textDecoration: "none",
+              }}
+            >
+              Monitor citations from $19/mo <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <CheckoutDetailsDialog
         tier={activeTier}
         open={activeTier !== null}
