@@ -2,6 +2,7 @@ import { Bot, MessageSquare, Zap, Users, PhoneCall } from "lucide-react";
 import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/FeaturePage";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors, shadows } from "@/theme/tokens";
+import TriggersSection from "@/components/marketing/showcase/TriggersSection";
 
 /* ── Mockup ──────────────────────────────────── */
 function AiMockup() {
@@ -150,6 +151,7 @@ const config: FeaturePageConfig = {
     headline: "Start Your 14-Day AI Employee Trial",
     sub: "No credit card required. Activate in under 5 minutes and let AI handle your leads tonight.",
   },
+  extraSections: <TriggersSection />,
 };
 
 export default function AiEmployeePage() {

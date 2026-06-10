@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { type LucideIcon, ChevronDown, ArrowRight, Check } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
@@ -59,6 +59,10 @@ export interface FAQ {
 
 export interface FeaturePageConfig {
   meta: { title: string };
+  /** Optional extra section(s) rendered after the benefits grid and before
+   *  the "How it works" steps. Use this to inject showcase sections (e.g.
+   *  TriggersSection) without modifying the shared template layout. */
+  extraSections?: ReactNode;
   hero: {
     badge: string;
     badgeColor: string;
@@ -400,6 +404,9 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
             `}</style>
           </div>
         </section>
+
+        {/* ── Extra showcase sections (optional, config-injected) ── */}
+        {config.extraSections}
 
         {/* ══════════════════════════════
             4. HOW IT WORKS
