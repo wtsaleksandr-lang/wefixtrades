@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment, type CSSProperties } from "react
 import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { Plus } from "lucide-react";
-import type { NavItemChild } from "@/site/navigation";
+import type { NavItemChild, NavItem } from "@/site/navigation";
 import { NavIcon } from "./NavIcon";
 import { mkt } from "@/theme/tokens";
 
@@ -18,12 +18,14 @@ export function DesktopNavItem({
   label,
   href,
   children,
+  footer,
   isActive,
   headerRef,
 }: {
   label: string;
   href: string;
   children?: NavItemChild[];
+  footer?: NavItem["footer"];
   isActive: boolean;
   headerRef: React.RefObject<HTMLDivElement>;
 }) {
@@ -172,59 +174,107 @@ export function DesktopNavItem({
                 transform: "translateX(-50%)",
                 padding: 6,
                 zIndex: 9999,
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gridAutoFlow: "row",
-                gap: 5,
+                display: "flex",
+                flexDirection: "column",
                 boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
                 ...(exiting && {
                   animation: `mktDropdownOut ${EXIT_ANIM}ms cubic-bezier(0.22,1,0.36,1) forwards`,
                 }),
               }}
             >
-              {children!.map(({ label: cl, href: ch, description, icon }) => (
-                <Link
-                  key={ch + cl}
-                  href={ch}
-                  className="mkt-menu-card"
-                  onClick={() => doClose()}
-                >
-                  <div
-                    className="mkt-menu-card-icon"
-                    /* White square tile (.mkt-menu-card-icon) with a brand-blue
-                       central icon — consistent with the live navbar menu. */
-                    style={{ color: mkt.accent }}
-                    aria-hidden
+              {/* Cards grid */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${Math.min(children!.length, 3)}, minmax(200px, 280px))`,
+                  justifyContent: "center",
+                  gridAutoFlow: "row",
+                  gap: 5,
+                }}
+              >
+                {children!.map(({ label: cl, href: ch, description, icon }) => (
+                  <Link
+                    key={ch + cl}
+                    href={ch}
+                    className="mkt-menu-card"
+                    onClick={() => doClose()}
                   >
-                    <NavIcon icon={icon} size={24} strokeWidth={1.7} />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
                     <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 650,
-                        color: mkt.text,
-                        lineHeight: 1.2,
-                        marginBottom: 3,
-                      }}
+                      className="mkt-menu-card-icon"
+                      /* White square tile (.mkt-menu-card-icon) with a brand-blue
+                         central icon — consistent with the live navbar menu. */
+                      style={{ color: mkt.accent }}
+                      aria-hidden
                     >
-                      {cl}
+                      <NavIcon icon={icon} size={24} strokeWidth={1.7} />
                     </div>
-                    {description && (
+                    <div style={{ minWidth: 0 }}>
                       <div
                         style={{
-                          fontSize: 12,
-                          fontWeight: 450,
-                          color: mkt.textMuted,
-                          lineHeight: 1.35,
+                          fontSize: 13,
+                          fontWeight: 650,
+                          color: mkt.text,
+                          lineHeight: 1.2,
+                          marginBottom: 3,
                         }}
                       >
-                        {description}
+                        {cl}
                       </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
+                      {description && (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 450,
+                            color: mkt.textMuted,
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {description}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              {/* Footer CTA strip */}
+              {footer && footer.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    marginTop: 14,
+                    paddingTop: 14,
+                    borderTop: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  {footer.map(({ label: fl, href: fh }) => (
+                    <Link
+                      key={fh + fl}
+                      href={fh}
+                      className="mkt-dropdown-footer-pill"
+                      onClick={() => doClose()}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        minHeight: 36,
+                        padding: "8px 16px",
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: mkt.onDark,
+                        textDecoration: "none",
+                        whiteSpace: "nowrap",
+                        transition: "background 0.18s ease, border-color 0.18s ease",
+                      }}
+                    >
+                      {fl}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </Fragment>,
           document.body,
