@@ -106,7 +106,10 @@ Extract the following and respond with ONLY a valid JSON object matching this sc
 
 {
   "title": "string — what kind of service this quote is for (e.g. 'Junk removal', 'HVAC service call', 'Lawn mowing')",
-  "basePrice": number — the headline service charge a customer pays before any add-ons,
+  "basePrice": number — the headline service charge a customer pays before any add-ons (use ONLY for a single flat service; see lineItems below for multi-unit jobs),
+  "lineItems": [
+    { "label": "string — the priced product/unit (e.g. 'Double-hung window')", "unitPrice": number, "quantity": number, "unit": "string — optional, e.g. 'window', 'room', 'hour', 'sq ft'" }
+  ],
   "currency": "USD",
   "addons": [
     { "label": "string", "price": number, "type": "checkbox" | "quantity" }
@@ -118,7 +121,11 @@ Extract the following and respond with ONLY a valid JSON object matching this sc
 }
 
 Rules:
-- basePrice is a single number, not a range. If the source shows a range, use the LOWER bound and put the range in notes.
+- basePrice vs lineItems — pick ONE:
+  - If the quote prices a SINGLE flat service (e.g. "Standard house clean — $180"), put that number in basePrice and leave lineItems empty.
+  - If the quote's price is driven by MULTIPLE priced units/products (e.g. "8 double-hung windows @ $525 each + 2 picture windows @ $640 each", or per-room / per-hour / per-sq-ft pricing), emit EACH as a lineItem with its per-unit price (unitPrice) and the quoted count (quantity). Do NOT multiply unit price × quantity into a single basePrice, and do NOT also fill basePrice — the customer must be able to change the counts. Set basePrice to null in this case.
+- basePrice (when used) is a single number, not a range. If the source shows a range, use the LOWER bound and put the range in notes.
+- lineItems.unitPrice is the price of ONE unit (not the line total). lineItems.quantity is the quoted count for that unit.
 - addons: each is one optional item a customer can pick. "checkbox" = on/off, "quantity" = customer enters a count.
 - modifiers: percent values are stored as numbers (e.g. 15 for 15%, not 0.15). "appliesTo": "base" means it adjusts the base price only; "total" means after add-ons.
 - Hourly rates / multipliers go in modifiers as type="percent" only if they're % surcharges (after-hours +50% etc.). A flat per-hour rate is a modifier with type="fixed" and appliesTo="total".
@@ -140,9 +147,21 @@ const modifierSchema = z.object({
   appliesTo: z.enum(["base", "total"]).default("total"),
 });
 
+/* Wave 65 — quantity-driven primary line items. A multi-unit quote (N
+ * windows @ $P each, per-room, per-hour, per-sq-ft) emits one line item
+ * per priced unit so the customer can change counts, instead of collapsing
+ * to a single flat basePrice. Tolerant: missing quantity defaults to 1. */
+const lineItemSchema = z.object({
+  label: z.string().min(1).max(120),
+  unitPrice: z.number().finite().nullable(),
+  quantity: z.number().finite().nullable().default(1),
+  unit: z.string().min(1).max(40).nullable().optional(),
+});
+
 const templateSchema = z.object({
   title: z.string().min(1).max(200).nullable(),
   basePrice: z.number().finite().nullable(),
+  lineItems: z.array(lineItemSchema).max(20).default([]),
   currency: z.string().min(1).max(8).default("USD"),
   addons: z.array(addonSchema).max(20).default([]),
   modifiers: z.array(modifierSchema).max(10).default([]),
@@ -428,6 +447,7 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
           notes: extraction.kind === "text" ? extraction.notes : undefined,
           addonCount: template.addons.length,
           modifierCount: template.modifiers.length,
+          lineItemCount: template.lineItems.length,
           hasBasePrice: template.basePrice != null,
         },
         req,
