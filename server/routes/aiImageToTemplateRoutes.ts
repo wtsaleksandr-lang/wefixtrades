@@ -93,7 +93,11 @@ const upload = multer({
  *     Adds format-aware hints (PDF page-break artifacts, spreadsheet TSV
  *     framing, email signature/header noise, handwritten OCR caution) and
  *     clarifies basePrice vs grand total + signed discount conventions.
- *     Lifted Excel from 15/20 → 19/20 without regressing other formats. ── */
+ *     Lifted Excel from 15/20 → 19/20 without regressing other formats.
+ *
+ *     Wave 65.1: added optional `clarification` (ask the user one question
+ *     when pricing is genuinely ambiguous) and `styling` (brand-colour / CTA
+ *     hints extracted from the quote's visual identity). ── */
 const EXTRACTION_PROMPT = `You are looking at a service-business quote, estimate, invoice, or pricing list for a trades business.
 
 Source-format hints:
@@ -117,7 +121,21 @@ Extract the following and respond with ONLY a valid JSON object matching this sc
   "modifiers": [
     { "label": "string", "type": "percent" | "fixed", "value": number, "appliesTo": "base" | "total" }
   ],
-  "notes": "string — any pricing rules, payment terms, or fine print"
+  "notes": "string — any pricing rules, payment terms, or fine print",
+  "clarification": {
+    "question": "string — ONE concise question for the user",
+    "options": [
+      { "label": "string — short answer option (2-4 options total)", "hint": "string — optional extra context" }
+    ],
+    "reason": "string — optional: why you need this clarification"
+  },
+  "styling": {
+    "themeHint": "blue" | "red" | "green" | "dark" | "yellow" | "neutral",
+    "businessName": "string — business name if visible on the quote",
+    "tagline": "string — tagline or slogan if visible",
+    "ctaLabel": "string — e.g. 'Get My Towing Quote', 'Book a Cleaning', derived from the service type",
+    "trustHints": ["string — ONLY trust signals LITERALLY present on the quote, e.g. 'Licensed & Insured', 'Family owned since 1998'"]
+  }
 }
 
 Rules:
@@ -130,8 +148,42 @@ Rules:
 - modifiers: percent values are stored as numbers (e.g. 15 for 15%, not 0.15). "appliesTo": "base" means it adjusts the base price only; "total" means after add-ons.
 - Hourly rates / multipliers go in modifiers as type="percent" only if they're % surcharges (after-hours +50% etc.). A flat per-hour rate is a modifier with type="fixed" and appliesTo="total".
 - Don't invent items. If the source doesn't mention something, omit it. Use null only for top-level fields you can't extract confidently.
+- clarification: ONLY include this field when the pricing structure is genuinely ambiguous in a way that materially changes the calculator — e.g. you cannot tell if a price is per-unit or a total, you cannot read key numbers, or there are multiple plausible pricing models. Do NOT guess when ambiguous: return clarification with ONE concise question and 2-4 concrete answer options. Include your best-effort partial template if any. Omit clarification entirely when you can extract the pricing confidently.
+- styling: Extract ONLY from what is visually present on the quote. themeHint is the dominant brand-colour family you see (logo, header, accent colour). businessName and tagline are taken verbatim from the document. ctaLabel is a short action phrase appropriate for the service type. trustHints are ONLY trust signals LITERALLY printed on the quote — do not invent them. Omit the entire styling object (or individual fields) when you are unsure.
 
 Return ONLY the JSON, no preamble, no code fences.`;
+
+/* ─── Wave 65.1 — clarification + styling schemas ─────────────────────── */
+
+/** One answer option the user can tap to resolve an ambiguous quote. */
+const clarificationOptionSchema = z.object({
+  label: z.string().min(1).max(120),
+  hint: z.string().max(200).optional(),
+});
+
+/**
+ * Returned by the AI when pricing is too ambiguous to extract confidently.
+ * The client renders the question + options as chat quick-replies, then
+ * re-POSTs the same file with `clarificationAnswer=<label>` so the model
+ * can extract on the second pass with the answer in context.
+ */
+const clarificationSchema = z.object({
+  question: z.string().min(1).max(300),
+  options: z.array(clarificationOptionSchema).min(2).max(4),
+  reason: z.string().max(300).optional(),
+});
+
+/**
+ * Brand / visual identity hints the AI picks from the quote.  All fields are
+ * optional — the client falls back gracefully when any are absent.
+ */
+const stylingSchema = z.object({
+  themeHint: z.enum(['blue', 'red', 'green', 'dark', 'yellow', 'neutral']).optional(),
+  businessName: z.string().max(120).optional(),
+  tagline: z.string().max(200).optional(),
+  ctaLabel: z.string().max(120).optional(),
+  trustHints: z.array(z.string().max(120)).max(6).optional(),
+});
 
 /* ─── Response schema (matches spec — basePrice / addons / modifiers) ─── */
 const addonSchema = z.object({
@@ -166,6 +218,10 @@ const templateSchema = z.object({
   addons: z.array(addonSchema).max(20).default([]),
   modifiers: z.array(modifierSchema).max(10).default([]),
   notes: z.string().max(2000).nullable().default(null),
+  /** Wave 65.1 — present only when the AI needs more info before extracting. */
+  clarification: clarificationSchema.optional(),
+  /** Wave 65.1 — brand / visual identity hints extracted from the quote. */
+  styling: stylingSchema.optional(),
 });
 
 export type ImageTemplate = z.infer<typeof templateSchema>;
@@ -264,6 +320,16 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
             "Upload a PNG, JPG, WEBP image (≤5MB) or PDF / Excel / email (≤15MB).",
         });
       }
+
+      /* Wave 65.1 — optional clarification answer from a prior round-trip.
+       * Sent as a multipart text field alongside the (re-uploaded) file.
+       * When present, prepend it to the prompt so the second-pass extraction
+       * has the user's answer in context. The server remains fully stateless —
+       * the client re-uploads the same file rather than caching on the server. */
+      const clarificationAnswer =
+        typeof req.body?.clarificationAnswer === "string"
+          ? req.body.clarificationAnswer.slice(0, 500).trim()
+          : null;
       const mimeRaw = file.mimetype.toLowerCase();
 
       // Re-enforce the image-specific size cap (multer can only carry one).
@@ -322,6 +388,18 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
        *     else. We deliberately reuse aiService.chat() so the spend
        *     automatically routes through the existing usageTracker +
        *     ai_system_gates pipeline keyed on `quotequick`. */
+      /* Wave 65.1 — when the user answered a clarification question, prepend
+       * their answer to the prompt so the model extracts with that context. */
+      const clarificationPreamble = clarificationAnswer
+        ? `The user clarified: "${clarificationAnswer}"\n\nNow extract the pricing using that answer. `
+        : "";
+
+      /* Wave 65.1 — when a clarification answer is present, instruct the model
+       * to extract confidently (not ask again). Appended to the system prompt. */
+      const clarificationSystemSuffix = clarificationAnswer
+        ? " The user has already answered a clarification question — do NOT return another clarification; extract the pricing directly."
+        : "";
+
       let reply = "";
       try {
         if (extraction.kind === "image") {
@@ -329,12 +407,12 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
             // Wave 64.5: tuned system prompt to clarify basePrice vs grand total
             // and add-on vs modifier distinction after verification.
             system:
-              "You extract pricing structure from quote/invoice/pricing-sheet content. Always respond with a single JSON object and nothing else. The base price is the headline service charge, NOT the grand total. Add-ons are optional line items the customer can pick; modifiers are percentage or fixed adjustments (discounts, surcharges, hourly multipliers).",
-            messages: [{ role: "user", content: EXTRACTION_PROMPT }],
+              `You extract pricing structure from quote/invoice/pricing-sheet content. Always respond with a single JSON object and nothing else. The base price is the headline service charge, NOT the grand total. Add-ons are optional line items the customer can pick; modifiers are percentage or fixed adjustments (discounts, surcharges, hourly multipliers).${clarificationSystemSuffix}`,
+            messages: [{ role: "user", content: `${clarificationPreamble}${EXTRACTION_PROMPT}` }],
             userImageBlocks: [
               { mediaType: extraction.mediaType, data: extraction.buffer },
             ],
-            maxTokens: 900,
+            maxTokens: 1100,
             modelOverride: process.env.CLAUDE_VISION_MODEL || "claude-sonnet-4-6",
             surface: AI_SURFACES.quotequick,
             // Anonymous (null) → undefined so aiService attributes the spend to
@@ -351,14 +429,14 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
             // Wave 64.5: tuned system prompt — same structural clarity as
             // the image path; Excel/PDF/email needed it more than images.
             system:
-              "You extract pricing structure from quote/invoice/spreadsheet/email content. Always respond with a single JSON object and nothing else. The base price is the headline service charge, NOT the grand total. Add-ons are optional line items the customer can pick; modifiers are percentage or fixed adjustments (discounts, surcharges, hourly multipliers).",
+              `You extract pricing structure from quote/invoice/spreadsheet/email content. Always respond with a single JSON object and nothing else. The base price is the headline service charge, NOT the grand total. Add-ons are optional line items the customer can pick; modifiers are percentage or fixed adjustments (discounts, surcharges, hourly multipliers).${clarificationSystemSuffix}`,
             messages: [
               {
                 role: "user",
-                content: `${preamble}${EXTRACTION_PROMPT}\n\n--- BEGIN DOCUMENT ---\n${extraction.text}\n--- END DOCUMENT ---`,
+                content: `${clarificationPreamble}${preamble}${EXTRACTION_PROMPT}\n\n--- BEGIN DOCUMENT ---\n${extraction.text}\n--- END DOCUMENT ---`,
               },
             ],
-            maxTokens: 900,
+            maxTokens: 1100,
             surface: AI_SURFACES.quotequick,
             // Anonymous (null) → undefined so aiService attributes the spend to
             // the quotequick surface without a user id (anon usage is bounded
@@ -429,6 +507,7 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
       }
 
       const template = parsed.data;
+      const hasClarification = !!template.clarification;
 
       /* (7) Audit success. Includes notes (e.g. multi-sheet xlsx) for
        *     dashboards tracking limitation hits. */
@@ -439,7 +518,7 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
         entityType: "quotequick_calculator",
         entityId: auditEntityId,
         metadata: {
-          outcome: "ok",
+          outcome: hasClarification ? "clarification_needed" : "ok",
           bytes: file.size,
           mimeType: mimeRaw,
           mode: extraction.kind,
@@ -449,6 +528,9 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
           modifierCount: template.modifiers.length,
           lineItemCount: template.lineItems.length,
           hasBasePrice: template.basePrice != null,
+          hasClarification,
+          hasStyling: !!template.styling,
+          clarificationRound: clarificationAnswer ? true : undefined,
         },
         req,
       });
@@ -477,7 +559,13 @@ export function registerAiImageToTemplateRoutes(app: Express): void {
         });
       }
 
-      return res.json({ template });
+      /* Wave 65.1 — include clarification + styling in the response when
+       * present. The client decides what to render based on hasClarification. */
+      return res.json({
+        template,
+        ...(template.clarification ? { clarification: template.clarification } : {}),
+        ...(template.styling ? { styling: template.styling } : {}),
+      });
     },
   );
 

@@ -68,6 +68,25 @@ export interface AIBubbleProps {
 
 /* ─── Persisted state ─── */
 
+/** Wave 65.1 — one answer option the AI returns with a clarification question. */
+interface ClarificationOption {
+  label: string;
+  hint?: string;
+}
+
+/** Wave 65.1 — clarification question the AI returned when it couldn't
+ *  confidently extract pricing. Rendered as quick-reply tappable buttons. */
+interface PendingClarification {
+  question: string;
+  options: ClarificationOption[];
+  /** When the AI returned a best-effort partial template alongside the
+   *  clarification, the client offers a "Use best guess" option that applies it
+   *  immediately without another round-trip. */
+  bestGuessTemplate?: ImageTemplate;
+  /** The original upload source to re-POST when the user picks an option. */
+  originalSource: string | File;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -90,6 +109,9 @@ interface ChatMessage {
   /** BF-5 — when set, render an error retry CTA inline on the assistant
    *  message bubble (image-to-template failure path). */
   imageError?: string;
+  /** Wave 65.1 — when set, render the clarification question + quick-reply
+   *  buttons instead of plain message text. */
+  clarification?: PendingClarification;
 }
 
 /** A destructive tool call (replace_template / apply_template) queued for
@@ -613,7 +635,7 @@ export default function AIBubble(props: AIBubbleProps) {
           (res.status === 401 ? 'Sign in to use the AI assistant.' :
            res.status === 429 ? 'You can only generate 5 templates per hour. Try again later.' :
            res.status === 413 ? 'File is too large — keep images under 5 MB and PDFs/Excel/email under 15 MB.' :
-           'Sorry, I couldn’t read that file. Try a clearer copy or paste your details as text.');
+           'Sorry, I couldn\'t read that file. Try a clearer copy or paste your details as text.');
         setMessages((prev) => prev.map(m =>
           m.id === assistantId
             ? { ...m, buildingTemplate: false, content: '', imageError: message }
@@ -622,7 +644,41 @@ export default function AIBubble(props: AIBubbleProps) {
         return;
       }
 
-      const data = await res.json() as { template: ImageTemplate };
+      const data = await res.json() as {
+        template: ImageTemplate;
+        clarification?: { question: string; options: ClarificationOption[]; reason?: string };
+        styling?: unknown;
+      };
+
+      /* Wave 65.1 — when the AI returned a clarification question, render it
+       * as quick-reply buttons instead of applying a template. The user taps an
+       * option (or types a free-text reply) and we re-POST the same file with
+       * the answer. We pass the best-effort partial template through so the
+       * "Use best guess" button can apply it without another round-trip. */
+      if (data.clarification) {
+        setMessages((prev) => prev.map(m =>
+          m.id === assistantId
+            ? {
+                ...m,
+                buildingTemplate: false,
+                content: '',
+                clarification: {
+                  question: data.clarification!.question,
+                  options: data.clarification!.options,
+                  // If a partial template came alongside the clarification,
+                  // offer a "Use best guess" escape hatch.
+                  bestGuessTemplate:
+                    (data.template?.basePrice != null || (data.template?.lineItems?.length ?? 0) > 0)
+                      ? data.template
+                      : undefined,
+                  originalSource: source,
+                },
+              }
+            : m
+        ));
+        return;
+      }
+
       const cfg = imageTemplateToConfig(data.template);
 
       // Apply directly via the existing `replaceTemplate` setter — same path
@@ -662,7 +718,131 @@ export default function AIBubble(props: AIBubbleProps) {
       } else {
         setMessages((prev) => prev.map(m =>
           m.id === assistantId
-            ? { ...m, buildingTemplate: false, content: '', imageError: 'Sorry, I couldn’t read that file. Try a clearer copy or paste your details as text.' }
+            ? { ...m, buildingTemplate: false, content: '', imageError: "Sorry, I couldn't read that file. Try a clearer copy or paste your details as text." }
+            : m
+        ));
+      }
+    } finally {
+      setSending(false);
+      abortRef.current = null;
+    }
+  }, [sending, props]);
+
+  /* ─── Wave 65.1 — clarification answer handler ───────────────────────────
+   * Called when the user taps a quick-reply option OR sends a free-text reply
+   * while a clarification is pending. Re-POSTs the original file with the
+   * answer so the server can complete the extraction in a second AI call.
+   * The "Use best guess" path applies the partial template without a round-trip.
+   */
+  const onClarificationAnswer = useCallback(async (
+    messageId: string,
+    answer: string,
+    clarification: PendingClarification,
+  ) => {
+    // "Use best guess" — apply the partial template immediately, no round-trip.
+    if (answer === '__best_guess__' && clarification.bestGuessTemplate) {
+      const cfg = imageTemplateToConfig(clarification.bestGuessTemplate);
+      try { props.replaceTemplate(cfg); } catch { /* best-effort */ }
+      setMessages((prev) => prev.map(m =>
+        m.id === messageId
+          ? { ...m, clarification: undefined, content: `Applied best-guess template: "${cfg.name}".` }
+          : m
+      ));
+      return;
+    }
+
+    if (sending) return;
+
+    // Re-POST the original file with the clarification answer attached.
+    setMessages((prev) => prev.map(m =>
+      m.id === messageId
+        ? {
+            ...m,
+            clarification: undefined,
+            content: '',
+            buildingTemplate: true,
+          }
+        : m
+    ));
+    setSending(true);
+    setStreamErr(null);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const form = new FormData();
+      const src = clarification.originalSource;
+      if (src instanceof File) {
+        form.append('image', src, src.name);
+      } else {
+        // Data URL → Blob
+        const match = /^data:(image\/[a-z]+);base64,(.+)$/i.exec(src);
+        let blob: Blob;
+        if (match) {
+          const bin = atob(match[2]);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          blob = new Blob([bytes], { type: match[1] });
+        } else {
+          const r = await fetch(src);
+          blob = await r.blob();
+        }
+        const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
+        form.append('image', blob, `quote.${ext}`);
+      }
+      form.append('clarificationAnswer', answer);
+
+      const res = await fetch('/api/ai/wizard/image-to-template', {
+        method: 'POST',
+        body: form,
+        credentials: 'include',
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        let body: any = null;
+        try { body = await res.json(); } catch {}
+        const message = body?.message || 'Sorry, I couldn\'t extract the pricing. Try again.';
+        setMessages((prev) => prev.map(m =>
+          m.id === messageId
+            ? { ...m, buildingTemplate: false, content: '', imageError: message }
+            : m
+        ));
+        return;
+      }
+
+      const data = await res.json() as { template: ImageTemplate };
+      const cfg = imageTemplateToConfig(data.template);
+      try { props.replaceTemplate(cfg); } catch (err: any) {
+        setStreamErr(`apply failed: ${err?.message ?? err}`);
+      }
+      try {
+        window.dispatchEvent(new CustomEvent('qq-wizard:template-generated', {
+          detail: { source: 'image', raw: data.template, config: cfg },
+        }));
+      } catch { /* best-effort */ }
+
+      const summary = `Got it — built "${cfg.name}" with ${cfg.fields.length} field${cfg.fields.length === 1 ? '' : 's'}.`;
+      setMessages((prev) => prev.map(m =>
+        m.id === messageId
+          ? {
+              ...m,
+              buildingTemplate: false,
+              content: summary,
+              toolChips: [...(m.toolChips ?? []), 'Replaced template from image'],
+            }
+          : m
+      ));
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setMessages((prev) => prev.map(m =>
+          m.id === messageId ? { ...m, buildingTemplate: false, content: 'Cancelled.' } : m
+        ));
+      } else {
+        setMessages((prev) => prev.map(m =>
+          m.id === messageId
+            ? { ...m, buildingTemplate: false, content: '', imageError: 'Sorry, something went wrong. Try again.' }
             : m
         ));
       }
@@ -684,6 +864,22 @@ export default function AIBubble(props: AIBubbleProps) {
       setInput('');
       await onImageToTemplate(src);
       return;
+    }
+
+    // Wave 65.1 — if there's a pending clarification in the last assistant
+    // message and the user typed a free-text reply, route it as the answer.
+    if (trimmed) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.role === 'assistant' && lastMsg.clarification) {
+        setInput('');
+        // Show the user's typed answer as a user bubble first.
+        setMessages((prev) => [
+          ...prev,
+          { id: uid(), role: 'user' as const, content: trimmed },
+        ]);
+        await onClarificationAnswer(lastMsg.id, trimmed, lastMsg.clarification);
+        return;
+      }
     }
 
     const userMsg: ChatMessage = {
@@ -798,7 +994,7 @@ export default function AIBubble(props: AIBubbleProps) {
         m.id === assistantId && m.pendingLabel ? { ...m, pendingLabel: undefined } : m
       ));
     }
-  }, [input, sending, capExceeded, pendingImage, messages, state, props, onImageToTemplate]);
+  }, [input, sending, capExceeded, pendingImage, pendingFile, messages, state, props, onImageToTemplate, onClarificationAnswer]);
 
   /* ─── "Generate with AI" seed-and-autosend (Build-tab card entry point) ───
    * Effect 1: when a NEW seed arrives (nonce changes, > 0) open + un-collapse
@@ -1062,6 +1258,58 @@ export default function AIBubble(props: AIBubbleProps) {
                     >
                       Try again
                     </button>
+                  </div>
+                )}
+                {/* Wave 65.1 — clarification quick-reply card. Rendered as a
+                    question bubble with tappable option chips (chat-style
+                    quick replies; min 44px touch target). The user taps one
+                    to re-POST the original file with the answer. A "Use best
+                    guess" option is offered when the AI returned a partial
+                    template alongside the clarification question. */}
+                {m.role === 'assistant' && m.clarification && (
+                  <div className="qq-ai-clarify" data-testid="aibubble-clarification">
+                    <div className="qq-ai-clarify-q" data-testid="aibubble-clarify-question">
+                      {m.clarification.question}
+                    </div>
+                    <div className="qq-ai-clarify-options" data-testid="aibubble-clarify-options">
+                      {m.clarification.options.map((opt, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className="qq-ai-clarify-opt"
+                          data-testid="aibubble-clarify-opt"
+                          disabled={sending}
+                          onClick={() => {
+                            setMessages((prev) => [
+                              ...prev,
+                              { id: uid(), role: 'user' as const, content: opt.label },
+                            ]);
+                            onClarificationAnswer(m.id, opt.label, m.clarification!);
+                          }}
+                          title={opt.hint}
+                        >
+                          {opt.label}
+                          {opt.hint && <span className="qq-ai-clarify-hint">{opt.hint}</span>}
+                        </button>
+                      ))}
+                      {m.clarification.bestGuessTemplate && (
+                        <button
+                          type="button"
+                          className="qq-ai-clarify-opt qq-ai-clarify-opt-guess"
+                          data-testid="aibubble-clarify-best-guess"
+                          disabled={sending}
+                          onClick={() => {
+                            setMessages((prev) => [
+                              ...prev,
+                              { id: uid(), role: 'user' as const, content: 'Use best guess' },
+                            ]);
+                            onClarificationAnswer(m.id, '__best_guess__', m.clarification!);
+                          }}
+                        >
+                          Use best guess
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
                 {m.content && <div className="qq-ai-msg-text">{m.content}</div>}
@@ -1553,6 +1801,66 @@ export default function AIBubble(props: AIBubbleProps) {
         }
         [data-theme="dark"] .qq-ai-build-retry {
           background: #1e293b; border-color: #7f1d1d; color: #fecaca;
+        }
+
+        /* Wave 65.1 — clarification quick-reply card. */
+        .qq-ai-clarify {
+          display: flex; flex-direction: column; gap: 10px;
+        }
+        .qq-ai-clarify-q {
+          font-size: 13px; font-weight: 600; line-height: 1.45; color: inherit;
+        }
+        .qq-ai-clarify-options {
+          display: flex; flex-direction: column; gap: 6px;
+        }
+        .qq-ai-clarify-opt {
+          /* min 44px touch target for mobile */
+          min-height: 44px;
+          display: flex; flex-direction: column; align-items: flex-start;
+          justify-content: center;
+          padding: 8px 14px;
+          border-radius: 10px;
+          border: 1.5px solid rgba(13, 60, 252, 0.30);
+          background: #fff;
+          color: #0d3cfc;
+          font-size: 13px; font-weight: 600;
+          cursor: pointer; text-align: left;
+          transition: background 120ms ease, border-color 120ms ease;
+        }
+        .qq-ai-clarify-opt:hover:not(:disabled) {
+          background: rgba(13, 60, 252, 0.06);
+          border-color: rgba(13, 60, 252, 0.55);
+        }
+        .qq-ai-clarify-opt:disabled { opacity: 0.5; cursor: not-allowed; }
+        .qq-ai-clarify-opt:focus-visible {
+          outline: 2px solid #0d3cfc; outline-offset: 2px;
+        }
+        /* "Use best guess" is visually de-emphasised — a subtle tertiary option. */
+        .qq-ai-clarify-opt-guess {
+          color: #64748b; border-color: rgba(100, 116, 139, 0.30);
+          font-weight: 500; font-size: 12px; min-height: 36px;
+        }
+        .qq-ai-clarify-opt-guess:hover:not(:disabled) {
+          background: rgba(100, 116, 139, 0.06);
+          border-color: rgba(100, 116, 139, 0.55);
+          color: #475569;
+        }
+        .qq-ai-clarify-hint {
+          font-size: 11px; font-weight: 400; color: #64748b; margin-top: 2px;
+        }
+        [data-theme="dark"] .qq-ai-clarify-opt {
+          background: #1e293b; border-color: rgba(99, 102, 241, 0.40);
+          color: #818cf8;
+        }
+        [data-theme="dark"] .qq-ai-clarify-opt:hover:not(:disabled) {
+          background: rgba(99, 102, 241, 0.10); border-color: rgba(99, 102, 241, 0.70);
+        }
+        [data-theme="dark"] .qq-ai-clarify-opt-guess {
+          color: #94a3b8; border-color: rgba(148, 163, 184, 0.25);
+        }
+        [data-theme="dark"] .qq-ai-clarify-hint { color: #94a3b8; }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-ai-clarify-opt { transition: none; }
         }
 
         .qq-ai-chips {
