@@ -919,9 +919,15 @@ export default function FreeAudit() {
         .audit-hero-island {
           background: #F3EDDF;
           border-radius: 20px;
-          margin: 0 6px;
+          margin: 16px 6px 0;
           position: relative;
           overflow: clip;
+        }
+
+        /* Help-cue ring needs more contrast on the cream island than the
+           default #E5E7EB gives on white surfaces. */
+        .audit-hero-island .qq-info-cue {
+          --info-border: rgba(0, 0, 0, 0.28);
         }
 
         /* ─── Body zone (light, overlaps hero by -20px) ─── */
