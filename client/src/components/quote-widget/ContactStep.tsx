@@ -281,11 +281,11 @@ export default function ContactStep({
         }}
       >
         <p style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>
-          Thanks, {name.split(' ')[0] || 'and'} — we’ll be in touch shortly.
+          Thanks, {name.split(' ')[0] || 'and'} — we'll be in touch shortly.
         </p>
         <p style={{ fontSize: 13, color: theme.textMuted, margin: 0, lineHeight: 1.5 }}>
-          We just sent a copy of this quote to {email.trim()}.
-          {bookingUrl ? ' If you’d like to lock in a time, the booking link is open in a new tab.' : ''}
+          Got it — they have your quote request and will reach out at {email.trim()}.
+          {bookingUrl ? ' The booking link is open in a new tab so you can lock in a time.' : ''}
         </p>
       </div>
     );
@@ -409,7 +409,7 @@ export default function ContactStep({
             ? 'Sending…'
             : emailQuoteLabelHtml
               ? <span dangerouslySetInnerHTML={{ __html: emailQuoteLabelHtml }} />
-              : 'Email me this quote'}
+              : 'Send my quote request'}
           {status !== 'sending' && <span style={{ fontSize: 16 }}>→</span>}
         </button>
 

@@ -1,21 +1,34 @@
 import type { Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import { auditReports } from "@shared/schema";
+import { auditReports, quoteSnapshots, calculators } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import { createLogger } from "./logger";
 import { addGtagToHtml } from "./gtagMiddleware";
+import { isValidSnapshotSlug } from "@shared/quoteSnapshot";
 
 const log = createLogger("OGMiddleware");
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROUTE_RE = /^\/audit\/report\/([0-9a-f-]+)$/i;
+const SNAPSHOT_ROUTE_RE = /^\/q\/([0-9a-z]+)$/i;
+
+/** Default OG image — used for quote snapshot shares (no per-quote generated image). */
+const DEFAULT_OG_IMAGE = "/brand/og-default.png";
 
 /**
- * Express middleware that intercepts `/audit/report/:id` requests,
- * injects Open Graph + Twitter Card meta tags into the HTML shell,
+ * Express middleware that intercepts `/audit/report/:id` and `/q/:slug`
+ * requests, injects Open Graph + Twitter Card meta tags into the HTML shell,
  * and falls through to normal SPA rendering for everything else.
+ *
+ * `/q/:slug` — shared quote snapshot links. Tags use the business name from
+ * the linked calculator. DB lookup is fail-soft: any error or missing row
+ * falls through to the SPA without a 500.
+ *
+ * Hosted calculator pages (`{slug}.your-quote.net`) are served on a
+ * different host, so they cannot be matched by `req.path` here. OG tags
+ * for that surface require a separate vhost middleware; skipped in this PR.
  *
  * Must be registered BEFORE the SPA catch-all handler.
  */
@@ -23,6 +36,13 @@ export function ogTagMiddleware(getHtml: () => Promise<string>) {
   return async (req: Request, res: Response, next: NextFunction) => {
     // Only handle GET requests that match the report route
     if (req.method !== "GET") return next();
+
+    // ── /q/:slug — shared quote snapshot ──
+    const snapshotMatch = SNAPSHOT_ROUTE_RE.exec(req.path);
+    if (snapshotMatch) {
+      return handleSnapshotOg(req, res, next, getHtml, snapshotMatch[1]);
+    }
+
     const match = ROUTE_RE.exec(req.path);
     if (!match) return next();
 
@@ -105,6 +125,91 @@ export function ogTagMiddleware(getHtml: () => Promise<string>) {
       return next(); // fall through to SPA on error
     }
   };
+}
+
+/**
+ * Inject OG tags for a shared quote snapshot link `/q/:slug`.
+ * Fail-soft: any DB error, missing slug, or expired snapshot falls through
+ * to the SPA shell via `next()` — no 500, no blocking.
+ */
+async function handleSnapshotOg(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+  getHtml: () => Promise<string>,
+  slug: string,
+): Promise<void> {
+  // Skip obvious garbage before hitting the DB
+  if (!isValidSnapshotSlug(slug)) return next();
+
+  // Skip JSON API requests
+  const accept = req.headers.accept || "";
+  if (accept.includes("application/json") && !accept.includes("text/html")) {
+    return next();
+  }
+
+  try {
+    const [snapRow] = await db
+      .select({
+        calculator_id: quoteSnapshots.calculator_id,
+        expires_at: quoteSnapshots.expires_at,
+      })
+      .from(quoteSnapshots)
+      .where(eq(quoteSnapshots.snapshot_slug, slug))
+      .limit(1);
+
+    if (!snapRow) return next(); // unknown slug — fall through to SPA (→ 404 state)
+
+    // Expired snapshot — fall through to SPA which shows the "expired" UI
+    if (snapRow.expires_at && new Date(snapRow.expires_at).getTime() < Date.now()) {
+      return next();
+    }
+
+    const [calc] = await db
+      .select({
+        business_name: calculators.business_name,
+        trade_type: calculators.trade_type,
+      })
+      .from(calculators)
+      .where(eq(calculators.id, snapRow.calculator_id))
+      .limit(1);
+
+    const businessName = calc?.business_name || "a local tradesperson";
+
+    const origin = `${req.protocol}://${req.get("host")}`;
+    const url = `${origin}/q/${slug}`;
+    const ogImageUrl = `${origin}${DEFAULT_OG_IMAGE}`;
+
+    const title = `Your quote from ${businessName} | WeFixTrades`;
+    const description = `View your itemised estimate from ${businessName}. Saved quote link — tap to review the breakdown and totals.`;
+
+    const metaTags = [
+      `<meta property="og:type" content="website" />`,
+      `<meta property="og:title" content="${esc(title)}" />`,
+      `<meta property="og:description" content="${esc(description)}" />`,
+      `<meta property="og:url" content="${esc(url)}" />`,
+      `<meta property="og:image" content="${esc(ogImageUrl)}" />`,
+      `<meta property="og:image:width" content="1200" />`,
+      `<meta property="og:image:height" content="630" />`,
+      `<meta property="og:site_name" content="WeFixTrades" />`,
+      `<meta name="twitter:card" content="summary_large_image" />`,
+      `<meta name="twitter:title" content="${esc(title)}" />`,
+      `<meta name="twitter:description" content="${esc(description)}" />`,
+      `<meta name="twitter:image" content="${esc(ogImageUrl)}" />`,
+      `<meta name="description" content="${esc(description)}" />`,
+      `<title>${esc(title)}</title>`,
+    ].join("\n    ");
+
+    let html = await getHtml();
+    html = html.replace(/<title>[^<]*<\/title>/, "");
+    html = html.replace("</head>", `    ${metaTags}\n  </head>`);
+    html = addGtagToHtml(html);
+
+    res.status(200).set({ "Content-Type": "text/html" }).send(html);
+  } catch (err) {
+    log.warn("[og-middleware] snapshot OG lookup failed, falling through", { slug, error: String(err) });
+    return next();
+  }
 }
 
 function esc(s: string): string {

@@ -18,7 +18,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRoute } from 'wouter';
-import { Loader2, SearchX, Pencil, Check, X } from 'lucide-react';
+import { Loader2, SearchX, Pencil, Check, X, Printer } from 'lucide-react';
 import WeFixTradesBadge from '@/components/hosted-page/WeFixTradesBadge';
 import { eff, primaryButtonStyle } from '@/components/quote-widget/designTokens';
 import { OWNER_EDIT_TOKEN_KEY_PREFIX } from '@shared/quoteSnapshot';
@@ -218,7 +218,30 @@ export default function QuoteSnapshotPage() {
 
   return (
     <div data-theme="light" style={pageBgStyle} data-testid="quote-snapshot-page">
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 20px 20px', fontFamily: eff.font, color: eff.text }}>
+      {/* Print stylesheet — hides all chrome; keeps only the branded quote card.
+          Scoped to this page via a <style> tag so nothing else is affected.
+          The .qs-print-root wrapper is re-positioned to the page origin so
+          A4/Letter crops cleanly. nav/buttons/footer are .qs-no-print. */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          .qs-print-root, .qs-print-root * { visibility: visible !important; }
+          .qs-print-root {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 24px !important;
+            background: #fff !important;
+            box-shadow: none !important;
+            border: 0 !important;
+          }
+          .qs-no-print { display: none !important; }
+          @page { margin: 14mm; }
+        }
+      `}</style>
+      <div className="qs-print-root" style={{ maxWidth: 640, margin: '0 auto', padding: '40px 20px 20px', fontFamily: eff.font, color: eff.text }}>
         {/* Header — calculator branding */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
           {calculator.logo_url && (
@@ -238,6 +261,27 @@ export default function QuoteSnapshotPage() {
               </p>
             )}
           </div>
+        </div>
+
+        {/* Download / print CTA — hidden on print itself */}
+        <div className="qs-no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <button
+            type="button"
+            data-testid="snapshot-print-button"
+            onClick={() => window.print()}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 13, fontWeight: 600, color: accent,
+              background: `${accent}14`,
+              border: `1px solid ${accent}33`,
+              borderRadius: eff.radiusMd,
+              padding: '8px 14px',
+              cursor: 'pointer', fontFamily: eff.font,
+            }}
+          >
+            <Printer style={{ width: 14, height: 14 }} />
+            Download PDF / Print
+          </button>
         </div>
 
         {/* Quote card */}
@@ -278,6 +322,7 @@ export default function QuoteSnapshotPage() {
                 type="button"
                 onClick={() => setEditing(true)}
                 data-testid="snapshot-edit-button"
+                className="qs-no-print"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   fontSize: 13, fontWeight: 600, color: accent,
@@ -333,7 +378,7 @@ export default function QuoteSnapshotPage() {
           )}
 
           {editing && (
-            <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+            <div className="qs-no-print" style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={handleSave}
@@ -376,9 +421,9 @@ export default function QuoteSnapshotPage() {
           )}
         </div>
 
-        {/* Read-only notice for the customer */}
+        {/* Read-only notice for the customer — UI chrome only, hidden on print */}
         {!canEdit && (
-          <p style={{ fontSize: 13, color: eff.textBody, textAlign: 'center', margin: '18px 0 0', lineHeight: 1.5 }}>
+          <p className="qs-no-print" style={{ fontSize: 13, color: eff.textBody, textAlign: 'center', margin: '18px 0 0', lineHeight: 1.5 }}>
             This is your saved quote. The contractor can update values; refresh to see changes.
           </p>
         )}
