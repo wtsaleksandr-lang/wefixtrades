@@ -21,6 +21,7 @@ import PremiumStackOrbit from "@/components/marketing/showcase/PremiumStackOrbit
 import EfficientOnboarding from "@/components/marketing/showcase/EfficientOnboarding";
 import BenefitsGrid from "@/components/marketing/showcase/BenefitsGrid";
 
+import HeroFlywheel from "@/components/marketing/showcase/HeroFlywheel";
 import AdFlowIllustration from "@/components/marketing/illustrations/AdFlowIllustration";
 import RankFlowIllustration from "@/components/marketing/illustrations/RankFlowIllustration";
 import MapGuardIllustration from "@/components/marketing/illustrations/MapGuardIllustration";
@@ -88,7 +89,7 @@ export default function DesignShowcase() {
             maxWidth: 540, margin: "0 auto",
             fontSize: 16, lineHeight: 1.55, color: mkt.onDarkMuted,
           }}>
-            Eight composition cards + four product illustrations. Pick where each lands on the public site.
+            Eight composition cards + four product illustrations + the Hero Flywheel. Pick where each lands on the public site.
           </p>
         </section>
 
@@ -142,6 +143,18 @@ export default function DesignShowcase() {
 
         <Section label="12 · WeFixTrades Laptop Hero">
           <IllustrationFrame><WeFixTradesLaptopHero size={1080} /></IllustrationFrame>
+        </Section>
+
+        <Section label="13 · Hero Flywheel">
+          <div style={{
+            padding: "32px 24px",
+            background: mkt.bg,
+            display: "flex", justifyContent: "center",
+          }}>
+            <div style={{ maxWidth: 1100, width: "100%" }}>
+              <HeroFlywheel />
+            </div>
+          </div>
         </Section>
 
         <div style={{ padding: "60px 24px 100px" }} />

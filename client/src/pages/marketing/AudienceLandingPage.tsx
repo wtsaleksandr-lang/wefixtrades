@@ -28,6 +28,7 @@ import { Reveal, MONO, SANS } from "@/components/effortel-blocks";
 import { mkt } from "@/theme/tokens";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { SITE_URL } from "@/lib/seo/pageMeta";
+import HeroFlywheel from "@/components/marketing/showcase/HeroFlywheel";
 
 export interface ValueProp {
   icon: LucideIcon;
@@ -240,6 +241,55 @@ export default function AudienceLandingPage(props: AudienceLandingPageProps) {
             </V7Container>
           </V7Section>
         )}
+
+        {/* Flywheel — every product feeds the next. Shown below the
+           recommended-stack cards so the visitor sees the individual
+           products first, then understands how they compound together. */}
+        <V7Section padding="72px">
+          <V7Container maxWidth={1100}>
+            <Reveal>
+              <div style={{ textAlign: "center", marginBottom: 32 }}>
+                <p
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 11,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: mkt.accent,
+                    marginBottom: 12,
+                  }}
+                >
+                  The compounding loop
+                </p>
+                <h2
+                  style={{
+                    fontSize: "clamp(26px, 3.5vw, 38px)",
+                    fontWeight: 700,
+                    color: mkt.onDark,
+                    margin: "0 0 12px",
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1.15,
+                    fontFamily: SANS,
+                  }}
+                >
+                  Every product feeds the next.
+                </h2>
+                <p
+                  style={{
+                    fontSize: 15,
+                    color: mkt.onDarkMuted,
+                    margin: "0 auto",
+                    maxWidth: 560,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Each tool amplifies the others — one review becomes three new leads.
+                </p>
+              </div>
+              <HeroFlywheel />
+            </Reveal>
+          </V7Container>
+        </V7Section>
 
         {/* Wave 3.5 — recommended free tools. */}
         {recommendedFreeTools && recommendedFreeTools.length > 0 && (
