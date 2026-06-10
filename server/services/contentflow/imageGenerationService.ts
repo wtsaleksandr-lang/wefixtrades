@@ -548,6 +548,16 @@ export async function generateForDraft(
          * publish flow has SOMETHING to use — un-processed beats no image. */
         if (!finalUrl && apiResult.url) finalUrl = apiResult.url;
       }
+    } else {
+      /* R2 is not configured at all → no object-storage host, so we return
+       * the provider's ephemeral URL (~1h TTL) unchanged. Behaviour is
+       * unchanged (the real fix is configuring R2 creds — an ops task); we
+       * just make the previously-silent fallback loudly visible so ops can
+       * see that published images may expire. */
+      logger.warn(
+        `[contentflow][image-gen] draft=${draftId} R2 not configured — returning ephemeral provider URL that may expire (~1h TTL)`,
+        { draftId, provider, hasUrl: !!finalUrl },
+      );
     }
 
     /* b64 response + R2 failed = no hostable URL. Fail cleanly instead
