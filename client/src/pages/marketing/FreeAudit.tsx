@@ -359,7 +359,7 @@ function AuditFaqSection() {
 }
 
 /* ─── Section RIGHT: Decorative mock report card ─── */
-function AuditMockReportCard({ onCtaClick }: { onCtaClick: () => void }) {
+function AuditMockReportCard() {
   // Animate bars on mount
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -501,26 +501,30 @@ function AuditMockReportCard({ onCtaClick }: { onCtaClick: () => void }) {
         ))}
       </div>
 
-      {/* Footer CTA */}
-      <button
-        onClick={onCtaClick}
+      {/* Footer summary strip — non-interactive report chrome. The card is
+          decorative (aria-hidden); a clickable CTA here duplicated the hero's
+          primary CTA and was an a11y trap (interactive child of aria-hidden). */}
+      <div
         style={{
           marginTop: 14,
-          width: "100%",
-          padding: "9px 14px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          padding: "9px 12px",
           borderRadius: 10,
-          border: "none",
-          background: mkt.accent,
-          color: "#fff",
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: "pointer",
-          transition: "background 0.15s",
-          letterSpacing: "0.01em",
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.08)",
         }}
       >
-        Run your free audit →
-      </button>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#D97706", flexShrink: 0 }} />
+          4 priority fixes found
+        </span>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 500, flexShrink: 0 }}>
+          Full plan inside
+        </span>
+      </div>
     </div>
   );
 }
@@ -889,12 +893,6 @@ export default function FreeAudit() {
 
   const currentStep = busyStep(busy);
   const reportReady = !!report;
-
-  // Smooth-scroll handler for the mock card CTA
-  const scrollToSearch = useCallback(() => {
-    searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setTimeout(() => inputRef.current?.focus(), 400);
-  }, []);
 
   return (
     <MarketingLayout>
@@ -1548,7 +1546,7 @@ export default function FreeAudit() {
             {/* RIGHT column — mock report card */}
             {!reportReady && (
               <div className="audit-hero-right" style={{ display: "flex", justifyContent: "flex-end", overflow: "clip" }}>
-                <AuditMockReportCard onCtaClick={scrollToSearch} />
+                <AuditMockReportCard />
               </div>
             )}
           </div>
