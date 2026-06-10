@@ -284,6 +284,7 @@ async function searchViaAutocomplete(
       includedPrimaryTypes: ["establishment"],
       languageCode: "en",
       regionCode: regionCode.toUpperCase(),
+      includedRegionCodes: ["ca", "us"],
     };
 
     // Add location bias: circle around user's detected coordinates (50km radius)
@@ -1166,6 +1167,13 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
     log.warn("[E1 Outscraper competitors] OUTSCRAPER_API_KEY not set, skipping");
     return null;
   }
+  // Cache check: skip Outscraper entirely on a hit (24h TTL, non-empty arrays only).
+  const compCacheKey = `competitors:${trade.toLowerCase().trim()}:${city.toLowerCase().trim()}`;
+  const cachedComp = getCached(compCacheKey);
+  if (cachedComp) {
+    log.info("[E1 Outscraper competitors] cache hit", { detail: compCacheKey });
+    return cachedComp;
+  }
   const locationLabel = stateCode ? `${city}, ${stateCode}` : city;
   const competitorQuery = `${trade} near ${locationLabel}`;
   log.info('[outscraper] query:', { detail: competitorQuery });
@@ -1203,7 +1211,7 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
   let rawResults = data?.data;
   if (data?.status === 'Pending' && data?.results_location) {
     log.info('[E1 Outscraper competitors] Got 202 Pending, polling:', data.results_location);
-    rawResults = await pollOutscraper(data.results_location, 15000);
+    rawResults = await pollOutscraper(data.results_location, 30000);
   }
   const results = Array.isArray(rawResults) ? rawResults.flat() : (Array.isArray(data) ? data.flat() : []);
   log.info("[E1 Outscraper competitors] Parsed results count:", { detail: results.length });
@@ -1239,7 +1247,13 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
   const areaAverageRating = allRatings.length > 0 ? +(allRatings.reduce((a: number, b: number) => a + b, 0) / allRatings.length).toFixed(2) : 0;
   const areaAverageReviews = allReviews.length > 0 ? Math.round(allReviews.reduce((a: number, b: number) => a + b, 0) / allReviews.length) : 0;
   const marketLeader = competitors.reduce((best: any, c: any) => (!best || c.score > best.score) ? c : best, null);
-  return { competitors, areaAverageRating, areaAverageReviews, marketLeader };
+  const output = { competitors, areaAverageRating, areaAverageReviews, marketLeader };
+  // Cache only non-empty competitor arrays to avoid persisting failed/empty fetches.
+  if (competitors.length > 0) {
+    setCached(compCacheKey, output);
+    log.info("[E1 Outscraper competitors] cached:", { arg0: competitors.length, arg1: "competitors for key", arg2: compCacheKey });
+  }
+  return output;
 }
 
 /* ─── E2: Outscraper Reviews Intelligence ─── */
@@ -2495,7 +2509,10 @@ router.post("/generate", async (req: Request, res: Response) => {
     // keywords — E4 is chained onto the serper promise but runs alongside
     // competitors (E1), reviews (E2) and website QA. Net gather wall-clock
     // ≈ max(E1, E2, E3+E4, QA) instead of E3 + max(E1,E2,E4,QA).
-    const GATHER_DEADLINE_MS = 50000;
+    // 55s here: E1 worst case = 20s withSignal fetch + 30s poll = 50s; 55s gives
+    // 5s margin. Total: 55s gather + ~30s Sonnet + ~5s DB ≈ 90s — just under the
+    // 90s client abort and well under the Cloudflare 524 edge ceiling of ~100s.
+    const GATHER_DEADLINE_MS = 55000;
 
     // E3 → E4 chain. fetchSerperRankings swallows its own per-keyword
     // errors and returns null on total failure, so this never rejects in

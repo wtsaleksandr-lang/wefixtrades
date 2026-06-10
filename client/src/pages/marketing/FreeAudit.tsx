@@ -313,6 +313,7 @@ export default function FreeAudit() {
   const [locationHint, setLocationHint] = useState<string | null>(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [searchDone, setSearchDone] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   // BG-3 fix 1: keyboard navigation through predictions. Tracks which
   // suggestion row is currently highlighted by arrow keys; -1 means none.
@@ -464,6 +465,7 @@ export default function FreeAudit() {
       .then((d) => {
         setPredictions(d.predictions || []);
         setLocationHint(d.locationHint || null);
+        setSearchFailed(false);
         setSearchDone(true);
         setDropdownOpen(true);
         // Reset highlight whenever a new list lands.
@@ -473,6 +475,7 @@ export default function FreeAudit() {
         console.error("[Audit] Search failed:", e);
         setError(e.message || "Search failed");
         setPredictions([]);
+        setSearchFailed(true);
         setSearchDone(true);
         setDropdownOpen(true);
         setHighlightedIndex(-1);
@@ -1129,7 +1132,7 @@ export default function FreeAudit() {
                       color: "rgba(0,0,0,0.50)",
                       textAlign: "center",
                     }}>
-                      No businesses found — try adding your city name
+                      {searchFailed ? "Search hiccup — try again" : "No businesses found — try adding your city name"}
                     </div>
                   ) : (
                     <div style={{ maxHeight: 320, overflowY: "auto" }}>

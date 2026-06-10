@@ -215,17 +215,19 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
           }}/>
         )}
         <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'relative', zIndex: 1 }}>
-          {/* Background track */}
-          <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8"/>
-          {/* Score fill arc */}
-          <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
-            strokeDasharray={`${fill} ${circ - fill}`}
-            strokeLinecap="round" transform="rotate(-90 60 60)"/>
-          {/* Animated sweep overlay — only while refining */}
+          {/* Background track — segmented tick marks */}
+          <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="6"
+            strokeDasharray="4 6" strokeLinecap="butt" transform="rotate(-90 60 60)"/>
+          {/* Score fill arc — segmented ticks over the filled fraction */}
+          <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="6"
+            strokeDasharray="4 6"
+            strokeDashoffset={circ - fill}
+            strokeLinecap="butt" transform="rotate(-90 60 60)"/>
+          {/* Animated sweep overlay — segmented so it doesn't solid-cover the ticks */}
           {isRefining && (
             <circle className="score-sweep" cx="60" cy="60" r={r} fill="none"
-              stroke={color} strokeWidth="8" strokeLinecap="round"
-              strokeDasharray={`${sweepLen} ${circ - sweepLen}`}
+              stroke={color} strokeWidth="6" strokeLinecap="butt"
+              strokeDasharray="4 6"
               transform="rotate(-90 60 60)"
               opacity={0.35}
               style={{ animation: 'scoreSweep 2s linear infinite' }}/>
