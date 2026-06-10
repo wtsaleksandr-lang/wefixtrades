@@ -3085,6 +3085,19 @@
 }
 
 
+/* Dropdown footer CTA pill — hover brightens bg + border toward accent tint.
+   @media (prefers-reduced-motion: reduce) skips the transition. */
+.mkt-dropdown-footer-pill:hover,
+.mkt-dropdown-footer-pill:focus-visible {
+  background: rgba(13, 60, 252, 0.15);
+  border-color: rgba(13, 60, 252, 0.40);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mkt-dropdown-footer-pill {
+    transition: none !important;
+  }
+}
+
 /* ═══════════════════════════════════════════════════
    NAV BUTTON — SERVICES (dark) style
    Extracted from effortel.com DevTools.

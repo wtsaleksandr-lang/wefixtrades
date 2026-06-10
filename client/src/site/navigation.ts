@@ -67,6 +67,10 @@ export type NavItem = {
    *  the Free Tools entry (Wave 14) so the navbar item unfolds inline
    *  while /free-tools stays the canonical hub for SEO + full detail. */
   subgroups?: NavSubgroup[];
+  /** Optional CTA links rendered as pill buttons in a footer strip at the
+   *  bottom of the dropdown tray (desktop only). Not used on Free Tools
+   *  (has its own mega-panel) or Resources. */
+  footer?: { label: string; href: string }[];
 };
 
 /**
@@ -92,7 +96,6 @@ export const NAV_LINKS: NavItem[] = [
     href: "/products/tradeline",
     children: [
       { label: "MapGuard Suite\u2122", href: "/mapguard-suite", description: "Local SEO platform \u2014 4 paid products.", icon: "mapPinned" },
-      { label: "MapGuard\u2122", href: "/products/mapguard", description: "Managed Google Maps visibility.", icon: "mapPinned" },
       { label: "Citation Tracker", href: "/citation-tracker", description: "Monitor citations across directories.", icon: "search" },
       { label: "Citation Builder", href: "/citation-builder", description: "One-time citation submission service.", icon: "layers" },
       { label: "24/7 TradeLine\u2122", href: "/products/tradeline", description: "Always-on lead handling system.", icon: "workflow" },
@@ -105,6 +108,10 @@ export const NAV_LINKS: NavItem[] = [
       { label: "WebCare\u2122", href: "/products/webcare", description: "Website maintenance & monitoring.", icon: "wrench" },
       { label: "WebFix\u2122", href: "/products/webfix", description: "One-time website fixes.", icon: "hammer" },
       { label: "AdFlow\u2122", href: "/products/adflow", description: "Managed ad campaigns.", icon: "target" },
+    ],
+    footer: [
+      { label: "Compare all products", href: "/products" },
+      { label: "See pricing", href: "/pricing" },
     ],
   },
   {
@@ -174,6 +181,9 @@ export const NAV_LINKS: NavItem[] = [
       { label: "For Remodelers", href: "/solutions/for-remodelers", description: "Turn inquiries into projects.", icon: "hammer" },
       { label: "For General Contractors", href: "/solutions/for-general-contractors", description: "Organize leads & follow-ups.", icon: "building2" },
     ],
+    footer: [
+      { label: "Compare products for your trade", href: "/products" },
+    ],
   },
   // Wave 11D D5 — top-level "Free Audit" entry removed; the audit now lives
   // as one entry inside the Free Tools hub (/free-tools, with sections for
@@ -189,6 +199,9 @@ export const NAV_LINKS: NavItem[] = [
     children: [
       { label: "Quote Calculators", href: "/templates", description: "Instant-quote calculator templates by trade.", icon: "calculator" },
       { label: "AI Receptionists", href: "/ai-receptionists", description: "Ready-made AI phone & chat receptionists by trade.", icon: "phoneCall" },
+    ],
+    footer: [
+      { label: "Browse all templates", href: "/templates" },
     ],
   },
   { label: "Pricing", href: "/pricing" },

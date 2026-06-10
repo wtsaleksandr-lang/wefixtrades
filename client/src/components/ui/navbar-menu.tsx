@@ -73,6 +73,7 @@ export const MenuItem = ({
   href,
   children,
   subgroups,
+  footer,
   placement = "below",
 }: {
   setActive: (item: string | null) => void;
@@ -84,6 +85,10 @@ export const MenuItem = ({
    *  (FreeToolsMegaPanel) instead of the default icon-grid. Used by the
    *  Free Tools nav item so the navbar unfolds inline. */
   subgroups?: NavSubgroup[];
+  /** Optional wayfinding pills rendered as a full-width row below the
+   *  card grid (hairline separator above). Data-driven from
+   *  navigation.ts so each dropdown declares its own CTAs. */
+  footer?: { label: string; href: string }[];
   /** Where the dropdown panel renders relative to the trigger row.
    *  "below" (default) is used by the top nav; "above" is used by the
    *  bottom sticky toolbar so the panel rises from the bar instead. */
@@ -193,7 +198,18 @@ export const MenuItem = ({
                 display: item === "Tools" || hasSubgroups ? "block" : "grid",
                 ...(item === "Tools" || hasSubgroups
                   ? {}
-                  : { gridTemplateColumns: "repeat(3, 1fr)", gridAutoFlow: "row", gap: 8 }),
+                  : {
+                      // Under-filled trays (1-2 cards, e.g. Templates)
+                      // center as fixed-width columns instead of
+                      // left-aligning inside an empty 3-col grid.
+                      gridTemplateColumns:
+                        (children?.length ?? 0) <= 2
+                          ? `repeat(${children?.length ?? 1}, minmax(220px, 340px))`
+                          : "repeat(3, 1fr)",
+                      justifyContent: "center",
+                      gridAutoFlow: "row",
+                      gap: 8,
+                    }),
                 boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
               }}
             >
@@ -269,6 +285,46 @@ export const MenuItem = ({
                     ),
                   )}
                 </motion.div>
+              )}
+              {footer && footer.length > 0 && !hasSubgroups && item !== "Tools" && (
+                /* Wayfinding footer pills — span the full grid width with a
+                   hairline separator. Hover styling via
+                   .mkt-dropdown-footer-pill (index.css). */
+                <div
+                  style={{
+                    gridColumn: "1 / -1",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    marginTop: 6,
+                    paddingTop: 12,
+                    borderTop: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  {footer.map((f) => (
+                    <Link
+                      key={f.href + f.label}
+                      href={f.href}
+                      className="mkt-dropdown-footer-pill"
+                      onClick={() => setActive(null)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        minHeight: 36,
+                        padding: "8px 16px",
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: mkt.onDark,
+                        textDecoration: "none",
+                      }}
+                    >
+                      {f.label}
+                    </Link>
+                  ))}
+                </div>
               )}
             </motion.div>
           </motion.div>,
