@@ -9,7 +9,7 @@ import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import TrustStrip from "@/components/marketing/TrustStrip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { colors, mkt } from "@/theme/tokens";
-import { Search, CheckCircle2, Calculator, ArrowRight, ChevronDown } from "lucide-react";
+import { Search, CheckCircle2, Calculator, ArrowRight, ChevronDown, MapPin, Gauge, Users } from "lucide-react";
 import ReportView from "./ReportView";
 import AuditGate from "@/components/marketing/AuditGate";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -133,18 +133,22 @@ const AUDIT_SECTIONS = [
   {
     heading: "What Does the Google Business Profile Audit Check?",
     text: "We analyze your Google Business Profile for completeness — categories, business hours, photos, description, and review health. Missing or outdated information hurts your ranking in the local map pack and costs you visibility when customers search for your trade.",
+    icon: MapPin,
   },
   {
     heading: "Website Speed & Mobile Analysis",
     text: "Your website is tested against Google PageSpeed benchmarks. We check load time, mobile responsiveness, and Core Web Vitals. Slow websites lose customers — 53% of mobile visitors leave if a page takes more than 3 seconds to load.",
+    icon: Gauge,
   },
   {
     heading: "Competitor Comparison",
     text: "The audit benchmarks your business against nearby competitors in your trade. You'll see how your review count, rating, and profile completeness stack up — so you know exactly where you're falling behind and what to fix first.",
+    icon: Users,
   },
   {
     heading: "Who Is This For?",
     text: "This tool is built for trade businesses — plumbers, electricians, HVAC technicians, roofers, cleaners, painters, landscapers, and more. If your customers find you through Google Maps or local search, this audit shows you what's working and what's not.",
+    icon: CheckCircle2,
   },
 ];
 
@@ -175,122 +179,348 @@ const AUDIT_FAQ_ITEMS = [
   },
 ];
 
-function AuditStaticSections() {
+/* ─── Section B: Feature Grid ─── */
+function AuditFeatureGrid() {
   return (
-    <div data-theme="light" style={{
-      maxWidth: 480,
-      margin: "0 auto",
-      marginTop: 48,
-      paddingTop: 32,
-      borderTop: "1px solid rgba(0,0,0,0.07)",
+    <div style={{
+      background: "#F8FAFC",
+      padding: "64px 24px",
     }}>
-      {AUDIT_SECTIONS.map((section, i) => (
-        <div key={i} style={{ marginBottom: 28 }}>
-          <h2 style={{
-            fontSize: "clamp(18px, 2.5vw, 22px)",
-            fontWeight: 700,
-            color: "#1E1E1E",
-            lineHeight: 1.2,
-            letterSpacing: "-0.01em",
-            margin: "0 0 8px",
-          }}>
-            {section.heading}
-          </h2>
-          <p style={{
-            fontSize: 14,
-            color: "rgba(0,0,0,0.55)",
-            lineHeight: 1.7,
-            margin: 0,
-          }}>
-            {section.text}
-          </p>
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+        <h2 style={{
+          fontSize: "clamp(24px,3vw,32px)",
+          fontWeight: 700,
+          color: "#1E1E1E",
+          letterSpacing: "-0.02em",
+          lineHeight: 1.2,
+          textAlign: "center",
+          marginBottom: 32,
+        }}>
+          What the Audit Checks
+        </h2>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0,1fr))",
+          gap: 16,
+        }}
+          className="audit-feature-grid"
+        >
+          {AUDIT_SECTIONS.map((section, i) => {
+            const Icon = section.icon;
+            return (
+              <div key={i} style={{
+                background: "rgba(255,255,255,0.78)",
+                border: "1px solid rgba(0,0,0,0.07)",
+                borderRadius: 16,
+                padding: 24,
+              }}>
+                <div style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: "rgba(13,60,252,0.07)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 12,
+                }}>
+                  <Icon size={16} color={mkt.accent} strokeWidth={1.8} />
+                </div>
+                <h3 style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#1E1E1E",
+                  lineHeight: 1.3,
+                  letterSpacing: "-0.01em",
+                  margin: "0 0 8px",
+                }}>
+                  {section.heading}
+                </h3>
+                <p style={{
+                  fontSize: 14,
+                  color: "rgba(0,0,0,0.55)",
+                  lineHeight: 1.65,
+                  margin: 0,
+                }}>
+                  {section.text}
+                </p>
+              </div>
+            );
+          })}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
 
+/* ─── Section C: FAQ — 2 columns ─── */
 function AuditFaqSection() {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const faqSchemaItems = useMemo(() => AUDIT_FAQ_ITEMS.map(f => ({ question: f.question, answer: f.answer })), []);
   useFaqSchema(faqSchemaItems);
 
+  // Split FAQ into 2 columns: items 0-2 left, 3-5 right
+  const leftItems = AUDIT_FAQ_ITEMS.slice(0, 3);
+  const rightItems = AUDIT_FAQ_ITEMS.slice(3);
+  const leftStartIdx = 0;
+  const rightStartIdx = 3;
+
+  const renderAccordion = (item: typeof AUDIT_FAQ_ITEMS[0], idx: number) => {
+    const isOpen = openIdx === idx;
+    return (
+      <div key={idx} style={{
+        background: "rgba(255,255,255,0.78)",
+        border: "1px solid rgba(0,0,0,0.08)",
+        borderRadius: 12,
+        overflow: "clip",
+        marginBottom: 6,
+      }}>
+        <button
+          onClick={() => setOpenIdx(isOpen ? null : idx)}
+          aria-expanded={isOpen}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "14px 16px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: isOpen ? "#111827" : "rgba(0,0,0,0.55)",
+            fontSize: 14,
+            fontWeight: 600,
+            textAlign: "left",
+            lineHeight: 1.4,
+            transition: "color 0.15s",
+          }}
+        >
+          <span>{item.question}</span>
+          <ChevronDown
+            size={14}
+            color="rgba(0,0,0,0.3)"
+            style={{
+              flexShrink: 0,
+              transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s ease",
+            }}
+          />
+        </button>
+        {isOpen && (
+          <div style={{
+            padding: "0 16px 14px",
+            fontSize: 13,
+            color: "rgba(0,0,0,0.48)",
+            lineHeight: 1.65,
+          }}>
+            {item.answer}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={{
-      maxWidth: 480,
-      margin: "0 auto",
-      marginTop: 36,
-      paddingTop: 28,
-      borderTop: "1px solid rgba(0,0,0,0.07)",
+      background: "#F8FAFC",
+      padding: "0 24px 64px",
     }}>
-      <h2 style={{
-        fontSize: "clamp(20px, 3vw, 26px)",
-        fontWeight: 700,
-        color: "#1E1E1E",
-        letterSpacing: "-0.02em",
-        lineHeight: 1.15,
-        margin: "0 0 16px",
-        textAlign: "center",
-      }}>
-        Frequently Asked Questions
-      </h2>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {AUDIT_FAQ_ITEMS.map((item, i) => {
-          const isOpen = openIdx === i;
-          return (
-            <div key={i} style={{
-              background: "rgba(255,255,255,0.78)",
-              border: "1px solid rgba(0,0,0,0.08)",
-              borderRadius: 12,
-              overflow: "clip",
-            }}>
-              <button
-                onClick={() => setOpenIdx(isOpen ? null : i)}
-                aria-expanded={isOpen}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  padding: "14px 16px",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: isOpen ? "#111827" : "rgba(0,0,0,0.55)",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  textAlign: "left",
-                  lineHeight: 1.4,
-                  transition: "color 0.15s",
-                }}
-              >
-                <span>{item.question}</span>
-                <ChevronDown
-                  size={14}
-                  color="rgba(0,0,0,0.3)"
-                  style={{
-                    flexShrink: 0,
-                    transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    transition: "transform 0.2s ease",
-                  }}
-                />
-              </button>
-              {isOpen && (
-                <div style={{
-                  padding: "0 16px 14px",
-                  fontSize: 13,
-                  color: "rgba(0,0,0,0.48)",
-                  lineHeight: 1.65,
-                }}>
-                  {item.answer}
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+        <h2 style={{
+          fontSize: "clamp(22px,2.5vw,28px)",
+          fontWeight: 700,
+          color: "#1E1E1E",
+          letterSpacing: "-0.02em",
+          lineHeight: 1.15,
+          margin: "0 0 20px",
+          textAlign: "left",
+        }}>
+          Frequently Asked Questions
+        </h2>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0,1fr))",
+          gap: 12,
+          alignItems: "start",
+        }}
+          className="audit-faq-grid"
+        >
+          <div>
+            {leftItems.map((item, i) => renderAccordion(item, leftStartIdx + i))}
+          </div>
+          <div>
+            {rightItems.map((item, i) => renderAccordion(item, rightStartIdx + i))}
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Section RIGHT: Decorative mock report card ─── */
+function AuditMockReportCard({ onCtaClick }: { onCtaClick: () => void }) {
+  // Animate bars on mount
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  const rows = [
+    { label: "GBP Health", score: 58, color: "#D97706" },
+    { label: "Site Speed", score: 44, color: "#EF4444" },
+    { label: "Reviews", score: 72, color: "#22C55E" },
+    { label: "vs Competitors", score: 61, color: "#D97706" },
+  ];
+
+  return (
+    <div
+      aria-hidden="true"
+      data-theme="dark"
+      style={{
+        background: "#0d1514",
+        borderRadius: 20,
+        boxShadow: "0 24px 64px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.3)",
+        padding: "20px 20px 16px",
+        width: "100%",
+        maxWidth: 340,
+        boxSizing: "border-box",
+        // rotation handled per spec; no rotation on mobile via CSS class
+        transform: "rotate(1.5deg)",
+      }}
+      className="audit-mock-card"
+    >
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div style={{
+          width: 36,
+          height: 36,
+          borderRadius: "50%",
+          background: mkt.accent,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 16,
+          fontWeight: 700,
+          color: "#fff",
+          flexShrink: 0,
+        }}>
+          M
+        </div>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#F9F9F9", lineHeight: 1.2 }}>
+            Mike's Plumbing Co.
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.50)", marginTop: 2 }}>
+            Austin, TX
+          </div>
+        </div>
+      </div>
+
+      {/* Grade — static SVG ring style (score 68, grade C, amber) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
+          <svg width="56" height="56" viewBox="0 0 56 56" style={{ transform: "rotate(-90deg)" }}>
+            {/* Track */}
+            <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="5" />
+            {/* Fill — 68% = 138.23 of 138.23*100/100 circumference */}
+            <circle
+              cx="28" cy="28" r="22"
+              fill="none"
+              stroke="#D97706"
+              strokeWidth="5"
+              strokeDasharray="138.23"
+              strokeDashoffset={mounted ? 138.23 * (1 - 68 / 100) : 138.23}
+              strokeLinecap="round"
+              style={{ transition: "stroke-dashoffset 1.2s ease" }}
+            />
+          </svg>
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#D97706",
+          }}>
+            68
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#D97706", letterSpacing: "-0.02em", lineHeight: 1 }}>
+            C
+          </div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.40)", marginTop: 2 }}>
+            Overall score
+          </div>
+        </div>
+      </div>
+
+      {/* Score rows */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+        {rows.map((row, i) => (
+          <div key={i}>
+            {i > 0 && (
+              <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "0" }} />
+            )}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "8px 0",
+              gap: 10,
+            }}>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.60)", fontWeight: 500, flexShrink: 0 }}>
+                {row.label}
+              </span>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{
+                  flex: 1,
+                  height: 4,
+                  borderRadius: 4,
+                  background: "rgba(255,255,255,0.08)",
+                  overflow: "hidden",
+                }}>
+                  <div style={{
+                    height: "100%",
+                    background: row.color,
+                    borderRadius: 4,
+                    width: mounted ? `${row.score}%` : "0%",
+                    transition: "width 1.2s ease",
+                  }} />
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: row.color, flexShrink: 0, width: 24, textAlign: "right" }}>
+                  {row.score}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer CTA */}
+      <button
+        onClick={onCtaClick}
+        style={{
+          marginTop: 14,
+          width: "100%",
+          padding: "9px 14px",
+          borderRadius: 10,
+          border: "none",
+          background: mkt.accent,
+          color: "#fff",
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: "pointer",
+          transition: "background 0.15s",
+          letterSpacing: "0.01em",
+        }}
+      >
+        Run your free audit →
+      </button>
     </div>
   );
 }
@@ -335,6 +565,9 @@ export default function FreeAudit() {
 
   const lastTradeRef = useRef<string>('');
   const [prefillTrade, setPrefillTrade] = useState<string | null>(null);
+
+  // Ref for the search input card — used by the mock card CTA smooth-scroll
+  const searchCardRef = useRef<HTMLDivElement>(null);
 
   // Read ?prefill=<trade> from the URL on mount and seed lastTradeRef so
   // the first audit run uses it as the tradeOverride. The audit form has
@@ -520,7 +753,7 @@ export default function FreeAudit() {
     const placeId = (pred.place_id || "").trim();
     try {
       setError(null);
-      setBusy("Fetching business details\u2026");
+      setBusy("Fetching business details…");
       setReport(null);
       setPredictions([]);
       setDropdownOpen(false);
@@ -534,20 +767,20 @@ export default function FreeAudit() {
         "/api/audit/place-details",
         body
       );
-      // Show the middle "Analyzing\u2026" step (step 2 of 3) while the server
-      // gathers competitors / reviews / keywords \u2014 the longest phase \u2014
-      // then advance to "Generating report\u2026" (step 3) for the AI narrative.
-      setBusy("Analyzing competitors, reviews, and search rankings\u2026");
-      const toGenerating = setTimeout(() => setBusy("Generating report\u2026"), 25000);
+      // Show the middle "Analyzing…" step (step 2 of 3) while the server
+      // gathers competitors / reviews / keywords — the longest phase —
+      // then advance to "Generating report…" (step 3) for the AI narrative.
+      setBusy("Analyzing competitors, reviews, and search rankings…");
+      const toGenerating = setTimeout(() => setBusy("Generating report…"), 25000);
       // Outage fix (2026-05-31): the server-side /generate handler now
       // parallelizes its data-gathering under a ~70s server deadline and
       // returns a (possibly partial) report well under Cloudflare's ~100s
       // edge limit. The previous 180s client timeout sat ABOVE that edge
       // limit, so a Cloudflare 524 always beat the client's friendly
       // "taking longer" path and the user saw a raw "Request failed: 524".
-      // Lowered to 90s \u2014 just under the edge limit \u2014 so if the server
+      // Lowered to 90s — just under the edge limit — so if the server
       // ever does stall, the client surfaces the friendly retry copy first.
-      // PageSpeed is NOT in this fan-out \u2014 it's polled separately in
+      // PageSpeed is NOT in this fan-out — it's polled separately in
       // /api/audit/speed after the report renders.
       let rep: { ok: true; report_json: any; reportId?: string; fromCache?: boolean };
       try {
@@ -657,6 +890,12 @@ export default function FreeAudit() {
   const currentStep = busyStep(busy);
   const reportReady = !!report;
 
+  // Smooth-scroll handler for the mock card CTA
+  const scrollToSearch = useCallback(() => {
+    searchCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => inputRef.current?.focus(), 400);
+  }, []);
+
   return (
     <MarketingLayout>
       <PageMeta
@@ -666,47 +905,77 @@ export default function FreeAudit() {
         keywords={["free google business audit", "free website audit", "trades local seo audit"]}
       />
       <style>{`
+        /* ─── Page shell ─── */
         .audit-page {
           min-height: 100vh;
-          background: radial-gradient(circle, rgba(0,0,0,0.13) 1px, transparent 1px), linear-gradient(180deg, rgba(236,242,244,1) 0%, rgba(248,250,252,1) 55%, rgba(236,242,244,1) 100%);
-          background-size: 22px 22px, 100% 100%;
+          background: #161616;
           position: relative;
           margin-top: -92px;
           padding-top: 92px;
           box-sizing: border-box;
         }
-        .audit-page::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          opacity: 0.045;
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-          background-size: 200px 200px;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .audit-container {
+
+        /* ─── Hero zone (warm-canvas island) ─── */
+        .audit-hero-island {
+          background: #F3EDDF;
+          border-radius: 20px;
+          margin: 0 6px;
           position: relative;
-          z-index: 1;
-          max-width: 960px;
+          overflow: clip;
+        }
+
+        /* ─── Body zone (light, overlaps hero by -20px) ─── */
+        .audit-body-zone {
+          background: #F8FAFC;
+          border-radius: 20px 20px 0 0;
+          margin-top: -20px;
+          position: relative;
+          z-index: 2;
+        }
+
+        /* ─── Hero inner layout ─── */
+        .audit-hero-inner {
+          max-width: 1180px;
           margin: 0 auto;
-          padding: 110px 16px 80px;
+          padding: 110px 24px 80px;
+          display: grid;
+          grid-template-columns: minmax(0,1.05fr) minmax(0,0.95fr);
+          gap: 56px;
+          align-items: center;
+          box-sizing: border-box;
         }
-        @media (max-width: 480px) {
-          .audit-container { padding: 110px 10px 80px; }
+        @media (max-width: 900px) {
+          .audit-hero-inner {
+            grid-template-columns: 1fr;
+            gap: 36px;
+            padding: 100px 20px 60px;
+          }
+          .audit-hero-right {
+            order: -1;
+            display: flex;
+            justify-content: center;
+          }
+          .audit-mock-card {
+            transform: none !important;
+          }
         }
-        @media (min-width: 768px) {
-          .audit-container { padding: 120px 24px 80px; }
+
+        /* ─── Feature grid 1-col on mobile ─── */
+        @media (max-width: 640px) {
+          .audit-feature-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .audit-faq-grid {
+            grid-template-columns: 1fr !important;
+          }
         }
+
+        /* ─── Existing input + animation CSS (verbatim, unchanged) ─── */
         .audit-input:focus {
           border-color: ${mkt.accent} !important;
           box-shadow: 0 0 0 4px rgba(13,60,252,0.16) !important;
         }
-        /* BG-2: floating-label hero input — placeholder-shown drops the
-         * label down to mimic a normal placeholder; focus / non-empty
-         * raises and shrinks it. Mirrors PortalOnboarding.FloatingLabelInput
-         * (Tailwind peer pattern) but uses scoped CSS so this page keeps
-         * its inline-style discipline. */
+        /* BG-2: floating-label hero input */
         .audit-hero-input__label {
           position: absolute;
           left: 42px;
@@ -784,540 +1053,505 @@ export default function FreeAudit() {
       `}</style>
 
       <div className="audit-page">
-        <div className="audit-container">
-          {/* Breadcrumb */}
-          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
-            <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
-            <span style={{ margin: "0 6px" }}>/</span>
-            <span style={{ color: "#111827" }}>Free Audit</span>
-          </nav>
 
-          {/* Wave 3.6 — Master Audit pending banner. Renders only when
-              the page was opened from a Stripe success redirect; polls
-              /api/full-audit/by-session and auto-redirects to the share
-              URL once the pipeline lands. */}
-          {masterPendingBanner && (
-            <div
-              data-testid="master-audit-pending-banner"
-              style={{
-                marginBottom: 18,
-                padding: "12px 16px",
-                borderRadius: 12,
-                background: "rgba(13,60,252,0.06)",
-                border: "1px solid rgba(13,60,252,0.18)",
-                color: "#1E1E1E",
-                fontSize: 13,
-                fontWeight: 500,
-                lineHeight: 1.5,
-                display: "flex",
+        {/* ─── SECTION A: Split Hero ─── */}
+        <div className="audit-hero-island">
+          <div data-theme="light" className="audit-hero-inner">
+
+            {/* LEFT column */}
+            <div>
+              {/* Breadcrumb */}
+              <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 18 }}>
+                <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
+                <span style={{ margin: "0 6px" }}>/</span>
+                <span style={{ color: "#111827" }}>Free Audit</span>
+              </nav>
+
+              {/* Eyebrow chip */}
+              <div style={{
+                display: "inline-flex",
                 alignItems: "center",
-                gap: 10,
-              }}
-            >
-              <div
-                style={{
-                  width: 14,
-                  height: 14,
-                  border: "2px solid rgba(13,60,252,0.3)",
-                  borderTopColor: mkt.accent,
-                  borderRadius: "50%",
-                  animation: "spin 0.7s linear infinite",
-                  flexShrink: 0,
-                }}
-              />
-              <span>{masterPendingBanner} Your report will also be emailed to you.</span>
-            </div>
-          )}
+                padding: "4px 12px",
+                borderRadius: 999,
+                background: "rgba(13,60,252,0.08)",
+                border: "1px solid rgba(13,60,252,0.16)",
+                fontSize: 12,
+                fontWeight: 700,
+                color: mkt.accent,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                marginBottom: 16,
+              }}>
+                Free Google Business Audit
+              </div>
 
-          {/* ─── Header + Search (always visible) ─── */}
-          <div style={{ textAlign: "center", marginBottom: reportReady ? 20 : 36 }}>
-            <h1
-              data-testid="text-audit-title"
-              style={{
-                fontSize: reportReady ? "clamp(22px, 4vw, 28px)" : "clamp(30px, 5vw, 40px)",
-                fontWeight: 900,
-                letterSpacing: "-0.02em",
-                color: "#1E1E1E",
-                marginBottom: reportReady ? 8 : 12,
-                lineHeight: 1.05,
-                transition: "font-size 0.3s",
-              }}
-            >
-              Free Google Maps &amp; Website Audit
-            </h1>
-            {!reportReady && (
-              <p
+              {/* H1 */}
+              <h1
+                data-testid="text-audit-title"
                 style={{
+                  fontSize: reportReady ? "clamp(22px,4vw,28px)" : "clamp(30px,4.5vw,48px)",
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                  color: "#1E1E1E",
+                  marginBottom: reportReady ? 8 : 14,
+                  lineHeight: 1.1,
+                  textAlign: "left",
+                  transition: "font-size 0.3s",
+                }}
+              >
+                See Exactly Where You're Losing Customers on Google
+              </h1>
+
+              {/* Sub */}
+              {!reportReady && (
+                <p style={{
                   fontSize: 16,
                   color: "rgba(0,0,0,0.62)",
-                  maxWidth: "58ch",
-                  margin: "0 auto 14px",
+                  maxWidth: "56ch",
+                  margin: "0 0 20px",
                   lineHeight: 1.55,
-                }}
-              >
-                Search your business and get an instant report on your Google
-                Business Profile health and website speed.
-              </p>
-            )}
-            {!reportReady && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "rgba(0,0,0,0.48)",
-                }}
-              >
-                <span>Instant report</span>
-                <span style={{ opacity: 0.4 }}>{"\u00b7"}</span>
-                <span>No signup</span>
-                <span style={{ opacity: 0.4 }}>{"\u00b7"}</span>
-                <span>Takes ~30 seconds</span>
-              </div>
-            )}
-            {/* BE-2: trust strip header \u2014 marketing-tool-appropriate trust line.
-                Mirrors the BD-2b pattern used inside the QuoteQuick widget.
-                Only renders pre-audit (hidden once busy/report). */}
-            {!reportReady && (
-              <div
-                style={{
-                  marginTop: 14,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  background: "rgba(13,60,252,0.06)",
-                  border: "1px solid rgba(13,60,252,0.14)",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "#1E1E1E",
-                  letterSpacing: "0.005em",
-                }}
-              >
-                <span style={{ color: "#22C55E" }}>{"\u2605\u2605\u2605\u2605\u2605"}</span>
-                {/* Bug 1 (customer report 2026-05-25): the previous copy named
-                    only 5 trades and Alex flagged it as too narrow \u2014 "why do
-                    we limit us only with these trades???". WeFixTrades is
-                    pan-home-service: plumbing, HVAC, electrical, roofing,
-                    landscaping, cleaning, painting, garage doors, locksmiths,
-                    appliance repair, tree service, pest control, etc. New
-                    copy names a representative few then explicitly opens the
-                    door to "100+ home-service trades" so the badge reads as
-                    inclusive without losing the trade-specific signal. */}
-                <span style={{ opacity: 0.65 }}>Built for plumbing, HVAC, electrical, roofing, landscaping, cleaning, painting, and 100+ home-service trades</span>
-              </div>
-            )}
-            {/* Prefill confirmation chip \u2014 shown when the user arrived via
-                the Missed Call Calculator \u2192 audit funnel. Lets them confirm
-                the trade was carried over so they know the next click is
-                one step ahead of a cold-start audit. */}
-            {!reportReady && prefillTrade && (
-              <div
-                data-testid="audit-prefill-chip"
-                style={{
-                  marginTop: 10,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  background: "rgba(34,197,94,0.08)",
-                  border: "1px solid rgba(34,197,94,0.22)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: "#166534",
-                  letterSpacing: "0.01em",
-                }}
-              >
-                <CheckCircle2 size={12} strokeWidth={2.2} />
-                <span>Trade pre-selected: {prefillTrade.replace(/[-_]/g, " ")}</span>
-              </div>
-            )}
-          </div>
+                  textAlign: "left",
+                }}>
+                  Get your Google Maps health score, site speed, and competitor gap in 30 seconds — no signup required.
+                </p>
+              )}
 
-          {!busy && (
-            <div
-              style={{
-                background: "rgba(255,255,255,0.78)",
-                border: "1px solid rgba(0,0,0,0.08)",
-                borderRadius: 18,
-                boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
-                padding: 16,
-                position: "relative",
-                maxWidth: 960,
-                margin: "0 auto",
-                width: "100%",
-                boxSizing: "border-box",
-                overflow: "clip",
-              }}
-            >
-              {/* BG-2: hero input upgraded to QuoteQuick gold standard.
-                  - Floating-label pattern (placeholder doubles as the title;
-                    no `Search your business` row above per design rule 5).
-                  - `?` help-cue top-left via the shared InfoCue (popover
-                    includes a WidgetSchema diagram highlighting the
-                    step-content region from BD-3h).
-                  - Error renders inside the field (red text below).
-                  The relative wrapper carries the floating-label peer styles
-                  via a scoped class so we don't need Tailwind on this page. */}
-              <div className="audit-hero-input" style={{ position: "relative", paddingLeft: 26 }}>
-                {/* DESIGN-SYSTEM rule 2 (re-added 2026-05-25): every input
-                    surface gets a top-left `?` cue. The popover copy matches
-                    the floating-label placeholder so there's no contradiction
-                    with the older fix that removed the previous mismatched
-                    cue. */}
-                <div style={{ position: "absolute", top: 8, left: 4, zIndex: 2 }}>
-                  <InfoCue
-                    text="Type your business name, then your city — we use Google Places to match the exact location and run the audit."
-                    label="Help: Free Audit search"
-                    testid="audit-hero-search"
-                  />
-                </div>
-                {/* Bug 2 (customer report 2026-05-25): the Search icon was
-                    rendering distorted / vertically stretched on some
-                    devices. Lucide's `size` prop sets width/height SVG
-                    attributes but doesn't lock CSS dimensions, so in flex /
-                    constrained layouts the SVG could be coerced taller than
-                    its intrinsic ratio. Locking width/height/min-* + adding
-                    flexShrink:0 and `display:block` guarantees the icon
-                    renders at exactly 18×18 regardless of ambient CSS. */}
-                <Search
-                  size={18}
-                  strokeWidth={1.75}
+              {/* Wave 3.6 — Master Audit pending banner */}
+              {masterPendingBanner && (
+                <div
+                  data-testid="master-audit-pending-banner"
                   style={{
-                    position: "absolute",
-                    left: 40,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: 18,
-                    height: 18,
-                    minWidth: 18,
-                    minHeight: 18,
-                    flexShrink: 0,
-                    display: "block",
-                    color: "rgba(0,0,0,0.35)",
-                    pointerEvents: "none",
-                    zIndex: 1,
-                  }}
-                />
-                <input
-                  ref={inputRef}
-                  id="audit-hero-input"
-                  data-testid="input-audit-search"
-                  className="audit-input audit-hero-input__field"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onFocus={() => { if (predictions.length > 0 || (searchDone && predictions.length === 0)) setDropdownOpen(true); }}
-                  // BG-3 fix 1: keyboard handling. Enter selects the
-                  // highlighted (or first) prediction, or fires the search
-                  // immediately if predictions aren't loaded yet. Arrow
-                  // keys navigate the prediction list.
-                  onKeyDown={(e) => {
-                    if (e.key === "ArrowDown" && predictions.length > 0) {
-                      e.preventDefault();
-                      setDropdownOpen(true);
-                      setHighlightedIndex((i) =>
-                        i + 1 >= predictions.length ? 0 : i + 1
-                      );
-                    } else if (e.key === "ArrowUp" && predictions.length > 0) {
-                      e.preventDefault();
-                      setDropdownOpen(true);
-                      setHighlightedIndex((i) =>
-                        i <= 0 ? predictions.length - 1 : i - 1
-                      );
-                    } else if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (predictions.length > 0) {
-                        const idx = highlightedIndex >= 0 ? highlightedIndex : 0;
-                        const pick = predictions[idx];
-                        if (pick) runAudit(pick, lastTradeRef.current || undefined);
-                      } else if (query.trim().length >= 3) {
-                        // No predictions yet — skip the 400ms debounce wait
-                        // and fire the search now so Enter never feels dead.
-                        runSearch(query);
-                      }
-                    }
-                  }}
-                  // Floating label uses :placeholder-shown — needs a single
-                  // space so the label can collapse when the input is empty.
-                  placeholder=" "
-                  aria-label="Search your business name and city"
-                  style={{
-                    width: "100%",
-                    // Bug 2 (2026-05-25): bumped height 46→52 so the 18px
-                    // icon has clear top/bottom breathing room and never
-                    // touches the input border. Padding-top stays at 16 so
-                    // the floating label sits clear of the icon.
-                    minHeight: 52,
-                    height: 52,
-                    borderRadius: 14,
-                    border: `1px solid ${error ? "rgba(239,68,68,0.55)" : "rgba(0,0,0,0.10)"}`,
-                    padding: "18px 14px 6px 42px",
-                    fontSize: 15,
+                    marginBottom: 18,
+                    padding: "12px 16px",
+                    borderRadius: 12,
+                    background: "rgba(13,60,252,0.06)",
+                    border: "1px solid rgba(13,60,252,0.18)",
+                    color: "#1E1E1E",
+                    fontSize: 13,
                     fontWeight: 500,
-                    outline: "none",
-                    background: "#fff",
-                    transition: "border-color 0.2s, box-shadow 0.2s",
-                    color: "#111827",
-                    boxSizing: "border-box",
+                    lineHeight: 1.5,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
                   }}
-                />
-                <label
-                  htmlFor="audit-hero-input"
-                  className="audit-hero-input__label"
                 >
-                  Type your business name + city…
-                </label>
-                {loadingSearch && (
                   <div
                     style={{
-                      position: "absolute",
-                      right: 14,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      width: 18,
-                      height: 18,
-                      border: "2px solid rgba(13,60,252,0.2)",
+                      width: 14,
+                      height: 14,
+                      border: "2px solid rgba(13,60,252,0.3)",
                       borderTopColor: mkt.accent,
                       borderRadius: "50%",
                       animation: "spin 0.7s linear infinite",
+                      flexShrink: 0,
                     }}
                   />
-                )}
-                {error && (
-                  <div
-                    data-testid="text-audit-error-inline"
-                    style={{
-                      marginTop: 2,
-                      fontSize: 12,
-                      color: "#B91C1C",
-                      fontWeight: 500,
-                      paddingLeft: 4,
-                    }}
-                  >
-                    {error}
-                  </div>
-                )}
-              </div>
+                  <span>{masterPendingBanner} Your report will also be emailed to you.</span>
+                </div>
+              )}
 
-              {/* Autocomplete dropdown */}
-              {dropdownOpen && !loadingSearch && searchDone && (
+              {/* Prefill chip */}
+              {!reportReady && prefillTrade && (
                 <div
-                  ref={dropdownRef}
-                  data-testid="list-suggestions"
+                  data-testid="audit-prefill-chip"
                   style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    top: "100%",
-                    // BG-2: tightened to 2px per design-system rule on
-                    // input-to-companion gap.
-                    marginTop: 2,
-                    borderRadius: 14,
-                    background: "#fff",
-                    border: "1px solid rgba(0,0,0,0.10)",
-                    boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
-                    zIndex: 50,
-                    overflow: "clip",
+                    marginBottom: 12,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    background: "rgba(34,197,94,0.08)",
+                    border: "1px solid rgba(34,197,94,0.22)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#166534",
+                    letterSpacing: "0.01em",
                   }}
                 >
-                  {predictions.length === 0 ? (
-                    <div style={{
-                      padding: "16px 18px",
-                      fontSize: 13,
-                      color: "rgba(0,0,0,0.50)",
-                      textAlign: "center",
-                    }}>
-                      {searchFailed ? "Search hiccup — try again" : "No businesses found — try adding your city name"}
+                  <CheckCircle2 size={12} strokeWidth={2.2} />
+                  <span>Trade pre-selected: {prefillTrade.replace(/[-_]/g, " ")}</span>
+                </div>
+              )}
+
+              {/* ─── Search card (VERBATIM functional block, zero changes) ─── */}
+              {!busy && (
+                <div
+                  ref={searchCardRef}
+                  style={{
+                    background: "rgba(255,255,255,0.78)",
+                    border: "1px solid rgba(0,0,0,0.08)",
+                    borderRadius: 18,
+                    boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
+                    padding: 16,
+                    position: "relative",
+                    width: "100%",
+                    boxSizing: "border-box",
+                    overflow: "clip",
+                    marginBottom: 16,
+                  }}
+                >
+                  {/* BG-2: hero input upgraded to QuoteQuick gold standard. */}
+                  <div className="audit-hero-input" style={{ position: "relative", paddingLeft: 26 }}>
+                    {/* DESIGN-SYSTEM rule 2 (re-added 2026-05-25) */}
+                    <div style={{ position: "absolute", top: 8, left: -2, zIndex: 2 }}>
+                      <InfoCue
+                        text="Type your business name, then your city — we use Google Places to match the exact location and run the audit."
+                        label="Help: Free Audit search"
+                        testid="audit-hero-search"
+                      />
                     </div>
-                  ) : (
-                    <div style={{ maxHeight: 320, overflowY: "auto" }}>
-                      {locationHint && (
+                    {/* Bug 2 (2026-05-25): locked Search icon dimensions */}
+                    <Search
+                      size={18}
+                      strokeWidth={1.75}
+                      style={{
+                        position: "absolute",
+                        left: 40,
+                        top: "calc(50% + 2px)",
+                        transform: "translateY(-50%)",
+                        width: 18,
+                        height: 18,
+                        minWidth: 18,
+                        minHeight: 18,
+                        flexShrink: 0,
+                        display: "block",
+                        color: "rgba(0,0,0,0.35)",
+                        pointerEvents: "none",
+                        zIndex: 1,
+                      }}
+                    />
+                    <input
+                      ref={inputRef}
+                      id="audit-hero-input"
+                      data-testid="input-audit-search"
+                      className="audit-input audit-hero-input__field"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onFocus={() => { if (predictions.length > 0 || (searchDone && predictions.length === 0)) setDropdownOpen(true); }}
+                      // BG-3 fix 1: keyboard handling
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown" && predictions.length > 0) {
+                          e.preventDefault();
+                          setDropdownOpen(true);
+                          setHighlightedIndex((i) =>
+                            i + 1 >= predictions.length ? 0 : i + 1
+                          );
+                        } else if (e.key === "ArrowUp" && predictions.length > 0) {
+                          e.preventDefault();
+                          setDropdownOpen(true);
+                          setHighlightedIndex((i) =>
+                            i <= 0 ? predictions.length - 1 : i - 1
+                          );
+                        } else if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (predictions.length > 0) {
+                            const idx = highlightedIndex >= 0 ? highlightedIndex : 0;
+                            const pick = predictions[idx];
+                            if (pick) runAudit(pick, lastTradeRef.current || undefined);
+                          } else if (query.trim().length >= 3) {
+                            runSearch(query);
+                          }
+                        }
+                      }}
+                      // Floating label uses :placeholder-shown — needs a single space
+                      placeholder=" "
+                      aria-label="Search your business name and city"
+                      style={{
+                        width: "100%",
+                        minHeight: 52,
+                        height: 52,
+                        borderRadius: 14,
+                        border: `1px solid ${error ? "rgba(239,68,68,0.55)" : "rgba(0,0,0,0.10)"}`,
+                        padding: "18px 14px 6px 42px",
+                        fontSize: 15,
+                        fontWeight: 500,
+                        outline: "none",
+                        background: "#fff",
+                        transition: "border-color 0.2s, box-shadow 0.2s",
+                        color: "#111827",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <label
+                      htmlFor="audit-hero-input"
+                      className="audit-hero-input__label"
+                    >
+                      Type your business name + city…
+                    </label>
+                    {loadingSearch && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 14,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          width: 18,
+                          height: 18,
+                          border: "2px solid rgba(13,60,252,0.2)",
+                          borderTopColor: mkt.accent,
+                          borderRadius: "50%",
+                          animation: "spin 0.7s linear infinite",
+                        }}
+                      />
+                    )}
+                    {error && (
+                      <div
+                        data-testid="text-audit-error-inline"
+                        style={{
+                          marginTop: 2,
+                          fontSize: 12,
+                          color: "#B91C1C",
+                          fontWeight: 500,
+                          paddingLeft: 4,
+                        }}
+                      >
+                        {error}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Autocomplete dropdown */}
+                  {dropdownOpen && !loadingSearch && searchDone && (
+                    <div
+                      ref={dropdownRef}
+                      data-testid="list-suggestions"
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        top: "100%",
+                        marginTop: 2,
+                        borderRadius: 14,
+                        background: "#fff",
+                        border: "1px solid rgba(0,0,0,0.10)",
+                        boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+                        zIndex: 50,
+                        overflow: "clip",
+                      }}
+                    >
+                      {predictions.length === 0 ? (
                         <div style={{
-                          padding: "8px 16px",
-                          fontSize: 11,
-                          color: "rgba(0,0,0,0.40)",
-                          borderBottom: "1px solid rgba(0,0,0,0.05)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
+                          padding: "16px 18px",
+                          fontSize: 13,
+                          color: "rgba(0,0,0,0.50)",
+                          textAlign: "center",
                         }}>
-                          <span style={{ fontSize: 12 }}>📍</span>
-                          {locationHint}
+                          {searchFailed ? "Search hiccup — try again" : "No businesses found — try adding your city name"}
                         </div>
-                      )}
-                      {predictions.map((p, i) => (
-                        <button
-                          key={p.place_id}
-                          data-testid={`button-place-${p.place_id}`}
-                          className="audit-suggestion"
-                          onMouseEnter={() => setHighlightedIndex(i)}
-                          onClick={() => runAudit(p, lastTradeRef.current || undefined)}
-                          style={{
-                            width: "100%",
-                            textAlign: "left",
-                            padding: "10px 16px",
-                            // BG-3 fix 1: tint the row when keyboard or
-                            // mouse highlight selects it so Enter has a
-                            // visible target.
-                            background: highlightedIndex === i ? "rgba(13,60,252,0.06)" : "transparent",
-                            border: "none",
-                            borderBottom: i < predictions.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            transition: "background 0.1s",
-                          }}
-                        >
-                          {p.photoUrl ? (
-                            <OptimizedImage
-                              src={p.photoUrl}
-                              alt=""
-                              width={36}
-                              height={36}
-                              style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                              loading="lazy"
-                            />
-                          ) : (
+                      ) : (
+                        <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                          {locationHint && (
                             <div style={{
-                              width: 36, height: 36, borderRadius: "50%",
-                              background: "rgba(13,60,252,0.08)",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              flexShrink: 0, fontSize: 15, fontWeight: 700, color: mkt.accent,
+                              padding: "8px 16px",
+                              fontSize: 11,
+                              color: "rgba(0,0,0,0.40)",
+                              borderBottom: "1px solid rgba(0,0,0,0.05)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
                             }}>
-                              {p.name?.charAt(0) || "?"}
+                              <span style={{ fontSize: 12 }}>📍</span>
+                              {locationHint}
                             </div>
                           )}
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {p.name}
-                            </div>
-                            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {p.formatted_address}
-                              {p.rating != null && <span style={{ marginLeft: 6 }}>{"\u2605"} {p.rating}</span>}
-                              {p.user_ratings_total > 0 && <span> ({p.user_ratings_total})</span>}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
+                          {predictions.map((p, i) => (
+                            <button
+                              key={p.place_id}
+                              data-testid={`button-place-${p.place_id}`}
+                              className="audit-suggestion"
+                              onMouseEnter={() => setHighlightedIndex(i)}
+                              onClick={() => runAudit(p, lastTradeRef.current || undefined)}
+                              style={{
+                                width: "100%",
+                                textAlign: "left",
+                                padding: "10px 16px",
+                                background: highlightedIndex === i ? "rgba(13,60,252,0.06)" : "transparent",
+                                border: "none",
+                                borderBottom: i < predictions.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                transition: "background 0.1s",
+                              }}
+                            >
+                              {p.photoUrl ? (
+                                <OptimizedImage
+                                  src={p.photoUrl}
+                                  alt=""
+                                  width={36}
+                                  height={36}
+                                  style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div style={{
+                                  width: 36, height: 36, borderRadius: "50%",
+                                  background: "rgba(13,60,252,0.08)",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  flexShrink: 0, fontSize: 15, fontWeight: 700, color: mkt.accent,
+                                }}>
+                                  {p.name?.charAt(0) || "?"}
+                                </div>
+                              )}
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {p.name}
+                                </div>
+                                <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {p.formatted_address}
+                                  {p.rating != null && <span style={{ marginLeft: 6 }}>{"★"} {p.rating}</span>}
+                                  {p.user_ratings_total > 0 && <span> ({p.user_ratings_total})</span>}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* BG-2: legacy outer error block removed — the inline error
-                  beneath the floating-label field now serves as the single
-                  validation surface (design rule: error renders inside the
-                  field). data-testid="text-audit-error-inline" is the
-                  replacement hook for any tests previously hitting the old
-                  outer "text-audit-error" id. */}
-            </div>
-          )}
+              {/* Busy state */}
+              {busy && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    background: "#fff",
+                    border: "1px solid rgba(0,0,0,0.07)",
+                    borderRadius: 18,
+                    boxShadow: "0 6px 24px rgba(0,0,0,0.05)",
+                    padding: 20,
+                    marginBottom: 16,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: "#1E1E1E",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Running your audit… (step {currentStep} of 3)
+                  </div>
+                  {/* Bug 4 (2026-05-25): reassurance line */}
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(0,0,0,0.50)",
+                      marginBottom: 14,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    This usually takes 30–90 seconds — we're pulling live data
+                    from Google, your competitors, and the public web. Please
+                    keep this tab open.
+                  </div>
+                  <div className="audit-shimmer" style={{ marginBottom: 16 }} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {STEPS.map((label, idx) => {
+                      const step = idx + 1;
+                      const done = currentStep > step;
+                      const active = currentStep === step;
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            fontSize: 13,
+                            fontWeight: 500,
+                            color: done
+                              ? "#22C55E"
+                              : active
+                              ? colors.accent.blue
+                              : "rgba(0,0,0,0.35)",
+                          }}
+                        >
+                          {done ? (
+                            <CheckCircle2 size={16} />
+                          ) : active ? (
+                            <div
+                              style={{
+                                width: 15,
+                                height: 15,
+                                border: "2px solid rgba(13,60,252,0.3)",
+                                borderTopColor: mkt.accent,
+                                borderRadius: "50%",
+                                animation: "spin 0.7s linear infinite",
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: 15,
+                                height: 15,
+                                borderRadius: "50%",
+                                border: "2px solid rgba(0,0,0,0.12)",
+                              }}
+                            />
+                          )}
+                          {label}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-          {busy && (
-            <div
-              role="status"
-              aria-live="polite"
-              style={{
-                background: "#fff",
-                border: "1px solid rgba(0,0,0,0.07)",
-                borderRadius: 18,
-                boxShadow: "0 6px 24px rgba(0,0,0,0.05)",
-                padding: 20,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: "#1E1E1E",
-                  marginBottom: 6,
-                }}
-              >
-                Running your audit… (step {currentStep} of 3)
-              </div>
-              {/* Bug 4 (2026-05-25): reassurance line so the user knows the
-                  expected wait window and doesn't bail / hit "try again"
-                  before the report comes back. Matches the 180s frontend
-                  timeout on /audit/generate. */}
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "rgba(0,0,0,0.50)",
-                  marginBottom: 14,
-                  lineHeight: 1.5,
-                }}
-              >
-                This usually takes 30–90 seconds — we're pulling live data
-                from Google, your competitors, and the public web. Please
-                keep this tab open.
-              </div>
-              <div className="audit-shimmer" style={{ marginBottom: 16 }} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {STEPS.map((label, idx) => {
-                  const step = idx + 1;
-                  const done = currentStep > step;
-                  const active = currentStep === step;
-                  return (
+              {/* Trust chips — inline flex row */}
+              {!reportReady && !busy && (
+                <div style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  alignItems: "center",
+                  marginTop: 4,
+                }}>
+                  {[
+                    "Instant report",
+                    "No signup",
+                    "Takes ~30 seconds",
+                    "100+ home-service trades",
+                  ].map((chip) => (
                     <div
-                      key={idx}
+                      key={chip}
                       style={{
-                        display: "flex",
+                        display: "inline-flex",
                         alignItems: "center",
-                        gap: 10,
+                        gap: 5,
                         fontSize: 13,
                         fontWeight: 500,
-                        color: done
-                          ? "#22C55E"
-                          : active
-                          ? colors.accent.blue
-                          : "rgba(0,0,0,0.35)",
+                        color: "rgba(0,0,0,0.48)",
                       }}
                     >
-                      {done ? (
-                        <CheckCircle2 size={16} />
-                      ) : active ? (
-                        <div
-                          style={{
-                            width: 15,
-                            height: 15,
-                            border: "2px solid rgba(13,60,252,0.3)",
-                            borderTopColor: mkt.accent,
-                            borderRadius: "50%",
-                            animation: "spin 0.7s linear infinite",
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 15,
-                            height: 15,
-                            borderRadius: "50%",
-                            border: "2px solid rgba(0,0,0,0.12)",
-                          }}
-                        />
-                      )}
-                      {label}
+                      <CheckCircle2 size={12} color="rgba(0,0,0,0.35)" strokeWidth={2} />
+                      <span>{chip}</span>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
 
+            {/* RIGHT column — mock report card */}
+            {!reportReady && (
+              <div className="audit-hero-right" style={{ display: "flex", justifyContent: "flex-end", overflow: "visible" }}>
+                <AuditMockReportCard onCtaClick={scrollToSearch} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ─── Body zone (light) ─── */}
+        <div className="audit-body-zone">
+
+          {/* Report (full width inside body zone) */}
           {reportReady && report && (() => {
-            // BG-3 fix 3: wire the GBP rank-grid as a second tab. The
-            // selected business + the resolved report.business already
-            // carry the name and full address, so MapSnapshotShell can
-            // auto-run its snapshot without asking the visitor to retype.
-            // Default trade keyword falls back to lastTradeRef (the prefill)
-            // or a generic "near me" so the keyword chip picker has at
-            // least one entry before auto-submit.
             const biz = report.business || {};
             const rankBusinessName = [biz.name, biz.formattedAddress || biz.formatted_address]
               .filter(Boolean)
@@ -1327,7 +1561,6 @@ export default function FreeAudit() {
               <div ref={reportRef} style={{
                 minHeight: '100vh',
                 padding: isMobile ? '0 0 48px' : '32px 0 64px',
-                margin: '0 -16px',
               }}>
                 {fromCache && (
                   <div style={{
@@ -1370,26 +1603,29 @@ export default function FreeAudit() {
               </div>
             );
           })()}
-          {/* ─── Static SEO Content + FAQ (hidden during audit/report) ─── */}
+
+          {/* ─── SECTION B: Feature Grid (hidden during audit/report) ─── */}
+          {!reportReady && !busy && <AuditFeatureGrid />}
+
+          {/* ─── TrustStrip ─── */}
           {!reportReady && !busy && (
-            <>
-              <AuditStaticSections />
+            <div style={{ padding: "0 24px" }}>
               <TrustStrip theme="light" />
-              <AuditFaqSection />
-            </>
+            </div>
           )}
 
-          {/* ─── Try QuoteQuick callout ───
-              Tools-consolidation: the old "Other free tools" block linked at
-              missed-call (deleted) and quote-demo (relocated under products).
-              Replaced with a single nudge to the relocated quote demo so the
-              cross-sell stays alive without the deprecated surfaces. */}
+          {/* ─── SECTION C: FAQ 2-col (hidden during audit/report) ─── */}
+          {!reportReady && !busy && <AuditFaqSection />}
+
+          {/* ─── QuoteQuick cross-sell (always shown) ─── */}
           <div style={{
-            maxWidth: 480,
+            maxWidth: 1180,
             margin: "0 auto",
-            marginTop: reportReady ? 48 : 56,
+            padding: "0 24px",
+            marginTop: reportReady ? 48 : 0,
             paddingTop: 24,
-            borderTop: "1px solid rgba(0,0,0,0.07)",
+            paddingBottom: 56,
+            borderTop: reportReady ? "1px solid rgba(0,0,0,0.07)" : "none",
           }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#1E1E1E", marginBottom: 10 }}>
               Try the QuoteQuick demo
