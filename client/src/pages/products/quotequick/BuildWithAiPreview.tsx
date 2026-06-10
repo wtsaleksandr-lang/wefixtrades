@@ -69,12 +69,21 @@ export default function BuildWithAiPreview() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // If we don't have it from storage, fetch from server.
+  // Sample sessions (sample-*) are client-only; if storage read missed them
+  // (private mode) redirect back gracefully rather than 404-ing the API.
   useEffect(() => {
     if (!sessionId) {
       navigate("/products/quickquotepro/build-with-ai");
       return;
     }
     if (state) return;
+    if (sessionId.startsWith("sample-")) {
+      // Sample was stashed in sessionStorage — if we reach here it wasn't
+      // readable (private/disabled mode). Redirect to the upload page so the
+      // user can try again or pick a real file.
+      navigate("/products/quickquotepro/build-with-ai");
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {

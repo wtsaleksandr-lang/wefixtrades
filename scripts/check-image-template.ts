@@ -19,6 +19,10 @@ import {
   imageTemplateToConfig,
   type ImageTemplate,
 } from '../client/src/components/wizard/elfsight/imageTemplateToConfig';
+import {
+  imageDemoTemplateToConfig,
+  type DemoImageTemplate,
+} from '../shared/aiDemoTemplate';
 
 let pass = 0;
 let fail = 0;
@@ -225,6 +229,70 @@ function headline(cfg: ReturnType<typeof imageTemplateToConfig>): number {
   ok(cfg?.result_calc === 'Total', 'clarification pass-through: result_calc is Total');
   // With no price data the headline should be 0 (not a crash).
   ok(cfg ? headline(cfg) === 0 : false, 'clarification pass-through: headline Total = 0 (no pricing data)', cfg ? String(headline(cfg)) : 'no cfg');
+}
+
+/* ── 7. DEMO CONVERTER — canned template: base + 13% tax on total ──
+ * Mirrors the HVAC sample ($89 base + 13% HST).
+ * Expected: Total = 89 + (89 * 0.13) = 89 + 11.57 = 100.57 on load.
+ * Previously broken: modifiers were toggles defaulting OFF → Total was $89
+ * (tax skipped), not $100.57. With the constant-coefficient fix the tax
+ * is always included. */
+{
+  const demoT: DemoImageTemplate = {
+    title: 'HVAC Service',
+    basePrice: 89,
+    currency: 'USD',
+    addons: [],
+    modifiers: [{ label: 'HST (13%)', type: 'percent', value: 13, appliesTo: 'total' }],
+    notes: null,
+  };
+  const cfg = imageDemoTemplateToConfig(demoT);
+
+  // Helper reusing the headline() pattern but for the demo converter output.
+  function demoHeadline(c: typeof cfg): number {
+    const ctx: FormulaContext = {};
+    for (const f of c.fields) {
+      if (f.type === 'number' || f.type === 'slider') {
+        ctx[f.name] = typeof f.default_value === 'number' ? f.default_value : 0;
+      } else if (f.type === 'toggle') {
+        ctx[f.name] = 0; // toggles default OFF in initAnswers
+      }
+    }
+    const { values } = runCalculations(
+      c.calculations.map((calc) => ({ id: calc.id, name: calc.name, formula: calc.formula })),
+      ctx,
+    );
+    return values[c.result_calc] ?? 0;
+  }
+
+  const total = demoHeadline(cfg);
+  const expected = 89 + 89 * 0.13; // 100.57
+
+  ok(cfg.result_calc === 'Total', 'demo/tax: result_calc points at Total');
+  // No toggle fields for modifiers — they're baked as constants.
+  ok(!cfg.fields.some((f) => f.type === 'toggle'), 'demo/tax: no toggle fields (modifiers are constant)');
+  ok(Math.abs(total - expected) < 0.01,
+    'demo/tax: headline = base + 13% tax on load (constant-coefficient fix)',
+    `got ${total.toFixed(2)}, expected ${expected.toFixed(2)}`);
+}
+
+/* ── 8. DEMO CONVERTER — name-reference fix ($0.00 regression guard) ──
+ * A bare base with no modifiers must show a non-zero Total (previously
+ * the id-vs-name bug caused $0.00). */
+{
+  const demoT: DemoImageTemplate = {
+    title: 'Flat fee', basePrice: 250, currency: 'USD', addons: [], modifiers: [], notes: null,
+  };
+  const cfg = imageDemoTemplateToConfig(demoT);
+  const ctx: FormulaContext = {};
+  for (const f of cfg.fields) {
+    if (f.type === 'number') ctx[f.name] = typeof f.default_value === 'number' ? f.default_value : 0;
+  }
+  const { values } = runCalculations(
+    cfg.calculations.map((c) => ({ id: c.id, name: c.name, formula: c.formula })), ctx,
+  );
+  const total = values[cfg.result_calc] ?? 0;
+  ok(total === 250, 'demo/name-ref: headline = 250, not $0.00 (id-vs-name fix)', String(total));
 }
 
 console.log(`\nimage-template conversion: ${pass} passed, ${fail} failed`);
