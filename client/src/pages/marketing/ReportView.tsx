@@ -215,19 +215,36 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
           }}/>
         )}
         <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'relative', zIndex: 1 }}>
-          {/* Background track — segmented tick marks */}
-          <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="6"
-            strokeDasharray="4 6" strokeLinecap="butt" transform="rotate(-90 60 60)"/>
-          {/* Score fill arc — segmented ticks over the filled fraction */}
-          <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="6"
-            strokeDasharray="4 6"
-            strokeDashoffset={circ - fill}
-            strokeLinecap="butt" transform="rotate(-90 60 60)"/>
-          {/* Animated sweep overlay — segmented so it doesn't solid-cover the ticks */}
+          {/* Discrete tick gauge — 28 evenly-spaced radial lines, lit count = score fraction */}
+          {(() => {
+            const TICK_COUNT = 28;
+            const litCount = Math.round((shown / 100) * TICK_COUNT);
+            const cx = 60, cy = 60;
+            const rInner = 42, rOuter = 48;
+            return Array.from({ length: TICK_COUNT }, (_, i) => {
+              const angleDeg = -90 + i * (360 / TICK_COUNT);
+              const rad = (angleDeg * Math.PI) / 180;
+              const x1 = cx + rInner * Math.cos(rad);
+              const y1 = cy + rInner * Math.sin(rad);
+              const x2 = cx + rOuter * Math.cos(rad);
+              const y2 = cy + rOuter * Math.sin(rad);
+              const lit = i < litCount;
+              return (
+                <line
+                  key={i}
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke={lit ? color : 'rgba(255,255,255,0.1)'}
+                  strokeWidth="3.2"
+                  strokeLinecap="butt"
+                />
+              );
+            });
+          })()}
+          {/* Animated sweep overlay — solid arc that travels around; visible only while refining */}
           {isRefining && (
             <circle className="score-sweep" cx="60" cy="60" r={r} fill="none"
               stroke={color} strokeWidth="6" strokeLinecap="butt"
-              strokeDasharray="4 6"
+              strokeDasharray={`${sweepLen} ${circ - sweepLen}`}
               transform="rotate(-90 60 60)"
               opacity={0.35}
               style={{ animation: 'scoreSweep 2s linear infinite' }}/>
@@ -639,9 +656,6 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [holdingBackPopover, setHoldingBackPopover] = useState(false);
   const [revenueTooltip, setRevenueTooltip] = useState(false);
   const [kwColTooltip, setKwColTooltip] = useState<string | null>(null);
-  const [exitPopup, setExitPopup] = useState(false);
-  const exitShownRef = useRef(false);
-
   // Lock body scroll when any modal is open
   const anyModalOpen = scoreModalOpen || metricModal !== null || breakdownModal !== null || issueModal !== null || visualAnalysisModal || screenshotLightbox;
   useEffect(() => {
@@ -652,18 +666,6 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     }
     return () => { document.body.style.overflow = ''; };
   }, [anyModalOpen]);
-
-  // Exit intent — show popup when mouse leaves viewport top (desktop) or beforeunload
-  useEffect(() => {
-    const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 5 && !exitShownRef.current && selected.length === 0) {
-        exitShownRef.current = true;
-        setExitPopup(true);
-      }
-    };
-    document.addEventListener('mouseleave', handleMouseLeave);
-    return () => document.removeEventListener('mouseleave', handleMouseLeave);
-  }, [selected.length]);
 
   // Score circle animation state
   const [displayScore, setDisplayScore] = useState(0);
@@ -3387,44 +3389,6 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         )}
       </div>
 
-      {/* EXIT INTENT POPUP */}
-      {exitPopup && (
-        <>
-          <div onClick={() => setExitPopup(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 300 }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 301, width: 'min(420px, calc(100vw - 32px))', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
-            <div style={{ background: DARK, padding: '24px 24px 20px', position: 'relative' }}>
-              <button onClick={() => setExitPopup(false)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-              <div style={{ fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 4 }}>Not ready for a monthly plan?</div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>We also offer one-time fixes with no ongoing commitment.</div>
-            </div>
-            <div style={{ padding: '20px 24px' }}>
-              {SERVICES.filter(s => s.billingPeriod === 'one-time').slice(0, 2).map(s => (
-                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: `1px solid ${BORDER}` }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{s.name}</div>
-                    <div style={{ fontSize: 12, color: GREY, marginTop: 2 }}>{s.tagline}</div>
-                  </div>
-                  <div style={{ flexShrink: 0, marginLeft: 16, textAlign: 'right' }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: CYAN }}>${s.price}</div>
-                    <div style={{ fontSize: 10, color: GREY }}>one-time</div>
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() => { setExitPopup(false); setActiveTab('plan'); }}
-                style={{ marginTop: 16, width: '100%', padding: '12px 20px', background: CYAN, color: DARK, border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s ease' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
-              >
-                See One-Time Options →
-              </button>
-              <div style={{ textAlign: 'center', marginTop: 10 }}>
-                <button onClick={() => setExitPopup(false)} style={{ background: 'none', border: 'none', color: GREY, fontSize: 12, cursor: 'pointer', padding: 4 }}>No thanks, I'll come back later</button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }

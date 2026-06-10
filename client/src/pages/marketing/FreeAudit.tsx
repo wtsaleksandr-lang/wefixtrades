@@ -921,7 +921,8 @@ export default function FreeAudit() {
           border-radius: 20px;
           margin: 16px 6px 0;
           position: relative;
-          overflow: clip;
+          z-index: 3;
+          overflow: visible;
         }
 
         /* Help-cue ring needs more contrast on the cream island than the
@@ -1193,7 +1194,7 @@ export default function FreeAudit() {
                     position: "relative",
                     width: "100%",
                     boxSizing: "border-box",
-                    overflow: "clip",
+                    overflow: "visible",
                     marginBottom: 16,
                   }}
                 >
@@ -1546,7 +1547,7 @@ export default function FreeAudit() {
 
             {/* RIGHT column — mock report card */}
             {!reportReady && (
-              <div className="audit-hero-right" style={{ display: "flex", justifyContent: "flex-end", overflow: "visible" }}>
+              <div className="audit-hero-right" style={{ display: "flex", justifyContent: "flex-end", overflow: "clip" }}>
                 <AuditMockReportCard onCtaClick={scrollToSearch} />
               </div>
             )}
