@@ -186,21 +186,19 @@ interface Props {
  * scoped to the current tab + calculator without affecting peer widgets.
  */
 const WIDGET_OFFSET_KEY = 'qq_widget_offset';
-const WIDGET_SIZE_KEY = 'qq_widget_size';
 const WIDGET_ZOOM_KEY = 'qq_widget_zoom';
-// fix/wizard-mobile-resize — per-device width override for the mobile-clean
-// preview (real phone viewport, <768px). null/absent = 100% (fit the pane).
-// Mirrors the WIDGET_SIZE_KEY persistence pattern, but stores only a width
-// (the mobile preview is natural-height + vertically scrollable, so no height
-// override is needed). Keyed by device so a phone and a tablet keep their own.
-const MOBILE_PREVIEW_WIDTH_KEY = 'qq_mobile_preview_width';
+// Per-device resize SCALE override. Resize now drives the stage zoom
+// (scale-to-fit), so the durable per-device value the resize gesture persists
+// is a scale factor (mirrors the old per-device WIDGET_SIZE_KEY behaviour: a
+// phone and a tablet keep their own). Loaded into `zoom` on device switch;
+// written on resize pointer-up. The per-session WIDGET_ZOOM_KEY still mirrors
+// the live zoom so wheel/pinch within a session stick — this per-device key is
+// the override that seeds zoom when the device changes.
+const WIDGET_SCALE_KEY = 'qq_widget_scale';
 const GRID_PX = 24; // matches BD-3a canvas grid
 
 interface WidgetOffset { x: number; y: number }
-interface WidgetSize { w: number; h: number }
 
-const MIN_W = 280;
-const MIN_H = 320;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 2.0;
 const ZOOM_STEP = 0.1;
@@ -251,36 +249,18 @@ function loadWidgetOffset(device: PreviewDevice): WidgetOffset {
   return { x: 0, y: 0 };
 }
 
-function loadWidgetSize(device: PreviewDevice): WidgetSize | null {
-  try {
-    const raw = localStorage.getItem(`${WIDGET_SIZE_KEY}_${device}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (
-        parsed && typeof parsed.w === 'number' && typeof parsed.h === 'number'
-        && Number.isFinite(parsed.w) && Number.isFinite(parsed.h)
-        && parsed.w >= MIN_W && parsed.h >= MIN_H
-      ) {
-        return { w: parsed.w, h: parsed.h };
-      }
-    }
-  } catch {}
-  return null;
-}
-
 /**
- * fix/wizard-mobile-resize — load the persisted mobile-clean preview width
- * override for this device. Returns null when unset (→ render at 100% / fit)
- * or when the stored value is invalid. Only a lower bound (MIN_W) is enforced
- * here; the upper bound is the live pane width, clamped at render/drag time
- * (the pane width isn't known at module load).
+ * Load the persisted per-device resize SCALE override. Returns null when unset
+ * (→ no override; the device-change effect leaves the session zoom / auto-fit
+ * in charge) or when the stored value is out of the valid zoom band. Resize
+ * now drives the stage zoom, so this is a scale factor, not a pixel size.
  */
-function loadMobilePreviewWidth(device: PreviewDevice): number | null {
+function loadWidgetScale(device: PreviewDevice): number | null {
   try {
-    const raw = localStorage.getItem(`${MOBILE_PREVIEW_WIDTH_KEY}_${device}`);
+    const raw = localStorage.getItem(`${WIDGET_SCALE_KEY}_${device}`);
     if (raw) {
       const n = Number(raw);
-      if (Number.isFinite(n) && n >= MIN_W) return n;
+      if (Number.isFinite(n) && n >= ZOOM_MIN && n <= ZOOM_MAX) return n;
     }
   } catch {}
   return null;
@@ -567,8 +547,6 @@ export default function PreviewPane({
   // (desktop / mobile) via a combined ref-callback.
   const bezelMeasureRef = useRef<HTMLDivElement | null>(null);
   const [widgetOffset, setWidgetOffset] = useState<WidgetOffset>(() => loadWidgetOffset(device));
-  // BD-3b — explicit widget size override (null = natural / bezel default).
-  const [widgetSize, setWidgetSize] = useState<WidgetSize | null>(() => loadWidgetSize(device));
   // BD-3b — selection state for the bezel itself. True when the user has
   // clicked the widget chrome (drag handle or empty space) — surfaces the
   // resize handles. Cleared by clicking the canvas background.
@@ -579,12 +557,11 @@ export default function PreviewPane({
   // canvas mouseenter/leave drive the flag. Touch devices don't toggle it
   // (no hover state); they rely on tap-to-select.
   const [widgetHover, setWidgetHover] = useState(false);
-  // Wave 18 — dimension tooltip shown while resizing. `null` = not resizing.
-  // The W × H number tracks `widgetSize` (or the bezel natural size when no
-  // override is set); we surface it in pane CSS pixels next to the dragged
-  // handle.
+  // Scale tooltip shown while resizing. `null` = not resizing. Resize now
+  // drives the stage zoom (scale-to-fit), so we surface the scale percentage
+  // (Figma-style) next to the dragged handle rather than a W × H pixel size.
   const [resizeDims, setResizeDims] = useState<{
-    w: number; h: number; clientX: number; clientY: number;
+    scale: number; clientX: number; clientY: number;
   } | null>(null);
   // Wave 18 — alignment guides shown while dragging. Each guide is one of
   // the canvas axes (horizontal centerline or vertical centerline). When the
@@ -596,22 +573,9 @@ export default function PreviewPane({
     /** Pane CSS-px position along the perpendicular axis. */
     pos: number;
   }>>([]);
-  // BD-3b — zoom level (0.25 .. 2.0). Persisted to sessionStorage.
+  // BD-3b — zoom level (0.25 .. 2.0). Persisted to sessionStorage. Also driven
+  // by the desktop resize handles (scale-to-fit) — see onResizePointerMove.
   const [zoom, setZoom] = useState<number>(() => loadZoom(sessionId));
-
-  // fix/wizard-mobile-resize — width override for the MOBILE-CLEAN preview
-  // (real phone viewport). null = 100% / fit the pane. Persisted per-device,
-  // mirroring widgetSize. Lets the user set the preview to ANY width from
-  // MIN_W up to (and beyond, via horizontal scroll) the available pane width
-  // — both by dragging the right-edge handle and via the slim width bar.
-  const [mobilePreviewWidth, setMobilePreviewWidth] = useState<number | null>(
-    () => loadMobilePreviewWidth(device),
-  );
-  // Live pane width (CSS px) so the slider/handle can clamp to the real
-  // available space. Measured on mount + on resize via a ResizeObserver on
-  // the pane element. Default keeps the slider usable before the first
-  // measurement lands.
-  const [mobilePaneWidth, setMobilePaneWidth] = useState<number>(360);
 
   // feat/mobile-wizard-gestures (F2) — live pinch-zoom factor of the mobile
   // preview widget (1×–4×). While >1 the field-selection overlays are
@@ -628,39 +592,18 @@ export default function PreviewPane({
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
 
-  // Reload per-device state when the user toggles device — placement, size,
-  // and zoom (zoom is session-wide so it doesn't reset).
+  // Reload per-device state when the user toggles device — placement + the
+  // per-device resize SCALE override. When a per-device scale exists we apply
+  // it to the live zoom AND lock auto-fit so it isn't immediately overridden;
+  // when none exists we leave auto-fit / the session zoom in charge.
   useEffect(() => {
     setWidgetOffset(loadWidgetOffset(device));
-    setWidgetSize(loadWidgetSize(device));
-    setMobilePreviewWidth(loadMobilePreviewWidth(device));
+    const savedScale = loadWidgetScale(device);
+    if (savedScale != null) {
+      userZoomLockedRef.current = true;
+      setZoom(savedScale);
+    }
   }, [device]);
-
-  // fix/wizard-mobile-resize — track the live pane width so the mobile-clean
-  // slider/handle can clamp to the real available space. Only meaningful on a
-  // real phone viewport; the observer is cheap so it stays mounted regardless.
-  useEffect(() => {
-    const el = paneRef.current;
-    if (!el) return;
-    const measure = () => {
-      const w = el.clientWidth;
-      if (Number.isFinite(w) && w > 0) setMobilePaneWidth(w);
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [isMobileViewport]);
-
-  // Persist the mobile-clean width override whenever it changes.
-  useEffect(() => {
-    try {
-      const key = `${MOBILE_PREVIEW_WIDTH_KEY}_${device}`;
-      if (mobilePreviewWidth == null) localStorage.removeItem(key);
-      else localStorage.setItem(key, String(mobilePreviewWidth));
-    } catch {}
-  }, [device, mobilePreviewWidth]);
 
   // Persist zoom whenever it changes.
   useEffect(() => {
@@ -969,10 +912,12 @@ export default function PreviewPane({
 
   const resetWidgetOffset = useCallback(() => {
     setWidgetOffset({ x: 0, y: 0 });
-    setWidgetSize(null);
+    // Clear the per-device resize SCALE override and hand control back to
+    // auto-fit (unlock the zoom lock so the fit Observer re-fits the mockup).
+    userZoomLockedRef.current = false;
     try {
       localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`);
-      localStorage.removeItem(`${WIDGET_SIZE_KEY}_${device}`);
+      localStorage.removeItem(`${WIDGET_SCALE_KEY}_${device}`);
     } catch {}
   }, [device]);
 
@@ -993,9 +938,15 @@ export default function PreviewPane({
   const resizeStateRef = useRef<{
     dir: HandleDir;
     startX: number; startY: number;
-    baseW: number; baseH: number;
+    // Gesture-start natural (unscaled) bezel footprint + the live zoom captured
+    // at pointer-down. Resize now drives the STAGE SCALE (zoom), not widgetSize:
+    // dragging a handle inward zooms the whole mockup OUT (Elfsight/Figma), so
+    // the widget is always fully visible instead of being clipped. The in-gesture
+    // pointer delta is divided by `startZoom` (the captured value), NOT the live
+    // `zoom`, so the scale isn't a feedback loop on itself.
+    naturalW: number; naturalH: number;
+    startZoom: number;
     baseOffsetX: number; baseOffsetY: number;
-    aspect: number;
     pointerId: number;
   } | null>(null);
 
@@ -1050,83 +1001,94 @@ export default function PreviewPane({
     // and produce a sudden "snap to large size" on the first mousemove.
     const naturalW = bezel.clientWidth;
     const naturalH = bezel.clientHeight;
-    const baseW = widgetSize?.w ?? naturalW;
-    const baseH = widgetSize?.h ?? naturalH;
     const handle = e.currentTarget;
     handle.setPointerCapture(e.pointerId);
     resizeStateRef.current = {
       dir,
       startX: e.clientX, startY: e.clientY,
-      baseW, baseH,
+      // Capture the gesture-start natural footprint + zoom. The on-screen frame
+      // width at start is naturalW * startZoom; the move handler derives the new
+      // scale from how far the grabbed edge has been dragged relative to that.
+      naturalW, naturalH,
+      startZoom: zoom,
       baseOffsetX: widgetOffset.x, baseOffsetY: widgetOffset.y,
-      aspect: baseW / baseH,
       pointerId: e.pointerId,
     };
     setWidgetSelected(true);
-  }, [widgetOffset.x, widgetOffset.y, widgetSize, zoom]);
+  }, [widgetOffset.x, widgetOffset.y, zoom]);
 
   const onResizePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = resizeStateRef.current;
     if (!st || st.pointerId !== e.pointerId) return;
     const pane = paneRef.current;
     if (!pane) return;
-    const dx = (e.clientX - st.startX) / zoom;
-    const dy = (e.clientY - st.startY) / zoom;
-    // Wave 54 — cap maxW / maxH to a sane multiple of the pane size in
-    // STAGE pixels. Was `paneRect.width / zoom` which, when zoom is small
-    // (e.g. 0.5 because the bezel was auto-fitted), allowed a maxW of
-    // 2× the pane — combined with the old grid-snap this drove the
-    // "jumps to large size" symptom Alex reported. We now cap at twice
-    // the pane (still generous) so a wild fling can't blow the widget
-    // up unreasonably.
-    const paneRect = pane.getBoundingClientRect();
-    const maxW = Math.max(MIN_W, (paneRect.width / zoom) * 2);
-    const maxH = Math.max(MIN_H, (paneRect.height / zoom) * 4);
-    let w = st.baseW;
-    let h = st.baseH;
+    // SCALE-to-fit resize (Elfsight/Figma). The handle drives the STAGE zoom,
+    // not widgetSize — so dragging a handle inward zooms the whole mockup OUT
+    // and it stays fully visible (the old behaviour reflowed the widget taller
+    // and the bezel's maxHeight + overflow:clip cropped it).
+    //
+    // dx/dy are the raw on-screen pointer deltas. We deliberately do NOT divide
+    // them by the live `zoom` (that would be a feedback loop — as the scale
+    // changes mid-gesture the divisor would change and the handle would feel
+    // slippery). The frame's on-screen width is what the pointer tracks, so we
+    // compute the new on-screen frame width directly, then convert to a scale.
+    const dx = e.clientX - st.startX;
+    const dy = e.clientY - st.startY;
+    // On-screen frame footprint at gesture start.
+    const startFrameW = st.naturalW * st.startZoom;
+    const startFrameH = st.naturalH * st.startZoom;
+
+    // Each handle direction grows/shrinks the on-screen frame from the grabbed
+    // edge. E/S grow on positive drag; W/N grow on negative drag (the grabbed
+    // edge moves toward/away from the opposite edge). We take the dominant axis
+    // delta so a single-scale (uniform) zoom results — the whole mockup scales
+    // together, never distorts.
+    let frameW = startFrameW;
+    let frameH = startFrameH;
+    if (st.dir.includes('e')) frameW = startFrameW + dx;
+    if (st.dir.includes('w')) frameW = startFrameW - dx;
+    if (st.dir.includes('s')) frameH = startFrameH + dy;
+    if (st.dir.includes('n')) frameH = startFrameH - dy;
+
+    // Derive the new scale from whichever axis the handle actually drives.
+    // Corner handles (e.g. 'se', 'nw') drive both — pick the axis with the
+    // larger relative change so the gesture feels responsive, matching Figma.
+    const scaleFromW = frameW / st.naturalW;
+    const scaleFromH = frameH / st.naturalH;
+    const drivesW = /[ew]/.test(st.dir);
+    const drivesH = /[ns]/.test(st.dir);
+    let scaleRaw: number;
+    if (drivesW && drivesH) {
+      // Corner: take the larger magnitude of change from the start zoom.
+      scaleRaw = Math.abs(scaleFromW - st.startZoom) >= Math.abs(scaleFromH - st.startZoom)
+        ? scaleFromW : scaleFromH;
+    } else if (drivesW) {
+      scaleRaw = scaleFromW;
+    } else {
+      scaleRaw = scaleFromH;
+    }
+    const scale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, scaleRaw));
+
+    // Keep the grabbed edge anchored: a N/W-anchored handle should appear to
+    // grow/shrink from the edge the user grabbed, so compensate the stage
+    // offset by the change in the SCALED footprint (naturalW * (scaleNew −
+    // scaleOld)). transformOrigin is '0 0' (top-left), so growing the scale
+    // expands toward the right/bottom; for W/N handles we shift the offset
+    // left/up by the footprint delta to pin the opposite (grabbed) edge.
+    const dScale = scale - st.startZoom;
     let ox = st.baseOffsetX;
     let oy = st.baseOffsetY;
-
-    // Each direction adjusts width/height (and possibly offset, for north/west
-    // anchors) independently.
-    if (st.dir.includes('e')) w = st.baseW + dx;
-    if (st.dir.includes('w')) { w = st.baseW - dx; ox = st.baseOffsetX + dx; }
-    if (st.dir.includes('s')) h = st.baseH + dy;
-    if (st.dir.includes('n')) { h = st.baseH - dy; oy = st.baseOffsetY + dy; }
-
-    // Shift = preserve aspect ratio (Photoshop-style).
-    if (e.shiftKey) {
-      const fromW = Math.abs(w - st.baseW) >= Math.abs(h - st.baseH);
-      if (fromW) {
-        const newH = w / st.aspect;
-        if (st.dir.includes('n')) oy = st.baseOffsetY + (h - newH);
-        h = newH;
-      } else {
-        const newW = h * st.aspect;
-        if (st.dir.includes('w')) ox = st.baseOffsetX + (w - newW);
-        w = newW;
-      }
-    }
-
-    // Clamp to min/max bounds.
-    w = Math.max(MIN_W, Math.min(maxW, w));
-    h = Math.max(MIN_H, Math.min(maxH, h));
-
-    // Wave 54 — free 1:1 resize (no grid snap). Was `snap(w)` / `snap(h)`
-    // to a 24-px grid which caused visible step-jumps as the user dragged.
-    // Round to integer pixels for clean DOM values; the alignment-guide
-    // snap (drag only) is the sole snapping behaviour now.
-    w = Math.round(w);
-    h = Math.round(h);
+    if (st.dir.includes('w')) ox = st.baseOffsetX - st.naturalW * dScale;
+    if (st.dir.includes('n')) oy = st.baseOffsetY - st.naturalH * dScale;
     ox = Math.round(ox);
     oy = Math.round(oy);
 
-    setWidgetSize({ w, h });
+    setZoom(scale);
     setWidgetOffset({ x: ox, y: oy });
-    // Wave 18 — Canva-level "240 × 120" tooltip while resizing. Track the
-    // pointer location so the tooltip can render near the active handle.
-    setResizeDims({ w, h, clientX: e.clientX, clientY: e.clientY });
-  }, [zoom]);
+    // Tooltip — show the scale percentage (Figma-style) instead of W × H since
+    // the widget no longer has an explicit pixel size; it's scaled.
+    setResizeDims({ scale, clientX: e.clientX, clientY: e.clientY });
+  }, []);
 
   const onResizePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = resizeStateRef.current;
@@ -1134,59 +1096,16 @@ export default function PreviewPane({
     const handle = e.currentTarget;
     try { handle.releasePointerCapture(e.pointerId); } catch {}
     resizeStateRef.current = null;
-    // Wave 18 — hide the dimension tooltip on release.
+    // Hide the scale tooltip on release.
     setResizeDims(null);
     try {
-      if (widgetSize) {
-        localStorage.setItem(`${WIDGET_SIZE_KEY}_${device}`, JSON.stringify(widgetSize));
-      }
+      // Persist the resize SCALE per-device (resize drives the stage zoom now).
+      // The per-session WIDGET_ZOOM_KEY is written by the zoom-persist effect;
+      // this per-device key is the durable override re-applied on device switch.
+      localStorage.setItem(`${WIDGET_SCALE_KEY}_${device}`, String(zoom));
       localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffset));
     } catch {}
-  }, [device, widgetSize, widgetOffset]);
-
-  // ── Mobile-clean preview resize (real phone viewport) ─────────────────
-  // The desktop bezel resize plumbing above is gated off on mobile (no stage,
-  // no zoom). The mobile preview instead gets a dedicated right-edge drag
-  // handle + a width slider, both driving `mobilePreviewWidth`. Width is
-  // clamped to [MIN_W, MAX_MOBILE_WIDTH] where the max lets the user pull the
-  // preview WIDER than the screen (the outer container scrolls horizontally).
-  const MAX_MOBILE_WIDTH = Math.max(MIN_W, Math.round(mobilePaneWidth * 3));
-  const clampMobileWidth = useCallback(
-    (w: number) => Math.max(MIN_W, Math.min(MAX_MOBILE_WIDTH, Math.round(w))),
-    [MAX_MOBILE_WIDTH],
-  );
-  // Drag state: the bezel's left edge (clientX) captured at pointer-down so the
-  // live width = pointerX - bezelLeft. Stored in a ref so the move handler is
-  // stable and doesn't re-bind per frame.
-  const mobileResizeRef = useRef<{ pointerId: number; bezelLeft: number } | null>(null);
-  const onMobileResizeDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    // The handle sits on the bezel's right edge; the bezel is its offsetParent
-    // chain — measure the actual widget container to the handle's left.
-    const handle = e.currentTarget;
-    const bezel = handle.parentElement; // the qq-bezel--mobile-clean wrapper
-    const left = bezel ? bezel.getBoundingClientRect().left : handle.getBoundingClientRect().left;
-    mobileResizeRef.current = { pointerId: e.pointerId, bezelLeft: left };
-    try { handle.setPointerCapture(e.pointerId); } catch {}
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-  const onMobileResizeMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const st = mobileResizeRef.current;
-    if (!st || st.pointerId !== e.pointerId) return;
-    const next = clampMobileWidth(e.clientX - st.bezelLeft);
-    setMobilePreviewWidth(next);
-    e.preventDefault();
-  }, [clampMobileWidth]);
-  const onMobileResizeUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const st = mobileResizeRef.current;
-    if (!st || st.pointerId !== e.pointerId) return;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
-    mobileResizeRef.current = null;
-  }, []);
-  // The slider/number-field max tracks the pane (a sensible "any on-screen
-  // width" range); the drag handle can still exceed it for wider-than-screen.
-  const mobileSliderMax = MAX_MOBILE_WIDTH;
-  const mobileWidthValue = mobilePreviewWidth ?? Math.max(MIN_W, Math.round(mobilePaneWidth));
+  }, [device, zoom, widgetOffset]);
 
   // ── Zoom controls ────────────────────────────────────────────────────
   const clampZoom = useCallback((n: number) => {
@@ -2701,63 +2620,10 @@ export default function PreviewPane({
       className="qq-preview-mobile-clean"
       data-testid="preview-mobile-clean"
     >
-      {/* fix/wizard-mobile-resize — slim sticky width bar. Sits between the
-          sticky EditorTopBar and the scrollable preview so the user can dial in
-          ANY exact width without fiddly dragging. Title-in-field + help cue
-          top-left per the project input-field rules; theme-aware tokens (this
-          whole subtree is inside the data-theme="light" pane wrapper). */}
-      <div className="qq-mobile-width-bar" data-testid="preview-mobile-width-bar">
-        <div className="qq-mobile-width-bar__field">
-          <label className="qq-mobile-width-bar__label" htmlFor="qq-mobile-width-range">
-            Preview width
-          </label>
-          <span className="qq-mobile-width-bar__help">Drag the edge or set an exact size</span>
-          <div className="qq-mobile-width-bar__controls">
-            <input
-              id="qq-mobile-width-range"
-              type="range"
-              className="qq-mobile-width-bar__range"
-              min={MIN_W}
-              max={mobileSliderMax}
-              step={1}
-              value={Math.min(mobileWidthValue, mobileSliderMax)}
-              onChange={(e) => setMobilePreviewWidth(clampMobileWidth(Number(e.target.value)))}
-              aria-label="Preview width"
-              data-testid="preview-mobile-width-range"
-            />
-            <div className="qq-mobile-width-bar__num">
-              <input
-                type="number"
-                className="qq-mobile-width-bar__numinput"
-                min={MIN_W}
-                max={MAX_MOBILE_WIDTH}
-                step={1}
-                value={Math.round(mobileWidthValue)}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (Number.isFinite(v)) setMobilePreviewWidth(clampMobileWidth(v));
-                }}
-                aria-label="Preview width in pixels"
-                data-testid="preview-mobile-width-number"
-              />
-              <span className="qq-mobile-width-bar__unit">px</span>
-            </div>
-            <button
-              type="button"
-              className="qq-mobile-width-bar__reset"
-              onClick={() => setMobilePreviewWidth(null)}
-              disabled={mobilePreviewWidth == null}
-              data-testid="preview-mobile-width-reset"
-            >
-              Fit
-            </button>
-          </div>
-        </div>
-      </div>
-      {/* fix/wizard-mobile-resize — horizontal-scroll wrapper. The OUTER
-          container scrolls when the preview is pulled WIDER than the screen,
-          so the sticky-bearing bezel keeps overflow:clip (sticky-safe — see
-          project_overflow_clip_for_sticky). */}
+      {/* Horizontal-scroll wrapper kept (harmless at full width) so the
+          sticky-bearing bezel keeps overflow:clip (sticky-safe — see
+          project_overflow_clip_for_sticky). The mobile preview is always
+          full-width now; the width slider/drag handle were removed. */}
       <div className="qq-preview-mobile-hscroll" data-testid="preview-mobile-hscroll">
       {/* Direct render of the live widget — no bezel, no browser chrome, no
           phone bezel. The widget-scope class is preserved so the global
@@ -2765,11 +2631,8 @@ export default function PreviewPane({
       <div
         className="widget-scope qq-preview-mobile-widget-scope"
         style={{
-          // Override-aware width: the slider/handle value, else 100% / fit.
-          // margin:0 auto centers when narrower than the pane; max-width:100%
-          // keeps the default (no-override) case flush to the edges.
-          width: mobilePreviewWidth != null ? `${mobilePreviewWidth}px` : '100%',
-          maxWidth: mobilePreviewWidth != null ? 'none' : '100%',
+          // Mobile preview is always full-width (the width override was removed).
+          width: '100%',
           margin: '0 auto',
         }}
       >
@@ -2829,27 +2692,6 @@ export default function PreviewPane({
           {headerSel && (
             <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
           )}
-          {/* fix/wizard-mobile-resize — right-edge drag handle. Generous ≥24px
-              touch hit-area (the visual grip is slim, the hit-area is padded)
-              so it works on a real phone. Pointer events set the width live;
-              clamped in onMobileResizeMove. Lives INSIDE the bezel (its
-              offsetParent) so width = pointerX − bezelLeft. */}
-          <div
-            className="qq-mobile-resize-handle"
-            data-testid="preview-mobile-resize-handle"
-            role="slider"
-            aria-label="Drag to resize preview width"
-            aria-valuemin={MIN_W}
-            aria-valuemax={MAX_MOBILE_WIDTH}
-            aria-valuenow={Math.round(mobileWidthValue)}
-            onPointerDown={onMobileResizeDown}
-            onPointerMove={onMobileResizeMove}
-            onPointerUp={onMobileResizeUp}
-            onPointerCancel={onMobileResizeUp}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span className="qq-mobile-resize-handle__grip" aria-hidden="true" />
-          </div>
         </div>
       </div>
       </div>
@@ -2899,7 +2741,7 @@ export default function PreviewPane({
     >
       {isMobileViewport ? mobileCleanContent : (
        <>
-      {(widgetOffset.x !== 0 || widgetOffset.y !== 0 || widgetSize) && (
+      {(widgetOffset.x !== 0 || widgetOffset.y !== 0 || zoom !== 1) && (
         <button
           type="button"
           className="qq-preview-reset-pos"
@@ -2940,9 +2782,9 @@ export default function PreviewPane({
               onPointerLeave={(e) => { if (e.pointerType === 'mouse') setWidgetHover(false); }}
               style={{
                 position: 'relative',
-                width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH.mobile,
-                maxWidth: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH.mobile,
-                height: widgetSize ? widgetSize.h : undefined,
+                width: DEVICE_PRESET_WIDTH.mobile,
+                maxWidth: DEVICE_PRESET_WIDTH.mobile,
+                // Natural height — the stage scale (zoom) handles shrink-to-fit.
                 flexShrink: 0, margin: '0 auto',
               }}
             >
@@ -2959,8 +2801,8 @@ export default function PreviewPane({
                  * scales this to the available pane size. */
                 width: '100%',
                 maxWidth: '100%',
-                height: widgetSize ? widgetSize.h : undefined,
-                maxHeight: widgetSize ? widgetSize.h : 780,
+                // Natural height (no height/maxHeight clamp) so vertical content
+                // is never clipped — the stage scale (zoom) handles shrink-to-fit.
                 background: 'linear-gradient(160deg, #1e293b, #0f172a)',
                 borderRadius: 44, padding: '12px 10px', boxSizing: 'border-box',
                 // P0 sticky fix — `clip` not `hidden` so `position: sticky`
@@ -3027,9 +2869,9 @@ export default function PreviewPane({
               onPointerLeave={(e) => { if (e.pointerType === 'mouse') setWidgetHover(false); }}
               style={{
                 position: 'relative',
-                width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH[device],
-                maxWidth: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH[device],
-                height: widgetSize ? widgetSize.h : undefined,
+                width: DEVICE_PRESET_WIDTH[device],
+                maxWidth: DEVICE_PRESET_WIDTH[device],
+                // Natural height — the stage scale (zoom) handles shrink-to-fit.
                 margin: '0 auto',
               }}
             >
@@ -3048,8 +2890,8 @@ export default function PreviewPane({
                  * expect from Figma / Webflow / Builder.io. */
                 width: '100%',
                 maxWidth: '100%',
-                height: widgetSize ? widgetSize.h : undefined,
-                maxHeight: widgetSize ? widgetSize.h : 900,
+                // Natural height (no height/maxHeight clamp) so vertical content
+                // is never clipped — the stage scale (zoom) handles shrink-to-fit.
                 // P0 sticky fix — `clip` not `hidden` so `position: sticky`
                 // descendants inside the widget anchor to the page / iframe
                 // scroll container instead of being trapped by this bezel.
@@ -3255,7 +3097,7 @@ export default function PreviewPane({
             style={{ left, top }}
             aria-live="polite"
           >
-            {resizeDims.w} × {resizeDims.h}
+            {Math.round(resizeDims.scale * 100)}%
           </div>
         );
       })()}
@@ -3521,108 +3363,6 @@ export default function PreviewPane({
         }
         .qq-wizard-pinch-reset:active {
           opacity: 0.85;
-        }
-        /* fix/wizard-mobile-resize — slim sticky width bar between the sticky
-         * top bar and the scrollable preview. Theme-aware tokens only. */
-        .qq-mobile-width-bar {
-          position: sticky;
-          top: 0;
-          z-index: 6;
-          width: 100%;
-          box-sizing: border-box;
-          padding: 8px 12px;
-          border-bottom: 1px solid var(--qq-border, rgba(0,0,0,0.08));
-          background: var(--qq-surface, rgba(255,255,255,1));
-        }
-        .qq-mobile-width-bar__field {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .qq-mobile-width-bar__label {
-          font-size: 12px;
-          font-weight: 600;
-          line-height: 1.2;
-          color: var(--qq-text, rgba(17,24,39,1));
-        }
-        .qq-mobile-width-bar__help {
-          font-size: 11px;
-          line-height: 1.2;
-          color: var(--qq-text-muted, rgba(107,114,128,1));
-        }
-        .qq-mobile-width-bar__controls {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 2px;
-        }
-        .qq-mobile-width-bar__range {
-          flex: 1 1 auto;
-          min-width: 0;
-          accent-color: var(--qq-accent, #2563eb);
-          height: 24px;
-        }
-        .qq-mobile-width-bar__num {
-          display: inline-flex;
-          align-items: center;
-          gap: 2px;
-        }
-        .qq-mobile-width-bar__numinput {
-          width: 56px;
-          height: 28px;
-          box-sizing: border-box;
-          padding: 2px 6px;
-          font-size: 12px;
-          border: 1px solid var(--qq-border, rgba(0,0,0,0.16));
-          border-radius: 6px;
-          background: var(--qq-surface, rgba(255,255,255,1));
-          color: var(--qq-text, rgba(17,24,39,1));
-        }
-        .qq-mobile-width-bar__unit {
-          font-size: 11px;
-          color: var(--qq-text-muted, rgba(107,114,128,1));
-        }
-        .qq-mobile-width-bar__reset {
-          height: 28px;
-          padding: 0 10px;
-          font-size: 12px;
-          font-weight: 600;
-          border: 1px solid var(--qq-border, rgba(0,0,0,0.16));
-          border-radius: 6px;
-          background: transparent;
-          color: var(--qq-text, rgba(17,24,39,1));
-          cursor: pointer;
-        }
-        .qq-mobile-width-bar__reset:disabled {
-          opacity: 0.45;
-          cursor: default;
-        }
-        /* fix/wizard-mobile-resize — right-edge drag handle on the bezel. Slim
-         * visible grip, padded ≥24px touch hit-area for a real phone. */
-        .qq-mobile-resize-handle {
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 24px;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: ew-resize;
-          touch-action: none;
-          z-index: 5;
-          background: transparent;
-        }
-        .qq-mobile-resize-handle__grip {
-          width: 4px;
-          height: 44px;
-          border-radius: 999px;
-          background: var(--qq-accent, #2563eb);
-          opacity: 0.55;
-          box-shadow: 0 0 0 1px var(--qq-surface, rgba(255,255,255,0.9));
-        }
-        .qq-mobile-resize-handle:active .qq-mobile-resize-handle__grip {
-          opacity: 0.9;
         }
         .qq-bezel--mobile-clean {
           width: 100%;
