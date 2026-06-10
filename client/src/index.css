@@ -3085,15 +3085,28 @@
 }
 
 
-/* Dropdown footer CTA pill — hover brightens bg + border toward accent tint.
-   @media (prefers-reduced-motion: reduce) skips the transition. */
+/* Dropdown footer CTA — accent-blue fill matching .ft-mega__seeall.
+   Base transition lives here; bg/border values override on hover.
+   Arrow span translateX handled via the child selector below. */
+.mkt-dropdown-footer-pill {
+  transition: background 150ms ease, border-color 150ms ease;
+}
 .mkt-dropdown-footer-pill:hover,
 .mkt-dropdown-footer-pill:focus-visible {
-  background: rgba(13, 60, 252, 0.15);
-  border-color: rgba(13, 60, 252, 0.40);
+  background: rgba(13, 60, 252, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.9) !important;
+}
+.mkt-dropdown-footer-pill-arrow {
+  font-size: 14px;
+  transition: transform 200ms ease;
+}
+.mkt-dropdown-footer-pill:hover .mkt-dropdown-footer-pill-arrow,
+.mkt-dropdown-footer-pill:focus-visible .mkt-dropdown-footer-pill-arrow {
+  transform: translateX(3px);
 }
 @media (prefers-reduced-motion: reduce) {
-  .mkt-dropdown-footer-pill {
+  .mkt-dropdown-footer-pill,
+  .mkt-dropdown-footer-pill-arrow {
     transition: none !important;
   }
 }

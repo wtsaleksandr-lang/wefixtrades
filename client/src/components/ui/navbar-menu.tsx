@@ -195,21 +195,13 @@ export const MenuItem = ({
               className="mkt-dropdown-tray"
               style={{
                 padding: item === "Tools" || hasSubgroups ? 16 : 10,
-                display: item === "Tools" || hasSubgroups ? "block" : "grid",
-                ...(item === "Tools" || hasSubgroups
-                  ? {}
-                  : {
-                      // Under-filled trays (1-2 cards, e.g. Templates)
-                      // center as fixed-width columns instead of
-                      // left-aligning inside an empty 3-col grid.
-                      gridTemplateColumns:
-                        (children?.length ?? 0) <= 2
-                          ? `repeat(${children?.length ?? 1}, minmax(220px, 340px))`
-                          : "repeat(3, 1fr)",
-                      justifyContent: "center",
-                      gridAutoFlow: "row",
-                      gap: 8,
-                    }),
+                // The cards grid lives on an inner div (below); the tray
+                // itself stays block so the footer CTA row can span the
+                // full panel width as a sibling of the grid. The footer
+                // must stay INSIDE this layoutId element — as a sibling
+                // of the tray it escapes framer-motion's transform and
+                // renders 360px offscreen-right (caught by measurement).
+                display: "block",
                 boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
               }}
             >
@@ -232,7 +224,22 @@ export const MenuItem = ({
                    linger open after navigating). */
                 <ToolsRichCards items={children!} onNavigate={() => setActive(null)} />
               ) : (
-                <motion.div layout style={{ display: "contents" }}>
+                <motion.div
+                  layout
+                  style={{
+                    display: "grid",
+                    // Under-filled trays (1-2 cards, e.g. Templates)
+                    // center as fixed-width columns instead of
+                    // left-aligning inside an empty 3-col grid.
+                    gridTemplateColumns:
+                      (children?.length ?? 0) <= 2
+                        ? `repeat(${children?.length ?? 1}, minmax(220px, 340px))`
+                        : "repeat(3, 1fr)",
+                    justifyContent: "center",
+                    gridAutoFlow: "row",
+                    gap: 8,
+                  }}
+                >
                   {children!.map(
                     ({ label, href: childHref, description, icon }) => (
                       <Link
@@ -287,14 +294,21 @@ export const MenuItem = ({
                 </motion.div>
               )}
               {footer && footer.length > 0 && !hasSubgroups && item !== "Tools" && (
-                /* Wayfinding footer pills — span the full grid width with a
-                   hairline separator. Hover styling via
-                   .mkt-dropdown-footer-pill (index.css). */
+                /* Wayfinding footer CTAs — accent-blue fill matching the Free
+                   Tools "see all" button style (.ft-mega__seeall). Each button
+                   gets flex:1 so one button fills the row and two split evenly.
+                   Sibling of the cards grid (not inside it) so the row spans
+                   the full panel width even when ≤2 centered cards constrain
+                   the grid to ~688px. Must stay INSIDE the tray motion.div —
+                   outside it, framer-motion's transform handling leaves the
+                   row un-centered and it renders 360px offscreen-right.
+                   Hover styling (bg darken + white border + arrow translate)
+                   lives in .mkt-dropdown-footer-pill (index.css). */
                 <div
                   style={{
-                    gridColumn: "1 / -1",
+                    width: "100%",
                     display: "flex",
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap",
                     gap: 10,
                     marginTop: 6,
                     paddingTop: 12,
@@ -308,20 +322,26 @@ export const MenuItem = ({
                       className="mkt-dropdown-footer-pill"
                       onClick={() => setActive(null)}
                       style={{
+                        flex: "1 1 0",
                         display: "inline-flex",
                         alignItems: "center",
-                        minHeight: 36,
-                        padding: "8px 16px",
-                        borderRadius: 999,
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: mkt.onDark,
+                        justifyContent: "center",
+                        gap: 8,
+                        padding: "11px 14px",
+                        borderRadius: 10,
+                        background: mkt.accent,
+                        border: "1px solid transparent",
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase" as const,
+                        color: "rgba(255,255,255,1)",
                         textDecoration: "none",
                       }}
                     >
                       {f.label}
+                      <span className="mkt-dropdown-footer-pill-arrow" aria-hidden="true">→</span>
                     </Link>
                   ))}
                 </div>

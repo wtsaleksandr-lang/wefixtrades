@@ -20,6 +20,8 @@ import type { NavItemChild, NavSubgroup } from "@/site/navigation";
 import { NavIcon } from "./NavIcon";
 import { mkt } from "@/theme/tokens";
 
+const LOGIN_HREF = "/login";
+
 interface Props {
   subgroups: NavSubgroup[];
   /** Hub page href (e.g. /free-tools) used by the bottom "See all" link. */
@@ -127,16 +129,23 @@ function FreeToolsItem({
           {item.label}
         </div>
         {item.portalGated && (
-          // Framed as a member perk (not a warning) — soft neutral pill
-          // signals "this lives in your dashboard" without alarming guests.
-          <span
+          // Icon-only 22px circular ghost button — fixed size (flexShrink:0)
+          // so it can NEVER push the title text to overlap at any viewport.
+          // Clicking navigates to /login instead of the gated tool, preventing
+          // 401s for guests. e.stopPropagation() keeps the parent card link
+          // from also firing on the same click.
+          <button
             className="ft-mega__lock"
-            title="Members only — sign in to open your portal widgets"
-            aria-label="Members only"
+            title="Members only — sign in to open"
+            aria-label="Members only — sign in"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.location.href = LOGIN_HREF;
+            }}
           >
             <Lock size={12} strokeWidth={2.4} aria-hidden />
-            <span className="ft-mega__lock-text">Members</span>
-          </span>
+          </button>
         )}
       </div>
     </Link>
@@ -197,38 +206,33 @@ const CSS = `
 /* Items render as the shared .mkt-menu-card (see FreeToolsItem) so their
    size + badge + hover match the Products/Resources dropdown exactly. */
 
-/* Portal-gated member-perk pill — indicates the 7 Widgets live inside the
-   authenticated portal. Rendered INLINE inside the label flex-row (after the
-   title text) so it is NEVER overlapping: the title takes minWidth:0 and the
-   pill is flex-shrink:0, forcing the title to truncate before the pill
-   disappears. Soft neutral at rest; accents on row hover. */
+/* Portal-gated member icon — 22px circular ghost button rendered inline
+   after the title text. Fixed 22x22 size + flexShrink:0 makes title-overlap
+   IMPOSSIBLE at any viewport: the title ellipses while the circle stays
+   stable. Clicking navigates to /login (not the gated tool). */
 .ft-mega__lock {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   flex-shrink: 0;
-  /* margin-left removed — spacing handled by parent gap:8px */
-  padding: 2px 6px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   border: 1px solid ${mkt.onDarkBorder};
-  background: rgba(255, 255, 255, 0.04);
+  background: transparent;
   color: ${mkt.onDarkMuted};
-  font-family: 'DM Mono', monospace;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0;
+  /* Reset button UA defaults */
+  appearance: none;
+  -webkit-appearance: none;
   line-height: 1;
   transition: color 180ms ease, border-color 180ms ease;
 }
+.ft-mega__lock:hover,
 .mkt-menu-card:hover .ft-mega__lock {
   color: ${mkt.accent};
   border-color: ${mkt.accent};
-}
-.ft-mega__lock-text { white-space: nowrap; }
-@media (max-width: 720px) {
-  /* Keep the icon, drop the word on very narrow columns to avoid wrap. */
-  .ft-mega__lock-text { display: none; }
 }
 
 .ft-mega__more {
