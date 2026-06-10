@@ -1482,6 +1482,38 @@ export default function WizardShell({ embed = false }: Props) {
     if (!isMobile) setMobileSheetOpen(false);
   }, [isMobile]);
 
+  // First-run discoverability (fix/wizard-mobile-firstrun) — on a real phone a
+  // brand-new user lands on the full-screen preview + bottom tab bar with NO
+  // obvious "start editing" affordance (the Build sheet is closed by default).
+  // Auto-open the Build sheet ONCE on the first mobile mount of a fresh session
+  // so the editor is immediately discoverable. It opens to its default resting
+  // height (DEFAULT_HEIGHT_FRAC ≈ 42% of the work area — a peeked, draggable
+  // state, NOT full-screen), and the preview stays visible above it.
+  //
+  // Once-only guards so we never fight the user:
+  //   - `firstRunOpenedRef` — fires at most once per component lifetime.
+  //   - sessionStorage flag — survives re-mounts within the tab/session, so if
+  //     the user closes the sheet it does NOT spring back open. A fresh session
+  //     (new tab / reload after close) shows it again.
+  // Desktop is untouched (guarded by isMobile); the default `activeTab` is
+  // already 'build', so the Build tab is what opens.
+  const firstRunOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!isMobile || firstRunOpenedRef.current) return;
+    firstRunOpenedRef.current = true;
+    try {
+      if (typeof window !== 'undefined'
+        && window.sessionStorage.getItem('qq_wizard_sheet_autoopened') === '1') {
+        return; // already auto-opened (and possibly dismissed) this session
+      }
+      window.sessionStorage.setItem('qq_wizard_sheet_autoopened', '1');
+    } catch {
+      // sessionStorage may throw in private mode / sandboxed iframes — still
+      // open once for this mount (the ref guard prevents a re-open loop).
+    }
+    setMobileSheetOpen(true);
+  }, [isMobile]);
+
   // ── Click-to-edit (2026-06-06) — tapping a spot on the live preview jumps
   // the editor to the control that edits it. PreviewPane fires
   // `onPreviewSpotEdit(tab, targetKey)`; we switch to `tab`, then scroll-to +

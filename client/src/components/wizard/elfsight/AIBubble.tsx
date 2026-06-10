@@ -1222,11 +1222,15 @@ export default function AIBubble(props: AIBubbleProps) {
         .qq-ai-bubble {
           /* Wave 6 fix — raised bottom 18px -> 76px so the floating bubble
            *  clears the canvas zoom toolbar pill (Actual size / Recenter),
-           *  which sits at the editor's bottom-right. At 18px the bubble
-           *  physically covered those controls and stole their hit-test,
-           *  making them un-clickable. 76px leaves a comfortable gap above
-           *  the pill while keeping the bubble bottom-right and reachable. */
-          position: fixed; right: 18px; bottom: 76px; z-index: 1100;
+           *  which sits at the editor's bottom-right.
+           *
+           *  fix/wizard-mobile-firstrun — 76px still overlapped the live
+           *  preview's sticky bottom CTA bar ("Get My Quote" + total), which
+           *  is a ~76px position:sticky; bottom:0 footer flush to the
+           *  bottom-right of the widget card. Raise the bubble to 140px so it
+           *  sits clearly ABOVE both the zoom pill AND that sticky CTA bar,
+           *  with comfortable separation. Still bottom-right + reachable. */
+          position: fixed; right: 18px; bottom: 140px; z-index: 1100;
           display: inline-flex; align-items: center; gap: 6px;
           padding: 10px 14px; border-radius: 999px;
           background: #0d3cfc; color: #fff;
@@ -1315,15 +1319,28 @@ export default function AIBubble(props: AIBubbleProps) {
            *  min-height 60px + its own safe-area padding. Reposition the
            *  bubble to the BOTTOM-LEFT corner (the preview's primary CTA +
            *  total are centre/right-weighted, and the canvas zoom pill lives
-           *  bottom-RIGHT — so left clears all three) and raise it clearly
-           *  above the 60px tab bar (60 + ~16px gap = 76px, plus the device
-           *  safe-area inset). Shrink it slightly so it reads as a secondary
-           *  affordance on the narrow viewport. The chat panel is unaffected
-           *  (it opens as a full-width bottom sheet via the rule above). */
+           *  bottom-RIGHT — so left clears all three).
+           *
+           *  fix/wizard-mobile-firstrun — even bottom-left at 76px still sat
+           *  on the LEFT edge of the widget's full-width sticky CTA bar
+           *  ("Get My Quote"), which renders just above the 60px tab bar. The
+           *  sticky bar is ~76px tall, so a bubble whose bottom is 76px above
+           *  the tab bar overlaps it. Lift the bubble to 140px above the tab
+           *  bar (60px bar + ~76px sticky CTA + a small gap), keeping the
+           *  device safe-area inset, so it clears the CTA bar entirely.
+           *  Shrink it slightly so it reads as a secondary affordance on the
+           *  narrow viewport. The chat panel is unaffected (it opens as a
+           *  full-width bottom sheet via the rule above). */
           .qq-ai-bubble {
-            right: auto;
-            left: 12px;
-            bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+            /* fix/wizard-mobile-firstrun (v2): a fixed bottom offset can't
+             *  reliably clear the live preview's sticky "Get My Quote" CTA,
+             *  whose vertical position shifts with preview height. Anchor the
+             *  launcher TOP-right instead — deterministically clear of the
+             *  bottom CTA, the persistent tab bar, and the Build sheet. */
+            left: auto;
+            right: 12px;
+            top: calc(72px + env(safe-area-inset-top, 0px));
+            bottom: auto;
             padding: 8px 11px; font-size: 11.5px;
           }
         }
