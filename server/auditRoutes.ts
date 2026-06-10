@@ -12,6 +12,7 @@ import {
   auditWriteRateLimiter,
   AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
 } from "./services/rateLimiter";
+import { fetchCompetitors } from "./services/competitorSearch";
 
 const router = express.Router();
 
@@ -1160,101 +1161,9 @@ async function pollOutscraper(
   return [];
 }
 
-/* ─── E1: Outscraper Competitor Data ─── */
-async function fetchOutscraperCompetitors(trade: string, city: string, businessName: string, stateCode?: string) {
-  const apiKey = process.env.OUTSCRAPER_API_KEY;
-  if (!apiKey) {
-    log.warn("[E1 Outscraper competitors] OUTSCRAPER_API_KEY not set, skipping");
-    return null;
-  }
-  // Cache check: skip Outscraper entirely on a hit (24h TTL, non-empty arrays only).
-  const compCacheKey = `competitors:${trade.toLowerCase().trim()}:${city.toLowerCase().trim()}`;
-  const cachedComp = getCached(compCacheKey);
-  if (cachedComp) {
-    log.info("[E1 Outscraper competitors] cache hit", { detail: compCacheKey });
-    return cachedComp;
-  }
-  const locationLabel = stateCode ? `${city}, ${stateCode}` : city;
-  const competitorQuery = `${trade} near ${locationLabel}`;
-  log.info('[outscraper] query:', { detail: competitorQuery });
-  const params = new URLSearchParams({
-    query: competitorQuery,
-    limit: "8",
-    language: "en",
-    region: "CA",
-  });
-  const requestUrl = `https://api.app.outscraper.com/maps/search-v3?${params}`;
-  log.info("[E1 Outscraper competitors] Request URL:", { detail: requestUrl });
-  let r: globalThis.Response;
-  let rawText: string;
-  const { signal: e1Signal, clear: e1Clear } = withSignal(20000);
-  try {
-    r = await fetch(requestUrl, {
-      method: "GET",
-      headers: { "X-API-KEY": apiKey },
-      signal: e1Signal,
-    });
-    rawText = await r.text();
-    log.info("[E1 Outscraper competitors] HTTP status:", { detail: r.status });
-    log.info("[E1 Outscraper competitors] Raw response:", { detail: rawText.slice(0, 2000) });
-  } catch (fetchErr: any) {
-    log.error("[E1 Outscraper competitors] Fetch error:", fetchErr?.message);
-    throw fetchErr;
-  } finally {
-    e1Clear();
-  }
-  let data: any;
-  try { data = JSON.parse(rawText); } catch { data = null; }
-  if (!r.ok) {
-    log.error("[E1 Outscraper competitors] Non-OK response:", { arg0: r.status, arg1: rawText.slice(0, 500) });
-  }
-  let rawResults = data?.data;
-  if (data?.status === 'Pending' && data?.results_location) {
-    log.info('[E1 Outscraper competitors] Got 202 Pending, polling:', data.results_location);
-    rawResults = await pollOutscraper(data.results_location, 30000);
-  }
-  const results = Array.isArray(rawResults) ? rawResults.flat() : (Array.isArray(data) ? data.flat() : []);
-  log.info("[E1 Outscraper competitors] Parsed results count:", { detail: results.length });
-  const competitors = results
-    .filter((b: any) => {
-      const n = (b.name || "").toLowerCase();
-      return n !== businessName.toLowerCase();
-    })
-    .slice(0, 8)
-    .map((b: any) => {
-      const rat = typeof b.rating === "number" ? b.rating : 0;
-      const rev = typeof b.reviews === "number" ? b.reviews : (typeof b.reviews_count === "number" ? b.reviews_count : 0);
-      const hasWebsite = !!(b.site || b.website);
-      const hasPhoto = !!(b.photo || b.main_photo);
-      const rating_score = (rat / 5) * 40;
-      const review_score = Math.min(rev / 200, 1) * 35;
-      const website_score = hasWebsite ? 15 : 0;
-      const photo_score = hasPhoto ? 10 : 0;
-      const score = Math.round(rating_score + review_score + website_score + photo_score);
-      return {
-        name: b.name || "", rating: rat, reviewsCount: rev,
-        hasWebsite, website: b.site || b.website || "",
-        phoneNumber: b.phone || b.phone_number || "",
-        photoUrl: b.photo || b.main_photo || null,
-        score, placeId: b.place_id || "",
-        googleMapsUrl: b.google_maps_url || "",
-        address: b.full_address || b.address || "",
-        isRunningAds: false,
-      };
-    });
-  const allRatings = competitors.map((c: any) => c.rating).filter((r: number) => r > 0);
-  const allReviews = competitors.map((c: any) => c.reviewsCount);
-  const areaAverageRating = allRatings.length > 0 ? +(allRatings.reduce((a: number, b: number) => a + b, 0) / allRatings.length).toFixed(2) : 0;
-  const areaAverageReviews = allReviews.length > 0 ? Math.round(allReviews.reduce((a: number, b: number) => a + b, 0) / allReviews.length) : 0;
-  const marketLeader = competitors.reduce((best: any, c: any) => (!best || c.score > best.score) ? c : best, null);
-  const output = { competitors, areaAverageRating, areaAverageReviews, marketLeader };
-  // Cache only non-empty competitor arrays to avoid persisting failed/empty fetches.
-  if (competitors.length > 0) {
-    setCached(compCacheKey, output);
-    log.info("[E1 Outscraper competitors] cached:", { arg0: competitors.length, arg1: "competitors for key", arg2: compCacheKey });
-  }
-  return output;
-}
+/* ─── E1: Competitor Data — now in server/services/competitorSearch.ts ───
+ * fetchCompetitors() (imported above) handles: cache-check → Places primary
+ * → Outscraper fallback → cache-write. fetchOutscraperReviews (E2) is below. */
 
 /* ─── E2: Outscraper Reviews Intelligence ─── */
 async function fetchOutscraperReviews(placeId: string) {
@@ -2542,7 +2451,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     // engine + report tolerate missing competitors/reviews/keywords/speed.
     const gatherAll = Promise.allSettled([
       serperPromise,                                                                  // 0: E3 Serper
-      fetchOutscraperCompetitors(trade, city, business.name, stateCode || undefined), // 1: E1 competitors
+      fetchCompetitors(trade, city, business.name, stateCode || undefined, getCached, setCached), // 1: E1 competitors (Places primary, Outscraper fallback)
       (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null), // 2: E2 reviews
       dataForSEOPromise,                                                              // 3: E4 volumes
       website ? analyzeWebsiteQuality(website) : Promise.resolve(null),               // 4: website QA
@@ -2571,7 +2480,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     const serperData: any = pick(0);
 
     const compData = pick<any>(1);
-    if (results[1]?.status === "rejected") log.error("E1 Outscraper competitors failed:", (results[1] as any).reason?.message);
+    if (results[1]?.status === "rejected") log.error("E1 competitors failed:", (results[1] as any).reason?.message);
 
     const reviewData = pick<any>(2);
     if (results[2]?.status === "rejected") log.error("E2 Outscraper reviews failed:", (results[2] as any).reason?.message);
