@@ -56,6 +56,14 @@ export interface AIBubbleProps {
    */
   seedPrompt?: string;
   seedNonce?: number;
+  /**
+   * ?ai-upload=1 entry-point — when this nonce increments (and is > 0), the
+   * bubble opens, un-collapses, and injects a one-line hint message into the
+   * chat ("Attach your quote to get started…") and highlights the paperclip.
+   * Browsers block auto-opening the file picker without a user gesture, so
+   * NO picker is triggered automatically. The user clicks the paperclip.
+   */
+  openForUploadNonce?: number;
 }
 
 /* ─── Persisted state ─── */
@@ -359,7 +367,7 @@ function saveCollapsed(v: boolean): void {
 }
 
 export default function AIBubble(props: AIBubbleProps) {
-  const { conversationId = 'default', state, seedPrompt, seedNonce } = props;
+  const { conversationId = 'default', state, seedPrompt, seedNonce, openForUploadNonce } = props;
   const [open, setOpen] = useState(false);
   /** "Generate with AI" auto-send latch. Set true when a new seed arrives;
    *  the second effect below clears it after firing onSend exactly once. */
@@ -817,6 +825,35 @@ export default function AIBubble(props: AIBubbleProps) {
     }
   }, [input, seedPrompt, sending, onSend]);
 
+  /* ─── ?ai-upload=1 entry-point ────────────────────────────────────────────
+   * When `openForUploadNonce` increments the bubble opens + un-collapses and
+   * injects a hint assistant message ("Attach your quote…") into the chat so
+   * the user knows exactly what to do. The paperclip button is highlighted via
+   * the `data-upload-hint` attribute the CSS rule below picks up.
+   * Browsers block auto-opening a <input type="file"> without a user gesture,
+   * so we intentionally do NOT call fileInputRef.current.click() here. */
+  const [uploadHintActive, setUploadHintActive] = useState(false);
+  useEffect(() => {
+    if (!openForUploadNonce || openForUploadNonce <= 0) return;
+    setOpen(true);
+    setCollapsed(false);
+    // Inject a hint message only when the chat is empty so it reads naturally.
+    setMessages((prev) => {
+      if (prev.length > 0) return prev;
+      return [
+        {
+          id: uid(),
+          role: 'assistant' as const,
+          content: 'Attach your quote to get started — photo, PDF or spreadsheet.',
+        },
+      ];
+    });
+    setUploadHintActive(true);
+    // Remove the highlight after the user has had a chance to see it.
+    const t = window.setTimeout(() => setUploadHintActive(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [openForUploadNonce]);
+
   /** Wave AR-1 — let the user bail out of a slow vision request. The
    *  AbortController already exists; this just exposes a button. */
   const onCancelSend = useCallback(() => {
@@ -1143,6 +1180,7 @@ export default function AIBubble(props: AIBubbleProps) {
                   aria-label="Attach pricing doc (photo, PDF, Excel, or email)"
                   onClick={() => fileInputRef.current?.click()}
                   data-testid="aibubble-upload"
+                  data-upload-hint={uploadHintActive ? 'true' : undefined}
                   disabled={sending}
                 >
                   <Paperclip style={{ width: 20, height: 20 }} />
@@ -1634,6 +1672,20 @@ export default function AIBubble(props: AIBubbleProps) {
         }
         .qq-ai-iconbtn:hover { background: #e2e8f0; color: #0f172a; }
         .qq-ai-iconbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+        /* ?ai-upload=1 entry-point — pulse the paperclip for ~4s so the user
+         * sees exactly where to click. Accent ring fades in/out twice. */
+        .qq-ai-iconbtn[data-upload-hint="true"] {
+          background: rgba(13,60,252,0.14);
+          color: #0d3cfc;
+          animation: qq-ai-upload-pulse 1.4s ease-in-out 2;
+        }
+        @keyframes qq-ai-upload-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(13,60,252,0); }
+          50% { box-shadow: 0 0 0 4px rgba(13,60,252,0.30); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-ai-iconbtn[data-upload-hint="true"] { animation: none; }
+        }
         .qq-ai-input {
           flex: 1 1 auto; resize: none;
           font-family: inherit; font-size: 13px;

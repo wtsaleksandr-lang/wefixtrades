@@ -12,8 +12,8 @@
 // `/demo/:templateId` route is untouched (handled by a later wave).
 
 import { useState, useEffect, useMemo } from "react";
-import { Link } from "wouter";
-import { Search } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Search, Upload } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
@@ -57,6 +57,7 @@ function familyOf(t: TemplateConfig): CategoryStyleId {
 
 export default function TemplatesPage() {
   useScrollReveal();
+  const [, navigate] = useLocation();
   const [activeFilter, setActiveFilter] = useState<CategoryStyleId | "all">(
     "all",
   );
@@ -122,6 +123,106 @@ export default function TemplatesPage() {
             { label: "Browse Templates ↓", href: "#template-grid" },
           ]}
         />
+
+        {/* ── AI Upload card ──────────────────────────────────────────
+             Sits above the filter strip so it's the first thing visible
+             after the hero. A distinct card with an upload icon, 2-line
+             copy, and a CTA that lands on /wizard?ai-upload=1. Theme-aware:
+             uses mkt tokens so it reads correctly in both light/dark page
+             surfaces. No hardcoded hex outside the existing mkt token set. */}
+        <div
+          style={{
+            maxWidth: 1160,
+            margin: "0 auto",
+            padding: "32px 28px 0",
+          }}
+        >
+          <div
+            data-testid="templates-ai-upload-card"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 20,
+              padding: "20px 24px",
+              borderRadius: 16,
+              background: `linear-gradient(135deg, rgba(13,60,252,0.10) 0%, rgba(13,60,252,0.04) 100%)`,
+              border: `1.5px solid rgba(13,60,252,0.28)`,
+              flexWrap: "wrap" as const,
+            }}
+          >
+            {/* Icon */}
+            <span
+              aria-hidden="true"
+              style={{
+                flexShrink: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: "rgba(13,60,252,0.14)",
+                color: mkt.accent,
+              }}
+            >
+              <Upload size={24} />
+            </span>
+
+            {/* Copy */}
+            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 15,
+                  fontWeight: 800,
+                  color: mkt.onDark,
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.3,
+                }}
+              >
+                Upload your quote — AI builds your calculator
+              </p>
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  fontSize: 13,
+                  color: mkt.onDarkMuted,
+                  lineHeight: 1.5,
+                }}
+              >
+                Have a quote or price list already? Upload a photo, PDF or spreadsheet
+                and AI turns it into a working calculator in seconds.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <button
+              type="button"
+              onClick={() => navigate("/wizard?ai-upload=1")}
+              data-testid="templates-ai-upload-cta"
+              style={{
+                flexShrink: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "11px 22px",
+                borderRadius: 10,
+                background: mkt.accent,
+                color: "#FFFFFF",
+                border: "none",
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+                minHeight: 44,
+                lineHeight: 1.3,
+                whiteSpace: "nowrap" as const,
+              }}
+            >
+              <Upload size={16} aria-hidden="true" />
+              Try it free
+            </button>
+          </div>
+        </div>
 
         {/* Filter + search strip */}
         <div
