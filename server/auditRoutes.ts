@@ -13,6 +13,7 @@ import {
   AUDIT_GENERATE_RATE_LIMIT_WINDOW_MS,
 } from "./services/rateLimiter";
 import { fetchCompetitors } from "./services/competitorSearch";
+import { fetchReviewIntelligence } from "./services/reviewIntelligence";
 
 const router = express.Router();
 
@@ -1132,104 +1133,11 @@ function scoreKeywordRelevance(keyword: string, trade: string, niche: ReturnType
   return 'low';
 }
 
-/* ─── Outscraper async polling ─── */
-async function pollOutscraper(
-  resultsUrl: string,
-  maxWaitMs = 30000,
-  intervalMs = 1500
-): Promise<any[]> {
-  // Note: callers in the public /generate path pass a tightened budget
-  // (≈15s) so a single hung Outscraper job can't blow the Cloudflare
-  // ~100s edge limit. The outbound scraper keeps the 30s default.
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    await new Promise(r => setTimeout(r, intervalMs));
-    try {
-      const res = await fetch(resultsUrl, {
-        headers: { 'X-API-KEY': process.env.OUTSCRAPER_API_KEY || '' }
-      });
-      const data = await res.json();
-      log.info('[outscraper] poll status:', { arg0: data.status, arg1: 'results:', arg2: data.data?.length || 0 });
-      if (data.status !== 'Pending' && data.data) {
-        return data.data;
-      }
-    } catch (e) {
-      log.error('[outscraper] poll error:', { error: String(e) });
-    }
-  }
-  log.info('[outscraper] timed out');
-  return [];
-}
-
 /* ─── E1: Competitor Data — now in server/services/competitorSearch.ts ───
  * fetchCompetitors() (imported above) handles: cache-check → Places primary
- * → Outscraper fallback → cache-write. fetchOutscraperReviews (E2) is below. */
-
-/* ─── E2: Outscraper Reviews Intelligence ─── */
-async function fetchOutscraperReviews(placeId: string) {
-  const apiKey = process.env.OUTSCRAPER_API_KEY;
-  if (!apiKey || !placeId) {
-    log.warn("[E2 Outscraper reviews] Missing apiKey or placeId, skipping");
-    return null;
-  }
-  const reviewParams = new URLSearchParams({
-    query: placeId,
-    reviewsLimit: "50",
-    sort: "newest",
-  });
-  const requestUrl = `https://api.app.outscraper.com/maps/reviews-v3?${reviewParams}`;
-  log.info("[E2 Outscraper reviews] Request URL:", { detail: requestUrl });
-  let r: globalThis.Response;
-  let rawText: string;
-  const { signal: e2Signal, clear: e2Clear } = withSignal(20000);
-  try {
-    r = await fetch(requestUrl, {
-      method: "GET",
-      headers: { "X-API-KEY": apiKey },
-      signal: e2Signal,
-    });
-    rawText = await r.text();
-    log.info("[E2 Outscraper reviews] HTTP status:", { detail: r.status });
-    log.info("[E2 Outscraper reviews] Raw response:", { detail: rawText.slice(0, 2000) });
-  } catch (fetchErr: any) {
-    log.error("[E2 Outscraper reviews] Fetch error:", fetchErr?.message);
-    throw fetchErr;
-  } finally {
-    e2Clear();
-  }
-  let data: any;
-  try { data = JSON.parse(rawText); } catch { data = null; }
-  if (!r.ok) {
-    log.error("[E2 Outscraper reviews] Non-OK response:", { arg0: r.status, arg1: rawText.slice(0, 500) });
-  }
-  let rawReviews = data?.data;
-  if (data?.status === 'Pending' && data?.results_location) {
-    log.info('[E2 Outscraper reviews] Got 202 Pending, polling:', data.results_location);
-    rawReviews = await pollOutscraper(data.results_location, 15000);
-  }
-  const reviews = Array.isArray(rawReviews) ? rawReviews.flat() : (Array.isArray(data) ? data.flat() : []);
-  log.info("[E2 Outscraper reviews] Parsed reviews count:", { detail: reviews.length });
-  const reviewTexts: string[] = [];
-  const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  let ownerReplies = 0;
-  let mostRecentDate = "";
-  for (const rev of reviews) {
-    if (rev.review_text) reviewTexts.push(rev.review_text);
-    const stars = typeof rev.review_rating === "number" ? rev.review_rating : (typeof rev.rating === "number" ? rev.rating : 0);
-    if (stars >= 1 && stars <= 5) dist[stars]++;
-    if (rev.owner_answer || rev.response_text) ownerReplies++;
-    const d = rev.review_datetime_utc || rev.date || "";
-    if (d && d > mostRecentDate) mostRecentDate = d;
-  }
-  const total = reviews.length || 1;
-  return {
-    totalFetched: reviews.length,
-    ratingDistribution: dist,
-    mostRecentReviewDate: mostRecentDate || null,
-    ownerResponseRate: Math.round((ownerReplies / total) * 100),
-    reviewTexts,
-  };
-}
+ * → Outscraper fallback → cache-write.
+ * E2 reviews: fetchReviewIntelligence (imported above) handles the
+ * Serper → Outscraper → DataForSEO fallback chain. */
 
 /* ─── E3: SERP Keyword Rankings (multi-provider via Wave 6.5 orchestrator) ─── */
 async function fetchSerperRankings(
@@ -2452,7 +2360,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     const gatherAll = Promise.allSettled([
       serperPromise,                                                                  // 0: E3 Serper
       fetchCompetitors(trade, city, business.name, stateCode || undefined, getCached, setCached), // 1: E1 competitors (Places primary, Outscraper fallback)
-      (business.placeId && reviewsCount > 0) ? fetchOutscraperReviews(business.placeId) : Promise.resolve(null), // 2: E2 reviews
+      (business.placeId && reviewsCount > 0) ? fetchReviewIntelligence({ placeId: business.placeId, businessName: business.name, locationLabel: stateCode ? city + ", " + stateCode : city }) : Promise.resolve(null), // 2: E2 reviews (Serper → Outscraper → DataForSEO)
       dataForSEOPromise,                                                              // 3: E4 volumes
       website ? analyzeWebsiteQuality(website) : Promise.resolve(null),               // 4: website QA
     ]);
@@ -2483,7 +2391,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     if (results[1]?.status === "rejected") log.error("E1 competitors failed:", (results[1] as any).reason?.message);
 
     const reviewData = pick<any>(2);
-    if (results[2]?.status === "rejected") log.error("E2 Outscraper reviews failed:", (results[2] as any).reason?.message);
+    if (results[2]?.status === "rejected") log.error("E2 review intelligence failed (all providers):", (results[2] as any).reason?.message);
 
     const volumeMap = pick<any>(3);
     if (results[3]?.status === "rejected") log.error("E4 DataForSEO volumes failed:", (results[3] as any).reason?.message);
