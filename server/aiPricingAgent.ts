@@ -3,7 +3,9 @@ import { type PricingIntake, type SampleQuote, type AIDraftResponse, aiDraftResp
 import { PRICING_TYPES, type PricingType, type PricingConfigV1, validatePricingConfig, CALL_FOR_QUOTE_FALLBACK, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
 import { createLogger } from "./lib/logger";
 import { chat } from "./services/aiService";
-import { CLAUDE_HAIKU } from "./services/aiModels";
+import { CLAUDE_HAIKU, OPENAI_GPT_4O_MINI } from "./services/aiModels";
+import { logUsage } from "./services/usageTracker";
+import { noisyCatch } from "./lib/silentFailureGuard";
 
 const log = createLogger("AIPricingAgent");
 
@@ -411,10 +413,11 @@ export async function generatePricingConfigDraft(
     const systemPrompt = buildSystemPrompt();
 
     let content: string;
+    const openaiStart = Date.now();
     try {
       // PRIMARY: OpenAI gpt-4o-mini with native JSON mode.
       const completion = await openaiClient.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: OPENAI_GPT_4O_MINI,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
@@ -423,6 +426,30 @@ export async function generatePricingConfigDraft(
         temperature: 0.2,
       });
       content = completion.choices[0]?.message?.content || "{}";
+
+      // Meter the OpenAI primary spend to ai_usage_logs (this surface was the
+      // only direct-OpenAI caller not logging usage). Fire-and-forget + the
+      // tracker is internally fail-soft, so a logging failure can't break draft
+      // generation. Surface "quotequick" matches the gate both callers in
+      // aiRoutes.ts already apply to this job.
+      const usage = completion.usage;
+      noisyCatch(
+        logUsage({
+          model: OPENAI_GPT_4O_MINI,
+          // ai_usage_logs.surface is a free-form text column; the runtime
+          // surface registry (aiSurfaces.ts) includes "quotequick". The
+          // UsageLogParams.surface type is the narrower chat ChatSurface union,
+          // so cast as the sibling callers in aiRoutes.ts do.
+          surface: "quotequick" as any,
+          provider: "openai",
+          channel: "chat",
+          inputTokens: usage?.prompt_tokens || undefined,
+          outputTokens: usage?.completion_tokens || undefined,
+          latencyMs: Date.now() - openaiStart,
+          success: true,
+        }),
+        { op: "aiPricingAgent.generatePricingConfigDraft.logUsage", meta: { provider: "openai" } },
+      );
     } catch (openaiError: any) {
       // SECONDARY (shared failover): OpenAI provider error/outage. Retry the
       // SAME prompt via the Anthropic-backed chat() failover chain using the
