@@ -128,5 +128,104 @@ function headline(cfg: ReturnType<typeof imageTemplateToConfig>): number {
   ok(headline(cfg) === 99, 'bare-base: headline Total = 99 (id-vs-name $0.00 fix)', String(headline(cfg)));
 }
 
+/* ── 4. Styling: themeHint:'red' → scarlet theme + ctaLabel applied ──
+ * The red brand-colour hint should map to the 'scarlet' widget theme.
+ * ctaLabel should appear in results.cta_label.
+ * businessName should override header.title and config.name. */
+{
+  const t: ImageTemplate = {
+    title: 'Window cleaning',
+    basePrice: 150,
+    currency: 'USD',
+    addons: [],
+    modifiers: [],
+    notes: null,
+    styling: {
+      themeHint: 'red',
+      businessName: 'SparkleClean LLC',
+      tagline: 'Streak-free every time',
+      ctaLabel: 'Get My Window Quote',
+      trustHints: ['Licensed & Insured', 'Family owned since 2002'],
+    },
+  };
+  const cfg = imageTemplateToConfig(t);
+
+  ok(cfg.theme === 'scarlet', 'styling/red: theme mapped to scarlet', `got ${cfg.theme}`);
+  ok(cfg.name === 'SparkleClean LLC', 'styling/red: businessName used as config.name', `got ${cfg.name}`);
+  ok(cfg.header.title === 'SparkleClean LLC', 'styling/red: businessName in header.title', `got ${cfg.header.title}`);
+  ok(cfg.header.subtitle === 'Streak-free every time', 'styling/red: tagline in header.subtitle', `got ${cfg.header.subtitle}`);
+  ok(cfg.results?.cta_label === 'Get My Window Quote', 'styling/red: ctaLabel in results.cta_label', `got ${cfg.results?.cta_label}`);
+  const badges = (cfg as any).trustBadges as Array<{ label: string; icon: string }> | undefined;
+  ok(Array.isArray(badges) && badges.length === 2, 'styling/red: 2 trust badges', `got ${badges?.length}`);
+  ok(badges?.[0]?.label === 'Licensed & Insured', 'styling/red: first trust badge label', `got ${badges?.[0]?.label}`);
+  ok(badges?.[0]?.icon === 'shield-check', 'styling/red: trust badge uses shield-check icon');
+  // Pricing still correct.
+  ok(headline(cfg) === 150, 'styling/red: headline Total = 150 (pricing unaffected)', String(headline(cfg)));
+}
+
+/* ── 5. Styling absent → falls back to today's behaviour ──
+ * No styling field → theme stays 'light', header uses title, no trust badges,
+ * no cta_label. Regression guard: this must be identical to the pre-Wave-65.1
+ * output for the same input. */
+{
+  const t: ImageTemplate = {
+    title: 'Gutter cleaning',
+    basePrice: 200,
+    currency: 'USD',
+    addons: [],
+    modifiers: [],
+    notes: null,
+    // No styling field at all.
+  };
+  const cfg = imageTemplateToConfig(t);
+
+  ok(cfg.theme === 'light', 'no-styling: theme defaults to light', `got ${cfg.theme}`);
+  ok(cfg.header.title === 'Gutter cleaning', 'no-styling: title used as header.title', `got ${cfg.header.title}`);
+  ok(cfg.header.subtitle === 'Powered by your AI assistant', 'no-styling: default subtitle', `got ${cfg.header.subtitle}`);
+  ok(!cfg.results?.cta_label, 'no-styling: no cta_label in results');
+  ok(!(cfg as any).trustBadges, 'no-styling: no trustBadges array');
+  ok(headline(cfg) === 200, 'no-styling: headline Total = 200', String(headline(cfg)));
+}
+
+/* ── 6. Clarification pass-through — converter must not crash ──
+ * The server now passes clarification back in the response body, and the
+ * server may also include a best-effort partial template. The converter
+ * only gets called on the template — but the ImageTemplate type now
+ * carries the clarification field. Verify that imageTemplateToConfig does
+ * NOT crash and still returns a valid TemplateConfig when the template
+ * itself is partial (only title, no price) even if clarification is present. */
+{
+  const partialTemplate: ImageTemplate = {
+    title: 'Plumbing repair',
+    basePrice: null,
+    lineItems: [],
+    currency: 'USD',
+    addons: [],
+    modifiers: [],
+    notes: null,
+    clarification: {
+      question: 'Is the $200 price per visit or per hour?',
+      options: [
+        { label: 'Per visit (flat fee)', hint: 'One fixed price for the job' },
+        { label: 'Per hour', hint: 'Hourly rate' },
+      ],
+    },
+  };
+
+  let cfg: ReturnType<typeof imageTemplateToConfig> | undefined;
+  let threw = false;
+  try {
+    cfg = imageTemplateToConfig(partialTemplate);
+  } catch {
+    threw = true;
+  }
+
+  ok(!threw, 'clarification pass-through: converter does not crash on clarification-bearing template');
+  ok(!!cfg, 'clarification pass-through: returns a config object');
+  ok(cfg?.result_calc === 'Total', 'clarification pass-through: result_calc is Total');
+  // With no price data the headline should be 0 (not a crash).
+  ok(cfg ? headline(cfg) === 0 : false, 'clarification pass-through: headline Total = 0 (no pricing data)', cfg ? String(headline(cfg)) : 'no cfg');
+}
+
 console.log(`\nimage-template conversion: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

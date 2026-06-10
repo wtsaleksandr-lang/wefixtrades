@@ -13,6 +13,9 @@
  *               applied multiplicatively (percent) or additively (fixed) in
  *               the result formula.
  *  - Notes  →   results.footnote (truncated to keep the panel readable).
+ *  - styling →  Wave 65.1: themeHint → real widget theme id, businessName
+ *               → header.title, tagline → header.subtitle, ctaLabel →
+ *               results.cta_label, trustHints → trustBadges array.
  *
  * Anything the model returned as `null` is gracefully skipped — the
  * resulting calculator stays valid even when only the title was extractable.
@@ -23,6 +26,7 @@ import type {
   TemplateField,
   TemplateCalculation,
   TemplateOption,
+  TrustBadge,
 } from '@shared/templatePresets';
 
 export interface ImageAddon {
@@ -44,6 +48,50 @@ export interface ImageLineItem {
   unit?: string | null;
 }
 
+/**
+ * Wave 65.1 — brand/visual identity hints the AI extracts from the quote.
+ * All fields optional; the converter falls back to existing defaults when absent.
+ */
+export interface ImageStyling {
+  /** Dominant colour family visible on the quote/logo. */
+  themeHint?: 'blue' | 'red' | 'green' | 'dark' | 'yellow' | 'neutral';
+  /** Business name if printed on the quote. */
+  businessName?: string;
+  /** Tagline or slogan if printed on the quote. */
+  tagline?: string;
+  /** Short CTA label, e.g. "Get My Towing Quote". */
+  ctaLabel?: string;
+  /** Trust signals LITERALLY present on the quote document. */
+  trustHints?: string[];
+}
+
+/**
+ * Wave 65.1 — map an AI-derived colour-family hint to a real widget theme id.
+ *
+ * Widget themes (from widgetThemes.ts):
+ *   light, midnight, coral, forest, mint, magenta,
+ *   sunburst, royal, scarlet, earth, ocean, indigo
+ *
+ * Mapping rationale:
+ *   blue    → royal    (blue accent, light background — clean professional)
+ *   red     → scarlet  (red accent, light background — high contrast)
+ *   green   → forest   (green accent, green-tinted background)
+ *   dark    → midnight (dark canvas, blue accent — bold/premium)
+ *   yellow  → sunburst (yellow accent, near-white — construction / towing)
+ *   neutral → light    (default blue accent, neutral light background)
+ *
+ * Falls back to 'light' for unknown hints (same as current hardcoded default
+ * qq-classic, which widgetThemes resolves to light).
+ */
+const THEME_HINT_MAP: Record<NonNullable<ImageStyling['themeHint']>, string> = {
+  blue:    'royal',
+  red:     'scarlet',
+  green:   'forest',
+  dark:    'midnight',
+  yellow:  'sunburst',
+  neutral: 'light',
+};
+
 export interface ImageModifier {
   label: string;
   type: 'percent' | 'fixed';
@@ -59,6 +107,14 @@ export interface ImageTemplate {
   addons: ImageAddon[];
   modifiers: ImageModifier[];
   notes: string | null;
+  /** Wave 65.1 — brand/visual identity hints (optional). */
+  styling?: ImageStyling;
+  /** Wave 65.1 — clarification request (optional, never applied as a template). */
+  clarification?: {
+    question: string;
+    options: Array<{ label: string; hint?: string }>;
+    reason?: string;
+  };
 }
 
 /* ─── id helpers ─── */
@@ -282,27 +338,55 @@ export function imageTemplateToConfig(t: ImageTemplate): TemplateConfig {
     }
   }
 
+  /* ─── Wave 65.1 — apply styling hints ─── */
+  const styling = t.styling;
+
+  // Theme: map the AI's colour-family hint to a real widget theme id.
+  // Falls back to 'light' (same as the qq-classic that widgetThemes resolves).
+  const theme = (styling?.themeHint && THEME_HINT_MAP[styling.themeHint]) ?? 'light';
+
+  // Header: prefer the AI-extracted business name over the document title.
+  // Use the extracted tagline as the subtitle when available.
+  const headerTitle = (styling?.businessName?.trim() || title);
+  const headerSubtitle = styling?.tagline?.trim() ?? 'Powered by your AI assistant';
+
+  // CTA label — use the AI-derived action phrase when present.
+  const ctaLabel = styling?.ctaLabel?.trim() || undefined;
+
+  // Trust badges — convert trust hint strings to TrustBadge objects.
+  // We don't know the exact icon from text alone, so default to 'shield-check'
+  // (a safe, universally-appropriate trust icon). Owners can customise later.
+  const trustBadges: TrustBadge[] | undefined =
+    styling?.trustHints && styling.trustHints.length > 0
+      ? styling.trustHints
+          .filter((h) => h && h.trim().length > 0)
+          .slice(0, 4) // cap at 4 for visual balance
+          .map((label) => ({ label: label.trim(), icon: 'shield-check' as const }))
+      : undefined;
+
   return {
     id: `image_generated_${Date.now().toString(36)}`,
-    name: title,
+    name: headerTitle,
     description: 'Calculator generated from an uploaded quote / invoice image.',
     category: 'general',
     trades: [],
     layout: 'two-column',
-    theme: 'qq-classic',
+    theme,
     fields,
     calculations: calcs,
     result_calc: 'Total',
     header: {
-      title,
-      subtitle: 'Powered by your AI assistant',
+      title: headerTitle,
+      subtitle: headerSubtitle,
       align: 'left',
     },
     results: {
       heading: 'Estimated price',
       footnote,
       show_breakdown: true,
+      ...(ctaLabel ? { cta_label: ctaLabel } : {}),
     },
+    ...(trustBadges ? { trustBadges } : {}),
   };
 }
 
