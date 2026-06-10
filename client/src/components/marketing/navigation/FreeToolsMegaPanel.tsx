@@ -112,23 +112,33 @@ function FreeToolsItem({
       <div className="mkt-menu-card-icon" style={{ color: mkt.accent }} aria-hidden>
         <NavIcon icon={item.icon} />
       </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 650, color: mkt.text, lineHeight: 1.2 }}>
+      {/* Title + optional member-perk pill in a single flex row so the pill
+          is always baseline-aligned with the label and NEVER overlaps it.
+          The label shrinks first; the pill is flex-shrink:0 so it never
+          wraps behind the text. */}
+      <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{
+          fontSize: 13, fontWeight: 650, color: mkt.text, lineHeight: 1.2, minWidth: 0,
+          // Single line + ellipsis: two-word titles otherwise wrap to 2 lines
+          // and the Members pill (flex-centered) lands BETWEEN the lines,
+          // overlapping both (caught by visual review).
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        }}>
           {item.label}
         </div>
+        {item.portalGated && (
+          // Framed as a member perk (not a warning) — soft neutral pill
+          // signals "this lives in your dashboard" without alarming guests.
+          <span
+            className="ft-mega__lock"
+            title="Members only — sign in to open your portal widgets"
+            aria-label="Members only"
+          >
+            <Lock size={12} strokeWidth={2.4} aria-hidden />
+            <span className="ft-mega__lock-text">Members</span>
+          </span>
+        )}
       </div>
-      {item.portalGated && (
-        // Signpost the auth+paid gate BEFORE the click so logged-out users
-        // aren't silently bounced to /login. Subtle lock pill, not a shout.
-        <span
-          className="ft-mega__lock"
-          title="Sign in required — opens in your portal"
-          aria-label="Sign in required"
-        >
-          <Lock size={12} strokeWidth={2.4} aria-hidden />
-          <span className="ft-mega__lock-text">Sign in</span>
-        </span>
-      )}
     </Link>
   );
 }
@@ -187,22 +197,24 @@ const CSS = `
 /* Items render as the shared .mkt-menu-card (see FreeToolsItem) so their
    size + badge + hover match the Products/Resources dropdown exactly. */
 
-/* Portal-gated lock pill — flags the 7 Widgets that require sign-in. Muted
-   by default; brightens on row hover so it reads as a quiet status, not a
-   competing CTA. Theme-aware via mkt tokens. */
+/* Portal-gated member-perk pill — indicates the 7 Widgets live inside the
+   authenticated portal. Rendered INLINE inside the label flex-row (after the
+   title text) so it is NEVER overlapping: the title takes minWidth:0 and the
+   pill is flex-shrink:0, forcing the title to truncate before the pill
+   disappears. Soft neutral at rest; accents on row hover. */
 .ft-mega__lock {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-  margin-left: 8px;
-  padding: 2px 7px;
+  /* margin-left removed — spacing handled by parent gap:8px */
+  padding: 2px 6px;
   border-radius: 999px;
   border: 1px solid ${mkt.onDarkBorder};
   background: rgba(255, 255, 255, 0.04);
   color: ${mkt.onDarkMuted};
   font-family: 'DM Mono', monospace;
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -264,13 +276,16 @@ const CSS = `
   text-transform: uppercase;
   color: rgba(255, 255, 255, 1);
   text-decoration: none;
-  border: 1px solid ${mkt.accent};
+  /* Base: solid transparent border (1px slot reserved — no layout jump on hover).
+     Background stays accent-blue. On hover the border reveals as white per
+     Alex's spec; background darkens slightly for depth. */
+  border: 1px solid transparent;
   background: ${mkt.accent};
-  transition: background 180ms ease, border-color 180ms ease;
+  transition: background 150ms ease, border-color 150ms ease;
 }
 .ft-mega__seeall:hover {
   background: rgba(13, 60, 252, 0.85);
-  border-color: ${mkt.accent};
+  border-color: rgba(255, 255, 255, 0.9);
 }
 .ft-mega__seeall-arrow {
   font-size: 14px;
