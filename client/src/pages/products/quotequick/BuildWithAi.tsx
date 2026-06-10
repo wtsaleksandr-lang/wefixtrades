@@ -34,13 +34,14 @@
  *   - 5-stat hero+grid (KpiGauge + 4 micro-cards) replaces the old
  *     3 sample-output text cards.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors } from "@/theme/tokens";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { KpiGauge } from "@/components/ui/visual-primitives";
+import type { DemoImageTemplate } from "@shared/aiDemoTemplate";
 import {
   UploadCloud,
   Sparkles,
@@ -124,20 +125,72 @@ function tooLargeMessage(kind: FileKind): string {
 /** Session-storage key the preview page reads on mount. */
 export const BI1_DEMO_STORAGE_KEY = "wfx_bi1_demo";
 
-// Wave 67 — sample thumbnails (drag-to-try). The actual wiring to seed the
-// extraction flow from these is a Wave 67.5 follow-up; for now they render
-// as visual placeholders so the hero composition matches the demo animation.
-// TODO(wave-67.5): expose fixtures from tests/fixtures/ai-extraction/ via
-// client/public/samples/ (or a tiny server route) + wire drag onto the
-// dropzone to setFile() with the fetched blob.
+// Wave 67.5 — wired sample chips. Each chip loads a canned DemoImageTemplate
+// locally (no AI call, no rate limit), stashes it in sessionStorage, and
+// navigates to the preview route — same post-generation flow as a real upload.
 interface SampleThumb {
+  id: string;
   title: string;
   iconKind: "image" | "pdf" | "email";
+  template: DemoImageTemplate;
 }
+
+/* ─── Canned sample templates ─────────────────────────────────────────────
+ * Realistic small templates for three common trades.  Modifiers default ON
+ * via the demo converter's constant-coefficient formula (no toggle fields).
+ * ──────────────────────────────────────────────────────────────────────── */
+
+const SAMPLE_JUNK_REMOVAL: DemoImageTemplate = {
+  title: "Junk Removal Invoice",
+  basePrice: 149,
+  currency: "USD",
+  addons: [
+    { label: "Extra large item (mattress, sofa)", price: 45, type: "checkbox" },
+    { label: "Appliance disposal (fridge, washer)", price: 60, type: "checkbox" },
+    { label: "Additional load (per truck load)", price: 99, type: "quantity" },
+  ],
+  modifiers: [
+    { label: "Fuel & disposal surcharge", type: "percent", value: 8, appliesTo: "total" },
+  ],
+  notes: "Same-day service available. Price includes standard haul-away. Hazardous materials not accepted.",
+};
+
+const SAMPLE_HVAC: DemoImageTemplate = {
+  title: "HVAC Service Estimate",
+  basePrice: 89,
+  currency: "USD",
+  addons: [
+    { label: "AC unit service (per unit)", price: 120, type: "quantity" },
+    { label: "Furnace tune-up", price: 95, type: "checkbox" },
+    { label: "Air quality test & report", price: 75, type: "checkbox" },
+    { label: "Filter replacement (per unit)", price: 35, type: "quantity" },
+  ],
+  modifiers: [
+    { label: "HST / Sales tax (13%)", type: "percent", value: 13, appliesTo: "total" },
+  ],
+  notes: "Service call fee applied toward repair cost if work is performed same day. 90-day labour warranty.",
+};
+
+const SAMPLE_LAWN_CARE: DemoImageTemplate = {
+  title: "Lawn Care Service",
+  basePrice: 55,
+  currency: "USD",
+  addons: [
+    { label: "Edging & trimming", price: 20, type: "checkbox" },
+    { label: "Fertiliser application", price: 40, type: "checkbox" },
+    { label: "Aeration (per 1,000 sq ft)", price: 50, type: "quantity" },
+    { label: "Weed control treatment", price: 35, type: "checkbox" },
+  ],
+  modifiers: [
+    { label: "Large yard surcharge (>5,000 sq ft)", type: "fixed", value: 25, appliesTo: "base" },
+  ],
+  notes: "Bi-weekly and monthly maintenance plans available at a 10% discount. Fully insured.",
+};
+
 const SAMPLE_THUMBS: SampleThumb[] = [
-  { title: "Junk removal invoice", iconKind: "image" },
-  { title: "HVAC pricing PDF", iconKind: "pdf" },
-  { title: "Lawn-care email", iconKind: "email" },
+  { id: "junk-removal", title: "Junk removal invoice", iconKind: "image", template: SAMPLE_JUNK_REMOVAL },
+  { id: "hvac-pricing",  title: "HVAC pricing PDF",    iconKind: "pdf",   template: SAMPLE_HVAC },
+  { id: "lawn-care",    title: "Lawn-care email",      iconKind: "email", template: SAMPLE_LAWN_CARE },
 ];
 
 export default function BuildWithAi() {
@@ -155,10 +208,13 @@ export default function BuildWithAi() {
 
   const [, navigate] = useLocation();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // Scoped keyframe id for CSS animations on this page instance.
+  const scopeId = useId().replace(/:/g, "");
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [dropzoneHover, setDropzoneHover] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -285,6 +341,27 @@ export default function BuildWithAi() {
     }
   }, [file, submitting, navigate]);
 
+  // B5 — load a canned sample template into the preview without an AI call.
+  const handleSampleClick = useCallback(
+    (thumb: SampleThumb) => {
+      const sessionId = `sample-${thumb.id}`;
+      try {
+        sessionStorage.setItem(
+          BI1_DEMO_STORAGE_KEY,
+          JSON.stringify({
+            template: thumb.template,
+            demoSessionId: sessionId,
+            ts: Date.now(),
+          }),
+        );
+      } catch {
+        /* private mode — preview will not find storage; navigate anyway */
+      }
+      navigate(`/products/quickquotepro/build-with-ai/preview?session=${encodeURIComponent(sessionId)}`);
+    },
+    [navigate],
+  );
+
   const onDrop = useCallback(
     (e: React.DragEvent<HTMLLabelElement>) => {
       e.preventDefault();
@@ -299,8 +376,13 @@ export default function BuildWithAi() {
   // Marching-ants animation parameters. We use CSS keyframes on the SVG rect
   // (stroke-dashoffset 0 → -14). Speed up + recolor on drag-over for an
   // affordance that mirrors the cursor's intent.
+  // A2: hover brightens the border toward the accent colour (partial opacity).
   const antsDuration = dragActive ? "0.6s" : "1.6s";
-  const antsStroke = dragActive ? mkt.accent : "rgba(255,255,255,0.28)";
+  const antsStroke = dragActive
+    ? mkt.accent
+    : dropzoneHover
+    ? "rgba(13,60,252,0.55)"
+    : "rgba(255,255,255,0.28)";
 
   return (
     <MarketingLayout>
@@ -310,15 +392,39 @@ export default function BuildWithAi() {
         canonical="/products/quickquotepro/build-with-ai"
         keywords={["build calculator from pdf", "quote builder", "excel to calculator", "image to calculator"]}
       />
-      {/* Marching-ants keyframes — kept inline so the animation is fully
-          self-contained in this file. The :root override below disables it
-          when the user prefers reduced motion. */}
+      {/* Keyframes — self-contained in this file. Scoped by scopeId to avoid
+          collisions when multiple instances mount. prefers-reduced-motion
+          guards strip motion while preserving colour transitions. */}
       <style>{`
         @keyframes wfx-marching-ants {
           to { stroke-dashoffset: -14; }
         }
+        /* A2 — cloud icon nudge on dropzone hover */
+        @keyframes wfx-cloud-nudge-${scopeId} {
+          0%   { transform: translateY(0); }
+          50%  { transform: translateY(-2px); }
+          100% { transform: translateY(0); }
+        }
+        /* A3 — gauge count-up is driven by the KpiGauge component itself
+           (value prop animates 0→70 via statsVisible). */
+        /* A3 — 24/7 clock rotation */
+        @keyframes wfx-clock-spin-${scopeId} {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        /* A3 — lightning double-flash + jolt */
+        @keyframes wfx-lightning-flash-${scopeId} {
+          0%,100%  { opacity: 1; filter: brightness(1); transform: translateX(0); }
+          15%      { opacity: 0.35; filter: brightness(2.2); transform: translateX(1px); }
+          25%      { opacity: 1; filter: brightness(1.6); transform: translateX(-1px); }
+          45%      { opacity: 0.35; filter: brightness(2.2); transform: translateX(1px); }
+          60%      { opacity: 1; filter: brightness(1); transform: translateX(0); }
+        }
         @media (prefers-reduced-motion: reduce) {
           .wfx-marching-ants-rect { animation: none !important; }
+          .wfx-cloud-nudge-${scopeId} { animation: none !important; }
+          .wfx-clock-anim-${scopeId} { animation: none !important; }
+          .wfx-lightning-anim-${scopeId} { animation: none !important; }
         }
       `}</style>
       <section
@@ -328,24 +434,30 @@ export default function BuildWithAi() {
           padding: "clamp(100px, 12vw, 140px) clamp(16px, 5vw, 40px) clamp(48px, 8vw, 80px)",
         }}
       >
-        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
-          {/* Trust-strip header */}
+        <div style={{ maxWidth: 1080, margin: "0 auto", position: "relative" }}>
+          {/* A1 — eyebrow pinned to top-left of the content container.
+              Uses absolute positioning so it doesn't push the H1 down and
+              sits clear of the nav at all widths (nav is outside this section).
+              A sensible clamp ensures it never clips at 375px. */}
           <div
+            aria-label="Free Demo — No Signup"
             style={{
-              display: "flex",
+              position: "absolute",
+              top: "clamp(-56px, -4vw, -40px)",
+              left: 0,
+              display: "inline-flex",
               alignItems: "center",
-              justifyContent: "center",
               gap: 6,
-              marginBottom: 16,
               color: mkt.accent,
               fontSize: 12,
               fontWeight: 600,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
+              whiteSpace: "nowrap",
             }}
           >
             <Sparkles size={14} strokeWidth={2} />
-            <span>Free Demo · No Signup</span>
+            <span>✦ FREE DEMO · NO SIGNUP</span>
           </div>
 
           {/* Hero — Wave 67 copy: no "AI" wording, broader formats. */}
@@ -490,8 +602,11 @@ export default function BuildWithAi() {
                 </button>
               )}
 
+              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
               <label
                 htmlFor="bi1-upload"
+                onMouseEnter={() => setDropzoneHover(true)}
+                onMouseLeave={() => setDropzoneHover(false)}
                 onDragEnter={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -507,6 +622,15 @@ export default function BuildWithAi() {
                   setDragActive(false);
                 }}
                 onDrop={onDrop}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    inputRef.current?.click();
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-label="Upload pricing document"
                 style={{
                   position: "relative",
                   display: "flex",
@@ -518,12 +642,25 @@ export default function BuildWithAi() {
                   // button never collide with the dropzone copy.
                   padding: "clamp(40px, 6vw, 52px) 20px clamp(28px, 6vw, 40px)",
                   borderRadius: 14,
-                  // Background tint when dragging; border is rendered by the
-                  // SVG overlay below so we can animate the dash offset.
-                  background: dragActive ? mkt.accentTint : "rgba(255,255,255,0.02)",
+                  // A2: hover tint lifts the background; drag-over is stronger.
+                  // Border colour brightens on hover via the SVG stroke (antsStroke).
+                  background: dragActive
+                    ? mkt.accentTint
+                    : dropzoneHover
+                    ? "rgba(13,60,252,0.045)"
+                    : "rgba(255,255,255,0.02)",
                   cursor: "pointer",
                   transition: "background 160ms ease",
                   textAlign: "center",
+                  // Prevent text-selection caret from appearing on click/focus —
+                  // the label contains text nodes and some browsers paint a
+                  // blinking text cursor when the element is activated.
+                  userSelect: "none",
+                  WebkitUserSelect: "none",
+                  // Suppress the default focus outline on this div-like label;
+                  // the SVG marching-ants border already provides a visible
+                  // focus indicator (stroke brightens on drag-over / active).
+                  outline: "none",
                 }}
               >
                 {/* A3 — marching-ants animated border. SVG overlay sits on
@@ -564,15 +701,46 @@ export default function BuildWithAi() {
                   />
                 </svg>
 
+                {/* File input is intentionally non-focusable: the label (with
+                    tabIndex=0 + onKeyDown) handles keyboard activation by
+                    calling inputRef.current?.click(). Using the visually-hidden
+                    clip pattern (not display:none) keeps the input in the DOM
+                    so inputRef.current?.click() works, while caret-color:transparent
+                    + tabIndex={-1} prevents any caret from painting. */}
                 <input
                   id="bi1-upload"
                   ref={inputRef}
                   type="file"
                   accept={ACCEPT_ATTR}
-                  style={{ display: "none" }}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    width: 1,
+                    height: 1,
+                    overflow: "hidden",
+                    opacity: 0,
+                    pointerEvents: "none",
+                    clipPath: "inset(50%)",
+                    whiteSpace: "nowrap",
+                    caretColor: "transparent",
+                  }}
                   onChange={(e) => handlePicked(e.target.files?.[0] || null)}
                 />
-                <UploadCloud size={32} strokeWidth={1.5} color={mkt.accent} />
+                {/* A2 — cloud nudges up on hover (~160ms ease, reduced-motion: keep colour only) */}
+                <span
+                  className={`wfx-cloud-nudge-${scopeId}`}
+                  style={{
+                    display: "inline-flex",
+                    animation: dropzoneHover && !reducedMotion
+                      ? `wfx-cloud-nudge-${scopeId} 160ms ease forwards`
+                      : undefined,
+                    transition: "filter 160ms ease",
+                    filter: dropzoneHover ? `drop-shadow(0 0 4px ${mkt.accent}55)` : undefined,
+                  }}
+                >
+                  <UploadCloud size={32} strokeWidth={1.5} color={mkt.accent} />
+                </span>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 600, color: mkt.onDark }}>
                     {file ? file.name : "Drop your pricing doc here"}
@@ -717,10 +885,9 @@ export default function BuildWithAi() {
               </div>
               <div
                 style={{
-                  display: "flex",
-                  gap: 12,
-                  justifyContent: "center",
-                  flexWrap: "wrap",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 10,
                 }}
               >
                 {SAMPLE_THUMBS.map((thumb) => {
@@ -728,39 +895,70 @@ export default function BuildWithAi() {
                     thumb.iconKind === "image" ? ImageIcon :
                     thumb.iconKind === "pdf" ? FileText : Mail;
                   return (
-                    <div
-                      key={thumb.title}
-                      // TODO(wave-67.5): make draggable + wire onto dropzone.
-                      draggable={false}
-                      title={`${thumb.title} — sample drag-to-try (Wave 67.5)`}
+                    // B5 — wired: clicking loads a canned DemoImageTemplate
+                    // into sessionStorage and navigates to the preview, same
+                    // as the real AI upload flow.
+                    <button
+                      key={thumb.id}
+                      type="button"
+                      onClick={() => handleSampleClick(thumb)}
+                      title={`Try a sample — ${thumb.title}`}
                       style={{
-                        width: 80,
-                        minHeight: 100,
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        padding: "10px 8px",
+                        justifyContent: "flex-start",
+                        gap: 8,
+                        padding: "14px 10px",
                         borderRadius: 10,
                         background: "rgba(255,255,255,0.03)",
                         border: `1px dashed ${mkt.onDarkBorder}`,
-                        // Placeholder cursor — switches to grab once wired.
-                        cursor: "not-allowed",
+                        cursor: "pointer",
                         textAlign: "center",
+                        minHeight: 90,
+                        transition: "background 160ms ease, border-color 160ms ease",
+                        // Reset button defaults
+                        fontFamily: "inherit",
+                        color: "inherit",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(13,60,252,0.07)";
+                        e.currentTarget.style.borderColor = "rgba(13,60,252,0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                        e.currentTarget.style.borderColor = mkt.onDarkBorder;
                       }}
                     >
-                      <Icon size={24} strokeWidth={1.75} color={mkt.accent} />
+                      <Icon size={20} strokeWidth={1.75} color={mkt.accent} />
                       <div
                         style={{
-                          fontSize: 10,
+                          fontSize: 11,
                           color: mkt.onDarkMuted,
-                          lineHeight: 1.3,
-                        }}
+                          lineHeight: 1.35,
+                          textWrap: "balance",
+                          maxWidth: 90,
+                        } as React.CSSProperties}
                       >
                         {thumb.title}
                       </div>
-                    </div>
+                      {/* Small 'sample' tag to label these as demo data */}
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          color: mkt.onDarkFaint,
+                          border: `1px solid ${mkt.onDarkBorder}`,
+                          borderRadius: 4,
+                          padding: "1px 4px",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        sample
+                      </span>
+                    </button>
                   );
                 })}
               </div>
@@ -797,57 +995,14 @@ export default function BuildWithAi() {
                 alignItems: "stretch",
               }}
             >
-              {/* Hero stat — radial gauge at 70%. Animates in once the
-                  section scrolls into view. */}
-              <div
-                style={{
-                  flex: "1 1 38%",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "28px 20px",
-                  borderRadius: 14,
-                  background: "rgba(255,255,255,0.03)",
-                  border: `1px solid ${mkt.onDarkBorder}`,
-                  minHeight: 280,
-                }}
-              >
-                <KpiGauge
-                  value={statsVisible ? 70 : 0}
-                  min={0}
-                  max={100}
-                  label=""
-                  unit="%"
-                  size="lg"
-                  palette="sapphire"
-                  animate={true}
-                />
-                <div
-                  style={{
-                    marginTop: 4,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: mkt.onDark,
-                    textAlign: "center",
-                    lineHeight: 1.4,
-                    maxWidth: 240,
-                  }}
-                >
-                  of homeowners want self-serve quotes
-                </div>
-                <div
-                  style={{
-                    marginTop: 6,
-                    fontSize: 11,
-                    color: mkt.onDarkFaint,
-                    textAlign: "center",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  — industry research (HomeAdvisor, Houzz)
-                </div>
-              </div>
+              {/* A3 — Hero stat: radial gauge. On hover: card lift/border +
+                  gauge animates 0→70 + number counts up.
+                  On scroll-in: same animation fires once (statsVisible). */}
+              <GaugeCard
+                statsVisible={statsVisible}
+                reducedMotion={reducedMotion}
+                scopeId={scopeId}
+              />
 
               {/* 2×2 grid of micro-stat cards. */}
               <div
@@ -858,60 +1013,84 @@ export default function BuildWithAi() {
                   gap: 8,
                 }}
               >
-                {/* Card A — 2-4× more leads (bar comparison). */}
+                {/* Card A — 2-4× more leads (bar comparison).
+                    A3: on hover bars animate from zero; lower bar goes red. */}
                 <StatCard
                   number="2-4×"
                   caption="more leads"
                   sub="vs static contact form"
                   source="— CRO industry research"
-                  visual={
+                  renderVisual={(hovered) => (
                     <BarComparison
-                      animate={statsVisible}
+                      animate={statsVisible || hovered}
+                      hovered={hovered}
                       rows={[
                         { label: "Static form", multiple: 1 },
                         { label: "Calculator", multiple: 3 },
                       ]}
                     />
-                  }
+                  )}
                 />
 
-                {/* Card B — 4× higher conversion. */}
+                {/* Card B — 4× higher conversion.
+                    A3: on hover bars animate + lower bar goes red. */}
                 <StatCard
                   number="4×"
                   caption="higher conversion"
                   sub="when deposit captured at quote-time"
                   source="— Stripe service-business data"
-                  visual={
+                  renderVisual={(hovered) => (
                     <BarComparison
-                      animate={statsVisible}
+                      animate={statsVisible || hovered}
+                      hovered={hovered}
                       rows={[
                         { label: "Quote only", multiple: 1 },
                         { label: "Quote + deposit", multiple: 4 },
                       ]}
                     />
-                  }
+                  )}
                 />
 
-                {/* Card C — 24 / 7. */}
+                {/* Card C — 24/7: clock rotates 360° on hover (~1.2s). */}
                 <StatCard
                   number="24 / 7"
                   caption="Lead capture while you're on a job"
-                  visual={
+                  renderVisual={(hovered) => (
                     <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 36 }}>
-                      <Clock size={32} strokeWidth={1.5} color={mkt.accent} />
+                      <span
+                        className={`wfx-clock-anim-${scopeId}`}
+                        style={{
+                          display: "inline-flex",
+                          animation: hovered && !reducedMotion
+                            ? `wfx-clock-spin-${scopeId} 1.2s cubic-bezier(0.4,0,0.2,1) forwards`
+                            : undefined,
+                        }}
+                      >
+                        <Clock size={32} strokeWidth={1.5} color={mkt.accent} />
+                      </span>
                     </div>
-                  }
+                  )}
                 />
 
-                {/* Card D — 5 seconds. */}
+                {/* Card D — 5 seconds: lightning double-flash + micro jolt on hover. */}
                 <StatCard
                   number="5 seconds"
                   caption="Setup time — no coding, no integrations"
-                  visual={
+                  renderVisual={(hovered) => (
                     <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 36 }}>
-                      <Zap size={32} strokeWidth={1.5} color={mkt.accent} />
+                      <span
+                        className={`wfx-lightning-anim-${scopeId}`}
+                        style={{
+                          display: "inline-flex",
+                          animation: hovered && !reducedMotion
+                            ? `wfx-lightning-flash-${scopeId} 500ms ease forwards`
+                            : undefined,
+                        }}
+                      >
+                        <Zap size={32} strokeWidth={1.5} color={mkt.accent} />
+                      </span>
                     </div>
-                  }
+                  )}
                 />
               </div>
             </div>
@@ -928,15 +1107,104 @@ export default function BuildWithAi() {
  * client/src/components/ui/visual-primitives/.
  * ──────────────────────────────────────────────────────────────────────── */
 
+/** A3 — Large gauge hero card. Separate component so it can own its own
+ *  hover state and force-remount the KpiGauge on hover to retrigger the
+ *  boot animation (0→70 count-up). On reduced-motion: shows final state,
+ *  no count animation. */
+function GaugeCard({
+  statsVisible,
+  reducedMotion,
+  scopeId: _scopeId,
+}: {
+  statsVisible: boolean;
+  reducedMotion: boolean;
+  scopeId: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  // `bootKey` forces KpiGauge to remount on hover → retriggers boot anim.
+  // On reduced-motion we skip the remount (just show the final state).
+  const [bootKey, setBootKey] = useState(0);
+
+  const handleMouseEnter = useCallback(() => {
+    setHovered(true);
+    if (!reducedMotion) setBootKey((k) => k + 1);
+  }, [reducedMotion]);
+  const handleMouseLeave = useCallback(() => {
+    setHovered(false);
+  }, []);
+
+  return (
+    <div
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        flex: "1 1 38%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "28px 20px",
+        borderRadius: 14,
+        background: "rgba(255,255,255,0.03)",
+        border: `1px solid ${hovered ? "rgba(13,60,252,0.35)" : mkt.onDarkBorder}`,
+        minHeight: 280,
+        boxShadow: hovered ? "0 8px 32px rgba(0,0,0,0.30)" : "none",
+        transition: "box-shadow 200ms ease, border-color 200ms ease",
+        cursor: "default",
+      }}
+    >
+      <KpiGauge
+        key={bootKey}
+        value={statsVisible || hovered ? 70 : 0}
+        min={0}
+        max={100}
+        label=""
+        unit="%"
+        size="lg"
+        palette="sapphire"
+        animate={true}
+      />
+      <div
+        style={{
+          marginTop: 4,
+          fontSize: 14,
+          fontWeight: 600,
+          color: mkt.onDark,
+          textAlign: "center",
+          lineHeight: 1.4,
+          maxWidth: 240,
+        }}
+      >
+        of homeowners want self-serve quotes
+      </div>
+      <div
+        style={{
+          marginTop: 6,
+          fontSize: 11,
+          color: mkt.onDarkFaint,
+          textAlign: "center",
+          lineHeight: 1.4,
+        }}
+      >
+        — industry research (HomeAdvisor, Houzz)
+      </div>
+    </div>
+  );
+}
+
 interface StatCardProps {
   number: string;
   caption: string;
   sub?: string;
   source?: string;
-  visual: React.ReactNode;
+  /** A3: render prop so hover state is accessible to the visual. */
+  renderVisual?: (hovered: boolean) => React.ReactNode;
+  /** Legacy: static visual (back-compat). */
+  visual?: React.ReactNode;
 }
 
-function StatCard({ number, caption, sub, source, visual }: StatCardProps) {
+function StatCard({ number, caption, sub, source, renderVisual, visual }: StatCardProps) {
+  const [hovered, setHovered] = useState(false);
   return (
     <div
       style={{
@@ -946,16 +1214,14 @@ function StatCard({ number, caption, sub, source, visual }: StatCardProps) {
         padding: "16px 16px 14px",
         borderRadius: 12,
         background: "rgba(255,255,255,0.03)",
-        border: `1px solid ${mkt.onDarkBorder}`,
-        transition: "box-shadow 200ms ease",
+        border: `1px solid ${hovered ? "rgba(13,60,252,0.30)" : mkt.onDarkBorder}`,
+        boxShadow: hovered ? "0 8px 24px rgba(0,0,0,0.28)" : "none",
+        transition: "box-shadow 200ms ease, border-color 200ms ease",
         minHeight: 132,
+        cursor: "default",
       }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.28)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = "none";
-      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div
@@ -969,7 +1235,9 @@ function StatCard({ number, caption, sub, source, visual }: StatCardProps) {
         >
           {number}
         </div>
-        <div style={{ flex: "0 0 auto" }}>{visual}</div>
+        <div style={{ flex: "0 0 auto" }}>
+          {renderVisual ? renderVisual(hovered) : visual}
+        </div>
       </div>
       <div style={{ fontSize: 13, color: mkt.onDark, fontWeight: 600, lineHeight: 1.35 }}>
         {caption}
@@ -995,12 +1263,41 @@ interface BarRow {
 interface BarComparisonProps {
   rows: BarRow[];
   animate: boolean;
+  /** A3: when true, the LOWER (first/comparison) bar transitions to a red tint. */
+  hovered?: boolean;
 }
 
-/** Tiny horizontal-bar comparison. Inline-only for now — if it earns its
- *  keep across 2+ pages we'll graduate it into the visual-primitives lib. */
-function BarComparison({ rows, animate }: BarComparisonProps) {
+/** Tiny horizontal-bar comparison. On scroll-in: bars animate from 0.
+ *  On hover (A3): bars re-animate from zero and lower bar turns red.
+ *  Inline-only for now — if it earns its keep across 2+ pages we'll
+ *  graduate it into the visual-primitives lib. */
+function BarComparison({ rows, animate, hovered = false }: BarComparisonProps) {
   const maxMul = Math.max(...rows.map((r) => r.multiple), 1);
+  // Track the last `animate` value so we can re-trigger the width transition
+  // by briefly passing 0% when the card is hovered (resetting, then re-growing).
+  const [localAnimate, setLocalAnimate] = useState(animate);
+  const prevHoveredRef = useRef(false);
+  useEffect(() => {
+    if (hovered && !prevHoveredRef.current) {
+      // Rising edge: reset to 0 for one paint, then re-grow.
+      setLocalAnimate(false);
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setLocalAnimate(true));
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+    if (!hovered && prevHoveredRef.current) {
+      // Falling edge: let bars stay at their widths (no reset on unhover).
+      setLocalAnimate(true);
+    }
+    prevHoveredRef.current = hovered;
+  }, [hovered]);
+
+  // Sync with external animate (scroll-in trigger).
+  useEffect(() => {
+    if (animate) setLocalAnimate(true);
+  }, [animate]);
+
   return (
     <div
       style={{
@@ -1013,6 +1310,9 @@ function BarComparison({ rows, animate }: BarComparisonProps) {
     >
       {rows.map((r, i) => {
         const widthPct = (r.multiple / maxMul) * 100;
+        // A3: the LOWER bar (index 0 = the comparison / "1×" row) turns red on hover.
+        const isComparisonBar = i === 0;
+        const barColor = hovered && isComparisonBar ? "#ef4444" : mkt.accent;
         return (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <div
@@ -1029,10 +1329,10 @@ function BarComparison({ rows, animate }: BarComparisonProps) {
                 style={{
                   position: "absolute",
                   inset: 0,
-                  width: `${animate ? widthPct : 0}%`,
-                  background: mkt.accent,
+                  width: `${localAnimate ? widthPct : 0}%`,
+                  background: barColor,
                   borderRadius: 3,
-                  transition: "width 700ms cubic-bezier(0.16, 1, 0.3, 1)",
+                  transition: "width 700ms cubic-bezier(0.16, 1, 0.3, 1), background 200ms ease",
                 }}
               />
             </div>

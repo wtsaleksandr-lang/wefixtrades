@@ -126,26 +126,36 @@ export function imageDemoTemplateToConfig(t: DemoImageTemplate): TemplateConfig 
   }
 
   /* ─── Modifier fields ─── */
-  const modifierExprs: { expr: string; appliesTo: "base" | "total" }[] = [];
+  // DEMO CONVERTER FIX (B4-a): The auth'd wizard converter emits modifiers as
+  // toggle fields (OFF by default) so the owner can decide per-customer.
+  // In the anonymous demo preview the quote already included these modifiers
+  // (e.g. tax), so they must be ON unconditionally — the rendered total MUST
+  // match the quoted amount on load.
+  //
+  // The AdvancedCalculator's `defaultAnswer` always returns `false` for toggle
+  // fields regardless of `default_value`, so there is no toggle we can emit
+  // that defaults to ON.  Instead, we bake modifiers as constant coefficients
+  // directly into the formula — no field emitted at all.  This guarantees
+  // the preview total equals base + addons + modifiers from the first render.
+  //
+  // E.g. a 13% tax on the total becomes the literal constant `(0.13)` in the
+  // formula:  Total = [Subtotal] + ([Subtotal] * 0.13)
+  const modifierExprs: { expr: string; isPercent: boolean; appliesTo: "base" | "total" }[] = [];
   for (const mod of t.modifiers ?? []) {
     if (!mod || typeof mod.label !== "string") continue;
-    const labelSeed = slugifyIdSeed(mod.label, "modifier");
-    const id = uniqId(`mod_${labelSeed}`, used);
-    fields.push({
-      id,
-      name: id,
-      label: mod.label,
-      type: "toggle",
-      required: false,
-    });
     if (mod.type === "percent") {
+      // percent modifier → constant fraction (always applied)
+      const frac = mod.value / 100;
       modifierExprs.push({
-        expr: `(${id} * ${mod.value} / 100)`,
+        expr: `(${frac})`,
+        isPercent: true,
         appliesTo: mod.appliesTo === "base" ? "base" : "total",
       });
     } else {
+      // fixed modifier → constant addend
       modifierExprs.push({
-        expr: `(${id} * ${mod.value})`,
+        expr: `(${mod.value})`,
+        isPercent: false,
         appliesTo: mod.appliesTo === "base" ? "base" : "total",
       });
     }
@@ -155,25 +165,34 @@ export function imageDemoTemplateToConfig(t: DemoImageTemplate): TemplateConfig 
   const baseModifiers = modifierExprs.filter((m) => m.appliesTo === "base");
   const totalModifiers = modifierExprs.filter((m) => m.appliesTo === "total");
 
-  const subtotalParts = [baseId, ...addonExprs, ...baseModifiers.map((m) => m.expr)];
+  // Base modifiers: percent applies to `baseId`, fixed is a flat addend.
+  const baseModParts = baseModifiers.map((m) =>
+    m.isPercent ? `(${m.expr} * ${baseId})` : m.expr,
+  );
+  const subtotalParts = [baseId, ...addonExprs, ...baseModParts];
   const subtotalExpr = subtotalParts.join(" + ");
   const subtotalCalcId = uniqId("subtotal_calc", used);
+  const subtotalName = "Subtotal";
   calcs.push({
     id: subtotalCalcId,
-    name: "Subtotal",
+    name: subtotalName,
     formula: subtotalExpr || baseId,
     format: "currency",
     resultMode: "secondary",
     showInResults: totalModifiers.length > 0,
   });
 
-  const totalParts = [subtotalCalcId];
+  // DEMO CONVERTER FIX (B4-b): mirror the same name-reference fix from
+  // imageTemplateToConfig.ts. The formula engine resolves calc references by
+  // NAME (ctx[calc.name]), not by id. Using `subtotalCalcId` (the variable id
+  // like "subtotal_calc") left it undefined → 0 → $0.00 headline even though
+  // Subtotal computed correctly. Use `[${subtotalName}]` so the engine resolves
+  // the real value.
+  const subtotalRef = `[${subtotalName}]`;
+  const totalParts = [subtotalRef];
   for (const mod of totalModifiers) {
-    if (mod.expr.includes("/ 100")) {
-      totalParts.push(`(${mod.expr} * ${subtotalCalcId})`);
-    } else {
-      totalParts.push(mod.expr);
-    }
+    // percent modifier: multiply by the running subtotal; fixed: flat addend.
+    totalParts.push(mod.isPercent ? `(${mod.expr} * ${subtotalRef})` : mod.expr);
   }
   const totalCalcId = uniqId("total_calc", used);
   calcs.push({

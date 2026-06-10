@@ -224,6 +224,11 @@ export function KpiGauge({
 
   useEffect(() => {
     if (!shouldAnimate || emptyState) {
+      // Mark the boot as done even when we skip the animation: the resync
+      // effect below gates on bootStartedRef, and without this flag a gauge
+      // whose value changes AFTER mount (e.g. 0 -> 70 on scroll-in) would be
+      // stuck at the mount-time value forever under prefers-reduced-motion.
+      bootStartedRef.current = true;
       setBootPct(pct);
       return;
     }
