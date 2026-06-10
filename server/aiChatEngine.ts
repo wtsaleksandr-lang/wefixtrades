@@ -10,6 +10,7 @@ import { estimateCostMicroCents } from "./services/aiPricing";
 import { noisyCatch } from "./lib/silentFailureGuard";
 import { AI_SURFACES, type AiSurface } from "./services/aiSurfaces";
 import { OPENAI_GPT_4O_MINI } from "./services/aiModels";
+import { chat, NoAIProviderError, type ChatMessage } from "./services/aiService";
 
 const log = createLogger("AIChatEngine");
 
@@ -535,6 +536,35 @@ export async function executeTool(
   return { error: `Unknown tool: ${toolName}` };
 }
 
+/**
+ * Reliability degrade — text-only fallback when the OpenAI tool-loop's MODEL
+ * CALL throws (provider outage / 5xx / network), NOT a normal tool-call
+ * response and NOT a business/tool-execution error.
+ *
+ * We re-ask the SAME conversation through the shared multi-provider chain
+ * (`chat()` → Anthropic → OpenAI → Groq → …). The chain can't run our OpenAI
+ * tools, so this reply is text-only: during an OpenAI outage the assistant
+ * still answers (can't book/estimate via tools, but doesn't hard-fail).
+ *
+ * Message mapping: the chain's ChatMessage only models user/assistant turns
+ * with string content. We drop the system turn (passed separately as `system`)
+ * and any tool/function turns, and coerce non-string content to "" so the
+ * payload is always chain-valid. The live system prompt + user/assistant
+ * history are preserved, which is what matters for a coherent text answer.
+ *
+ * Throws `NoAIProviderError` straight back up (caller maps to its existing
+ * error handling) when the chain itself has no provider — see runChatCompletion.
+ */
+function toChainMessages(messages: OpenAI.ChatCompletionMessageParam[]): ChatMessage[] {
+  const out: ChatMessage[] = [];
+  for (const m of messages) {
+    if (m.role !== "user" && m.role !== "assistant") continue; // drop system/tool/function turns
+    const content = typeof m.content === "string" ? m.content : "";
+    out.push({ role: m.role, content });
+  }
+  return out;
+}
+
 export async function runChatCompletion(
   openai: OpenAI,
   agentType: AgentType,
@@ -592,7 +622,35 @@ export async function runChatCompletion(
       success: false,
       errorMessage: err?.message?.slice(0, 500),
     });
-    throw err;
+    // Reliability degrade — the PRIMARY OpenAI model call threw (outage/5xx/
+    // network), not a tool-call response. Fall back to a single text-only
+    // answer via the shared multi-provider chain (tools dropped). The happy
+    // path above is untouched; this only runs on an OpenAI exception.
+    log.warn("chat completion: OpenAI primary call threw — degrading to text-only fallback", {
+      surface,
+      error: err?.message?.slice(0, 300),
+    });
+    try {
+      const reply = await chat({
+        system: systemPrompt,
+        messages: toChainMessages(messages),
+        maxTokens: 600,
+        surface,
+        sessionId,
+      });
+      return { reply };
+    } catch (fallbackErr: any) {
+      // No provider at all anywhere → re-throw the ORIGINAL OpenAI error so the
+      // caller's existing error handling fires unchanged (don't crash differently).
+      if (fallbackErr instanceof NoAIProviderError) throw err;
+      // Any other chain failure: re-throw the original OpenAI error too — the
+      // chain was our last resort and it also failed; preserve the primary cause.
+      log.warn("chat completion: text-only fallback also failed", {
+        surface,
+        error: fallbackErr?.message?.slice(0, 300),
+      });
+      throw err;
+    }
   }
   meterChatCall(surface, response.usage, {
     sessionId,
@@ -647,7 +705,37 @@ export async function runChatCompletion(
         success: false,
         errorMessage: err?.message?.slice(0, 500),
       });
-      throw err;
+      // Reliability degrade — the FOLLOW-UP OpenAI call (post tool-execution)
+      // threw. The tools already RAN successfully (results in `toolResults`),
+      // so we degrade only the natural-language wrap-up: re-ask the chain with
+      // the conversation + a compact summary of the tool results so the text
+      // answer reflects what the tools produced.
+      log.warn("chat completion: OpenAI follow-up call threw — degrading tool wrap-up to text-only", {
+        surface,
+        error: err?.message?.slice(0, 300),
+      });
+      try {
+        const toolSummary = `[Tool results: ${JSON.stringify(toolResults).slice(0, 2000)}]`;
+        const wrapMessages: ChatMessage[] = [
+          ...toChainMessages(messages),
+          { role: "assistant", content: toolSummary },
+        ];
+        const reply = await chat({
+          system: systemPrompt,
+          messages: wrapMessages,
+          maxTokens: 600,
+          surface,
+          sessionId,
+        });
+        return { reply, toolResults: toolResults.length > 0 ? toolResults : undefined };
+      } catch (fallbackErr: any) {
+        if (fallbackErr instanceof NoAIProviderError) throw err;
+        log.warn("chat completion: tool wrap-up text-only fallback also failed", {
+          surface,
+          error: fallbackErr?.message?.slice(0, 300),
+        });
+        throw err;
+      }
     }
     meterChatCall(surface, followUp.usage, {
       sessionId,
