@@ -53,6 +53,8 @@ import {
   type BusinessProfile,
 } from "@shared/templatePresets";
 import MapMockup from "@/pages/products/mapguard/MapMockup";
+import ArchitectureCardTradeLine from "@/components/marketing/showcase/ArchitectureCardTradeLine";
+import DataStreamCard from "@/components/marketing/showcase/DataStreamCard";
 
 /* ─── Per-product hero hooks ───────────────────────────────────
    { eyebrow: pain point in one line; headline: solution; sub: how. }
@@ -235,6 +237,8 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
         {slug === "quickquotepro" && <QuickQuoteLandingLiveDemo />}
         {slug === "mapguard" && <MapGuardLandingTeaser />}
         {slug === "rankflow" && <RankFlowFreeTools />}
+        {slug === "tradeline" && <TradeLineArchSection />}
+        {slug === "reputationshield" && <ReputationShieldDataSection />}
 
         {/* NUMBERED CARDS
             A11Y — NumberedCard renders its title as <h3>, but the page's
@@ -1785,6 +1789,225 @@ function CtaLink({
     <Link href={href} className={className} style={style}>
       {children}
     </Link>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION: TradeLine — Architecture "How it connects" visual
+   Card left / copy right on desktop; stacked on mobile (≤768px).
+   ════════════════════════════════════════════════════════════════ */
+function TradeLineArchSection() {
+  return (
+    <section style={{ padding: "20px 24px 60px" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto" }}>
+        <Reveal>
+          <p style={{
+            fontSize: 11, fontWeight: 700, color: mkt.accent,
+            textAlign: "center", letterSpacing: "0.12em",
+            textTransform: "uppercase", margin: "0 0 10px", fontFamily: MONO,
+          }}>
+            How it connects
+          </p>
+          <h2 style={{
+            fontSize: "clamp(24px, 3.5vw, 32px)", fontWeight: 600,
+            color: mkt.onDark, textAlign: "center",
+            letterSpacing: "-0.02em", lineHeight: 1.15,
+            margin: "0 0 32px",
+          }}>
+            One line in. Every call handled.
+          </h2>
+        </Reveal>
+
+        <div className="tl-arch-split" style={{
+          display: "grid",
+          gridTemplateColumns: "380px 1fr",
+          gap: 48,
+          alignItems: "center",
+        }}>
+          {/* Card — the .tl-arch-scale wrapper exists so narrow phones can
+              scale the card without leaving a transform "layout ghost"
+              (scale() shrinks pixels but not the layout box; the wrapper's
+              explicit scaled dimensions + overflow:hidden keep
+              document.scrollWidth honest). */}
+          <Reveal style={{ display: "flex", justifyContent: "center" }}>
+            <div className="tl-arch-scale">
+              <ArchitectureCardTradeLine />
+            </div>
+          </Reveal>
+
+          {/* Copy bullets */}
+          <Reveal delay={0.08}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {[
+                {
+                  icon: "📞",
+                  title: "Forward your number",
+                  body: "Your business phone routes calls to TradeLine AI. Callers hear your brand, not a robot greeting.",
+                },
+                {
+                  icon: "🤖",
+                  title: "AI answers & qualifies",
+                  body: "TradeLine picks up every call 24/7 — gives estimates, captures lead details, and books appointments using your real pricing.",
+                },
+                {
+                  icon: "📅",
+                  title: "You see every interaction",
+                  body: "Calls, chats, and bookings flow into your dashboard with full transcripts and follow-up status. Nothing falls through.",
+                },
+              ].map((b) => (
+                <div key={b.title} style={{
+                  display: "flex", gap: 14, alignItems: "flex-start",
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: mkt.accentTint,
+                    border: `1px solid ${mkt.accentGlow}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 16, flexShrink: 0,
+                  }}>
+                    {b.icon}
+                  </div>
+                  <div>
+                    <p style={{
+                      fontSize: 15, fontWeight: 600, color: mkt.onDark,
+                      margin: "0 0 4px", letterSpacing: "-0.01em",
+                    }}>{b.title}</p>
+                    <p style={{
+                      fontSize: 14, lineHeight: 1.55, color: mkt.onDarkMuted, margin: 0,
+                    }}>{b.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .tl-arch-split {
+            grid-template-columns: 1fr !important;
+            gap: 32px !important;
+          }
+          .tl-arch-split > div:first-child {
+            justify-content: center;
+          }
+        }
+        /* The card's overlays are px-positioned against its fixed 380x460
+           canvas, so it can't reflow narrower — SCALE it on narrow phones
+           instead (380*0.84=319px fits 375px with 24px side padding). The
+           wrapper takes the SCALED dimensions + clips, so the layout box
+           matches the pixels and document.scrollWidth stays at the viewport. */
+        @media (max-width: 430px) {
+          .tl-arch-scale {
+            width: 319px;
+            height: 386px;
+            overflow: hidden;
+          }
+          .tl-arch-scale > * {
+            transform: scale(0.84);
+            transform-origin: top left;
+          }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION: ReputationShield — Data stream "Where your data comes from"
+   Copy left / card right on desktop; stacked on mobile.
+   ════════════════════════════════════════════════════════════════ */
+function ReputationShieldDataSection() {
+  return (
+    <section style={{ padding: "20px 24px 60px" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto" }}>
+        <Reveal>
+          <p style={{
+            fontSize: 11, fontWeight: 700, color: mkt.accent,
+            textAlign: "center", letterSpacing: "0.12em",
+            textTransform: "uppercase", margin: "0 0 10px", fontFamily: MONO,
+          }}>
+            Real-time data
+          </p>
+          <h2 style={{
+            fontSize: "clamp(24px, 3.5vw, 32px)", fontWeight: 600,
+            color: mkt.onDark, textAlign: "center",
+            letterSpacing: "-0.02em", lineHeight: 1.15,
+            margin: "0 0 32px",
+          }}>
+            Where your reputation data comes from
+          </h2>
+        </Reveal>
+
+        <div className="rs-data-split" style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 560px",
+          gap: 48,
+          alignItems: "center",
+        }}>
+          {/* Copy bullets */}
+          <Reveal>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {[
+                {
+                  icon: "⭐",
+                  title: "150+ review sites monitored",
+                  body: "Google, Facebook, Yelp and dozens more. Every new review lands in your dashboard within minutes.",
+                },
+                {
+                  icon: "📱",
+                  title: "10+ social channels",
+                  body: "Mentions, comments, and direct messages across your social presence — all in one stream.",
+                },
+                {
+                  icon: "🛡️",
+                  title: "The shield catches the bad ones first",
+                  body: "Unhappy customers get a private feedback form before they reach Google. You fix it before it goes public.",
+                },
+              ].map((b) => (
+                <div key={b.title} style={{
+                  display: "flex", gap: 14, alignItems: "flex-start",
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: mkt.accentTint,
+                    border: `1px solid ${mkt.accentGlow}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 16, flexShrink: 0,
+                  }}>
+                    {b.icon}
+                  </div>
+                  <div>
+                    <p style={{
+                      fontSize: 15, fontWeight: 600, color: mkt.onDark,
+                      margin: "0 0 4px", letterSpacing: "-0.01em",
+                    }}>{b.title}</p>
+                    <p style={{
+                      fontSize: 14, lineHeight: 1.55, color: mkt.onDarkMuted, margin: 0,
+                    }}>{b.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+
+          {/* Data stream card */}
+          <Reveal delay={0.08} style={{ display: "flex", justifyContent: "center" }}>
+            <DataStreamCard />
+          </Reveal>
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .rs-data-split {
+            grid-template-columns: 1fr !important;
+            gap: 32px !important;
+          }
+        }
+      `}</style>
+    </section>
   );
 }
 
