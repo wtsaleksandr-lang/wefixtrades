@@ -679,6 +679,10 @@ export default function WizardShell({ embed = false }: Props) {
    *  floating AIBubble (seed + auto-send). `nonce` bumps per Generate click so
    *  the bubble's seed effect re-fires even when the prompt text is unchanged. */
   const [aiSeed, setAiSeed] = useState<{ prompt: string; nonce: number }>({ prompt: '', nonce: 0 });
+  /** ?ai-upload=1 entry-point — when the wizard is opened via the /templates
+   *  "Upload your quote" card, this nonce ticks so AIBubble opens + highlights
+   *  the paperclip with a hint message. Mirrors the ?template= param pattern. */
+  const [aiUploadNonce, setAiUploadNonce] = useState(0);
   const handleAIGenerate = useCallback((prompt: string) => {
     const p = prompt.trim();
     if (!p) return;
@@ -1046,6 +1050,26 @@ export default function WizardShell({ embed = false }: Props) {
       try { window.history.replaceState(null, '', nextUrl); } catch { /* ignore */ }
     } catch { /* no window — SSR no-op */ }
   }, [applyTemplate]);
+
+  // ── ?ai-upload=1 — open the AI bubble with upload hint on mount ────────
+  // Fired once after the ?template= handler (token guard mirrors that block).
+  // Strips the param from the URL so a reload doesn't re-trigger it.
+  const aiUploadAppliedRef = useRef(false);
+  useEffect(() => {
+    if (aiUploadAppliedRef.current) return;
+    aiUploadAppliedRef.current = true;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.get('ai-upload')) return;
+      // Bump the nonce so AIBubble's openForUploadNonce effect fires once.
+      setAiUploadNonce((n) => n + 1);
+      params.delete('ai-upload');
+      const qs = params.toString();
+      const nextUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
+      try { window.history.replaceState(null, '', nextUrl); } catch { /* ignore */ }
+    } catch { /* SSR no-op */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Wave I (a)+(b): cross-section DnD router ─────────────────────────
   const sensors = useEditorDndSensors();
@@ -2280,6 +2304,7 @@ export default function WizardShell({ embed = false }: Props) {
               replaceTemplate={(cfg) => applyTemplate(cfg, undefined, true)}
               seedPrompt={aiSeed.prompt}
               seedNonce={aiSeed.nonce}
+              openForUploadNonce={aiUploadNonce}
             />
 
             {showHelp && typeof document !== 'undefined' && createPortal(
