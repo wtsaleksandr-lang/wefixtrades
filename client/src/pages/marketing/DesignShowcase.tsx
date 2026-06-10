@@ -20,6 +20,7 @@ import MultiTieredSupport from "@/components/marketing/showcase/MultiTieredSuppo
 import PremiumStackOrbit from "@/components/marketing/showcase/PremiumStackOrbit";
 import EfficientOnboarding from "@/components/marketing/showcase/EfficientOnboarding";
 import BenefitsGrid from "@/components/marketing/showcase/BenefitsGrid";
+import TriggersSection from "@/components/marketing/showcase/TriggersSection";
 
 import HeroFlywheel from "@/components/marketing/showcase/HeroFlywheel";
 import AdFlowIllustration from "@/components/marketing/illustrations/AdFlowIllustration";
@@ -155,6 +156,10 @@ export default function DesignShowcase() {
               <HeroFlywheel />
             </div>
           </div>
+        </Section>
+
+        <Section label="14 · Automation Triggers">
+          <TriggersSection />
         </Section>
 
         <div style={{ padding: "60px 24px 100px" }} />
