@@ -23,8 +23,7 @@ import {
   prospects, prospectEnrichment, outboundCampaigns, campaignProspects,
   prospectEvents, salesOpportunities, importBatches,
   outboundBlockedDomains, outboundBlockedEmails, outboundBlockedPhones,
-  outreachSequences, outreachSequenceSteps,
-  type InsertProspect, type InsertProspectEnrichment,
+  type InsertProspect,
   type InsertOutboundCampaign, type InsertCampaignProspect,
   type InsertProspectEvent, type InsertSalesOpportunity,
   type InsertImportBatch,
@@ -46,7 +45,7 @@ import { recordUnsubscribe, isEmailUnsubscribed } from "../lib/unsubscribeStorag
 import { buildGlobalSendBudget, markFirstRealSend } from "../jobs/outboundSyncWorker";
 import { assignTargetOffer, computePriorityScore } from "../services/prospectTargeting";
 import { classifyReplyFull } from "../services/replyIntelligence";
-import { personalizeForProspect } from "../services/copyEngine";
+import { outreachPersonalizationEnabled } from "../jobs/personalizationWorker";
 import { createLogger } from "../lib/logger";
 import { z } from "zod";
 import { searchGoogleMaps, buildMapsQuery, OutscraperError, type OutscraperLead } from "../services/outscraperClient";
@@ -127,87 +126,10 @@ async function logEvent(
   });
 }
 
-/**
- * P1-2 helper. Returns a PersonalizeContext for a campaign IFF it has at least
- * one sequence with an ai_personalize step. Returns null when no sequence
- * requests personalization (so the assign hook is a no-op for non-AI campaigns).
- * The ICP / pain / offer fields come from the sequence header.
- */
-async function getPersonalizationContext(
-  campaignId: number
-): Promise<{ icp: string; painPoint: string; offer: string } | null> {
-  const seqs = await db
-    .select()
-    .from(outreachSequences)
-    .where(and(
-      eq(outreachSequences.campaign_id, campaignId),
-      eq(outreachSequences.ai_personalize, true),
-    ))
-    .orderBy(desc(outreachSequences.updated_at))
-    .limit(1);
-
-  let seq = seqs[0];
-
-  // The header flag may be off while an individual step opts in — also accept a
-  // sequence on this campaign that has any ai_personalize step.
-  if (!seq) {
-    const stepSeqs = await db
-      .select({ s: outreachSequences })
-      .from(outreachSequenceSteps)
-      .innerJoin(outreachSequences, eq(outreachSequences.id, outreachSequenceSteps.sequence_id))
-      .where(and(
-        eq(outreachSequences.campaign_id, campaignId),
-        eq(outreachSequenceSteps.ai_personalize, true),
-      ))
-      .orderBy(desc(outreachSequences.updated_at))
-      .limit(1);
-    seq = stepSeqs[0]?.s;
-  }
-
-  if (!seq) return null;
-
-  return {
-    icp: seq.icp || "local home-services business",
-    painPoint: seq.pain_point || "losing after-hours leads with no instant-quote tool",
-    offer: seq.offer || "WeFixTrades instant-quote widget",
-  };
-}
-
-/** P1-2 helper. Upsert the four AI personalization tokens onto prospect_enrichment. */
-async function upsertPersonalizationTokens(
-  prospectId: number,
-  tokens: {
-    ai_first_line: string;
-    ai_reason_to_target: string;
-    ai_offer_angle: string;
-    ai_cta_variant: string;
-  }
-): Promise<void> {
-  const [existing] = await db
-    .select({ id: prospectEnrichment.id })
-    .from(prospectEnrichment)
-    .where(eq(prospectEnrichment.prospect_id, prospectId))
-    .limit(1);
-
-  const fields = {
-    ai_first_line: tokens.ai_first_line,
-    ai_reason_to_target: tokens.ai_reason_to_target,
-    ai_offer_angle: tokens.ai_offer_angle,
-    ai_cta_variant: tokens.ai_cta_variant,
-    updated_at: new Date(),
-  };
-
-  if (existing) {
-    await db.update(prospectEnrichment)
-      .set(fields)
-      .where(eq(prospectEnrichment.id, existing.id));
-  } else {
-    await db.insert(prospectEnrichment).values({
-      prospect_id: prospectId,
-      ...fields,
-    } as InsertProspectEnrichment);
-  }
-}
+/* P1-2 helpers getPersonalizationContext / upsertPersonalizationTokens moved
+ * to server/jobs/personalizationWorker.ts — per-prospect AI personalization is
+ * now deferred to that worker instead of running inline in the assign request
+ * (which blocked the admin's HTTP call on N sequential AI calls). */
 
 /** Normalise a URL to a bare domain for dedup */
 function normaliseDomain(raw: string | null | undefined): string | null {
@@ -1351,38 +1273,21 @@ export function registerAdminOutboundRoutes(app: Express): void {
         assigned.push(p.id);
       }
 
-      // ── P1-2: per-prospect AI personalization ───────────────
-      // When the campaign has a sequence with an ai_personalize step, generate
-      // the four token fields (ai_first_line / ai_offer_angle / ai_cta_variant /
-      // ai_reason_to_target) for each newly assigned prospect and persist them
-      // on prospect_enrichment. The sync worker then pushes them as customFields.
-      // Gated gracefully: skip entirely (no crash) when no ANTHROPIC key, or when
-      // no sequence requests personalization.
-      let personalized = 0;
-      if (assigned.length > 0) {
-        try {
-          const personalizeCtx = await getPersonalizationContext(campaignId);
-          if (personalizeCtx && process.env.ANTHROPIC_API_KEY) {
-            const toPersonalize = approved.filter((p) => assigned.includes(p.id));
-            for (const p of toPersonalize) {
-              try {
-                const tokens = await personalizeForProspect(p, personalizeCtx);
-                await upsertPersonalizationTokens(p.id, tokens);
-                personalized++;
-              } catch (perErr: any) {
-                // Per-prospect failure must not block the assignment — log + move on.
-                log.warn("[outbound] personalize failed", { prospect_id: p.id, error: perErr.message });
-              }
-            }
-          } else if (personalizeCtx && !process.env.ANTHROPIC_API_KEY) {
-            log.info("[outbound] ai_personalize requested but ANTHROPIC_API_KEY absent — skipping", { campaignId });
-          }
-        } catch (ctxErr: any) {
-          log.warn("[outbound] personalization context lookup failed", { campaignId, error: ctxErr.message });
-        }
-      }
-
-      res.json({ assigned: assigned.length, skipped: skipped.length, blocked, personalized });
+      // ── P1-2: per-prospect AI personalization is DEFERRED ───────────────
+      // The personalization worker (server/jobs/personalizationWorker.ts,
+      // gated by OUTREACH_PERSONALIZATION_ENABLED) picks up these newly
+      // assigned sync_status='pending' rows on its next tick, generates the
+      // four token fields for campaigns whose sequences request AI
+      // personalization, and persists them on prospect_enrichment. The sync
+      // worker then merges them into the platform lead payload. Doing the N
+      // AI calls here would block this HTTP request for minutes on large
+      // assignments — same deferral pattern as artifact generation.
+      res.json({
+        assigned: assigned.length,
+        skipped: skipped.length,
+        blocked,
+        personalization: outreachPersonalizationEnabled() ? "deferred" : "disabled",
+      });
     } catch (err: any) {
       log.error("[outbound] assign:", err.message);
       res.status(500).json({ error: "Assignment failed" });

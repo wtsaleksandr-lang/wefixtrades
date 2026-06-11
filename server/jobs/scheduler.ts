@@ -13,6 +13,7 @@ import { cleanupExpiredMemory } from "../services/chatMemory";
 import { runDailyOpsIntelligence } from "./opsIntelligenceJob";
 import { processOutboundSync } from "./outboundSyncWorker";
 import { processArtifactOutreach } from "./artifactOutreachWorker";
+import { processOutreachPersonalization } from "./personalizationWorker";
 import { processRankFlowPlans } from "./rankflowWorker";
 import { processRankFlowTracking } from "./trackingWorker";
 import { processMapguardScans } from "./mapguardScanWorker";
@@ -521,6 +522,20 @@ export function initScheduler() {
       await runJob("artifact_outreach", processArtifactOutreach);
     } catch (err: any) {
       log.error("artifact_outreach cron handler error", { error: err.message });
+    }
+  });
+
+  // P1-2 — per-prospect AI personalization. Generates the four ai_* token
+  // fields on prospect_enrichment for assigned-but-not-yet-pushed leads whose
+  // campaign requests AI personalization, BEFORE the sync below pushes them.
+  // Inert unless OUTREACH_PERSONALIZATION_ENABLED; batch-capped per tick.
+  // Every 5 min at minute-offset 1 (faster than the 15-min sync cadence so
+  // tokens land first; offset so it never piles onto the */10 artifact tick).
+  cron.schedule("1-56/5 * * * *", async () => {
+    try {
+      await runJob("outreach_personalization", processOutreachPersonalization);
+    } catch (err: any) {
+      log.error("outreach_personalization cron handler error", { error: err.message });
     }
   });
 
