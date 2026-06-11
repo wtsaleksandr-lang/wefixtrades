@@ -304,10 +304,16 @@ export function registerPublicCheckoutRoutes(app: Express): void {
 
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
 
-      // Broad payment method types — Stripe auto-shows relevant options per locale
-      const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] = [
-        "card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit",
-      ];
+      /* P0 2026-06-11: do NOT hardcode payment_method_types. The previous
+       * list ("card", "us_bank_account", "cashapp", "afterpay_clearpay",
+       * "klarna", "acss_debit") made EVERY sessions.create throw
+       * `The payment method type provided: us_bank_account is invalid` —
+       * the account (country=CA) cannot activate us_bank_account/cashapp,
+       * and afterpay/acss are switched off in the dashboard payment-method
+       * configuration. Omitting the param lets Stripe apply the dashboard's
+       * dynamic payment-method configuration (card + klarna + link today),
+       * which is always self-consistent — the exact pattern of the working
+       * citation-builder checkout route. */
 
       /* ─── Discount coupon (bundle savings OR SystemBuilder 7%) ───
        * Previously the UI showed "$75 saved" or "7% off" but the discount was
@@ -421,10 +427,16 @@ export function registerPublicCheckoutRoutes(app: Express): void {
               if (!priceId) continue;
               // payment mode rejects recurring optional_items — filter.
               if (mode === "payment" && row.billing_period !== "one-time") continue;
+              /* P0 2026-06-11: no adjustable_quantity block. Stripe rejects
+               * `adjustable_quantity[minimum]`/`[maximum]` whenever
+               * `enabled=false` ("You cannot specify adjustable_quantity
+               * [minimum] when adjustable_quantity[enabled]=false") — which
+               * 500'd every non-bundle checkout once the 06-10 catalog
+               * repoint gave the upsell rows real price ids. Omitting the
+               * field entirely is Stripe's default: fixed quantity 1. */
               optionalItems.push({
                 price: priceId,
                 quantity: 1,
-                adjustable_quantity: { enabled: false, minimum: 1, maximum: 1 },
               });
               if (optionalItems.length >= 2) break;
             }
@@ -437,7 +449,6 @@ export function registerPublicCheckoutRoutes(app: Express): void {
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
-        payment_method_types: paymentMethodTypes,
         line_items: lineItems,
         ...(optionalItems.length > 0 ? { optional_items: optionalItems } : {}),
         ...(discounts.length > 0 ? { discounts } : { allow_promotion_codes: true }),
