@@ -27,6 +27,7 @@ import {
   TEMPLATE_PRESETS as STATIC_TEMPLATE_PRESETS, collapseLayoutVariants, type TemplateConfig,
 } from '@shared/templatePresets';
 import TemplateMockup from './TemplateMockup';
+import InfoCue from './InfoCue';
 
 /**
  * Elfsight-style thumbnail pipeline. Each template ships a pre-rendered PNG
@@ -419,7 +420,15 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
     >
       <div className="qq-tg-strip-header">
         <div>
-          <h3 className="qq-tg-strip-h">Start from a template</h3>
+          <h3 className="qq-tg-strip-h">
+            Start from a template
+            {/* Rule 5 — every section header carries a help cue (2026-06-11
+             * sweep: this header was missing one). */}
+            <InfoCue
+              testid="build-section-templates"
+              text="Pre-built calculators for common trades. Picking one replaces your current fields, pricing math, steps and styling with the template's setup — then everything stays fully editable."
+            />
+          </h3>
           {/* Wave L T1 — subtitle removed. The section title alone is enough;
            * the strip below already shows the templates and a card count
            * isn't critical context. */}
@@ -504,6 +513,9 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
         .qq-tg-strip-h {
           font-size: 13px; font-weight: 700; color: ${p.colors.heading};
           margin: 0 0 2px; letter-spacing: -0.005em;
+          /* Rule 5 sweep — inline-flex so the InfoCue trigger sits to the
+           * immediate right of the title text (same as .qq-fields-title). */
+          display: inline-flex; align-items: center; gap: 6px;
         }
         .qq-tg-strip-sub {
           font-size: 11.5px; color: ${p.colors.muted}; margin: 0;

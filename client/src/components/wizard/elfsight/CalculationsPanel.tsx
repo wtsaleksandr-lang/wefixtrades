@@ -269,6 +269,10 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
       className="qq-calcs-panel"
       data-testid="editor-calculations-panel"
       aria-label="Calculator calculations"
+      // Rule-B escape hatch — this panel legitimately carries TWO cues:
+      // the "Pricing" section-header cue and the "Describe a calculation"
+      // input-field cue (Rule 5 + input-field rules both mandate one each).
+      data-cue-allowed-multiple
     >
       <header className="qq-calcs-header">
         <div>
@@ -303,6 +307,13 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
         <label className="qq-calcs-ai-field">
           <span className="qq-calcs-ai-titlecue">
             <span className="qq-calcs-ai-title">Describe a calculation</span>
+            {/* Rule 5 — help cue restored to the titlecue wrapper (2026-06-11
+             * sweep: the wrapper existed but the cue itself was missing). */}
+            <InfoCue
+              testid="calcs-ai-describe"
+              region="result"
+              text="Type the pricing rule in plain English — e.g. 'add 10% tax to the subtotal, then a $25 booking fee' — and AI converts it into a new calculation appended to the list below."
+            />
           </span>
           <textarea
             className="qq-calcs-ai-input"

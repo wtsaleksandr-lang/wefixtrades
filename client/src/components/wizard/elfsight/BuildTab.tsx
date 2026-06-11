@@ -22,6 +22,7 @@ import StepContentPanel from './StepContentPanel';
 import TemplateStrip, { type ApplyTemplatePayload } from './TemplateGallery';
 import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
+import InfoCue from './InfoCue';
 import type { ShellHeader, ShellResults } from './types';
 
 const p = platformTheme;
@@ -136,6 +137,12 @@ export default function BuildTab({
             <Sparkles size={16} />
           </span>
           <span className="qq-buildai-title">Generate with AI</span>
+          {/* Rule 5 — every panel header carries a help cue (2026-06-11
+              sweep: this card head was missing one). */}
+          <InfoCue
+            testid="build-section-generate-ai"
+            text="Describe the job you quote in plain English and the AI drafts the whole calculator — fields, steps and pricing math. It hands off to the chat assistant, where you can refine the result or edit everything by hand afterwards."
+          />
         </div>
         <p className="qq-buildai-sub">
           Describe your job and we'll build the calculator for you.
