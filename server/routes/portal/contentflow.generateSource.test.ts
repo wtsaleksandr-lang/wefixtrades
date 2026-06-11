@@ -5,8 +5,11 @@
  * 404 anything without a LIBRARY templateId, so prompts saved via
  * POST /custom-prompts could be listed/deleted but never actually drive a
  * generation. resolveGeneratePromptSource() un-binds it: the route accepts
- * exactly one of { templateId, customPromptId } and normalizes either into
- * the single shape the pipeline consumes.
+ * exactly one of { templateId, customPromptId, free-form rendered } and
+ * normalizes each into the single shape the pipeline consumes. Free-form
+ * prompts (rendered text with no template / saved prompt) are moderated
+ * via moderatePromptText; reference-only requests may resolve to an EMPTY
+ * free source via allowEmptyRendered (the prompt is vision-derived).
  *
  * These tests drive the REAL exported helper with an injected saved-prompt
  * loader (no express, no DB):
@@ -16,11 +19,16 @@
  *   2. Custom path resolves the SESSION client's saved prompt; rendered +
  *      tokens default from the saved prompt; body overrides win; provenance
  *      (customPromptId + baseTemplateId) is carried.
- *   3. Exactly-one-source contract (neither → 400, both → 400).
- *   4. DELIBERATE-FAILURE FIXTURE: a re-implementation of the OLD
- *      template-bound resolver fails the custom-prompt expectations —
- *      proving this gate catches the regression, not merely that it runs.
- *   5. SOURCE CONTRACT: the /generate route in contentflow.ts must go
+ *   3. Free-form path: rendered-only resolves kind=free; moderation
+ *      (empty / denylist / 8k cap) rejects with 400 invalid_prompt;
+ *      allowEmptyRendered admits a reference-only request.
+ *   4. Exactly-one-source contract (none of the three → 400, template +
+ *      custom → 400, explicit free-form + template/custom → 400).
+ *   5. DELIBERATE-FAILURE FIXTURE: a re-implementation of the OLD
+ *      template-bound resolver fails the custom-prompt AND free-form
+ *      expectations — proving this gate catches the regression, not merely
+ *      that it runs.
+ *   6. SOURCE CONTRACT: the /generate route in contentflow.ts must go
  *      through resolveGeneratePromptSource (no bypass back to a raw
  *      getPromptTemplate-only check).
  *
@@ -181,10 +189,61 @@ await check("custom path: saved >8000 chars rendered → 400 prompt_too_long", a
   assert.ok(!r.ok && r.status === 400 && r.code === "prompt_too_long");
 });
 
-/* ═══ 3. Exactly-one-source contract ═══ */
+/* ═══ 3. Free-form path — rendered text with no template / saved prompt ═══ */
 
-await check("neither templateId nor customPromptId → 400 missing_template_id", async () => {
-  const r = await resolveGeneratePromptSource({ rendered: "x", loadCustomPrompts: loadNone });
+await check("free-form: rendered-only resolves kind=free with null template provenance", async () => {
+  const r = await resolveGeneratePromptSource({
+    rendered: "  A plumber's van parked outside a brick house at golden hour  ",
+    loadCustomPrompts: loadNone,
+  });
+  assert.ok(r.ok, `expected ok, got ${!r.ok ? r.code : ""}`);
+  assert.equal(r.source.kind, "free");
+  assert.equal(r.source.templateId, null);
+  assert.equal(r.source.customPromptId, null);
+  assert.equal(r.source.title, "Custom prompt");
+  assert.equal(r.source.patternId, null);
+  assert.equal(r.source.rendered, "A plumber's van parked outside a brick house at golden hour");
+});
+
+await check("free-form: explicit freeForm:true + rendered resolves kind=free", async () => {
+  const r = await resolveGeneratePromptSource({
+    freeForm: true,
+    rendered: "minimalist flat-lay of HVAC tools on a workbench",
+    loadCustomPrompts: loadNone,
+  });
+  assert.ok(r.ok && r.source.kind === "free");
+});
+
+await check("free-form: moderation rejects >8000 chars → 400 invalid_prompt", async () => {
+  const r = await resolveGeneratePromptSource({
+    rendered: "x".repeat(8_001),
+    loadCustomPrompts: loadNone,
+  });
+  assert.ok(!r.ok && r.status === 400 && r.code === "invalid_prompt");
+});
+
+await check("free-form: moderation denylist hit → 400 invalid_prompt", async () => {
+  const r = await resolveGeneratePromptSource({
+    rendered: "anything involving csam content",
+    loadCustomPrompts: loadNone,
+  });
+  assert.ok(!r.ok && r.status === 400 && r.code === "invalid_prompt");
+});
+
+await check("free-form: allowEmptyRendered (reference-only request) → empty free source", async () => {
+  const r = await resolveGeneratePromptSource({
+    allowEmptyRendered: true,
+    loadCustomPrompts: loadNone,
+  });
+  assert.ok(r.ok, "reference-only request must resolve");
+  assert.equal(r.source.kind, "free");
+  assert.equal(r.source.rendered, "");
+});
+
+/* ═══ 4. Exactly-one-source contract ═══ */
+
+await check("none of templateId/customPromptId/rendered → 400 missing_template_id", async () => {
+  const r = await resolveGeneratePromptSource({ loadCustomPrompts: loadNone });
   assert.ok(!r.ok && r.status === 400 && r.code === "missing_template_id");
 });
 
@@ -198,7 +257,40 @@ await check("both templateId and customPromptId → 400 ambiguous_prompt_source"
   assert.ok(!r.ok && r.status === 400 && r.code === "ambiguous_prompt_source");
 });
 
-/* ═══ 4. Deliberate-failure fixture — the OLD template-bound resolver ═══
+await check("explicit free-form + templateId + rendered → 400 ambiguous_prompt_source", async () => {
+  /* templateId + rendered alone is the legacy template request (rendered is
+   * the client-rendered template text) and must keep working — so the
+   * template/free ambiguity is expressed via the explicit freeForm marker:
+   * declaring free-form while ALSO addressing a template is two sources. */
+  const r = await resolveGeneratePromptSource({
+    freeForm: true,
+    templateId: libraryTemplate.id,
+    rendered: "x",
+    loadCustomPrompts: loadNone,
+  });
+  assert.ok(!r.ok && r.status === 400 && r.code === "ambiguous_prompt_source");
+});
+
+await check("explicit free-form + customPromptId → 400 ambiguous_prompt_source", async () => {
+  const r = await resolveGeneratePromptSource({
+    freeForm: true,
+    customPromptId: SAVED.id,
+    rendered: "x",
+    loadCustomPrompts: loadSaved,
+  });
+  assert.ok(!r.ok && r.status === 400 && r.code === "ambiguous_prompt_source");
+});
+
+await check("templateId + rendered stays the legacy TEMPLATE source (not free-form)", async () => {
+  const r = await resolveGeneratePromptSource({
+    templateId: libraryTemplate.id,
+    rendered: "rendered template text",
+    loadCustomPrompts: loadNone,
+  });
+  assert.ok(r.ok && r.source.kind === "template", "templateId+rendered must remain the template path");
+});
+
+/* ═══ 5. Deliberate-failure fixture — the OLD template-bound resolver ═══
  *
  * Re-implements the pre-fix validation (templateId required, library
  * lookup 404s everything else, customPromptId ignored) and proves the
@@ -239,7 +331,15 @@ await check("deliberate-failure fixture: old template-bound resolver rejects a v
   assert.ok(fixed.ok, "new resolver must accept the same input");
 });
 
-/* ═══ 5. Source contract — the route goes through the helper ═══ */
+await check("deliberate-failure fixture: old template-bound resolver rejects a free-form prompt", async () => {
+  const input = { rendered: "a free-form prompt with no template", loadCustomPrompts: loadNone };
+  const r = await oldTemplateBoundResolver(input);
+  assert.ok(!r.ok, "old resolver must reject rendered-only input");
+  const fixed = await resolveGeneratePromptSource(input);
+  assert.ok(fixed.ok && fixed.source.kind === "free", "new resolver must accept the same input as free-form");
+});
+
+/* ═══ 6. Source contract — the route goes through the helper ═══ */
 
 await check("source contract: /generate route calls resolveGeneratePromptSource", () => {
   const here = dirname(fileURLToPath(import.meta.url));

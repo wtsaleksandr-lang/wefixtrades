@@ -58,6 +58,11 @@ import {
   type ExtractedBusinessProfile,
 } from "../../services/contentflow/profilePrefill";
 import { generateImageViaOrchestrator } from "../../services/contentflow/imageOrchestrator";
+import {
+  describeReferenceAndComposePrompt,
+  buildPhotorealPrompt,
+  moderatePromptText,
+} from "../../services/contentflow/referenceReplication";
 import { generateVideoViaOrchestrator } from "../../services/contentflow/videoOrchestrator";
 import { generateContentflowText } from "../../services/contentflow/aiText";
 import { listPending as listPipelineForClient } from "../../services/contentflow/api";
@@ -580,7 +585,8 @@ export function registerPortalContentflowRoutes(app: Express) {
   /**
    * POST /api/portal/contentflow/generate
    *
-   * Body: { templateId?, customPromptId?, tokens?, rendered?, assetType }
+   * Body: { templateId?, customPromptId?, tokens?, rendered?, assetType,
+   *         freeForm?, photoreal?, aspectRatio?, reference?, extraInstructions? }
    * Returns: { ok, draftId, assetUrl?, content?, tier, ... }
    *
    * Prompt source (exactly ONE of):
@@ -594,6 +600,24 @@ export function registerPortalContentflowRoutes(app: Express) {
    *                       the saved values; the body may override them.
    *                       This is what un-binds generation from the
    *                       template library (Phase 3 completion).
+   *   - free-form:        `rendered` WITHOUT templateId/customPromptId —
+   *                       the customer's own prompt text, moderated via
+   *                       moderatePromptText() (Starter+ only). Optionally
+   *                       marked explicit with freeForm:true (then a
+   *                       templateId/customPromptId alongside is a 400
+   *                       ambiguous_prompt_source).
+   *
+   * Orthogonal modifiers (work with ALL three sources):
+   *   - photoreal:    realistic mode — photoreal provider order
+   *                   (PHOTOREAL_PROVIDER_ORDER) + camera/lens/lighting
+   *                   prompt augmentation (image paths; Starter+).
+   *   - aspectRatio:  1:1 | 4:5 | 5:4 | 3:2 | 2:3 | 16:9 | 9:16 →
+   *                   explicit dimensions for the image orchestrator.
+   *   - reference:    { imageBase64 | url } — image-only, Starter+.
+   *                   Vision-describe the reference → derive the prompt;
+   *                   the resolved source's rendered text layers in as
+   *                   guidance. May also stand alone (reference-only
+   *                   request: no template/custom/rendered needed).
    *
    * Asset routing:
    *   - "image":   generateImageViaOrchestrator(rendered + style preset)
@@ -614,45 +638,154 @@ export function registerPortalContentflowRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const { templateId, customPromptId, tokens, rendered: renderedBody, assetType } = (req.body || {}) as {
+      const {
+        templateId,
+        customPromptId,
+        tokens,
+        rendered: renderedBody,
+        assetType,
+        /* ── Free-prompt + realistic mode + reference replication ── */
+        freeForm,
+        photoreal,
+        aspectRatio,
+        reference,
+        extraInstructions,
+      } = (req.body || {}) as {
         templateId?: string;
         customPromptId?: string;
         tokens?: unknown;
         rendered?: string;
         assetType?: string;
+        /** Explicit free-form marker. Optional — a `rendered` prompt without
+         *  templateId/customPromptId is already free-form; setting this WITH
+         *  a templateId/customPromptId is a 400 ambiguous_prompt_source. */
+        freeForm?: boolean;
+        /** Realistic mode — routes to the photoreal provider order +
+         *  injects camera/lens/lighting + raw-photo augmentation. */
+        photoreal?: boolean;
+        /** "16:9" | "9:16" | "1:1" | "4:5" | "3:2" | "2:3" (provider-permitting). */
+        aspectRatio?: string;
+        /** Reference replication input: an uploaded image (base64) OR a URL
+         *  (direct image or web page). When present, the rendered prompt is
+         *  DERIVED from a vision description of the reference. */
+        reference?: {
+          imageBase64?: string;
+          mediaType?: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+          url?: string;
+        };
+        /** Customer free-text guidance layered on top of any reference. */
+        extraInstructions?: string;
       };
 
-      /* ── Validate body ────────────────────────────────────────── */
+      /* ── Mode detection ───────────────────────────────────────────
+       * Three prompt sources — library template, saved custom prompt,
+       * free-form rendered text — resolved as exactly-ONE-of by
+       * resolveGeneratePromptSource() below. Reference replication,
+       * photoreal, and aspectRatio are ORTHOGONAL modifiers that combine
+       * with any source (reference is image-only and may also stand alone:
+       * its prompt is derived from a vision description of the reference,
+       * with the resolved rendered text layered in as guidance). */
+      const hasReference = !!reference && (!!reference.imageBase64 || !!reference.url);
+
       const VALID_ASSETS = new Set(["image", "article", "video", "multi"]);
       if (!assetType || !VALID_ASSETS.has(assetType)) {
         return res.status(400).json({ error: "assetType must be one of image|article|video|multi", code: "invalid_asset_type" });
       }
 
-      /* Resolve the prompt source — a library template OR one of the
-       * caller's saved custom prompts (Phase 3: generation is no longer
-       * template-bound). All validation (exactly-one source, 404s,
-       * rendered length) lives in the helper so it is unit-testable. */
+      /* Reference replication is image-only (vision→generate). */
+      if (hasReference && assetType !== "image") {
+        return res.status(400).json({ error: "reference replication supports assetType=image only", code: "reference_image_only" });
+      }
+
+      /* Resolve the prompt source — a library template, one of the
+       * caller's saved custom prompts, OR a free-form rendered prompt
+       * (Phase 3: generation is no longer template-bound). All validation
+       * (exactly-one source, 404s, rendered length, free-form moderation
+       * via moderatePromptText) lives in the helper so it is unit-testable.
+       * A reference-only request carries no rendered text — the prompt is
+       * derived from the vision description — so the helper is allowed to
+       * return an empty free-form source in that case only. */
       const resolvedSource = await resolveGeneratePromptSource({
         templateId,
         customPromptId,
         rendered: renderedBody,
         tokens,
+        freeForm,
+        allowEmptyRendered: hasReference,
         loadCustomPrompts: () => readCustomPrompts(clientId),
       });
       if (!resolvedSource.ok) {
         return res.status(resolvedSource.status).json({ error: resolvedSource.error, code: resolvedSource.code });
       }
       const src = resolvedSource.source;
-      const rendered = src.rendered;
+      const renderedPrompt = src.rendered;
       const tokenList = src.tokens;
+      const isFreePrompt = src.kind === "free";
+      const promptMode = hasReference
+        ? "reference"
+        : src.kind === "free"
+          ? "free_prompt"
+          : src.kind === "custom"
+            ? "custom_prompt"
+            : "template";
+
+      /* ── Validate optional aspect ratio → explicit dimensions. ──── */
+      let dimensions: { width: number; height: number } | undefined;
+      if (typeof aspectRatio === "string" && aspectRatio.trim()) {
+        const dims = aspectRatioToDimensions(aspectRatio.trim());
+        if (!dims) {
+          return res.status(400).json({
+            error: "aspectRatio must be one of 1:1, 4:5, 5:4, 3:2, 2:3, 16:9, 9:16",
+            code: "invalid_aspect_ratio",
+          });
+        }
+        dimensions = dims;
+      }
 
       const tier = await resolveContentflowTier(clientId);
+
+      /* ── Premium-capability tier gate. The new free-prompt, reference-
+       *    replication, and realistic-mode paths are paid capabilities
+       *    (parity with custom-prompt SAVE which is free=0). The curated-
+       *    template path stays open to all tiers (unchanged). Free tier on
+       *    a premium capability → 402 with an upgrade hint. */
+      if ((isFreePrompt || hasReference || photoreal) && tier === "free") {
+        writeAudit({
+          actorType: "system",
+          actorId: req.user?.id ?? null,
+          action: "contentflow.generate.blocked",
+          entityType: "client",
+          entityId: String(clientId),
+          metadata: {
+            reason: "premium_capability_requires_starter",
+            tier,
+            free_prompt: isFreePrompt,
+            reference: hasReference,
+            photoreal: !!photoreal,
+          },
+        });
+        return res.status(402).json({
+          error: "Custom prompts, reference replication, and realistic mode require Starter+ tier.",
+          code: "tier_too_low",
+          tier,
+          upgrade_required: true,
+        });
+      }
 
       /* ── Video: tier gate at Free/Starter (402), then run the
        *    multi-provider orchestrator (PR follow-up to #791). Free
        *    + Starter still get 402; Creator+ goes through the
        *    Hugging Face → Replicate → Veo rotation. */
       if (assetType === "video") {
+        /* Video still requires a curated template or a saved custom prompt
+         * (both guarantee a non-empty rendered prompt). The free-prompt /
+         * reference / photoreal features are image-only. */
+        if (isFreePrompt || hasReference) {
+          return res.status(400).json({
+            error: "video generation requires a templateId or customPromptId",
+            code: "video_requires_template",
+          });
+        }
         if (tier === "free" || tier === "starter") {
           writeAudit({
             actorType: "system",
@@ -683,13 +816,14 @@ export function registerPortalContentflowRoutes(app: Express) {
           target_platform: null,
           target_url: null,
           metadata: {
-            template_id: src.templateId, custom_prompt_id: src.customPromptId,
+            template_id: src.templateId,
+            custom_prompt_id: src.customPromptId,
             pattern_id: src.patternId,
             trade: src.trade,
             goal: src.goal,
             asset: src.asset,
             tokens: tokenList,
-            rendered_prompt: rendered,
+            rendered_prompt: renderedPrompt,
             tier_at_generation: tier,
             source: "phase3_generate_endpoint_video",
             generation_status: "in_progress",
@@ -712,14 +846,14 @@ export function registerPortalContentflowRoutes(app: Express) {
         } as any);
 
         const videoDraftId = videoDraft.id;
-        const videoResult = await generateVideoViaOrchestrator(rendered, { customerTier: tier });
+        const videoResult = await generateVideoViaOrchestrator(renderedPrompt, { customerTier: tier });
 
         if (!videoResult.ok) {
           await storage.updateContentDraft(videoDraftId, {
             metadata: {
               template_id: src.templateId, custom_prompt_id: src.customPromptId,
               tier_at_generation: tier,
-              rendered_prompt: rendered,
+              rendered_prompt: renderedPrompt,
               generation_status: "failed",
               generation_errors: [`video:${videoResult.reason}`],
               fallback_chain: videoResult.fallback_chain,
@@ -760,19 +894,20 @@ export function registerPortalContentflowRoutes(app: Express) {
 
         await storage.updateContentDraft(videoDraftId, {
           metadata: {
-            template_id: src.templateId, custom_prompt_id: src.customPromptId,
+            template_id: src.templateId,
+            custom_prompt_id: src.customPromptId,
             pattern_id: src.patternId,
             trade: src.trade,
             goal: src.goal,
             asset: src.asset,
             tokens: tokenList,
-            rendered_prompt: rendered,
+            rendered_prompt: renderedPrompt,
             tier_at_generation: tier,
             source: "phase3_generate_endpoint_video",
             generation_status: "succeeded",
             provider_used: videoResult.providerUsed,
             fallback_chain: videoResult.fallback_chain,
-            media_plan: { video_url: videoUrl, prompt: rendered, provider: videoResult.providerUsed, resolution: videoResult.resolution, duration_sec: videoResult.durationSec },
+            media_plan: { video_url: videoUrl, prompt: renderedPrompt, provider: videoResult.providerUsed, resolution: videoResult.resolution, duration_sec: videoResult.durationSec },
             duration_ms: Date.now() - t0,
           } as any,
           status: "draft",
@@ -831,19 +966,20 @@ export function registerPortalContentflowRoutes(app: Express) {
         client_service_id: null,
         kind: draftKind,
         surface: "contentflow_portal",
-        title: src.title,
+        title: hasReference ? "Reference replication" : src.title,
         body: null,
         excerpt: null,
         target_platform: null,
         target_url: null,
         metadata: {
-          template_id: src.templateId, custom_prompt_id: src.customPromptId,
+          template_id: src.templateId,
+          custom_prompt_id: src.customPromptId,
           pattern_id: src.patternId,
           trade: src.trade,
           goal: src.goal,
           asset: src.asset,
           tokens: tokenList,
-          rendered_prompt: rendered,
+          rendered_prompt: renderedPrompt,
           style_preset: customerStylePreset,
           tier_at_generation: tier,
           source: "phase3_generate_endpoint",
@@ -873,10 +1009,55 @@ export function registerPortalContentflowRoutes(app: Express) {
       let articleContent: string | undefined;
       const errors: string[] = [];
 
+      /* Captured for metadata/audit when the reference flow runs. */
+      let referenceStyleDescription: string | undefined;
+      let referenceSource: string | undefined;
+
       const runImage = async (): Promise<void> => {
-        const finalPrompt = applyStyleSuffixToPrompt(rendered, customerStylePreset);
+        /* ── Resolve the prompt source for this image. ───────────────
+         *   reference  → vision-describe the reference, derive the prompt
+         *   template / free-prompt → use the (style-suffixed) rendered text
+         * Photoreal augmentation + explicit dimensions apply to all. */
+        let basePrompt: string;
+        if (hasReference) {
+          const brandLayer = buildReferenceBrandLayer(brand, tradeType);
+          /* Reference is ORTHOGONAL to the prompt source: the resolved
+           * rendered text (template / custom / free-form — may be empty for
+           * a reference-only request) layers into the vision-derived prompt
+           * as guidance, alongside any explicit extraInstructions. */
+          const guidance = [
+            renderedPrompt.trim(),
+            typeof extraInstructions === "string" ? extraInstructions.slice(0, 2_000) : "",
+          ].filter(Boolean).join("\n\n");
+          const composed = await describeReferenceAndComposePrompt({
+            reference: {
+              uploadedBytes: reference?.imageBase64 ? decodeBase64Image(reference.imageBase64) : undefined,
+              uploadedMediaType: reference?.mediaType,
+              url: reference?.url,
+            },
+            brandLayer,
+            extraInstructions: guidance || undefined,
+            photoreal: !!photoreal,
+          });
+          if (!composed.ok) {
+            errors.push(`reference:${composed.reason}`);
+            return;
+          }
+          basePrompt = composed.prompt;
+          referenceStyleDescription = composed.styleDescription.description;
+          referenceSource = composed.source ?? undefined;
+        } else {
+          basePrompt = applyStyleSuffixToPrompt(renderedPrompt, customerStylePreset);
+          /* Realistic mode for non-reference prompts: augment prompt-side
+           * (camera/lens/lighting + raw-photo + illustration negatives). */
+          if (photoreal) basePrompt = buildPhotorealPrompt(basePrompt);
+        }
+
+        const finalPrompt = basePrompt;
         const orch = await generateImageViaOrchestrator(finalPrompt, {
           customerTier: tier,
+          photoreal: !!photoreal,
+          dimensions,
         });
         if (orch.ok) {
           /* Prefer a durable R2 https URL when R2 is configured — a data
@@ -904,7 +1085,7 @@ export function registerPortalContentflowRoutes(app: Express) {
       const runArticle = async (): Promise<void> => {
         const draftRaw = await generateContentflowText({
           system: "You are an SEO content writer for a local trade-services business. Produce a single short-form article (300-500 words) that answers the brief. Markdown headings allowed (## only). No fabricated testimonials, certifications, or prices. Plain prose only.",
-          user: rendered,
+          user: renderedPrompt,
           maxTokens: 1500,
         }).catch((e: any) => ({ text: "", provider: "error", costMicroUsd: 0, _err: e?.message } as any));
         const draftText = (draftRaw as any).text as string;
@@ -950,19 +1131,31 @@ export function registerPortalContentflowRoutes(app: Express) {
       await storage.updateContentDraft(draftId, {
         body: articleContent ?? null,
         metadata: {
-          template_id: src.templateId, custom_prompt_id: src.customPromptId,
+          template_id: src.templateId,
+          custom_prompt_id: src.customPromptId,
           pattern_id: src.patternId,
           trade: src.trade,
           goal: src.goal,
           asset: src.asset,
           tokens: tokenList,
-          rendered_prompt: rendered,
+          rendered_prompt: renderedPrompt,
           style_preset: customerStylePreset,
           tier_at_generation: tier,
-          source: "phase3_generate_endpoint",
+          source: hasReference
+            ? "phase3_generate_endpoint_reference"
+            : isFreePrompt
+              ? "phase3_generate_endpoint_freeprompt"
+              : "phase3_generate_endpoint",
+          /* New-feature provenance — kept on metadata so the library + audit
+           * can surface how the asset was produced. */
+          prompt_mode: promptMode,
+          photoreal: !!photoreal,
+          aspect_ratio: typeof aspectRatio === "string" ? aspectRatio : null,
+          reference_source: referenceSource ?? null,
+          reference_style_description: referenceStyleDescription ?? null,
           generation_status: succeeded ? "succeeded" : "failed",
           generation_errors: errors,
-          media_plan: assetUrl ? { image_url: assetUrl, prompt: rendered, image_style_preset: customerStylePreset } : null,
+          media_plan: assetUrl ? { image_url: assetUrl, prompt: renderedPrompt, image_style_preset: customerStylePreset } : null,
           duration_ms: Date.now() - t0,
         } as any,
         status: succeeded ? "draft" : "failed",
@@ -984,6 +1177,10 @@ export function registerPortalContentflowRoutes(app: Express) {
           has_image: !!assetUrl,
           has_article: !!articleContent,
           style_preset: customerStylePreset,
+          prompt_mode: promptMode,
+          photoreal: !!photoreal,
+          aspect_ratio: typeof aspectRatio === "string" ? aspectRatio : null,
+          reference_source: referenceSource ?? null,
           duration_ms: Date.now() - t0,
         },
       });
@@ -1563,6 +1760,63 @@ function formatPortalDraft(d: ContentDraft) {
  * only used by the routes above; promoted to a service if reused.
  * ────────────────────────────────────────────────────────────────── */
 
+/**
+ * Map a customer-facing aspect ratio string to explicit pixel dimensions
+ * the image orchestrator accepts. Returns null for an unsupported ratio so
+ * the route can 400. Kept to a curated set (long side 1024-ish, multiple of
+ * 64) so all wired providers accept it; the orchestrator clamps as a
+ * backstop. The default 3 sizes (1:1, 4:5≈2:3, 5:4≈3:2) still work via the
+ * existing `size` param when aspectRatio is omitted.
+ */
+function aspectRatioToDimensions(ratio: string): { width: number; height: number } | null {
+  switch (ratio) {
+    case "1:1":  return { width: 1024, height: 1024 };
+    case "4:5":  return { width: 1024, height: 1280 };
+    case "5:4":  return { width: 1280, height: 1024 };
+    case "2:3":  return { width: 832, height: 1216 };
+    case "3:2":  return { width: 1216, height: 832 };
+    case "9:16": return { width: 768, height: 1344 };
+    case "16:9": return { width: 1344, height: 768 };
+    default:     return null;
+  }
+}
+
+/**
+ * Decode a base64 image payload (with or without a data: URI prefix) into a
+ * Buffer for the reference-replication vision call. Returns an empty Buffer
+ * on malformed input so the caller's resolver reports a clean failure rather
+ * than throwing.
+ */
+function decodeBase64Image(b64: string): Buffer {
+  try {
+    const cleaned = b64.includes(",") ? b64.slice(b64.indexOf(",") + 1) : b64;
+    return Buffer.from(cleaned, "base64");
+  } catch {
+    return Buffer.alloc(0);
+  }
+}
+
+/**
+ * Compose a compact brand-layer fragment for the reference-replication
+ * prompt. Mirrors imageGenerationService.buildBrandLayer's intent (trade +
+ * style + brand accent colours) but inline here to avoid importing the
+ * generation engine into the route. Kept short — the vision description
+ * already carries the bulk of the visual direction.
+ */
+function buildReferenceBrandLayer(
+  brand: ReturnType<typeof readBrandProfile>,
+  tradeType: string | null,
+): string {
+  const parts: string[] = [];
+  if (tradeType) parts.push(`Business trade: ${tradeType}.`);
+  if (brand.style_keywords?.length) parts.push(`Brand style: ${brand.style_keywords.join(", ")}.`);
+  if (brand.primary_color) {
+    const accents = [brand.primary_color, brand.secondary_color].filter(Boolean);
+    parts.push(`Subtle brand accent colors (use sparingly): ${accents.join(", ")}.`);
+  }
+  return parts.join(" ");
+}
+
 type ContentflowTier = "free" | "starter" | "creator" | "studio" | "agency";
 
 /**
@@ -1650,8 +1904,9 @@ function applyStyleSuffixToPrompt(rendered: string, preset: string): string {
  * anything else), so prompts saved via POST /custom-prompts could be
  * listed but never actually drive a generation — image gen was
  * template-bound. This helper un-binds it: the route now accepts
- * exactly one of { templateId, customPromptId } and this function
- * normalizes either into the single shape the pipeline consumes.
+ * exactly one of { templateId, customPromptId, free-form rendered } and
+ * this function normalizes each into the single shape the pipeline
+ * consumes (free-form prompts are moderated via moderatePromptText).
  *
  * Pure + dependency-injected (loadCustomPrompts) so it is unit-testable
  * without express/db — see contentflow.generateSource.test.ts, wired
@@ -1659,10 +1914,11 @@ function applyStyleSuffixToPrompt(rendered: string, preset: string): string {
  * ────────────────────────────────────────────────────────────────── */
 
 export interface GeneratePromptSource {
-  kind: "template" | "custom";
-  /** Library template id, or the saved prompt's baseTemplateId for kind=custom. */
-  templateId: string;
-  /** Saved custom-prompt id (null for kind=template). */
+  kind: "template" | "custom" | "free";
+  /** Library template id, or the saved prompt's baseTemplateId for
+   *  kind=custom. Null for kind=free (no template involved). */
+  templateId: string | null;
+  /** Saved custom-prompt id (null for kind=template / kind=free). */
   customPromptId: string | null;
   title: string;
   patternId: string | null;
@@ -1682,6 +1938,15 @@ export async function resolveGeneratePromptSource(input: {
   customPromptId?: unknown;
   rendered?: unknown;
   tokens?: unknown;
+  /** Explicit free-form marker. A `rendered` prompt without templateId/
+   *  customPromptId is already free-form; passing freeForm:true WITH a
+   *  templateId or customPromptId is a 400 ambiguous_prompt_source. */
+  freeForm?: unknown;
+  /** Reference-replication escape hatch: a reference-only request carries
+   *  no rendered text (the prompt is derived from a vision description of
+   *  the reference image), so when this is true a source-less request
+   *  resolves to an EMPTY free-form source instead of 400ing. */
+  allowEmptyRendered?: boolean;
   /** Loader for the SESSION client's saved prompts — tenant isolation is
    *  inherited from the caller resolving clientId from the session, never
    *  from the request body. */
@@ -1691,15 +1956,71 @@ export async function resolveGeneratePromptSource(input: {
 
   const hasTemplate = typeof templateId === "string" && templateId.trim().length > 0;
   const hasCustom = typeof customPromptId === "string" && customPromptId.trim().length > 0;
+  const explicitFree = input.freeForm === true;
 
-  if (!hasTemplate && !hasCustom) {
-    return { ok: false, status: 400, error: "templateId or customPromptId is required", code: "missing_template_id" };
-  }
   if (hasTemplate && hasCustom) {
     return { ok: false, status: 400, error: "provide exactly one of templateId or customPromptId", code: "ambiguous_prompt_source" };
   }
+  if (explicitFree && (hasTemplate || hasCustom)) {
+    return {
+      ok: false,
+      status: 400,
+      error: "a free-form prompt cannot be combined with templateId or customPromptId — provide exactly one source",
+      code: "ambiguous_prompt_source",
+    };
+  }
 
   const renderedBody = typeof rendered === "string" && rendered.trim().length > 0 ? rendered : null;
+
+  /* ── Free-form path — rendered text with no template / saved prompt.
+   * Runs through moderatePromptText (length/empty + denylist + the
+   * TODO(moderation) hook). Tier gating (Starter+) stays in the route. */
+  if (!hasTemplate && !hasCustom) {
+    if (!renderedBody) {
+      if (input.allowEmptyRendered) {
+        return {
+          ok: true,
+          source: {
+            kind: "free",
+            templateId: null,
+            customPromptId: null,
+            title: "Custom prompt",
+            patternId: null,
+            trade: null,
+            goal: null,
+            asset: null,
+            rendered: "",
+            tokens: Array.isArray(tokens) ? tokens : [],
+          },
+        };
+      }
+      return {
+        ok: false,
+        status: 400,
+        error: "templateId, customPromptId, or a free-form rendered prompt is required",
+        code: "missing_template_id",
+      };
+    }
+    const moderation = moderatePromptText(renderedBody);
+    if (!moderation.ok) {
+      return { ok: false, status: 400, error: moderation.reason ?? "prompt rejected", code: "invalid_prompt" };
+    }
+    return {
+      ok: true,
+      source: {
+        kind: "free",
+        templateId: null,
+        customPromptId: null,
+        title: "Custom prompt",
+        patternId: null,
+        trade: null,
+        goal: null,
+        asset: null,
+        rendered: renderedBody.trim(),
+        tokens: Array.isArray(tokens) ? tokens : [],
+      },
+    };
+  }
 
   if (hasCustom) {
     const saved = (await input.loadCustomPrompts()).find((p) => p.id === customPromptId);

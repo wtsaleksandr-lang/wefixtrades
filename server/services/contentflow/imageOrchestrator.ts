@@ -59,6 +59,15 @@ export interface ImageProvider {
 
 export interface ImageGenOpts {
   size?: "1024x1024" | "1024x1536" | "1536x1024";
+  /**
+   * Explicit pixel dimensions. When set, OVERRIDES `size`. Lets the
+   * portal request aspect ratios beyond the fixed three (e.g. 16:9 or
+   * 9:16 social formats) on providers that accept arbitrary width/height.
+   * Callers should pre-validate against provider limits; the orchestrator
+   * clamps to a sane range as a backstop. Falls back to `size`/1024² when
+   * unset, so existing behaviour is unchanged.
+   */
+  dimensions?: { width: number; height: number };
   /** Customer tier — drives single-vs-multi-candidate. */
   customerTier?: "free" | "creator" | "studio" | "agency" | string | null;
   /** Force a specific provider (debug / admin override). */
@@ -67,6 +76,15 @@ export interface ImageGenOpts {
   skipDetector?: boolean;
   /** Per-call timeout for one provider attempt. */
   timeoutMs?: number;
+  /**
+   * "Realistic mode". When true, the orchestrator walks
+   * PHOTOREAL_PROVIDER_ORDER first (highest-photorealism providers),
+   * before falling back to the normal cost-optimised rotation. The
+   * prompt-side photoreal augmentation is applied by the CALLER (see
+   * buildPhotorealPrompt in imageGenerationService / contentflow route);
+   * this flag only governs PROVIDER selection here.
+   */
+  photoreal?: boolean;
 }
 
 export interface OrchestratorResult {
@@ -148,6 +166,47 @@ export const IMAGE_PROVIDERS: readonly ImageProvider[] = [
     enabled: true,
     envVarRequired: "OPENAI_API_KEY",
   },
+
+  /* ─────────────────────────────────────────────────────────────────
+   * FUTURE PHOTOREAL PROVIDERS — research-supplied model IDs plug in HERE.
+   *
+   * A separate research task supplies the exact Flux 2 / Imagen 4 model
+   * identifiers + endpoints. To add one:
+   *   1. Append an ImageProvider entry below (id: "flux2_pro" |
+   *      "imagen4_ultra"), with envVarRequired set to the new key.
+   *   2. Add the id to the ImageProviderId union above.
+   *   3. Implement a call<Provider>() function and wire it into
+   *      callProvider()'s switch (see ~callProvider, "PHOTOREAL DISPATCH"
+   *      marker).
+   *   4. Add the id to PHOTOREAL_PROVIDER_ORDER below so realistic mode
+   *      prefers it.
+   * Nothing else changes — the gate/cost/persist pipeline is provider-
+   * agnostic. Until those IDs land, realistic mode prefers the highest-
+   * photorealism providers already wired (stability SD3 → dalle).
+   * ───────────────────────────────────────────────────────────────── */
+] as const;
+
+/**
+ * Realistic-mode provider preference. When ImageGenOpts.photoreal is set,
+ * the orchestrator tries these ids (in order, if available) BEFORE the
+ * normal cost-optimised rotation. Update this list when the research-
+ * supplied photoreal models (flux2_pro / imagen4_ultra) are added to
+ * IMAGE_PROVIDERS above — put the new ids at the FRONT so they become the
+ * realistic-mode default by config, no further code change required.
+ *
+ * Today (pre-research): the most photorealistic providers already wired
+ * are Stability SD3 and DALL-E 3, so they lead. Pollinations FLUX is a
+ * free photoreal-capable backstop.
+ */
+export const PHOTOREAL_PROVIDER_ORDER: readonly ImageProviderId[] = [
+  // "flux2_pro",     // ← research model ID drops in here (front of list)
+  // "imagen4_ultra", // ← research model ID drops in here
+  "stability",
+  "dalle",
+  "pollinations",
+  "together_flux",
+  "huggingface_flux",
+  "replicate_sdxl",
 ] as const;
 
 /* ─── Helpers ──────────────────────────────────────────────────────── */
@@ -170,8 +229,21 @@ function isMultiCandidateTier(tier: string | null | undefined): boolean {
   return t === "studio" || t === "agency";
 }
 
-function parseDims(size: ImageGenOpts["size"]): { width: number; height: number } {
-  switch (size) {
+/** Clamp a requested pixel dimension into a provider-safe range. Most of
+ *  the wired providers accept 256..1536; we clamp to that and round to the
+ *  nearest multiple of 64 (SDXL/FLUX requirement) to avoid 400s. */
+function clampDim(n: number): number {
+  const lo = 256, hi = 1536;
+  const clamped = Math.max(lo, Math.min(hi, Math.round(n)));
+  return Math.round(clamped / 64) * 64;
+}
+
+function parseDims(opts: ImageGenOpts): { width: number; height: number } {
+  /* Explicit dimensions (arbitrary aspect ratio) win when provided. */
+  if (opts.dimensions && opts.dimensions.width > 0 && opts.dimensions.height > 0) {
+    return { width: clampDim(opts.dimensions.width), height: clampDim(opts.dimensions.height) };
+  }
+  switch (opts.size) {
     case "1024x1536": return { width: 1024, height: 1536 };
     case "1536x1024": return { width: 1536, height: 1024 };
     default:          return { width: 1024, height: 1024 };
@@ -198,7 +270,7 @@ interface ProviderResult {
 
 async function callPollinations(prompt: string, opts: ImageGenOpts): Promise<ProviderResult> {
   try {
-    const { width, height } = parseDims(opts.size);
+    const { width, height } = parseDims(opts);
     const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?model=flux&width=${width}&height=${height}&nologo=true`;
     const res = await fetchWithTimeout(url, { method: "GET" }, opts.timeoutMs ?? 45_000);
     if (!res.ok) return { ok: false, error: `pollinations ${res.status}` };
@@ -243,7 +315,7 @@ async function callStability(prompt: string, opts: ImageGenOpts): Promise<Provid
   try {
     const key = process.env.STABILITY_API_KEY;
     if (!key) return { ok: false, error: "STABILITY_API_KEY missing" };
-    const { width, height } = parseDims(opts.size);
+    const { width, height } = parseDims(opts);
     /* SD3 endpoint expects multipart/form-data per official docs. */
     const form = new FormData();
     form.append("prompt", prompt);
@@ -277,7 +349,7 @@ async function callTogetherFlux(prompt: string, opts: ImageGenOpts): Promise<Pro
   try {
     const key = process.env.TOGETHER_API_KEY;
     if (!key) return { ok: false, error: "TOGETHER_API_KEY missing" };
-    const { width, height } = parseDims(opts.size);
+    const { width, height } = parseDims(opts);
     const res = await fetchWithTimeout(
       "https://api.together.xyz/v1/images/generations",
       {
@@ -322,7 +394,7 @@ async function callReplicateSDXL(prompt: string, opts: ImageGenOpts): Promise<Pr
   try {
     const key = process.env.REPLICATE_API_TOKEN;
     if (!key) return { ok: false, error: "REPLICATE_API_TOKEN missing" };
-    const { width, height } = parseDims(opts.size);
+    const { width, height } = parseDims(opts);
     /* Replicate is async — create prediction, then poll. SDXL latest
      * version pinned for reproducibility. */
     const createRes = await fetchWithTimeout(
@@ -429,6 +501,11 @@ async function callProvider(
     case "together_flux":    return callTogetherFlux(prompt, opts);
     case "replicate_sdxl":   return callReplicateSDXL(prompt, opts);
     case "dalle":            return callDalle(prompt, opts);
+    /* ── PHOTOREAL DISPATCH ──────────────────────────────────────────
+     * Future research-supplied photoreal providers (flux2_pro,
+     * imagen4_ultra) add their `case "<id>": return call<Provider>(...)`
+     * lines here. Keep the ImageProviderId union + IMAGE_PROVIDERS +
+     * PHOTOREAL_PROVIDER_ORDER in sync (see registry marker above). */
   }
 }
 
@@ -483,7 +560,28 @@ function getRotationOrder(opts: ImageGenOpts): ImageProvider[] {
     const forced = IMAGE_PROVIDERS.find((p) => p.id === opts.forceProvider);
     return forced ? [forced] : [];
   }
-  return IMAGE_PROVIDERS.filter(isProviderAvailable);
+  const available = IMAGE_PROVIDERS.filter(isProviderAvailable);
+
+  /* Realistic mode: re-order so PHOTOREAL_PROVIDER_ORDER leads, then the
+   * remaining available providers (preserving their registry order) as a
+   * cost-optimised backstop. This is the hook that makes a future
+   * flux2_pro / imagen4_ultra entry the realistic-mode default purely by
+   * being listed at the front of PHOTOREAL_PROVIDER_ORDER. */
+  if (opts.photoreal) {
+    const byId = new Map(available.map((p) => [p.id, p] as const));
+    const preferred: ImageProvider[] = [];
+    for (const id of PHOTOREAL_PROVIDER_ORDER) {
+      const p = byId.get(id);
+      if (p) { preferred.push(p); byId.delete(id); }
+    }
+    /* Append any available providers not named in PHOTOREAL_PROVIDER_ORDER. */
+    for (const p of available) {
+      if (byId.has(p.id)) preferred.push(p);
+    }
+    return preferred;
+  }
+
+  return available;
 }
 
 /* ─── Public entry point ──────────────────────────────────────────── */

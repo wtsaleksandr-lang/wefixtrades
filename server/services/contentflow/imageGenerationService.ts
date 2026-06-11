@@ -40,6 +40,7 @@ import {
   type ImageStylePresetId,
 } from "./imageStylePresets";
 import { generateImageViaOrchestrator } from "./imageOrchestrator";
+import { buildPhotorealPrompt } from "./referenceReplication";
 import { writeAudit } from "../../lib/auditLog";
 
 const logger = createLogger("ImageGen");
@@ -173,7 +174,7 @@ function isOrchestratorEnabled(): boolean {
 
 async function callImageApi(
   prompt: string,
-  ctx?: { customerTier?: string | null },
+  ctx?: { customerTier?: string | null; photoreal?: boolean },
 ): Promise<{ ok: true; url?: string; b64?: string; revised_prompt?: string; provider_used?: string; detector_score?: number; cost?: number } | { ok: false; reason: GenerateForDraftResult["reason"]; message: string }> {
   /* Sprint 22 — multi-model orchestrator path. Tries Pollinations → HF Flux
    * → Stability → Together → Replicate → DALL-E in order, with a detector
@@ -184,6 +185,7 @@ async function callImageApi(
       const orch = await generateImageViaOrchestrator(prompt, {
         size: IMAGE_SIZE,
         customerTier: ctx?.customerTier ?? null,
+        photoreal: ctx?.photoreal ?? false,
       });
       if (orch.ok) {
         return {
@@ -352,7 +354,7 @@ async function uploadToR2(args: { key: string; contentType: string; sourceUrl?: 
  */
 export async function generateForDraft(
   draftId: number,
-  opts?: { skipPostProcess?: boolean; imageStylePreset?: ImageStylePresetId | null },
+  opts?: { skipPostProcess?: boolean; imageStylePreset?: ImageStylePresetId | null; photoreal?: boolean },
 ): Promise<GenerateForDraftResult> {
   const t0 = Date.now();
   const log = (msg: string) => logger.info(`[contentflow][image-gen] draft=${draftId} ${msg} duration_ms=${Date.now() - t0}`);
@@ -413,7 +415,11 @@ export async function generateForDraft(
     const fellBackToDefault = !callerOverride && !customerDefault;
 
     const promptBeforeStyle = buildFinalPrompt({ postPrompt, brand, tradeType });
-    const finalPrompt = applyStylePreset(promptBeforeStyle, resolvedPreset);
+    let finalPrompt = applyStylePreset(promptBeforeStyle, resolvedPreset);
+    /* Realistic mode: layer camera/lens/lighting + raw-photo + illustration
+     * negatives on top of the style preset. Provider selection (photoreal
+     * order) is driven by the same flag passed to the orchestrator below. */
+    if (opts?.photoreal) finalPrompt = buildPhotorealPrompt(finalPrompt);
 
     /* Fire-and-forget audit so admins can see which preset shaped each
      * draft's image. Not awaited — never block generation on audit. */
@@ -459,7 +465,7 @@ export async function generateForDraft(
       (typeof clientMeta.plan_tier === "string" && clientMeta.plan_tier) ||
       (typeof clientMeta.tier === "string" && clientMeta.tier) ||
       null;
-    const apiResult = await callImageApi(finalPrompt, { customerTier });
+    const apiResult = await callImageApi(finalPrompt, { customerTier, photoreal: opts?.photoreal });
     if (!apiResult.ok) {
       log(`api_failed reason=${apiResult.reason} msg=${apiResult.message}`);
       /* Persist failure marker so admin can see why no image.
