@@ -2,12 +2,24 @@
  * Outreach Platform Abstraction — V1
  *
  * Provides a single interface for Instantly and Smartlead.
- * V1 implements Instantly; Smartlead is stubbed and ready.
+ * Instantly + Smartlead are both real; Smartlead rides the rate-limited,
+ * query-param-redacting client in ./sending/smartleadClient.ts (Lane OA).
  *
  * DO NOT add email-sending or sequence-editing logic here.
  * This layer only: creates leads, adds them to campaigns,
- * pauses/removes leads, and parses incoming webhook payloads.
+ * pauses/removes leads, pushes global suppression, and parses
+ * incoming webhook payloads.
  */
+
+import {
+  SmartleadClient,
+  isSmartleadConfigured,
+  type SmartleadClientLike,
+} from "./sending/smartleadClient";
+import { MockSmartleadClient } from "./sending/mockSmartlead";
+import { createLogger } from "../lib/logger";
+
+const platformLog = createLogger("outreachPlatform");
 
 export type OutreachPlatform = "instantly" | "smartlead";
 
@@ -58,13 +70,21 @@ export interface OutreachWebhookEvent {
 
 /* ─── Platform adapter interface ─── */
 
-interface PlatformAdapter {
+/**
+ * FROZEN CONTRACT (Lane B calls pushGlobalSuppression via this factory):
+ * `pushGlobalSuppression(emails: string[]): Promise<{ suppressed: number }>`
+ * — `suppressed` is the count of emails ACTUALLY suppressed on the
+ * platform. Platforms without a global-suppression API return
+ * `{ suppressed: 0 }` honestly (never fake success).
+ */
+export interface PlatformAdapter {
   addLeadToCampaign(
     campaignId: string,
     lead: OutreachLead
   ): Promise<OutreachLeadResult>;
   pauseLead(campaignId: string, externalLeadId: string): Promise<void>;
   removeLead(campaignId: string, externalLeadId: string): Promise<void>;
+  pushGlobalSuppression(emails: string[]): Promise<{ suppressed: number }>;
   parseWebhook(body: Record<string, unknown>): OutreachWebhookEvent | null;
 }
 
@@ -143,6 +163,20 @@ class InstantlyAdapter implements PlatformAdapter {
     });
   }
 
+  /**
+   * Instantly's v1 API exposes no verified account-wide suppression
+   * endpoint, so this is HONESTLY not_supported: it suppresses nothing
+   * and returns { suppressed: 0 } (per the frozen adapter contract)
+   * rather than pretending. Per-campaign opt-outs still flow through the
+   * webhook → outboundSafety blacklist path.
+   */
+  async pushGlobalSuppression(emails: string[]): Promise<{ suppressed: number }> {
+    platformLog.warn("Instantly global suppression not_supported — 0 suppressed", {
+      requested: emails.length,
+    });
+    return { suppressed: 0 };
+  }
+
   parseWebhook(body: Record<string, unknown>): OutreachWebhookEvent | null {
     // Instantly webhook format
     const eventMap: Record<string, OutreachWebhookEvent["eventType"]> = {
@@ -171,73 +205,77 @@ class InstantlyAdapter implements PlatformAdapter {
   }
 }
 
-/* ─── Smartlead adapter (stubbed for V1) ─── */
+/* ─── Smartlead adapter (real — backed by sending/smartleadClient) ─── */
 
-class SmartleadAdapter implements PlatformAdapter {
-  private readonly apiKey: string;
-  private readonly baseUrl = "https://server.smartlead.ai/api/v1";
+export class SmartleadAdapter implements PlatformAdapter {
+  private readonly client: SmartleadClientLike;
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
-  }
-
-  private async request<T>(
-    path: string,
-    method: "GET" | "POST" | "DELETE",
-    body?: unknown
-  ): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}?api_key=${this.apiKey}`, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Smartlead API ${method} ${path} → ${res.status}: ${text}`);
-    }
-
-    return res.json() as Promise<T>;
+  constructor(client: SmartleadClientLike) {
+    this.client = client;
   }
 
   async addLeadToCampaign(
     campaignId: string,
     lead: OutreachLead
   ): Promise<OutreachLeadResult> {
-    const data = await this.request<{ id?: number; data?: { id: number } }>(
-      `/campaigns/${campaignId}/leads`,
-      "POST",
+    // Verified shape: POST /campaigns/{id}/leads with { lead_list: [...] };
+    // non-standard merge fields ride inside `custom_fields`.
+    const result = await this.client.addLeads(campaignId, [
       {
-        lead_list: [
-          {
-            email: lead.email,
-            first_name: lead.firstName || "",
-            last_name: lead.lastName || "",
-            company_name: lead.companyName || "",
-            website: lead.website || "",
-            phone_number: lead.phone || "",
-            personalization: lead.personalizationLine || "",
-            ...(lead.customFields || {}),
-          },
-        ],
-      }
-    );
+        email: lead.email,
+        first_name: lead.firstName || "",
+        last_name: lead.lastName || "",
+        company_name: lead.companyName || "",
+        website: lead.website || "",
+        phone_number: lead.phone || "",
+        custom_fields: {
+          ...(lead.personalizationLine
+            ? { personalization: lead.personalizationLine }
+            : {}),
+          ...(lead.customFields || {}),
+        },
+      },
+    ]);
 
-    const id = data.data?.id ?? data.id;
+    // The bulk endpoint doesn't echo per-lead ids; resolve via lead lookup
+    // (mock-safe) and fall back to the email as a stable external ref.
+    const found = await this.client.getLeadByEmail(lead.email);
+    const status: OutreachLeadResult["status"] =
+      result.already_added_to_campaign > 0 || result.duplicate_count > 0
+        ? "exists"
+        : "created";
     return {
-      externalLeadId: id ? String(id) : lead.email,
-      status: "created",
+      externalLeadId: found ? String(found.id) : lead.email,
+      status: this.client.isMock ? "dry_run" : status,
     };
   }
 
   async pauseLead(campaignId: string, externalLeadId: string): Promise<void> {
-    await this.request(`/campaigns/${campaignId}/leads/${externalLeadId}`, "POST", {
-      status: "PAUSED",
-    });
+    await this.client.pauseLeadInCampaign(campaignId, externalLeadId);
   }
 
   async removeLead(campaignId: string, externalLeadId: string): Promise<void> {
-    await this.request(`/campaigns/${campaignId}/leads/${externalLeadId}`, "DELETE");
+    await this.client.deleteLeadFromCampaign(campaignId, externalLeadId);
+  }
+
+  /**
+   * Smartlead global suppression: resolve each email to its lead id
+   * (GET /leads?email=) then POST /leads/{id}/unsubscribe — documented to
+   * unsubscribe the lead from ALL campaigns and block future re-adds.
+   * Emails Smartlead has never seen cannot be suppressed there; they are
+   * skipped and NOT counted (honest count, never faked).
+   */
+  async pushGlobalSuppression(emails: string[]): Promise<{ suppressed: number }> {
+    let suppressed = 0;
+    for (const email of emails) {
+      const trimmed = String(email ?? "").trim();
+      if (!trimmed) continue;
+      const lead = await this.client.getLeadByEmail(trimmed);
+      if (!lead) continue;
+      await this.client.unsubscribeLeadGlobal(lead.id);
+      suppressed += 1;
+    }
+    return { suppressed };
   }
 
   parseWebhook(body: Record<string, unknown>): OutreachWebhookEvent | null {
@@ -296,6 +334,14 @@ export class NoopAdapter implements PlatformAdapter {
     // no-op
   }
 
+  /**
+   * Dry-run: reports the would-be suppression count without any external
+   * call. Callers can distinguish dry-run via isDryRun()/campaign metadata.
+   */
+  async pushGlobalSuppression(emails: string[]): Promise<{ suppressed: number }> {
+    return { suppressed: emails.length };
+  }
+
   parseWebhook(): OutreachWebhookEvent | null {
     return null;
   }
@@ -320,9 +366,20 @@ export function getOutreachAdapter(
   }
 
   if (platform === "smartlead") {
-    const key = process.env.SMARTLEAD_API_KEY;
-    if (!key) throw new Error("SMARTLEAD_API_KEY env var is not set");
-    return new SmartleadAdapter(key);
+    // Key-absent behaviour (Lane OA contract): the factory returns the
+    // MOCK-backed adapter — zero network calls, results carry the honest
+    // `dry_run` status marker. HTTP routes must additionally gate on
+    // isSmartleadConfigured() and answer { error: "not_configured" }
+    // instead of serving mock results as real.
+    if (!isSmartleadConfigured()) {
+      platformLog.warn(
+        "SMARTLEAD_API_KEY absent — returning mock Smartlead adapter (dry_run results only)"
+      );
+      return new SmartleadAdapter(new MockSmartleadClient());
+    }
+    return new SmartleadAdapter(
+      new SmartleadClient(process.env.SMARTLEAD_API_KEY as string)
+    );
   }
 
   throw new Error(`Unknown outreach platform: ${platform}`);
@@ -345,7 +402,8 @@ export function parseOutreachWebhook(
       return new InstantlyAdapter("dev").parseWebhook(body);
     }
     if (platform === "smartlead") {
-      return new SmartleadAdapter("dev").parseWebhook(body);
+      // parseWebhook is pure — the mock-backed adapter never touches the network.
+      return new SmartleadAdapter(new MockSmartleadClient()).parseWebhook(body);
     }
     return null;
   }
