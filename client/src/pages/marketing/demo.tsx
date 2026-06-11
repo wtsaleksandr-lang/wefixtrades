@@ -29,8 +29,13 @@ interface Message {
    ═══════════════════════════════════════════════════════════════════ */
 
 function ChatPanel() {
+  // In-character greeting (T-sweep 2026-06-11 P2): the demo plays the
+  // visitor's own AI receptionist, so it greets the way it would greet a
+  // real homeowner — and the page header above already sets the scene.
+  // Keep this consistent with TRADELINE_DEMO_PROMPT (shared/prompts/) and
+  // the /products/tradeline launcher greeting.
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Hi! I'm the 24/7 TradeLine assistant. Ask me about services, get a quick estimate, or find out how we help trades businesses grow. What can I help you with?" },
+    { role: "assistant", content: "Hi! Thanks for reaching out — I'm here to help. Need a quick estimate, want to book a visit, or have a question about a job? Tell me what's going on." },
   ]);
   const [inputValue, setInputValue] = useState("");
   const [checkoutService, setCheckoutService] = useState<Service | null>(null);
@@ -45,8 +50,14 @@ function ChatPanel() {
 
   const sendMutation = useMutation({
     mutationFn: async (msgs: Message[]) => {
+      // surface: "tradeline_demo" routes to the server-side roleplay prompt
+      // (shared/prompts/tradelineDemoPrompt.ts) where the AI plays the
+      // visitor's own AI receptionist and gives realistic quotes — NOT the
+      // WeFixTrades platform sales bot. The "website" surface here was the
+      // T-sweep P2 bug: the chat greeted as a receptionist but then answered
+      // as the platform and declined the homeowner role-play.
       const res = await apiRequest("POST", "/api/chat/sync", {
-        surface: "website",
+        surface: "tradeline_demo",
         messages: msgs,
       });
       return res.json();

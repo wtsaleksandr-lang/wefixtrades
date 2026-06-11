@@ -29,6 +29,7 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Search, MapPin, AlertCircle, Star, Globe } from "lucide-react";
 import { BarComparisonCard } from "@/components/ui/visual-primitives";
+import { deriveCountryFromLocation } from "@shared/locationCountry";
 
 const TOOL_PATH = "/tools/local-serp-checker";
 
@@ -134,11 +135,31 @@ export default function LocalSerpChecker() {
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("");
   const [country, setCountry] = useState("us");
+  // Geo-default fix (T-sweep 2026-06-11 P1): the country is auto-derived
+  // from the typed location ("Toronto" flips the select to Canada) until the
+  // visitor manually picks a country — after that their choice wins and is
+  // sent to the server as countryExplicit.
+  const [countryTouched, setCountryTouched] = useState(false);
   const [language, setLanguage] = useState("en");
   const [engine, setEngine] = useState<Engine>("search");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SerpResponse | null>(null);
+
+  function handleLocationChange(value: string) {
+    setLocation(value);
+    if (!countryTouched) {
+      const derived = deriveCountryFromLocation(value);
+      if (derived && COUNTRIES.some((c) => c.code === derived)) {
+        setCountry(derived);
+      }
+    }
+  }
+
+  function handleCountryChange(value: string) {
+    setCountryTouched(true);
+    setCountry(value);
+  }
 
   const faqSchemaItems = useMemo(
     () => FAQ_ITEMS.map((f) => ({ question: f.question, answer: f.answer })),
@@ -173,7 +194,17 @@ export default function LocalSerpChecker() {
       const r = await fetch("/api/tools/local-serp-check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, location, country, language, engine }),
+        body: JSON.stringify({
+          query,
+          location,
+          country,
+          // Lets the server know whether `country` was the visitor's manual
+          // pick (honored) or just the page default (server re-derives the
+          // country from the location string as defense-in-depth).
+          countryExplicit: countryTouched,
+          language,
+          engine,
+        }),
       });
       const data = await r.json();
       if (!r.ok || !data?.ok) throw new Error(data?.error || "Search failed.");
@@ -255,20 +286,20 @@ export default function LocalSerpChecker() {
           id="serp-location"
           label="Search location"
           value={location}
-          onChange={setLocation}
+          onChange={handleLocationChange}
           required
           placeholder="Enter a search location (e.g. Chicago, IL; 90219 CA)"
           testId="input-serp-location"
-          helpText="City + state, a ZIP/postcode, or any locality string. SERPs are personalised by location."
+          helpText="City + state/province, a ZIP/postal code, or any locality string. SERPs are personalised by location."
         />
         <FreeToolFormSelect
           id="serp-country"
           label="Country"
           value={country}
-          onChange={setCountry}
+          onChange={handleCountryChange}
           required
           testId="input-serp-country"
-          helpText="ISO country code passed to Google. Affects which TLD + localized index serves the result."
+          helpText="Auto-detected from your search location (e.g. Toronto → Canada). Pick one manually to override."
         >
           {COUNTRIES.map((c) => (
             <option key={c.code} value={c.code}>{c.label}</option>
