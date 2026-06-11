@@ -14,7 +14,7 @@
 import assert from "node:assert/strict";
 import {
   normalizeSendingRows, warmupAgeDays, ratePercent, formatRate, rateSeverity,
-  statusCounts,
+  statusCounts, budgetUsedPercent, humanizeBlockCode, blockedTotal,
   BOUNCE_WARN_PCT, BOUNCE_CRITICAL_PCT, COMPLAINT_WARN_PCT, COMPLAINT_CRITICAL_PCT,
   type SendingDomainRow,
 } from "./outboundUiHelpers";
@@ -47,14 +47,14 @@ const row = (over: Partial<SendingDomainRow> = {}): SendingDomainRow => ({
   ...over,
 });
 
-test("normalizeSendingRows accepts bare array / {data} / {domains} / junk", () => {
+test("normalizeSendingRows accepts {domains} (Lane OA envelope) / bare array / junk", () => {
   const rows = [row()];
-  assert.deepEqual(normalizeSendingRows(rows), rows);
-  assert.deepEqual(normalizeSendingRows({ data: rows }), rows);
-  assert.deepEqual(normalizeSendingRows({ domains: rows }), rows);
+  assert.deepEqual(normalizeSendingRows({ domains: rows }), rows); // the real envelope (PR #1663)
+  assert.deepEqual(normalizeSendingRows(rows), rows);              // future envelope simplification
   assert.deepEqual(normalizeSendingRows(null), []);
   assert.deepEqual(normalizeSendingRows("nope"), []);
   assert.deepEqual(normalizeSendingRows({ total: 3 }), []);
+  assert.deepEqual(normalizeSendingRows({ data: rows }), []);      // unknown envelope → empty, not a guess
 });
 
 test("warmupAgeDays: whole days, null on missing/invalid, 0 on future", () => {
@@ -66,11 +66,10 @@ test("warmupAgeDays: whole days, null on missing/invalid, 0 on future", () => {
   assert.equal(warmupAgeDays("not-a-date", now), null);
 });
 
-test("ratePercent: fraction vs percent disambiguation + pg string decimals", () => {
+test("ratePercent: fractions → percent (Lane OA stores fractions) + pg string decimals", () => {
   assert.equal(ratePercent(0.023), 2.3);            // fraction → percent
-  assert.equal(ratePercent("0.023"), 2.3);          // pg decimal string
-  assert.equal(ratePercent(2.3), 2.3);              // already percent
-  assert.equal(ratePercent("2.3"), 2.3);
+  assert.equal(ratePercent("0.023"), 2.3);          // string-serialized decimal
+  assert.equal(ratePercent(0.03), 3);               // OA's documented example: 0.03 = 3%
   assert.equal(ratePercent(1), 100);                // boundary: 1 = 100%
   assert.equal(ratePercent(0), 0);
   assert.equal(ratePercent(null), null);
@@ -110,6 +109,42 @@ test("statusCounts tallies the four pool states and ignores unknowns", () => {
   ];
   assert.deepEqual(statusCounts(rows), { warming: 1, active: 2, paused: 1, burned: 1 });
   assert.deepEqual(statusCounts([]), { warming: 0, active: 0, paused: 0, burned: 0 });
+});
+
+test("budgetUsedPercent: clamps 0–100, survives zero/invalid caps", () => {
+  assert.equal(budgetUsedPercent({ effective_cap: 50, sent_today: 0 }), 0);
+  assert.equal(budgetUsedPercent({ effective_cap: 50, sent_today: 25 }), 50);
+  assert.equal(budgetUsedPercent({ effective_cap: 50, sent_today: 50 }), 100);
+  assert.equal(budgetUsedPercent({ effective_cap: 50, sent_today: 80 }), 100);  // over-cap clamps
+  assert.equal(budgetUsedPercent({ effective_cap: 0, sent_today: 10 }), 0);     // no divide-by-zero
+  assert.equal(budgetUsedPercent({ effective_cap: NaN, sent_today: 10 }), 0);
+  assert.equal(budgetUsedPercent(null), 0);
+  assert.equal(budgetUsedPercent(undefined), 0);
+  assert.equal(budgetUsedPercent({ effective_cap: 75, sent_today: 1 }), 1);     // rounds to integer (1/75 ≈ 1.33% → 1)
+});
+
+test("humanizeBlockCode covers every OB block code + prettifies unknowns", () => {
+  // The three ConsentBlockCodes (outboundSafety.ts) — exact contract.
+  assert.equal(humanizeBlockCode("blocked_confidence"), "Contact confidence below minimum");
+  assert.equal(humanizeBlockCode("blocked_consent_expired"), "Implied consent expired (CASL 2-year window)");
+  assert.equal(humanizeBlockCode("blocked_casl_no_basis"), "No valid CASL consent basis");
+  // Push-time PushBlockCodes.
+  assert.equal(humanizeBlockCode("blocked_dnc"), "Marked do-not-contact");
+  assert.equal(humanizeBlockCode("blocked_blacklist"), "Blacklisted");
+  assert.equal(humanizeBlockCode("blocked_unsubscribed"), "Unsubscribed");
+  // Deliberate-failure fixture: a future server code must not render as raw snake_case.
+  assert.equal(humanizeBlockCode("blocked_some_new_rule"), "Some new rule");
+  assert.equal(humanizeBlockCode("unknown"), "Unknown");
+  assert.equal(humanizeBlockCode(null), "Blocked");
+  assert.equal(humanizeBlockCode(undefined), "Blocked");
+});
+
+test("blockedTotal sums reason rows and ignores junk counts", () => {
+  assert.equal(blockedTotal([{ code: "blocked_confidence", count: 3 }, { code: "blocked_dnc", count: 2 }]), 5);
+  assert.equal(blockedTotal([{ code: "x", count: Number.NaN }]), 0);
+  assert.equal(blockedTotal([]), 0);
+  assert.equal(blockedTotal(null), 0);
+  assert.equal(blockedTotal(undefined), 0);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

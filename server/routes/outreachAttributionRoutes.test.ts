@@ -10,7 +10,8 @@
  * assert/strict, no test-runner dep, no live DB. Coverage:
  *
  *   1. Module import smoke + register function exported
- *   2. Route registration against a mock Express app (both endpoints)
+ *   2. Route registration against a mock Express app (all four endpoints,
+ *      admin GETs behind requireAdmin) + blocked-reasons invalid-id 400
  *   3. Auth gate behavior on POST /api/internal/outreach/attribution:
  *        - 503 when no internal token is configured (never open-by-default)
  *        - 401 on wrong token (deliberate-failure fixture)
@@ -86,6 +87,28 @@ async function run(): Promise<void> {
     assert.ok(chain);
     // requireAdmin middleware + handler
     assert.equal(chain.length, 2);
+  });
+
+  await test("registers GET /api/admin/outbound/budget/status behind requireAdmin", () => {
+    const chain = routes["GET /api/admin/outbound/budget/status"];
+    assert.ok(chain);
+    assert.equal(chain.length, 2);
+  });
+
+  await test("registers GET /api/admin/outbound/campaigns/:id/blocked-reasons behind requireAdmin", () => {
+    const chain = routes["GET /api/admin/outbound/campaigns/:id/blocked-reasons"];
+    assert.ok(chain);
+    assert.equal(chain.length, 2);
+  });
+
+  await test("blocked-reasons rejects invalid campaign ids with 400 (no DB touched)", async () => {
+    const handler = routes["GET /api/admin/outbound/campaigns/:id/blocked-reasons"].at(-1)!;
+    for (const bad of ["abc", "-3", "0", "1.5"]) {
+      const res = mockRes();
+      await handler({ params: { id: bad } }, res);
+      assert.equal(res.statusCode, 400, `id=${bad} must 400`);
+      assert.equal(res.body.error, "invalid_id");
+    }
   });
 
   const postHandler = routes["POST /api/internal/outreach/attribution"].at(-1)!;

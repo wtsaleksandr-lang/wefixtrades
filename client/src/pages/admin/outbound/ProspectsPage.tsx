@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { TemplatePreview } from "@/components/outbound/TemplatePreview";
 import { useCopilotForm } from "@/context/CopilotFormContext";
+import { humanizeBlockCode } from "./outboundUiHelpers";
 
 /* ─── Types ─── */
 interface ProspectEnrichment {
@@ -343,6 +344,64 @@ function CsvUploadDialog({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
+/* ─── Per-prospect consent-block history (Lane OC) ───
+   Lane OB logs every consent-gate block to prospect_events
+   (event_type='blocked_consent', metadata.code). The existing
+   GET /prospects/:id already returns those events — surfaced here, in the
+   review dialog, because this is where the operator decides what to do
+   with a held-back prospect. */
+interface ProspectEventRow {
+  id: number;
+  event_type: string;
+  summary: string | null;
+  metadata: { code?: string; campaign_id?: number } | null;
+  created_at: string;
+}
+
+function BlockedHistory({ prospectId, enabled }: { prospectId: number; enabled: boolean }) {
+  const { data: blocks = [] } = useQuery<ProspectEventRow[]>({
+    queryKey: ["/api/admin/outbound/prospects", prospectId, "blocked-events"],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/outbound/prospects/${prospectId}`, { credentials: "include" });
+      if (!res.ok) throw new Error(`prospect detail failed (${res.status})`);
+      const json = await res.json();
+      return ((json.events ?? []) as ProspectEventRow[])
+        .filter((e) => e.event_type === "blocked_consent")
+        .slice(0, 5);
+    },
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  if (blocks.length === 0) return null;
+  return (
+    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg" data-testid="prospect-blocked-history">
+      <div className="flex items-center gap-1.5">
+        {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="w-3 h-3 text-amber-700/70 cursor-default shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[280px] text-xs">
+            The consent gate blocked this prospect from outreach — most recent reasons below. Approving here records a human review, which lets medium/low-confidence contacts pass the gate (expired or missing CASL consent still blocks).
+          </TooltipContent>
+        </Tooltip>
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+        <p className="text-xs font-medium text-amber-700">Held back by the consent gate</p>
+      </div>
+      <ul className="mt-1.5 space-y-1">
+        {blocks.map((b) => (
+          <li key={b.id} className="text-[11px] text-amber-700 flex items-baseline gap-1.5">
+            <span className="font-semibold shrink-0">{humanizeBlockCode(b.metadata?.code)}</span>
+            <span className="text-amber-700/70">{new Date(b.created_at).toLocaleDateString()}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /* ─── Review Dialog ─── */
 function ReviewDialog({
   prospect,
@@ -381,6 +440,8 @@ function ReviewDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Review: {prospect.business_name}</DialogTitle></DialogHeader>
         <div className="space-y-3">
+          {/* Why the consent gate held this prospect back (renders only when blocked) */}
+          <BlockedHistory prospectId={prospect.id} enabled={open} />
           <div>
             <label className="text-xs font-medium text-muted-foreground">Action</label>
             <Select value={action} onValueChange={(v) => setAction(v as typeof action)}>

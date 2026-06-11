@@ -1,7 +1,7 @@
 /**
- * Outreach Attribution Routes — Lane OC.
+ * Outreach attribution + visibility routes — Lane OC.
  *
- * Two endpoints:
+ * Four endpoints (registered in server/routes/index.ts):
  *
  *  1. POST /api/internal/outreach/attribution
  *     Called by the signup flow / Stripe conversion webhook when a new
@@ -24,9 +24,17 @@
  *     Admin-only per-campaign funnel: sent → opened → replied → positive →
  *     converted. Backs the funnel strip on the Campaigns page.
  *
- * Registration (server/routes/index.ts — owned by another lane; add):
- *   import { registerOutreachAttributionRoutes } from "./outreachAttributionRoutes";
- *   registerOutreachAttributionRoutes(app);
+ *  3. GET /api/admin/outbound/budget/status
+ *     Admin-only readout of Lane OB's global send ramp: today's effective
+ *     cap, sends consumed, remaining, ramp week, and the env hard cap.
+ *     Read-only mirror of the EXACT enforcement math (computeGlobalDailyCap
+ *     + the same sent_to_platform event filter the workers consume).
+ *
+ *  4. GET /api/admin/outbound/campaigns/:id/blocked-reasons
+ *     Admin-only per-campaign consent-gate breakdown: distinct prospects
+ *     held back, grouped by Lane OB's block code (prospect_events with
+ *     event_type='blocked_consent', metadata.campaign_id/code). Backs the
+ *     compliance strip in the campaign detail panel.
  */
 
 import type { Express, Request, Response } from "express";
@@ -37,9 +45,15 @@ import {
   prospects, campaignProspects, prospectEvents, salesOpportunities,
   outboundCampaigns,
 } from "@shared/schema";
-import { desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
 import { z } from "zod";
+import {
+  computeGlobalDailyCap, RAMP_BASE_DAILY, RAMP_WEEKLY_INCREMENT,
+} from "../services/outboundSafety";
+import {
+  countGlobalSyncedSince, getFirstRealSendAt, startOfDayUtc,
+} from "../jobs/outboundSyncWorker";
 
 const log = createLogger("OutreachAttribution");
 
@@ -240,6 +254,93 @@ export function registerOutreachAttributionRoutes(app: Express): void {
     } catch (err: any) {
       log.error("funnel query failed", { error: err?.message ?? String(err) });
       return res.status(500).json({ error: "funnel query failed" });
+    }
+  });
+
+  /**
+   * GET /api/admin/outbound/budget/status
+   * Read-only mirror of Lane OB's global send ramp for the Sending page.
+   *
+   * { first_real_send_at, ramp_week, ramp_cap, env_cap, effective_cap,
+   *   sent_today, remaining }
+   *
+   * effective_cap reuses computeGlobalDailyCap() and sent_today reuses
+   * countGlobalSyncedSince() — the dashboard can never disagree with what
+   * the workers actually enforce.
+   */
+  app.get("/api/admin/outbound/budget/status", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const now = new Date();
+      const firstRealSendAt = await getFirstRealSendAt();
+
+      const rampWeek = firstRealSendAt
+        ? Math.max(0, Math.floor((now.getTime() - firstRealSendAt.getTime()) / (7 * 24 * 60 * 60 * 1000)))
+        : 0;
+      const rampCap = RAMP_BASE_DAILY + rampWeek * RAMP_WEEKLY_INCREMENT;
+
+      // Same validation computeGlobalDailyCap applies: positive integer or ignored.
+      const envCapRaw = process.env.OUTBOUND_GLOBAL_DAILY_CAP;
+      const envCapParsed = envCapRaw ? parseInt(envCapRaw, 10) : NaN;
+      const envCap = Number.isFinite(envCapParsed) && envCapParsed > 0 ? envCapParsed : null;
+
+      const effectiveCap = computeGlobalDailyCap(firstRealSendAt, now);
+      const sentToday = await countGlobalSyncedSince(startOfDayUtc());
+
+      return res.json({
+        first_real_send_at: firstRealSendAt ? firstRealSendAt.toISOString() : null,
+        ramp_week: rampWeek,
+        ramp_cap: rampCap,
+        env_cap: envCap,
+        effective_cap: effectiveCap,
+        sent_today: sentToday,
+        remaining: Math.max(0, effectiveCap - sentToday),
+      });
+    } catch (err: any) {
+      log.error("budget status query failed", { error: err?.message ?? String(err) });
+      return res.status(500).json({ error: "budget status query failed" });
+    }
+  });
+
+  /**
+   * GET /api/admin/outbound/campaigns/:id/blocked-reasons
+   * Per-campaign consent-gate breakdown for the compliance strip.
+   *
+   * Counts DISTINCT prospects (not raw events — re-assign attempts can log
+   * the same prospect twice) per Lane OB block code, scoped to this campaign
+   * via the metadata both OB call sites write:
+   *   assign-time: { campaign_id, code, confidence }   (adminOutboundRoutes)
+   *   push-time:   { code, campaign_id }               (worker + manual sync)
+   *
+   * → { campaign_id, total, reasons: [{ code, count }] }
+   */
+  app.get("/api/admin/outbound/campaigns/:id/blocked-reasons", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ error: "invalid_id" });
+      }
+
+      const rows = await db
+        .select({
+          code: sql<string>`coalesce(${prospectEvents.metadata}->>'code', 'unknown')`,
+          count: sql<number>`count(distinct ${prospectEvents.prospect_id})`,
+        })
+        .from(prospectEvents)
+        .where(and(
+          eq(prospectEvents.event_type, "blocked_consent"),
+          sql`${prospectEvents.metadata}->>'campaign_id' = ${String(id)}`,
+        ))
+        .groupBy(sql`coalesce(${prospectEvents.metadata}->>'code', 'unknown')`);
+
+      const reasons = rows
+        .map((r) => ({ code: r.code, count: Number(r.count) }))
+        .sort((a, b) => b.count - a.count);
+      const total = reasons.reduce((sum, r) => sum + r.count, 0);
+
+      return res.json({ campaign_id: id, total, reasons });
+    } catch (err: any) {
+      log.error("blocked-reasons query failed", { error: err?.message ?? String(err) });
+      return res.status(500).json({ error: "blocked-reasons query failed" });
     }
   });
 }

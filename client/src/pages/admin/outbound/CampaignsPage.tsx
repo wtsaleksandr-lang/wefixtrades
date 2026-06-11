@@ -18,6 +18,7 @@ import { Plus, RefreshCw, Users, Send, CheckCircle, AlertCircle, HelpCircle, Che
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { humanizeBlockCode, type BlockedReasonRow } from "./outboundUiHelpers";
 
 /* ─── Types ─── */
 interface Campaign {
@@ -72,17 +73,23 @@ interface VerifyLinkResult {
 
 /**
  * Verify a campaign's platform link on demand, cached for 5 minutes.
- * A 404 means the verify endpoint isn't deployed yet (Lane OA merge) —
- * surfaced as "Unverified", never as a fake green "Linked".
+ * 503 {error:"not_configured"} = the platform key isn't present in this
+ * environment (the Smartlead rail ships DORMANT — no SMARTLEAD_API_KEY in
+ * prod until the revenue trigger). That's a distinct honest state, not an
+ * error and not "Unverified".
  */
+type VerifyLinkState =
+  | { kind: "ok"; result: VerifyLinkResult }
+  | { kind: "not_configured" };
+
 function useVerifyLink(campaignId: number, enabled: boolean) {
-  return useQuery<VerifyLinkResult | null>({
+  return useQuery<VerifyLinkState>({
     queryKey: ["/api/admin/outbound/campaigns", campaignId, "verify-link"],
     queryFn: async () => {
       const res = await fetch(`/api/admin/outbound/campaigns/${campaignId}/verify-link`, { credentials: "include" });
-      if (res.status === 404) return null;
+      if (res.status === 503) return { kind: "not_configured" as const };
       if (!res.ok) throw new Error(`verify-link failed (${res.status})`);
-      return res.json();
+      return { kind: "ok" as const, result: await res.json() };
     },
     enabled,
     staleTime: 5 * 60_000,
@@ -117,7 +124,22 @@ function LinkStatusBadge({ campaign }: { campaign: Campaign }) {
       </span>
     );
   }
-  if (data?.verified) {
+  if (data?.kind === "not_configured") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground cursor-default" data-testid="campaign-link-not-configured">
+            <AlertCircle className="w-3.5 h-3.5" />
+            Platform not connected
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[260px] text-xs">
+          The sending platform's API key isn't configured in this environment, so the link can't be verified. The campaign record is intact — verification resumes automatically once the platform is connected.
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+  if (data?.kind === "ok" && data.result.verified) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -127,8 +149,8 @@ function LinkStatusBadge({ campaign }: { campaign: Campaign }) {
           </span>
         </TooltipTrigger>
         <TooltipContent className="max-w-[260px] text-xs">
-          Verified against the platform — status "{data.platform_status}",{" "}
-          {data.email_accounts.length} sending account{data.email_accounts.length !== 1 ? "s" : ""} attached.
+          Verified against the platform — status "{data.result.platform_status}",{" "}
+          {data.result.email_accounts.length} sending account{data.result.email_accounts.length !== 1 ? "s" : ""} attached.
         </TooltipContent>
       </Tooltip>
     );
@@ -212,39 +234,21 @@ function FunnelStrip({ funnel }: { funnel: CampaignFunnel | undefined }) {
 }
 
 /* ─── Compliance protection counts (Lane OB consent gate) ─── */
-interface ComplianceCounts {
-  blocked_low_confidence: number;
-  blocked_expired_consent: number;
-  blocked_suppressed: number;
-}
 
 /**
- * MERGE WIRING (Lane OB): the per-campaign consent-gate count endpoint ships
- * with Lane OB. Until it's merged, a 404 here falls back to the documented
- * mocked shape (zero counts) — the strip still renders so operators learn
- * the surface. Swap nothing at merge time: once OB's endpoint exists at
- * GET /api/admin/outbound/campaigns/:id/compliance-counts returning
- * { blocked_low_confidence, blocked_expired_consent, blocked_suppressed },
- * real counts appear automatically.
+ * Per-campaign consent-gate breakdown — GET .../campaigns/:id/blocked-reasons
+ * (Lane OC read API over OB's prospect_events bookkeeping). Codes are OB's
+ * canonical block codes (blocked_confidence / blocked_consent_expired /
+ * blocked_casl_no_basis, plus push-time blocked_dnc etc.).
  */
-function useComplianceCounts(campaignId: number) {
-  return useQuery<{ counts: ComplianceCounts; mocked: boolean }>({
-    queryKey: ["/api/admin/outbound/campaigns", campaignId, "compliance-counts"],
+function useBlockedReasons(campaignId: number) {
+  return useQuery<{ total: number; reasons: BlockedReasonRow[] }>({
+    queryKey: ["/api/admin/outbound/campaigns", campaignId, "blocked-reasons"],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/outbound/campaigns/${campaignId}/compliance-counts`, { credentials: "include" });
-      if (res.status === 404) {
-        return { counts: { blocked_low_confidence: 0, blocked_expired_consent: 0, blocked_suppressed: 0 }, mocked: true };
-      }
-      if (!res.ok) throw new Error(`compliance counts failed (${res.status})`);
+      const res = await fetch(`/api/admin/outbound/campaigns/${campaignId}/blocked-reasons`, { credentials: "include" });
+      if (!res.ok) throw new Error(`blocked-reasons failed (${res.status})`);
       const json = await res.json();
-      return {
-        counts: {
-          blocked_low_confidence: Number(json.blocked_low_confidence ?? 0),
-          blocked_expired_consent: Number(json.blocked_expired_consent ?? 0),
-          blocked_suppressed: Number(json.blocked_suppressed ?? 0),
-        },
-        mocked: false,
-      };
+      return { total: Number(json.total ?? 0), reasons: (json.reasons ?? []) as BlockedReasonRow[] };
     },
     staleTime: 60_000,
     retry: false,
@@ -253,14 +257,10 @@ function useComplianceCounts(campaignId: number) {
 
 /** Frames consent blocks as protection (deliverability + legal), not breakage. */
 function ComplianceStrip({ campaignId }: { campaignId: number }) {
-  const { data } = useComplianceCounts(campaignId);
-  const c = data?.counts;
-  const total = c ? c.blocked_low_confidence + c.blocked_expired_consent + c.blocked_suppressed : 0;
-  const chips = [
-    { label: "low confidence", value: c?.blocked_low_confidence ?? 0 },
-    { label: "expired consent", value: c?.blocked_expired_consent ?? 0 },
-    { label: "suppressed", value: c?.blocked_suppressed ?? 0 },
-  ];
+  const { data, isError } = useBlockedReasons(campaignId);
+  if (isError) return null; // detail panel stays usable; the global panel still shows pool-level stats
+  const total = data?.total ?? 0;
+  const reasons = data?.reasons ?? [];
   return (
     <div className="mx-4 mt-3 p-3 bg-green-50 border border-green-200 rounded-lg" data-testid="campaign-compliance-strip">
       <div className="flex items-center gap-1.5">
@@ -270,7 +270,7 @@ function ComplianceStrip({ campaignId }: { campaignId: number }) {
             <HelpCircle className="w-3 h-3 text-green-700/70 cursor-default shrink-0" />
           </TooltipTrigger>
           <TooltipContent className="max-w-[280px] text-xs">
-            The consent gate holds back contacts that would hurt deliverability or compliance: low-confidence emails, consent records past their window, and suppressed addresses. Held contacts are protection, not failures — they keep the sending domains healthy.
+            The consent gate holds back contacts that would hurt deliverability or compliance — low-confidence emails, expired implied consent, missing CASL basis, do-not-contact flags. Held contacts are protection, not failures: they keep the sending domains healthy and the campaign legal.
           </TooltipContent>
         </Tooltip>
         <ShieldCheck className="w-3.5 h-3.5 text-green-600 shrink-0" />
@@ -278,13 +278,122 @@ function ComplianceStrip({ campaignId }: { campaignId: number }) {
           Compliance protection — {total} contact{total !== 1 ? "s" : ""} held back
         </p>
       </div>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {chips.map((chip) => (
-          <span key={chip.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-card border border-green-200 text-green-700">
-            <span className="font-semibold">{chip.value}</span> {chip.label}
-          </span>
-        ))}
+      {reasons.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {reasons.map((r) => (
+            <span key={r.code} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-card border border-green-200 text-green-700">
+              <span className="font-semibold">{r.count}</span> {humanizeBlockCode(r.code)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Consent-gate pool stats (Lane OB, GET /api/admin/outbound/consent/stats) ─── */
+interface ConsentStats {
+  min_contact_confidence: string;
+  casl_strict: boolean;
+  pool: {
+    total: number;
+    eligible: number;
+    blocked: number;
+    by_reason: {
+      blocked_confidence: number;
+      blocked_consent_expired: number;
+      blocked_casl_no_basis: number;
+    };
+  };
+  blocked_events_30d: number;
+}
+
+/** Page-level panel: how much of the assignable pool the consent gate passes. */
+function ConsentGatePanel() {
+  const { data: stats, isError } = useQuery<ConsentStats>({
+    queryKey: ["/api/admin/outbound/consent/stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/outbound/consent/stats", { credentials: "include" });
+      if (!res.ok) throw new Error(`consent stats failed (${res.status})`);
+      return res.json();
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  if (isError) {
+    return (
+      <div className="bg-card rounded-lg border border-border p-3" data-testid="consent-gate-error">
+        <p className="text-xs text-muted-foreground">Consent-gate stats unavailable — the stats endpoint returned an error.</p>
       </div>
+    );
+  }
+
+  const byReason = stats?.pool.by_reason;
+  const reasonChips = [
+    { code: "blocked_confidence", value: byReason?.blocked_confidence ?? 0 },
+    { code: "blocked_consent_expired", value: byReason?.blocked_consent_expired ?? 0 },
+    { code: "blocked_casl_no_basis", value: byReason?.blocked_casl_no_basis ?? 0 },
+  ];
+  return (
+    <div className="bg-card rounded-lg border border-border p-4" data-testid="consent-gate-panel">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[300px] text-xs">
+            The CASL consent gate, evaluated over the whole assignable pool (new / enriched / approved prospects). Eligible prospects can be assigned to campaigns; blocked ones are held back with the reason shown. The gate re-runs at push time, so these numbers always reflect the live rules.
+          </TooltipContent>
+        </Tooltip>
+        <ShieldCheck className="w-3.5 h-3.5 text-green-600 shrink-0" />
+        <p className="text-sm font-semibold text-foreground">Consent gate</p>
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+          min confidence: {stats?.min_contact_confidence ?? "—"}
+        </span>
+        {stats?.casl_strict && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground cursor-default">
+                CASL strict
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[240px] text-xs">
+              Every prospect needs a valid consent basis (or conspicuous publication on their own domain). Canadian prospects are strict regardless of this flag.
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <p className="text-xl font-bold text-foreground">{stats ? stats.pool.total : "—"}</p>
+          <p className="text-xs text-muted-foreground">Assignable pool</p>
+        </div>
+        <div>
+          <p className="text-xl font-bold text-green-600">{stats ? stats.pool.eligible : "—"}</p>
+          <p className="text-xs text-muted-foreground">Eligible</p>
+        </div>
+        <div>
+          <p className="text-xl font-bold text-amber-600">{stats ? stats.pool.blocked : "—"}</p>
+          <p className="text-xs text-muted-foreground">Held back</p>
+        </div>
+        <div>
+          <p className="text-xl font-bold text-foreground">{stats ? stats.blocked_events_30d : "—"}</p>
+          <p className="text-xs text-muted-foreground">Blocks logged (30d)</p>
+        </div>
+      </div>
+
+      {stats && stats.pool.blocked > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {reasonChips.filter((c) => c.value > 0).map((c) => (
+            <span key={c.code} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-muted text-muted-foreground">
+              <span className="font-semibold text-foreground">{c.value}</span> {humanizeBlockCode(c.code)}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -657,6 +766,9 @@ export default function CampaignsPage() {
             New Campaign
           </Button>
         </div>
+
+        {/* Pool-level consent-gate stats (Lane OB data, Lane OC surface) */}
+        <ConsentGatePanel />
 
         <div className={`grid gap-4 ${selectedCampaignId ? "grid-cols-2" : "grid-cols-1"}`}>
           {/* Campaign list */}
