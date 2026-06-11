@@ -48,6 +48,7 @@ import { registerAdminOpsRoutes, registerBrandAvailabilityRoutes } from "./admin
 import { registerAdminEnvPresenceRoutes } from "./adminEnvPresence";
 import { registerAdminSerpProvidersRoute } from "./adminSerpProvidersRoute";
 import { registerAdminOutboundRoutes } from "./adminOutboundRoutes";
+import { registerOutreachSendingRoutes } from "./outreachSendingRoutes";
 import { registerAdminOutreachSequencesRoutes } from "./adminOutreachSequencesRoutes";
 import { registerReviewPublicRoutes } from "./reviewPublicRoutes";
 import { registerWidgetRoutes } from "./widgetRoutes";
@@ -201,6 +202,7 @@ export async function registerRoutes(
   registerAdminEnvPresenceRoutes(app);
   registerAdminSerpProvidersRoute(app);
   registerAdminOutboundRoutes(app);
+  registerOutreachSendingRoutes(app);
   registerAdminOutreachSequencesRoutes(app);
   registerMapguardRoutes(app);
   registerSocialSyncRoutes(app);
