@@ -286,13 +286,19 @@ GOOGLE_MAPS_API_KEY=AIza...                                     (from step 4, fo
    - Instagram Graph API → Set up
 6. **Facebook Login for Business → Settings**:
    - Valid OAuth Redirect URIs: `https://YOUR-DEPLOYED-DOMAIN/api/social-sync/facebook/callback`
-7. **App Review → Permissions and Features**. Request these (they all need review):
+7. **App Review → Permissions and Features**. Request the full 12-permission set — the canonical list is `REQUIRED_SCOPES` in `server/services/socialSync/facebookService.ts` (mirrored with per-scope justifications in `docs/platform-approvals/meta/permissions-justification.md`):
    - `pages_show_list`
    - `pages_read_engagement`
    - `pages_manage_posts`
    - `pages_read_user_content`
+   - `pages_manage_engagement`
+   - `pages_manage_metadata`
+   - `business_management`
+   - `pages_messaging`
+   - `whatsapp_business_messaging`
    - `instagram_basic`
    - `instagram_content_publish`
+   - `instagram_manage_insights`
 8. For each permission, Meta asks for a screencast + explanation of how you use it. This is the time-sink. Rough template for each:
    - Screencast (1-2 min) showing a business owner connecting their Page, approving a post, and seeing it publish.
    - Explanation: "Our customers (small trades businesses) use WeFixTrades to schedule and publish content to their own Facebook Pages. This permission lets us post on their behalf after they explicitly connect and authorize their Page."

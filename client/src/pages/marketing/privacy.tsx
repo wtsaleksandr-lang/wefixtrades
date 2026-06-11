@@ -231,6 +231,11 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
+      {/* Anchor alias: external references (Meta App dashboard "Data Deletion
+          Instructions URL", repo platform-approval docs, the data-deletion
+          callback's status page) link to /privacy#data-deletion. Keep both
+          ids working so those external links stay stable. */}
+      <span id="data-deletion" aria-hidden="true" style={{ display: "block", scrollMarginTop: 96 }} />
       <LegalSection id="deletion" title="10. Deleting your data">
         <p>You can delete your WeFixTrades account and the personal data we hold at any time:</p>
         <ul style={ul}>

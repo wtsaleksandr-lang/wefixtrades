@@ -91,8 +91,9 @@ follow-ups in the first launch.
 ### HI-3. Facebook / Instagram app (SocialSync)
 - [ ] Create Meta for Developers app — type: Business
 - [ ] Add products: Facebook Login, Instagram Graph API, Pages API
-- [ ] Request permissions: `pages_show_list`, `pages_read_engagement`,
-      `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`
+- [ ] Request the full 12-permission set — canonical list: `REQUIRED_SCOPES` in
+      `server/services/socialSync/facebookService.ts`; per-scope justifications in
+      `docs/platform-approvals/meta/permissions-justification.md`
 - [ ] Submit for App Review with screencast demo — **takes 1-2 weeks**, file NOW
 - [ ] Set env: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIRECT_URI`
 

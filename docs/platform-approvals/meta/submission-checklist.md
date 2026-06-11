@@ -10,7 +10,7 @@ Do these in order. Each step should take 1–3 minutes.
 - [ ] Confirm App icon is 1024x1024 PNG and uploaded under Settings → Basic
 - [ ] Confirm Privacy Policy URL loads cleanly: https://wefixtrades.com/privacy
 - [ ] Confirm Terms URL loads cleanly: https://wefixtrades.com/terms
-- [ ] Confirm Data Deletion URL loads cleanly: https://wefixtrades.com/privacy#data-deletion
+- [ ] Set Data Deletion to **Callback URL** `https://wefixtrades.com/api/meta/data-deletion` (preferred — implemented in `server/routes/metaDataDeletionRoutes.ts`), or fall back to Instructions URL `https://wefixtrades.com/privacy#data-deletion` (anchor verified — alias added to the privacy page)
 - [ ] Record screencast per `screencast-script.md` → upload to YouTube as unlisted, copy URL
 
 ## Submit the review
@@ -21,12 +21,14 @@ Do these in order. Each step should take 1–3 minutes.
   - [ ] `pages_read_engagement`
   - [ ] `pages_manage_posts`
   - [ ] `pages_read_user_content`
+  - [ ] `pages_manage_engagement`
   - [ ] `pages_manage_metadata`
   - [ ] `business_management`
   - [ ] `pages_messaging`
   - [ ] `whatsapp_business_messaging`
   - [ ] `instagram_basic`
   - [ ] `instagram_content_publish`
+  - [ ] `instagram_manage_insights`
 - [ ] For each scope, paste the matching justification from `permissions-justification.md` into the "How will you use this permission?" field.
 - [ ] In the global submission notes, paste the use case narrative from `application-form.md` (Use Case Narrative section).
 - [ ] Attach the screencast URL (unlisted YouTube link) — Meta also accepts direct MP4 upload up to 100MB.

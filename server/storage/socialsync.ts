@@ -181,6 +181,49 @@ export async function listAllSocialSyncConnections(): Promise<SocialSyncConnecti
     .orderBy(socialsyncPlatformConnections.token_expires_at);
 }
 
+/**
+ * Look up connections by the platform-side account id (e.g. the Facebook
+ * app-scoped user id from a Meta data-deletion `signed_request`). Returns
+ * rows in ANY connection_status — a deletion request must also reach
+ * expired/revoked/error rows that still hold an encrypted token.
+ */
+export async function listSocialSyncConnectionsByExternalAccountId(
+  platform: string,
+  externalAccountId: string,
+): Promise<SocialSyncConnection[]> {
+  return db.select().from(socialsyncPlatformConnections)
+    .where(and(
+      eq(socialsyncPlatformConnections.platform, platform),
+      eq(socialsyncPlatformConnections.external_account_id, externalAccountId),
+    ));
+}
+
+/**
+ * Hard-scrub one connection row in place (Meta data-deletion callback):
+ * wipes the encrypted token, the platform-side ids, and the metadata blob
+ * (page names, discovered pages, user name), and marks the row `revoked`.
+ * The row itself is kept so the portal can show "reconnect required".
+ */
+export async function eraseSocialSyncConnectionData(
+  id: number,
+  replacementMetadata: Record<string, unknown>,
+): Promise<SocialSyncConnection | undefined> {
+  const [row] = await db.update(socialsyncPlatformConnections)
+    .set({
+      connection_status: "revoked",
+      external_account_id: null,
+      external_page_id: null,
+      token_ref: null,
+      token_expires_at: null,
+      last_validated_at: null,
+      metadata: replacementMetadata,
+      updated_at: new Date(),
+    })
+    .where(eq(socialsyncPlatformConnections.id, id))
+    .returning();
+  return row;
+}
+
 export async function fetchStaleSocialSyncLocks(thresholdMs: number): Promise<SocialSyncQueueItem[]> {
   const cutoff = new Date(Date.now() - thresholdMs);
   return db.select().from(socialsyncPublishQueue)
