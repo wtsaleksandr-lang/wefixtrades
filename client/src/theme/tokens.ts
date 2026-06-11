@@ -206,7 +206,7 @@ export const mkt = {
    * colour — as text on near-black it reads ~2.5:1 (fails WCAG AA and the
    * locked CONTRAST rule). This lighter step of the same hue holds ≥4.5:1
    * on every dark surface in use: 5.51 on bg #181D1F, 5.76 on dark
-   * #171818, 5.55 on n800 #22282A, 4.55 on sectionLight #242D30.
+   * #171818, 4.84 on n800 #22282A, 4.55 on sectionLight #242D30.
    * Use for eyebrows, accent headline spans, stat values, and inline
    * links on dark; keep mkt.accent for fills (with white labels). */
   accentOnDark: '#6E8BFF',
