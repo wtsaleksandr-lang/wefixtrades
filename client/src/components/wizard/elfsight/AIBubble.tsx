@@ -57,6 +57,16 @@ export interface AIBubbleProps {
   seedPrompt?: string;
   seedNonce?: number;
   /**
+   * Optional reference screenshot fused with `seedPrompt` for the one-shot
+   * auto-send (the Build-tab "Generate with AI" card's "+ Add screenshot").
+   * A data URL (jpeg/png/webp/gif). When set on a seed, it's attached as the
+   * pending image so the auto-sent turn flows into the existing
+   * { message, image } request body — the server then switches to the vision
+   * model and FUSES the text + image. Optional + additive: omit it and the
+   * seed is text-only exactly as before.
+   */
+  seedImage?: string;
+  /**
    * ?ai-upload=1 entry-point — when this nonce increments (and is > 0), the
    * bubble opens, un-collapses, and injects a one-line hint message into the
    * chat ("Attach your quote to get started…") and highlights the paperclip.
@@ -389,7 +399,7 @@ function saveCollapsed(v: boolean): void {
 }
 
 export default function AIBubble(props: AIBubbleProps) {
-  const { conversationId = 'default', state, seedPrompt, seedNonce, openForUploadNonce } = props;
+  const { conversationId = 'default', state, seedPrompt, seedNonce, seedImage, openForUploadNonce } = props;
   const [open, setOpen] = useState(false);
   /** "Generate with AI" auto-send latch. Set true when a new seed arrives;
    *  the second effect below clears it after firing onSend exactly once. */
@@ -1006,8 +1016,14 @@ export default function AIBubble(props: AIBubbleProps) {
     setOpen(true);
     setCollapsed(false);
     setInput(seedPrompt ?? '');
+    // Fused text+image seed — attach the reference screenshot as the pending
+    // image so the one-shot auto-send (Effect 2 below) carries it into the
+    // existing { message, image } request body. Clear it when the seed is
+    // text-only so a prior pending image never leaks into a later seed.
+    setPendingImage(seedImage ?? null);
+    if (seedImage) setPendingFile(null);
     autoSendRef.current = true;
-  }, [seedNonce, seedPrompt]);
+  }, [seedNonce, seedPrompt, seedImage]);
 
   /* Effect 2: once the seeded input has committed (input matches the seed),
    * fire onSend exactly once. Guards: latch armed, not already sending, the

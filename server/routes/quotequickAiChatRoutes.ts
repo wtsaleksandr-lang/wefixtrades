@@ -80,6 +80,42 @@ function parseImage(input: string): { mediaType: "image/jpeg" | "image/png" | "i
   return null;
 }
 
+/**
+ * Pure helper — model selection + user-block assembly for one chat turn.
+ *
+ * Extracted so the fused text+image behavior is unit-testable without an
+ * Express request, an SSE stream, or a live Anthropic client. The route
+ * handler calls this and feeds the result straight into the streaming call.
+ *
+ * Invariants this guarantees (and the test asserts):
+ *   - A parseable image present → vision model (Sonnet); else text model (Haiku).
+ *   - The text message is ALWAYS the first user block (even in the fused case),
+ *     so the model receives the user's written intent alongside the image.
+ *   - When an image is present, an image block is appended after the text block.
+ *   - `tools` are NOT affected here — the route offers QUOTEQUICK_AI_TOOLS
+ *     (incl. replace_template) unconditionally, so the fused case keeps them.
+ */
+export function buildChatTurn(
+  message: string,
+  image: string | undefined,
+  models: { visionModel: SupportedModel; textModel: SupportedModel } = {
+    visionModel: VISION_MODEL,
+    textModel: TEXT_MODEL,
+  },
+): { hasImage: boolean; model: SupportedModel; userBlocks: any[] } {
+  const parsedImg = image ? parseImage(image) : null;
+  const hasImage = Boolean(parsedImg);
+  const model: SupportedModel = hasImage ? models.visionModel : models.textModel;
+  const userBlocks: any[] = [{ type: "text", text: message }];
+  if (hasImage && parsedImg) {
+    userBlocks.push({
+      type: "image",
+      source: { type: "base64", media_type: parsedImg.mediaType, data: parsedImg.b64 },
+    });
+  }
+  return { hasImage, model, userBlocks };
+}
+
 function sseWrite(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -282,9 +318,10 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
       return res.status(503).json({ error: "ai_unavailable", reason: cfg.error });
     }
 
-    /* (3) Decide which model based on whether an image is attached. */
-    const hasImage = Boolean(image && parseImage(image));
-    const model: SupportedModel = hasImage ? VISION_MODEL : TEXT_MODEL;
+    /* (3) Decide which model + assemble the user blocks. The text message is
+     *     always the first block, so a FUSED text+image turn sends the user's
+     *     written intent alongside the screenshot (see buildChatTurn). */
+    const { hasImage, model, userBlocks } = buildChatTurn(message, image);
 
     /* (4) Estimate this call's cost and, for AUTHED callers, gate against the
      *     DB budget. Anonymous callers have no budget row; their ceiling is
@@ -333,18 +370,8 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
 
     sseWrite(res, "open", { model, estimate_usd: estimate });
 
-    /* (6) Build the Anthropic messages payload. */
-    const userBlocks: any[] = [{ type: "text", text: message }];
-    if (hasImage) {
-      const parsedImg = parseImage(image!);
-      if (parsedImg) {
-        userBlocks.push({
-          type: "image",
-          source: { type: "base64", media_type: parsedImg.mediaType, data: parsedImg.b64 },
-        });
-      }
-    }
-
+    /* (6) Build the Anthropic messages payload. `userBlocks` was assembled in
+     *     step (3) by buildChatTurn — text first, image (when present) after. */
     const messages: Anthropic.MessageParam[] = [
       ...history.map((h) => ({ role: h.role, content: h.content })),
       { role: "user" as const, content: userBlocks.length === 1 ? message : userBlocks },
