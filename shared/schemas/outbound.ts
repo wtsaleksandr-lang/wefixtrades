@@ -98,6 +98,19 @@ export const prospects = pgTable("prospects", {
   do_not_contact: boolean("do_not_contact").notNull().default(false),
   dnc_reason: text("dnc_reason"),
 
+  // ── Lane OB: CASL consent bookkeeping (migration 0080) ─
+  // express             — recipient explicitly opted in (never expires)
+  // implied_conspicuous — address conspicuously published (e.g. on the
+  //                       business's own website) with no opt-out notice;
+  //                       no statutory expiry while still published
+  // implied_inquiry     — recipient made an inquiry / existing business
+  //                       relationship; CASL caps this at 2 years
+  // none                — no recorded basis (legacy rows; runtime gate
+  //                       falls back to the published-on-own-domain test)
+  consent_basis: varchar("consent_basis", { length: 30 }).default("none"),
+  consent_evidence: jsonb("consent_evidence"),       // { method, source, captured_at, … }
+  consent_expires_at: timestamp("consent_expires_at"), // 2-year implied window
+
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 }, (t) => ({
@@ -402,6 +415,21 @@ export const outboundBlockedEmails = pgTable("outbound_blocked_emails", {
   created_at: timestamp("created_at").defaultNow(),
 });
 export type BlockedEmail = typeof outboundBlockedEmails.$inferSelect;
+
+/* ═══════════════════════════════════════════════════
+   Lane OB — Global send-ramp state (migration 0080)
+   Single-row table persisting the FIRST real (non-dry-run) send date.
+   The global daily volume ramp (50/day, +25/day per full week) is
+   computed from this date, cross-campaign.
+   ═══════════════════════════════════════════════════ */
+
+export const outboundSendState = pgTable("outbound_send_state", {
+  id: serial("id").primaryKey(),
+  first_real_send_at: timestamp("first_real_send_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export type OutboundSendState = typeof outboundSendState.$inferSelect;
 
 export const outboundBlockedPhones = pgTable("outbound_blocked_phones", {
   id: serial("id").primaryKey(),

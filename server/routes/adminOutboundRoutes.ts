@@ -37,7 +37,13 @@ import {
   scoreContactConfidence,
   checkBlacklist,
   addToBlacklist,
+  evaluateConsentGate,
+  minContactConfidence,
+  checkPushEligibility,
+  pushPermanentSuppressionToPlatform,
 } from "../services/outboundSafety";
+import { recordUnsubscribe, isEmailUnsubscribed } from "../lib/unsubscribeStorage";
+import { buildGlobalSendBudget, markFirstRealSend } from "../jobs/outboundSyncWorker";
 import { assignTargetOffer, computePriorityScore } from "../services/prospectTargeting";
 import { classifyReplyFull } from "../services/replyIntelligence";
 import { personalizeForProspect } from "../services/copyEngine";
@@ -1250,18 +1256,42 @@ export function registerAdminOutboundRoutes(app: Express): void {
           continue;
         }
 
-        // ── TASK 2: Confidence gate ───────────────────────
-        // 'low' and 'none' are blocked unless the prospect was manually approved
-        // (reviewed_by being set is the signal that a human explicitly OK'd it)
-        const conf = p.contact_confidence ?? "none";
-        if ((conf === "low" || conf === "none") && !p.reviewed_by) {
+        // ── LANE OB: CASL hard consent gate ───────────────
+        // Eligibility = contact_confidence ≥ OUTBOUND_MIN_CONTACT_CONFIDENCE
+        // (env, default "high" — medium NEVER auto-passes under the default)
+        // OR reviewed_by set OR consent_basis = 'express'. On top of that:
+        // expired implied consent always blocks, and strict-CASL prospects
+        // (everyone by default; Canada unconditionally) need a valid consent
+        // basis or the conspicuous-publication (own-domain email) test.
+        const consent = evaluateConsentGate(p);
+        if (!consent.eligible) {
           skipped.push(p.id);
-          await logEvent(p.id, "blocked_low_confidence", actor,
-            `Blocked from assignment: contact_confidence = ${conf} (not manually approved)`,
-            { campaign_id: campaignId, confidence: conf }
+          await logEvent(p.id, "blocked_consent", actor,
+            `Blocked from assignment: ${consent.reason}`,
+            { campaign_id: campaignId, code: consent.code, confidence: p.contact_confidence ?? "none" }
           );
-          blocked.push({ id: p.id, reason: `contact_confidence: ${conf}` });
+          blocked.push({ id: p.id, reason: consent.code });
           continue;
+        }
+
+        // CASL bookkeeping: when eligibility was inferred from conspicuous
+        // publication (email on the business's own domain) and no basis was
+        // recorded yet, persist it with evidence so audits can show WHY this
+        // prospect was contactable. Conspicuous publication carries no
+        // statutory 2-year window, so consent_expires_at stays NULL.
+        if (consent.inferred_conspicuous && (p.consent_basis ?? "none") === "none") {
+          await db.update(prospects)
+            .set({
+              consent_basis: "implied_conspicuous",
+              consent_evidence: {
+                method: "conspicuous_publication",
+                email: p.primary_email,
+                website_domain: p.website_domain,
+                captured_at: new Date().toISOString(),
+              },
+              updated_at: new Date(),
+            })
+            .where(eq(prospects.id, p.id));
         }
 
         // ── TASK 7: Blacklist check ───────────────────────
@@ -1273,6 +1303,19 @@ export function registerAdminOutboundRoutes(app: Express): void {
             { campaign_id: campaignId, blacklist_type: bl.type }
           );
           blocked.push({ id: p.id, reason: `blacklist:${bl.type}` });
+          continue;
+        }
+
+        // ── LANE OB: transactional unsubscribe bridge ─────
+        // Someone who unsubscribed from ANY of our marketing email must not
+        // be cold-emailed either.
+        if (p.primary_email && (await isEmailUnsubscribed(p.primary_email))) {
+          skipped.push(p.id);
+          await logEvent(p.id, "blocked_blacklist", actor,
+            "Blocked from assignment: email is in the transactional unsubscribe registry",
+            { campaign_id: campaignId, code: "blocked_unsubscribed" }
+          );
+          blocked.push({ id: p.id, reason: "blocked_unsubscribed" });
           continue;
         }
 
@@ -1384,9 +1427,46 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       let synced = 0;
       let failed = 0;
+      let blockedSafety = 0;
+      let skippedGlobalCap = 0;
+
+      // ── LANE OB: the manual sync path enforces the SAME global volume
+      // ramp as the worker (cross-campaign, before per-campaign concerns).
+      // Real pushes here also log `sent_to_platform`, so they count against
+      // both the global and per-campaign rate counters.
+      const globalBudget = await buildGlobalSendBudget();
 
       for (const { cp, prospect, enrichment } of pending) {
         if (!prospect?.primary_email) { failed++; continue; }
+
+        // ── LANE OB: unified push-time eligibility (DNC + CASL consent gate
+        // + blacklist + transactional-unsubscribe bridge) — previously this
+        // manual route bypassed every safety check the worker enforced.
+        const gate = await checkPushEligibility(prospect);
+        if (!gate.eligible) {
+          blockedSafety++;
+          await db.update(campaignProspects)
+            .set({ sync_status: "removed", updated_at: new Date() })
+            .where(eq(campaignProspects.id, cp.id));
+          await logEvent(
+            cp.prospect_id,
+            gate.code === "blocked_blacklist" || gate.code === "blocked_unsubscribed"
+              ? "blacklisted"
+              : gate.code === "blocked_dnc" ? "retry_skipped" : "blocked_consent",
+            actor,
+            `Blocked at manual sync: ${gate.reason}`,
+            { code: gate.code, campaign_id: campaignId },
+            cp.id
+          );
+          continue;
+        }
+
+        // ── LANE OB: global daily ramp — real sends only.
+        if (!dryRun && !globalBudget.tryConsume()) {
+          skippedGlobalCap++;
+          continue; // stays pending; the worker picks it up tomorrow
+        }
+
         try {
           const result = await adapter.addLeadToCampaign(
             campaign.external_campaign_id,
@@ -1400,30 +1480,39 @@ export function registerAdminOutboundRoutes(app: Express): void {
             }
           );
 
+          const contactedAt = new Date();
+
           await db.update(campaignProspects)
             .set({
               external_lead_id: result.externalLeadId,
               sync_status: "synced",
               outreach_status: "queued",
-              last_synced_at: new Date(),
-              updated_at: new Date(),
+              last_synced_at: contactedAt,
+              last_contacted_at: contactedAt,
+              updated_at: contactedAt,
             })
             .where(eq(campaignProspects.id, cp.id));
 
           await db.update(prospects)
-            .set({ status: "in_outreach", updated_at: new Date() })
+            .set({ status: "in_outreach", updated_at: contactedAt })
             .where(eq(prospects.id, cp.prospect_id));
 
+          // Real manual pushes log `sent_to_platform` (NOT the old `synced`
+          // event type) so the global + per-campaign rate counters see them.
           await logEvent(
             cp.prospect_id,
-            dryRun ? "dry_run_push" : "synced",
+            dryRun ? "dry_run_push" : "sent_to_platform",
             actor,
             dryRun
               ? `DRY RUN — no external call. Would sync to ${campaign.platform} campaign`
-              : `Synced to ${campaign.platform} campaign`,
-            { external_lead_id: result.externalLeadId, dry_run: dryRun },
+              : `Synced to ${campaign.platform} campaign (manual)`,
+            { external_lead_id: result.externalLeadId, dry_run: dryRun, campaign_id: campaignId },
             cp.id
           );
+
+          if (!dryRun) {
+            await markFirstRealSend(contactedAt);
+          }
 
           synced++;
         } catch (syncErr: any) {
@@ -1435,7 +1524,11 @@ export function registerAdminOutboundRoutes(app: Express): void {
         }
       }
 
-      res.json({ synced, failed, total: pending.length, dry_run: dryRun });
+      res.json({
+        synced, failed, total: pending.length, dry_run: dryRun,
+        blocked_safety: blockedSafety,
+        skipped_global_cap: skippedGlobalCap,
+      });
     } catch (err: any) {
       log.error("[outbound] sync error:", err.message);
       res.status(500).json({ error: "Sync failed" });
@@ -1602,6 +1695,51 @@ export function registerAdminOutboundRoutes(app: Express): void {
           // Only blacklist domain on hard bounce — soft bounces leave the domain usable
           if (event.eventType === "bounced" && pRow.website_domain) {
             await addToBlacklist("domain", pRow.website_domain, blReason);
+          }
+
+          // ── LANE OB: suppression unification ──────────────────────────
+          // 1. Outbound unsubscribe/opt-out also lands in the transactional
+          //    unsubscribe registry (email_unsubscribes), so marketing email
+          //    from the main product respects it too.
+          if (
+            ["unsubscribed", "opted_out"].includes(event.eventType) &&
+            pRow.primary_email
+          ) {
+            try {
+              await recordUnsubscribe({
+                email: pRow.primary_email,
+                source: `outbound_${event.eventType}`,
+              });
+            } catch (unsubErr: any) {
+              // Never fail the webhook over the bridge — the outbound
+              // blacklist entry above already suppresses outreach.
+              log.warn("[outbound/webhook] email_unsubscribes bridge failed:", unsubErr?.message);
+            }
+          }
+
+          // 2. Push the permanent suppression to the outreach platform's
+          //    GLOBAL suppression list (Lane OA's adapter.pushGlobalSuppression;
+          //    duck-typed until OA merges — see outboundSafety).
+          if (pRow.primary_email) {
+            try {
+              const [wcampaign] = await db.select({
+                platform: outboundCampaigns.platform,
+                metadata: outboundCampaigns.metadata,
+              }).from(outboundCampaigns)
+                .where(eq(outboundCampaigns.id, cp.campaign_id)).limit(1);
+              if (wcampaign) {
+                const supp = await pushPermanentSuppressionToPlatform(
+                  wcampaign.platform as "instantly" | "smartlead",
+                  wcampaign.metadata as Record<string, unknown> | null,
+                  [pRow.primary_email],
+                );
+                if (!supp.supported) {
+                  log.info("[outbound/webhook] platform global suppression unavailable — local suppression holds");
+                }
+              }
+            } catch (suppErr: any) {
+              log.warn("[outbound/webhook] platform suppression push failed:", suppErr?.message);
+            }
           }
         }
 
@@ -1773,6 +1911,108 @@ export function registerAdminOutboundRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[outbound] campaign stats:", err.message);
       res.status(500).json({ error: "Failed to load campaign stats" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     LANE OB — Consent gate stats (queryable for the UI)
+
+     GET /api/admin/outbound/consent/stats →
+     {
+       min_contact_confidence: "high",          // current env-resolved minimum
+       casl_strict: true,
+       pool: {                                  // assignable pool (status new|enriched|approved, not DNC)
+         total: n,
+         eligible: n,
+         blocked: n,
+         by_reason: {
+           blocked_confidence: n,               // below min confidence, no review, no express consent
+           blocked_consent_expired: n,          // implied consent past the 2-year CASL window
+           blocked_casl_no_basis: n             // no recorded basis + email not on own domain
+         }
+       },
+       blocked_events_30d: n                    // blocked_consent events logged in the last 30 days
+     }
+     Mirrors evaluateConsentGate() in outboundSafety.ts — keep in sync.
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/admin/outbound/consent/stats", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const minConf = minContactConfidence();
+      const minRank = { none: 0, low: 1, medium: 2, high: 3 }[minConf];
+      const strictDefault = process.env.OUTBOUND_CASL_STRICT !== "false";
+
+      // SQL mirror of evaluateConsentGate(), evaluated over the assignable pool.
+      const agg: any = await db.execute(sql`
+        WITH pool AS (
+          SELECT
+            (consent_basis IN ('implied_conspicuous','implied_inquiry')
+              AND consent_expires_at IS NOT NULL
+              AND consent_expires_at < NOW())                          AS expired,
+            (consent_basis = 'express')                                AS express,
+            (consent_basis IN ('implied_conspicuous','implied_inquiry')) AS implied,
+            (CASE contact_confidence
+               WHEN 'high' THEN 3 WHEN 'medium' THEN 2
+               WHEN 'low' THEN 1 ELSE 0 END)                           AS conf_rank,
+            (reviewed_by IS NOT NULL)                                  AS reviewed,
+            (primary_email IS NOT NULL AND website_domain IS NOT NULL
+              AND split_part(lower(trim(primary_email)), '@', 2)
+                  = regexp_replace(lower(trim(website_domain)), '^www\\.', '')) AS conspicuous,
+            (${strictDefault}::boolean
+              OR lower(trim(coalesce(country, ''))) IN ('ca','can','canada')) AS strict
+          FROM prospects
+          WHERE status IN ('new','enriched','approved')
+            AND do_not_contact = false
+            AND primary_email IS NOT NULL
+        )
+        SELECT
+          count(*)::int AS total,
+          count(*) FILTER (WHERE implied AND expired)::int AS blocked_consent_expired,
+          count(*) FILTER (
+            WHERE NOT (implied AND expired) AND NOT express
+              AND conf_rank < ${minRank} AND NOT reviewed
+          )::int AS blocked_confidence,
+          count(*) FILTER (
+            WHERE NOT (implied AND expired) AND NOT express
+              AND (conf_rank >= ${minRank} OR reviewed)
+              AND strict AND NOT implied AND NOT conspicuous
+          )::int AS blocked_casl_no_basis
+        FROM pool
+      `);
+
+      const row = ((agg?.rows ?? agg)?.[0] ?? {}) as Record<string, number>;
+      const total = Number(row.total ?? 0);
+      const byReason = {
+        blocked_confidence: Number(row.blocked_confidence ?? 0),
+        blocked_consent_expired: Number(row.blocked_consent_expired ?? 0),
+        blocked_casl_no_basis: Number(row.blocked_casl_no_basis ?? 0),
+      };
+      const blockedTotal =
+        byReason.blocked_confidence + byReason.blocked_consent_expired + byReason.blocked_casl_no_basis;
+
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const evRows = await db
+        .select({ c: sql<number>`count(*)` })
+        .from(prospectEvents)
+        .where(and(
+          eq(prospectEvents.event_type, "blocked_consent"),
+          gte(prospectEvents.created_at, thirtyDaysAgo),
+        ));
+
+      res.json({
+        min_contact_confidence: minConf,
+        casl_strict: strictDefault,
+        pool: {
+          total,
+          eligible: total - blockedTotal,
+          blocked: blockedTotal,
+          by_reason: byReason,
+        },
+        blocked_events_30d: Number(evRows[0]?.c ?? 0),
+      });
+    } catch (err: any) {
+      log.error("[outbound] consent stats:", err.message);
+      res.status(500).json({ error: "Failed to load consent stats" });
     }
   });
 

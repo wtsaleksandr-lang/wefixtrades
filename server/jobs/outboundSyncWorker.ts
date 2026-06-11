@@ -23,11 +23,14 @@
 import { db } from "../db";
 import {
   campaignProspects, outboundCampaigns, prospects, prospectEnrichment,
-  prospectEvents,
+  prospectEvents, outboundSendState,
 } from "@shared/schema";
 import { eq, and, sql, lt, isNull, or, gte } from "drizzle-orm";
 import { getOutreachAdapter, isDryRun } from "../services/outreachPlatform";
-import { checkBlacklist } from "../services/outboundSafety";
+import {
+  checkPushEligibility, addToBlacklist,
+  computeGlobalDailyCap, GlobalSendBudget,
+} from "../services/outboundSafety";
 import { artifactOutreachEnabled } from "../services/outboundArtifactGenerator";
 import { createLogger } from "../lib/logger";
 
@@ -77,12 +80,67 @@ async function countSyncedSince(campaignId: number, since: Date): Promise<number
   return Number(rows[0]?.c ?? 0);
 }
 
+/* ─── LANE OB: Global volume ramp ───
+ *
+ * Cross-campaign cap on REAL pushes per day, enforced BEFORE the
+ * per-campaign daily/hourly/batch caps. Ramp: 50/day at first real send,
+ * +25/day per full week since; OUTBOUND_GLOBAL_DAILY_CAP is a hard ceiling.
+ * Dry-run pushes neither count toward the cap (they log `dry_run_push`)
+ * nor consume budget. */
+
+/** Count REAL pushes across ALL campaigns since `since`. */
+async function countGlobalSyncedSince(since: Date): Promise<number> {
+  const rows = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(prospectEvents)
+    .where(
+      and(
+        eq(prospectEvents.event_type, "sent_to_platform"),
+        gte(prospectEvents.created_at, since),
+      )
+    );
+  return Number(rows[0]?.c ?? 0);
+}
+
+/** Read the persisted first-real-send date (single-row state table). */
+export async function getFirstRealSendAt(): Promise<Date | null> {
+  const rows = await db.select().from(outboundSendState).limit(1);
+  return rows[0]?.first_real_send_at ?? null;
+}
+
+/**
+ * Persist the first-real-send date exactly once (idempotent — never
+ * overwrites an existing value, so the ramp origin is stable forever).
+ */
+export async function markFirstRealSend(at: Date): Promise<void> {
+  const rows = await db.select().from(outboundSendState).limit(1);
+  if (rows.length === 0) {
+    await db.insert(outboundSendState).values({ first_real_send_at: at });
+    return;
+  }
+  if (!rows[0].first_real_send_at) {
+    await db.update(outboundSendState)
+      .set({ first_real_send_at: at, updated_at: new Date() })
+      .where(eq(outboundSendState.id, rows[0].id));
+  }
+}
+
+/** Build today's global budget: ramp cap minus what was already pushed today.
+ *  Exported so the manual sync route enforces the SAME cross-campaign cap. */
+export async function buildGlobalSendBudget(): Promise<GlobalSendBudget> {
+  const firstRealSendAt = await getFirstRealSendAt();
+  const cap = computeGlobalDailyCap(firstRealSendAt, new Date());
+  const sentToday = await countGlobalSyncedSince(startOfDayUtc());
+  return new GlobalSendBudget(cap, sentToday);
+}
+
 /* ─── Main export ─── */
 
 export interface SyncResult {
   campaigns_processed: number;
   leads_synced: number;
   leads_skipped_rate_limit: number;
+  leads_skipped_global_cap: number;
   leads_skipped_cooldown: number;
   leads_skipped_safety: number;
   leads_failed: number;
@@ -93,10 +151,19 @@ export async function processOutboundSync(): Promise<SyncResult> {
     campaigns_processed: 0,
     leads_synced: 0,
     leads_skipped_rate_limit: 0,
+    leads_skipped_global_cap: 0,
     leads_skipped_cooldown: 0,
     leads_skipped_safety: 0,
     leads_failed: 0,
   };
+
+  // ── LANE OB: Global volume ramp — checked BEFORE any per-campaign cap ──
+  const globalBudget = await buildGlobalSendBudget();
+  if (globalBudget.remaining <= 0) {
+    log.info("Global daily send cap reached — no real pushes this run", {
+      cap: globalBudget.cap,
+    });
+  }
 
   // Active campaigns with an external platform ID configured
   const activeCampaigns = await db
@@ -120,6 +187,14 @@ export async function processOutboundSync(): Promise<SyncResult> {
       continue;
     }
 
+    // ── LANE OB: Global cap gates real campaigns BEFORE per-campaign caps ──
+    // Dry-run campaigns are exempt (NoopAdapter, nothing real sent), so
+    // testing never starves — and real sends never exceed the ramp.
+    if (!dryRun && globalBudget.remaining <= 0) {
+      result.leads_skipped_global_cap++;
+      continue;
+    }
+
     // ── TASK 3: Check rate limits before touching any leads ──
     const dailySent  = await countSyncedSince(campaign.id, startOfDayUtc());
     const hourlySent = await countSyncedSince(campaign.id, oneHourAgo());
@@ -138,8 +213,10 @@ export async function processOutboundSync(): Promise<SyncResult> {
       continue;
     }
 
-    // How many can we push this run?
-    const batchCap = Math.min(dailyRemaining, hourlyRemaining, 50);
+    // How many can we push this run? Global remaining bounds real campaigns.
+    const batchCap = dryRun
+      ? Math.min(dailyRemaining, hourlyRemaining, 50)
+      : Math.min(dailyRemaining, hourlyRemaining, 50, globalBudget.remaining);
 
     // Fetch pending leads — FIFO by assigned_at
     // Task 4: skip leads where next_retry_at is still in the future
@@ -195,22 +272,6 @@ export async function processOutboundSync(): Promise<SyncResult> {
         continue;
       }
 
-      if (prospect.do_not_contact) {
-        result.leads_skipped_safety++;
-        await db.update(campaignProspects)
-          .set({ sync_status: "removed", updated_at: new Date() })
-          .where(eq(campaignProspects.id, cp.id));
-        await db.insert(prospectEvents).values({
-          prospect_id: cp.prospect_id,
-          campaign_prospect_id: cp.id,
-          event_type: "retry_skipped",
-          actor_type: "system",
-          actor_name: "outbound_sync_worker",
-          summary: "Skipped: do_not_contact flag set",
-        });
-        continue;
-      }
-
       if (!["approved", "campaign_queued"].includes(prospect.status)) {
         result.leads_skipped_safety++;
         continue;
@@ -226,58 +287,50 @@ export async function processOutboundSync(): Promise<SyncResult> {
         continue;
       }
 
-      // ── CASL implied-consent gate (default ON) ──────────
-      // Only contact an email that is CONSPICUOUSLY PUBLISHED on the business's
-      // OWN website — i.e. the email's domain matches the business's website
-      // domain (info@acmeplumbing.com is fine; a scraped gmail/outlook address
-      // or an email on an unrelated domain is NOT implied consent under CASL's
-      // B2B exemption). This is the actual published-on-their-site test, not the
-      // coarser contact_confidence bucket (which lumps domain-matched generics
-      // together with unknown-domain emails). Flip OUTBOUND_CASL_STRICT=false
-      // only with a separate lawful basis to send.
-      if (process.env.OUTBOUND_CASL_STRICT !== "false") {
-        const emailDomain = prospect.primary_email.split("@")[1]?.toLowerCase().trim().replace(/^www\./, "") || "";
-        const siteDomain = (prospect.website_domain || "").toLowerCase().trim().replace(/^www\./, "");
-        const publishedOnOwnSite = !!emailDomain && !!siteDomain && emailDomain === siteDomain;
-        if (!publishedOnOwnSite) {
-          result.leads_skipped_safety++;
-          await db.update(campaignProspects)
-            .set({ sync_status: "removed", updated_at: new Date() })
-            .where(eq(campaignProspects.id, cp.id));
-          await db.insert(prospectEvents).values({
-            prospect_id: cp.prospect_id,
-            campaign_prospect_id: cp.id,
-            event_type: "retry_skipped",
-            actor_type: "system",
-            actor_name: "outbound_sync_worker",
-            summary: `Skipped (CASL): "${prospect.primary_email}" is not published on the business's own domain (${siteDomain || "no website"})`,
-          });
-          continue;
-        }
-      }
-
-      // Live blacklist re-check at push time (protects against post-assignment blacklisting)
-      const blCheck = await checkBlacklist(
-        prospect.website_domain,
-        prospect.primary_email,
-        prospect.primary_phone
-      );
-      if (blCheck.blocked) {
+      // ── LANE OB: Unified push-time eligibility re-check ─────────────────
+      // ONE gate covering DNC, the CASL hard consent gate (min-confidence /
+      // express / expired-implied / conspicuous-publication, CA always
+      // strict), the global blacklist, AND the transactional unsubscribe
+      // registry (email_unsubscribes bridge). Everything is re-checked HERE,
+      // at push time — a lead suppressed by webhook or unsubscribe AFTER
+      // assignment is never pushed.
+      const gate = await checkPushEligibility(prospect);
+      if (!gate.eligible) {
         result.leads_skipped_safety++;
         await db.update(campaignProspects)
           .set({ sync_status: "removed", updated_at: new Date() })
           .where(eq(campaignProspects.id, cp.id));
-        await db.update(prospects)
-          .set({ do_not_contact: true, dnc_reason: `blacklist:${blCheck.type}`, updated_at: new Date() })
-          .where(eq(prospects.id, cp.prospect_id));
+
+        if (gate.code === "blocked_blacklist" || gate.code === "blocked_unsubscribed") {
+          // Permanent suppressions also flip the prospect-level DNC flag.
+          await db.update(prospects)
+            .set({
+              do_not_contact: true,
+              dnc_reason: gate.code === "blocked_blacklist"
+                ? `blacklist:${gate.blacklistType}`
+                : "transactional_unsubscribe",
+              updated_at: new Date(),
+            })
+            .where(eq(prospects.id, cp.prospect_id));
+          // Bridge: a transactional unsubscribe becomes a permanent outbound
+          // blacklist entry too, so assign-time checks catch it from now on.
+          if (gate.code === "blocked_unsubscribed" && prospect.primary_email) {
+            await addToBlacklist("email", prospect.primary_email, "transactional_unsubscribe");
+          }
+        }
+
         await db.insert(prospectEvents).values({
           prospect_id: cp.prospect_id,
           campaign_prospect_id: cp.id,
-          event_type: "blacklisted",
+          event_type: gate.code === "blocked_blacklist" || gate.code === "blocked_unsubscribed"
+            ? "blacklisted"
+            : gate.code === "blocked_dnc"
+              ? "retry_skipped"
+              : "blocked_consent",
           actor_type: "system",
           actor_name: "outbound_sync_worker",
-          summary: `Blocked at sync: blacklisted ${blCheck.type}`,
-          metadata: { reason: blCheck.reason },
+          summary: `Blocked at push: ${gate.reason}`,
+          metadata: { code: gate.code, campaign_id: campaign.id },
         });
         continue;
       }
@@ -285,6 +338,15 @@ export async function processOutboundSync(): Promise<SyncResult> {
       // ── TASK 4: Cooldown check (redundant but explicit) ─
       if (cp.next_retry_at && cp.next_retry_at > now) {
         result.leads_skipped_cooldown++;
+        continue;
+      }
+
+      // ── LANE OB: consume one unit of the cross-campaign global budget ──
+      // (real sends only — dry-run pushes are free). Once the budget is
+      // exhausted, every remaining real lead this run is deferred, across
+      // ALL campaigns.
+      if (!dryRun && !globalBudget.tryConsume()) {
+        result.leads_skipped_global_cap++;
         continue;
       }
 
@@ -363,6 +425,12 @@ export async function processOutboundSync(): Promise<SyncResult> {
         });
 
         result.leads_synced++;
+
+        // ── LANE OB: persist the ramp origin on the FIRST real send ever ──
+        // Idempotent — markFirstRealSend never overwrites an existing value.
+        if (!dryRun) {
+          await markFirstRealSend(contactedAt);
+        }
 
         // ── TASK 3: Throttle between API calls ─────────────
         await apiDelay();
