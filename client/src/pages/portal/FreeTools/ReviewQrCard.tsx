@@ -322,9 +322,9 @@ export default function ReviewQrCard() {
         <header className="rqc-no-print">
           <div className="flex items-center gap-2 mb-1">
             <QrCode className="w-5 h-5 text-brand-blue" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-gray-900">
               Review QR + Digital Card
-            </h1>
+            </h2>
           </div>
           <p className="text-sm text-gray-600 max-w-3xl">
             Two printable QR codes to leave behind after every job. One sends

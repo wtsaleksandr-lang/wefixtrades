@@ -72,7 +72,7 @@ export default function WebFixEntry() {
       <div data-theme="light" className="space-y-6">
         <header className="flex items-center gap-2">
           <Hammer className="w-5 h-5 text-brand-blue" aria-hidden="true" />
-          <h1 className="text-2xl font-bold text-gray-900">WebFix</h1>
+          <h2 className="text-2xl font-bold text-gray-900">WebFix</h2>
         </header>
 
         {isLoading && (

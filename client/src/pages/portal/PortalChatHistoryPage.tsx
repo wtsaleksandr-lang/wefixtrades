@@ -51,10 +51,10 @@ export default function PortalChatHistoryPage() {
         </Link>
 
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <MessageCircle className="w-4 h-4 text-brand-blue" />
             Your chat history
-          </h1>
+          </h2>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wide">7-day rolling</span>
         </div>
 

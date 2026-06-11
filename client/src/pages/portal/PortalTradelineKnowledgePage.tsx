@@ -156,9 +156,9 @@ export default function PortalTradelineKnowledgePage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
               <BookOpen className="w-6 h-6 text-brand-blue" /> Knowledge Base
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground mt-1">
               Anything you add here is read by your AI receptionist on every call and chat.
               Higher-priority entries are surfaced first.

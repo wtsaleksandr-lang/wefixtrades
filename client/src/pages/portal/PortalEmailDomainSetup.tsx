@@ -163,7 +163,7 @@ export default function PortalEmailDomainSetup() {
       <div className="max-w-3xl space-y-6">
         <BackButton to="/portal/settings" label="Back to settings" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Email sender domain</h1>
+          <h2 className="text-2xl font-bold text-gray-900">Email sender domain</h2>
           <p className="text-sm text-gray-600 mt-1">
             Choose what customers see in the "from" field of every email we send on your behalf.
           </p>

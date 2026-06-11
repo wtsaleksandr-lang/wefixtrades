@@ -163,7 +163,7 @@ export default function ChatWidgetInstallOnboarding() {
       <div className="max-w-3xl space-y-5">
         <BackButton to="/portal/tradeline/chat-widget/install" label="Back" />
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Tell us about your site</h1>
+          <h2 className="text-2xl font-bold text-foreground">Tell us about your site</h2>
           <p className="text-sm text-muted-foreground mt-1">
             {justPaid
               ? "Thanks — payment received. A few quick details and we'll handle the rest."

@@ -371,7 +371,7 @@ export default function PortalArticles() {
     <PortalLayout>
       <div className="space-y-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">ContentFlow</h1>
+          <h2 className="text-2xl font-semibold tracking-tight">ContentFlow</h2>
           <p className="text-sm text-muted-foreground">
             {videoFeatureVisible
               ? "Review articles and see what social posts and videos are going out on your channels."

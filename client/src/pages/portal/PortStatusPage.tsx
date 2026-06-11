@@ -227,7 +227,7 @@ export default function PortStatusPage() {
             <ArrowLeft className="h-4 w-4" /> Back to TradeLine setup
           </Link>
           <Card className="mt-2 p-6">
-            <h1 className="text-xl font-semibold">No port request on file</h1>
+            <h2 className="text-xl font-semibold">No port request on file</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               You haven't started porting an existing number yet. Start the wizard to keep your number on TradeLine.
             </p>
@@ -260,7 +260,7 @@ export default function PortStatusPage() {
           <div className="flex items-start gap-3">
             <ToneIcon tone={meta.tone} />
             <div className="flex-1">
-              <h1 className="text-xl font-semibold">{meta.headline}</h1>
+              <h2 className="text-xl font-semibold">{meta.headline}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{meta.subhead}</p>
               {port.phoneNumber && (
                 <div className="mt-2 text-sm">

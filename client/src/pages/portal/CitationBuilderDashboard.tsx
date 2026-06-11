@@ -184,7 +184,7 @@ export default function CitationBuilderDashboard() {
       <div style={{ maxWidth: 880, margin: "0 auto", padding: "24px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: "#111827" }}>Citation Builder</h1>
+            <h2 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: "#111827" }}>Citation Builder</h2>
             <div style={{ fontSize: 14, color: "rgba(0,0,0,0.62)", marginTop: 4 }}>
               One-time submission orders + completion progress.
             </div>

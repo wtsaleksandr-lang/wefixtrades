@@ -159,7 +159,7 @@ export default function PortalTicketDetail() {
               <div className="px-5 py-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h1 className="text-base font-semibold text-gray-900">{ticket.subject}</h1>
+                    <h2 className="text-base font-semibold text-gray-900">{ticket.subject}</h2>
                     <p className="text-xs text-gray-400 mt-1">
                       #{ticket.id} &middot; {CATEGORY_LABELS[ticket.category] || ticket.category} &middot; Created {formatDate(ticket.created_at)}
                     </p>

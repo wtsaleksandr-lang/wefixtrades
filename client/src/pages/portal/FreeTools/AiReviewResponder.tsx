@@ -240,7 +240,7 @@ export default function AiReviewResponder() {
         <header>
           <div className="flex items-center gap-2 mb-1">
             <MessageSquareQuote className="w-5 h-5 text-brand-blue" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-gray-900">AI Review Responder</h1>
+            <h2 className="text-2xl font-bold text-gray-900">AI Review Responder</h2>
           </div>
           <p className="text-sm text-gray-600 max-w-3xl">
             Paste a customer review and get instant, on-brand reply drafts. Replying
