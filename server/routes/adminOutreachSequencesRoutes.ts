@@ -30,8 +30,40 @@ import { eq, desc, sql, and } from "drizzle-orm";
 import { z } from "zod";
 import { createLogger } from "../lib/logger";
 import { generateSequence } from "../services/copyEngine";
+import { validateSequenceCanSpam } from "../services/outboundSafety";
 
 const log = createLogger("AdminOutreachSequences");
+
+/**
+ * LANE OB — CAN-SPAM activation gate.
+ *
+ * A sequence may only go `active` when EVERY step body carries:
+ *   1. a physical postal address (merge token like {{sender_address}} or a
+ *      literal street address), and
+ *   2. an unsubscribe mechanism (merge token like {{unsubscribe}} or an
+ *      explicit unsubscribe/opt-out mention).
+ * Returns null when compliant; otherwise a response payload describing
+ * exactly which steps fail and why, for a 422.
+ */
+function canSpamActivationError(
+  steps: { order_index: number; body_template: string }[],
+): { error: string; failures: { order_index: number; missing: string[] }[] } | null {
+  if (steps.length === 0) {
+    return {
+      error: "Cannot activate: sequence has no steps",
+      failures: [],
+    };
+  }
+  const result = validateSequenceCanSpam(steps);
+  if (result.ok) return null;
+  return {
+    error:
+      "Cannot activate: CAN-SPAM requires every step body to contain a physical " +
+      "postal address (e.g. {{sender_address}} or a literal street address) and " +
+      "an unsubscribe mechanism (e.g. {{unsubscribe}}). Fix the listed steps and retry.",
+    failures: result.failures,
+  };
+}
 
 /* AI multi-agent sequence-generation inputs (copy engine). */
 const generateSequenceSchema = z.object({
@@ -189,6 +221,17 @@ export function registerAdminOutreachSequencesRoutes(app: Express): void {
     const { initial_step, ...seqInput } = parsed.data;
     const ownerId = (req.user as any)?.id ?? null;
 
+    // LANE OB: creating directly as `active` runs the CAN-SPAM gate on the
+    // provided step(s) — a sequence can never be born active and non-compliant.
+    if (seqInput.status === "active") {
+      const canSpamErr = canSpamActivationError(
+        initial_step
+          ? [{ order_index: 1, body_template: initial_step.body_template }]
+          : [],
+      );
+      if (canSpamErr) return res.status(422).json(canSpamErr);
+    }
+
     try {
       const [created] = await db.insert(outreachSequences).values({
         ...seqInput,
@@ -223,6 +266,22 @@ export function registerAdminOutreachSequencesRoutes(app: Express): void {
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
     try {
+      // LANE OB: CAN-SPAM activation gate — transitioning to `active`
+      // validates EVERY step body (physical address + unsubscribe mechanism).
+      if (parsed.data.status === "active") {
+        const steps = await db
+          .select({
+            order_index: outreachSequenceSteps.order_index,
+            body_template: outreachSequenceSteps.body_template,
+          })
+          .from(outreachSequenceSteps)
+          .where(eq(outreachSequenceSteps.sequence_id, id))
+          .orderBy(outreachSequenceSteps.order_index);
+
+        const canSpamErr = canSpamActivationError(steps);
+        if (canSpamErr) return res.status(422).json(canSpamErr);
+      }
+
       const [updated] = await db
         .update(outreachSequences)
         .set({ ...parsed.data, updated_at: new Date() })
