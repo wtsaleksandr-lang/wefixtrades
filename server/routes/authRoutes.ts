@@ -12,6 +12,14 @@ import { storage } from "../storage";
 import { generateSecret, verifyCode as verifyTotpCode } from "../services/totpService";
 import { createLogger } from "../lib/logger";
 import { verifyLoginToken, getCheckoutLoginToken, buildLoginToken, MAGIC_LINK_TTL } from "../lib/loginToken";
+import Stripe from "stripe";
+import { verifyCheckoutSessionPaid } from "../lib/checkoutPaymentGate";
+import { evaluateAdminTwoFactorPolicy } from "../lib/adminTwoFactorPolicy";
+import {
+  generateRecoveryCodes,
+  consumeRecoveryCode,
+  looksLikeRecoveryCode,
+} from "../lib/recoveryCodes";
 import { sendLoginLinkEmail } from "../lib/loginLinkEmail";
 import { sendSelfServeWelcome } from "../lib/selfServeWelcomeEmail";
 import {
@@ -222,6 +230,64 @@ async function enforceTwoFactor(
   }
 }
 
+/**
+ * Lane C — mandatory admin 2FA enrollment policy.
+ *
+ * Call AFTER enforceTwoFactor() returned false (i.e. the user has no
+ * enrolled factor) and BEFORE/around req.logIn. For an admin without
+ * TOTP it stamps the session flags requireAdmin enforces and consumes
+ * the single grace login. Returns true when the login response should
+ * carry `requires2faEnrollment: true` (client redirects into the
+ * enrollment flow). Client-role users are never affected.
+ *
+ * Fail-open on DB error: this is a policy nudge layered on top of an
+ * already-successful authentication — refusing all admin logins on a
+ * transient DB blip would be a worse failure mode (enforceTwoFactor
+ * still fails closed for users who HAVE a factor).
+ */
+async function applyAdminTwoFactorEnrollmentPolicy(
+  req: Request,
+  userId: number,
+  role: string,
+): Promise<boolean> {
+  if (role !== "admin") return false;
+  try {
+    const [row] = await db
+      .select({
+        totp_enabled: users.totp_enabled,
+        admin_2fa_grace_used_at: users.admin_2fa_grace_used_at,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const decision = evaluateAdminTwoFactorPolicy({
+      role,
+      totpEnabled: !!row?.totp_enabled,
+      graceUsedAt: (row?.admin_2fa_grace_used_at as Date | null) ?? null,
+    });
+    if (!decision.enrollmentRequired) return false;
+
+    if (decision.graceLogin) {
+      await db
+        .update(users)
+        .set({ admin_2fa_grace_used_at: new Date() })
+        .where(eq(users.id, userId));
+      log.warn("Admin without 2FA — grace login consumed, enrollment required", { userId });
+    } else {
+      log.warn("Admin without 2FA — grace already used, session is enrollment-restricted", { userId });
+    }
+
+    const sess = req.session as any;
+    sess.admin2faEnrollPending = true;
+    sess.admin2faEnrollGrace = decision.graceLogin;
+    return true;
+  } catch (e) {
+    log.error("applyAdminTwoFactorEnrollmentPolicy failed", { userId, error: String(e) });
+    return false;
+  }
+}
+
 export function registerAuthRoutes(app: Express) {
   /** Current session user (or null).
    *
@@ -278,6 +344,10 @@ export function registerAuthRoutes(app: Express) {
       // 2FA gate — same logic the social-login callbacks use.
       if (await enforceTwoFactor(req, res, next, dbUser.id)) return;
 
+      // Lane C: admins without an enrolled factor are forced into the
+      // 2FA enrollment flow (one grace login, then enrollment-restricted).
+      const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, dbUser.id, dbUser.role);
+
       const sessionUser: Express.User = {
         id: dbUser.id, email: dbUser.email, role: dbUser.role, name: dbUser.name,
       };
@@ -285,6 +355,7 @@ export function registerAuthRoutes(app: Express) {
         if (loginErr) return next(loginErr);
         return res.json({
           user: { id: sessionUser.id, email: sessionUser.email, role: sessionUser.role, name: sessionUser.name },
+          ...(requires2faEnrollment ? { requires2faEnrollment: true } : {}),
         });
       });
     } catch (err) {
@@ -524,12 +595,17 @@ export function registerAuthRoutes(app: Express) {
           });
         }
 
+        // Lane C: mandatory admin 2FA enrollment (parity with /login).
+        const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, fullUser.id, fullUser.role);
+
         const sessionUser: Express.User = {
           id: fullUser.id, email: fullUser.email, role: fullUser.role, name: fullUser.name,
         };
         return req.logIn(sessionUser, (loginErr) => {
           if (loginErr) return next(loginErr);
-          return res.redirect(landingPathForRole(fullUser.role));
+          return res.redirect(
+            requires2faEnrollment ? "/admin/crm/settings?enroll2fa=1" : landingPathForRole(fullUser.role),
+          );
         });
       };
 
@@ -778,12 +854,17 @@ export function registerAuthRoutes(app: Express) {
           return res.redirect("/login?verify2fa=1");
         });
       }
+      // Lane C: mandatory admin 2FA enrollment (parity with /login).
+      const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, fullUser.id, fullUser.role);
+
       const sessionUser: Express.User = {
         id: fullUser.id, email: fullUser.email, role: fullUser.role, name: fullUser.name,
       };
       return req.logIn(sessionUser, (loginErr) => {
         if (loginErr) return next(loginErr);
-        return res.redirect(landingPathForRole(fullUser.role));
+        return res.redirect(
+          requires2faEnrollment ? "/admin/crm/settings?enroll2fa=1" : landingPathForRole(fullUser.role),
+        );
       });
     })();
   };
@@ -1129,11 +1210,17 @@ export function registerAuthRoutes(app: Express) {
       // let anyone with a magic-link token bypass a second factor.
       if (await enforceTwoFactor(req, res, next, user.id)) return;
 
+      // Lane C: mandatory admin 2FA enrollment (parity with /login).
+      const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, user.id, user.role);
+
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
       req.logIn(sessionUser, (loginErr) => {
         if (loginErr) return next(loginErr);
         log.info("Token-based login completed", { userId: user.id });
-        return res.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+        return res.json({
+          user: { id: user.id, email: user.email, role: user.role, name: user.name },
+          ...(requires2faEnrollment ? { requires2faEnrollment: true } : {}),
+        });
       });
     } catch (err) {
       log.error("Token login error", { error: String(err) });
@@ -1165,6 +1252,31 @@ export function registerAuthRoutes(app: Express) {
         return res.status(404).json({ error: "No login token found for this session. Please log in manually." });
       }
 
+      // Lane C belt-and-braces: even with a stored token, refuse the
+      // auto-login unless Stripe confirms the session actually settled.
+      // The webhook's paid-gate means unpaid sessions never get a token,
+      // but this guards the race/redelivery edge — and a fabricated
+      // session_id dies on the token lookup above anyway.
+      const stripeKey = process.env.STRIPE_SECRET_KEY;
+      if (stripeKey) {
+        const stripe = new Stripe(stripeKey, { apiVersion: "2025-01-27.acacia" as any });
+        const verification = await verifyCheckoutSessionPaid(sessionId, async (sid) =>
+          stripe.checkout.sessions.retrieve(sid),
+        );
+        if (!verification.ok) {
+          log.warn("Checkout auto-login refused — session not settled", {
+            sessionId,
+            status: verification.status,
+            reason: verification.reason,
+          });
+          return res.status(403).json({ error: "Payment for this session has not completed. Please log in manually once payment settles." });
+        }
+      } else if (process.env.NODE_ENV === "production") {
+        // No Stripe key in production = cannot verify payment — fail closed.
+        log.error("Checkout auto-login refused — STRIPE_SECRET_KEY missing in production");
+        return res.status(503).json({ error: "Auto-login unavailable. Please log in manually." });
+      }
+
       const payload = verifyLoginToken(token);
       if (!payload) {
         return res.status(401).json({ error: "Login token expired" });
@@ -1186,11 +1298,18 @@ export function registerAuthRoutes(app: Express) {
       // P1 parity: 2FA gate. Previously checkout-login skipped TOTP.
       if (await enforceTwoFactor(req, res, next, user.id)) return;
 
+      // Lane C: mandatory admin 2FA enrollment (parity with /login).
+      // Checkout customers are role=client → no-op for them.
+      const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, user.id, user.role);
+
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
       req.logIn(sessionUser, (loginErr) => {
         if (loginErr) return next(loginErr);
         log.info("Checkout auto-login completed", { userId: user.id, sessionId });
-        return res.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+        return res.json({
+          user: { id: user.id, email: user.email, role: user.role, name: user.name },
+          ...(requires2faEnrollment ? { requires2faEnrollment: true } : {}),
+        });
       });
     } catch (err) {
       log.error("Checkout login error", { error: String(err) });
@@ -1218,7 +1337,23 @@ export function registerAuthRoutes(app: Express) {
         return res.status(401).json({ error: "2FA is not configured for this account" });
       }
 
-      if (!verifyTotpCode(user.totp_secret, code)) {
+      // Lane C: accept a single-use recovery code as the second factor
+      // (break-glass for a lost authenticator — mandatory-2FA admins
+      // would otherwise be locked out with no self-service path back).
+      if (looksLikeRecoveryCode(code)) {
+        const result = consumeRecoveryCode(user.totp_recovery_codes, code);
+        if (!result.ok) {
+          return res.status(401).json({ error: "Invalid verification code" });
+        }
+        await db
+          .update(users)
+          .set({ totp_recovery_codes: result.remainingHashes })
+          .where(eq(users.id, user.id));
+        log.warn("2FA completed via recovery code", {
+          userId: user.id,
+          remainingCodes: result.remainingHashes.length,
+        });
+      } else if (!verifyTotpCode(user.totp_secret, code)) {
         return res.status(401).json({ error: "Invalid verification code" });
       }
 
@@ -1655,9 +1790,28 @@ export function registerAuthRoutes(app: Express) {
         return res.status(401).json({ error: "Invalid verification code. Please try again." });
       }
 
-      await db.update(users).set({ totp_enabled: true }).where(eq(users.id, userId));
+      // Lane C: mint single-use recovery codes at enrollment. Plaintext
+      // is returned EXACTLY once in this response; only SHA-256 hashes
+      // are persisted. Without these, a mandatory-2FA admin losing their
+      // authenticator is locked out with no self-service recovery.
+      const recovery = generateRecoveryCodes();
+      await db
+        .update(users)
+        .set({ totp_enabled: true, totp_recovery_codes: recovery.hashes })
+        .where(eq(users.id, userId));
+
+      // Enrollment satisfies the mandatory-admin-2FA policy — lift the
+      // enrollment restriction from the current session immediately.
+      const sess = req.session as any;
+      delete sess.admin2faEnrollPending;
+      delete sess.admin2faEnrollGrace;
+
       log.info("2FA enabled for user", { userId });
-      res.json({ ok: true, message: "Two-factor authentication has been enabled" });
+      res.json({
+        ok: true,
+        message: "Two-factor authentication has been enabled",
+        recoveryCodes: recovery.codes,
+      });
     } catch (err) {
       log.error("2FA verify-setup error", { error: String(err) });
       res.status(500).json({ error: "Failed to enable two-factor authentication" });
@@ -1679,7 +1833,19 @@ export function registerAuthRoutes(app: Express) {
       if (!verifyPassword(password, user.password_hash)) return res.status(401).json({ error: "Incorrect password" });
       if (!verifyTotpCode(user.totp_secret, code)) return res.status(401).json({ error: "Invalid verification code" });
 
-      await db.update(users).set({ totp_enabled: false, totp_secret: null }).where(eq(users.id, userId));
+      // Lane C: drop recovery codes with the factor, and reset the
+      // mandatory-admin-2FA grace marker so an admin who disables 2FA
+      // gets a fresh grace login to re-enroll (rather than landing
+      // straight in the enrollment-restricted state).
+      await db
+        .update(users)
+        .set({
+          totp_enabled: false,
+          totp_secret: null,
+          totp_recovery_codes: null,
+          admin_2fa_grace_used_at: null,
+        })
+        .where(eq(users.id, userId));
       log.info("2FA disabled for user", { userId });
       res.json({ ok: true, message: "Two-factor authentication has been disabled" });
     } catch (err) {
@@ -1692,8 +1858,13 @@ export function registerAuthRoutes(app: Express) {
   app.get("/api/user/2fa/status", requireAuth, async (req, res) => {
     try {
       const userId = req.user!.id;
-      const [user] = await db.select({ totp_enabled: users.totp_enabled }).from(users).where(eq(users.id, userId)).limit(1);
-      res.json({ enabled: !!user?.totp_enabled });
+      const [user] = await db
+        .select({ totp_enabled: users.totp_enabled, totp_recovery_codes: users.totp_recovery_codes })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      const remaining = Array.isArray(user?.totp_recovery_codes) ? user.totp_recovery_codes.length : 0;
+      res.json({ enabled: !!user?.totp_enabled, recoveryCodesRemaining: remaining });
     } catch (err) {
       log.error("2FA status check error", { error: String(err) });
       res.status(500).json({ error: "Failed to check 2FA status" });

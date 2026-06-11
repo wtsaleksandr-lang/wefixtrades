@@ -40,7 +40,8 @@ import { autoAssignSupplier } from "../services/supplierAssignment";
 import { runPreFixAudit } from "../services/webfixAuditService";
 import { sendAdflowOnboardingEmail } from "../lib/adflowOnboardingEmail";
 import { sendMapguardWelcomeEmail } from "../lib/mapguardWelcomeEmail";
-import { buildLoginToken, storeCheckoutLoginToken } from "../lib/loginToken";
+import { buildLoginToken, storeCheckoutLoginToken, deleteCheckoutLoginToken } from "../lib/loginToken";
+import { gateCheckoutSession, isProvisionablePaymentStatus } from "../lib/checkoutPaymentGate";
 import { kickoffMapguardService } from "../services/mapguardTaskEngine";
 import { kickoffReputationShieldService } from "../services/reputation/reputationShieldKickoff";
 import { sendGA4Event, clientIdFromStableId } from "../lib/analytics/ga4Server";
@@ -198,30 +199,33 @@ export function registerStripeBillingRoutes(app: Express): void {
         case "checkout.session.completed": {
           const session = event.data.object as Stripe.Checkout.Session;
           await handleCheckoutCompleted(session);
-          // ─── GA4 (server) — purchase_completed ───
-          // Fire-and-forget. No-ops outside production / without
-          // GA4_MEASUREMENT_PROTOCOL_API_SECRET. client_id is derived
-          // deterministically from the Stripe customer id so the same
-          // customer's purchases roll up to one "user" in GA reports.
-          // No PII in params — only amounts, currency, source label.
-          try {
-            const stripeCustomerId =
-              typeof session.customer === "string"
-                ? session.customer
-                : session.customer?.id ?? session.id;
-            void sendGA4Event({
-              clientId: clientIdFromStableId(stripeCustomerId || session.id),
-              name: "purchase_completed",
-              params: {
-                transaction_id: session.id,
-                value: typeof session.amount_total === "number" ? session.amount_total / 100 : 0,
-                currency: (session.currency || "usd").toUpperCase(),
-                source: session.metadata?.source ?? "unknown",
-              },
-            });
-          } catch {
-            // sendGA4Event is internally safe; this catch is belt-and-suspenders.
+          // GA4 purchase only when the money is actually settled. For
+          // delayed payment methods (ACH etc.) payment_status is "unpaid"
+          // here — the purchase fires on async_payment_succeeded instead,
+          // so failed ACH pulls never count as revenue.
+          if (isProvisionablePaymentStatus(session.payment_status)) {
+            firePurchaseCompletedGA4(session);
           }
+          break;
+        }
+
+        case "checkout.session.async_payment_succeeded": {
+          // Delayed-notification payment (ACH / acss_debit / etc.) has now
+          // SETTLED. checkout.session.completed deferred all provisioning
+          // for this session (payment_status was "unpaid"); the session in
+          // this event carries payment_status === "paid", so the same
+          // pipeline now runs to completion — provisioning, emails, portal
+          // account + login token.
+          const session = event.data.object as Stripe.Checkout.Session;
+          await handleCheckoutCompleted(session);
+          firePurchaseCompletedGA4(session);
+          break;
+        }
+
+        case "checkout.session.async_payment_failed": {
+          // Delayed payment BOUNCED — never provision, never store a login
+          // token; mark any pre-provisioned pending invoice failed.
+          await handleCheckoutAsyncPaymentFailed(event.data.object as Stripe.Checkout.Session);
           break;
         }
 
@@ -323,7 +327,76 @@ export function registerStripeBillingRoutes(app: Express): void {
 
 /* ─── Webhook Handlers ─── */
 
+/**
+ * ─── GA4 (server) — purchase_completed ───
+ * Fire-and-forget. No-ops outside production / without
+ * GA4_MEASUREMENT_PROTOCOL_API_SECRET. client_id is derived
+ * deterministically from the Stripe customer id so the same
+ * customer's purchases roll up to one "user" in GA reports.
+ * No PII in params — only amounts, currency, source label.
+ */
+function firePurchaseCompletedGA4(session: Stripe.Checkout.Session) {
+  try {
+    const stripeCustomerId =
+      typeof session.customer === "string"
+        ? session.customer
+        : session.customer?.id ?? session.id;
+    void sendGA4Event({
+      clientId: clientIdFromStableId(stripeCustomerId || session.id),
+      name: "purchase_completed",
+      params: {
+        transaction_id: session.id,
+        value: typeof session.amount_total === "number" ? session.amount_total / 100 : 0,
+        currency: (session.currency || "usd").toUpperCase(),
+        source: session.metadata?.source ?? "unknown",
+      },
+    });
+  } catch (err: any) {
+    // sendGA4Event is internally safe; this catch is belt-and-suspenders.
+    log.warn(`[billing-webhook] GA4 purchase_completed dispatch failed for ${session.id}: ${err?.message}`);
+  }
+}
+
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  // ─── Lane C security gate: only provision SETTLED sessions ───
+  // checkout.session.completed fires for delayed payment methods (ACH /
+  // us_bank_account, acss_debit, …) with payment_status === "unpaid" —
+  // the pull can still bounce days later. Previously we provisioned
+  // services AND stored the auto-login token here regardless, so a
+  // customer whose payment later failed kept a live account. Now:
+  // unpaid → defer everything; checkout.session.async_payment_succeeded
+  // re-enters this same function with payment_status === "paid", and
+  // async_payment_failed cleans up without ever provisioning. Mirrors
+  // the existing paid-check pattern in bookingRoutes.ts.
+  if (gateCheckoutSession(session.payment_status) !== "provision") {
+    log.info(
+      `[billing-webhook] checkout.session.completed ${session.id} has payment_status=${session.payment_status} — deferring provisioning until async_payment_succeeded`,
+    );
+    // Persist a durable trace so ops can see/reconcile sessions whose
+    // async settlement event never arrives. The async event itself
+    // carries the full session, so no other state is needed to finish.
+    try {
+      await storage.logAdminActivity({
+        actor_type: "system",
+        actor_name: "Stripe Webhook",
+        action: "checkout.async_payment_pending",
+        entity_type: "stripe_session",
+        summary: `Checkout session ${session.id} completed with payment_status=${session.payment_status} (delayed payment method) — provisioning deferred until the payment settles`,
+        metadata: {
+          stripe_session_id: session.id,
+          payment_status: session.payment_status,
+          source: session.metadata?.source ?? null,
+          crm_client_id: session.metadata?.crm_client_id ?? null,
+          service_catalog_id: session.metadata?.service_catalog_id ?? null,
+          amount_total: session.amount_total,
+        },
+      });
+    } catch (err: any) {
+      log.warn(`[billing-webhook] could not log async-payment-pending activity for ${session.id}: ${err.message}`);
+    }
+    return;
+  }
+
   // ─── QuoteQuick direct checkout (calculator-linked) ───
   if (session.metadata?.source === 'quotequick_checkout') {
     await handleQuoteQuickCheckout(session);
@@ -440,6 +513,80 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   } catch (err: any) {
     log.warn(`[billing-webhook] Could not auto-create portal account for client #${clientId}: ${err.message}`);
   }
+}
+
+/**
+ * checkout.session.async_payment_failed — the delayed payment (ACH etc.)
+ * BOUNCED after the Checkout UI completed. Nothing was provisioned (the
+ * paid-gate in handleCheckoutCompleted deferred everything), so this
+ * handler:
+ *   1. defensively drops any login token stored for the session,
+ *   2. marks the pending invoice failed on any PRE-provisioned service
+ *      (public checkout provisions rows in "pending" before payment),
+ *   3. leaves a durable audit trail + ops alert.
+ * It must NEVER provision or activate anything.
+ */
+async function handleCheckoutAsyncPaymentFailed(session: Stripe.Checkout.Session) {
+  // 1. No auto-login for a failed payment — defensive; the paid-gate
+  // means no token should exist for this session in the first place.
+  deleteCheckoutLoginToken(session.id);
+
+  const clientId = parseInt(session.metadata?.crm_client_id || "0");
+  const serviceIdRaw = session.metadata?.service_catalog_id;
+  let invoicesMarkedFailed = 0;
+
+  // 2. Pre-provisioned (public-checkout) services carry a pending
+  // invoice created at provision-time — flip it to failed so the CRM
+  // and the portal stop showing it as awaiting settlement.
+  if (clientId && serviceIdRaw) {
+    const serviceIds = serviceIdRaw.split(",").map(s => s.trim()).filter(Boolean);
+    for (const serviceId of serviceIds) {
+      try {
+        const existing = await storage.findClientServiceByServiceId(clientId, serviceId);
+        if (!existing) continue;
+        const pendingInvoice = await storage.findPendingPaymentForClientService(existing.id);
+        if (pendingInvoice) {
+          await storage.updateClientPayment(pendingInvoice.id, { status: "failed" });
+          invoicesMarkedFailed++;
+          log.info(`[billing-webhook] async_payment_failed — invoice #${pendingInvoice.id} (service ${serviceId}, client ${clientId}) marked failed`);
+        }
+      } catch (err: any) {
+        log.warn(`[billing-webhook] async_payment_failed cleanup for service ${serviceId} / client ${clientId} failed: ${err.message}`);
+      }
+    }
+  }
+
+  // 3. Durable trail + ops alert (alert is best-effort, never throws).
+  try {
+    await storage.logAdminActivity({
+      actor_type: "system",
+      actor_name: "Stripe Webhook",
+      action: "checkout.async_payment_failed",
+      entity_type: clientId ? "client" : "stripe_session",
+      entity_id: clientId || undefined,
+      summary: `Delayed payment FAILED for checkout session ${session.id} — nothing provisioned, no login issued${invoicesMarkedFailed ? `, ${invoicesMarkedFailed} pending invoice(s) marked failed` : ""}`,
+      metadata: {
+        stripe_session_id: session.id,
+        payment_status: session.payment_status,
+        source: session.metadata?.source ?? null,
+        crm_client_id: session.metadata?.crm_client_id ?? null,
+        service_catalog_id: session.metadata?.service_catalog_id ?? null,
+        amount_total: session.amount_total,
+      },
+    });
+  } catch (err: any) {
+    log.warn(`[billing-webhook] could not log async-payment-failed activity for ${session.id}: ${err.message}`);
+  }
+
+  fireAlert({
+    severity: "warning",
+    category: "stripe_error",
+    title: "Checkout async payment failed",
+    details: `Session ${session.id} (source: ${session.metadata?.source ?? "unknown"}) — delayed payment bounced. No services were provisioned.`,
+    metadata: { stripe_session_id: session.id, crm_client_id: session.metadata?.crm_client_id ?? null },
+  }).catch(err => log.warn(`[billing-webhook] async_payment_failed alert dispatch failed: ${err.message}`));
+
+  log.warn(`[billing-webhook] checkout.session.async_payment_failed for session ${session.id} — provisioning withheld`);
 }
 
 /** Handle a single service within a checkout session */

@@ -97,6 +97,17 @@ export function storeCheckoutLoginToken(sessionId: string, token: string) {
   checkoutLoginTokens.set(sessionId, { token, createdAt: now });
 }
 
+/**
+ * Drop any stored login token for a checkout session WITHOUT consuming
+ * it into a caller. Used by the checkout.session.async_payment_failed
+ * webhook so a failed delayed payment (ACH etc.) can never be exchanged
+ * for a session — defensive: the paid-gate means no token should have
+ * been stored for an unpaid session in the first place.
+ */
+export function deleteCheckoutLoginToken(sessionId: string): void {
+  checkoutLoginTokens.delete(sessionId);
+}
+
 /** Retrieve (and consume) the login token for a Stripe checkout session. One-time use. */
 export function getCheckoutLoginToken(sessionId: string): string | null {
   const entry = checkoutLoginTokens.get(sessionId);
