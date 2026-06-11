@@ -13,6 +13,7 @@ interface PaymentRow {
   id: number;
   type: string;
   amount_cents: number;
+  currency?: string | null;
   status: string;
   description: string | null;
   service_name: string | null;
@@ -33,8 +34,15 @@ interface BillingData {
   };
 }
 
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+/* Render the amount in the row's own currency (USD canonical — the column
+ * defaults to "usd"; non-USD only ever appears if Stripe settles otherwise). */
+function formatCents(cents: number, currency?: string | null): string {
+  const code = (currency || "usd").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(cents / 100);
+  } catch {
+    return `$${(cents / 100).toFixed(2)}`;
+  }
 }
 
 function formatDate(dateStr: string | null): string {
@@ -164,7 +172,7 @@ export default function PortalBilling() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 auto-rows-fr">
               <div className="bg-white rounded-xl border border-gray-200 p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                     <CheckCircle className="w-4 h-4 text-emerald-600" />
                   </div>
                   <div>
@@ -175,7 +183,7 @@ export default function PortalBilling() {
               </div>
               <div className="bg-white rounded-xl border border-gray-200 p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
                     <CreditCard className="w-4 h-4 text-amber-600" />
                   </div>
                   <div>
@@ -186,7 +194,7 @@ export default function PortalBilling() {
               </div>
               <div className="bg-white rounded-xl border border-gray-200 p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
                     <Clock className="w-4 h-4 text-blue-600" />
                   </div>
                   <div>
@@ -280,7 +288,7 @@ export default function PortalBilling() {
                             <p className="text-sm font-medium text-gray-900 truncate">{p.service_name || "Invoice"}</p>
                             <p className="text-xs text-gray-500 truncate">{p.description || "Invoice"}</p>
                           </div>
-                          <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCents(p.amount_cents)}</p>
+                          <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCents(p.amount_cents, p.currency)}</p>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
@@ -322,7 +330,7 @@ export default function PortalBilling() {
                             <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{formatDate(p.created_at)}</td>
                             <td className="px-5 py-3 text-gray-700">{p.service_name || "-"}</td>
                             <td className="px-5 py-3 text-gray-500">{p.description || "Invoice"}</td>
-                            <td className="px-5 py-3 text-gray-900 font-medium text-right whitespace-nowrap">{formatCents(p.amount_cents)}</td>
+                            <td className="px-5 py-3 text-gray-900 font-medium text-right whitespace-nowrap">{formatCents(p.amount_cents, p.currency)}</td>
                             <td className="px-5 py-3">
                               <span className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
                                 {statusLabel(PAYMENT_STATUS_LABELS, p.status)}

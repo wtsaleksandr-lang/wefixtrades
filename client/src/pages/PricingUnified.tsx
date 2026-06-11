@@ -575,9 +575,10 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
 
       {/* Value anchor — only when the bundle genuinely costs LESS than buying
           the parts at the CURRENTLY DISPLAYED price (monthly or yearly). A
-          line-through "$X value" above a higher price reads as a fake discount
-          (e.g. Pro, where the parts sum to less than the bundle price), so we
-          suppress it there and keep a spacer to hold card heights aligned. */}
+          line-through "$X value" above a higher price reads as a fake discount,
+          so we suppress it in that case and keep a spacer to hold card heights
+          aligned. (Pro used to trip this at $799 > $576 parts; since the Lane B
+          reprice to $549 every bundle is an honest discount.) */}
       {totalValue > price ? (
         <div style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 4 }}>
           <span style={{ textDecoration: "line-through" }}>{formatPrice(totalValue)}/mo value</span>
@@ -1699,6 +1700,10 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                 Try one tool
               </button>
             </div>
+            {/* Lane B — USD canonicalization: page-level currency footnote. */}
+            <p style={{ fontSize: 12, color: WARM_GRAY, lineHeight: 1.4, margin: "16px 0 0", opacity: 0.75 }}>
+              All prices in USD.
+            </p>
           </div>
         </section>
 

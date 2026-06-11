@@ -29,6 +29,7 @@ import {
   cancelPendingForSubscription,
 } from "../services/dunningService";
 import { sendPaymentSucceededEmail } from "../lib/paymentSucceededEmail";
+import { noisyCatch } from "../lib/silentFailureGuard";
 import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
@@ -311,7 +312,10 @@ export function registerStripeBillingRoutes(app: Express): void {
       res.json({ received: true });
     } catch (err: any) {
       log.error(`[billing-webhook] Error handling ${event.type}:`, err.message);
-      fireAlert({ severity: "critical", category: "stripe_error", title: `Stripe webhook handler failed: ${event.type}`, details: err.message, metadata: { event_type: event.type, event_id: event.id } }).catch(() => {});
+      await noisyCatch(
+        fireAlert({ severity: "critical", category: "stripe_error", title: `Stripe webhook handler failed: ${event.type}`, details: err.message, metadata: { event_type: event.type, event_id: event.id } }),
+        { op: "fireAlert stripe webhook handler failure", severity: "warn" },
+      );
       res.status(500).json({ error: "Webhook handler failed" });
     }
   });
@@ -468,6 +472,7 @@ async function provisionOrConfirmService(
           client_service_id: existing.id,
           type: "payment",
           amount_cents: session.amount_total ?? service?.default_price ?? 0,
+          currency: session.currency ?? "usd",
           status: "paid",
           paid_at: new Date(),
           description: service ? service.name : "Service payment",
@@ -565,6 +570,7 @@ async function provisionOrConfirmService(
     client_service_id: clientService.id,
     type: service.billing_period === "monthly" ? "invoice" : "payment",
     amount_cents: session.amount_total ?? service.default_price ?? 0,
+    currency: session.currency ?? "usd",
     status: "paid",
     paid_at: new Date(),
     description: `${service.name} — ${service.billing_period === "monthly" ? "monthly" : "one-time"}`,
@@ -773,6 +779,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     client_id: client.id,
     type: "payment",
     amount_cents: invoice.amount_paid ?? 0,
+    currency: invoice.currency ?? "usd",
     status: "paid",
     paid_at: new Date(),
     description: `Subscription renewal`,
@@ -800,6 +807,7 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice, eventId: string) {
     client_id: client.id,
     type: "invoice",
     amount_cents: invoice.amount_due ?? 0,
+    currency: invoice.currency ?? "usd",
     status: "failed",
     description: `Payment failed — ${invoice.billing_reason || "unknown"}`,
     stripe_invoice_id: invoice.id,
@@ -912,9 +920,14 @@ async function handleInvoiceSucceeded(invoice: Stripe.Invoice) {
     }, client.id);
 
     if (stripe && invoice.id) {
-      await stripe.invoices.update(invoice.id, {
-        metadata: { last_payment_success_email_period: periodKey },
-      }).catch(() => {});
+      // Idempotency-marker write — non-fatal if it fails, but log it (the
+      // periodKey marker is what prevents duplicate success emails).
+      await noisyCatch(
+        stripe.invoices.update(invoice.id, {
+          metadata: { last_payment_success_email_period: periodKey },
+        }),
+        { op: "stripe.invoices.update payment-success-email period marker" },
+      );
     }
   })().catch(err => log.warn("Payment succeeded email failed", { error: err.message }));
 }

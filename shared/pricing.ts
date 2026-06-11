@@ -888,7 +888,11 @@ export const BUNDLE_PRO: BundleDef = {
   id: "bundle-pro",
   name: "Pro System",
   tagline: "Full automation — posting + reputation + leads",
-  price: 799,
+  // Lane B (2026-06-10): was 799, but the components below sum to $576/mo and
+  // checkout charges the component sum — so the "bundle" cost MORE than buying
+  // separately and bundleSavings() went negative. Repriced to $549/mo: an
+  // honest $27/mo discount, consistent with the Starter/Growth savings ladder.
+  price: 549,
   billingPeriod: "monthly",
   includes: [
     { productId: "mapguard", tierId: "mapguard-pro", label: "MapGuard Pro \u2014 Managed visibility", value: 149 },
@@ -940,6 +944,24 @@ export function formatPrice(amount: number): string {
 export function bundleSavings(bundle: BundleDef): number {
   const separate = bundle.includes.reduce((sum, item) => sum + item.value, 0);
   return separate - bundle.price;
+}
+
+/**
+ * Compute bundle savings vs buying separately on YEARLY billing (dollars).
+ *
+ * On a yearly checkout, every component line item charges its yearly Stripe
+ * price (canonically `yearlyTotal(monthly)` = monthly × 12 × 0.90), so the
+ * pre-discount total is the sum of component yearly totals — NOT 12× the
+ * monthly sum. The advertised bundle total is `yearlyTotal(bundle.price)`.
+ * The savings coupon must therefore also be computed in yearly terms;
+ * applying the monthly `bundleSavings()` to a yearly invoice (the pre-Lane-B
+ * behavior) left the charge ≈ 10.8× the monthly savings above the advertised
+ * price. Only meaningful for monthly-billed bundles.
+ */
+export function bundleYearlySavings(bundle: BundleDef): number {
+  if (bundle.billingPeriod !== "monthly") return bundleSavings(bundle);
+  const separateYearly = bundle.includes.reduce((sum, item) => sum + yearlyTotal(item.value), 0);
+  return separateYearly - yearlyTotal(bundle.price);
 }
 
 /**

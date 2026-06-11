@@ -149,6 +149,45 @@ function formatUsd(cents: number | null | undefined): string {
   return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/* Lane B — shared dollars-denominated price input. The wire/API contract
+ * stays integer CENTS; the admin only ever sees/types DOLLARS, with the
+ * conversion at this boundary. Previously the tier price field was a raw
+ * cents <input type="number"> next to a dollars default-price field — a
+ * classic 100× fat-finger trap (typing "149" meant $1.49).
+ *
+ * While focused, the field shows exactly what the admin typed (a local
+ * draft); converting on every keystroke and re-formatting would garble
+ * multi-digit entry. On blur it snaps to the canonical "0.00" format. */
+function DollarsInput({ cents, onCentsChange, testid, placeholder }: {
+  /** Current value as a cents string ("" = empty/null). */
+  cents: string;
+  /** Called with the new cents string ("" when cleared/invalid). */
+  onCentsChange: (cents: string) => void;
+  testid?: string;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <div className="relative">
+      <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-sm text-muted-foreground pointer-events-none">$</span>
+      <Input
+        type="text"
+        inputMode="decimal"
+        value={draft ?? centsToDollarsInput(cents)}
+        onFocus={() => setDraft(centsToDollarsInput(cents))}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          onCentsChange(e.target.value.trim() === "" ? "" : dollarsInputToCents(e.target.value));
+        }}
+        onBlur={() => setDraft(null)}
+        placeholder={placeholder ?? "0.00"}
+        className="pl-6 tabular-nums"
+        data-testid={testid}
+      />
+    </div>
+  );
+}
+
 export default function ProductDetailPage() {
   const [, params] = useRoute("/admin/products/:id");
   const [, navigate] = useLocation();
@@ -280,9 +319,10 @@ export default function ProductDetailPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        const err = new Error(json.error || "Failed to publish") as Error & { code?: string; mismatches?: string[] };
+        const err = new Error(json.error || "Failed to publish") as Error & { code?: string; mismatches?: string[]; blockers?: string[] };
         if (json.code) err.code = json.code;
         if (Array.isArray(json.mismatches)) err.mismatches = json.mismatches;
+        if (Array.isArray(json.blockers)) err.blockers = json.blockers;
         throw err;
       }
       return json;
@@ -310,7 +350,7 @@ export default function ProductDetailPage() {
         toast({ title: "Published", description: "Live everywhere — website, pricing page, customer portal." });
       }
     },
-    onError: (err: Error & { code?: string; mismatches?: string[] }) => {
+    onError: (err: Error & { code?: string; mismatches?: string[]; blockers?: string[] }) => {
       // Approvals-pending 409 returns with a clearer hint via the message,
       // but also refresh the draft so the UI shows the new approver count.
       if (err.code === "approvals_pending") {
@@ -321,6 +361,17 @@ export default function ProductDetailPage() {
         // advertises — publish was blocked before any write.
         const detail = err.mismatches?.[0] ?? err.message;
         toast({ title: "Stripe price ID mismatch — not published", description: detail, variant: "destructive" });
+      } else if (err.code === "stripe_sync_blocked") {
+        // Lane B: the price change could not be mirrored to Stripe — publish
+        // was hard-blocked and no mismatched price went live. Refresh so the
+        // editor shows the (reverted / fail-safed) live row.
+        queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${svcId}`] });
+        const detail = err.blockers?.[0] ?? err.message;
+        toast({
+          title: "Publish blocked — Stripe price sync failed",
+          description: detail + (err.blockers && err.blockers.length > 1 ? ` (+${err.blockers.length - 1} more)` : ""),
+          variant: "destructive",
+        });
       } else {
         toast({ title: "Publish failed", description: err.message, variant: "destructive" });
       }
@@ -579,23 +630,11 @@ export default function ProductDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Field label="Price">
                   {/* Dollar-formatted input — API still receives cents. */}
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-sm text-muted-foreground pointer-events-none">$</span>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={centsToDollarsInput(form.default_price_cents)}
-                      onChange={(e) => {
-                        // Accept anything the user types; convert to cents string on the way to state.
-                        const cents = dollarsInputToCents(e.target.value);
-                        // Preserve empty so the field can be cleared.
-                        setForm({ ...form, default_price_cents: e.target.value.trim() === "" ? "" : cents });
-                      }}
-                      placeholder="0.00"
-                      className="pl-6 tabular-nums"
-                      data-testid="input-price"
-                    />
-                  </div>
+                  <DollarsInput
+                    cents={form.default_price_cents}
+                    onCentsChange={(cents) => setForm((f) => ({ ...f, default_price_cents: cents }))}
+                    testid="input-price"
+                  />
                 </Field>
                 <Field label="Billing">
                   <select
@@ -739,13 +778,14 @@ export default function ProductDetailPage() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <Field label="Price (cents)">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={tier.price_cents}
-                        onChange={(e) => updateTier(idx, { price_cents: Number(e.target.value) || 0 })}
-                        data-testid={`tier-price-${idx}`}
+                    <Field label="Price">
+                      {/* Lane B: dollars in the UI, cents on the wire — was a
+                          raw cents field beside a dollars parent-price field
+                          (100× fat-finger risk). */}
+                      <DollarsInput
+                        cents={String(tier.price_cents ?? "")}
+                        onCentsChange={(cents) => updateTier(idx, { price_cents: cents === "" ? 0 : Number(cents) })}
+                        testid={`tier-price-${idx}`}
                       />
                     </Field>
                     <Field label="Billing">
