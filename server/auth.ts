@@ -101,8 +101,9 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (req.user.role !== "admin") return res.status(403).json({ error: "Admin access required" });
   // Lane C — mandatory admin 2FA: a factor-less admin whose single grace
   // login is already spent gets an enrollment-restricted session. The
-  // flags are stamped at login time (applyAdminTwoFactorEnrollmentPolicy
-  // in authRoutes.ts); /api/user/2fa/* stays reachable via requireAuth so
+  // flags are stamped inside each req.logIn callback (after passport's
+  // session regenerate; see stampAdminTwoFactorEnrollmentFlags in
+  // authRoutes.ts); /api/user/2fa/* stays reachable via requireAuth so
   // the admin can always complete enrollment. verify-setup clears them.
   const sess = req.session as unknown as AdminTwoFactorSessionFlags | undefined;
   if (isAdminBlockedPendingEnrollment(sess)) {

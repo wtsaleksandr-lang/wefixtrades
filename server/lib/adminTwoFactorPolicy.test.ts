@@ -11,8 +11,13 @@
  *   3. admin WITH factor → policy silent (normal TOTP challenge handles it)
  *   4. client users → never affected, with or without factor
  *   5. requireAdmin blocking matrix (isAdminBlockedPendingEnrollment)
+ *   6. authRoutes wiring contract: flags are stamped INSIDE req.logIn
+ *      callbacks (after passport's session regenerate), never before
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   evaluateAdminTwoFactorPolicy,
   isAdminBlockedPendingEnrollment,
@@ -94,6 +99,81 @@ check("isAdminBlockedPendingEnrollment matrix", () => {
     true,
   );
   assert.equal(isAdminBlockedPendingEnrollment({ admin2faEnrollPending: true }), true);
+});
+
+/* ─── 6. authRoutes wiring contract ─────────────────────────────────
+ * passport 0.7's SessionManager.logIn calls req.session.regenerate()
+ * (session-fixation protection; keepSessionInfo deliberately NOT
+ * passed), which discards anything written to the session before
+ * req.logIn. So the enrollment flags MUST be stamped inside each
+ * logIn callback — i.e. textually AFTER `req.logIn(` in every hooked
+ * path. A refactor that moves the stamp back above logIn (or drops
+ * it) fails this test. Same source-contract pattern as
+ * checkoutPaymentGate.test.ts.
+ */
+check("wiring: enrollment flags are stamped AFTER req.logIn in every hooked path", () => {
+  const routeSource = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "..", "routes", "authRoutes.ts"),
+    "utf-8",
+  );
+
+  // Session-fixation protection must stay intact (comments may MENTION
+  // keepSessionInfo; passing it as an option — `keepSessionInfo:` — is
+  // what this forbids).
+  assert.ok(
+    !/keepSessionInfo\s*:/.test(routeSource),
+    "authRoutes.ts must never pass keepSessionInfo to req.logIn",
+  );
+
+  // The policy helper must not write session flags itself (they'd be
+  // discarded by the regenerate inside req.logIn).
+  const stampAssignments = routeSource.match(/admin2faEnrollPending\s*=\s*true/g) ?? [];
+  assert.equal(
+    stampAssignments.length,
+    1,
+    "admin2faEnrollPending must be set in exactly one place (stampAdminTwoFactorEnrollmentFlags)",
+  );
+  const stampFnIdx = routeSource.indexOf("function stampAdminTwoFactorEnrollmentFlags");
+  assert.ok(stampFnIdx !== -1, "stampAdminTwoFactorEnrollmentFlags must exist");
+  const policyFnIdx = routeSource.indexOf("async function applyAdminTwoFactorEnrollmentPolicy");
+  assert.ok(policyFnIdx !== -1, "applyAdminTwoFactorEnrollmentPolicy must exist");
+  const policyBody = routeSource.slice(policyFnIdx, stampFnIdx);
+  assert.ok(
+    !policyBody.includes("admin2faEnrollPending"),
+    "applyAdminTwoFactorEnrollmentPolicy must not stamp session flags (pre-logIn writes are discarded)",
+  );
+
+  // Every hooked login path: policy call → req.logIn( → stamp call,
+  // in that textual order. (Call sites only — the definitions span
+  // multiple lines so these single-line needles don't match them.)
+  const policyCallNeedle = "applyAdminTwoFactorEnrollmentPolicy(req,";
+  const stampCallNeedle = "stampAdminTwoFactorEnrollmentFlags(req,";
+  const siteIndexes: number[] = [];
+  for (let i = routeSource.indexOf(policyCallNeedle); i !== -1; i = routeSource.indexOf(policyCallNeedle, i + 1)) {
+    siteIndexes.push(i);
+  }
+  assert.equal(
+    siteIndexes.length,
+    5,
+    "expected 5 hooked login paths (login, google, social, token-login, checkout-login)",
+  );
+  siteIndexes.forEach((siteIdx, n) => {
+    const pathEnd = siteIndexes[n + 1] ?? routeSource.length;
+    const logInIdx = routeSource.indexOf("req.logIn(", siteIdx);
+    assert.ok(
+      logInIdx !== -1 && logInIdx < pathEnd,
+      `hooked path #${n + 1}: req.logIn( must follow the policy call`,
+    );
+    const stampIdx = routeSource.indexOf(stampCallNeedle, siteIdx);
+    assert.ok(
+      stampIdx !== -1 && stampIdx < pathEnd,
+      `hooked path #${n + 1}: flags must be stamped in this path`,
+    );
+    assert.ok(
+      stampIdx > logInIdx,
+      `hooked path #${n + 1}: stamp must occur AFTER req.logIn( — passport regenerates the session inside logIn`,
+    );
+  });
 });
 
 // eslint-disable-next-line no-console

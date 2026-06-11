@@ -230,15 +230,30 @@ async function enforceTwoFactor(
   }
 }
 
+/** Decision returned by applyAdminTwoFactorEnrollmentPolicy. */
+type AdminTwoFactorEnrollmentDecision = {
+  enrollmentRequired: boolean;
+  graceLogin: boolean;
+};
+
+const ADMIN_2FA_NO_ENROLLMENT: AdminTwoFactorEnrollmentDecision = {
+  enrollmentRequired: false,
+  graceLogin: false,
+};
+
 /**
  * Lane C — mandatory admin 2FA enrollment policy.
  *
  * Call AFTER enforceTwoFactor() returned false (i.e. the user has no
- * enrolled factor) and BEFORE/around req.logIn. For an admin without
- * TOTP it stamps the session flags requireAdmin enforces and consumes
- * the single grace login. Returns true when the login response should
- * carry `requires2faEnrollment: true` (client redirects into the
- * enrollment flow). Client-role users are never affected.
+ * enrolled factor) and BEFORE req.logIn. For an admin without TOTP it
+ * consumes the single grace login and returns the decision; the caller
+ * MUST stamp the session flags via stampAdminTwoFactorEnrollmentFlags
+ * INSIDE the req.logIn callback. passport 0.7's session manager calls
+ * req.session.regenerate() during logIn (session-fixation protection,
+ * keepSessionInfo deliberately NOT passed), so anything written to the
+ * session before logIn is discarded — stamping here would be cosmetic
+ * and requireAdmin would never see the flags. Client-role users are
+ * never affected.
  *
  * Fail-open on DB error: this is a policy nudge layered on top of an
  * already-successful authentication — refusing all admin logins on a
@@ -249,8 +264,8 @@ async function applyAdminTwoFactorEnrollmentPolicy(
   req: Request,
   userId: number,
   role: string,
-): Promise<boolean> {
-  if (role !== "admin") return false;
+): Promise<AdminTwoFactorEnrollmentDecision> {
+  if (role !== "admin") return ADMIN_2FA_NO_ENROLLMENT;
   try {
     const [row] = await db
       .select({
@@ -266,7 +281,7 @@ async function applyAdminTwoFactorEnrollmentPolicy(
       totpEnabled: !!row?.totp_enabled,
       graceUsedAt: (row?.admin_2fa_grace_used_at as Date | null) ?? null,
     });
-    if (!decision.enrollmentRequired) return false;
+    if (!decision.enrollmentRequired) return ADMIN_2FA_NO_ENROLLMENT;
 
     if (decision.graceLogin) {
       await db
@@ -278,14 +293,27 @@ async function applyAdminTwoFactorEnrollmentPolicy(
       log.warn("Admin without 2FA — grace already used, session is enrollment-restricted", { userId });
     }
 
-    const sess = req.session as any;
-    sess.admin2faEnrollPending = true;
-    sess.admin2faEnrollGrace = decision.graceLogin;
-    return true;
+    return { enrollmentRequired: true, graceLogin: decision.graceLogin };
   } catch (e) {
     log.error("applyAdminTwoFactorEnrollmentPolicy failed", { userId, error: String(e) });
-    return false;
+    return ADMIN_2FA_NO_ENROLLMENT;
   }
+}
+
+/**
+ * Stamp the Lane C enrollment flags on the CURRENT session. Must be
+ * called inside the req.logIn callback (i.e. after passport's
+ * req.session.regenerate()) so the flags land on the session that
+ * actually survives — see applyAdminTwoFactorEnrollmentPolicy.
+ */
+function stampAdminTwoFactorEnrollmentFlags(
+  req: Request,
+  decision: AdminTwoFactorEnrollmentDecision,
+): void {
+  if (!decision.enrollmentRequired) return;
+  const sess = req.session as any;
+  sess.admin2faEnrollPending = true;
+  sess.admin2faEnrollGrace = decision.graceLogin;
 }
 
 export function registerAuthRoutes(app: Express) {
@@ -346,16 +374,18 @@ export function registerAuthRoutes(app: Express) {
 
       // Lane C: admins without an enrolled factor are forced into the
       // 2FA enrollment flow (one grace login, then enrollment-restricted).
-      const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, dbUser.id, dbUser.role);
+      const enrollDecision = await applyAdminTwoFactorEnrollmentPolicy(req, dbUser.id, dbUser.role);
 
       const sessionUser: Express.User = {
         id: dbUser.id, email: dbUser.email, role: dbUser.role, name: dbUser.name,
       };
       req.logIn(sessionUser, (loginErr) => {
         if (loginErr) return next(loginErr);
+        // Stamp AFTER logIn — passport regenerates the session in there.
+        stampAdminTwoFactorEnrollmentFlags(req, enrollDecision);
         return res.json({
           user: { id: sessionUser.id, email: sessionUser.email, role: sessionUser.role, name: sessionUser.name },
-          ...(requires2faEnrollment ? { requires2faEnrollment: true } : {}),
+          ...(enrollDecision.enrollmentRequired ? { requires2faEnrollment: true } : {}),
         });
       });
     } catch (err) {
@@ -596,16 +626,24 @@ export function registerAuthRoutes(app: Express) {
         }
 
         // Lane C: mandatory admin 2FA enrollment (parity with /login).
-        const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, fullUser.id, fullUser.role);
+        const enrollDecision = await applyAdminTwoFactorEnrollmentPolicy(req, fullUser.id, fullUser.role);
 
         const sessionUser: Express.User = {
           id: fullUser.id, email: fullUser.email, role: fullUser.role, name: fullUser.name,
         };
         return req.logIn(sessionUser, (loginErr) => {
           if (loginErr) return next(loginErr);
-          return res.redirect(
-            requires2faEnrollment ? "/admin/crm/settings?enroll2fa=1" : landingPathForRole(fullUser.role),
-          );
+          if (!enrollDecision.enrollmentRequired) {
+            return res.redirect(landingPathForRole(fullUser.role));
+          }
+          // Stamp AFTER logIn (passport regenerates the session) and
+          // save explicitly before the redirect so the flags land
+          // before the browser's follow-up request.
+          stampAdminTwoFactorEnrollmentFlags(req, enrollDecision);
+          return req.session.save((saveErr: Error | null) => {
+            if (saveErr) return next(saveErr);
+            return res.redirect("/admin/crm/settings?enroll2fa=1");
+          });
         });
       };
 
@@ -855,16 +893,24 @@ export function registerAuthRoutes(app: Express) {
         });
       }
       // Lane C: mandatory admin 2FA enrollment (parity with /login).
-      const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, fullUser.id, fullUser.role);
+      const enrollDecision = await applyAdminTwoFactorEnrollmentPolicy(req, fullUser.id, fullUser.role);
 
       const sessionUser: Express.User = {
         id: fullUser.id, email: fullUser.email, role: fullUser.role, name: fullUser.name,
       };
       return req.logIn(sessionUser, (loginErr) => {
         if (loginErr) return next(loginErr);
-        return res.redirect(
-          requires2faEnrollment ? "/admin/crm/settings?enroll2fa=1" : landingPathForRole(fullUser.role),
-        );
+        if (!enrollDecision.enrollmentRequired) {
+          return res.redirect(landingPathForRole(fullUser.role));
+        }
+        // Stamp AFTER logIn (passport regenerates the session) and save
+        // explicitly before the redirect so the flags land before the
+        // browser's follow-up request.
+        stampAdminTwoFactorEnrollmentFlags(req, enrollDecision);
+        return req.session.save((saveErr: Error | null) => {
+          if (saveErr) return next(saveErr);
+          return res.redirect("/admin/crm/settings?enroll2fa=1");
+        });
       });
     })();
   };
@@ -1211,15 +1257,17 @@ export function registerAuthRoutes(app: Express) {
       if (await enforceTwoFactor(req, res, next, user.id)) return;
 
       // Lane C: mandatory admin 2FA enrollment (parity with /login).
-      const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, user.id, user.role);
+      const enrollDecision = await applyAdminTwoFactorEnrollmentPolicy(req, user.id, user.role);
 
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
       req.logIn(sessionUser, (loginErr) => {
         if (loginErr) return next(loginErr);
+        // Stamp AFTER logIn — passport regenerates the session in there.
+        stampAdminTwoFactorEnrollmentFlags(req, enrollDecision);
         log.info("Token-based login completed", { userId: user.id });
         return res.json({
           user: { id: user.id, email: user.email, role: user.role, name: user.name },
-          ...(requires2faEnrollment ? { requires2faEnrollment: true } : {}),
+          ...(enrollDecision.enrollmentRequired ? { requires2faEnrollment: true } : {}),
         });
       });
     } catch (err) {
@@ -1300,15 +1348,17 @@ export function registerAuthRoutes(app: Express) {
 
       // Lane C: mandatory admin 2FA enrollment (parity with /login).
       // Checkout customers are role=client → no-op for them.
-      const requires2faEnrollment = await applyAdminTwoFactorEnrollmentPolicy(req, user.id, user.role);
+      const enrollDecision = await applyAdminTwoFactorEnrollmentPolicy(req, user.id, user.role);
 
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
       req.logIn(sessionUser, (loginErr) => {
         if (loginErr) return next(loginErr);
+        // Stamp AFTER logIn — passport regenerates the session in there.
+        stampAdminTwoFactorEnrollmentFlags(req, enrollDecision);
         log.info("Checkout auto-login completed", { userId: user.id, sessionId });
         return res.json({
           user: { id: user.id, email: user.email, role: user.role, name: user.name },
-          ...(requires2faEnrollment ? { requires2faEnrollment: true } : {}),
+          ...(enrollDecision.enrollmentRequired ? { requires2faEnrollment: true } : {}),
         });
       });
     } catch (err) {
