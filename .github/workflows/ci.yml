@@ -43,6 +43,8 @@ jobs:
         run: npm run check:contentflow-flux2
       - name: ContentFlow video-storage guard (SKIP LOCKED claims, stale recovery, dual-write cost invariant, idempotent create)
         run: npm run check:contentflow-video-storage
+      - name: ContentFlow video-director guard (scene plan invariants — sum==total, styleBible injection, narration budget, tier clamps)
+        run: npm run check:contentflow-video-director
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
