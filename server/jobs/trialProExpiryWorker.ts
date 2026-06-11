@@ -1,12 +1,17 @@
 /**
- * Daily cron worker that retires expired Pro-trial flags.
+ * Daily cron worker that retires expired Pro-preview flags.
  *
- * Self-serve signups get a 14-day Pro-features trial (see
- * authRoutes.ts /api/auth/signup). When trial_pro_expires_at passes,
- * this worker:
- *   1. Flips trial_pro_features_enabled = false
+ * Self-serve signups get a 14-day Pro-features preview (customer-facing
+ * name: "Pro preview" — see authRoutes.ts /api/auth/signup). When
+ * trial_pro_expires_at passes, this worker:
+ *   1. Flips trial_pro_features_enabled = false (silent downgrade to the
+ *      free entitlements — nothing the Free plan includes is touched)
  *   2. Logs an audit event
- *   3. Fires the "trial ended" email (best-effort)
+ *   3. Fires the ONE honest "Pro preview has ended" email (best-effort)
+ *
+ * Trial-truth: the db columns and file name keep their legacy `trial_*`
+ * names (renaming would need a migration); every customer-visible string
+ * says "Pro preview" and carries no urgency-pressure copy.
  *
  * Scheduled at 04:00 UTC daily via server/jobs/scheduler.ts. Idempotent —
  * re-running the same day is a no-op (rows already flipped won't match
@@ -33,8 +38,10 @@ export interface TrialProExpiryResult {
 }
 
 export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
-  // T-3d trial-ending SMS heads-up. Fires once per trial via a metadata
-  // flag (trial_ending_sms_sent_at). Respects channels.sms +
+  // T-3d Pro-preview-ending SMS heads-up (factual notice, no pressure
+  // copy — free stays free either way). Fires once per preview via a
+  // metadata flag (trial_ending_sms_sent_at — legacy key kept; renaming
+  // would orphan already-set flags). Respects channels.sms +
   // notification_preferences.categories.billing and the sms_opt_outs
   // registry (enforced inside sendSMS()). Best-effort; failures don't
   // block the expiry pass below.
@@ -56,7 +63,7 @@ export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
           sql`${clients.trial_pro_expires_at} <= now() + interval '3 days'`,
         ),
       );
-    const upgradeUrl = `${process.env.APP_URL || "https://wefixtrades.com"}/pricing?from=trial-ending`;
+    const upgradeUrl = `${process.env.APP_URL || "https://wefixtrades.com"}/pricing?from=pro-preview-ending`;
     for (const row of upcoming) {
       if (!row.contact_phone) continue;
       const meta = (row.metadata as Record<string, unknown>) ?? {};
@@ -66,7 +73,7 @@ export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
       try {
         await sendSMS(
           row.contact_phone,
-          `Your WeFixTrades trial ends in 3 days. Upgrade: ${upgradeUrl}`,
+          `Your WeFixTrades Pro preview ends in 3 days — everything free stays free. Keep Pro features: ${upgradeUrl}`,
           "sms",
         );
         trialEndingSmsSent++;
@@ -106,7 +113,7 @@ export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
     return { status: "ok", expiredCount: 0, emailsSent: 0, emailsFailed: 0, trialEndingSmsSent };
   }
 
-  log.info(`Found ${expired.length} clients with expired Pro trials`);
+  log.info(`Found ${expired.length} clients with expired Pro previews`);
 
   let emailsSent = 0;
   let emailsFailed = 0;
@@ -126,17 +133,18 @@ export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
       await storage.logAdminActivity({
         actor_type: "system",
         actor_name: "Trial Pro Expiry Worker",
+        // action keeps its legacy value — it's an audit-log identifier.
         action: "client.pro_trial_ended",
         entity_type: "client",
         entity_id: row.id,
-        summary: `14-day Pro trial expired for ${row.business_name}`,
+        summary: `14-day Pro preview ended for ${row.business_name} — downgraded to free entitlements`,
       });
     } catch (err: any) {
       log.warn(`Audit log failed for client ${row.id}: ${err.message}`);
     }
 
     if (row.contact_email) {
-      const upgradeUrl = `${process.env.APP_URL || "https://wefixtrades.com"}/pricing?from=trial-ended`;
+      const upgradeUrl = `${process.env.APP_URL || "https://wefixtrades.com"}/pricing?from=pro-preview-ended`;
       const sent = await sendProTrialEndedEmail(row.contact_email, {
         businessName: row.business_name,
         upgradeUrl,
@@ -146,6 +154,6 @@ export async function processProTrialExpiry(): Promise<TrialProExpiryResult> {
     }
   }
 
-  log.info(`Pro-trial expiry: flipped ${expired.length}, emails sent ${emailsSent}, failed ${emailsFailed}, trial-ending SMS sent ${trialEndingSmsSent}`);
+  log.info(`Pro-preview expiry: flipped ${expired.length}, emails sent ${emailsSent}, failed ${emailsFailed}, preview-ending SMS sent ${trialEndingSmsSent}`);
   return { status: "ok", expiredCount: expired.length, emailsSent, emailsFailed, trialEndingSmsSent };
 }

@@ -141,16 +141,13 @@ test.describe('wizard H1 — Elfsight-clone editor shell', () => {
     });
   });
 
-  test('legacy wizard still loads at /wizard/legacy', async ({ page }) => {
+  test('retired legacy route /wizard/legacy redirects to the canonical wizard', async ({ page }) => {
+    // Trial-truth: the legacy 5-step wizard (whose PublishStep advertised a
+    // 14-day AI trial) is retired. Old bookmarks land on /wizard.
     await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
-    // The legacy WizardCard renders BuilderStep1, which carries the known
-    // testid `input-business-name`. Same testid as the new shell — both
-    // satisfy the assertion, but the legacy DOM has the classic
-    // `.wizard-shell-modal` chrome with its 5-step navbar.
+    expect(new URL(page.url()).pathname).toBe('/wizard');
     await expect(page.getByTestId('input-business-name').first()).toBeVisible({ timeout: 4000 });
-    await expect(page.locator('.wizard-navbar').first()).toBeVisible();
-    await expect(page.getByTestId('nav-step-1')).toBeVisible();
   });
 });

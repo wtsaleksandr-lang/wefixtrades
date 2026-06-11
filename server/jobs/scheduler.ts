@@ -27,7 +27,7 @@ import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
 import { processMapguardPostDrain } from "./mapguardPostDrainer";
 import { fanoutMonthlyPosts } from "../services/mapguard/mapguardPostScheduler";
 import { processMapguardReviewResponses } from "../services/mapguard/mapguardReviewResponder";
-import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
+import { processCalculatorLifecycle } from "./trialLifecycleWorker";
 /* Sprint 15: deprecated processSocialSyncQueue + socialSyncWorker.ts
  * deleted. SocialSync admin endpoints now route through ContentFlow's
  * unified queue (processQueue below). No rollback path needed —
@@ -667,14 +667,15 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // Trial-truth: free calculators NEVER pause. This job only sends the
+  // day-0/1/3 onboarding emails and the single honest day-14 "Pro preview
+  // has ended" email. The old day-14 auto-pause step was removed — the
+  // free tier is permanent, exactly as marketing/terms promise. The
+  // job-log key keeps its legacy name for log continuity.
   cron.schedule("0 9 * * *", async () => {
-    log.info("Running trial lifecycle worker...");
+    log.info("Running calculator lifecycle worker...");
     try {
-      await runJob("trial_lifecycle", async () => {
-        const emailResult = await processTrialLifecycle();
-        const pauseResult = await pauseExpiredTrials();
-        return { ...emailResult, paused: pauseResult.paused, pauseErrors: pauseResult.errors };
-      });
+      await runJob("trial_lifecycle", () => processCalculatorLifecycle());
     } catch (err: any) {
       log.error("trial_lifecycle cron handler error", { error: err.message });
     }

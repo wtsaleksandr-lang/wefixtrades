@@ -90,7 +90,7 @@ export function registerPortalEmailDomainRoutes(app: Express) {
       if (!clientId) return;
       if (!(await clientHasProAccessForRequest(req, clientId))) {
         return res.status(403).json({
-          error: "Custom email domain is a Pro feature. Upgrade or start your 14-day Pro trial.",
+          error: "Custom email domain is a Pro feature. Upgrade to Pro to unlock it.",
           code: "pro_required",
         });
       }

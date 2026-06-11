@@ -58,7 +58,7 @@ export async function sendSelfServeWelcome(params: SendParams): Promise<boolean>
     subjectForTitle: subject,
     eyebrow: "Account created",
     headline: `You're in, ${firstName}`,
-    intro: `Your free account for <strong style="color:#F0F0F0;">${businessName}</strong> is ready. From your dashboard you can try the free tools, pick services that fit your trade, and add team members when you're ready.`,
+    intro: `Your free account for <strong style="color:#F0F0F0;">${businessName}</strong> is ready. From your dashboard you can try the free tools, pick services that fit your trade, and add team members when you're ready. Your first 14 days also include a preview of Pro features — when it ends you're automatically on the Free plan, and everything free stays free.`,
     cta: { label: "Open your dashboard", url: portalUrl },
     ctaFinePrint: `If you ever lose this link, just go to wefixtrades.com and log in with the email + password you just set.`,
     bodyHtml: `
@@ -77,7 +77,7 @@ export async function sendSelfServeWelcome(params: SendParams): Promise<boolean>
 
   const text = buildPlainText({
     headline: `You're in, ${firstName}`,
-    intro: `Your free WeFixTrades account for ${businessName} is ready. Try the free tools, pick services that fit your trade, or add team members when you're ready.`,
+    intro: `Your free WeFixTrades account for ${businessName} is ready. Try the free tools, pick services that fit your trade, or add team members when you're ready. Your first 14 days also include a preview of Pro features — when it ends you're automatically on the Free plan, and everything free stays free.`,
     ctaLabel: "Open your dashboard",
     ctaUrl: portalUrl,
     supportNote: `Questions? Reach us at ${supportEmail}.`,

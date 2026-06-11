@@ -447,9 +447,9 @@ export function registerAuthRoutes(app: Express) {
       });
 
       // Create linked client record. New self-serve accounts get a 14-day
-      // Pro-features trial — gated everywhere via clientHasProAccess() in
-      // server/lib/clientProAccess.ts. trialProExpiryWorker flips the flag
-      // back to false on expiry and emails the trade.
+      // Pro-features preview ("Pro preview") — gated via clientHasProAccess().
+      // trialProExpiryWorker silently downgrades to free entitlements on expiry
+      // + one honest email. trial_* columns are legacy names (no migration).
       const TRIAL_DAYS = 14;
       const trialExpiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
       const client = await storage.createClient({
@@ -750,7 +750,7 @@ export function registerAuthRoutes(app: Express) {
         google_sub: pending.sub,
       });
 
-      // Linked client record — same 14-day Pro-features trial as the
+      // Linked client record — same 14-day Pro-features preview as the
       // standard self-serve signup (server/routes/authRoutes.ts signup).
       const TRIAL_DAYS = 14;
       const trialExpiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
