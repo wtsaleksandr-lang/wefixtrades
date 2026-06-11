@@ -36,6 +36,7 @@ import { processCalculatorLifecycle } from "./trialLifecycleWorker";
 import { processImageRetention } from "./imageRetentionWorker";
 import { processPerformanceQueue } from "./performanceWorker";
 import { processContentflowGeneration } from "./contentflowGenerationWorker";
+import { processVideoRenderTick, videoPipelineEnabled } from "./videoRenderWorker";
 import { resetAllContentflowQuotas } from "../services/contentflow/quotaService";
 import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
 import { generateAllDue } from "../services/socialSync/orchestrator";
@@ -726,6 +727,30 @@ export function initScheduler() {
       publishQueueRunning = false;
     }
   });
+
+  /* ContentFlow Phase 2 — video render worker. Every 2 minutes. Drives
+   * the resumable video state machine (server/jobs/videoRenderWorker.ts):
+   * stale-claim recovery → poll in-flight provider renders → submit newly
+   * planned scenes → advance completed projects → stitch ONE project per
+   * tick. INERT unless CONTENTFLOW_VIDEO_PIPELINE_ENABLED=true — the flag
+   * is checked here too (like the IMAP poller) so inert ticks don't spam
+   * job_logs every 2 minutes. Overlap-guarded: a slow stitch/poll tick
+   * must not stack with the next one. */
+  let videoRenderWorkerRunning = false;
+  cron.schedule("*/2 * * * *", async () => {
+    if (!videoPipelineEnabled() || videoRenderWorkerRunning) {
+      if (videoRenderWorkerRunning) log.debug("contentflow_video_render skipped — previous tick still running");
+      return;
+    }
+    videoRenderWorkerRunning = true;
+    try {
+      await runJob("contentflow_video_render", () => processVideoRenderTick());
+    } catch (err: any) {
+      log.error("contentflow_video_render cron handler error", { error: err.message });
+    } finally {
+      videoRenderWorkerRunning = false;
+    }
+  }, { timezone: "UTC" });
 
   /* Sprint 17: ContentFlow performance worker. Pulls per-channel
    * engagement signals into draft.metadata.performance, computes a
