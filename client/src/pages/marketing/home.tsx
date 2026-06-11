@@ -726,7 +726,7 @@ export default function HomePage() {
               </div>
               <div className="hero-enter" style={{ marginTop: 12 }}>
                 <span className="hero-cta-note-warm">
-                  Free 14-day trial · Cancel anytime · Setup in under 10 minutes
+                  Free plan — no card needed · Cancel anytime · Setup in under 10 minutes
                 </span>
               </div>
             </div>

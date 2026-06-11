@@ -1,4 +1,17 @@
 import { SERVICES, getServicesForIssues, type Service } from "../data/services";
+import {
+  ALL_PRODUCTS,
+  ALL_BUNDLES,
+  QUOTEQUICK,
+  CONTENTFLOW,
+  YEARLY_DISCOUNT_PCT,
+  QUOTEQUICK_YEARLY_DISCOUNT_PCT,
+  formatPrice,
+  bundleSavings,
+  getTier,
+  type ProductDef,
+  type Tier,
+} from "@shared/pricing";
 
 /**
  * Extensible knowledge layer.
@@ -17,7 +30,7 @@ interface KnowledgeSource {
 
 const KNOWLEDGE_SOURCES: KnowledgeSource[] = [
   { id: "services", label: "DONE-FOR-YOU SERVICES & PRICING", compile: compileServices },
-  { id: "plans", label: "PLATFORM SUBSCRIPTION PLANS", compile: compilePlans },
+  { id: "plans", label: "PRODUCT PLANS & PRICING (ALL TIERS)", compile: compilePlans },
   { id: "bundles", label: "BUNDLE PACKAGES", compile: compileBundles },
   { id: "business", label: "ABOUT WEFIXTRADES", compile: compileBusinessInfo },
   { id: "faq", label: "FREQUENTLY ASKED QUESTIONS", compile: compileFAQs },
@@ -72,25 +85,61 @@ function compileServices(): string {
 }
 
 /* ─── Source: Platform subscription plans ─── */
+
+/** Render one tier as "Name $X/mo" (or "$X one-time"), flagging free tiers and badges. */
+function describeTier(t: Tier): string {
+  const price =
+    t.billingPeriod === "monthly"
+      ? `${formatPrice(t.price)}/mo`
+      : `${formatPrice(t.price)} one-time`;
+  const free = t.price === 0 ? " (free tier — no credit card)" : "";
+  const badge = t.badge ? ` [${t.badge}]` : "";
+  return `${t.name} ${price}${free}${badge}`;
+}
+
+function describeProductPlans(product: ProductDef): string {
+  const tiers = product.tiers.map(describeTier).join("; ");
+  const setup = product.setup
+    ? ` Setup fee: ${formatPrice(product.setup)} one-time.`
+    : "";
+  const overage = product.overageRate
+    ? ` Overage: $${product.overageRate.toFixed(2)}/min after included minutes.`
+    : "";
+  return `• ${product.name} — ${product.tagline.replace(/\.$/, "")}. Plans: ${tiers}.${setup}${overage}`;
+}
+
 function compilePlans(): string {
-  // Mirrors client/src/config/pricingPlans.ts — kept as structured data here
-  // so the assistant always has accurate plan info without importing client code.
-  const plans = [
-    { name: "Free", monthly: "$0/mo", features: "1 calculator, hosted quote page, basic lead capture, 50 leads/month" },
-    { name: "Starter", monthly: "$99/mo (or $79/mo annual)", features: "1 calculator, custom branding, 500 leads/month, email follow-ups, embed on site, 14-day AI trial" },
-    { name: "Pro", monthly: "$199/mo (or $159/mo annual)", features: "3 calculators, remove branding, booking + Stripe deposits, AI Employee (chat + SMS + WhatsApp), custom domain, 2,000 leads/month, analytics + weekly reports. [Most Popular]" },
-    { name: "Elite", monthly: "$299/mo (or $239/mo annual)", features: "Unlimited calculators, white-label, webhook/Zapier/Make, unlimited leads, per-client dashboards, priority support, optional Done-For-You install" },
-  ];
-  return plans.map((p) => `• ${p.name}: ${p.monthly} — ${p.features}`).join("\n") +
-    "\n\nAll monthly plans are cancel-anytime, no lock-in. Annual plans save ~15%.";
+  // GENERATED from @shared/pricing (the single source of truth for all
+  // WeFixTrades pricing). Never hardcode plan names or dollar amounts here —
+  // anything stated in this block is quoted to customers by the chat AI.
+  const yearlyPct = Math.round(YEARLY_DISCOUNT_PCT * 100);
+  const qqYearlyPct = Math.round(QUOTEQUICK_YEARLY_DISCOUNT_PCT * 100);
+  return (
+    ALL_PRODUCTS.map(describeProductPlans).join("\n") +
+    `\n\nAll monthly plans are cancel-anytime, no lock-in. Yearly billing saves ${yearlyPct}% on most products (${QUOTEQUICK.name}: ${qqYearlyPct}% — two months free).` +
+    `\nNo product has a time-limited promotional period. ${QUOTEQUICK.name} and ${CONTENTFLOW.name} each have a permanent free tier — start free with no credit card, upgrade only when you need more. Never quote a customer any plan, price, or discount that is not listed above.`
+  );
 }
 
 /* ─── Source: Bundle packages ─── */
 function compileBundles(): string {
-  return `• Growth Bundle: $349/mo — Includes QuickQuotePro Starter, Google Maps optimization, reputation management, monthly performance report. Saves $149/mo vs buying separately.
-• Autopilot System: $599/mo — Includes QuickQuotePro Pro + AI Employee, Google Maps optimization, website SEO + speed, reputation management, social media automation, done-for-you AI training, monthly strategy call. [Most Popular]
-
-Setup takes ~5 business days. No long-term contracts.`;
+  // GENERATED from @shared/pricing ALL_BUNDLES — never hardcode bundle
+  // names or prices here.
+  const lines = ALL_BUNDLES.map((b) => {
+    const price =
+      b.billingPeriod === "monthly"
+        ? `${formatPrice(b.price)}/mo`
+        : `${formatPrice(b.price)} one-time`;
+    const includes = b.includes.map((i) => i.label).join("; ");
+    const savings = bundleSavings(b);
+    const savingsNote =
+      savings > 0
+        ? ` Saves ${formatPrice(savings)}${b.billingPeriod === "monthly" ? "/mo" : ""} vs buying separately.`
+        : "";
+    const badge = b.badge ? ` [${b.badge}]` : "";
+    return `• ${b.name}: ${price} — ${b.tagline}. Includes: ${includes}.${savingsNote}${badge}`;
+  });
+  return lines.join("\n") + "\n\nSetup takes ~5 business days. No long-term contracts.";
 }
 
 /* ─── Source: Business info ─── */
@@ -120,8 +169,8 @@ A: Having a website helps, but we can build one for you with SiteLaunch™. Our 
 Q: Is there a contract or lock-in?
 A: No contracts, no lock-in. Monthly plans cancel any time from the portal. Annual plans are charged once a year — cancel mid-year and you keep access until the period ends, but we don't pro-rate refunds.
 
-Q: Do you offer a trial or money-back guarantee?
-A: QuoteQuick has a 14-day free trial with no credit card required. Every other paid recurring service (TradeLine, MapGuard, ReputationShield, SocialSync, RankFlow, WebCare) ships with a 30-day money-back guarantee — if it's not working, email support within 30 days of your first charge and we refund it in full.
+Q: Can I try it before paying, and is there a money-back guarantee?
+A: QuoteQuick and ContentFlow each have a permanent free tier — start free with no credit card and upgrade when you need more. Every other paid recurring service (TradeLine, MapGuard, ReputationShield, SocialSync, RankFlow, WebCare) ships with a 30-day money-back guarantee — if it's not working, email support within 30 days of your first charge and we refund it in full.
 
 Q: What trades do you work with?
 A: All trades — plumbing, electrical, HVAC, roofing, painting, landscaping, cleaning, flooring, and more.
@@ -132,8 +181,8 @@ A: Our AI handles website chat and phone calls 24/7, qualifies leads, captures c
 Q: How does booking work?
 A: Customers pick an available time slot and pay a deposit via Stripe. You're notified instantly. Slots are locked to prevent double-booking.
 
-Q: How does the AI Employee trial work?
-A: Every account gets a 14-day free trial — no credit card required. After that, you need Pro or above.
+Q: How do I get the AI quote assistant?
+A: The AI quote assistant is included with the QuoteQuick Business plan ($${getTier(QUOTEQUICK, "Business")?.price ?? 79}/mo). The QuoteQuick Free tier lets you try the calculator and lead capture first — no credit card required.
 
 Q: Can I edit my pricing after going live?
 A: Yes, anytime. Changes take effect immediately. Existing quotes keep their original price.

@@ -115,7 +115,7 @@ Analyze this prospect and return a JSON object with EXACTLY these 7 fields:
 - ai_reason_to_target (string, 1 sentence): the single strongest reason this business is a high-value target RIGHT NOW. Be specific.
 - ai_first_line (string, 1-2 sentences): a warm, specific opening line for a cold email. Reference something concrete about their business (trade, location, review count, etc.). Do NOT be generic.
 - ai_offer_angle (string, 1 sentence): which product benefit to lead with for this specific business — e.g. "instant quote tool to capture more after-hours jobs", "review booster to compete with the 4.8-star shop down the street", "AI receptionist to handle overflow calls".
-- ai_cta_variant (string, short phrase only): best call-to-action for this lead. One of: "book a free demo", "see a 5-minute walkthrough", "get a free website audit", "claim your free trial".
+- ai_cta_variant (string, short phrase only): best call-to-action for this lead. One of: "book a free demo", "see a 5-minute walkthrough", "get a free website audit", "start free — no credit card".
 - ai_personalization_line (string): same as ai_first_line (kept for compatibility).
 - ai_notes (string, max 3 sentences): brief analyst notes on fit, opportunity, and any concerns.
 

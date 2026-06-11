@@ -19,7 +19,7 @@ export default function DocsAi() {
     >
 
       <InfoBox type="tip">
-        Every account gets a <strong>14-day free trial</strong> of the AI Employee — no credit card needed. After the trial, a Pro plan or above keeps it active.
+        The AI Employee is included with the <strong>QuoteQuick Business plan</strong>. You can build and publish your calculator on the free tier first, then upgrade from your dashboard to activate the AI.
       </InfoBox>
 
       <DocH2>What the AI Employee Does</DocH2>
@@ -31,12 +31,12 @@ export default function DocsAi() {
         "Generates an instant estimate using your pricing formula",
         "Offers a booking link when the customer is ready",
         "Escalates to you (via SMS notification) when a human is needed",
-        "Continues conversations over SMS and WhatsApp (Pro plan)",
+        "Continues conversations over SMS and WhatsApp (Business plan)",
       ]} />
 
       <DocH2>Enabling the AI Employee</DocH2>
       <Step n={1} title="Go to Dashboard → AI Employee">
-        Find the AI Employee tab in your dashboard. Toggle it on. Your 14-day trial starts immediately.
+        Find the AI Employee tab in your dashboard. Toggle it on — it goes live immediately.
       </Step>
       <Step n={2} title="Complete your business profile">
         Fill in your training profile (see below). The more details you provide, the better the AI answers your customers.

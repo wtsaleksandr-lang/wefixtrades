@@ -122,7 +122,7 @@ export default function AudienceLandingPage(props: AudienceLandingPageProps) {
           headline={heroHeadline}
           sub={heroSub}
           ctas={[
-            { label: "Start free trial", href: "/signup" },
+            { label: "Start free", href: "/signup" },
             { label: "See pricing", href: "/pricing" },
           ]}
         />
@@ -457,7 +457,7 @@ export default function AudienceLandingPage(props: AudienceLandingPageProps) {
 
         <V7FinalCta
           title={finalCtaTitle}
-          primaryCta={{ label: "Start free trial", href: "/signup" }}
+          primaryCta={{ label: "Start free", href: "/signup" }}
         />
       </V7PageShell>
     </MarketingLayout>

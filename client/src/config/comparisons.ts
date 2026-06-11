@@ -4,6 +4,7 @@
  * Competitor pricing is sourced from public pricing pages (as of 2026).
  * WeFixTrades pricing is derived from shared/pricing.ts.
  */
+import { TRADELINE, lowestMonthly, formatPrice } from "@shared/pricing";
 
 export interface CompetitorColumn {
   name: string;
@@ -51,7 +52,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoTitle: "TradeLine vs Ruby, Smith.ai, AnswerConnect | WeFixTrades",
     seoDescription:
       "Compare TradeLine to Ruby Receptionists, Smith.ai, and AnswerConnect. AI-powered 24/7 answering at a fraction of the cost.",
-    weFixTradesPrice: "From $97/mo",
+    weFixTradesPrice: `From ${formatPrice(lowestMonthly(TRADELINE)!)}/mo`,
     competitors: [
       { name: "Ruby Receptionists", price: "$349–$999/mo" },
       { name: "Smith.ai", price: "$140–$700/mo" },
@@ -79,7 +80,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
       },
       {
         title: "A fraction of the cost",
-        body: "Ruby charges $349–$999/mo for human receptionists. TradeLine starts at $97/mo with AI that never sleeps, never calls in sick, and never puts customers on hold.",
+        body: `Ruby charges $349–$999/mo for human receptionists. TradeLine starts at ${formatPrice(lowestMonthly(TRADELINE)!)}/mo with AI that never sleeps, never calls in sick, and never puts customers on hold.`,
       },
       {
         title: "Custom-trained for your trade",
@@ -260,7 +261,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
       },
     ],
     savingsHighlight: "Save $220+/mo compared to Birdeye",
-    ctaLabel: "Start Getting Reviews — Free Trial",
+    ctaLabel: "Start Getting Reviews",
     ctaHref: "/wizard",
     productPageHref: "/products/reputationshield",
   },

@@ -503,7 +503,7 @@ export default function DemoTemplatePage() {
                       { icon: "⚡", label: "Estimate engine", val: `${effectiveTemplate.formula.replace("_", " ")} formula` },
                       { icon: "📋", label: "Inputs", val: effectiveTemplate.inputsSummary },
                       { icon: "📅", label: "Booking", val: effectiveTemplate.hasBooking ? "Enabled" : "Estimate only" },
-                      { icon: "🤖", label: "AI Employee", val: "14-day trial included" },
+                      { icon: "🤖", label: "AI Employee", val: "Included with Business plan" },
                     ].map(({ icon, label, val }) => (
                       <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                         <span style={{ color: mkt.onDarkMuted }}>{icon} {label}</span>
@@ -526,7 +526,7 @@ export default function DemoTemplatePage() {
                   Build this calculator for your business
                 </div>
                 <p style={{ fontSize: 13, color: "rgba(255,255,255,0.72)", lineHeight: 1.6, marginBottom: 18 }}>
-                  Live in under 10 minutes. No credit card required. Includes 14-day AI trial.
+                  Live in under 10 minutes. Free plan — no credit card required.
                 </p>
                 <Link
                   href={buildWizardHrefForMarketingTemplate(effectiveTemplate.id)}

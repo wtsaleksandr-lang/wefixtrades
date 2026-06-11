@@ -844,7 +844,7 @@ export default function SocialSyncDemo() {
                   textDecoration: "none",
                 }}
               >
-                Start Free Trial
+                Get Started
               </Link>
               <Link
                 href="/pricing"

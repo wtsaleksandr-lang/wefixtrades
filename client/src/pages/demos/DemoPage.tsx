@@ -163,7 +163,7 @@ export default function DemoPage() {
                   textDecoration: "none",
                 }}
               >
-                Start Free Trial
+                Get Started
               </Link>
               {product && (
                 <Link
@@ -417,7 +417,7 @@ export default function DemoPage() {
                   border: `1.5px solid ${mkt.onDarkBorder}`,
                 }}
               >
-                Start Free Trial <ArrowRight size={14} />
+                Get Started <ArrowRight size={14} />
               </Link>
             </div>
           </div>

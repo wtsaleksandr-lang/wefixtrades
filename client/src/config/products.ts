@@ -362,7 +362,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: `Automated review requests, private feedback shield, AI responses, and Google posting. Built for plumbers, electricians, and trades businesses. From ${formatPrice(REPUTATIONSHIELD.tiers[0].price)}/mo.`,
     category: "reputation",
     heroVisualType: "reviews",
-    primaryCTA: { label: "Start Getting Reviews \u2014 Free Trial", href: "/wizard" },
+    primaryCTA: { label: "Start Getting Reviews", href: "/wizard" },
     secondaryCTA: { label: "Try Free Demo", href: "/demos/reputationshield" },
     highlights: [
       "Customers get a friendly SMS or email after every job \u2014 automatically",
