@@ -227,7 +227,7 @@ export function TemplatePreview({ prospect, enrichment, open, onClose, senderNam
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-gray-100 shrink-0">
-          <DialogTitle className="text-base">Outreach Copy</DialogTitle>
+          <DialogTitle className="text-base">Outreach Copy Preview</DialogTitle>
 
           {/* Prospect meta */}
           <div className="flex items-start justify-between mt-1">
