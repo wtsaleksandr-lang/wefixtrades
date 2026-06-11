@@ -327,7 +327,7 @@ export default function PortalHelp() {
         {/* Header */}
         <div>
           <BackButton to="/portal" label="Back to dashboard" />
-          <h1 className="text-xl font-semibold text-foreground mt-1">Help</h1>
+          <h2 className="text-xl font-semibold text-foreground mt-1">Help</h2>
           <p className="text-sm text-gray-500 mt-0.5">Find answers or contact us.</p>
         </div>
 

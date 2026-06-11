@@ -184,9 +184,9 @@ export default function TradelineSetupPage() {
               <div className="inline-flex items-center justify-center w-12 h-12 bg-brand-blue-100 rounded-full mb-1">
                 <PhoneCall className="w-6 h-6 text-brand-blue-600" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
                 Set up your AI tradeline
-              </h1>
+              </h2>
               <p className="text-sm sm:text-base text-gray-600 max-w-md mx-auto">
                 Choose how customers reach your business. You can change this anytime.
               </p>

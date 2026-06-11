@@ -18,16 +18,18 @@ export const TASK_STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+/* Consumers (PortalDashboard) are theme-aware — dark: variants follow the
+ * Wave-104 ladder (bg-X-50 → dark:bg-X-950/40, text-X-700 → dark:text-X-300). */
 export const TASK_STATUS_STYLES: Record<string, string> = {
-  not_started: "bg-gray-100 text-gray-600",
-  submitted: "bg-blue-50 text-blue-700",
-  in_progress: "bg-indigo-50 text-indigo-700",
-  waiting: "bg-amber-50 text-amber-700",
-  blocked: "bg-red-50 text-red-700",
-  qa_review: "bg-purple-50 text-purple-700",
-  revision_required: "bg-orange-50 text-orange-700",
-  delivered: "bg-emerald-50 text-emerald-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  not_started: "bg-gray-100 text-gray-600 dark:bg-gray-800/60 dark:text-gray-400",
+  submitted: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+  in_progress: "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300",
+  waiting: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+  blocked: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+  qa_review: "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300",
+  revision_required: "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300",
+  delivered: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+  cancelled: "bg-gray-100 text-gray-500 dark:bg-gray-800/60 dark:text-gray-400",
 };
 
 /* ─── Service statuses ─── */
@@ -40,16 +42,21 @@ export const SERVICE_STATUS_LABELS: Record<string, string> = {
   completed: "Completed",
 };
 
+/* Consumers (PortalServices, PortalServiceDetail) are theme-aware. */
 export const SERVICE_STATUS_STYLES: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-600",
-  onboarding: "bg-amber-50 text-amber-700",
-  active: "bg-emerald-50 text-emerald-700",
-  paused: "bg-blue-50 text-blue-700",
-  cancelled: "bg-gray-100 text-gray-500",
-  completed: "bg-indigo-50 text-indigo-700",
+  pending: "bg-gray-100 text-gray-600 dark:bg-gray-800/60 dark:text-gray-400",
+  onboarding: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+  active: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+  paused: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+  cancelled: "bg-gray-100 text-gray-500 dark:bg-gray-800/60 dark:text-gray-400",
+  completed: "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300",
 };
 
 /* ─── Payment statuses ─── */
+/* NOTE: no dark: variants yet — PortalBilling (a consumer) is genuinely
+ * light-locked via hardcoded bg-white/text-gray-* (open Alex escalation on
+ * the portal theme question). Adding dark: here would put dark pills on its
+ * white cards in dark mode. Revisit when the Billing restyle lands. */
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
   pending: "Unpaid",
   paid: "Paid",

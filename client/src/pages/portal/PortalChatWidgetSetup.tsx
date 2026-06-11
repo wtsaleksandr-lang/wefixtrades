@@ -193,7 +193,7 @@ export default function PortalChatWidgetSetup() {
         <BackButton to="/portal/services" label="Back to services" />
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Chat widget for your website</h1>
+            <h2 className="text-2xl font-bold text-gray-900">Chat widget for your website</h2>
             <p className="text-sm text-gray-600 mt-1">
               Drop this snippet on your site and customers can chat with your AI receptionist
               right from the page they're on. Same AI brain that answers your phone.

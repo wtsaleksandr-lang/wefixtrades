@@ -70,7 +70,7 @@ export default function ChatWidgetInstallEntry() {
       <div className="max-w-3xl space-y-6">
         <BackButton to="/portal/tradeline/chat-widget" label="Back to chat widget" />
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Have us install your chat widget</h1>
+          <h2 className="text-2xl font-bold text-foreground">Have us install your chat widget</h2>
           <p className="text-sm text-muted-foreground mt-1">
             We'll add the WeFixTrades chat widget to your website for you. One-time service, included
             free on Pro or $79 on Starter.

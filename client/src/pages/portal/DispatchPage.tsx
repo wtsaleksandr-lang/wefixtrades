@@ -132,9 +132,9 @@ export default function DispatchPage() {
         data-theme="light" is retained because the job cards below use
         hardcoded light surface colors. */}
     <div data-theme="light" style={{ maxWidth: 600, margin: 0 }}>
-      <h1 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>
+      <h2 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>
         Dispatch
-      </h1>
+      </h2>
       <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px" }}>
         {activeJobs.length} job{activeJobs.length !== 1 ? "s" : ""} scheduled
         {completedCount > 0 && ` · ${completedCount} completed`}

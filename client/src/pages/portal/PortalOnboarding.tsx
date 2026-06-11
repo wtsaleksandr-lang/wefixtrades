@@ -246,9 +246,9 @@ export default function PortalOnboarding() {
           <>
             {/* Header */}
             <div>
-              <h1 className="text-xl font-semibold text-foreground">
+              <h2 className="text-xl font-semibold text-foreground">
                 Let's set up your {data.service_name ?? "service"}
-              </h1>
+              </h2>
               <p className="text-sm text-gray-500 mt-0.5">
                 Takes 2–3 minutes. Fill in what you know — we'll handle the rest.
               </p>
@@ -440,7 +440,7 @@ function PortalSetupProgress({
           <Settings2 className={`w-6 h-6 text-brand-blue ${!allDone && isTradeLine ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
         )}
       </div>
-      <h1 className="text-lg font-semibold text-gray-900">{headline}</h1>
+      <h2 className="text-lg font-semibold text-gray-900">{headline}</h2>
       <p className="text-sm text-gray-500 mt-1.5 mb-6">{subtitle}</p>
 
       <div className="text-left space-y-3 max-w-xs mx-auto mb-6">

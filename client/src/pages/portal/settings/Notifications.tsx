@@ -34,11 +34,17 @@ import {
   BellRing,
   ChevronDown,
   ChevronRight,
+  HelpCircle,
   Loader2,
   Save,
   Search,
   Smartphone,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Link, useLocation } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
@@ -287,10 +293,10 @@ export default function UniversalNotificationsPage() {
     <PortalLayout>
       <div className="flex flex-col gap-4 p-4 md:p-6">
         <div className="flex flex-col">
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground md:text-2xl">
+          <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground md:text-2xl">
             <Bell className="h-5 w-5" aria-hidden="true" />
             Notifications
-          </h1>
+          </h2>
           <p className="text-sm text-muted-foreground">
             Pick which alerts reach you across all WeFixTrades products, and on
             which channel.
@@ -387,6 +393,17 @@ export default function UniversalNotificationsPage() {
         <Card className="flex flex-col gap-2 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[280px] text-xs">
+                  Non-critical alerts pause between the start and end time in
+                  the timezone you set — e.g. 21:00 to 07:00 keeps your phone
+                  quiet overnight. Critical alerts still come through.
+                </TooltipContent>
+              </Tooltip>
               Quiet hours
               <span className="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
                 Skip non-critical alerts during this window
@@ -401,50 +418,48 @@ export default function UniversalNotificationsPage() {
             />
           </div>
           {quietDraft.enabled && (
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex flex-col text-[11px] text-muted-foreground">
-                Start
-                <Input
-                  type="time"
-                  value={quietDraft.start}
-                  onChange={(e) =>
-                    setQuietDraft((q) =>
-                      q ? { ...q, start: e.target.value } : q,
-                    )
-                  }
-                  className="h-8 w-28 text-xs"
-                  data-testid="quiet-hours-start"
-                />
-              </label>
-              <label className="flex flex-col text-[11px] text-muted-foreground">
-                End
-                <Input
-                  type="time"
-                  value={quietDraft.end}
-                  onChange={(e) =>
-                    setQuietDraft((q) =>
-                      q ? { ...q, end: e.target.value } : q,
-                    )
-                  }
-                  className="h-8 w-28 text-xs"
-                  data-testid="quiet-hours-end"
-                />
-              </label>
-              <label className="flex flex-col text-[11px] text-muted-foreground">
-                Timezone
-                <Input
-                  type="text"
-                  value={quietDraft.timezone}
-                  onChange={(e) =>
-                    setQuietDraft((q) =>
-                      q ? { ...q, timezone: e.target.value } : q,
-                    )
-                  }
-                  className="h-8 w-48 text-xs"
-                  data-testid="quiet-hours-tz"
-                  placeholder="America/New_York"
-                />
-              </label>
+            /* In-field titles per the locked input rules — the window reads
+               "start to end" inline; the timezone titles itself via
+               placeholder; the card cue above explains the whole control. */
+            <div className="flex flex-wrap items-center gap-0.5">
+              <Input
+                type="time"
+                aria-label="Quiet hours start"
+                value={quietDraft.start}
+                onChange={(e) =>
+                  setQuietDraft((q) =>
+                    q ? { ...q, start: e.target.value } : q,
+                  )
+                }
+                className="h-8 w-28 text-xs"
+                data-testid="quiet-hours-start"
+              />
+              <span className="px-1 text-[11px] text-muted-foreground">to</span>
+              <Input
+                type="time"
+                aria-label="Quiet hours end"
+                value={quietDraft.end}
+                onChange={(e) =>
+                  setQuietDraft((q) =>
+                    q ? { ...q, end: e.target.value } : q,
+                  )
+                }
+                className="h-8 w-28 text-xs"
+                data-testid="quiet-hours-end"
+              />
+              <Input
+                type="text"
+                aria-label="Timezone"
+                value={quietDraft.timezone}
+                onChange={(e) =>
+                  setQuietDraft((q) =>
+                    q ? { ...q, timezone: e.target.value } : q,
+                  )
+                }
+                className="h-8 w-52 text-xs"
+                data-testid="quiet-hours-tz"
+                placeholder="Timezone — America/New_York"
+              />
               <Button
                 size="sm"
                 onClick={() => saveQuiet.mutate(quietDraft)}

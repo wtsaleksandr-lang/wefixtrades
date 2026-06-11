@@ -155,7 +155,7 @@ export default function PortalBrandKitsPage() {
       <div data-theme="light" style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 880 }}>
         <header style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Palette size={20} />
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Brand Kits</h1>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Brand Kits</h2>
           <span style={{
             fontSize: 11, fontWeight: 600, color: "#6d28d9",
             background: "#ede9fe", borderRadius: 999, padding: "2px 8px",

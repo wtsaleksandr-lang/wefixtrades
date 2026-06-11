@@ -15,6 +15,7 @@ import {
 import PortalLayout from "@/components/portal/PortalLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
+import { FieldGroupHeader, TitleInField, TitleInFieldTextarea } from "./FreeTools/_shared";
 
 interface Invoice {
   id: number;
@@ -162,7 +163,7 @@ export default function InvoicesPage() {
     <div data-theme="light">
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <h1 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Invoices</h1>
+        <h2 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Invoices</h2>
         <button
           onClick={() => setShowCreate(true)}
           className="bg-brand-blue text-white"
@@ -549,43 +550,48 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
           </button>
         </div>
 
-        {/* Customer */}
-        <div style={{ marginBottom: 12 }}>
-          <label htmlFor="invoice-customer-name" style={labelStyle}>Customer Name *</label>
-          <input
+        {/* Customer — title-in-field per the locked input rules (labels float
+            inside the fields, help cues top-left, 2px stack gap). */}
+        <div className="space-y-0.5" style={{ marginBottom: 12 }}>
+          <TitleInField
             id="invoice-customer-name"
+            label="Customer Name"
+            required
             value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
+            onChange={setCustomerName}
             placeholder="John Smith"
-            style={inputStyle}
+            help="Who this invoice bills — shown at the top of the PDF and in their email."
+            testid="invoice-customer-name-input"
           />
-        </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <div style={{ flex: 1 }}>
-            <label htmlFor="invoice-customer-email" style={labelStyle}>Email</label>
-            <input
+          <div className="flex gap-0.5">
+            <TitleInField
               id="invoice-customer-email"
+              label="Email"
               type="email"
+              className="flex-1"
               value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
+              onChange={setCustomerEmail}
               placeholder="john@example.com"
-              style={inputStyle}
+              help="Where we send the invoice. Leave blank to share the link yourself."
             />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label htmlFor="invoice-customer-phone" style={labelStyle}>Phone</label>
-            <input
+            <TitleInField
               id="invoice-customer-phone"
+              label="Phone"
+              type="tel"
+              className="flex-1"
               value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
+              onChange={setCustomerPhone}
               placeholder="(555) 123-4567"
-              style={inputStyle}
+              help="Optional — handy if you also text customers their invoice."
             />
           </div>
         </div>
 
         {/* Line items */}
-        <label style={{ ...labelStyle, marginBottom: 8, display: "block" }}>Line Items</label>
+        <FieldGroupHeader
+          title="Line Items"
+          help="Each row is one line on the invoice — what you did, how many, and the unit price."
+        />
         {lineItems.map((li, idx) => (
           <div key={li._uid} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
             <input
@@ -654,13 +660,14 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
 
         {/* Notes */}
         <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Notes (optional)</label>
-          <textarea
+          <TitleInFieldTextarea
+            id="invoice-notes"
+            label="Notes (optional)"
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Thank you for your business!"
+            onChange={setNotes}
             rows={2}
-            style={{ ...inputStyle, height: "auto", padding: "10px 14px", resize: "vertical" }}
+            help={'Printed at the bottom of the invoice — e.g. "Thank you for your business!"'}
+            testid="invoice-notes-input"
           />
         </div>
 
@@ -725,14 +732,6 @@ const modalStyle: React.CSSProperties = {
   width: "100%",
   maxHeight: "90vh",
   overflowY: "auto",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: "#374151",
-  marginBottom: 4,
-  display: "block",
 };
 
 const inputStyle: React.CSSProperties = {

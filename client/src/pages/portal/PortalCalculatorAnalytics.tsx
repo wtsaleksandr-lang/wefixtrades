@@ -185,9 +185,9 @@ export default function PortalCalculatorAnalytics() {
   return (
     <PortalLayout breadcrumb="Calculator Analytics">
       <div data-theme="light">
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 4 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 4 }}>
           Calculator Analytics
-        </h1>
+        </h2>
         <div style={{ color: '#6b7280', fontSize: 14, marginBottom: 24 }}>
           Last 30 days of widget activity.
         </div>

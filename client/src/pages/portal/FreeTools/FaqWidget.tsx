@@ -222,7 +222,7 @@ export default function FaqWidget() {
         <header>
           <div className="flex items-center gap-2 mb-1">
             <HelpCircle className="w-5 h-5 text-brand-blue" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-gray-900">FAQ Widget</h1>
+            <h2 className="text-2xl font-bold text-gray-900">FAQ Widget</h2>
           </div>
           <p className="text-sm text-gray-600 max-w-3xl">
             Drop an FAQ accordion onto your website. We also inject the Google

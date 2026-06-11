@@ -411,7 +411,7 @@ export default function PortalContentPreferences() {
           <div className="mx-auto mb-4 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
             <Check className="h-5 w-5 text-emerald-600" />
           </div>
-          <h1 className="text-xl font-semibold">Your content style is set</h1>
+          <h2 className="text-xl font-semibold">Your content style is set</h2>
           <p className="text-sm text-muted-foreground mt-2">
             ContentFlow will use these preferences for every article, post, and image it
             creates for you. You can change them anytime from this page.
@@ -432,7 +432,7 @@ export default function PortalContentPreferences() {
       <div className="max-w-xl">
         <div className="flex items-center gap-2 mb-1">
           <Sparkles className="h-4 w-4 text-brand-blue-500" />
-          <h1 className="text-lg font-semibold">Content style</h1>
+          <h2 className="text-lg font-semibold">Content style</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
           Tell ContentFlow how your content should look and sound. Takes about a minute.

@@ -171,7 +171,7 @@ export default function HoursWidget() {
         <header>
           <div className="flex items-center gap-2 mb-1">
             <Clock className="w-5 h-5 text-brand-blue" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-gray-900">Business Hours Widget</h1>
+            <h2 className="text-2xl font-bold text-gray-900">Business Hours Widget</h2>
           </div>
           <p className="text-sm text-gray-600 max-w-3xl">
             A drop-in "Open now / Closed" badge plus the full weekly table.

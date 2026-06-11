@@ -165,7 +165,7 @@ export default function PortalCompetitors() {
             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-blue-50 flex items-center justify-center">
               <Lock className="w-6 h-6 text-blue-600" />
             </div>
-            <h1 className="text-2xl font-semibold mb-2">Competitor tracking is a Premium feature</h1>
+            <h2 className="text-2xl font-semibold mb-2">Competitor tracking is a Premium feature</h2>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               See how your reviews stack up against up to 5 competitors —
               trend charts, rating comparisons, weekly velocity. Upgrade
@@ -190,7 +190,7 @@ export default function PortalCompetitors() {
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-semibold mb-1">Competitor tracking</h1>
+            <h2 className="text-2xl font-semibold mb-1">Competitor tracking</h2>
             <p className="text-sm text-muted-foreground">
               Daily snapshots of up to 5 competitors&apos; public Google review stats.
             </p>

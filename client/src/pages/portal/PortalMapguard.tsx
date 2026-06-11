@@ -273,7 +273,7 @@ export default function PortalMapguard() {
             <Shield className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">MapGuard</h1>
+            <h2 className="text-lg font-semibold text-foreground">MapGuard</h2>
             <p className="text-sm text-muted-foreground">Your Google Maps visibility report</p>
           </div>
         </div>

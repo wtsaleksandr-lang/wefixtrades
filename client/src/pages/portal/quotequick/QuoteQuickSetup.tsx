@@ -184,9 +184,9 @@ export default function QuoteQuickSetup() {
       <div className="flex flex-col gap-3 p-4 md:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="flex flex-col">
-            <h1 className="text-xl font-semibold text-foreground md:text-2xl">
+            <h2 className="text-xl font-semibold text-foreground md:text-2xl">
               QuoteQuick setup
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground">
               3 questions • under 5 minutes • live preview at every step.
             </p>

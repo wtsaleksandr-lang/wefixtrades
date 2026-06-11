@@ -108,9 +108,9 @@ export default function RankFlowSetup() {
     <PortalLayout>
       <div className="mx-auto flex max-w-3xl flex-col gap-3 p-4 md:p-6">
         <header className="flex flex-col">
-          <h1 className="text-xl font-semibold text-foreground md:text-2xl">
+          <h2 className="text-xl font-semibold text-foreground md:text-2xl">
             RankFlow setup
-          </h1>
+          </h2>
           <p className="text-sm text-muted-foreground">
             3 questions · under 5 minutes · first scan queues on finish.
           </p>

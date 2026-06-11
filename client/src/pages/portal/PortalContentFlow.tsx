@@ -544,7 +544,7 @@ export default function PortalContentFlow() {
       <div className="px-4 py-6 sm:px-6 lg:px-8" data-testid="portal-contentflow">
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold tracking-tight">ContentFlow — Prompt Library</h1>
+            <h2 className="text-2xl font-bold tracking-tight">ContentFlow — Prompt Library</h2>
             <p className="text-sm text-muted-foreground">
               60 trade-adapted prompts across 12 named patterns. Pick one, preview it filled with your brand details, then generate.
             </p>
