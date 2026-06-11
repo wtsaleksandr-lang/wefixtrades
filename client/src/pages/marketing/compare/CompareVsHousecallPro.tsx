@@ -10,6 +10,15 @@
 import { Link } from "wouter";
 import CompareLandingPage from "@/components/marketing/CompareLandingPage";
 import { mkt } from "@/theme/tokens";
+import {
+  ENTRY_PRICE,
+  GROWTH_BUNDLE_NAME,
+  GROWTH_BUNDLE_PRICE,
+  STARTS_AT_US,
+  MATRIX_STARTS_AT_US,
+  FREE_TIER_US,
+  OUR_PRICING_BULLETS,
+} from "./comparePricing";
 
 const PUBLISHED = "2026-05-25";
 
@@ -48,7 +57,7 @@ export default function CompareVsHousecallPro() {
       tldrRows={[
         {
           label: "Starts at",
-          us: "$9/mo · free tier available",
+          us: STARTS_AT_US,
           them: "$69/mo (Basic, single user)",
         },
         {
@@ -93,7 +102,7 @@ export default function CompareVsHousecallPro() {
         },
         {
           label: "Free tier",
-          us: "Yes",
+          us: FREE_TIER_US,
           them: "No — 14-day trial only",
         },
       ]}
@@ -110,7 +119,7 @@ export default function CompareVsHousecallPro() {
         { feature: "Native iOS + Android app", us: true, them: true, note: "WeFixTrades ships a softphone for the owner; HCP ships a field-tech app for the technician. Both native, different focus." },
         { feature: "Invoicing + payments (incl. card-on-file)", us: true, them: true },
         { feature: "Free tier", us: true, them: false },
-        { feature: "Starts at", us: "$9/mo", them: "$69/mo" },
+        { feature: "Starts at", us: MATRIX_STARTS_AT_US, them: "$69/mo" },
         { feature: "Setup time", us: "Same-day", them: "1-2 wks" },
         { feature: "AI image/article generation (ContentFlow)", us: true, them: false },
         { feature: "Social-media scheduling (SocialSync)", us: true, them: false },
@@ -123,13 +132,7 @@ export default function CompareVsHousecallPro() {
         { feature: "Public API", us: true, them: true },
         { feature: "QuickBooks integration", us: "partial", them: true },
       ]}
-      ourPricing={[
-        "Free — try every product, single workspace",
-        "Starter $9/mo — single trade, basic AI",
-        "Growth $49/mo — full AI suite",
-        "Scale $149/mo — multi-location, white-label",
-        "No card required to start.",
-      ]}
+      ourPricing={OUR_PRICING_BULLETS}
       theirPricing={[
         "Basic — $69/mo (1 user)",
         "Essentials — $179/mo (1-5 users)",
@@ -146,19 +149,19 @@ export default function CompareVsHousecallPro() {
       whenUsBetter={[
         "You're losing leads to voicemail and you need AI ACTUALLY ANSWERING the phone 24/7 — not just routing it. We built the platform around 24/7 AI call answering, and it's included rather than billed separately.",
         "You want content, reviews, Google Business management, AND AI voice bundled into ONE bill — instead of paying HCP for the base plan plus 3+ marketing add-ons.",
-        "Budget is real. Our Growth plan at $49/mo replaces what HCP charges $179+/mo + add-ons for. Same outcomes, ⅓ the spend.",
+        `Budget is real. Our ${GROWTH_BUNDLE_NAME} bundle at ${GROWTH_BUNDLE_PRICE}/mo includes managed Google Business, review management, social posting AND 24/7 AI voice — replacing HCP Essentials ($179/mo) plus the marketing add-ons, answering service, and reputation tool you'd otherwise buy separately.`,
         "You want to sign up today and be live tonight — no onboarding call, no salesperson, no waiting list.",
       ]}
-      testimonialQuote="HCP's app is genuinely great for our techs. But we were paying $179 a month for Essentials, another $79 for postcards, and a separate $200 to a reputation tool. WeFixTrades rolled all three into one $49 plan and added an AI receptionist on top."
+      testimonialQuote={`HCP's app is genuinely great for our techs. But we were paying $179 a month for Essentials, another $79 for postcards, and a separate $200 to a reputation tool. WeFixTrades rolled all of it into the ${GROWTH_BUNDLE_NAME} bundle at ${GROWTH_BUNDLE_PRICE} a month — with an AI receptionist on top.`}
       testimonialAttribution="— Case study placeholder · HVAC, 4 techs"
       faqItems={[
         {
           question: "Is WeFixTrades cheaper than Housecall Pro?",
           answer:
-            "Yes for the same feature scope. Housecall Pro's Basic plan starts at $69/mo for one user and most shops with marketing needs end up on Essentials ($179/mo) plus paid add-ons. WeFixTrades' Growth plan at $49/mo includes the AI suite, MapGuard, reputation tools, and content — categories that are paid extras inside HCP.",
+            `It depends what you compare. Tool-for-tool we start lower: QuoteQuick and ContentFlow have free tiers and paid products start at ${ENTRY_PRICE}/mo, versus HCP's $69/mo entry with no free tier. For the full suite, our ${GROWTH_BUNDLE_NAME} bundle at ${GROWTH_BUNDLE_PRICE}/mo includes managed Google Business (MapGuard), review management, social posting, and 24/7 AI voice — so it competes with HCP Essentials ($179/mo) plus the paid add-ons and third-party tools those categories cost on top of HCP.`,
           answerNode: (
             <>
-              Yes for the same feature scope. Housecall Pro's Basic plan starts at $69/mo for one user and most shops with marketing needs end up on Essentials ($179/mo) plus paid add-ons. WeFixTrades' Growth plan at $49/mo includes the AI suite, <Link href="/products/mapguard" style={LINK_STYLE}>MapGuard</Link>, reputation tools, and content — categories that are paid extras inside HCP.
+              It depends what you compare. Tool-for-tool we start lower: QuoteQuick and ContentFlow have free tiers and paid products start at {ENTRY_PRICE}/mo, versus HCP's $69/mo entry with no free tier. For the full suite, our {GROWTH_BUNDLE_NAME} bundle at {GROWTH_BUNDLE_PRICE}/mo includes managed Google Business (<Link href="/products/mapguard" style={LINK_STYLE}>MapGuard</Link>), review management, social posting, and 24/7 AI voice — so it competes with HCP Essentials ($179/mo) plus the paid add-ons and third-party tools those categories cost on top of HCP.
             </>
           ),
         },

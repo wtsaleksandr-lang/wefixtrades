@@ -9,6 +9,17 @@
 import { Link } from "wouter";
 import CompareLandingPage from "@/components/marketing/CompareLandingPage";
 import { mkt } from "@/theme/tokens";
+import {
+  ENTRY_PRICE,
+  TRADELINE_FROM,
+  STARTER_BUNDLE_PRICE,
+  GROWTH_BUNDLE_NAME,
+  GROWTH_BUNDLE_PRICE,
+  STARTS_AT_US,
+  MATRIX_STARTS_AT_US,
+  FREE_TIER_US,
+  OUR_PRICING_BULLETS,
+} from "./comparePricing";
 
 const PUBLISHED = "2026-05-25";
 
@@ -47,7 +58,7 @@ export default function CompareVsJobber() {
       tldrRows={[
         {
           label: "Starts at",
-          us: "$9/mo · free tier available",
+          us: STARTS_AT_US,
           them: "$69/mo (Core) · 14-day free trial",
         },
         {
@@ -92,12 +103,12 @@ export default function CompareVsJobber() {
         },
         {
           label: "Free tier",
-          us: "Yes — for trying every product",
+          us: FREE_TIER_US,
           them: "No — 14-day trial only",
         },
       ]}
       matrixRows={[
-        { feature: "AI voice agent (24/7 call answering)", us: true, them: "partial", note: "Jobber added an AI Receptionist in 2025; 24/7 call answering is built into our Growth plan" },
+        { feature: "AI voice agent (24/7 call answering)", us: true, them: "partial", note: `Jobber added an AI Receptionist in 2025; our 24/7 call answering ships as TradeLine (from ${TRADELINE_FROM}/mo, included in the ${GROWTH_BUNDLE_NAME} bundle)` },
         { feature: "AI content + image generation", us: true, them: false },
         { feature: "Google Business Profile management (MapGuard)", us: true, them: false },
         { feature: "Reputation / review collection", us: true, them: true, note: "Both ship review-request flows" },
@@ -109,7 +120,7 @@ export default function CompareVsJobber() {
         { feature: "Native iOS + Android app", us: true, them: true, note: "WeFixTrades ships a softphone (calls + voicemail + ETA + portal); Jobber ships a field-tech job board. Different focus, both native." },
         { feature: "Invoicing + payments", us: true, them: true },
         { feature: "Free tier", us: true, them: false },
-        { feature: "Starts at", us: "$9/mo", them: "$69/mo" },
+        { feature: "Starts at", us: MATRIX_STARTS_AT_US, them: "$69/mo" },
         { feature: "Setup time", us: "Same-day", them: "1-2 wks" },
         { feature: "AI image/article generation (ContentFlow)", us: true, them: false },
         { feature: "Social-media scheduling (SocialSync)", us: true, them: false },
@@ -122,13 +133,7 @@ export default function CompareVsJobber() {
         { feature: "Public API", us: true, them: true },
         { feature: "Phone + chat support", us: true, them: true },
       ]}
-      ourPricing={[
-        "Free — try every product, single workspace",
-        "Starter $9/mo — single trade, basic AI",
-        "Growth $49/mo — full AI suite (TradeLine, ContentFlow, MapGuard)",
-        "Scale $149/mo — multi-location, white-label, priority support",
-        "No card required to start. Cancel any time.",
-      ]}
+      ourPricing={OUR_PRICING_BULLETS}
       theirPricing={[
         "Core — $69/mo (1 user)",
         "Connect — $169/mo (up to 5 users)",
@@ -143,9 +148,9 @@ export default function CompareVsJobber() {
         "You're paying an agency for SEO + content + reviews and you'd rather keep paying them than bring it in-house.",
       ]}
       whenUsBetter={[
-        "You want AI answering the phone 24/7 — booking jobs at 9pm instead of going to voicemail. We built the whole platform around 24/7 AI call answering, and it's included rather than billed separately.",
+        "You want AI answering the phone 24/7 — booking jobs at 9pm instead of going to voicemail. We built the whole platform around 24/7 AI call answering; Jobber doesn't ship a full voice agent.",
         "You want Google Business Profile, content generation, reviews, and AI voice in ONE bill instead of stitching together five tools.",
-        "Budget matters. Our $9-49/mo replaces what Jobber's $69-349/mo + a $300/mo marketing agency costs you today. Same outcomes, fraction of the spend.",
+        `Budget matters. Free tiers on QuoteQuick and ContentFlow, paid products from ${ENTRY_PRICE}/mo, and full-suite bundles from ${STARTER_BUNDLE_PRICE}/mo — you only pay for the products you actually use, instead of Jobber's $69-349/mo platform plus a separate marketing agency.`,
         "You'd rather sign up today and be live tonight than spend 1-2 weeks in onboarding calls before your first lead.",
       ]}
       testimonialQuote="We almost went with Jobber because everyone uses it. Switched plans after the demo — we needed someone answering the phone at 9pm more than we needed a fancier dispatch board. WeFixTrades' AI booked our first $400 job that same week."
@@ -154,7 +159,7 @@ export default function CompareVsJobber() {
         {
           question: "Is WeFixTrades cheaper than Jobber?",
           answer:
-            "For most solo-to-mid trades businesses, yes — significantly. WeFixTrades starts at $9/mo with a free tier; Jobber starts at $69/mo with no free tier. Once you scale to 15+ techs needing heavy dispatching, Jobber's per-user pricing can look competitive against our Scale plan, but for 1-15 tech shops we're typically 40-70% cheaper.",
+            `It depends on what you buy — WeFixTrades is modular, not one platform fee. QuoteQuick and ContentFlow have free tiers, paid products start at ${ENTRY_PRICE}/mo (ContentFlow Starter), and TradeLine AI voice starts at ${TRADELINE_FROM}/mo; Jobber starts at $69/mo for one user with no free tier. If you want the full done-for-you suite, our ${GROWTH_BUNDLE_NAME} bundle is ${GROWTH_BUNDLE_PRICE}/mo — that competes with Jobber Grow ($349/mo) PLUS the separate marketing agency and answering service it replaces, not with Jobber's base plan alone.`,
         },
         {
           question: "Does WeFixTrades replace Jobber completely?",
@@ -184,12 +189,12 @@ export default function CompareVsJobber() {
         {
           question: "Can I try both before deciding?",
           answer:
-            "Yes — we recommend it. Jobber offers a 14-day free trial (card not required). WeFixTrades has a permanent free tier so you can sign up, hook up TradeLine to a forwarding number, and see exactly how the AI handles a real call before paying anything.",
+            `Yes — we recommend it. Jobber offers a 14-day free trial (card not required). WeFixTrades has permanent free tiers on QuoteQuick and ContentFlow, so you can publish a quote calculator and generate real AI content before paying anything. TradeLine (AI voice) starts at ${TRADELINE_FROM}/mo — month-to-month, cancel anytime, no contract.`,
 
           answerNode: (
             <>
-              Yes — we recommend it. Jobber offers a 14-day free trial (card not required). WeFixTrades has a permanent free tier so you can sign up, hook up{" "}
-              <Link href="/products/tradeline" style={LINK_STYLE}>TradeLine</Link> to a forwarding number, and see exactly how the AI handles a real call before paying anything.
+              Yes — we recommend it. Jobber offers a 14-day free trial (card not required). WeFixTrades has permanent free tiers on QuoteQuick and ContentFlow, so you can publish a quote calculator and generate real AI content before paying anything.{" "}
+              <Link href="/products/tradeline" style={LINK_STYLE}>TradeLine</Link> (AI voice) starts at {TRADELINE_FROM}/mo — month-to-month, cancel anytime, no contract.
             </>
           ),
         },

@@ -11,6 +11,18 @@
 import { Link } from "wouter";
 import CompareLandingPage from "@/components/marketing/CompareLandingPage";
 import { mkt } from "@/theme/tokens";
+import {
+  ENTRY_PRICE,
+  TRADELINE_FROM,
+  STARTER_BUNDLE_PRICE,
+  GROWTH_BUNDLE_NAME,
+  GROWTH_BUNDLE_PRICE,
+  PRO_BUNDLE_PRICE,
+  STARTS_AT_US,
+  MATRIX_STARTS_AT_US,
+  FREE_TIER_US,
+  OUR_PRICING_BULLETS,
+} from "./comparePricing";
 
 const PUBLISHED = "2026-05-25";
 
@@ -45,11 +57,11 @@ export default function CompareVsServiceTitan() {
           <span style={{ color: mkt.accent }}>which is right for your business?</span>
         </>
       }
-      heroSub="ServiceTitan is the enterprise FSM for 20+ tech operations — and prices like it. WeFixTrades is the AI-first platform tuned for 1-15 tech shops who want the same outcomes (24/7 voice, Google Business, content, reviews, native mobile) at 10-50× lower cost. Different price brackets, different buyers — here's the honest take."
+      heroSub="ServiceTitan is the enterprise FSM for 20+ tech operations — and prices like it. WeFixTrades is the AI-first platform tuned for 1-15 tech shops who want the same outcomes (24/7 voice, Google Business, content, reviews, native mobile) at a fraction of the cost. Different price brackets, different buyers — here's the honest take."
       tldrRows={[
         {
           label: "Starts at",
-          us: "$9/mo · free tier available",
+          us: STARTS_AT_US,
           them: "Not publicly listed · est. ~$200-500/user/mo (quote-based)",
         },
         {
@@ -94,7 +106,7 @@ export default function CompareVsServiceTitan() {
         },
         {
           label: "Free tier",
-          us: "Yes",
+          us: FREE_TIER_US,
           them: "No — demo + custom quote only",
         },
       ]}
@@ -111,7 +123,7 @@ export default function CompareVsServiceTitan() {
         { feature: "Native iOS + Android app", us: true, them: true, note: "WeFixTrades ships a softphone for the owner; ServiceTitan ships a mature field-tech app for the technician. Both native, different focus." },
         { feature: "Invoicing + payments", us: true, them: true },
         { feature: "Free tier", us: true, them: false },
-        { feature: "Starts at", us: "$9/mo", them: "Quote-based (est. $200+/user/mo)" },
+        { feature: "Starts at", us: MATRIX_STARTS_AT_US, them: "Quote-based (est. $200+/user/mo)" },
         { feature: "Setup time", us: "Same-day", them: "4-12 wks" },
         { feature: "AI image/article generation (ContentFlow)", us: true, them: false },
         { feature: "Social-media scheduling (SocialSync)", us: true, them: false },
@@ -125,13 +137,7 @@ export default function CompareVsServiceTitan() {
         { feature: "Annual contract required", us: false, them: true },
         { feature: "QuickBooks / accounting integration", us: "partial", them: true },
       ]}
-      ourPricing={[
-        "Free — try every product, single workspace",
-        "Starter $9/mo — single trade, basic AI",
-        "Growth $49/mo — full AI suite",
-        "Scale $149/mo — multi-location, white-label",
-        "Month-to-month, cancel anytime, no card to start.",
-      ]}
+      ourPricing={OUR_PRICING_BULLETS}
       theirPricing={[
         "Custom — quote-on-request, no public pricing",
         "Not publicly listed; third-party estimates ~$200-500/user/mo",
@@ -151,13 +157,13 @@ export default function CompareVsServiceTitan() {
         "You'd rather sign up today and be live tonight than spend 4-12 weeks in implementation.",
         "Month-to-month with cancel-anytime matters to you. No annual contract, no multi-year lock-in.",
       ]}
-      testimonialQuote="We did the ServiceTitan demo. Phenomenal product, but the quote came back at $1,800/month plus $12K implementation — for a 4-tech shop. WeFixTrades gave us the AI receptionist and Google Business monitoring for $49 a month. Right tool for our stage."
+      testimonialQuote={`We did the ServiceTitan demo. Phenomenal product, but the quote came back at $1,800/month plus $12K implementation — for a 4-tech shop. WeFixTrades gave us the AI receptionist, Google Business monitoring, and review automation in the ${GROWTH_BUNDLE_NAME} bundle for ${GROWTH_BUNDLE_PRICE} a month. Right tool for our stage.`}
       testimonialAttribution="— Case study placeholder · electrical, 4 techs"
       faqItems={[
         {
           question: "How much cheaper is WeFixTrades than ServiceTitan?",
           answer:
-            "Order-of-magnitude cheaper for small shops. ServiceTitan doesn't publish pricing, but third-party estimates put a 4-tech business in the ballpark of ~$800-2,000/month (4 users × ~$200-500) plus implementation fees — versus $49-149/month total on WeFixTrades. ServiceTitan's enterprise pricing is intentional — they're aimed at 20+ tech operations where deep FSM features earn back the cost. Below that bar we're typically far cheaper.",
+            `Substantially cheaper for small shops. ServiceTitan doesn't publish pricing, but third-party estimates put a 4-tech business in the ballpark of ~$800-2,000/month (4 users × ~$200-500) plus implementation fees — versus ${STARTER_BUNDLE_PRICE}-${PRO_BUNDLE_PRICE}/month for our full-suite bundles, or from ${ENTRY_PRICE}/mo if you only need a single product. ServiceTitan's enterprise pricing is intentional — they're aimed at 20+ tech operations where deep FSM features earn back the cost. Below that bar we're typically far cheaper.`,
         },
         {
           question: "Can WeFixTrades replace ServiceTitan for a large operation?",
@@ -167,12 +173,12 @@ export default function CompareVsServiceTitan() {
         {
           question: "Does WeFixTrades have AI voice like ServiceTitan's AI Voice Agent?",
           answer:
-            "Yes — 24/7 TradeLine answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It's bundled into our $49/mo Growth plan rather than billed as a separate add-on. ServiceTitan's AI Voice Agent is a strong product; the difference is pricing model and target shop size.",
+            `Yes — 24/7 TradeLine answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It starts at ${TRADELINE_FROM}/mo standalone and is included in our ${GROWTH_BUNDLE_NAME} bundle (${GROWTH_BUNDLE_PRICE}/mo) rather than billed as an enterprise add-on. ServiceTitan's AI Voice Agent is a strong product; the difference is pricing model and target shop size.`,
 
           answerNode: (
             <>
               Yes — 24/7{" "}
-              <Link href="/products/tradeline" style={LINK_STYLE}>TradeLine</Link> answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It's bundled into our $49/mo Growth plan rather than billed as a separate add-on. ServiceTitan's AI Voice Agent is a strong product; the difference is pricing model and target shop size.
+              <Link href="/products/tradeline" style={LINK_STYLE}>TradeLine</Link> answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It starts at {TRADELINE_FROM}/mo standalone and is included in our {GROWTH_BUNDLE_NAME} bundle ({GROWTH_BUNDLE_PRICE}/mo) rather than billed as an enterprise add-on. ServiceTitan's AI Voice Agent is a strong product; the difference is pricing model and target shop size.
             </>
           ),
         },

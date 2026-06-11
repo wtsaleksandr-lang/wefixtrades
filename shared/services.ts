@@ -247,13 +247,20 @@ export const SERVICES: Service[] = [
     ],
   },
   {
+    // Wave 11D D2 (locked 2026-05-26) — BookFlow is NOT sold standalone; it's
+    // the booking feature included with every QuoteQuick plan (see the matching
+    // reframe in client/src/config/products.ts). The old standalone entry here
+    // ("$5.89/mo", price 589 — cents that every consumer read as dollars) was a
+    // residual: it surfaced in chat recommendation cards and the portal catalog
+    // as a purchasable SKU that has no service_catalog row, so checkout 400s.
+    // Kept in the catalog for chat-assistant knowledge, priced as included.
     id: "bookflow",
     name: "BookFlow",
-    tagline: "Simple online booking for trades businesses",
+    tagline: "Online booking — included with QuoteQuick",
     description:
-      "Simple online booking for your trades business. Customers book directly from your website, quote widget, or AI assistant.",
-    price: 589,
-    priceLabel: "$5.89/mo",
+      "The booking experience inside QuoteQuick — included free with every QuoteQuick plan. Customers book directly from your website, quote widget, or AI assistant. Not sold standalone.",
+    price: 0,
+    priceLabel: "Included with QuoteQuick",
     billingPeriod: "monthly",
     category: "leads",
     fixesIssues: [
