@@ -31,6 +31,7 @@ import { useCopilotForm } from "@/context/CopilotFormContext";
 import ClassicMinimalPreview from "./invoice-templates/ClassicMinimal";
 import ModernBoldPreview from "./invoice-templates/ModernBold";
 import TradeServicePreview from "./invoice-templates/TradeService";
+import { TitleInField, TitleInFieldSelect, TitleInFieldTextarea } from "./FreeTools/_shared";
 import type { InvoicePreviewData } from "./invoice-templates/types";
 import { formatMoney as previewFormatMoney } from "./invoice-templates/types";
 
@@ -506,13 +507,16 @@ function InvoiceEditor({
         {/* Totals + tax */}
         <Card title="Totals" help="Tax is invoice-level: percent or fixed amount">
           <Row>
-            <div>
-              <label style={labelStyle}>Tax mode</label>
-              <select value={taxMode} onChange={(e) => setTaxMode(e.target.value as any)} style={inputStyle} aria-label="Tax mode">
-                <option value="fixed">Fixed amount</option>
-                <option value="percent">Percent of subtotal</option>
-              </select>
-            </div>
+            <TitleInFieldSelect
+              id="inv-tax-mode"
+              label="Tax mode"
+              value={taxMode}
+              onChange={(v) => setTaxMode(v as any)}
+              help="Charge tax as a percent of the subtotal or as one fixed amount."
+            >
+              <option value="fixed">Fixed amount</option>
+              <option value="percent">Percent of subtotal</option>
+            </TitleInFieldSelect>
             {taxMode === "percent" ? (
               <Field label="Tax %" type="number" value={String(taxPercent)} onChange={(v) => setTaxPercent(Math.max(0, parseFloat(v) || 0))} />
             ) : (
@@ -530,28 +534,28 @@ function InvoiceEditor({
         <Card title="Invoice details">
           <Row>
             <Field label="Invoice number" value={invoiceNumber} onChange={setInvoiceNumber} />
-            <div>
-              <label style={labelStyle}>Currency (display only)</label>
-              <select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)} style={inputStyle} aria-label="Currency">
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
+            <TitleInFieldSelect
+              id="inv-currency"
+              label="Currency (display only)"
+              value={currency}
+              onChange={(v) => setCurrency(v as Currency)}
+              help="Changes how amounts are displayed on this invoice — it doesn't convert them."
+            >
+              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </TitleInFieldSelect>
           </Row>
           <Row>
             <Field label="Issue date" type="date" value={issueDate} onChange={setIssueDate} icon={<Calendar size={12} />} />
             <Field label="Due date" type="date" value={dueDate} onChange={setDueDate} icon={<Calendar size={12} />} />
           </Row>
-          <div>
-            <label style={labelStyle}>Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              style={{ ...inputStyle, height: "auto", padding: "10px 12px", resize: "vertical" }}
-              placeholder="Thank you for your business!"
-              aria-label="Notes"
-            />
-          </div>
+          <TitleInFieldTextarea
+            id="inv-notes"
+            label="Notes"
+            value={notes}
+            onChange={setNotes}
+            rows={3}
+            help={'Printed at the bottom of the invoice — e.g. "Thank you for your business!"'}
+          />
         </Card>
 
         {/* Actions */}
@@ -691,13 +695,18 @@ function Card({ title, help, children }: { title?: string; help?: string; childr
           <h3 style={{ fontSize: 14, fontWeight: 600, color: "#111", margin: 0 }}>{title}</h3>
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{children}</div>
+      {/* 2px input-cluster gap per the locked input rules. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{children}</div>
     </div>
   );
 }
 
+/* Thin wrapper over the canonical TitleInField (locked input rules) — the
+ * label floats inside the field and the optional help cue anchors top-left.
+ * `icon` is accepted for call-site compatibility; the floating label carries
+ * the meaning so the icon is no longer rendered. */
 function Field({
-  label, value, onChange, type = "text", placeholder, icon,
+  label, value, onChange, type = "text", placeholder, icon: _icon, help,
 }: {
   label: string;
   value: string;
@@ -705,24 +714,24 @@ function Field({
   type?: string;
   placeholder?: string;
   icon?: React.ReactNode;
+  help?: string;
 }) {
+  const id = `inv-field-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
   return (
-    <div style={{ minWidth: 0 }}>
-      <label style={labelStyle}>{icon}{icon && " "}{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        style={inputStyle}
-        aria-label={label}
-      />
-    </div>
+    <TitleInField
+      id={id}
+      label={label}
+      value={value}
+      onChange={onChange}
+      type={type}
+      placeholder={placeholder}
+      help={help}
+    />
   );
 }
 
 function Row({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>{children}</div>;
+  return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>{children}</div>;
 }
 
 function Totals({ label, value, bold, accent }: { label: string; value: string; bold?: boolean; accent?: string }) {
@@ -831,10 +840,14 @@ function SendInvoiceModal({
     <Modal title="Send invoice" onClose={onClose}>
       <Field label="To" value={to} onChange={setTo} type="email" />
       <Field label="Subject" value={subject} onChange={setSubject} />
-      <div>
-        <label style={labelStyle}>Message</label>
-        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} style={{ ...inputStyle, height: "auto", padding: 10, resize: "vertical" }} aria-label="Email body" />
-      </div>
+      <TitleInFieldTextarea
+        id="inv-email-message"
+        label="Message"
+        value={body}
+        onChange={setBody}
+        rows={5}
+        help="The email body your customer reads — the invoice PDF is attached automatically."
+      />
       <p style={{ fontSize: 11, color: "#6b7280", margin: "4px 0 0" }}>A PDF copy will be attached automatically.</p>
       {err && <p style={{ fontSize: 12, color: "#dc2626", margin: "8px 0 0" }}>{err}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
@@ -873,21 +886,28 @@ function MarkPaidModal({
 
   return (
     <Modal title="Record payment" onClose={onClose}>
-      <div>
-        <label style={labelStyle}>Method</label>
-        <select value={method} onChange={(e) => setMethod(e.target.value as any)} style={inputStyle}>
-          <option value="cash">Cash</option>
-          <option value="check">Check</option>
-          <option value="etransfer">E-transfer</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
+      <TitleInFieldSelect
+        id="inv-payment-method"
+        label="Method"
+        value={method}
+        onChange={(v) => setMethod(v as any)}
+        help="How the customer paid — recorded on the invoice history."
+      >
+        <option value="cash">Cash</option>
+        <option value="check">Check</option>
+        <option value="etransfer">E-transfer</option>
+        <option value="other">Other</option>
+      </TitleInFieldSelect>
       <Field label="Payment date" value={date} onChange={setDate} type="date" />
       <Field label="Reference (check #, etc.)" value={ref} onChange={setRef} />
-      <div>
-        <label style={labelStyle}>Notes</label>
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, height: "auto", padding: 10, resize: "vertical" }} aria-label="Payment notes" />
-      </div>
+      <TitleInFieldTextarea
+        id="inv-payment-notes"
+        label="Notes"
+        value={note}
+        onChange={setNote}
+        rows={2}
+        help="Anything worth remembering about this payment. Optional."
+      />
       {err && <p style={{ fontSize: 12, color: "#dc2626", margin: "4px 0 0" }}>{err}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
         <button onClick={onClose} style={ghostBtn}>Cancel</button>

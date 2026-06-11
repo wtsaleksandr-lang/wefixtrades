@@ -23,6 +23,7 @@ import {
 import PortalLayout from "@/components/portal/PortalLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useCopilotForm } from "@/context/CopilotFormContext";
+import { FieldHelpCue, TitleInField, TitleInFieldTextarea } from "./FreeTools/_shared";
 
 /* ─── Types ─── */
 
@@ -307,14 +308,15 @@ export default function BookFlowSetupPage() {
     });
   };
 
-  const labelClass = "block text-xs font-medium text-gray-600 mb-1";
   const inputClass =
     "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
   const cardClass = "bg-white rounded-xl border border-gray-200 p-5";
 
   return (
     <PortalLayout>
-      <div data-theme="light" className="max-w-2xl space-y-6">
+      {/* data-cue-allowed-multiple: each FieldHelpCue below belongs to a
+          different input (one cue per field, locked input rules). */}
+      <div data-theme="light" className="max-w-2xl space-y-6" data-cue-allowed-multiple>
         <div>
           <Link href="/portal/dispatch">
             <a
@@ -325,7 +327,7 @@ export default function BookFlowSetupPage() {
               Back to Today's jobs
             </a>
           </Link>
-          <h1 className="text-xl font-semibold text-foreground">Booking Page Setup</h1>
+          <h2 className="text-xl font-semibold text-foreground">Booking Page Setup</h2>
           <p className="text-sm text-gray-500 mt-0.5">
             Configure the online booking page customers use to schedule appointments with you.
           </p>
@@ -338,7 +340,7 @@ export default function BookFlowSetupPage() {
         )}
 
         {!isLoading && (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" data-cue-allowed-multiple>
             {/* Activation + public URL */}
             <div className={cardClass}>
               <div className="flex items-center justify-between">
@@ -385,16 +387,17 @@ export default function BookFlowSetupPage() {
             </div>
 
             {/* Business + slug */}
-            <div className={`${cardClass} space-y-4`}>
+            <div className={`${cardClass} space-y-4`} data-cue-allowed-multiple>
               <h2 className="text-sm font-semibold text-gray-900">Page Details</h2>
 
-              <div>
-                <label className={labelClass}>Business Name</label>
-                <input
-                  className={inputClass}
+              {/* Title-in-field inputs (locked input rules) — labels float
+                  inside the fields, help cues top-left, 2px stack gap. */}
+              <div className="space-y-0.5" data-cue-allowed-multiple>
+                <TitleInField
+                  id="bookflow-business-name"
+                  label="Business Name"
                   value={form.business_name || ""}
-                  onChange={(e) => {
-                    const name = e.target.value;
+                  onChange={(name) => {
                     setForm((p) => ({
                       ...p,
                       business_name: name,
@@ -402,48 +405,62 @@ export default function BookFlowSetupPage() {
                     }));
                   }}
                   placeholder="Acme Plumbing"
-                  data-testid="input-business-name"
+                  help="Shown at the top of your public booking page."
+                  testid="input-business-name"
                 />
-              </div>
 
-              <div>
-                <label className={labelClass}>Booking Page Address</label>
-                <div className="flex items-center">
-                  <span className="px-3 py-2 text-sm text-gray-500 bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg whitespace-nowrap">
-                    /book/
+                <div className="relative pl-5">
+                  <span className="absolute top-1 left-0">
+                    <FieldHelpCue
+                      label="Booking Page Address"
+                      help="The public link customers visit. Lowercase letters, numbers and hyphens only."
+                    />
                   </span>
-                  <input
-                    className={`${inputClass} rounded-l-none`}
-                    value={form.slug || ""}
-                    onChange={(e) => {
-                      setSlugTouched(true);
-                      setForm({ ...form, slug: slugify(e.target.value) });
-                    }}
-                    placeholder="acme-plumbing"
-                    data-testid="input-slug"
-                  />
+                  <div className="flex items-stretch">
+                    <span className="px-3 text-sm text-gray-500 bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg whitespace-nowrap flex items-center">
+                      /book/
+                    </span>
+                    <TitleInField
+                      id="bookflow-slug"
+                      label="Booking Page Address"
+                      className="flex-1 pl-0"
+                      inputClassName="rounded-l-none"
+                      value={form.slug || ""}
+                      onChange={(v) => {
+                        setSlugTouched(true);
+                        setForm({ ...form, slug: slugify(v) });
+                      }}
+                      placeholder="acme-plumbing"
+                      testid="input-slug"
+                    />
+                  </div>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Lowercase letters, numbers and hyphens only. This is the public link customers visit.
-                </p>
-              </div>
 
-              <div>
-                <label className={labelClass}>Accent Colour</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={form.accent_color || "#3B82F6"}
-                    onChange={(e) => setForm({ ...form, accent_color: e.target.value })}
-                    className="w-10 h-9 rounded border border-gray-200 cursor-pointer"
-                    data-testid="input-accent-color"
-                  />
-                  <input
-                    className={`${inputClass} w-32`}
-                    value={form.accent_color || ""}
-                    onChange={(e) => setForm({ ...form, accent_color: e.target.value })}
-                    placeholder="#3B82F6"
-                  />
+                <div className="relative pl-5">
+                  <span className="absolute top-1 left-0">
+                    <FieldHelpCue
+                      label="Accent Colour"
+                      help="The highlight colour on your booking page — pick with the swatch or paste a hex code like #3B82F6."
+                    />
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={form.accent_color || "#3B82F6"}
+                      onChange={(e) => setForm({ ...form, accent_color: e.target.value })}
+                      className="w-10 h-[46px] rounded border border-gray-200 cursor-pointer"
+                      data-testid="input-accent-color"
+                      aria-label="Accent colour swatch"
+                    />
+                    <TitleInField
+                      id="bookflow-accent-hex"
+                      label="Accent Colour"
+                      className="w-40 pl-0"
+                      value={form.accent_color || ""}
+                      onChange={(v) => setForm({ ...form, accent_color: v })}
+                      placeholder="#3B82F6"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -492,33 +509,31 @@ export default function BookFlowSetupPage() {
             {/* Slot config */}
             <div className={`${cardClass} space-y-4`}>
               <h2 className="text-sm font-semibold text-gray-900">Scheduling</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Default Slot Length (minutes)</label>
-                  <input
-                    type="number"
-                    min={5}
-                    max={480}
-                    className={inputClass}
-                    value={form.slot_duration_minutes ?? 60}
-                    onChange={(e) =>
-                      setForm({ ...form, slot_duration_minutes: parseInt(e.target.value) || 60 })
-                    }
-                    data-testid="input-slot-duration"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Buffer Between Jobs (minutes)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={240}
-                    className={inputClass}
-                    value={form.buffer_minutes ?? 15}
-                    onChange={(e) => setForm({ ...form, buffer_minutes: parseInt(e.target.value) || 0 })}
-                    data-testid="input-buffer"
-                  />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
+                <TitleInField
+                  id="bookflow-slot-duration"
+                  label="Default Slot Length (minutes)"
+                  type="number"
+                  min={5}
+                  max={480}
+                  value={String(form.slot_duration_minutes ?? 60)}
+                  onChange={(v) =>
+                    setForm({ ...form, slot_duration_minutes: parseInt(v) || 60 })
+                  }
+                  help="How long one booking takes by default — customers see openings this size."
+                  testid="input-slot-duration"
+                />
+                <TitleInField
+                  id="bookflow-buffer"
+                  label="Buffer Between Jobs (minutes)"
+                  type="number"
+                  min={0}
+                  max={240}
+                  value={String(form.buffer_minutes ?? 15)}
+                  onChange={(v) => setForm({ ...form, buffer_minutes: parseInt(v) || 0 })}
+                  help="Breathing room added after each job for travel and cleanup before the next slot opens."
+                  testid="input-buffer"
+                />
               </div>
               <div className="flex items-center justify-between pt-1">
                 <div>
@@ -585,34 +600,32 @@ export default function BookFlowSetupPage() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className={labelClass}>Duration (min)</label>
-                      <input
-                        type="number"
-                        min={5}
-                        className={inputClass}
-                        value={svc.duration_minutes}
-                        onChange={(e) =>
-                          updateService(svc.id, { duration_minutes: parseInt(e.target.value) || 0 })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Price ($)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        className={inputClass}
-                        value={(svc.price_cents / 100).toString()}
-                        onChange={(e) =>
-                          updateService(svc.id, {
-                            price_cents: Math.round((parseFloat(e.target.value) || 0) * 100),
-                          })
-                        }
-                      />
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
+                    <TitleInField
+                      id={`svc-${svc.id}-duration`}
+                      label="Duration (min)"
+                      type="number"
+                      min={5}
+                      value={String(svc.duration_minutes)}
+                      onChange={(v) =>
+                        updateService(svc.id, { duration_minutes: parseInt(v) || 0 })
+                      }
+                      help="How long this service takes — its bookings use this instead of the default slot length."
+                    />
+                    <TitleInField
+                      id={`svc-${svc.id}-price`}
+                      label="Price ($)"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={(svc.price_cents / 100).toString()}
+                      onChange={(v) =>
+                        updateService(svc.id, {
+                          price_cents: Math.round((parseFloat(v) || 0) * 100),
+                        })
+                      }
+                      help="Shown to customers while they pick a service. Leave 0 to hide pricing."
+                    />
                   </div>
                   <input
                     className={inputClass}
@@ -626,14 +639,14 @@ export default function BookFlowSetupPage() {
 
             {/* Confirmation message */}
             <div className={cardClass}>
-              <label className={labelClass}>Confirmation Message</label>
-              <textarea
-                className={`${inputClass} resize-vertical`}
+              <TitleInFieldTextarea
+                id="bookflow-confirmation-message"
+                label="Confirmation Message"
                 rows={3}
                 value={form.confirmation_message || ""}
-                onChange={(e) => setForm({ ...form, confirmation_message: e.target.value })}
-                placeholder="Shown to customers after they book — e.g. 'We'll text you the morning of your appointment.'"
-                data-testid="input-confirmation-message"
+                onChange={(v) => setForm({ ...form, confirmation_message: v })}
+                help="Shown to customers right after they book — e.g. 'We'll text you the morning of your appointment.'"
+                testid="input-confirmation-message"
               />
             </div>
 

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, ArrowLeft, CheckCircle, Link2, AlertTriangle } from "lucide-react";
+import { ArrowRight, ArrowLeft, CheckCircle, HelpCircle, Link2, AlertTriangle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import PortalLayout from "@/components/portal/PortalLayout";
 import BackButton from "@/components/ui/back-button";
 import { Card } from "@/components/ui/card";
@@ -13,6 +14,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 
 const STEPS = ["Business", "Services", "Preferences", "Connect", "Review"];
+
+/* Theme-aware top-left help cue — same Tooltip+HelpCircle pattern as the
+ * admin pages (DESIGN-SYSTEM hard rule: cue top-left of every component). */
+function FieldCue({ help }: { help: string }) {
+  return (
+    <span className="absolute top-2.5 left-0">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[280px] text-xs">{help}</TooltipContent>
+      </Tooltip>
+    </span>
+  );
+}
 
 const TONES = [
   { value: "professional", label: "Professional — clean and trustworthy" },
@@ -185,7 +201,7 @@ export default function SocialSyncSetup() {
         <BackButton to="/portal/socialsync" label="Back to Social Media" />
         {/* Header */}
         <div>
-          <h1 className="text-lg font-bold text-foreground">{isEditing ? "Edit SocialSync Settings" : "Set Up SocialSync"}</h1>
+          <h2 className="text-lg font-bold text-foreground">{isEditing ? "Edit SocialSync Settings" : "Set Up SocialSync"}</h2>
           <p className="text-sm text-muted-foreground">{isEditing ? "Update your preferences and we'll adjust your content." : "Tell us about your business so we can create the right content for you."}</p>
         </div>
 
@@ -202,62 +218,80 @@ export default function SocialSyncSetup() {
         {/* Step content */}
         <Card className="p-5">
           {step === 0 && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-foreground">About your business</h2>
-              <p className="text-xs text-muted-foreground">This helps us write content that sounds like you, not generic AI.</p>
+            <div className="space-y-2">
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">What type of business are you?</label>
-                <Input value={form.niche} onChange={e => setForm({ ...form, niche: e.target.value })} placeholder="e.g. Residential plumber, HVAC technician, Roofer" />
+                <h2 className="text-sm font-semibold text-foreground">About your business</h2>
+                <p className="text-xs text-muted-foreground">This helps us write content that sounds like you, not generic AI.</p>
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Where do you operate?</label>
-                <Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. Denver, CO or Greater Austin area" />
-                <p className="text-[10px] text-muted-foreground mt-1">We'll mention your service area naturally in posts to build local trust.</p>
+              {/* Titles live inside the fields (locked input rules); cues top-left. */}
+              <div className="space-y-0.5">
+                <div className="relative pl-5">
+                  <FieldCue help="What type of business are you? One short phrase — residential plumber, HVAC technician, roofer…" />
+                  <Input aria-label="What type of business are you?" value={form.niche} onChange={e => setForm({ ...form, niche: e.target.value })} placeholder="Business type — e.g. residential plumber, roofer" />
+                </div>
+                <div className="relative pl-5">
+                  <FieldCue help="Where do you operate? We'll mention your service area naturally in posts to build local trust." />
+                  <Input aria-label="Where do you operate?" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Service area — e.g. Denver, CO" />
+                </div>
               </div>
             </div>
           )}
 
           {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-foreground">Your services</h2>
-              <p className="text-xs text-muted-foreground">List the services you offer. We'll create content around these.</p>
+            <div className="space-y-2">
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Services you offer (comma-separated)</label>
-                <Input value={form.services} onChange={e => setForm({ ...form, services: e.target.value })} placeholder="e.g. Drain cleaning, Water heater repair, Pipe replacement" />
+                <h2 className="text-sm font-semibold text-foreground">Your services</h2>
+                <p className="text-xs text-muted-foreground">List the services you offer. We'll create content around these.</p>
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Services to emphasize (optional)</label>
-                <Input value={form.service_focus} onChange={e => setForm({ ...form, service_focus: e.target.value })} placeholder="e.g. Emergency plumbing, Leak repair" />
-                <p className="text-[10px] text-muted-foreground mt-1">If some services are more important to promote, list them here.</p>
+              <div className="space-y-0.5">
+                <div className="relative pl-5">
+                  <FieldCue help="Every service you offer, separated by commas — we create posts around each one." />
+                  <Input aria-label="Services you offer" value={form.services} onChange={e => setForm({ ...form, services: e.target.value })} placeholder="Services you offer — drain cleaning, water heaters, …" />
+                </div>
+                <div className="relative pl-5">
+                  <FieldCue help="If some services matter more to your business, list them and we'll promote them harder. Optional." />
+                  <Input aria-label="Services to emphasize (optional)" value={form.service_focus} onChange={e => setForm({ ...form, service_focus: e.target.value })} placeholder="Services to emphasize (optional)" />
+                </div>
               </div>
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-foreground">Content preferences</h2>
-              <p className="text-xs text-muted-foreground">Set the tone and frequency for your posts.</p>
+            <div className="space-y-2">
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Tone of voice</label>
-                <Select value={form.tone} onValueChange={v => setForm({ ...form, tone: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {TONES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <h2 className="text-sm font-semibold text-foreground">Content preferences</h2>
+                <p className="text-xs text-muted-foreground">Set the tone and frequency for your posts.</p>
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Posting frequency</label>
-                <Select value={form.frequency} onValueChange={v => setForm({ ...form, frequency: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {FREQUENCIES.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-0.5">
+                <div className="relative pl-5">
+                  <FieldCue help="How your posts should sound — friendly, professional, straight-talking…" />
+                  <Select value={form.tone} onValueChange={v => setForm({ ...form, tone: v })}>
+                    <SelectTrigger aria-label="Tone of voice">
+                      <span className="mr-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">Tone</span>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TONES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="relative pl-5">
+                  <FieldCue help="How often we publish for you. You approve everything before it goes out." />
+                  <Select value={form.frequency} onValueChange={v => setForm({ ...form, frequency: v })}>
+                    <SelectTrigger aria-label="Posting frequency">
+                      <span className="mr-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">Frequency</span>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FREQUENCIES.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Platforms</label>
-                <div className="flex gap-2 flex-wrap">
+              <div className="relative pl-5">
+                <FieldCue help="Where we publish your posts. Pick every platform you have a page on — you can connect them in the next step." />
+                {/* Button-choice cluster — the chips ARE the label (rule 5); flush 2px gap. */}
+                <div className="flex gap-0.5 flex-wrap">
                   {["facebook", "instagram", "google_business"].map(p => {
                     const selected = form.platform_preferences.includes(p);
                     const label = p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1);

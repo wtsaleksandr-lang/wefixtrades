@@ -1,6 +1,7 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, ArrowRight, Calculator, Eye, Users, ExternalLink, RefreshCw, Plus, MessageCircle, PackageOpen } from "lucide-react";
+import { Loader2, ArrowRight, Calculator, Eye, Users, ExternalLink, HelpCircle, RefreshCw, Plus, MessageCircle, PackageOpen } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,10 +25,10 @@ interface ServiceRow {
 }
 
 const CATEGORY_STYLES: Record<string, string> = {
-  leads: "bg-brand-blue-50 text-brand-blue-700",
-  visibility: "bg-sky-50 text-sky-700",
-  reputation: "bg-orange-50 text-orange-700",
-  website: "bg-teal-50 text-teal-700",
+  leads: "bg-brand-blue-50 text-brand-blue-700 dark:bg-brand-blue/15 dark:text-brand-blue-300",
+  visibility: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300",
+  reputation: "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300",
+  website: "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300",
 };
 
 export default function PortalServices() {
@@ -74,7 +75,18 @@ export default function PortalServices() {
             position="bottom"
             anchor={
               <div className="min-w-0">
-                <h1 className="text-xl font-semibold text-foreground">Your Services</h1>
+                <div className="flex items-center gap-2">
+                  {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[280px] text-xs">
+                      Every service on your account, active or past. Click a card for its progress, deliverables, and settings; the banner on a card means we still need a few details from you.
+                    </TooltipContent>
+                  </Tooltip>
+                  <h2 className="text-xl font-semibold text-foreground">Your Services</h2>
+                </div>
                 <p className="text-sm text-muted-foreground mt-0.5">All active and past services for your account.</p>
               </div>
             }
@@ -141,14 +153,14 @@ export default function PortalServices() {
           <div className="bg-card rounded-xl border border-border p-5">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-brand-blue-50 flex items-center justify-center">
-                  <Calculator className="w-4 h-4 text-brand-blue-600" />
+                <div className="w-9 h-9 rounded-lg bg-brand-blue-50 dark:bg-brand-blue/15 flex items-center justify-center">
+                  <Calculator className="w-4 h-4 text-brand-blue-600 dark:text-brand-blue-300" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">QuoteQuick</h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${
-                      qqData.calculator.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
+                      qqData.calculator.status === "live" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-gray-100 text-gray-600 dark:bg-gray-800/60 dark:text-gray-400"
                     }`}>
                       {qqData.calculator.status === "live" ? "Live" : "Draft"}
                     </span>
@@ -159,7 +171,7 @@ export default function PortalServices() {
                   </div>
                 </div>
               </div>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-brand-blue-50 text-brand-blue-700">leads</span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-brand-blue-50 text-brand-blue-700 dark:bg-brand-blue/15 dark:text-brand-blue-300">leads</span>
             </div>
             <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {qqData.calculator.total_views.toLocaleString()} views</span>
@@ -207,12 +219,12 @@ export default function PortalServices() {
                           {svc.service_name || svc.service_id}
                         </h3>
                         {svc.category && (
-                          <span className={`inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${CATEGORY_STYLES[svc.category] || "bg-gray-50 text-gray-600"}`}>
+                          <span className={`inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${CATEGORY_STYLES[svc.category] || "bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-400"}`}>
                             {svc.category}
                           </span>
                         )}
                       </div>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${SERVICE_STATUS_STYLES[svc.status] || "bg-gray-100 text-gray-600"}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${SERVICE_STATUS_STYLES[svc.status] || "bg-gray-100 text-gray-600 dark:bg-gray-800/60 dark:text-gray-400"}`}>
                         {statusLabel(SERVICE_STATUS_LABELS, svc.status)}
                       </span>
                     </div>
@@ -225,13 +237,13 @@ export default function PortalServices() {
                             href={`/portal/onboarding/${svc.onboarding_id}`}
                             onClick={(e: React.MouseEvent) => e.stopPropagation()}
                           >
-                            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium hover:bg-amber-100 transition-colors flex items-center justify-between">
+                            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-300 dark:hover:bg-amber-950/60 font-medium hover:bg-amber-100 transition-colors flex items-center justify-between">
                               <span>{svc.onboarding_has_responses ? "Continue setup form" : "Complete setup form"}</span>
                               <ArrowRight className="w-3 h-3" />
                             </div>
                           </Link>
                         ) : (
-                          <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700">
+                          <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300">
                             {statusLabel(ONBOARDING_STATUS_LABELS, svc.onboarding_status!)}
                           </div>
                         )}

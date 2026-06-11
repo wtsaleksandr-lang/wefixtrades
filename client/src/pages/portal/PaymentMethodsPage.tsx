@@ -14,6 +14,7 @@ import { Check, ChevronLeft, Loader2 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { FieldHelpCue, TitleInField, TitleInFieldTextarea } from "./FreeTools/_shared";
 
 interface PaymentMethodsData {
   stripe?: boolean;
@@ -134,12 +135,6 @@ export default function PaymentMethodsPage() {
     saveMutation.mutate(form);
   };
 
-  const labelClass = "block text-xs font-medium text-gray-600 mb-1";
-  const inputClass =
-    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
-  const textareaClass =
-    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors resize-vertical";
-
   return (
     <PortalLayout breadcrumb="Payment Methods">
       <div data-theme="light" className="max-w-2xl space-y-6">
@@ -148,7 +143,7 @@ export default function PaymentMethodsPage() {
             <ChevronLeft className="w-3.5 h-3.5" />
             Back to Billing
           </Link>
-          <h1 className="text-xl font-semibold text-foreground">Payment Methods</h1>
+          <h2 className="text-xl font-semibold text-foreground">Payment Methods</h2>
           <p className="text-sm text-gray-500 mt-0.5">
             Configure which payment options your customers see on invoice pages.
           </p>
@@ -186,85 +181,71 @@ export default function PaymentMethodsPage() {
               </p>
             </div>
 
-            {/* Alternative methods */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+            {/* Alternative methods — title-in-field per the locked input rules
+                (labels float inside the fields, hints live in the top-left
+                help cues, 2px stack gap). */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="text-sm font-semibold text-gray-900">Alternative Payment Methods</h2>
-              <p className="text-xs text-gray-500 -mt-3">
+              <p className="text-xs text-gray-500 mt-0.5 mb-2">
                 These appear as "More ways to pay" on your invoice pages. Leave blank to hide.
               </p>
 
-              {/* PayPal */}
-              <div>
-                <label className={labelClass}>PayPal Email</label>
-                <input
+              <div className="space-y-0.5">
+                <TitleInField
+                  id="pm-paypal-email"
+                  label="PayPal Email"
                   type="email"
-                  className={inputClass}
                   value={form.paypal_email || ""}
-                  onChange={(e) => setForm({ ...form, paypal_email: e.target.value })}
+                  onChange={(v) => setForm({ ...form, paypal_email: v })}
                   placeholder="you@example.com"
+                  help={'Customers see a "Pay with PayPal" button linking to your paypal.me.'}
                 />
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Customers will see a "Pay with PayPal" button linking to paypal.me
-                </p>
-              </div>
-
-              {/* E-Transfer / Interac */}
-              <div>
-                <label className={labelClass}>E-Transfer / Interac Email</label>
-                <input
+                <TitleInField
+                  id="pm-etransfer-email"
+                  label="E-Transfer / Interac Email"
                   type="email"
-                  className={inputClass}
                   value={form.etransfer_email || ""}
-                  onChange={(e) => setForm({ ...form, etransfer_email: e.target.value })}
+                  onChange={(v) => setForm({ ...form, etransfer_email: v })}
                   placeholder="you@example.com"
+                  help="Popular in Canada. Customers see this email plus the invoice reference to send an e-transfer."
                 />
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Popular in Canada. Customers see the email + invoice reference to send an e-transfer.
-                </p>
-              </div>
-
-              {/* Bank Details */}
-              <div>
-                <label className={labelClass}>Bank Transfer Details</label>
-                <textarea
-                  className={textareaClass}
+                <TitleInFieldTextarea
+                  id="pm-bank-details"
+                  label="Bank Transfer Details"
                   value={form.bank_details || ""}
-                  onChange={(e) => setForm({ ...form, bank_details: e.target.value })}
-                  placeholder={"Bank: TD Canada Trust\nAccount: 12345678\nRouting: 004\nTransit: 12345"}
+                  onChange={(v) => setForm({ ...form, bank_details: v })}
                   rows={4}
+                  help="Shown as-is on the invoice page — include bank name, account number, routing/transit."
                 />
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Shown as-is on the invoice page. Include bank name, account number, routing, etc.
-                </p>
-              </div>
-
-              {/* Venmo */}
-              <div>
-                <label className={labelClass}>Venmo Handle</label>
-                <div className="flex items-center">
-                  <span className="px-3 py-2 text-sm text-gray-500 bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg">@</span>
-                  <input
-                    className={`${inputClass} rounded-l-none`}
-                    value={(form.venmo_handle || "").replace(/^@/, "")}
-                    onChange={(e) => setForm({ ...form, venmo_handle: e.target.value.replace(/^@/, "") })}
-                    placeholder="yourhandle"
-                  />
+                <div className="relative pl-5">
+                  <span className="absolute top-1 left-0">
+                    <FieldHelpCue label="Venmo Handle" help="Your @handle without the @ — customers get a venmo.me link." />
+                  </span>
+                  <div className="flex items-stretch">
+                    <span className="px-3 text-sm text-gray-500 bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg flex items-center">@</span>
+                    <TitleInField
+                      id="pm-venmo-handle"
+                      label="Venmo Handle"
+                      className="flex-1 pl-0"
+                      inputClassName="rounded-l-none"
+                      value={(form.venmo_handle || "").replace(/^@/, "")}
+                      onChange={(v) => setForm({ ...form, venmo_handle: v.replace(/^@/, "") })}
+                      placeholder="yourhandle"
+                    />
+                  </div>
                 </div>
-              </div>
-
-              {/* Zelle */}
-              <div>
-                <label className={labelClass}>Zelle Info</label>
-                <input
-                  className={inputClass}
+                <TitleInField
+                  id="pm-zelle-info"
+                  label="Zelle Info"
                   value={form.zelle_info || ""}
-                  onChange={(e) => setForm({ ...form, zelle_info: e.target.value })}
-                  placeholder="Email or phone number registered with Zelle"
+                  onChange={(v) => setForm({ ...form, zelle_info: v })}
+                  placeholder="Email or phone registered with Zelle"
+                  help="The email or phone number your Zelle account is registered under."
                 />
               </div>
 
               {/* Cash / Check */}
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-100">
                 <div>
                   <p className="text-xs font-medium text-gray-600">Accept Cash / Check</p>
                   <p className="text-[10px] text-gray-400 mt-0.5">

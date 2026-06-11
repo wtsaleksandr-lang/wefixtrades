@@ -1,7 +1,8 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, CreditCard, Clock, CheckCircle, RefreshCw, ExternalLink, FileText } from "lucide-react";
+import { Loader2, CreditCard, Clock, CheckCircle, HelpCircle, RefreshCw, ExternalLink, FileText } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,15 @@ export default function PortalBilling() {
   // hard-crash (which trips the top-level AppErrorBoundary with "This page
   // crashed unexpectedly"). Treat missing fields as empty/zero.
   const payments = data?.payments ?? [];
+  // Summary cents come back as blind sums with no currency field; label them
+  // with the rows' currency when it's uniform so a non-USD account never sees
+  // "$" on CAD totals. (True per-currency summaries need server work —
+  // tracked with the open CAD/USD escalation.)
+  const uniformCurrency =
+    payments.length > 0 &&
+    payments.every((p) => (p.currency || "usd") === (payments[0].currency || "usd"))
+      ? payments[0].currency
+      : undefined;
   const summary = data?.summary;
   const totalPaidCents = summary?.total_paid_cents ?? 0;
   const totalPendingCents = summary?.total_pending_cents ?? 0;
@@ -107,7 +117,18 @@ export default function PortalBilling() {
       <div data-theme="light" className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">Billing</h1>
+            <div className="flex items-center gap-2">
+              {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3 h-3 text-gray-400 cursor-default shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[280px] text-xs">
+                  Every invoice on your account with its status. "Pay now" settles an unpaid invoice; "Manage Billing" opens Stripe to change cards or download receipts.
+                </TooltipContent>
+              </Tooltip>
+              <h2 className="text-xl font-semibold text-foreground">Billing</h2>
+            </div>
             <p className="text-sm text-gray-500 mt-0.5">Your invoices and payment history.</p>
           </div>
           <Button
@@ -177,7 +198,7 @@ export default function PortalBilling() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Total Paid</p>
-                    <p className="text-lg font-semibold text-gray-900">{formatCents(totalPaidCents)}</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatCents(totalPaidCents, uniformCurrency)}</p>
                   </div>
                 </div>
               </div>
@@ -188,7 +209,7 @@ export default function PortalBilling() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Amount Due</p>
-                    <p className="text-lg font-semibold text-gray-900">{formatCents(totalPendingCents)}</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatCents(totalPendingCents, uniformCurrency)}</p>
                   </div>
                 </div>
               </div>
@@ -201,7 +222,7 @@ export default function PortalBilling() {
                     <p className="text-xs text-gray-500">Next Due</p>
                     <p className="text-lg font-semibold text-gray-900">
                       {nextDueAmountCents
-                        ? formatCents(nextDueAmountCents)
+                        ? formatCents(nextDueAmountCents, uniformCurrency)
                         : "-"}
                       {nextDueAt && (
                         <span className="text-xs font-normal text-gray-400 ml-1.5">on {formatDate(nextDueAt)}</span>
@@ -319,7 +340,9 @@ export default function PortalBilling() {
                         <th className="px-5 py-2 font-medium">Description</th>
                         <th className="px-5 py-2 font-medium text-right">Amount</th>
                         <th className="px-5 py-2 font-medium">Status</th>
-                        <th className="px-5 py-2 font-medium text-right" />
+                        <th className="px-5 py-2 font-medium text-right">
+                          <span className="sr-only">Actions</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">

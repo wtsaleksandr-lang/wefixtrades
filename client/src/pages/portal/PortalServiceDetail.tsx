@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, Mic, ChevronDown, Save, Shield, Wrench, Activity, BarChart3, DollarSign, MousePointerClick, Eye, Users } from "lucide-react";
+import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, HelpCircle, Mic, ChevronDown, Save, Shield, Wrench, Activity, BarChart3, DollarSign, MousePointerClick, Eye, Users } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import PortalLayout from "@/components/portal/PortalLayout";
 import ModeToggle from "@/components/portal/ModeToggle";
 import TaskTimeline from "@/components/portal/TaskTimeline";
@@ -344,10 +345,20 @@ function VoiceAndStyleCard({
 
       {expanded && (
         <div className="px-5 pb-4 space-y-3.5 border-t border-border pt-3">
-          {/* Voice preset */}
-          <div>
-            <label className="text-xs font-medium text-foreground mb-1.5 block">Voice</label>
-            <div className="grid grid-cols-2 gap-1.5">
+          {/* Voice preset — button-choice cluster: the options ARE the label
+              (locked input rule 5); the question lives in the top-left cue. */}
+          <div className="relative pl-5">
+            <span className="absolute top-0.5 left-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[280px] text-xs">
+                  Voice — how your AI assistant sounds on calls. Pick the preset that fits your brand.
+                </TooltipContent>
+              </Tooltip>
+            </span>
+            <div className="grid grid-cols-2 gap-0.5">
               {VOICE_PRESETS.map((v) => (
                 <button
                   key={v.id}
@@ -366,11 +377,21 @@ function VoiceAndStyleCard({
             </div>
           </div>
 
-          {/* Tone + Language (side by side) */}
+          {/* Tone + Language (side by side) — button-choice clusters; the
+              options ARE the label, questions live in the top-left cues. */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1.5 block">Tone</label>
-              <div className="flex gap-1">
+            <div className="relative pl-5">
+              <span className="absolute top-0.5 left-0">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px] text-xs">
+                    Tone — how formal the assistant sounds with your callers.
+                  </TooltipContent>
+                </Tooltip>
+              </span>
+              <div className="flex gap-0.5">
                 {TONE_OPTIONS.map((t) => (
                   <button
                     key={t.value}
@@ -378,7 +399,7 @@ function VoiceAndStyleCard({
                     onClick={() => setTone(t.value)}
                     className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
                       tone === t.value
-                        ? "border-blue-500 bg-blue-50 text-blue-900 font-medium"
+                        ? "border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200 font-medium"
                         : "border-border hover:border-input text-muted-foreground"
                     }`}
                   >
@@ -387,9 +408,18 @@ function VoiceAndStyleCard({
                 ))}
               </div>
             </div>
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1.5 block">Language</label>
-              <div className="flex gap-1">
+            <div className="relative pl-5">
+              <span className="absolute top-0.5 left-0">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px] text-xs">
+                    Language — what the assistant answers in. English callers always get English.
+                  </TooltipContent>
+                </Tooltip>
+              </span>
+              <div className="flex gap-0.5">
                 {LANGUAGE_OPTIONS.map((l) => (
                   <button
                     key={l.value}
@@ -397,7 +427,7 @@ function VoiceAndStyleCard({
                     onClick={() => setLanguage(l.value)}
                     className={`px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
                       language === l.value
-                        ? "border-blue-500 bg-blue-50 text-blue-900 font-medium"
+                        ? "border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200 font-medium"
                         : "border-border hover:border-input text-muted-foreground"
                     }`}
                   >
@@ -423,9 +453,18 @@ function VoiceAndStyleCard({
                 onCheckedChange={(v) => setHumor(v ? "light" : "off")}
               />
             </div>
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1.5 block">Widget Style</label>
-              <div className="flex gap-1">
+            <div className="relative pl-5">
+              <span className="absolute top-0.5 left-0">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px] text-xs">
+                    Widget style — how the chat bubble looks on your website.
+                  </TooltipContent>
+                </Tooltip>
+              </span>
+              <div className="flex gap-0.5">
                 {WIDGET_PRESETS.map((w) => (
                   <button
                     key={w.value}
@@ -433,7 +472,7 @@ function VoiceAndStyleCard({
                     onClick={() => setWidgetPreset(w.value)}
                     className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
                       widgetPreset === w.value
-                        ? "border-blue-500 bg-blue-50 text-blue-900 font-medium"
+                        ? "border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200 font-medium"
                         : "border-border hover:border-input text-muted-foreground"
                     }`}
                   >
@@ -444,14 +483,24 @@ function VoiceAndStyleCard({
             </div>
           </div>
 
-          {/* Bubble label */}
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-medium text-foreground whitespace-nowrap">Bubble text</label>
+          {/* Bubble label — title lives inside the field per the locked input rules. */}
+          <div className="relative pl-5">
+            <span className="absolute top-0.5 left-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[280px] text-xs">
+                  Bubble text — the short invitation on your website chat bubble, e.g. "Need help? Ask us".
+                </TooltipContent>
+              </Tooltip>
+            </span>
             <Input
+              aria-label="Bubble text"
               value={bubbleLabel}
               onChange={(e) => setBubbleLabel(e.target.value)}
-              placeholder="Need help? Ask us"
-              className="h-7 text-xs flex-1"
+              placeholder="Bubble text — e.g. Need help? Ask us"
+              className="h-7 text-xs w-full"
               maxLength={40}
             />
           </div>
@@ -657,9 +706,9 @@ export default function PortalServiceDetail() {
             <div className="bg-card rounded-xl border border-border p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h1 className="text-lg font-semibold text-foreground">
+                  <h2 className="text-lg font-semibold text-foreground">
                     {data.service.service_name || data.service.service_id}
-                  </h1>
+                  </h2>
                   <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                     {data.service.category && (
                       <span className="capitalize">{data.service.category}</span>

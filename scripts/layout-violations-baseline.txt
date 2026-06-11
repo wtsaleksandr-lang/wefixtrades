@@ -51,9 +51,9 @@ client/src/pages/CaseStudies.tsx:492:24	rule-c	size={48}
 client/src/pages/CaseStudies.tsx:502:19	rule-c	size={56}
 client/src/pages/CaseStudies.tsx:641:22	rule-c	size={80}
 client/src/pages/OnboardingForm.tsx:118:14	rule-c	square w-12 h-12
-client/src/pages/OnboardingForm.tsx:296:24	rule-c	square w-10 h-10
-client/src/pages/OnboardingForm.tsx:313:5	rule-b	<div> contains 3 cues
-client/src/pages/OnboardingForm.tsx:318:13	rule-c	<svg width={28} height={28}>
+client/src/pages/OnboardingForm.tsx:297:24	rule-c	square w-10 h-10
+client/src/pages/OnboardingForm.tsx:334:5	rule-b	<div> contains 3 cues
+client/src/pages/OnboardingForm.tsx:339:13	rule-c	<svg width={28} height={28}>
 client/src/pages/ReviewFunnel.tsx:302:21	rule-c	size={40}
 client/src/pages/admin/ApiPlatformPage.tsx:172:19	rule-c	square w-2 h-2
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:376:25	rule-c	square w-12 h-12
@@ -143,13 +143,13 @@ client/src/pages/portal/PortalReviews.tsx:115:14	rule-c	square w-9 h-9
 client/src/pages/portal/PortalReviews.tsx:386:24	rule-c	square w-12 h-12
 client/src/pages/portal/PortalReviews.tsx:986:46	rule-c	square w-1.5 h-1.5
 client/src/pages/portal/PortalReviewsSetup.tsx:154:17	rule-c	square w-12 h-12
-client/src/pages/portal/PortalServiceDetail.tsx:691:24	rule-c	square w-9 h-9
-client/src/pages/portal/PortalServices.tsx:144:22	rule-c	square w-9 h-9
-client/src/pages/portal/PortalSettings.tsx:1685:13	rule-c	square w-16 h-16
-client/src/pages/portal/PortalSettings.tsx:1690:16	rule-c	square w-16 h-16
+client/src/pages/portal/PortalServiceDetail.tsx:740:24	rule-c	square w-9 h-9
+client/src/pages/portal/PortalServices.tsx:156:22	rule-c	square w-9 h-9
+client/src/pages/portal/PortalSettings.tsx:1679:13	rule-c	square w-16 h-16
+client/src/pages/portal/PortalSettings.tsx:1684:16	rule-c	square w-16 h-16
 client/src/pages/portal/PortalSocialSync.tsx:389:26	rule-c	square w-14 h-14
 client/src/pages/portal/PortalSocialSync.tsx:394:26	rule-c	square w-14 h-14
 client/src/pages/portal/PortalWidget.tsx:459:17	rule-c	square w-12 h-12
 client/src/pages/portal/TradelineSetup/DashboardBanner.tsx:53:16	rule-c	square w-10 h-10
-client/src/pages/portal/TradelineSetup/OptionCPort.tsx:135:23	rule-c	square w-7 h-7
+client/src/pages/portal/TradelineSetup/OptionCPort.tsx:141:23	rule-c	square w-7 h-7
 client/src/pages/portal/TradelineSetup/index.tsx:184:20	rule-c	square w-12 h-12

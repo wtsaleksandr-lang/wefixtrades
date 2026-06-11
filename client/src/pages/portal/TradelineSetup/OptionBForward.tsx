@@ -23,6 +23,7 @@ import {
 } from "@shared/api-types/carrierCodes";
 import { apiFetch } from "./apiClient";
 import { BellDeviceSettings } from "./BellDeviceSettings";
+import { TitleInField } from "../FreeTools/_shared";
 
 interface Props {
   setup: TradelinePhoneSetup;
@@ -206,22 +207,20 @@ export function OptionBForward({ setup, onBack, onDone }: Props) {
         </p>
       </div>
 
-      <div>
-        <label htmlFor="customer-number" className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5 block">
-          Your existing phone number
-        </label>
-        <input
-          id="customer-number"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="+1 555 123 4567"
-          value={phoneInput}
-          onChange={(e) => setPhoneInput(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base focus:border-brand-blue-500 focus:ring-2 focus:ring-brand-blue-100 focus:outline-none"
-        />
-        <p className="text-[11px] text-gray-500 mt-1">Include country code (+1 for USA/Canada).</p>
-      </div>
+      {/* Title-in-field (locked input rules) — label floats inside the field,
+          help cue top-left; the old below-field hint lives in the cue. */}
+      <TitleInField
+        id="customer-number"
+        label="Your existing phone number"
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        placeholder="+1 555 123 4567"
+        value={phoneInput}
+        onChange={setPhoneInput}
+        help="The number your customers already call. Include the country code — +1 for USA/Canada."
+        testid="optionb-customer-number-input"
+      />
 
       {lookupMutation.isError && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">

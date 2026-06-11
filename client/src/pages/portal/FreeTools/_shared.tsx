@@ -117,6 +117,10 @@ export function TitleInField({
   disabled,
   min,
   max,
+  inputMode,
+  autoComplete,
+  step,
+  minLength,
 }: {
   id: string;
   label: string;
@@ -134,6 +138,10 @@ export function TitleInField({
   disabled?: boolean;
   min?: number;
   max?: number;
+  inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"];
+  autoComplete?: string;
+  step?: string | number;
+  minLength?: number;
 }) {
   return (
     <div className={cn("relative pl-5", className)}>
@@ -151,9 +159,13 @@ export function TitleInField({
           aria-label={label}
           required={required}
           maxLength={maxLength}
+          minLength={minLength}
           disabled={disabled}
           min={min}
           max={max}
+          step={step}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
           data-testid={testid}
           className={cn(
             "peer w-full px-3 pt-5 pb-1.5 text-sm border border-gray-200 rounded-lg bg-white",
