@@ -40,10 +40,19 @@ jobs:
     runs-on: ubuntu-latest
     # CI-QUIET: report-only + hard runtime cap. This job historically hung
     # for ~2h (per-test 120s timeout x retries across the route matrix)
-    # before failing. 30 min is enough for a healthy pass; anything longer
+    # before failing. 25 min is enough for a healthy pass; anything longer
     # is the hang pattern and gets cut off without failing the run.
+    #
+    # IMPORTANT: the cap is enforced INSIDE the test steps (coreutils
+    # `timeout 25m`, exit 124 on overrun) and NOT primarily via
+    # timeout-minutes — a timeout-minutes overrun concludes the job as
+    # `cancelled`, and a cancelled job ESCAPES continue-on-error
+    # neutralization, flipping the whole run to `cancelled` (verified live
+    # on run 27323737930) — which still notifies. A plain step failure is
+    # neutralized as intended. timeout-minutes stays as a backstop ABOVE
+    # the inner cap.
     continue-on-error: true
-    timeout-minutes: 30
+    timeout-minutes: 35
     permissions:
       contents: write
     container:
@@ -78,14 +87,16 @@ jobs:
           fi
 
       # Normal run — compare against the committed baselines.
+      # `timeout 25m` (not timeout-minutes) so an overrun is a step FAILURE
+      # that continue-on-error neutralizes — see job comment.
       - name: Audit — accessibility + visual regression
         if: ${{ steps.baselines.outputs.exist == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.update_snapshots) }}
-        run: npx playwright test --config audit.config.ts
+        run: timeout 25m npx playwright test --config audit.config.ts
 
       # Bootstrap (no baselines yet) or a requested refresh — regenerate them.
       - name: Generate visual baselines
         if: ${{ steps.baselines.outputs.exist == 'false' || (github.event_name == 'workflow_dispatch' && inputs.update_snapshots) }}
-        run: npx playwright test --config audit.config.ts --update-snapshots
+        run: timeout 25m npx playwright test --config audit.config.ts --update-snapshots
 
       - name: Commit baselines
         if: ${{ steps.baselines.outputs.exist == 'false' || (github.event_name == 'workflow_dispatch' && inputs.update_snapshots) }}
