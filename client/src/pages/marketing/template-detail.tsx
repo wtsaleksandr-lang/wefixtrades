@@ -1553,7 +1553,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               transition: border-color 160ms ease, transform 160ms ease;
             }
             .tpl-feat-card:hover {
-              border-color: rgba(13,60,252,0.45);
+              border-color: rgba(255,255,255,0.9);
               transform: translateY(-2px);
             }
             .tpl-feat-ico {
@@ -1575,7 +1575,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             }
             .tpl-feat-chip {
               display: inline-flex; align-items: center; gap: 8px;
-              padding: 9px 16px; border-radius: 999px;
+              padding: 9px 16px; border-radius: 10px;
               background: rgba(255,255,255,0.04);
               border: 1px solid ${mkt.onDarkBorder};
               font-size: 13.5px; font-weight: 600; color: ${mkt.onDark};
