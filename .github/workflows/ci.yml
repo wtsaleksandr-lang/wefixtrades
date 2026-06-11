@@ -25,6 +25,10 @@ jobs:
         run: npm run check:pricing-truth
       - name: Trial-truth guard (free tools never pause; honest Pro-preview copy)
         run: npm run check:trial-truth
+      - name: SERP-country guard (location string derives the country index)
+        run: npm run check:serp-country
+      - name: Demo-persona guard (TradeLine demo role-plays the receptionist, not the platform)
+        run: npm run check:demo-persona
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
