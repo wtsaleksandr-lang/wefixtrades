@@ -26,6 +26,14 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("client"),
   totp_secret: text("totp_secret"),
   totp_enabled: boolean("totp_enabled").default(false),
+  // Lane C (migration 0080): SHA-256 hex hashes of single-use 2FA recovery
+  // codes (string array). Generated at TOTP enrollment; consumed hashes are
+  // removed on use. Plaintext codes are never stored.
+  totp_recovery_codes: jsonb("totp_recovery_codes"),
+  // Lane C (migration 0080): mandatory-admin-2FA grace marker. Stamped on the
+  // first factor-less admin login; once set, factor-less admin sessions are
+  // enrollment-restricted until TOTP is enabled. NULL for non-admins.
+  admin_2fa_grace_used_at: timestamp("admin_2fa_grace_used_at", { withTimezone: true }),
   /**
    * Google account subject ID — the stable `sub` claim from Google's
    * OpenID token. Set when a user signs in via "Continue with Google".

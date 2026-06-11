@@ -6,6 +6,11 @@ import type { Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { adminImpersonations, users } from "@shared/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
+import {
+  isAdminBlockedPendingEnrollment,
+  ADMIN_2FA_ENROLLMENT_CODE,
+  type AdminTwoFactorSessionFlags,
+} from "./lib/adminTwoFactorPolicy";
 
 /* ─── Type declarations ─── */
 declare global {
@@ -94,6 +99,19 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
   if (req.user.role !== "admin") return res.status(403).json({ error: "Admin access required" });
+  // Lane C — mandatory admin 2FA: a factor-less admin whose single grace
+  // login is already spent gets an enrollment-restricted session. The
+  // flags are stamped inside each req.logIn callback (after passport's
+  // session regenerate; see stampAdminTwoFactorEnrollmentFlags in
+  // authRoutes.ts); /api/user/2fa/* stays reachable via requireAuth so
+  // the admin can always complete enrollment. verify-setup clears them.
+  const sess = req.session as unknown as AdminTwoFactorSessionFlags | undefined;
+  if (isAdminBlockedPendingEnrollment(sess)) {
+    return res.status(403).json({
+      error: "Two-factor authentication enrollment is required for admin accounts",
+      code: ADMIN_2FA_ENROLLMENT_CODE,
+    });
+  }
   next();
 }
 

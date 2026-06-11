@@ -273,6 +273,16 @@ function TwoFactorSection() {
   const [disablePassword, setDisablePassword] = useState("");
   const [disableCode, setDisableCode] = useState("");
   const [showDisable, setShowDisable] = useState(false);
+  /** Lane C: plaintext recovery codes — returned ONCE by verify-setup. */
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+  /** Lane C: arrived via the mandatory-admin-2FA redirect (?enroll2fa=1). */
+  const [enrollmentRequired] = useState<boolean>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("enroll2fa") === "1";
+    } catch {
+      return false;
+    }
+  });
   /** Drives the shared <ConfirmDialog> for 2FA-disable confirmation. */
   const [confirmDisable2fa, setConfirmDisable2fa] = useState(false);
 
@@ -302,12 +312,15 @@ function TwoFactorSection() {
       const res = await apiRequest("POST", "/api/user/2fa/verify-setup", { code: verifyCode });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { ok: boolean; recoveryCodes?: string[] }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user/2fa/status"] });
       setSetupState("idle");
       setOtpauthUrl("");
       setSecret("");
       setVerifyCode("");
+      // Lane C: recovery codes are shown exactly once — keep them on
+      // screen until the user confirms they've been saved.
+      if (data.recoveryCodes?.length) setRecoveryCodes(data.recoveryCodes);
       toast({ title: "2FA enabled", description: "Two-factor authentication is now active on your account." });
     },
     onError: (err: Error) => {
@@ -352,6 +365,52 @@ function TwoFactorSection() {
         <Shield className="h-4 w-4 text-gray-600" />
         <h3 className="text-sm font-semibold text-gray-700">Two-Factor Authentication</h3>
       </div>
+
+      {/* Lane C: mandatory-admin-2FA nudge — shown when the login flow
+          redirected here because the account has no enrolled factor. */}
+      {!is2faEnabled && enrollmentRequired && (
+        <div className="flex items-center gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <Shield className="h-4 w-4 shrink-0" />
+          Two-factor authentication is required for admin accounts. Set it up now — your next sign-in will be restricted until 2FA is enabled.
+        </div>
+      )}
+
+      {/* Lane C: one-time recovery-code reveal after enrollment. */}
+      {recoveryCodes && (
+        <div className="space-y-3 border border-amber-200 rounded-lg p-4 bg-amber-50/50">
+          <p className="text-sm font-semibold text-gray-700">Save your recovery codes</p>
+          <p className="text-sm text-gray-600">
+            Each code signs you in once if you lose access to your authenticator app.
+            They are shown only this once — store them somewhere safe.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {recoveryCodes.map((code) => (
+              <code key={code} className="p-2 bg-gray-50 border rounded text-xs font-mono select-all text-center">
+                {code}
+              </code>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(recoveryCodes.join("\n"));
+                  toast({ title: "Copied", description: "Recovery codes copied to clipboard." });
+                } catch {
+                  toast({ title: "Copy failed", description: "Select the codes and copy them manually.", variant: "destructive" });
+                }
+              }}
+            >
+              Copy all
+            </Button>
+            <Button size="sm" onClick={() => setRecoveryCodes(null)}>
+              I've saved these codes
+            </Button>
+          </div>
+        </div>
+      )}
 
       {is2faEnabled && setupState === "idle" && !showDisable && (
         <div className="space-y-3">

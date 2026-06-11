@@ -53,6 +53,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [totpCode, setTotpCode] = useState("");
   const [requires2fa, setRequires2fa] = useState(false);
+  /** Lane C: 2FA step accepts a single-use recovery code instead of TOTP. */
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const [tokenLoginError, setTokenLoginError] = useState<string | null>(null);
   const [tokenLoginPending, setTokenLoginPending] = useState(false);
@@ -60,7 +62,7 @@ export default function LoginPage() {
   const [, navigate] = useLocation();
   usePageTitle("Sign In");
 
-  function completeLogin(data: { user: { role?: string } }) {
+  function completeLogin(data: { user: { role?: string }; requires2faEnrollment?: boolean }) {
     // BUG-FIX (2026-05-23): previously stored `data.user` directly, but
     // useAuth() expects shape `{ user, adminProPreview? }` (see
     // client/src/hooks/useAuth.ts AuthMeResponse). Storing the raw user
@@ -82,6 +84,14 @@ export default function LoginPage() {
         }).catch(() => {});
       }
     } catch { /* noop */ }
+
+    // Lane C — mandatory admin 2FA: the server flags admin logins that
+    // still lack an enrolled factor; route them straight into the 2FA
+    // enrollment surface instead of the normal landing page.
+    if (data.requires2faEnrollment) {
+      navigate("/admin/crm/settings?enroll2fa=1");
+      return;
+    }
 
     // IA-1: role-based landing via shared helper (server mirror at
     // server/routes/authRoutes.ts → landingPathForRole). Default for
@@ -501,23 +511,41 @@ export default function LoginPage() {
                 ) : (
                   <>
                     <p style={{ fontSize: 13, color: mkt.onDarkMuted, marginBottom: 14 }}>
-                      Enter the 6-digit code from your authenticator app.
+                      {useRecoveryCode
+                        ? "Enter one of your single-use recovery codes."
+                        : "Enter the 6-digit code from your authenticator app."}
                     </p>
-                    <label htmlFor="login-2fa-code" style={labelStyle}>Authentication code</label>
+                    <label htmlFor="login-2fa-code" style={labelStyle}>
+                      {useRecoveryCode ? "Recovery code" : "Authentication code"}
+                    </label>
                     <input
                       id="login-2fa-code"
                       type="text"
                       required
-                      inputMode="numeric"
-                      pattern="[0-9]{6}"
-                      maxLength={6}
+                      inputMode={useRecoveryCode ? "text" : "numeric"}
+                      pattern={useRecoveryCode ? undefined : "[0-9]{6}"}
+                      maxLength={useRecoveryCode ? 13 : 6}
                       autoFocus
                       autoComplete="one-time-code"
                       value={totpCode}
-                      onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9]/g, ""))}
-                      style={{ ...inputStyle, fontFamily: "ui-monospace, monospace", letterSpacing: "0.4em", textAlign: "center" as const }}
+                      onChange={(e) =>
+                        setTotpCode(
+                          useRecoveryCode
+                            ? e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "")
+                            : e.target.value.replace(/[^0-9]/g, ""),
+                        )
+                      }
+                      style={{ ...inputStyle, fontFamily: "ui-monospace, monospace", letterSpacing: useRecoveryCode ? "0.1em" : "0.4em", textAlign: "center" as const }}
                       data-testid="input-2fa-code"
                     />
+                    <button
+                      type="button"
+                      onClick={() => { setUseRecoveryCode((v) => !v); setTotpCode(""); }}
+                      style={{ marginTop: 10, fontSize: 12, color: mkt.onDarkMuted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                      data-testid="toggle-recovery-code"
+                    >
+                      {useRecoveryCode ? "Use authenticator code instead" : "Lost your device? Use a recovery code"}
+                    </button>
                   </>
                 )}
 
