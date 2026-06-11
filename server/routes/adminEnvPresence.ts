@@ -57,6 +57,10 @@ const CATEGORIES = {
     "GOOGLE_VEO_PROJECT_ID",
     "GOOGLE_APPLICATION_CREDENTIALS_JSON",
   ],
+  // fal.ai (ContentFlow image orchestrator — FLUX.2 pro photoreal primary).
+  fal_ai: [
+    "FAL_KEY",
+  ],
   // Lane OC — outreach platform capability flags. The Campaigns page reads
   // these to enable/disable platform selectors (e.g. Smartlead stays disabled
   // until SMARTLEAD_API_KEY is actually present in the running container).

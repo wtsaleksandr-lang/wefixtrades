@@ -39,6 +39,8 @@ jobs:
         run: npm run check:contentflow-reference-replication
       - name: ContentFlow Imagen 4 guard (dimension→aspect mapping, standard/ultra cost, graceful skip without creds)
         run: npm run check:contentflow-imagen4
+      - name: ContentFlow FLUX.2 pro guard (fal auth/body shape, MP-based cost, 4MP clamp, graceful skip without FAL_KEY)
+        run: npm run check:contentflow-flux2
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
