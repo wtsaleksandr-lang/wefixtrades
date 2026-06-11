@@ -160,6 +160,17 @@ export const rankflowRankings = pgTable("rankflow_rankings", {
   previous_position: integer("previous_position"),
   change: integer("change"),
   checked_at: timestamp("checked_at").defaultNow(),
+  // ── Provenance (Lane H) — which data source produced this check ──
+  // 'serp_api' (Serper.dev real SERP position — PRIMARY) |
+  // 'search_console' (GSC avg position — fallback) | 'scrape' (legacy).
+  // NULL on historical rows that predate provenance tracking.
+  source: varchar("source", { length: 20 }),
+  url_found: text("url_found"),
+  local_pack_position: integer("local_pack_position"),
+  // ── GSC enrichment (only when the client has a GSC connection) ──
+  impressions: integer("impressions"),
+  clicks: integer("clicks"),
+  ctr: numeric("ctr"),
 });
 
 export const insertRankflowRankingSchema = createInsertSchema(rankflowRankings).omit({ id: true });

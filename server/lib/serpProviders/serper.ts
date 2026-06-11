@@ -43,7 +43,11 @@ export const call: SerpProviderCall = async (req: SerpRequest, timeoutMs: number
     q: req.query,
     gl: (req.country || "us").toLowerCase(),
     hl: (req.language || "en").toLowerCase(),
-    num: Math.min(req.num ?? 10, 20),
+    // Serper supports num up to 100 (requests with num > 10 bill 2 credits).
+    // Default stays 10 so existing free-tool callers keep 1-credit queries;
+    // the RankFlow rank checker (Lane H) explicitly asks for 100 to detect
+    // "not in top 100".
+    num: Math.min(req.num ?? 10, 100),
   };
   if (req.location) body.location = req.location;
   if (typeof req.latitude === "number") body.latitude = req.latitude;

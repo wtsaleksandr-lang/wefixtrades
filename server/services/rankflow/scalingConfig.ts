@@ -17,13 +17,24 @@ export const WORKER_LIMITS = {
   /** Max clients tracked per tracking run */
   tracking_max_clients: 10,
 
-  /** Max keywords checked per tracking run (across all clients) */
-  tracking_max_keywords: 100,
+  /**
+   * Max keywords checked per tracking run (across all clients).
+   *
+   * Raised 100 → 500 with the Serper-primary rank checks (Lane H): at
+   * ~$1 / 1k Serper queries a full run costs ≤ ~$1, vs $349-899/mo
+   * RankFlow tiers — COGS < 0.1% of revenue. The per-client guard is
+   * the tier keyword cap (TIER_KEYWORD_CAPS below).
+   */
+  tracking_max_keywords: 500,
 
   /** Max pages checked per tracking run (across all clients) */
   tracking_max_pages: 50,
 
-  /** Max keywords checked per client per run */
+  /**
+   * Legacy flat per-client keyword cap. Superseded by the tier-derived
+   * caps in TIER_KEYWORD_CAPS (Lane H); kept as an absolute floor for
+   * profiles with an unknown tier.
+   */
   tracking_keywords_per_client: 15,
 
   /** Max pages checked per client per run */
@@ -42,6 +53,31 @@ export const BATCH_LIMITS = {
   /** Maximum open draft batches per vendor type */
   max_open_drafts_per_vendor: 3,
 };
+
+/* ─── Tier Keyword Caps (Lane H) ─── */
+
+/**
+ * Max tracked keywords checked per client per tracking run, by RankFlow
+ * tier. This is the per-run Serper budget guard: a client can never
+ * consume more SERP queries than their tier cap in a single run.
+ *
+ * NOTE: these caps did not exist anywhere in code or shared/pricing.ts
+ * before Lane H — the tier feature lists never mention a keyword count.
+ * Values chosen to keep worst-case Serper COGS trivially small:
+ * Pro 200 kw × ~4 runs/mo × ~$0.001/query ≈ $0.87/mo vs $899/mo (<0.1%).
+ */
+export const TIER_KEYWORD_CAPS: Record<string, number> = {
+  starter: 25,
+  growth: 75,
+  pro: 200,
+};
+
+/** Per-run keyword budget for a tier. Unknown tiers fall back to the
+ *  legacy flat cap (WORKER_LIMITS.tracking_keywords_per_client). */
+export function keywordCapForTier(planTier: string | null | undefined): number {
+  const cap = TIER_KEYWORD_CAPS[(planTier || "").toLowerCase()];
+  return cap ?? WORKER_LIMITS.tracking_keywords_per_client;
+}
 
 /* ─── Client Priority ─── */
 

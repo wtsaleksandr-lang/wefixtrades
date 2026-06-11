@@ -610,6 +610,10 @@ export function registerRankFlowRoutes(app: Express): void {
           previous_position: lastRanking?.previous_position ?? null,
           change: lastRanking?.change ?? null,
           checked_at: lastRanking?.checked_at ?? null,
+          // Provenance (Lane H): 'serp_api' | 'search_console' | 'scrape' | null
+          source: lastRanking?.source ?? null,
+          url_found: lastRanking?.url_found ?? null,
+          local_pack_position: lastRanking?.local_pack_position ?? null,
         });
       }
 
