@@ -228,6 +228,21 @@ const DRAG_HANDLE_TOP_RESERVE = 32;
 // the bezel still visible inside the pane, the widget snaps back to the
 // nearest in-bounds position. 0.2 = require at least 20% visible.
 const SNAP_BACK_MIN_VISIBLE_FRACTION = 0.2;
+// Wheel-scroll routing — a "burst" is a run of wheel events less than this
+// many ms apart. The scroll target (zone) is hit-tested ONCE at burst start
+// and latched for the whole burst, so a canvas pan that slides the bezel
+// under the cursor doesn't switch targets mid-scroll (and vice versa).
+// 150ms comfortably exceeds the fastest observed wheel cadence (~16ms/tick)
+// while still feeling like "a new scroll" after a deliberate pause.
+const WHEEL_BURST_MS = 150;
+// Wheel-pan offset persistence is debounced (trailing) so a fast wheel burst
+// doesn't hit localStorage on every tick. Also flushed at burst end.
+const WHEEL_PERSIST_DEBOUNCE_MS = 300;
+// Phone-frame fix — fixed mobile-bezel height so the mockup keeps real phone
+// proportions (375 × 812, iPhone-class ≈ 2.17 H/W). Without the clamp the
+// bezel grew with content (375 × 1284 for a long template ≈ 3.42 H/W — not
+// a phone). Content taller than the frame scrolls INSIDE the screen.
+const MOBILE_BEZEL_HEIGHT = 812;
 
 function snap(n: number, step = GRID_PX): number {
   return Math.round(n / step) * step;
@@ -592,6 +607,27 @@ export default function PreviewPane({
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
 
+  // ── Wheel-scroll routing state (Canva/Figma model) ────────────────────
+  // wheelPanActiveRef — true while a canvas wheel-pan burst is in flight.
+  // Read by the stage's transform-transition ternary (alongside drag/resize)
+  // so every wheel tick commits instantly instead of animating 120ms. Without
+  // this the clamp math read MID-TRANSITION rects while widgetOffset held the
+  // committed target → minY/maxY swung per event → the stage oscillated
+  // ±70–95px at fast wheel cadence near the pan bounds.
+  const wheelPanActiveRef = useRef(false);
+  // The latched burst: which zone owns this run of wheel events, plus the
+  // canvas-pan clamp bounds measured ONCE at burst start (they're invariant
+  // for the burst — naturalTop/bezelTopOffset/paneRect don't change while
+  // only widgetOffset.y moves — so per-tick rect reads are unnecessary AND
+  // were the oscillation source).
+  const wheelBurstRef = useRef<{
+    zone: 'widget' | 'canvas';
+    minY: number;
+    maxY: number;
+  } | null>(null);
+  const wheelBurstTimerRef = useRef<number | null>(null);
+  const wheelPersistTimerRef = useRef<number | null>(null);
+
   // Reload per-device state when the user toggles device — placement + the
   // per-device resize SCALE override. When a per-device scale exists we apply
   // it to the live zoom AND lock auto-fit so it isn't immediately overridden;
@@ -615,11 +651,39 @@ export default function PreviewPane({
   // used to estimate release velocity for the inertia / momentum coast.
   const dragStateRef = useRef<{
     startX: number; startY: number; baseX: number; baseY: number; pointerId: number;
+    // ESC-cancel — the element holding pointer capture, so the Escape
+    // handler can release it mid-gesture (Figma/Canva drag-cancel parity).
+    captureEl: HTMLElement;
     samples: Array<{ t: number; x: number; y: number }>;
   } | null>(null);
   // Wave 18 — animation frame id for the inertia coast so we can cancel it
   // when the user grabs the widget again mid-coast (matches Canva).
   const momentumRafRef = useRef<number | null>(null);
+
+  // ESC-cancel — keydown listeners that live exactly as long as their
+  // gesture (added at pointer-down, removed at pointer-up / cancel / the
+  // Escape itself). Capture-phase so they run BEFORE the bubble-phase
+  // "Escape deselects the widget" nudge handler and can stopPropagation():
+  // Esc mid-drag means "cancel the drag", not "deselect" (Figma parity).
+  const dragEscListenerRef = useRef<((ke: KeyboardEvent) => void) | null>(null);
+  const removeDragEscListener = useCallback(() => {
+    if (dragEscListenerRef.current) {
+      window.removeEventListener('keydown', dragEscListenerRef.current, true);
+      dragEscListenerRef.current = null;
+    }
+  }, []);
+  const resizeEscListenerRef = useRef<((ke: KeyboardEvent) => void) | null>(null);
+  const removeResizeEscListener = useCallback(() => {
+    if (resizeEscListenerRef.current) {
+      window.removeEventListener('keydown', resizeEscListenerRef.current, true);
+      resizeEscListenerRef.current = null;
+    }
+  }, []);
+  // Defensive: never leak a gesture-scoped keydown listener past unmount.
+  useEffect(() => () => {
+    removeDragEscListener();
+    removeResizeEscListener();
+  }, [removeDragEscListener, removeResizeEscListener]);
 
   // prefers-reduced-motion — used by both inertia (skip coast) and the
   // selection outline transition. Tracked as a ref so handlers don't need a
@@ -664,16 +728,18 @@ export default function PreviewPane({
     const out = { x: rawX, y: rawY };
     const g: Array<{ kind: 'vertical' | 'horizontal'; pos: number }> = [];
     if (Math.abs(dxPane) <= ALIGN_SNAP_PX) {
-      // Convert pane delta → stage delta (divide by zoom). Snap on X axis.
-      out.x = rawX + dxPane / zoom;
+      // Drag-zoom fix — the stage transform is `translate(x,y) scale(z)`
+      // with origin 0 0, so the translate is OUTSIDE the scale: 1 offset px
+      // = 1 pane/screen px at ANY zoom. No `/ zoom` conversion. Snap on X.
+      out.x = rawX + dxPane;
       g.push({ kind: 'vertical', pos: paneCenterX });
     }
     if (Math.abs(dyPane) <= ALIGN_SNAP_PX) {
-      out.y = rawY + dyPane / zoom;
+      out.y = rawY + dyPane;
       g.push({ kind: 'horizontal', pos: paneCenterY });
     }
     return { x: out.x, y: out.y, guides: g };
-  }, [zoom]);
+  }, []);
 
   /**
    * BD-3b — start a widget drag from the top-bar handle. The handle covers
@@ -700,11 +766,31 @@ export default function PreviewPane({
       startX: e.clientX, startY: e.clientY,
       baseX: widgetOffset.x, baseY: widgetOffset.y,
       pointerId: e.pointerId,
+      captureEl: handle,
       samples: [{ t: performance.now(), x: e.clientX, y: e.clientY }],
     };
     if (paneRef.current) paneRef.current.dataset.dragging = '1';
     setWidgetSelected(true);
-  }, [widgetOffset.x, widgetOffset.y]);
+    // ESC-cancel — while this drag is live, Escape restores the gesture's
+    // start position and aborts the move (no snap-back, no momentum, no
+    // persist — the pre-drag offset is already the persisted state).
+    removeDragEscListener();
+    const onDragEsc = (ke: KeyboardEvent) => {
+      if (ke.key !== 'Escape') return;
+      const cur = dragStateRef.current;
+      if (!cur) { removeDragEscListener(); return; }
+      ke.preventDefault();
+      ke.stopPropagation(); // keep selection — Esc here only cancels the drag
+      setWidgetOffset({ x: cur.baseX, y: cur.baseY });
+      setGuides([]);
+      try { cur.captureEl.releasePointerCapture(cur.pointerId); } catch {}
+      dragStateRef.current = null;
+      if (paneRef.current) delete paneRef.current.dataset.dragging;
+      removeDragEscListener();
+    };
+    window.addEventListener('keydown', onDragEsc, true);
+    dragEscListenerRef.current = onDragEsc;
+  }, [widgetOffset.x, widgetOffset.y, removeDragEscListener]);
 
   const onHandlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = dragStateRef.current;
@@ -712,17 +798,22 @@ export default function PreviewPane({
     const pane = paneRef.current;
     const stage = stageRef.current;
     if (!pane || !stage) return;
-    // Coords need to be divided by the zoom factor — at scale(0.5) one CSS
-    // pixel of mouse movement equals 2 stage pixels, etc.
-    const dx = (e.clientX - st.startX) / zoom;
-    const dy = (e.clientY - st.startY) / zoom;
+    // Drag-zoom fix — the stage transform is `translate(x,y) scale(zoom)`
+    // with transformOrigin '0 0'. The translate sits OUTSIDE the scale, so
+    // widgetOffset is in SCREEN px: 1 px of pointer movement = 1 offset px
+    // at EVERY zoom level. The old `/ zoom` here (which assumed translate-
+    // inside-scale) made zoom 0.5 overshoot 2× and zoom 1.5 undershoot.
+    const dx = e.clientX - st.startX;
+    const dy = e.clientY - st.startY;
     const paneRect = pane.getBoundingClientRect();
     const stageRect = stage.getBoundingClientRect();
     const VISIBLE_MIN = 80;
-    const naturalLeft = stageRect.left - widgetOffset.x * zoom;
-    const naturalTop = stageRect.top - widgetOffset.y * zoom;
-    const minDx = (paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width)) / zoom;
-    const maxDx = (paneRect.right - VISIBLE_MIN - naturalLeft) / zoom;
+    // Natural (offset-zero) stage position: rect.left minus the CURRENT
+    // offset — no zoom factor, same translate-outside-scale reasoning.
+    const naturalLeft = stageRect.left - widgetOffset.x;
+    const naturalTop = stageRect.top - widgetOffset.y;
+    const minDx = paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width);
+    const maxDx = paneRect.right - VISIBLE_MIN - naturalLeft;
     // Drag-bug fix — instead of letting the user drag the widget all the way
     // up until only `VISIBLE_MIN` of the bottom remains, clamp the upward
     // drag so the bezel TOP (where the 28-px drag handle sits) stays at
@@ -735,9 +826,9 @@ export default function PreviewPane({
     // so the bezel top is below the stage top by `padTop * zoom` pane px.
     const bezel = bezelMeasureRef.current;
     const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
-    const bezelTopOffset = (bezelRect.top - stageRect.top) / zoom; // stage-px above bezel
-    const minDy = (paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop) / zoom - bezelTopOffset;
-    const maxDy = (paneRect.bottom - VISIBLE_MIN - naturalTop) / zoom;
+    const bezelTopOffset = bezelRect.top - stageRect.top; // screen px above bezel
+    const minDy = paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop - bezelTopOffset;
+    const maxDy = paneRect.bottom - VISIBLE_MIN - naturalTop;
     const rawX = Math.max(minDx, Math.min(maxDx, st.baseX + dx));
     const rawY = Math.max(minDy, Math.min(maxDy, st.baseY + dy));
     // Record velocity sample for the post-release momentum coast.
@@ -755,7 +846,7 @@ export default function PreviewPane({
     const aligned = applyAlignSnap(rawX, rawY);
     setWidgetOffset({ x: aligned.x, y: aligned.y });
     setGuides(aligned.guides);
-  }, [widgetOffset.x, widgetOffset.y, zoom, applyAlignSnap]);
+  }, [widgetOffset.x, widgetOffset.y, applyAlignSnap]);
 
   const onHandlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = dragStateRef.current;
@@ -769,6 +860,8 @@ export default function PreviewPane({
     // so the post-release inertia coast can read them.
     const releaseSamples = st.samples.slice();
     dragStateRef.current = null;
+    // ESC-cancel — the drag ended normally; retire its Escape listener.
+    removeDragEscListener();
 
     // Drag-bug fix — snap-back. If the user releases with less than
     // SNAP_BACK_MIN_VISIBLE_FRACTION (20 %) of the bezel still visible inside
@@ -797,9 +890,11 @@ export default function PreviewPane({
           correctY = (paneRect.bottom - 80) - bezelRect.top;
         }
         if (correctX !== 0 || correctY !== 0) {
+          // Drag-zoom fix — corrections measured in pane px ARE offset px
+          // (translate-outside-scale); no `/ zoom`.
           finalOffset = {
-            x: snap(widgetOffset.x + correctX / zoom),
-            y: snap(widgetOffset.y + correctY / zoom),
+            x: snap(widgetOffset.x + correctX),
+            y: snap(widgetOffset.y + correctY),
           };
           setWidgetOffset(finalOffset);
         }
@@ -833,11 +928,12 @@ export default function PreviewPane({
       const vy = (b.y - a.y) / dt;
       const speed = Math.hypot(vx, vy);
       if (speed >= MOMENTUM_MIN_VELOCITY) {
-        // Translate fling velocity into a stage-CSS-px coast delta.
-        // The 0.5 multiplier yields the right "throw distance" feel after
+        // Translate fling velocity into an offset-px coast delta. Offset px
+        // are screen px (translate-outside-scale), so no zoom factor. The
+        // 0.5 multiplier yields the right "throw distance" feel after
         // ease-out integration — calibrated to Canva (a 1px/ms swipe
-        // travels ~180px post-release at scale 1).
-        const coastScale = MOMENTUM_DURATION_MS * 0.5 / zoom;
+        // travels ~180px post-release).
+        const coastScale = MOMENTUM_DURATION_MS * 0.5;
         let deltaX = vx * coastScale;
         let deltaY = vy * coastScale;
         // Cap the absolute distance per fling so a fast swipe can't
@@ -852,16 +948,18 @@ export default function PreviewPane({
         if (pane && stage) {
           const paneRect = pane.getBoundingClientRect();
           const stageRect = stage.getBoundingClientRect();
-          const naturalLeft = stageRect.left - widgetOffset.x * zoom;
-          const naturalTop = stageRect.top - widgetOffset.y * zoom;
+          // Drag-zoom fix — same translate-outside-scale bounds as the
+          // in-drag clamp: no zoom factors anywhere.
+          const naturalLeft = stageRect.left - widgetOffset.x;
+          const naturalTop = stageRect.top - widgetOffset.y;
           const VISIBLE_MIN = 80;
-          const minX = (paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width)) / zoom;
-          const maxX = (paneRect.right - VISIBLE_MIN - naturalLeft) / zoom;
+          const minX = paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width);
+          const maxX = paneRect.right - VISIBLE_MIN - naturalLeft;
           const bezel = bezelMeasureRef.current;
           const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
-          const bezelTopOffset = (bezelRect.top - stageRect.top) / zoom;
-          const minY = (paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop) / zoom - bezelTopOffset;
-          const maxY = (paneRect.bottom - VISIBLE_MIN - naturalTop) / zoom;
+          const bezelTopOffset = bezelRect.top - stageRect.top;
+          const minY = paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop - bezelTopOffset;
+          const maxY = paneRect.bottom - VISIBLE_MIN - naturalTop;
           const targetX = Math.max(minX, Math.min(maxX, coastFromOffset.x + deltaX));
           const targetY = Math.max(minY, Math.min(maxY, coastFromOffset.y + deltaY));
           const startTs = performance.now();
@@ -899,7 +997,7 @@ export default function PreviewPane({
     try {
       localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(nextOffset));
     } catch {}
-  }, [device, widgetOffset, zoom]);
+  }, [device, widgetOffset, removeDragEscListener]);
 
   // Wave 18 — clean up any in-flight momentum animation on unmount so we
   // don't end up scheduling state updates after the component is gone.
@@ -910,16 +1008,8 @@ export default function PreviewPane({
     }
   }, []);
 
-  const resetWidgetOffset = useCallback(() => {
-    setWidgetOffset({ x: 0, y: 0 });
-    // Clear the per-device resize SCALE override and hand control back to
-    // auto-fit (unlock the zoom lock so the fit Observer re-fits the mockup).
-    userZoomLockedRef.current = false;
-    try {
-      localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`);
-      localStorage.removeItem(`${WIDGET_SCALE_KEY}_${device}`);
-    } catch {}
-  }, [device]);
+  // (resetWidgetOffset is declared below `_fitToCanvas` — it needs
+  // `computeFitZoom`, which is a `const` defined later in this scope.)
 
   // Drag-bug fix — Recenter button. Restores widgetOffset to {0,0} so the
   // bezel sits at its natural top-anchored position inside the pane, without
@@ -948,6 +1038,8 @@ export default function PreviewPane({
     startZoom: number;
     baseOffsetX: number; baseOffsetY: number;
     pointerId: number;
+    // ESC-cancel — element holding pointer capture (released on Escape).
+    captureEl: HTMLElement;
   } | null>(null);
 
   // BH-1 — track whether the user has explicitly set zoom (via +/-/wheel/
@@ -1013,9 +1105,29 @@ export default function PreviewPane({
       startZoom: zoom,
       baseOffsetX: widgetOffset.x, baseOffsetY: widgetOffset.y,
       pointerId: e.pointerId,
+      captureEl: handle,
     };
     setWidgetSelected(true);
-  }, [widgetOffset.x, widgetOffset.y, zoom]);
+    // ESC-cancel — while this resize is live, Escape restores the gesture's
+    // start zoom + offset and aborts (nothing is persisted mid-gesture, so
+    // no localStorage cleanup is needed). Mirrors the move-drag Escape.
+    removeResizeEscListener();
+    const onResizeEsc = (ke: KeyboardEvent) => {
+      if (ke.key !== 'Escape') return;
+      const cur = resizeStateRef.current;
+      if (!cur) { removeResizeEscListener(); return; }
+      ke.preventDefault();
+      ke.stopPropagation(); // keep selection — Esc here only cancels the resize
+      setZoom(cur.startZoom);
+      setWidgetOffset({ x: cur.baseOffsetX, y: cur.baseOffsetY });
+      setResizeDims(null);
+      try { cur.captureEl.releasePointerCapture(cur.pointerId); } catch {}
+      resizeStateRef.current = null;
+      removeResizeEscListener();
+    };
+    window.addEventListener('keydown', onResizeEsc, true);
+    resizeEscListenerRef.current = onResizeEsc;
+  }, [widgetOffset.x, widgetOffset.y, zoom, removeResizeEscListener]);
 
   const onResizePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = resizeStateRef.current;
@@ -1096,6 +1208,8 @@ export default function PreviewPane({
     const handle = e.currentTarget;
     try { handle.releasePointerCapture(e.pointerId); } catch {}
     resizeStateRef.current = null;
+    // ESC-cancel — the resize ended normally; retire its Escape listener.
+    removeResizeEscListener();
     // Hide the scale tooltip on release.
     setResizeDims(null);
     try {
@@ -1105,7 +1219,7 @@ export default function PreviewPane({
       localStorage.setItem(`${WIDGET_SCALE_KEY}_${device}`, String(zoom));
       localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffset));
     } catch {}
-  }, [device, zoom, widgetOffset]);
+  }, [device, zoom, widgetOffset, removeResizeEscListener]);
 
   // ── Zoom controls ────────────────────────────────────────────────────
   const clampZoom = useCallback((n: number) => {
@@ -1169,6 +1283,24 @@ export default function PreviewPane({
     if (next != null) setZoom(next);
   }, [computeFitZoom]);
 
+  // "Reset position" pill — aria promises "Reset widget position AND size".
+  const resetWidgetOffset = useCallback(() => {
+    setWidgetOffset({ x: 0, y: 0 });
+    // Clear the per-device resize SCALE override and hand control back to
+    // auto-fit (unlock the zoom lock so the fit Observer re-fits the mockup).
+    userZoomLockedRef.current = false;
+    try {
+      localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`);
+      localStorage.removeItem(`${WIDGET_SCALE_KEY}_${device}`);
+    } catch {}
+    // Reset-size fix — clearing the lock alone is NOT enough: the auto-fit
+    // ResizeObserver only ticks on SIZE changes, so a reset with a stable
+    // pane left the user's manual zoom in place and only the offset moved.
+    // Re-fit immediately (mirrors `_fitToCanvas` semantics).
+    const next = computeFitZoom();
+    if (next != null) setZoom(next);
+  }, [device, computeFitZoom]);
+
   /* Wave 54 — Fullscreen preview modal.
    *
    * The bottom-right 2-arrows-outward button (Maximize2 icon) used to be
@@ -1198,53 +1330,152 @@ export default function PreviewPane({
   const fullscreenOpenRef = useRef(fullscreenOpen);
   fullscreenOpenRef.current = fullscreenOpen;
 
-  /* BUG-3 (fix/preview-fullscreen-canvas-booking) — wheel-to-pan the canvas.
+  /* Wheel-scroll routing (Alex's "like the big apps" spec) — the wheel
+   * scrolls exactly what the cursor is over, decided ONCE per burst:
    *
-   * Canva-style: a plain (no Ctrl/⌘) wheel over the EMPTY dotted canvas pans
-   * the bezel vertically by translating the same `widgetOffset.y` the drag-pan
-   * uses. We deliberately DON'T pan when the wheel target is inside the
-   * scrollable widget content (`overlayHostRef`) — that content owns its own
-   * scroll, matching the spec ("over the widget mockup content → scrolls the
-   * widget"). The left menu lives outside the pane, so its wheel events never
-   * reach this pane-level listener. Clamp to the same vertical bounds the drag
-   * uses so the bezel (and its 28-px drag handle) always stays reachable. */
+   *  - over the left menu/settings sidebar → native panel scroll (those
+   *    events never reach this pane-level listener — nothing to do here);
+   *  - over the mockup (bezel) AND the inner screen can scroll → the WIDGET
+   *    CONTENT scrolls inside the frame (natively when the target is inside
+   *    `overlayHostRef`; explicitly when the burst is latched to the widget
+   *    but the cursor slid off it);
+   *  - everywhere else in the pane (empty canvas, non-scrollable mockup) →
+   *    canvas pan via `widgetOffset.y`, same translate the drag-pan uses.
+   *
+   * NO chaining: a zone that hits its scroll end does NOT fall through to
+   * another zone (`overscroll-behavior: contain` on the inner screen stops
+   * the native chain; the canvas pan just clamps). NO dead zones: a mockup
+   * whose content fully fits (nothing to scroll) routes to canvas pan.
+   *
+   * Burst latch: the zone is hit-tested at the FIRST event of a burst and
+   * kept while ticks arrive < WHEEL_BURST_MS apart, so panning that slides
+   * the bezel under the cursor doesn't switch targets mid-burst (this was
+   * the "pan dies mid-burst" bug — the old per-event `host.contains` bail
+   * killed the pan as soon as the bezel reached the pointer).
+   *
+   * Oscillation fix: the canvas-pan clamp bounds are measured ONCE at burst
+   * start — after force-disabling the stage's transform transition — and
+   * cached on the burst. Per-tick `getBoundingClientRect` reads returned
+   * MID-TRANSITION animated positions while `widgetOffsetRef` held the
+   * committed target, so `naturalTop` (and hence minY/maxY) swung by the
+   * un-elapsed transition remainder on every event and the clamped offset
+   * oscillated ±70–95px at fast wheel cadence near the bounds. */
+  const endWheelBurst = useCallback(() => {
+    if (wheelBurstTimerRef.current != null) {
+      window.clearTimeout(wheelBurstTimerRef.current);
+      wheelBurstTimerRef.current = null;
+    }
+    wheelBurstRef.current = null;
+    // Flush the debounced offset persist so the resting position is durable
+    // even if the debounce window hasn't elapsed yet.
+    if (wheelPersistTimerRef.current != null) {
+      window.clearTimeout(wheelPersistTimerRef.current);
+      wheelPersistTimerRef.current = null;
+      try {
+        localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffsetRef.current));
+      } catch {}
+    }
+    if (wheelPanActiveRef.current) {
+      wheelPanActiveRef.current = false;
+      // Restore the stage transition directly (mirrors what the next React
+      // render writes via the style ternary, so the two stay consistent).
+      const stage = stageRef.current;
+      if (stage) stage.style.transition = 'transform 120ms ease-out';
+    }
+  }, [device]);
+
   const panCanvasOnWheel = useCallback((e: WheelEvent) => {
     const pane = paneRef.current;
     const stage = stageRef.current;
     if (!pane || !stage) return;
-    // Let the live widget content scroll itself — only the bare canvas pans.
     const host = overlayHostRef.current;
     const tgt = e.target as Node | null;
-    if (host && tgt && host.contains(tgt)) return;
+
+    let burst = wheelBurstRef.current;
+    if (!burst) {
+      // ── Burst start: hit-test the zone once and latch it. ──────────────
+      const bezel = bezelMeasureRef.current;
+      const overMockup = !!(bezel && tgt && bezel.contains(tgt));
+      // "No dead zones": a mockup whose content fully fits has nothing to
+      // scroll — route those bursts to the canvas pan instead.
+      const hostScrollable = !!(host && host.scrollHeight > host.clientHeight + 1);
+      if (overMockup && hostScrollable) {
+        burst = { zone: 'widget', minY: 0, maxY: 0 };
+      } else {
+        // Canvas pan. Kill the transform transition BEFORE measuring so the
+        // rects reflect the committed offsets, not a mid-flight animation
+        // (getBoundingClientRect flushes style+layout, so the snap applies).
+        wheelPanActiveRef.current = true;
+        stage.style.transition = 'none';
+        const paneRect = pane.getBoundingClientRect();
+        const stageRect = stage.getBoundingClientRect();
+        const VISIBLE_MIN = 80;
+        const cur = widgetOffsetRef.current;
+        // Drag-zoom fix — the stage transform is translate-OUTSIDE-scale
+        // (origin 0 0), so offset px = screen px and the pan bounds carry
+        // NO zoom factor (same derivation as the drag clamp; the old `* z`
+        // / `/ z` here was the identical error — invisible at zoom 1).
+        const naturalTop = stageRect.top - cur.y;
+        const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
+        const bezelTopOffset = bezelRect.top - stageRect.top;
+        const minY = paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop - bezelTopOffset;
+        const maxY = paneRect.bottom - VISIBLE_MIN - naturalTop;
+        burst = { zone: 'canvas', minY, maxY };
+      }
+      wheelBurstRef.current = burst;
+    }
+    // (Re-)arm the burst-end timer on EVERY tick — the burst stays latched
+    // while events arrive < WHEEL_BURST_MS apart, even when clamped no-ops.
+    if (wheelBurstTimerRef.current != null) window.clearTimeout(wheelBurstTimerRef.current);
+    wheelBurstTimerRef.current = window.setTimeout(endWheelBurst, WHEEL_BURST_MS);
+
+    if (burst.zone === 'widget') {
+      if (host && tgt && host.contains(tgt)) {
+        // Cursor is over the inner screen — let the browser scroll it
+        // natively (nested scrollables inside the widget keep working).
+        // `overscroll-behavior: contain` on the host stops the scroll-end
+        // chain from falling through to the page — no zone chaining.
+        return;
+      }
+      // Latched to the widget but the cursor slid off the frame mid-burst —
+      // keep driving the inner screen explicitly so the burst doesn't die.
+      e.preventDefault();
+      if (host) host.scrollTop += e.deltaY;
+      return;
+    }
+
+    // ── Canvas pan ────────────────────────────────────────────────────────
     // Cancel any in-flight inertia coast so the pan wins cleanly.
     if (momentumRafRef.current != null) {
       cancelAnimationFrame(momentumRafRef.current);
       momentumRafRef.current = null;
     }
     e.preventDefault();
-    const paneRect = pane.getBoundingClientRect();
-    const stageRect = stage.getBoundingClientRect();
-    const VISIBLE_MIN = 80;
-    const z = zoomRef.current || 1;
     const cur = widgetOffsetRef.current;
-    const naturalTop = stageRect.top - cur.y * z;
-    const bezel = bezelMeasureRef.current;
-    const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
-    const bezelTopOffset = (bezelRect.top - stageRect.top) / z;
-    const minY = (paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop) / z - bezelTopOffset;
-    const maxY = (paneRect.bottom - VISIBLE_MIN - naturalTop) / z;
     // Wheel down (deltaY > 0) scrolls content down → move the bezel UP, like a
-    // scroll container. Divide by zoom so the pan tracks 1:1 in screen px.
-    const nextY = Math.max(minY, Math.min(maxY, cur.y - e.deltaY / z));
+    // scroll container. Offset px are screen px (translate-outside-scale), so
+    // deltaY applies 1:1 at any zoom — no `/ zoom`.
+    // Bounds come from the burst cache — stable for the whole burst.
+    const nextY = Math.max(burst.minY, Math.min(burst.maxY, cur.y - e.deltaY));
     if (nextY === cur.y) return;
-    setWidgetOffset((prev) => {
-      const next = { x: prev.x, y: nextY };
+    setWidgetOffset((prev) => ({ x: prev.x, y: nextY }));
+    // Debounced (trailing) persist — one localStorage write per pause, not
+    // one per 16ms wheel tick. endWheelBurst flushes it early at burst end.
+    if (wheelPersistTimerRef.current != null) window.clearTimeout(wheelPersistTimerRef.current);
+    wheelPersistTimerRef.current = window.setTimeout(() => {
+      wheelPersistTimerRef.current = null;
       try {
-        localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(next));
+        localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffsetRef.current));
       } catch {}
-      return next;
-    });
-  }, [device]);
+    }, WHEEL_PERSIST_DEBOUNCE_MS);
+  }, [device, endWheelBurst]);
+
+  // Clear wheel-routing timers on unmount (the persist flush is best-effort;
+  // the burst-end flush already covers every completed scroll).
+  useEffect(() => () => {
+    if (wheelBurstTimerRef.current != null) window.clearTimeout(wheelBurstTimerRef.current);
+    if (wheelPersistTimerRef.current != null) window.clearTimeout(wheelPersistTimerRef.current);
+  }, []);
 
   // Esc closes the modal. Only attaches when the modal is open.
   useEffect(() => {
@@ -1279,15 +1510,19 @@ export default function PreviewPane({
         return;
       }
       e.preventDefault();
+      // A zoom invalidates any latched wheel-pan burst — the cached pan
+      // bounds are derived at one zoom level and would be wrong after.
+      endWheelBurst();
       const delta = e.deltaY;
       // BH-1 — wheel-zoom counts as manual.
       setZoomManual((z) => z - Math.sign(delta) * ZOOM_STEP);
     };
     pane.addEventListener('wheel', onWheel, { passive: false });
     return () => pane.removeEventListener('wheel', onWheel);
-    // panCanvasOnWheel is a stable useCallback; fullscreen read via ref.
+    // panCanvasOnWheel/endWheelBurst are stable useCallbacks; fullscreen read
+    // via ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setZoomManual, panCanvasOnWheel]);
+  }, [setZoomManual, panCanvasOnWheel, endWheelBurst]);
 
   // Ctrl/⌘ +/-/0 keyboard shortcuts. Skip when typing in an input so we
   // don't fight native browser zoom inside text fields.
@@ -1466,8 +1701,9 @@ export default function PreviewPane({
       if (e.touches.length !== 1) { active = false; setGuides([]); return; }
       if (!active) return;
       e.preventDefault();
-      const z = zoomRef.current || 1;
-      const aligned = applyAlignSnap(bx + (e.touches[0].clientX - sx) / z, by + (e.touches[0].clientY - sy) / z);
+      // Drag-zoom fix — offset px are screen px (translate-outside-scale);
+      // finger delta maps 1:1 at any zoom, no `/ zoom`.
+      const aligned = applyAlignSnap(bx + (e.touches[0].clientX - sx), by + (e.touches[0].clientY - sy));
       setWidgetOffset({ x: aligned.x, y: aligned.y });
       setGuides(aligned.guides);
     };
@@ -1891,6 +2127,33 @@ export default function PreviewPane({
         .getPropertyValue('--qq-sheet-h').trim();
       sheetH = raw ? parseFloat(raw) || 0 : 0;
     } catch { /* ignore */ }
+    // Phone-frame fix — the mobile-frame inner screen (overlayHost) is now a
+    // real scroll container, so a menu-selected element can sit below the
+    // fold INSIDE the frame where pane-level scrolling can never reach it.
+    // Centre it within the frame first, then run the pane band math against
+    // its post-scroll position. Rect deltas are viewport px while scrollTop
+    // is unscaled layout px, so divide by the stage zoom when converting.
+    let nodeShiftY = 0;
+    const host = overlayHostRef.current;
+    if (host && host.contains(node) && host.scrollHeight > host.clientHeight + 1) {
+      const z = zoomRef.current || 1;
+      const hostRect = host.getBoundingClientRect();
+      const nRect = node.getBoundingClientRect();
+      const viewportDelta = (nRect.top + nRect.height / 2) - (hostRect.top + hostRect.height / 2);
+      const desired = host.scrollTop + viewportDelta / z;
+      const clamped = Math.max(0, Math.min(host.scrollHeight - host.clientHeight, desired));
+      const scrollDelta = clamped - host.scrollTop; // layout px
+      if (Math.abs(scrollDelta) >= 1) {
+        try {
+          host.scrollTo({ top: clamped, behavior });
+        } catch {
+          host.scrollTop = clamped;
+        }
+        // The node will move up by scrollDelta layout px → scrollDelta * z
+        // viewport px once the (possibly smooth) scroll settles.
+        nodeShiftY = -scrollDelta * z;
+      }
+    }
     const paneRect = pane.getBoundingClientRect();
     const nodeRect = node.getBoundingClientRect();
     // The visible band is the pane viewport minus whatever the sheet overlaps
@@ -1901,7 +2164,7 @@ export default function PreviewPane({
     );
     const bandHeight = Math.max(0, paneRect.height - overlap);
     const bandCenterY = paneRect.top + bandHeight / 2;
-    const nodeCenterY = nodeRect.top + nodeRect.height / 2;
+    const nodeCenterY = nodeRect.top + nodeRect.height / 2 + nodeShiftY;
     const delta = nodeCenterY - bandCenterY;
     if (Math.abs(delta) < 2) return;
     try {
@@ -2176,9 +2439,15 @@ export default function PreviewPane({
     // the desktop scaled stage). offsetWidth is the unscaled layout width.
     const scale = host.offsetWidth > 0 ? hostRect.width / host.offsetWidth : 1;
     const s = scale > 0 ? scale : 1;
+    // Phone-frame fix — the mobile-frame host is now a real scroll container
+    // and the section editor is an absolutely-positioned child of its
+    // scrolling content, so the box must be in CONTENT coordinates: add
+    // scrollTop/Left (already unscaled layout px) to the unscaled viewport
+    // delta. Hosts that don't scroll (desktop bezel, mobile-clean — there the
+    // PANE scrolls, not the host) have scrollTop 0, so this is a no-op.
     setTitleBox({
-      left: (r.left - hostRect.left) / s,
-      top: (r.top - hostRect.top) / s,
+      left: (r.left - hostRect.left) / s + host.scrollLeft,
+      top: (r.top - hostRect.top) / s + host.scrollTop,
       width: Math.max(r.width / s, 200),
       height: r.height / s,
     });
@@ -2759,7 +3028,12 @@ export default function PreviewPane({
         style={{
           transform: `translate(${widgetOffset.x}px, ${widgetOffset.y}px) scale(${zoom})`,
           transformOrigin: '0 0',
-          transition: dragStateRef.current || resizeStateRef.current ? 'none' : 'transform 120ms ease-out',
+          /* Wheel-pan oscillation fix — the transition must ALSO be
+           * suppressed during wheel-pan bursts (wheelPanActiveRef), not just
+           * drag/resize. Animating each 16ms wheel tick over 120ms left the
+           * rects mid-flight while the committed offset was at the target —
+           * the clamp math then oscillated near the pan bounds. */
+          transition: dragStateRef.current || resizeStateRef.current || wheelPanActiveRef.current ? 'none' : 'transform 120ms ease-out',
         }}
       >
         <div
@@ -2801,8 +3075,15 @@ export default function PreviewPane({
                  * scales this to the available pane size. */
                 width: '100%',
                 maxWidth: '100%',
-                // Natural height (no height/maxHeight clamp) so vertical content
-                // is never clipped — the stage scale (zoom) handles shrink-to-fit.
+                /* Phone-frame fix — pin the mockup to real phone proportions
+                 * (375 × 812 ≈ 2.17 H/W). The bezel used to grow with content
+                 * (375 × 1284 for a long template ≈ 3.42 H/W — nothing like a
+                 * phone). Content taller than the frame now scrolls INSIDE
+                 * the screen (the inner host below gets minHeight: 0 so its
+                 * overflow: auto can engage). Desktop/tablet keep natural
+                 * height by design — browser windows grow with content. */
+                height: MOBILE_BEZEL_HEIGHT,
+                maxHeight: MOBILE_BEZEL_HEIGHT,
                 background: 'linear-gradient(160deg, #1e293b, #0f172a)',
                 borderRadius: 44, padding: '12px 10px', boxSizing: 'border-box',
                 // P0 sticky fix — `clip` not `hidden` so `position: sticky`
@@ -2815,7 +3096,13 @@ export default function PreviewPane({
             >
               {dragHandle}
               <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px', flexShrink: 0 }} />
-              <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', background: previewBodyBg, flex: 1, position: 'relative' }}>
+              {/* Inner screen — minHeight: 0 lets this flex child shrink below
+                * its content height so the fixed-height bezel caps it and
+                * overflow: auto engages (without it, flex min-height:auto kept
+                * the div content-sized and it never scrolled). overscroll-
+                * behavior: contain stops a scroll-end from chaining out of the
+                * frame (wheel-routing spec: no zone fall-through). */}
+              <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', overscrollBehavior: 'contain', background: previewBodyBg, flex: 1, minHeight: 0, position: 'relative' }}>
                 {renderPreviewWidget}
                 {shellFields.length > 0 && onRemoveField && (
                   <PreviewOverlay
@@ -2942,7 +3229,10 @@ export default function PreviewPane({
                   {(businessName || 'your-business').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 28)}.your-quote.net
                 </div>
               </div>
-              <div ref={overlayHostRef} style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+              {/* Desktop/tablet inner screen — natural bezel height means this
+                * rarely scrolls, but overscroll-behavior: contain keeps the
+                * no-chaining wheel-routing guarantee if it ever does. */}
+              <div ref={overlayHostRef} style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'contain', position: 'relative' }}>
                 {renderPreviewWidget}
                 {shellFields.length > 0 && onRemoveField && (
                   <PreviewOverlay
@@ -4268,13 +4558,20 @@ function measureDropZones(
     }
   }
 
+  // Phone-frame fix — the container (overlayHost) is now a real scroll
+  // container on mobile, and this overlay scrolls with its content (it's
+  // absolutely positioned inside). Zone coordinates must therefore be
+  // CONTENT offsets: add scrollTop/scrollLeft to the viewport-relative rect
+  // deltas. At scroll 0 (desktop / unscrolled frame) this is a no-op.
+  const sTop = container.scrollTop;
+  const sLeft = container.scrollLeft;
   const out: DropZoneBox[] = [];
   // Drop zone ABOVE the first row.
   const first = rows[0];
   out.push({
     index: first.firstIdx,
-    top: first.top - containerRect.top - 12,
-    left: first.left - containerRect.left,
+    top: first.top - containerRect.top + sTop - 12,
+    left: first.left - containerRect.left + sLeft,
     width: first.right - first.left,
   });
   // BETWEEN each pair of adjacent rows.
@@ -4288,8 +4585,8 @@ function measureDropZones(
     const right = Math.max(prev.right, cur.right);
     out.push({
       index: cur.firstIdx,
-      top: gapMid - containerRect.top - 12,
-      left: left - containerRect.left,
+      top: gapMid - containerRect.top + sTop - 12,
+      left: left - containerRect.left + sLeft,
       width: right - left,
     });
   }
@@ -4297,8 +4594,8 @@ function measureDropZones(
   const last = rows[rows.length - 1];
   out.push({
     index: count,
-    top: last.bottom - containerRect.top - 4,
-    left: last.left - containerRect.left,
+    top: last.bottom - containerRect.top + sTop - 4,
+    left: last.left - containerRect.left + sLeft,
     width: last.right - last.left,
   });
   return out;
