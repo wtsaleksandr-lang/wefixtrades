@@ -33,6 +33,8 @@ jobs:
         run: npm run check:serp-country
       - name: Demo-persona guard (TradeLine demo role-plays the receptionist, not the platform)
         run: npm run check:demo-persona
+      - name: ContentFlow generate-source guard (saved custom prompts can drive generation — not template-bound)
+        run: npm run check:contentflow-generate-source
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations

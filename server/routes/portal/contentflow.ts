@@ -15,7 +15,7 @@
  *   GET    /api/portal/contentflow/videos
  *   GET    /api/portal/contentflow/video-settings
  *   PATCH  /api/portal/contentflow/video-settings
- *   POST   /api/portal/contentflow/generate                    (Phase 3)
+ *   POST   /api/portal/contentflow/generate                    (Phase 3; templateId OR customPromptId)
  *   GET    /api/portal/contentflow/custom-prompts              (Phase 3)
  *   POST   /api/portal/contentflow/custom-prompts              (Phase 3)
  *   DELETE /api/portal/contentflow/custom-prompts/:id          (Phase 3)
@@ -580,8 +580,20 @@ export function registerPortalContentflowRoutes(app: Express) {
   /**
    * POST /api/portal/contentflow/generate
    *
-   * Body: { templateId, tokens?, rendered, assetType }
+   * Body: { templateId?, customPromptId?, tokens?, rendered?, assetType }
    * Returns: { ok, draftId, assetUrl?, content?, tier, ... }
+   *
+   * Prompt source (exactly ONE of):
+   *   - templateId:       a library template; `rendered` is required.
+   *   - customPromptId:   a prompt the client previously saved via
+   *                       POST /custom-prompts. Resolved server-side from
+   *                       the caller's own saved prompts (tenant-isolated —
+   *                       the id is only looked up inside the session
+   *                       client's list, so it can never address another
+   *                       client's prompt). `rendered`/`tokens` default to
+   *                       the saved values; the body may override them.
+   *                       This is what un-binds generation from the
+   *                       template library (Phase 3 completion).
    *
    * Asset routing:
    *   - "image":   generateImageViaOrchestrator(rendered + style preset)
@@ -602,29 +614,37 @@ export function registerPortalContentflowRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const { templateId, tokens, rendered, assetType } = (req.body || {}) as {
+      const { templateId, customPromptId, tokens, rendered: renderedBody, assetType } = (req.body || {}) as {
         templateId?: string;
+        customPromptId?: string;
         tokens?: unknown;
         rendered?: string;
         assetType?: string;
       };
 
       /* ── Validate body ────────────────────────────────────────── */
-      if (!templateId || typeof templateId !== "string") {
-        return res.status(400).json({ error: "templateId is required", code: "missing_template_id" });
-      }
-      const tmpl = getPromptTemplate(templateId);
-      if (!tmpl) return res.status(404).json({ error: "prompt not found", code: "prompt_not_found" });
-      if (!rendered || typeof rendered !== "string" || !rendered.trim()) {
-        return res.status(400).json({ error: "rendered prompt is required", code: "missing_rendered" });
-      }
-      if (rendered.length > 8_000) {
-        return res.status(400).json({ error: "rendered prompt too long (max 8000)", code: "prompt_too_long" });
-      }
       const VALID_ASSETS = new Set(["image", "article", "video", "multi"]);
       if (!assetType || !VALID_ASSETS.has(assetType)) {
         return res.status(400).json({ error: "assetType must be one of image|article|video|multi", code: "invalid_asset_type" });
       }
+
+      /* Resolve the prompt source — a library template OR one of the
+       * caller's saved custom prompts (Phase 3: generation is no longer
+       * template-bound). All validation (exactly-one source, 404s,
+       * rendered length) lives in the helper so it is unit-testable. */
+      const resolvedSource = await resolveGeneratePromptSource({
+        templateId,
+        customPromptId,
+        rendered: renderedBody,
+        tokens,
+        loadCustomPrompts: () => readCustomPrompts(clientId),
+      });
+      if (!resolvedSource.ok) {
+        return res.status(resolvedSource.status).json({ error: resolvedSource.error, code: resolvedSource.code });
+      }
+      const src = resolvedSource.source;
+      const rendered = src.rendered;
+      const tokenList = src.tokens;
 
       const tier = await resolveContentflowTier(clientId);
 
@@ -640,7 +660,7 @@ export function registerPortalContentflowRoutes(app: Express) {
             action: "contentflow.generate.blocked",
             entityType: "client",
             entityId: String(clientId),
-            metadata: { template_id: templateId, asset_type: assetType, reason: "tier_below_creator", tier },
+            metadata: { template_id: src.templateId, custom_prompt_id: src.customPromptId, asset_type: assetType, reason: "tier_below_creator", tier },
           });
           return res.status(402).json({
             error: "Video requires Creator+ tier.",
@@ -657,18 +677,18 @@ export function registerPortalContentflowRoutes(app: Express) {
           client_service_id: null,
           kind: "video",
           surface: "contentflow_portal",
-          title: tmpl.title,
+          title: src.title,
           body: null,
           excerpt: null,
           target_platform: null,
           target_url: null,
           metadata: {
-            template_id: templateId,
-            pattern_id: tmpl.patternId,
-            trade: tmpl.trade,
-            goal: tmpl.goal,
-            asset: tmpl.asset,
-            tokens: Array.isArray(tokens) ? tokens : [],
+            template_id: src.templateId, custom_prompt_id: src.customPromptId,
+            pattern_id: src.patternId,
+            trade: src.trade,
+            goal: src.goal,
+            asset: src.asset,
+            tokens: tokenList,
             rendered_prompt: rendered,
             tier_at_generation: tier,
             source: "phase3_generate_endpoint_video",
@@ -697,7 +717,7 @@ export function registerPortalContentflowRoutes(app: Express) {
         if (!videoResult.ok) {
           await storage.updateContentDraft(videoDraftId, {
             metadata: {
-              template_id: templateId,
+              template_id: src.templateId, custom_prompt_id: src.customPromptId,
               tier_at_generation: tier,
               rendered_prompt: rendered,
               generation_status: "failed",
@@ -715,7 +735,7 @@ export function registerPortalContentflowRoutes(app: Express) {
             entityId: String(videoDraftId),
             metadata: {
               client_id: clientId,
-              template_id: templateId,
+              template_id: src.templateId, custom_prompt_id: src.customPromptId,
               succeeded: false,
               reason: videoResult.reason,
               fallback_chain: videoResult.fallback_chain,
@@ -740,12 +760,12 @@ export function registerPortalContentflowRoutes(app: Express) {
 
         await storage.updateContentDraft(videoDraftId, {
           metadata: {
-            template_id: templateId,
-            pattern_id: tmpl.patternId,
-            trade: tmpl.trade,
-            goal: tmpl.goal,
-            asset: tmpl.asset,
-            tokens: Array.isArray(tokens) ? tokens : [],
+            template_id: src.templateId, custom_prompt_id: src.customPromptId,
+            pattern_id: src.patternId,
+            trade: src.trade,
+            goal: src.goal,
+            asset: src.asset,
+            tokens: tokenList,
             rendered_prompt: rendered,
             tier_at_generation: tier,
             source: "phase3_generate_endpoint_video",
@@ -766,7 +786,7 @@ export function registerPortalContentflowRoutes(app: Express) {
           entityId: String(videoDraftId),
           metadata: {
             client_id: clientId,
-            template_id: templateId,
+            template_id: src.templateId, custom_prompt_id: src.customPromptId,
             provider_id: videoResult.providerUsed,
             duration_sec: videoResult.durationSec,
             cost: videoResult.cost,
@@ -811,18 +831,18 @@ export function registerPortalContentflowRoutes(app: Express) {
         client_service_id: null,
         kind: draftKind,
         surface: "contentflow_portal",
-        title: tmpl.title,
+        title: src.title,
         body: null,
         excerpt: null,
         target_platform: null,
         target_url: null,
         metadata: {
-          template_id: templateId,
-          pattern_id: tmpl.patternId,
-          trade: tmpl.trade,
-          goal: tmpl.goal,
-          asset: tmpl.asset,
-          tokens: Array.isArray(tokens) ? tokens : [],
+          template_id: src.templateId, custom_prompt_id: src.customPromptId,
+          pattern_id: src.patternId,
+          trade: src.trade,
+          goal: src.goal,
+          asset: src.asset,
+          tokens: tokenList,
           rendered_prompt: rendered,
           style_preset: customerStylePreset,
           tier_at_generation: tier,
@@ -930,12 +950,12 @@ export function registerPortalContentflowRoutes(app: Express) {
       await storage.updateContentDraft(draftId, {
         body: articleContent ?? null,
         metadata: {
-          template_id: templateId,
-          pattern_id: tmpl.patternId,
-          trade: tmpl.trade,
-          goal: tmpl.goal,
-          asset: tmpl.asset,
-          tokens: Array.isArray(tokens) ? tokens : [],
+          template_id: src.templateId, custom_prompt_id: src.customPromptId,
+          pattern_id: src.patternId,
+          trade: src.trade,
+          goal: src.goal,
+          asset: src.asset,
+          tokens: tokenList,
           rendered_prompt: rendered,
           style_preset: customerStylePreset,
           tier_at_generation: tier,
@@ -956,7 +976,7 @@ export function registerPortalContentflowRoutes(app: Express) {
         entityId: String(draftId),
         metadata: {
           client_id: clientId,
-          template_id: templateId,
+          template_id: src.templateId, custom_prompt_id: src.customPromptId,
           asset_type: assetType,
           tier,
           succeeded,
@@ -1621,4 +1641,124 @@ function applyStyleSuffixToPrompt(rendered: string, preset: string): string {
     return applyStylePreset(rendered, preset as ImageStylePresetId);
   }
   return rendered;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Phase 3 completion — generate-from-custom-prompt resolution.
+ *
+ * POST /generate historically required a LIBRARY templateId (404 for
+ * anything else), so prompts saved via POST /custom-prompts could be
+ * listed but never actually drive a generation — image gen was
+ * template-bound. This helper un-binds it: the route now accepts
+ * exactly one of { templateId, customPromptId } and this function
+ * normalizes either into the single shape the pipeline consumes.
+ *
+ * Pure + dependency-injected (loadCustomPrompts) so it is unit-testable
+ * without express/db — see contentflow.generateSource.test.ts, wired
+ * into CI as `npm run check:contentflow-generate-source`.
+ * ────────────────────────────────────────────────────────────────── */
+
+export interface GeneratePromptSource {
+  kind: "template" | "custom";
+  /** Library template id, or the saved prompt's baseTemplateId for kind=custom. */
+  templateId: string;
+  /** Saved custom-prompt id (null for kind=template). */
+  customPromptId: string | null;
+  title: string;
+  patternId: string | null;
+  trade: string | null;
+  goal: string | null;
+  asset: string | null;
+  rendered: string;
+  tokens: unknown[];
+}
+
+export type GeneratePromptSourceResult =
+  | { ok: true; source: GeneratePromptSource }
+  | { ok: false; status: number; error: string; code: string };
+
+export async function resolveGeneratePromptSource(input: {
+  templateId?: unknown;
+  customPromptId?: unknown;
+  rendered?: unknown;
+  tokens?: unknown;
+  /** Loader for the SESSION client's saved prompts — tenant isolation is
+   *  inherited from the caller resolving clientId from the session, never
+   *  from the request body. */
+  loadCustomPrompts: () => Promise<SavedCustomPrompt[]>;
+}): Promise<GeneratePromptSourceResult> {
+  const { templateId, customPromptId, rendered, tokens } = input;
+
+  const hasTemplate = typeof templateId === "string" && templateId.trim().length > 0;
+  const hasCustom = typeof customPromptId === "string" && customPromptId.trim().length > 0;
+
+  if (!hasTemplate && !hasCustom) {
+    return { ok: false, status: 400, error: "templateId or customPromptId is required", code: "missing_template_id" };
+  }
+  if (hasTemplate && hasCustom) {
+    return { ok: false, status: 400, error: "provide exactly one of templateId or customPromptId", code: "ambiguous_prompt_source" };
+  }
+
+  const renderedBody = typeof rendered === "string" && rendered.trim().length > 0 ? rendered : null;
+
+  if (hasCustom) {
+    const saved = (await input.loadCustomPrompts()).find((p) => p.id === customPromptId);
+    if (!saved) {
+      return { ok: false, status: 404, error: "custom prompt not found", code: "custom_prompt_not_found" };
+    }
+    /* Base template is metadata enrichment only — a custom prompt must
+     * keep working even if its base template is later removed from the
+     * library, so a miss here is NOT a 404. */
+    const baseTmpl = getPromptTemplate(saved.baseTemplateId);
+    const effectiveRendered = renderedBody ?? saved.rendered;
+    if (!effectiveRendered || !effectiveRendered.trim()) {
+      return { ok: false, status: 400, error: "rendered prompt is required", code: "missing_rendered" };
+    }
+    if (effectiveRendered.length > 8_000) {
+      return { ok: false, status: 400, error: "rendered prompt too long (max 8000)", code: "prompt_too_long" };
+    }
+    return {
+      ok: true,
+      source: {
+        kind: "custom",
+        templateId: saved.baseTemplateId,
+        customPromptId: saved.id,
+        title: saved.title || "Custom prompt",
+        patternId: baseTmpl?.patternId ?? null,
+        trade: baseTmpl?.trade ?? null,
+        goal: baseTmpl?.goal ?? null,
+        asset: baseTmpl?.asset ?? null,
+        rendered: effectiveRendered,
+        tokens: Array.isArray(tokens) ? tokens : (saved.tokens ?? []),
+      },
+    };
+  }
+
+  /* Template path — behavior identical to the pre-customPromptId route:
+   * unknown template 404s and `rendered` is required from the body. */
+  const tmpl = getPromptTemplate(templateId as string);
+  if (!tmpl) {
+    return { ok: false, status: 404, error: "prompt not found", code: "prompt_not_found" };
+  }
+  if (!renderedBody) {
+    return { ok: false, status: 400, error: "rendered prompt is required", code: "missing_rendered" };
+  }
+  if (renderedBody.length > 8_000) {
+    return { ok: false, status: 400, error: "rendered prompt too long (max 8000)", code: "prompt_too_long" };
+  }
+  return {
+    ok: true,
+    source: {
+      kind: "template",
+      templateId: templateId as string,
+      customPromptId: null,
+      title: tmpl.title,
+      patternId: tmpl.patternId,
+      trade: tmpl.trade,
+      goal: tmpl.goal,
+      asset: tmpl.asset,
+      rendered: renderedBody,
+      tokens: Array.isArray(tokens) ? tokens : [],
+    },
+  };
 }
