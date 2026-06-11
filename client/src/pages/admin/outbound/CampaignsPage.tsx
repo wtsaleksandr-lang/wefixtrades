@@ -436,7 +436,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
     target_trade: "",
     target_region: "",
     sender_email: "",
-    dry_run: false,
+    dry_run: true,
   });
 
   const mutation = useMutation({
@@ -459,7 +459,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/campaigns"] });
       toast({ title: "Campaign created" });
-      setForm({ name: "", description: "", platform: "instantly", external_campaign_id: "", target_trade: "", target_region: "", sender_email: "", dry_run: false });
+      setForm({ name: "", description: "", platform: "instantly", external_campaign_id: "", target_trade: "", target_region: "", sender_email: "", dry_run: true });
       onClose();
     },
     onError: (err: any) => toast({ title: "Failed", description: err.message, variant: "destructive" }),
@@ -534,21 +534,56 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
             <label className="text-xs font-medium text-muted-foreground">Description</label>
             <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Optional notes" />
           </div>
-          {/* P0-1: Dry-run toggle. When on, syncs use the no-op adapter — no leads
-              are registered into Instantly/Smartlead. Safe way to test a campaign. */}
-          <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={form.dry_run}
-              onChange={(e) => setForm({ ...form, dry_run: e.target.checked })}
-              data-testid="campaign-dry-run-toggle"
-            />
-            <span className="text-xs text-amber-800">
-              <span className="font-semibold">Dry-run (test mode)</span> — no real leads
-              are pushed to the platform. Syncs are logged as dry-run pushes only.
-            </span>
-          </label>
+          {/* P0-1 + first-campaign UX: send mode is the highest-stakes choice
+              in this dialog, so it's a labeled segmented control instead of a
+              buried checkbox. metadata.dry_run drives the NoopAdapter on sync.
+              Selected state = outline, not bright fill (hard UI rule). */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-1">
+              {/* Help cue — top-left of the input per DESIGN-SYSTEM hard rule */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3 h-3 text-muted-foreground/70" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[280px] text-xs">
+                  Dry run uses the no-op adapter: pushes are logged but nothing reaches Instantly/Smartlead and no email goes out — verify the whole flow safely. Live pushes leads into the real platform campaign and starts contacting them.
+                </TooltipContent>
+              </Tooltip>
+              <label className="text-xs font-medium text-muted-foreground">Send mode</label>
+            </div>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Send mode">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={form.dry_run}
+                onClick={() => setForm({ ...form, dry_run: true })}
+                data-testid="campaign-dry-run-toggle"
+                className={`rounded-lg border p-2.5 text-left text-xs transition-colors ${
+                  form.dry_run
+                    ? "border-amber-500 ring-1 ring-amber-500 text-foreground"
+                    : "border-border text-muted-foreground hover:border-muted-foreground/40"
+                }`}
+              >
+                <span className="font-semibold block">Dry run</span>
+                <span className="block mt-0.5 text-muted-foreground">Test — nothing sends</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!form.dry_run}
+                onClick={() => setForm({ ...form, dry_run: false })}
+                data-testid="campaign-live-toggle"
+                className={`rounded-lg border p-2.5 text-left text-xs transition-colors ${
+                  !form.dry_run
+                    ? "border-brand-blue-600 ring-1 ring-brand-blue-600 text-foreground"
+                    : "border-border text-muted-foreground hover:border-muted-foreground/40"
+                }`}
+              >
+                <span className="font-semibold block">Live</span>
+                <span className="block mt-0.5 text-muted-foreground">Real emails are sent</span>
+              </button>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -720,7 +755,7 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
           : `Push ${pendingCount} lead${pendingCount !== 1 ? "s" : ""} into the live campaign?`}
         description={campaign.metadata?.dry_run
           ? "Dry-run mode: nothing is sent to the outreach platform. This only logs dry-run push events so you can verify the flow."
-          : "This sends them into the connected outreach platform and starts contacting them. It can't be undone from here."}
+          : `You are about to push ${pendingCount} lead${pendingCount !== 1 ? "s" : ""} into a LIVE campaign — real emails will be sent. This starts contacting them and can't be undone from here.`}
         confirmLabel={campaign.metadata?.dry_run ? "Run dry-run" : "Push to campaign"}
         pending={syncMutation.isPending}
         onConfirm={() => { syncMutation.mutate(); setConfirmSync(false); }}

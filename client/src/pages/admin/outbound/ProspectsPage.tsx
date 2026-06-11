@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle, XCircle, AlertTriangle, Globe, Phone, Mail,
   Star, Upload, Brain, RefreshCw, ChevronDown, FileText, Zap, HelpCircle, Search,
-  Sparkles, ExternalLink,
+  Sparkles, ExternalLink, Megaphone,
 } from "lucide-react";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
@@ -344,6 +344,124 @@ function CsvUploadDialog({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
+/* ─── Assign to Campaign Dialog ───
+   First-campaign UX fix: the #1 blocker was that POST
+   /api/admin/outbound/campaigns/:id/assign existed on the server but had no
+   UI. This dialog wires the existing endpoint to the table's row selection:
+   pick a campaign → confirm → server assigns approved+emailable prospects
+   and skips the rest (consent gate / blacklist / no email). */
+interface AssignCampaign {
+  id: number;
+  name: string;
+  platform: string;
+  status: string;
+  metadata: { dry_run?: boolean } | null;
+}
+
+function AssignToCampaignDialog({
+  open,
+  onClose,
+  prospectIds,
+  onAssigned,
+}: {
+  open: boolean;
+  onClose: () => void;
+  prospectIds: number[];
+  onAssigned: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [campaignId, setCampaignId] = useState<string>("");
+
+  // Same campaigns query the Campaigns page uses (shared cache key).
+  const { data: campaigns = [], isLoading } = useQuery<AssignCampaign[]>({
+    queryKey: ["/api/admin/outbound/campaigns"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/outbound/campaigns", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load campaigns");
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/outbound/campaigns/${campaignId}/assign`, {
+        prospect_ids: prospectIds,
+      });
+      return res.json();
+    },
+    onSuccess: (data: { assigned: number; skipped: number; blocked?: { id: number; reason: string }[] }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/prospects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/campaigns"] });
+      const blockedCount = data.blocked?.length ?? 0;
+      toast({
+        title: "Leads assigned",
+        description: `${data.assigned} assigned, ${data.skipped} skipped${blockedCount > 0 ? ` (${blockedCount} held by consent gate/blacklist)` : ""}`,
+      });
+      setCampaignId("");
+      onAssigned();
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Assignment failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md" data-theme="light">
+        <DialogHeader><DialogTitle>Assign {prospectIds.length} lead{prospectIds.length !== 1 ? "s" : ""} to a campaign</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1">
+              {/* Help cue — top-left of the input per DESIGN-SYSTEM hard rule */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3 h-3 text-muted-foreground/70" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[280px] text-xs">
+                  Only approved prospects with an email address are assigned. New / enriched / rejected prospects and anything held by the consent gate or blacklist are skipped automatically — the result toast shows the counts.
+                </TooltipContent>
+              </Tooltip>
+              <label className="text-xs font-medium text-foreground">Campaign</label>
+            </div>
+            <Select value={campaignId} onValueChange={setCampaignId}>
+              <SelectTrigger data-testid="assign-campaign-select">
+                <SelectValue placeholder={isLoading ? "Loading campaigns..." : "Choose a campaign"} />
+              </SelectTrigger>
+              <SelectContent>
+                {campaigns.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.name}{c.metadata?.dry_run ? " · DRY RUN" : ""} · {c.platform} ({c.status})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {!isLoading && campaigns.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No campaigns yet — create one in the Campaigns tab first, then come back and assign these leads.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={!campaignId || mutation.isPending}
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+            data-testid="assign-campaign-confirm"
+          >
+            {mutation.isPending ? "Assigning..." : "Assign"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ─── Per-prospect consent-block history (Lane OC) ───
    Lane OB logs every consent-gate block to prospect_events
    (event_type='blocked_consent', metadata.code). The existing
@@ -618,6 +736,7 @@ export default function ProspectsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [csvOpen, setCsvOpen] = useState(false);
   const [scrapeOpen, setScrapeOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const [reviewProspect, setReviewProspect] = useState<Prospect | null>(null);
   const [templateRow, setTemplateRow] = useState<{ prospect: Prospect; enrichment: ProspectEnrichment | null } | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
@@ -678,16 +797,28 @@ export default function ProspectsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             {selected.length > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => enrichBatch.mutate()}
-                disabled={enrichBatch.isPending}
-                className="gap-1.5"
-              >
-                <Brain className="w-3.5 h-3.5" />
-                {enrichBatch.isPending ? "Enriching..." : `AI Enrich (${selected.length})`}
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => enrichBatch.mutate()}
+                  disabled={enrichBatch.isPending}
+                  className="gap-1.5"
+                >
+                  <Brain className="w-3.5 h-3.5" />
+                  {enrichBatch.isPending ? "Enriching..." : `AI Enrich (${selected.length})`}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAssignOpen(true)}
+                  className="gap-1.5"
+                  data-testid="assign-to-campaign-button"
+                >
+                  <Megaphone className="w-3.5 h-3.5" />
+                  {`Assign to Campaign (${selected.length})`}
+                </Button>
+              </>
             )}
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setScrapeOpen(true)}>
               <Search className="w-3.5 h-3.5" />
@@ -759,10 +890,36 @@ export default function ProspectsPage() {
               </Button>
             </div>
           ) : rows.length === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">
-              No prospects found.{" "}
-              <button onClick={() => setCsvOpen(true)} className="text-[#0d3cfc] underline">Import a CSV</button> to get started.
-            </div>
+            search || statusFilter !== "all" ? (
+              /* Filters active — an empty result is a filter miss, not a
+                 first-run state; don't show onboarding here. */
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                No prospects match the current filters.
+              </div>
+            ) : (
+              /* First-run quick-start: the bare "No prospects found" left new
+                 operators with no path to a first campaign. */
+              <div className="p-8 flex justify-center">
+                <div className="max-w-md w-full bg-muted/40 border border-border rounded-lg p-4 text-left" data-testid="prospects-quick-start">
+                  <p className="text-sm font-semibold text-foreground">No prospects yet — launch your first campaign</p>
+                  <ol className="mt-2 space-y-1.5 text-xs text-muted-foreground list-none">
+                    {[
+                      <>Import leads (<button onClick={() => setCsvOpen(true)} className="text-brand-blue-600 underline">CSV</button> or <button onClick={() => setScrapeOpen(true)} className="text-brand-blue-600 underline">Scrape</button>)</>,
+                      <>AI Enrich to score them</>,
+                      <>Review &amp; approve the good ones</>,
+                      <>Create a campaign (Campaigns tab)</>,
+                      <>Assign approved leads to the campaign</>,
+                      <>Push to your sending platform</>,
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-blue-100 text-brand-blue-700 text-[10px] font-bold shrink-0 mt-px">{i + 1}</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            )
           ) : (
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b border-border">
@@ -912,15 +1069,18 @@ export default function ProspectsPage() {
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* "Preview", not "Copy" — the old label read as a
+                            clipboard action; this opens the outreach-copy
+                            preview dialog (which has its own Copy button). */}
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs gap-1"
-                          title="Preview outreach copy"
+                          title="Preview outreach copy and copy to clipboard"
                           onClick={() => setTemplateRow({ prospect: p, enrichment: e ?? null })}
                         >
                           <FileText className="w-3 h-3" />
-                          Copy
+                          Preview
                         </Button>
                         {["new", "enriched"].includes(p.status) && (
                           <Button
@@ -944,6 +1104,12 @@ export default function ProspectsPage() {
 
       <ScrapeLeadsDialog open={scrapeOpen} onClose={() => setScrapeOpen(false)} />
       <CsvUploadDialog open={csvOpen} onClose={() => setCsvOpen(false)} />
+      <AssignToCampaignDialog
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        prospectIds={selected}
+        onAssigned={() => setSelected([])}
+      />
       <ReviewDialog prospect={reviewProspect} open={!!reviewProspect} onClose={() => setReviewProspect(null)} />
       <TemplatePreview
         prospect={templateRow?.prospect ?? null}

@@ -288,8 +288,8 @@ function writeExpanded(state: Record<string, boolean>) {
 }
 
 /* Wave 138 — Tesla-simple sidebar. The default view shows only Core +
- * live (active) products + Billing. Everything else (inactive products,
- * the rest of Finance, Operations, Outbound, AI, System) hides behind a
+ * live (active) products + Billing + Outbound. Everything else (inactive
+ * products, the rest of Finance, Operations, AI, System) hides behind a
  * single "Show all · Advanced" toggle, persisted under this key so the
  * admin's choice survives reloads. Mirrors readExpanded/writeExpanded. */
 const NAV_ADVANCED_KEY = "admin-nav-advanced";
@@ -656,7 +656,7 @@ function SidebarNav({
 
   /* If the admin lands (e.g. via direct URL or breadcrumb) on a page that
    * only exists behind Advanced — an inactive product, or any Operations /
-   * Outbound / AI / System / non-Billing Finance row — auto-reveal Advanced
+   * AI / System / non-Billing Finance row — auto-reveal Advanced
    * so the active row is visible & highlighted. We never auto-close it. */
   const advancedHrefs = useMemo(() => {
     const collect = (items: NavItem[]) =>
@@ -665,7 +665,6 @@ function SidebarNav({
       ...collect(inactiveProducts),
       ...collect(OPERATIONS_ITEMS),
       ...collect(financeAdvancedItems),
-      ...collect(OUTBOUND_ITEMS),
       ...collect(AI_ITEMS),
       ...collect(SYSTEM_ITEMS),
     ];
@@ -764,10 +763,16 @@ function SidebarNav({
         })}
       </div>
 
+      {/* Outreach UX fix — Outbound is the first-campaign workflow (Prospects →
+          Campaigns → Push), so it lives in the default view, not behind
+          Advanced. Moved out of the Advanced reveal per the first-campaign
+          UX audit (nav hidden = #1 discoverability blocker). */}
+      <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
+
       {/* Wave 138 — single "Show all · Advanced" reveal toggle. Collapsed by
           default; state persisted in localStorage (NAV_ADVANCED_KEY). When
           open it renders the inactive products + the full Finance /
-          Operations / Outbound / AI / System grouped layout. */}
+          Operations / AI / System grouped layout. */}
       <div className="mt-3">
         <button
           type="button"
@@ -802,7 +807,6 @@ function SidebarNav({
           <NavGroup label="Operations" items={OPERATIONS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
           {/* Finance minus Billing (Billing is shown in the simple view above). */}
           <NavGroup label="Finance" items={financeAdvancedItems} location={location} onNavigate={onNavigate} defaultOpen={true} />
-          <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
           <NavGroup label="AI" items={AI_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} expandedMap={expandedMap} setExpandedMap={setExpandedMap} />
           <NavGroup label="System" items={SYSTEM_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
         </>
