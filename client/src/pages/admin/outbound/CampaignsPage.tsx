@@ -436,7 +436,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
     target_trade: "",
     target_region: "",
     sender_email: "",
-    dry_run: false,
+    dry_run: true,
   });
 
   const mutation = useMutation({
@@ -459,7 +459,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/campaigns"] });
       toast({ title: "Campaign created" });
-      setForm({ name: "", description: "", platform: "instantly", external_campaign_id: "", target_trade: "", target_region: "", sender_email: "", dry_run: false });
+      setForm({ name: "", description: "", platform: "instantly", external_campaign_id: "", target_trade: "", target_region: "", sender_email: "", dry_run: true });
       onClose();
     },
     onError: (err: any) => toast({ title: "Failed", description: err.message, variant: "destructive" }),

@@ -398,7 +398,7 @@ function AssignToCampaignDialog({
       const blockedCount = data.blocked?.length ?? 0;
       toast({
         title: "Leads assigned",
-        description: `${data.assigned} assigned, ${data.skipped} skipped${blockedCount > 0 ? `, ${blockedCount} blocked` : ""}`,
+        description: `${data.assigned} assigned, ${data.skipped} skipped${blockedCount > 0 ? ` (${blockedCount} held by consent gate/blacklist)` : ""}`,
       });
       setCampaignId("");
       onAssigned();
