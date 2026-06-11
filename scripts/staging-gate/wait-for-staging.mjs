@@ -13,18 +13,25 @@
  *      missing wiring is visible in workflow logs.
  *
  * Env:
- *   STAGING_URL   — base URL of the staging Replit (no trailing slash)
- *   EXPECTED_SHA  — full SHA of the PR head
- *   TIMEOUT_S     — seconds to wait (default 90)
+ *   STAGING_URL    — base URL of the staging Replit (no trailing slash)
+ *   EXPECTED_SHA   — full SHA of the PR head
+ *   TIMEOUT_S      — seconds to wait (default 90)
+ *   STRICT_VERSION — "1" = NEVER accept an unknown/missing version as a pass.
+ *                    Used by the staging-gate freshness pre-check (CI-QUIET):
+ *                    smoke must only run when staging PROVABLY serves the
+ *                    PR's commit; an unverifiable build is treated as stale
+ *                    and the gate skips instead of testing the wrong code.
  *
  * Exit codes:
- *   0  — staging healthz=ok and (version=EXPECTED_SHA OR version unknown)
+ *   0  — staging healthz=ok and (version=EXPECTED_SHA OR version unknown
+ *        when STRICT_VERSION is not set)
  *   1  — timed out / persistently down / version mismatch past timeout
  */
 
 const BASE = (process.env.STAGING_URL ?? "").replace(/\/$/, "");
 const EXPECTED = String(process.env.EXPECTED_SHA ?? "").toLowerCase();
 const TIMEOUT_S = Number(process.env.TIMEOUT_S ?? 90);
+const STRICT_VERSION = process.env.STRICT_VERSION === "1";
 
 const POLL_INTERVAL_MS = 5_000;
 const PER_REQ_TIMEOUT_MS = 4_000;
@@ -98,13 +105,20 @@ async function main() {
           log(`PASS attempt ${attempts}: status=ok version=${version} matches ${EXPECTED.substring(0, 7)}`);
           process.exit(0);
         }
-        if (match === null) {
+        if (match === null && !STRICT_VERSION) {
           // Version not surfaced. Accept after one full success but log loudly
           // — the one-time setup task to set GIT_SHA in Replit is incomplete.
           log(`WARN attempt ${attempts}: status=ok but version="${version ?? "(missing)"}" — cannot prove SHA match; accepting because GIT_SHA wiring may be pending`);
           process.exit(0);
         }
-        lastDetail = `status=ok but version="${version}" != expected ${EXPECTED.substring(0, 7)} (stale deploy?)`;
+        if (match === null) {
+          // STRICT_VERSION freshness pre-check mode: an unverifiable build is
+          // NOT proof that staging serves this PR's commit. Keep polling; on
+          // timeout the caller skips the gate instead of smoking the wrong code.
+          lastDetail = `status=ok but version="${version ?? "(missing)"}" — cannot prove SHA match (STRICT_VERSION)`;
+        } else {
+          lastDetail = `status=ok but version="${version}" != expected ${EXPECTED.substring(0, 7)} (stale deploy?)`;
+        }
       } else {
         lastDetail = `HTTP ${http} status=${status ?? "?"}`;
         if (body?.checks) {

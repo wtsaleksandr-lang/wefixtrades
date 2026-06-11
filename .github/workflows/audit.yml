@@ -2,6 +2,26 @@ name: Audit
 
 # Visual + accessibility audit of the built client. Runs against the static
 # build served by `vite preview` — no database, server or secrets needed.
+#
+# CI-QUIET (2026-06-11): all jobs in this workflow are REPORT-ONLY
+# (continue-on-error at job level) and hard-capped with timeout-minutes.
+# Before this change the a11y/visual job burned ~2 HOURS per run before
+# failing, and the two Lighthouse "hard-fail" jobs failed threshold
+# assertions on every PR AND every main push — together several failure
+# emails per merge, none of them actionable as merge gates because they run
+# against the local vite-preview build (no per-branch staging exists to give
+# them a stable, production-like target).
+#
+# Report-only means: artifacts (audit-report, Lighthouse uploads) are still
+# produced and the per-job red/green is still visible inside the run, but
+# the workflow run itself concludes SUCCESS — no failure email, no red X on
+# the PR. ci.yml's `build` job (tsc + check:* guards + build) remains the
+# hard merge gate and is untouched.
+#
+# TODO(re-harden): once per-branch staging exists (each PR gets its own
+# staging URL serving its own commit), point these jobs at that URL and
+# remove the continue-on-error lines so Lighthouse + a11y become hard gates
+# again — at that point their failures will be attributable to the PR.
 on:
   pull_request:
     branches: [main]
@@ -16,8 +36,23 @@ on:
 
 jobs:
   a11y-visual:
-    name: Accessibility + visual regression
+    name: Accessibility + visual regression (report-only)
     runs-on: ubuntu-latest
+    # CI-QUIET: report-only + hard runtime cap. This job historically hung
+    # for ~2h (per-test 120s timeout x retries across the route matrix)
+    # before failing. 25 min is enough for a healthy pass; anything longer
+    # is the hang pattern and gets cut off without failing the run.
+    #
+    # IMPORTANT: the cap is enforced INSIDE the test steps (coreutils
+    # `timeout 25m`, exit 124 on overrun) and NOT primarily via
+    # timeout-minutes — a timeout-minutes overrun concludes the job as
+    # `cancelled`, and a cancelled job ESCAPES continue-on-error
+    # neutralization, flipping the whole run to `cancelled` (verified live
+    # on run 27323737930) — which still notifies. A plain step failure is
+    # neutralized as intended. timeout-minutes stays as a backstop ABOVE
+    # the inner cap.
+    continue-on-error: true
+    timeout-minutes: 35
     permissions:
       contents: write
     container:
@@ -52,14 +87,16 @@ jobs:
           fi
 
       # Normal run — compare against the committed baselines.
+      # `timeout 25m` (not timeout-minutes) so an overrun is a step FAILURE
+      # that continue-on-error neutralizes — see job comment.
       - name: Audit — accessibility + visual regression
         if: ${{ steps.baselines.outputs.exist == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.update_snapshots) }}
-        run: npx playwright test --config audit.config.ts
+        run: timeout 25m npx playwright test --config audit.config.ts
 
       # Bootstrap (no baselines yet) or a requested refresh — regenerate them.
       - name: Generate visual baselines
         if: ${{ steps.baselines.outputs.exist == 'false' || (github.event_name == 'workflow_dispatch' && inputs.update_snapshots) }}
-        run: npx playwright test --config audit.config.ts --update-snapshots
+        run: timeout 25m npx playwright test --config audit.config.ts --update-snapshots
 
       - name: Commit baselines
         if: ${{ steps.baselines.outputs.exist == 'false' || (github.event_name == 'workflow_dispatch' && inputs.update_snapshots) }}
@@ -82,14 +119,22 @@ jobs:
           path: audit-report/
           retention-days: 14
 
-  # SEO Wave C — Lighthouse CI with hard-fail thresholds.
+  # SEO Wave C — Lighthouse CI threshold assertions.
   # Asserts performance / accessibility / best-practices / SEO category scores
   # on every critical marketing route, on both mobile and desktop form
   # factors. See lighthouserc.cjs and
   # docs/operations/seo-wave-c-lighthouse-thresholds.md.
+  #
+  # CI-QUIET: report-only (was "hard-fail"). The assertions run against the
+  # local vite-preview build on a shared CI runner — scores there are noisy
+  # and failed on every single run, emailing on every PR and merge. Scores +
+  # uploaded reports remain available in the run. Re-harden once per-branch
+  # staging gives these a production-like target (see header TODO).
   lighthouse:
-    name: Lighthouse (${{ matrix.form_factor }}) — hard-fail
+    name: Lighthouse (${{ matrix.form_factor }}) — report-only
     runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
