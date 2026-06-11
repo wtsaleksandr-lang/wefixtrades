@@ -230,7 +230,10 @@ export async function fetchOutscraperCompetitorsFallback(
   }
 
   if (!r.ok) {
-    log.error("[E1 Outscraper competitors] Non-OK response:", { arg0: r.status, arg1: rawText.slice(0, 500) });
+    // warn, not error: Places is the primary competitor source; Outscraper is
+    // the fallback and its non-OK (402 overdrawn) is a known degraded state.
+    // The throw still propagates so the caller's fallback chain engages.
+    log.warn("[E1 Outscraper competitors] Non-OK response:", { status: r.status, body: rawText.slice(0, 500) });
     throw new Error(`Outscraper HTTP ${r.status}`);
   }
 

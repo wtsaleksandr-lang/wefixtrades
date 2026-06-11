@@ -55,6 +55,7 @@ import { processRetention } from "./retentionWorker";
 import { processTradeLineModeSync } from "./tradelineModeWorker";
 import { processTradeLineRetries } from "./tradelineRetryWorker";
 import { fireAlert } from "../services/alertService";
+import { withTransientRetry, isTransientInfraError, describeError } from "../lib/transientInfraErrors";
 import { processEmailQueue } from "../services/emailQueueService";
 import { processEmbedBrokenDetection } from "./embedBrokenDetector";
 import { processBillRetention } from "./tradelineBillRetentionWorker";
@@ -95,6 +96,29 @@ const log = createLogger("Scheduler");
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
 
+/**
+ * Sentry triage 2026-06-11 — the entire "[Scheduler] Failed to create job
+ * log for <worker>" issue family (15 distinct Sentry issues) was transient
+ * Neon connection failures on the job_logs INSERT/UPDATE, logged at error
+ * level once per worker name. Job-log writes now retry through brief
+ * connection blips, and a write that still fails after retries logs at
+ * warn when the cause is known-transient infra (real errors — constraint,
+ * schema — stay error-level and carry the Error instance for Sentry).
+ */
+async function jobLogWrite<T>(what: string, jobName: string, fn: () => Promise<T>): Promise<T | null> {
+  try {
+    return await withTransientRetry(fn, { attempts: 3, baseDelayMs: 250 });
+  } catch (logErr: any) {
+    const detail = describeError(logErr);
+    if (isTransientInfraError(logErr)) {
+      log.warn(`Failed to ${what} job log (transient infra; job unaffected)`, { jobName, ...detail });
+    } else {
+      log.error(`Failed to ${what} job log for ${jobName}`, { ...detail, err: logErr });
+    }
+    return null;
+  }
+}
+
 async function withRetry<T>(
   jobName: string,
   fn: () => Promise<T>,
@@ -118,40 +142,40 @@ async function withRetry<T>(
 }
 
 export async function runJob(jobName: string, fn: () => Promise<any>) {
-  let logId: number | null = null;
-
-  try {
-    const jobLog = await storage.createJobLog({
+  const jobLog = await jobLogWrite("create", jobName, () =>
+    storage.createJobLog({
       job_name: jobName,
       status: "running",
       started_at: new Date(),
       metadata: null,
-    });
-    logId = jobLog.id;
-  } catch (logErr: any) {
-    log.error(`Failed to create job log for ${jobName}`, { error: logErr.message });
-  }
+    }),
+  );
+  const logId: number | null = jobLog ? jobLog.id : null;
 
   try {
     const result = await withRetry(jobName, fn);
     if (logId) {
-      await storage.updateJobLog(logId, {
-        status: "completed",
-        finished_at: new Date(),
-        metadata: result,
-      }).catch((e: any) => log.error("Failed to update job log", { error: e.message }));
+      await jobLogWrite("update", jobName, () =>
+        storage.updateJobLog(logId, {
+          status: "completed",
+          finished_at: new Date(),
+          metadata: result,
+        }),
+      );
     }
     log.info(`${jobName} completed`, { result });
     return result;
   } catch (err: any) {
     if (logId) {
-      await storage.updateJobLog(logId, {
-        status: "failed",
-        finished_at: new Date(),
-        error_message: err.message,
-      }).catch((e: any) => log.error("Failed to update job log", { error: e.message }));
+      await jobLogWrite("update", jobName, () =>
+        storage.updateJobLog(logId, {
+          status: "failed",
+          finished_at: new Date(),
+          error_message: err.message,
+        }),
+      );
     }
-    log.error(`${jobName} FAILED after ${MAX_RETRIES} retries`, { error: err.message });
+    log.error(`${jobName} FAILED after ${MAX_RETRIES} retries`, { ...describeError(err), err });
 
     // Fire a system alert for any worker failure
     fireAlert({

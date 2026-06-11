@@ -29,5 +29,26 @@ if (dsn) {
       process.env.SOURCE_VERSION ??
       undefined,
     tracesSampleRate: 0.05,
+    /* Sentry triage 2026-06-11 (NODEWEFIXTRADES-12/1K/1Q/1R): the SDK's AI
+     * integrations capture provider connection timeouts thrown inside the
+     * Anthropic client as handled:false ERROR events even though our call
+     * sites catch them and fall back (audit narrative → templated prose,
+     * provider failover chain). Worse, the minified frame names change every
+     * deploy, so the SAME timeout opened a brand-new Sentry issue (+email)
+     * per release. Downgrade those events to warning and pin a stable
+     * fingerprint so they group into one long-lived, non-paging issue.
+     * Everything else passes through untouched. */
+    beforeSend(event) {
+      const mech = event.exception?.values?.[0]?.mechanism?.type ?? "";
+      const value = event.exception?.values?.[0]?.value ?? "";
+      const isAiProviderError = mech.startsWith("auto.ai.");
+      const isTimeout = /request timed out|connection error|timeout/i.test(value);
+      if (isAiProviderError && isTimeout) {
+        event.level = "warning";
+        event.fingerprint = ["ai-provider-timeout"];
+        event.tags = { ...event.tags, ai_provider_timeout: "true" };
+      }
+      return event;
+    },
   });
 }

@@ -40,6 +40,11 @@ import { onboardingSubmissions } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { applyOnboardingToAIConfig, type AIConfigPatch } from "./onboardingMappers";
 import { z } from "zod";
+// Top-level import (not inline `require("crypto")`): the inline require only
+// worked because the prod bundle is CJS — it throws "require is not defined"
+// under any ESM execution (tsx tests, future ESM build), which silently
+// turned EVERY signature verification into a rejection.
+import crypto from "crypto";
 
 /* ─── custom-llm model identifiers ───
  * Vapi requires `model.model` to be a NON-EMPTY STRING for the custom-llm
@@ -282,13 +287,25 @@ export function verifyWebhookSignature(rawBody: Buffer | undefined, signature: s
   }
 
   try {
-    const crypto = require("crypto");
     const expected = crypto.createHmac("sha256", config.webhookSecret)
       .update(rawBody)
       .digest("hex");
-    return crypto.timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expected, "hex"));
+    // timingSafeEqual THROWS on length mismatch — a garbage/truncated
+    // x-vapi-signature header (attack noise, not a server fault) was
+    // surfacing as an error-level Sentry event (NODEWEFIXTRADES-1E).
+    // Reject malformed signatures before the constant-time compare; length
+    // is public information here so the early return leaks nothing.
+    const provided = Buffer.from(signature, "hex");
+    const expectedBuf = Buffer.from(expected, "hex");
+    if (provided.length !== expectedBuf.length) {
+      log.warn("Webhook signature rejected — malformed/wrong-length signature header");
+      return false;
+    }
+    return crypto.timingSafeEqual(provided, expectedBuf);
   } catch (err) {
-    log.error("Webhook signature verification threw", { error: (err as Error).message });
+    // Anything else unexpected: still never throw past the verifier — the
+    // route turns `false` into a 401. Warn (bad input), don't page.
+    log.warn("Webhook signature verification threw — rejecting", { error: (err as Error).message });
     return false;
   }
 }
@@ -377,7 +394,6 @@ export function verifyConversationAuth(
   }
 
   try {
-    const crypto = require("crypto");
     const a = Buffer.from(presented);
     const b = Buffer.from(secret);
     if (a.length !== b.length) return false;

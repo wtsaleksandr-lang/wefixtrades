@@ -2339,7 +2339,7 @@ router.post("/generate", async (req: Request, res: Response) => {
       try {
         return await fetchSerperRankings(seedKeywords, website, business.name, city, stateCode || undefined, business.formattedAddress || business.address || undefined);
       } catch (e: any) {
-        log.error("E3 Serper rankings failed:", e?.message);
+        log.warn("E3 Serper rankings failed (degraded source):", { error: e?.message });
         return null;
       }
     })();
@@ -2373,7 +2373,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     const settled = await Promise.race([gatherAll, deadline]);
     if (deadlineTimer) clearTimeout(deadlineTimer);
     if (gatherTimedOut || settled === null) {
-      log.error("[audit/generate] data-gathering hit deadline — proceeding with partial data", {
+      log.warn("[audit/generate] data-gathering hit deadline — proceeding with partial data", {
         deadlineMs: GATHER_DEADLINE_MS,
         elapsedMs: Date.now() - startTime,
       });
@@ -2388,13 +2388,13 @@ router.post("/generate", async (req: Request, res: Response) => {
     const serperData: any = pick(0);
 
     const compData = pick<any>(1);
-    if (results[1]?.status === "rejected") log.error("E1 competitors failed:", (results[1] as any).reason?.message);
+    if (results[1]?.status === "rejected") log.warn("E1 competitors failed (degraded source):", { error: (results[1] as any).reason?.message });
 
     const reviewData = pick<any>(2);
-    if (results[2]?.status === "rejected") log.error("E2 review intelligence failed (all providers):", (results[2] as any).reason?.message);
+    if (results[2]?.status === "rejected") log.warn("E2 review intelligence failed (all providers, degraded source):", { error: (results[2] as any).reason?.message });
 
     const volumeMap = pick<any>(3);
-    if (results[3]?.status === "rejected") log.error("E4 DataForSEO volumes failed:", (results[3] as any).reason?.message);
+    if (results[3]?.status === "rejected") log.warn("E4 DataForSEO volumes failed (degraded source):", { error: (results[3] as any).reason?.message });
     log.info('[dataforseo] POST-GATHER status:', { arg0: results[3]?.status, arg1: 'value type:', arg2: typeof (results[3] as any)?.value });
 
     const websiteQaData = pick<any>(4);
@@ -2410,8 +2410,8 @@ router.post("/generate", async (req: Request, res: Response) => {
     const competitorDataAvailable = !!compData && Array.isArray(compData.competitors) && compData.competitors.length > 0;
     const keywordDataAvailable = !!serperData && Array.isArray(serperData.keywords);
     const reviewDataAvailable = !!reviewData;
-    if (!competitorDataAvailable) log.error("[audit/generate] competitor source unavailable — excluding competitor/ad categories from score");
-    if (!keywordDataAvailable) log.error("[audit/generate] keyword source unavailable — excluding search-visibility category from score");
+    if (!competitorDataAvailable) log.warn("[audit/generate] competitor source unavailable — excluding competitor/ad categories from score");
+    if (!keywordDataAvailable) log.warn("[audit/generate] keyword source unavailable — excluding search-visibility category from score");
 
     // PageSpeed runs separately in /api/audit/speed after report is returned to client
     const resolvedSpeedData: { mobile: any; desktop: any } = { mobile: null, desktop: null };
@@ -2490,7 +2490,7 @@ router.post("/generate", async (req: Request, res: Response) => {
         highestVolumeKeyword, business.hours || [], trade, totalMonthlySearchVolume
       );
     } catch (err: any) {
-      log.error("E5 Demand gap failed:", err?.message);
+      log.warn("E5 Demand gap failed (degraded source):", { error: err?.message });
     }
 
     // ─── Build auditData for scoring + AI ───
@@ -2811,7 +2811,7 @@ ${JSON.stringify(auditData, null, 2)}`;
         // straight to the templated narrative — calling it would risk a 524.
         let raw: string;
         if (aiBudgetMs < AI_MIN_BUDGET_MS) {
-          log.error("[audit] insufficient time for narrative AI — skipping to templated fallback", {
+          log.warn("[audit] insufficient time for narrative AI — skipping to templated fallback", {
             timeLeftMs: aiTimeLeftMs,
             elapsedMs: aiElapsed,
           });
@@ -2831,7 +2831,7 @@ ${JSON.stringify(auditData, null, 2)}`;
               // Surface the underlying AI error here (instead of letting it reject
               // the race) so we can deterministically fall back to a templated
               // narrative below rather than throwing past the handler deadline.
-              log.error("[audit] narrative chat() failed — will use templated fallback:", e?.message);
+              log.warn("[audit] narrative chat() failed — will use templated fallback:", { error: e?.message });
               return AI_TIMEOUT_SENTINEL;
             }),
             aiBudgetMs,
@@ -2842,7 +2842,7 @@ ${JSON.stringify(auditData, null, 2)}`;
           // Timed out or returned empty/errored — ship a templated narrative
           // built from the already-gathered scores/data so the report still
           // has real prose. This is the 524-avoidance path; logged, never silent.
-          log.error("[audit] narrative unavailable in budget — using templated fallback", {
+          log.warn("[audit] narrative unavailable in budget — using templated fallback", {
             reason: raw === AI_TIMEOUT_SENTINEL ? "timeout_or_error" : "empty",
             budgetMs: aiBudgetMs,
             elapsedMs: Date.now() - startTime,
@@ -2879,7 +2879,7 @@ ${JSON.stringify(auditData, null, 2)}`;
           auditData.narrative = parsed;
           log.info("[audit] narrative parsed OK, keys:", { detail: Object.keys(parsed) });
         } catch (parseErr: any) {
-          log.error("[audit] narrative JSON parse failed:", parseErr?.message);
+          log.warn("[audit] narrative JSON parse failed (templated fallback):", { error: parseErr?.message });
           // Try to salvage truncated JSON by closing open braces/brackets
           try {
             let salvaged = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
@@ -2941,7 +2941,7 @@ ${JSON.stringify(auditData, null, 2)}`;
       reportId = saved.id;
       log.info(`[audit] Report saved: ${reportId}`);
     } catch (dbErr: any) {
-      log.error("[audit] Failed to save report:", dbErr?.message);
+      log.error("[audit] Failed to save report:", { error: dbErr?.message, err: dbErr });
     }
 
     const elapsed = Date.now() - startTime;
@@ -3098,7 +3098,7 @@ router.post("/chat", async (req: Request, res: Response) => {
       log.error("[audit/chat] onComplete failed", { error: String(err) }),
     );
   } catch (e: any) {
-    log.error("[audit/chat] Error:", e?.message);
+    log.error("[audit/chat] Error:", { error: e?.message, err: e });
     if (!res.headersSent) {
       return safeJsonError(res, 500, e?.message || "Chat failed");
     }
@@ -3149,7 +3149,7 @@ router.post('/save-lead', async (req: Request, res: Response) => {
         import("./lib/sendAuditReport").then(({ sendAuditReportEmail }) => {
           const origin = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
           sendAuditReportEmail({ reportId, recipientEmail: email.trim(), origin }).catch((err) => {
-            log.error("[audit-lead] PDF email error:", err?.message);
+            log.error("[audit-lead] PDF email error:", { error: err?.message, err });
           });
         });
       }
@@ -3166,13 +3166,13 @@ router.post('/save-lead', async (req: Request, res: Response) => {
       city: city || "your area",
       recommendedServices: recommendedServices || [],
     }).catch((err) => {
-      log.error("[audit-lead] Followup enqueue error:", err?.message);
+      log.error("[audit-lead] Followup enqueue error:", { error: err?.message, err });
     });
 
     log.info("[audit-lead] Saved submission", { arg0: submission.id, arg1: email, arg2: businessName, arg3: score });
     return res.json({ ok: true, submissionId: submission.id });
   } catch (err: any) {
-    log.error("[audit-lead] error:", err?.message);
+    log.error("[audit-lead] error:", { error: err?.message, err });
     return res.status(500).json({ error: "Failed to save lead" });
   }
 });
@@ -3231,7 +3231,7 @@ router.post("/report/:id/send-email", async (req: Request, res: Response) => {
     log.info(`[audit-email] Sent report ${id} to ${emailTrimmed}`);
     return res.json({ ok: true });
   } catch (err: any) {
-    log.error("[audit-email] Error:", err?.message);
+    log.error("[audit-email] Error:", { error: err?.message, err });
     return safeJsonError(res, 500, "Failed to send email");
   }
 });

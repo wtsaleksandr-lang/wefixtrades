@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/node';
+import { isTransientInfraError } from './transientInfraErrors';
 
 type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 const LEVELS: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
@@ -60,6 +61,27 @@ function forwardToSentry(prefix: string, msg: string, data?: Record<string, unkn
           if (v instanceof Error) { err = v; break; }
         }
       }
+
+      // Sentry triage 2026-06-11: known-transient infra failures (Neon
+      // connection drops/control-plane blips, socket timeouts, upstream
+      // request timeouts) were creating one error-level Sentry issue PER
+      // CALL-SITE MESSAGE (~24 issue families, one email each). Console
+      // logging is untouched; for Sentry they are grouped into a single
+      // stable warning-level issue per logger prefix so outages stay
+      // visible without paging once per worker name.
+      const transient =
+        (err && isTransientInfraError(err)) ||
+        (data &&
+          (isTransientInfraError(data.error) ||
+            isTransientInfraError(data.cause) ||
+            isTransientInfraError(data.detail)));
+      if (transient) {
+        scope.setTag('transient_infra', 'true');
+        scope.setFingerprint(['transient-infra', prefix]);
+        Sentry.captureMessage(`[${prefix}] transient infra error (grouped)`, 'warning');
+        return;
+      }
+
       if (err) {
         Sentry.captureException(err, { tags: { log_msg: msg.slice(0, 200) } });
       } else {
@@ -78,6 +100,16 @@ function createLogger(prefix: string) {
 
   function emit(lvl: LogLevel, msg: string, data?: Record<string, unknown>) {
     if (LEVELS[lvl] > threshold) return;
+    // Defensive normalization: several call sites passed `err.message` (a
+    // string) or a bare Error as the data payload — spreading a string
+    // produces {"0":"U","1":"n",…} garbage in both console JSON and the
+    // Sentry log_data context (seen on FounderNotifyRoutes/StripeBilling/
+    // OpsEngine issues, 2026-06-11 triage). Wrap non-object payloads.
+    if (data !== undefined && (typeof data !== 'object' || data === null || Array.isArray(data))) {
+      data = { detail: data as unknown };
+    } else if (data instanceof Error) {
+      data = { error: data.message, err: data };
+    }
     const method = lvl === 'error' ? console.error : lvl === 'warn' ? console.warn : console.log;
     if (isProd) {
       const entry = { ts: new Date().toISOString(), level: lvl, prefix, msg, ...data };
