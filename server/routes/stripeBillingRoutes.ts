@@ -116,16 +116,15 @@ export function registerStripeBillingRoutes(app: Express): void {
 
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
 
-      // Broad payment method types — Stripe auto-shows relevant options per locale
-      const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] = [
-        "card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit",
-      ];
+      /* P0 2026-06-11 (mirrors PR #1681): do NOT hardcode payment_method_types —
+       * us_bank_account/cashapp cannot be activated on this CA Stripe account, so
+       * the old list made every sessions.create throw. Omitting the param lets
+       * Stripe apply the dashboard's dynamic payment-method configuration. */
 
       // Create Checkout Session
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         mode,
-        payment_method_types: paymentMethodTypes,
         line_items: [{
           price: service.stripe_price_id,
           quantity: 1,
@@ -143,6 +142,23 @@ export function registerStripeBillingRoutes(app: Express): void {
         session_id: session.id,
       });
     } catch (err: any) {
+      // Sentry-1N follow-up (mirrors PR #1673 / portal subscribe): an archived
+      // or deleted Stripe price is catalog drift, not a server fault — map it
+      // to a 409 with an actionable message and log at warn instead of error.
+      const isInactivePrice =
+        err?.type === "StripeInvalidRequestError" &&
+        /price specified is inactive|no such price/i.test(String(err?.message ?? ""));
+      if (isInactivePrice) {
+        log.warn("[billing] stale Stripe price blocked checkout", {
+          error: err.message,
+          param: err?.param,
+        });
+        return res.status(409).json({
+          error:
+            "This service's price is being updated and can't be charged right now. Please try again shortly.",
+          error_code: "price_unavailable",
+        });
+      }
       log.error("[billing] Checkout error:", err.message);
       res.status(500).json({ error: "Failed to create checkout session" });
     }

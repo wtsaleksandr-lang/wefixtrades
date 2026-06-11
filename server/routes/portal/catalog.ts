@@ -170,7 +170,9 @@ export function registerPortalCatalogRoutes(app: Express) {
         const session = await stripe.checkout.sessions.create({
           customer: stripeCustomerId,
           mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
-          payment_method_types: ["card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit"],
+          // P0 2026-06-11: no payment_method_types — hardcoded lists with
+          // us_bank_account/cashapp throw on this CA account; the dashboard's
+          // dynamic payment-method configuration applies instead (PR #1681).
           line_items: includedSvcs.map((s) => ({ price: s._priceId, quantity: 1 })),
           metadata: {
             crm_client_id: String(client.id),
@@ -328,7 +330,9 @@ export function registerPortalCatalogRoutes(app: Express) {
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
-        payment_method_types: ["card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit"],
+        // P0 2026-06-11: no payment_method_types — hardcoded lists with
+        // us_bank_account/cashapp throw on this CA account; the dashboard's
+        // dynamic payment-method configuration applies instead (PR #1681).
         line_items: [{ price: resolvedPriceId, quantity: 1 }],
         metadata: {
           crm_client_id: String(client.id),
