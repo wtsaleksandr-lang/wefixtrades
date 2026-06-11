@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import type { InsertAuditFollowupEmail } from "@shared/schema";
+import { TRADELINE, formatPrice } from "@shared/pricing";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 
 /**
@@ -7,6 +8,20 @@ import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
  * Enqueues 3 emails after a user submits their email to unlock the calculator.
  * All emails reference TradeLine as the solution.
  */
+
+// Lane A2 — every TradeLine price quoted in these customer emails/SMS is
+// derived from @shared/pricing (single source of truth). The pre-realignment
+// "$97/mo" figure is retired; the entry tier is the cheapest monthly tier
+// (Starter, $99/mo, 200 minutes included). If the entry tier ever stops
+// carrying an includedMins figure, the minutes claim is dropped rather than
+// invented.
+const TL_ENTRY = TRADELINE.tiers
+  .filter((t) => t.billingPeriod === "monthly")
+  .reduce((lo, t) => (t.price < lo.price ? t : lo));
+const TL_FROM = formatPrice(TL_ENTRY.price);
+const TL_MINUTES_CLAUSE = TL_ENTRY.includedMins
+  ? ` with ${TL_ENTRY.includedMins} minutes included`
+  : "";
 
 interface MissedCallFollowupContext {
   missedCallLeadId: number;
@@ -43,7 +58,7 @@ That's roughly ${formatDollars(daily)} walking out the door every single day.
 
 The fix doesn't require hiring staff or staying glued to your phone. TradeLine answers your calls 24/7 with AI — captures leads, sends SMS replies, and follows up automatically.
 
-Plans start at $97/mo with 200 minutes included.
+Plans start at ${TL_FROM}/mo${TL_MINUTES_CLAUSE}.
 
 See how it works: {{tradeline_link}}
 
@@ -108,7 +123,7 @@ A week ago you ran our missed-call calculator. No pressure to do anything with t
 - Answers every inbound call 24/7 in a real conversation, not a menu
 - Texts the caller back automatically if they hang up before you pick up
 - Sends you a notification the moment a lead comes in, with the transcript
-- Live in under 30 minutes, starting at $97/mo
+- Live in under 30 minutes, starting at ${TL_FROM}/mo
 
 If it's not a fit for your ${ctx.trade} business, ignore this email — we won't keep emailing. If it is, take a look: {{tradeline_link}}
 
@@ -191,7 +206,7 @@ export function buildImmediateResultsEmail(ctx: MissedCallFollowupContext): { su
           TradeLine answers your calls 24/7 with AI, sends instant SMS replies to missed calls, captures every lead, and follows up automatically. Most businesses see results within 2 weeks.
         </p>
       </div>`,
-    cta: { label: "See TradeLine plans — from $97/mo", url: tradelineLink },
+    cta: { label: `See TradeLine plans — from ${TL_FROM}/mo`, url: tradelineLink },
   });
 
   const text = buildPlainText({
@@ -205,7 +220,7 @@ export function buildImmediateResultsEmail(ctx: MissedCallFollowupContext): { su
       "How to recover this revenue:",
       "TradeLine answers your calls 24/7 with AI, sends instant SMS replies to missed calls, captures every lead, and follows up automatically. Most businesses see results within 2 weeks.",
     ].join("\n"),
-    ctaLabel: "See TradeLine plans — from $97/mo",
+    ctaLabel: `See TradeLine plans — from ${TL_FROM}/mo`,
     ctaUrl: tradelineLink,
   });
 

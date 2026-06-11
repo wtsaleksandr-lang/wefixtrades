@@ -968,7 +968,7 @@ export default function ReputationShieldDemo() {
                               textDecoration: "none",
                             }}
                           >
-                            Start Free Trial <ArrowRight size={14} />
+                            Get Started <ArrowRight size={14} />
                           </Link>
                           <Link
                             href="/products/reputationshield"
@@ -1043,7 +1043,7 @@ export default function ReputationShieldDemo() {
                   textDecoration: "none",
                 }}
               >
-                Start Free Trial
+                Get Started
               </Link>
               <Link
                 href="/pricing"

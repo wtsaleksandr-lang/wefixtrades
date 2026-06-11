@@ -394,7 +394,7 @@ export default function QuoteQuickPricing() {
             Ready to start getting leads?
           </p>
           <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: "0 0 20px" }}>
-            14 days free. No credit card. Live in 5 minutes.
+            Free plan — free forever. No credit card. Live in 5 minutes.
           </p>
           <button
             onClick={() => hasCalc ? startCheckout('starter') : (window.location.href = '/wizard')}
@@ -407,7 +407,7 @@ export default function QuoteQuickPricing() {
             onMouseEnter={e => { e.currentTarget.style.background = mkt.ctaBgHover; }}
             onMouseLeave={e => { e.currentTarget.style.background = mkt.ctaBg; }}
           >
-            {hasCalc ? 'Choose a Plan' : 'Start Free Trial'} <ArrowRight size={16} />
+            {hasCalc ? 'Choose a Plan' : 'Start Free'} <ArrowRight size={16} />
           </button>
         </div>
       </div>

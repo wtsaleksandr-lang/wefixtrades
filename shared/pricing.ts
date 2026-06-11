@@ -935,9 +935,12 @@ export function lowestMonthly(product: ProductDef): number | null {
   return Math.min(...monthly.map(t => t.price));
 }
 
-/** Format a price for display */
+/** Format a price for display. Integers keep thousand separators ("$1,197");
+ * non-integer prices keep their cents ("$9.80", not "$9.8"). */
 export function formatPrice(amount: number): string {
-  return amount >= 1000 ? `$${amount.toLocaleString("en-US")}` : `$${amount}`;
+  return Number.isInteger(amount)
+    ? `$${amount.toLocaleString("en-US")}`
+    : `$${amount.toFixed(2)}`;
 }
 
 /** Compute bundle savings vs buying separately */

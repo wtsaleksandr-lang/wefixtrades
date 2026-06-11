@@ -138,12 +138,12 @@ const config: FeaturePageConfig = {
     { q: "How accurate are the estimates?", a: "They use your exact rates and pricing rules — the same logic you use to quote manually. You set the numbers, QuoteQuick does the math." },
     { q: "I already use Jobber / Housecall Pro. Do I need to switch?", a: "No. QuoteQuick is a standalone widget that works alongside whatever you already use. Leads come to your email and dashboard — no platform switch needed." },
     { q: "Can I update prices after going live?", a: "Yes. Change your rates once in the dashboard and every embed updates automatically." },
-    { q: "Is booking included?", a: "Yes, on the Pro plan. Customers can pick a date and time right after their quote. Deposit payments via Stripe are supported." },
-    { q: "Can I try it free?", a: "Yes. 14-day free trial, no credit card required. Build your calculator and see it work before you commit." },
+    { q: "Is booking included?", a: "Yes, on the Business plan. Customers can pick a date and time right after their quote. Deposit payments via Stripe are supported." },
+    { q: "Can I try it free?", a: "Yes. The Free plan is free forever — no credit card required. Build your calculator, publish it, and capture leads before you commit to anything." },
   ],
   cta: {
     headline: "Start Getting Leads From Your Website Today",
-    sub: "14-day free trial. No credit card. No code. Live in 5 minutes.",
+    sub: "Free plan — no credit card. No code. Live in 5 minutes.",
   },
 };
 

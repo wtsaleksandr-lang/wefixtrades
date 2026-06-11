@@ -299,7 +299,7 @@ export default function DemoCenter() {
 
         <V7FinalCta
           title={<>Liked what you saw?<br/><span style={{ color: mkt.accent }}>Pick a tier.</span></>}
-          sub="14-day free trial. No credit card required. Cancel anytime."
+          sub="Start free — no credit card required. Cancel anytime."
           primaryCta={{ label: "See Pricing", href: "/pricing" }}
         />
       </V7PageShell>

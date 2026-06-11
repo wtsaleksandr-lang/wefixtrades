@@ -21,7 +21,7 @@ const TOC: TocItem[] = [
   { id: "services", label: "3. Services we offer" },
   { id: "payments", label: "3a. Payments you collect" },
   { id: "fees", label: "4. Fees & billing" },
-  { id: "refunds", label: "5. Trials & refunds" },
+  { id: "refunds", label: "5. Free tiers & refunds" },
   { id: "cancellation", label: "6. Cancellation" },
   { id: "ai", label: "7. AI-generated content" },
   { id: "recording", label: "7a. Call recording & consent" },
@@ -153,12 +153,12 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="refunds" title="5. Free trials, money-back guarantee, and refunds">
+      <LegalSection id="refunds" title="5. Free tiers, money-back guarantee, and refunds">
         <p>
-          <strong>QuoteQuick</strong> offers a 14-day free trial with no
-          credit card required. If you don't upgrade before day 14, your
-          calculator is paused (not deleted); all data is preserved and can be
-          reactivated by purchasing a plan.
+          <strong>QuoteQuick</strong> and <strong>ContentFlow</strong> each
+          offer a free tier with no credit card required and no time limit.
+          Features and usage allowances beyond the free tier require a paid
+          plan as described on the applicable pricing page.
         </p>
         <p>
           <strong>All other paid recurring services</strong> (24/7 TradeLine,
@@ -190,7 +190,7 @@ export default function TermsPage() {
           done. Monthly MapGuard plans purchased alongside MapSetup remain
           covered by the standard 30-day money-back guarantee above.
         </p>
-        <p>Our full trial and refund policy is available on request.</p>
+        <p>Our full refund policy is available on request.</p>
       </LegalSection>
 
       <LegalSection id="cancellation" title="6. Cancellation and suspension">

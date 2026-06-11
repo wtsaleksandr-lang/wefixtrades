@@ -89,7 +89,7 @@ const SOLUTIONS: SolutionConfig[] = [
       { stat: "Top 3", label: "Google Maps ranking" },
       { stat: "60%", label: "Faster speed-to-lead" },
     ],
-    testimonialPlaceholder: "CallLine picked up a $12K AC install lead at 10 PM on a Saturday. That one call paid for the whole year.",
+    testimonialPlaceholder: "TradeLine picked up a $12K AC install lead at 10 PM on a Saturday. That one call paid for the whole year.",
   },
   {
     slug: "for-electricians",
@@ -143,7 +143,7 @@ const SOLUTIONS: SolutionConfig[] = [
       { stat: "50+", label: "New reviews per quarter" },
       { stat: "35%", label: "Higher average ticket" },
     ],
-    testimonialPlaceholder: "After a hail storm, ChatLine captured 47 leads in one weekend while my crew was on roofs.",
+    testimonialPlaceholder: "After a hail storm, TradeLine captured 47 leads in one weekend while my crew was on roofs.",
   },
   {
     slug: "for-cleaners",

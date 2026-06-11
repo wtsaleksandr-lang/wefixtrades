@@ -284,7 +284,7 @@ const DEEP_SECTIONS: DeepSection[] = [
     title: "Your 24/7 Sales & Support Employee",
     body: "Train your AI employee with your services, pricing, availability, and tone — using a simple structured form. It handles inquiries, generates live estimates, books appointments, and escalates to you when a human touch is needed.",
     bullets: [
-      "14-day free trial — no code required to activate",
+      "Included with the QuoteQuick Business plan — no code required to activate",
       "Channels: Web chat, SMS, WhatsApp (all in one brain)",
       "Function calling: generate estimate, check slots, create booking",
       "Escalates to your phone or email when needed",

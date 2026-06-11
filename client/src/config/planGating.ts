@@ -17,12 +17,10 @@ export const PLAN_LABELS: Record<PlanTier, string> = {
   elite: "Elite",
 };
 
-export const PLAN_MONTHLY_PRICES: Record<PlanTier, string> = {
-  free: "$0",
-  starter: "$99",
-  pro: "$199",
-  elite: "$299",
-};
+// Lane A2 (pricing-truth sweep): the PLAN_MONTHLY_PRICES export that lived
+// here ($99/$199/$299) was a fabricated ladder with no backing in
+// @shared/pricing and no consumers — deleted. If a price is ever needed
+// here, derive it from @shared/pricing; never hardcode dollar amounts.
 
 export const PLAN_BADGE_STYLES: Record<PlanTier, { bg: string; color: string; border: string }> = {
   free:    { bg: colors.platform.surfaceRaised, color: colors.widget.muted, border: colors.widget.border },

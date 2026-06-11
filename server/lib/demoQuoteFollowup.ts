@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import type { InsertAuditFollowupEmail } from "@shared/schema";
+import { QUOTEQUICK, getTier, formatPrice } from "@shared/pricing";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { buildAdminAlertEmail, buildAdminAlertPlainText } from "./adminAlertShell";
 
@@ -7,6 +8,12 @@ import { buildAdminAlertEmail, buildAdminAlertPlainText } from "./adminAlertShel
  * Demo Quote Tool follow-up email sequence.
  * Sends quote details immediately, then 2 follow-ups selling QuoteQuick.
  */
+
+// Lane A2 — the QuoteQuick price phrase quoted in these customer emails is
+// derived from @shared/pricing (single source of truth). Canonical ladder is
+// a permanent Free tier + paid plans from the Pro tier ($29/mo); the retired
+// Solo "$49/mo" figure must never be quoted again.
+const QQ_PRICE_PHRASE = `Free + from ${formatPrice(getTier(QUOTEQUICK, "Pro")!.price)}/mo`;
 
 interface DemoQuoteFollowupContext {
   demoQuoteLeadId: number;
@@ -79,7 +86,7 @@ export function buildDemoQuoteEmail(ctx: DemoQuoteFollowupContext): {
           QuoteQuick lets your customers get instant quotes 24/7 and sends every lead straight to you. No code needed — live in under 10 minutes.
         </p>
       </div>`,
-    cta: { label: "Get QuoteQuick — from $49/mo", url: quotequickLink() },
+    cta: { label: `Get QuoteQuick — ${QQ_PRICE_PHRASE}`, url: quotequickLink() },
   });
 
   const text = buildPlainText({
@@ -88,7 +95,7 @@ export function buildDemoQuoteEmail(ctx: DemoQuoteFollowupContext): {
     bodyText: ctx.quoteAmount
       ? `Your estimate: ${quoteDisplay}\n\nWant this on YOUR website? QuoteQuick lets your customers get instant quotes 24/7 and sends every lead straight to you. No code needed — live in under 10 minutes.`
       : `Want QuoteQuick on YOUR website? Customers get instant quotes 24/7 and every lead lands in your inbox. No code, live in under 10 minutes.`,
-    ctaLabel: "Get QuoteQuick — from $49/mo",
+    ctaLabel: `Get QuoteQuick — ${QQ_PRICE_PHRASE}`,
     ctaUrl: quotequickLink(),
   });
 
@@ -187,7 +194,7 @@ Every quote becomes a lead. Every call gets answered. Every review gets requeste
 
 Ready to try it on your business?
 
-Get started — plans from $49/mo: ${quotequickLink()}
+Get started — ${QQ_PRICE_PHRASE}: ${quotequickLink()}
 
 Or book a quick call with our team: ${demoLink()}
 

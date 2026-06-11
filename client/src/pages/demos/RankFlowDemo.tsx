@@ -968,7 +968,7 @@ export default function RankFlowDemo() {
                   textDecoration: "none",
                 }}
               >
-                Start Free Trial
+                Get Started
               </Link>
               <Link
                 href="/pricing"

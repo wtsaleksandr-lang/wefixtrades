@@ -6,6 +6,12 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle2, X, Star, Shield, Zap, DollarSign, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { mkt } from "@/theme/tokens";
+import { REPUTATIONSHIELD, getTier, lowestMonthly, formatPrice } from "@shared/pricing";
+
+// Lane A2 — every ReputationShield price on this page derives from
+// @shared/pricing (single source of truth). Competitor prices stay static.
+const RS_FROM = formatPrice(lowestMonthly(REPUTATIONSHIELD)!);
+const RS_PREMIUM = formatPrice(getTier(REPUTATIONSHIELD, "Premium")!.price);
 
 function Check() {
   return <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />;
@@ -29,7 +35,7 @@ const COMPARISON_ROWS: { feature: string; us: boolean | string; them: boolean | 
   { feature: "Portal manual review requests", us: true, them: false },
   { feature: "Monthly reputation reports", us: true, them: true },
   { feature: "Source tracking (post-job, manual, QR)", us: true, them: false },
-  { feature: "Competitor review tracking", us: "Scale plan", them: false },
+  { feature: "Competitor review tracking", us: "Premium plan", them: false },
   { feature: "Transparent pricing (no sales call)", us: true, them: true },
   { feature: "No long-term contracts", us: true, them: true },
   { feature: "Built specifically for trades businesses", us: true, them: "Home services focus" },
@@ -42,7 +48,7 @@ export default function CompareNiceJob() {
     <MarketingLayout>
       <PageMeta
         title="ReputationShield vs NiceJob — review management for trades"
-        description="Compare ReputationShield vs NiceJob for trades businesses. AI response drafting, Google posting, private feedback shield, and transparent pricing from $79/mo. No contracts."
+        description={`Compare ReputationShield vs NiceJob for trades businesses. AI response drafting, Google posting, private feedback shield, and transparent pricing from ${RS_FROM}/mo. No contracts.`}
         canonical="/compare/reputationshield-vs-nicejob"
         keywords={["nicejob alternative", "review management for trades"]}
       />
@@ -83,7 +89,7 @@ export default function CompareNiceJob() {
           <Card className="p-5">
             <Shield className="w-5 h-5 text-violet-500 mb-2" />
             <h3 style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 4 }}>Post to Google</h3>
-            <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.5 }}>On our Scale plan, post AI-drafted responses directly to Google. No copy-paste. NiceJob doesn't offer direct posting.</p>
+            <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.5 }}>On our Premium plan, post AI-drafted responses directly to Google. No copy-paste. NiceJob doesn't offer direct posting.</p>
           </Card>
           <Card className="p-5">
             <Star className="w-5 h-5 text-blue-500 mb-2" />
@@ -93,7 +99,7 @@ export default function CompareNiceJob() {
           <Card className="p-5">
             <DollarSign className="w-5 h-5 text-emerald-500 mb-2" />
             <h3 style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 4 }}>Same Price, More Features</h3>
-            <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.5 }}>NiceJob starts at $75/mo. ReputationShield starts at $79/mo — with AI responses, QR codes, low-rating alerts, and Google posting included at higher tiers.</p>
+            <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.5 }}>{`NiceJob starts at $75/mo. ReputationShield starts at ${RS_FROM}/mo — with AI responses, QR codes, low-rating alerts, and Google posting included at higher tiers.`}</p>
           </Card>
         </div>
 
@@ -128,7 +134,7 @@ export default function CompareNiceJob() {
                 ))}
                 <tr style={{ borderTop: "2px solid #E5E7EB", fontWeight: 600 }}>
                   <td style={{ padding: "14px 16px", color: "#374151" }}>Starting price</td>
-                  <td style={{ padding: "14px 16px", textAlign: "center", background: "#FAFFFE", color: "#1a1a2e" }}>$79/mo</td>
+                  <td style={{ padding: "14px 16px", textAlign: "center", background: "#FAFFFE", color: "#1a1a2e" }}>{RS_FROM}/mo</td>
                   <td style={{ padding: "14px 16px", textAlign: "center", color: "#6B7280" }}>$75/mo</td>
                 </tr>
               </tbody>
@@ -175,7 +181,7 @@ export default function CompareNiceJob() {
             They offer webchat, payments, social media management — features most trades businesses don't need.
           </p>
           <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.6 }}>
-            ReputationShield focuses on what actually grows your reputation: <strong>review requests, monitoring, AI responses, Google posting, and private feedback protection</strong> — at <strong>$79–$179/mo</strong>, no contracts, no sales calls, sign up and start today.
+            ReputationShield focuses on what actually grows your reputation: <strong>review requests, monitoring, AI responses, Google posting, and private feedback protection</strong> — at <strong>{RS_FROM}–{RS_PREMIUM}/mo</strong>, no contracts, no sales calls, sign up and start today.
           </p>
         </Card>
 
@@ -205,11 +211,11 @@ export default function CompareNiceJob() {
         {/* CTA */}
         <div style={{ textAlign: "center" }}>
           <h2 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a2e", marginBottom: 12 }}>Your next 5-star review is one completed job away.</h2>
-          <p style={{ fontSize: 15, color: "#6B7280", marginBottom: 24 }}>No contracts. No sales calls. No setup fees. Start your free trial today.</p>
+          <p style={{ fontSize: 15, color: "#6B7280", marginBottom: 24 }}>No contracts. No sales calls. No setup fees. 30-day money-back guarantee.</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/wizard">
               <Button style={{ background: mkt.accent, color: "#FFFFFF", fontWeight: 700, padding: "14px 28px", borderRadius: 10, fontSize: 15 }}>
-                Start Getting Reviews — Free Trial
+                Start Getting Reviews
               </Button>
             </Link>
             <Link href="/products/reputationshield">

@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import express from "express";
 import fs from "fs";
 import path from "path";
-import { getServicesForIssues } from "@shared/services";
+import { getServicesForIssues, SERVICES } from "@shared/services";
 import { db } from "./db";
 import { auditReports } from "@shared/schema";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
@@ -2626,6 +2626,14 @@ router.post("/generate", async (req: Request, res: Response) => {
         const servicesList = recommendedServices?.map((s: any) => s.name || s.title || s).join(", ") || "";
         const notRankingKeywords = keywords.filter((k: any) => !k.organicRank).map((k: any) => k.keyword).join(", ") || "None";
 
+        // Lane A2 — the service/price list quoted in customer audit reports is
+        // GENERATED from @shared/services (which derives from @shared/pricing).
+        // The previous hardcoded list quoted retired/fabricated products and
+        // prices (AI ChatLine, AI CallLine, TradeLine Complete, $997 SiteLaunch).
+        const serviceCatalogBlock = SERVICES.map(
+          (s) => `  * ${s.name} (${s.priceLabel}) — ${s.tagline}. Fixes: ${s.fixesIssues.join(", ")}`
+        ).join("\n");
+
         const systemPrompt = `You are a senior local SEO and digital marketing analyst for WeFixTrades — a platform that helps trades businesses get more leads.
 
 You are analyzing audit data for a ${trade} business in ${city}.
@@ -2677,15 +2685,8 @@ WRITING RULES:
 - Each action plan item must include ROI math
 - Never fabricate data not present in auditData. If a field is null or missing, work around it.
 - Return valid JSON only. No markdown fences. No text outside the JSON. Use null for missing data.
-- For the actionPlan array, reference the specific WeFixTrades services that fix each issue:
-  * MapSetup™ ($397 one-time) — fixes GBP issues, low visibility, missing description
-  * MapGuard™ Ongoing ($149/mo) — ongoing Maps ranking maintenance
-  * WebFix™ ($249 one-time) — fixes slow website, Core Web Vitals, mobile speed
-  * ReputationShield ($99/mo) — fixes low reviews, bad rating, reputation gaps
-  * AI ChatLine ($149/mo) — fixes after-hours gaps, missed leads, no quote tool
-  * AI CallLine ($199/mo) — fixes missed calls, after-hours phone coverage
-  * TradeLine Complete ($299/mo) — all channels covered, best value bundle
-  * SiteLaunch ($997 one-time) — builds new website if none exists
+- For the actionPlan array, reference the specific WeFixTrades services that fix each issue. This is the COMPLETE catalog — never quote a service name or price that is not in this list:
+${serviceCatalogBlock}
 
 ROI FRAMING RULE:
 Job values by trade: plumbing $280, hvac $420, electrical $310, cleaning $160, landscaping $200, roofing $8500, locksmith $180, general $350.

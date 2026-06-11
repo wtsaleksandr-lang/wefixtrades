@@ -3,6 +3,10 @@ import FeaturePage, { type FeaturePageConfig } from "@/components/marketing/Feat
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import TriggersSection from "@/components/marketing/showcase/TriggersSection";
+import { QUOTEQUICK, getTier, formatPrice } from "@shared/pricing";
+
+// Lane A2 — all prices on this page derive from @shared/pricing.
+const QQ_BUSINESS_PRICE = formatPrice(getTier(QUOTEQUICK, "Business")!.price);
 
 /* ── Mockup ──────────────────────────────────── */
 function AiMockup() {
@@ -137,19 +141,19 @@ const config: FeaturePageConfig = {
   ],
   steps: [
     { num: "01", title: "Configure Training Profile", body: "Fill in your services, service area, working hours, emergency availability, and preferred tone — using a simple structured form. No coding required." },
-    { num: "02", title: "Activate Your Trial", body: "Start your 14-day free trial with one click. Your AI employee goes live immediately on your calculator widget, SMS, and WhatsApp." },
+    { num: "02", title: "Activate Your AI", body: `Included with the QuoteQuick Business plan (${QQ_BUSINESS_PRICE}/mo). Toggle it on with one click and your AI employee goes live immediately on your calculator widget, SMS, and WhatsApp.` },
     { num: "03", title: "Review & Refine", body: "Monitor all AI conversations from your dashboard. See what questions customers ask, adjust your training profile, and improve over time." },
   ],
   faqs: [
     { q: "Does the AI use my actual pricing?", a: "Yes. The AI calls your pricing engine in real time using function calling — so it gives customers the same estimate your calculator would produce, not a guess." },
-    { q: "What is the 14-day free trial?", a: "You get full AI Employee access for 14 days at no charge, on any plan. After the trial, you'll need to upgrade to a plan that includes AI Employee to continue using it." },
+    { q: "Which plan includes the AI Employee?", a: `The AI Employee is included with the QuoteQuick Business plan (${QQ_BUSINESS_PRICE}/mo). You can start on the free tier — build and publish your calculator at no cost — and upgrade from your dashboard whenever you want the AI handling your leads.` },
     { q: "What happens when the AI can't answer?", a: "The AI is trained to escalate gracefully. When it's unsure, or when the customer requests a human, it sends a notification to you via email or SMS (configurable) and lets the customer know you'll follow up." },
     { q: "Can I customise the AI's tone?", a: "Yes. You can choose from Professional, Friendly, or Direct tones during configuration. All responses stay consistent with your chosen style." },
     { q: "What channels does it cover?", a: "Web chat (embedded on your calculator page), SMS via Twilio, and WhatsApp Business via Twilio. Each channel can be toggled on/off independently in your dashboard." },
   ],
   cta: {
-    headline: "Start Your 14-Day AI Employee Trial",
-    sub: "No credit card required. Activate in under 5 minutes and let AI handle your leads tonight.",
+    headline: "Put Your AI Employee To Work",
+    sub: `Included with the QuoteQuick Business plan (${QQ_BUSINESS_PRICE}/mo). Activate in under 5 minutes and let AI handle your leads tonight.`,
   },
   extraSections: <TriggersSection />,
 };

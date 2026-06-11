@@ -265,7 +265,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
           headline={heroHeadline}
           sub={heroSub}
           ctas={[
-            { label: "Start free trial", href: "/signup" },
+            { label: "Start free", href: "/signup" },
             { label: "See full pricing", href: "/pricing" },
           ]}
         />
@@ -914,7 +914,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
 
         <V7FinalCta
           title={finalCtaTitle}
-          primaryCta={{ label: "Start free trial", href: "/signup" }}
+          primaryCta={{ label: "Start free", href: "/signup" }}
         />
       </V7PageShell>
     </MarketingLayout>

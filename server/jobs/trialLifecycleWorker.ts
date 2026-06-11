@@ -5,8 +5,14 @@ import { calculators, deploymentStatus, leads, analyticsEvents } from "@shared/s
 import { eq, and, sql, gte, lte, isNotNull, desc } from "drizzle-orm";
 import { sendTrialExpiryEmail } from "../lib/trialExpiryEmail";
 import { createLogger } from "../lib/logger";
+import { QUOTEQUICK, getTier, formatPrice } from "@shared/pricing";
 
 const log = createLogger("TrialLifecycle");
+
+// Lane A2 — customer-facing prices derive from @shared/pricing. The old
+// hardcoded "Solo $49 / Business $99" ladder was retired in Wave Q.
+const QQ_PRO_PRICE = formatPrice(getTier(QUOTEQUICK, "Pro")!.price);
+const QQ_BUSINESS_PRICE = formatPrice(getTier(QUOTEQUICK, "Business")!.price);
 
 /**
  * Trial Lifecycle Worker
@@ -134,7 +140,7 @@ function buildTrialEmail(day: number, ctx: {
           <p><strong>Your stats so far:</strong> ${views} views, ${leadCount} leads captured.</p>
           ${leadCount > 0 ? `<p style="color:#059669;font-weight:600;">You've already captured leads worth more than a month of QuoteQuick.</p>` : ''}
           <p>Your calculator stays live — just pick a plan before day 14 to keep it running.</p>
-          <a href="${pricingUrl}" style="display:inline-block;padding:12px 24px;background:#394247;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View Plans — From $49/mo</a>
+          <a href="${pricingUrl}" style="display:inline-block;padding:12px 24px;background:#394247;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View Plans — From ${QQ_PRO_PRICE}/mo</a>
         `),
       };
 
@@ -144,7 +150,7 @@ function buildTrialEmail(day: number, ctx: {
         html: wrap(`
           <p>Your QuoteQuick trial ends in 4 days.</p>
           <p><strong>What happens:</strong> Your calculator pauses. Your leads and settings are never deleted. Reactivate anytime by picking a plan.</p>
-          <p><strong>Solo plan: $49/mo.</strong> One job covers it.</p>
+          <p><strong>Pro plan: ${QQ_PRO_PRICE}/mo.</strong> One job covers it.</p>
           <a href="${pricingUrl}" style="display:inline-block;padding:12px 24px;background:#059669;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Choose a Plan</a>
         `),
       };
@@ -154,7 +160,7 @@ function buildTrialEmail(day: number, ctx: {
         subject: `Your trial ends tomorrow — ${businessName}`,
         html: wrap(`
           <p style="font-size:16px;font-weight:700;color:#111;margin:0 0 12px;">Last day of your free trial.</p>
-          <p>Choose Solo ($49/mo) or Business ($99/mo) to keep your calculator live. Takes 30 seconds.</p>
+          <p>Choose Pro (${QQ_PRO_PRICE}/mo) or Business (${QQ_BUSINESS_PRICE}/mo) to keep your calculator live. Takes 30 seconds.</p>
           ${leadCount > 0 ? `<p style="color:#059669;font-weight:600;">You've captured ${leadCount} lead${leadCount > 1 ? 's' : ''} so far. Don't lose momentum.</p>` : ''}
           <a href="${pricingUrl}" style="display:inline-block;padding:12px 24px;background:#059669;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Pick a Plan</a>
           <p style="font-size:12px;color:#999;margin:16px 0 0;">No contracts. Cancel anytime.</p>
@@ -167,7 +173,7 @@ function buildTrialEmail(day: number, ctx: {
         html: wrap(`
           <p>Your QuoteQuick trial has ended and your calculator is now paused.</p>
           <p><strong>Nothing is deleted.</strong> Your leads, settings, and calculator are all saved. Reactivate in 30 seconds by picking a plan.</p>
-          <a href="${pricingUrl}" style="display:inline-block;padding:12px 24px;background:#059669;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Reactivate — From $49/mo</a>
+          <a href="${pricingUrl}" style="display:inline-block;padding:12px 24px;background:#059669;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Reactivate — From ${QQ_PRO_PRICE}/mo</a>
         `),
       };
 

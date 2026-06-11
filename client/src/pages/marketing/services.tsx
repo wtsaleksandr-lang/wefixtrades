@@ -450,7 +450,7 @@ export default function ServicesPage() {
                     <option value="quickquote">QuoteQuick (Calculator)</option>
                     <option value="social">SocialSync (Social Media)</option>
                     <option value="reputation">ReputationShield (Reviews)</option>
-                    <option value="bundle">Growth Bundle / Autopilot</option>
+                    <option value="bundle">Bundles (Visibility Starter / Growth / Pro System)</option>
                   </select>
                 </div>
                 <div style={s.field}>
