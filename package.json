@@ -39,6 +39,7 @@
     "check:demo-persona": "tsx shared/prompts/tradelineDemoPrompt.test.ts",
     "check:contentflow-generate-source": "tsx server/routes/portal/contentflow.generateSource.test.ts",
     "check:contentflow-reference-replication": "tsx server/services/contentflow/referenceReplication.test.ts",
+    "check:contentflow-url-capture": "tsx server/services/contentflow/urlScreenshotCapture.test.ts",
     "check:contentflow-imagen4": "tsx server/services/contentflow/imageOrchestrator.imagen4.test.ts",
     "check:contentflow-flux2": "tsx server/services/contentflow/imageOrchestrator.flux2.test.ts",
     "check:contentflow-video-storage": "tsx server/storage/contentflowVideo.test.ts",

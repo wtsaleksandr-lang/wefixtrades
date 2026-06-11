@@ -38,6 +38,10 @@
  */
 
 import { createLogger } from "../../lib/logger";
+import {
+  captureUrlForReplication,
+  isUrlScreenshotEnabled,
+} from "./urlScreenshotCapture";
 
 const logger = createLogger("ContentFlow:RefReplication");
 
@@ -124,7 +128,7 @@ export interface ResolvedReference {
   bytes?: Buffer;
   mediaType?: ReferenceMediaType;
   /** Where the image came from, for audit/provenance. */
-  source?: "upload" | "image_url" | "page_og_image";
+  source?: "upload" | "image_url" | "page_og_image" | "page_screenshot";
   reason?: string;
 }
 
@@ -267,7 +271,34 @@ export async function resolveReferenceImage(input: ReferenceInput): Promise<Reso
     return { ok: true, bytes: fetched.buffer, mediaType: ct, source: "image_url" };
   }
 
-  /* Otherwise treat it as a web page: extract og:image and fetch that. */
+  /* Otherwise it's a web page. PREFERRED PATH (flag-gated): render the live
+   * page with headless Chromium and use a real screenshot — far stronger
+   * replication signal than og:image (captures actual layout/color/type/
+   * composition). captureUrlForReplication() is inert unless
+   * CONTENTFLOW_URL_SCREENSHOT_ENABLED is on, NEVER throws, and returns
+   * { ok:false } on any failure — so we fall through to the EXACT existing
+   * og:image behavior below on flag-off or capture-failure (no regression).
+   *
+   * We pass the HERO (above-the-fold, viewport-only) screenshot to the vision
+   * describe step rather than the full-page image: it carries the brand's
+   * dominant layout/color/type while keeping the vision-describe token cost
+   * close to the old og:image cost. (Screenshotting itself is free — no API
+   * cost. The full-page image is available via captureUrlForReplication if a
+   * richer describe is ever wanted, at a higher vision-token cost.) */
+  if (isUrlScreenshotEnabled()) {
+    const shot = await captureUrlForReplication(url);
+    if (shot.ok) {
+      return {
+        ok: true,
+        bytes: shot.hero.buffer,
+        mediaType: "image/png",
+        source: "page_screenshot",
+      };
+    }
+    logger.warn(`url screenshot unavailable, falling back to og:image: ${shot.reason}`);
+  }
+
+  /* Fallback (and default): extract og:image and fetch that. */
   const html = fetched.buffer.toString("utf8");
   const ogUrl = extractOgImageUrl(html, url);
   if (!ogUrl) {
