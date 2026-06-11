@@ -318,34 +318,31 @@ export function MarketingNav() {
                       padding: "8px 18px",
                       borderRadius: 10,
                       background: "transparent",
-                      color: "#e4edf1",
-                      fontSize: 12,
+                      color: mkt.ctaSecondaryText,
+                      fontSize: 13,
                       fontWeight: 500,
-                      fontFamily: "'DM Mono', monospace",
-                      textTransform: "uppercase" as const,
-                      letterSpacing: "0.08em",
+                      fontFamily: typography.fontFamily,
+                      letterSpacing: "0",
                       textDecoration: "none",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
                       whiteSpace: "nowrap",
-                      border: "1px solid #394247",
-                      transition: "background 0.2s ease, color 0.2s ease",
+                      border: `1px solid ${mkt.ctaSecondaryBorder}`,
+                      transition: "background 0.2s ease, border-color 0.2s ease",
                     }}
                     onMouseEnter={(e) => {
                       const el = e.currentTarget as HTMLElement;
-                      el.style.background = "#394247";
-                      el.style.color = "#e4edf1";
-                      el.style.boxShadow = "none";
+                      el.style.background = mkt.ctaSecondaryBgHover;
+                      el.style.borderColor = mkt.ctaSecondaryBorderHover;
                     }}
                     onMouseLeave={(e) => {
                       const el = e.currentTarget as HTMLElement;
                       el.style.background = "transparent";
-                      el.style.color = "#e4edf1";
-                      el.style.boxShadow = "none";
+                      el.style.borderColor = mkt.ctaSecondaryBorder;
                     }}
                   >
-                    TRADELINE 24/7 DEMO
+                    TradeLine Demo
                   </Link>
                 </>
               )}
@@ -429,20 +426,20 @@ export function MarketingNav() {
           }
         }
 
-        /* ── FIX 2: Right CTA cluster — no clipping at intermediate widths ──
-         * Measured (visual review): the full desktop row (logo + menus +
-         * Login + Start free) needs ~1120px (measured), and the TRADELINE demo pill's
-         * right edge lands at ~1390px when shown. So: the demo pill
-         * only renders from 1430px (8px+ margin — the pill width itself rounds with viewport) (it FULLY fits once shown), and the
-         * desktop nav itself only renders from 1130px (NAV_MOBILE_BREAKPOINT)
-         * — below that the hamburger takes over. Compressed CTA padding
-         * keeps the 1130–1199px band comfortable. */
-        @media (max-width: 1429px) {
-          .mkt-btn-demo { display: none !important; }
-        }
-        @media (min-width: 1130px) and (max-width: 1199px) {
-          .nav-cta-start-free {
-            padding: 7px 12px !important;
+        /* ── FIX 2: Right CTA cluster — both CTAs visible across full desktop ──
+         * Previously the secondary "TradeLine Demo" pill was hidden below
+         * 1430px (display:none), so every common laptop (1366/1280px) lost the
+         * secondary CTA entirely — a conversion leak. The inner row is clamped
+         * to maxWidth:1280 (≈1224px of content after 28px×2 padding), so the
+         * full cluster — logo + menus + Login + Start free + TradeLine Demo —
+         * fits within that box. Across the intermediate desktop band
+         * (1130–1429px) we compress the two CTA pills' padding + font a touch
+         * so nothing clips. Below 1130px (NAV_MOBILE_BREAKPOINT) the hamburger
+         * takes over and both CTAs live inside the mobile menu. */
+        @media (min-width: 1130px) and (max-width: 1429px) {
+          .nav-cta-start-free,
+          .mkt-btn-demo {
+            padding: 7px 13px !important;
             font-size: 12px !important;
           }
         }
@@ -571,17 +568,16 @@ export function MarketingNav() {
                 padding: "12px 14px",
                 borderRadius: 10,
                 background: "transparent",
-                color: mkt.accent,
+                color: mkt.ctaSecondaryText,
                 fontSize: 15,
                 fontWeight: 500,
-                textTransform: "uppercase" as const,
-                letterSpacing: "0.04em",
+                letterSpacing: "0.01em",
                 textAlign: "center",
                 textDecoration: "none",
-                border: `1px solid ${mkt.accent}`,
+                border: `1px solid ${mkt.ctaSecondaryBorder}`,
               }}
             >
-              TRADELINE 24/7 DEMO
+              TradeLine Demo
             </Link>
           </div>
         </div>
