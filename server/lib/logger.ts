@@ -34,7 +34,13 @@ function forwardToSentry(prefix: string, msg: string, data?: Record<string, unkn
   // we still want to skip the scope churn for cheap paths.
   if (!process.env.SENTRY_DSN) return;
   if (SENTRY_BRIDGE_SAMPLE_RATE <= 0) return;
-  if (SENTRY_BRIDGE_SAMPLE_RATE < 1 && Math.random() >= SENTRY_BRIDGE_SAMPLE_RATE) return;
+  // Opt-in force: log.error(msg, { sentry: "force" }) bypasses random
+  // sampling for CRITICAL events that must ALWAYS reach Sentry (e.g. the
+  // boot schema sentinel's ledger-vs-schema drift alarm). Still muted by an
+  // explicit SENTRY_LOG_BRIDGE_SAMPLE_RATE=0 (operator emergency valve,
+  // checked above) and by a missing DSN.
+  const force = !!data && data.sentry === "force";
+  if (!force && SENTRY_BRIDGE_SAMPLE_RATE < 1 && Math.random() >= SENTRY_BRIDGE_SAMPLE_RATE) return;
 
   try {
     Sentry.withScope((scope) => {

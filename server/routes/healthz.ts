@@ -24,6 +24,11 @@
  *   db          — `SELECT 1` against the connection pool.
  *   db_tables   — count public-schema tables; expect ≥ MIN_TABLE_COUNT.
  *                 Fewer = bootstrapMigrations didn't run, deploy is broken.
+ *   schema_sentinel — boot-time ledger-vs-schema drift result (in-memory
+ *                 read, no DB round-trip). `degraded` when the boot sentinel
+ *                 found objects missing it could not self-heal — the
+ *                 publish-trap class (ledger says applied, schema disagrees).
+ *                 See server/lib/schemaSentinel.ts.
  *   doppler     — DOPPLER_TOKEN present + config name resolvable.
  *   stripe      — stripe.products.list({ limit: 1 }), 2 s timeout.
  *   twilio      — fetch account info (cheap, ~50 ms).
@@ -56,6 +61,10 @@ import { readyFallbackProviders } from "../services/llmFallbackChain";
 // Build-identity stamp written by script/build.ts at build time
 // (dist/build-info.json). Lazy + cached + never-throws — see buildInfo.ts.
 import { getBuildInfo } from "../lib/buildInfo";
+// Boot schema sentinel result (ledger-vs-schema drift + self-heal outcome).
+// Pure in-memory read — the sentinel itself runs once at boot, right after
+// bootstrapMigrations (see server/index.ts + server/lib/schemaSentinel.ts).
+import { schemaSentinelHealthz } from "../lib/schemaSentinel";
 
 const log = createLogger("Healthz");
 
@@ -170,6 +179,14 @@ async function checkDbTables(): Promise<ProbeOutcome> {
     };
   }
   return { ok: true, status: "ok", expected_min: DB_TABLE_MIN, found };
+}
+
+/** Boot schema-sentinel result — synchronous in-memory read (never hits the
+ *  DB on a healthz tick). `skipped` until the boot wiring has run;
+ *  `degraded` (never `down` — no watchdog rollback) on unhealed drift or
+ *  when the sentinel itself failed to complete. */
+async function checkSchemaSentinel(): Promise<ProbeOutcome> {
+  return schemaSentinelHealthz();
 }
 
 async function checkDoppler(): Promise<ProbeOutcome> {
@@ -553,9 +570,10 @@ async function aiProbe(): Promise<CheckResult> {
 }
 
 async function buildHealthz(): Promise<{ body: HealthzResponse; http: number }> {
-  const [dbR, dbTablesR, dopplerR, stripeR, twilioR, mapsR, bingR, redisR, aiR] = await Promise.all([
+  const [dbR, dbTablesR, sentinelR, dopplerR, stripeR, twilioR, mapsR, bingR, redisR, aiR] = await Promise.all([
     probe("db", checkDb),
     probe("db_tables", checkDbTables),
+    probe("schema_sentinel", checkSchemaSentinel),
     probe("doppler", checkDoppler),
     probe("stripe", checkStripe),
     probe("twilio", checkTwilio),
@@ -568,6 +586,7 @@ async function buildHealthz(): Promise<{ body: HealthzResponse; http: number }> 
   const checks: Record<string, CheckResult> = {
     db: dbR,
     db_tables: dbTablesR,
+    schema_sentinel: sentinelR,
     doppler: dopplerR,
     stripe: stripeR,
     twilio: twilioR,
