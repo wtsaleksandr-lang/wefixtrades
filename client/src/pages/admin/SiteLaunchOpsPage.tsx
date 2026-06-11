@@ -25,9 +25,10 @@ interface SiteLaunchOrderRow {
 
 const DONE_STATUSES = new Set(["delivered", "completed", "cancelled", "canceled"]);
 
+/* USD canonical (#1660) — platform prices are USD; same en-US pattern as BillingPage. */
 function dollars(cents: number | null | undefined): string {
   const n = (cents ?? 0) / 100;
-  return n.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
 function StatusPill({ status }: { status: string | null }) {

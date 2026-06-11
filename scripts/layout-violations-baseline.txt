@@ -88,27 +88,27 @@ client/src/pages/admin/QuoteQuickPage.tsx:80:32	rule-c	square w-28 h-28
 client/src/pages/admin/QuoteQuickPage.tsx:113:19	rule-c	square w-2 h-2
 client/src/pages/admin/QuoteQuickTemplateDetailPage.tsx:961:25	rule-c	size={18}
 client/src/pages/admin/QuoteQuickTemplatesPage.tsx:244:22	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:316:17	rule-c	square w-16 h-16
-client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:322:30	rule-c	square w-7 h-7
-client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:423:21	rule-c	square w-10 h-10
-client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:429:34	rule-c	size={18}
-client/src/pages/admin/QuoteQuickTradesPage.tsx:227:9	rule-c	square w-10 h-10
-client/src/pages/admin/QuoteQuickTradesPage.tsx:233:22	rule-c	size={18}
-client/src/pages/admin/QuoteQuickTradesPage.tsx:347:19	rule-c	square w-10 h-10
-client/src/pages/admin/QuoteQuickTradesPage.tsx:353:32	rule-c	size={18}
+client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:319:17	rule-c	square w-16 h-16
+client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:325:30	rule-c	square w-7 h-7
+client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:426:21	rule-c	square w-10 h-10
+client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:432:34	rule-c	size={18}
+client/src/pages/admin/QuoteQuickTradesPage.tsx:243:9	rule-c	square w-10 h-10
+client/src/pages/admin/QuoteQuickTradesPage.tsx:249:22	rule-c	size={18}
+client/src/pages/admin/QuoteQuickTradesPage.tsx:363:19	rule-c	square w-10 h-10
+client/src/pages/admin/QuoteQuickTradesPage.tsx:369:32	rule-c	size={18}
 client/src/pages/admin/ReviewsPage.tsx:492:5	rule-b	<div> contains 3 cues
 client/src/pages/admin/ReviewsPage.tsx:678:29	rule-c	square w-2 h-2
 client/src/pages/admin/SystemAlertsPage.tsx:182:26	rule-c	square w-10 h-10
 client/src/pages/admin/SystemWorkersPage.tsx:199:16	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/SystemWorkersPage.tsx:407:31	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/TradeLineOpsPage.tsx:63:71	rule-c	square w-10 h-10
-client/src/pages/admin/TradeLineOpsPage.tsx:147:90	rule-c	square w-10 h-10
-client/src/pages/admin/TradelineTemplatesPage.tsx:290:15	rule-c	square w-7 h-7
-client/src/pages/admin/TradelineTemplatesPage.tsx:307:15	rule-c	square w-7 h-7
-client/src/pages/admin/TradelineTemplatesPage.tsx:315:15	rule-c	square w-7 h-7
-client/src/pages/admin/TradelineTemplatesPage.tsx:697:27	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/TradelineTemplatesPage.tsx:698:27	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/TradelineTemplatesPage.tsx:699:27	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/TradeLineOpsPage.tsx:64:71	rule-c	square w-10 h-10
+client/src/pages/admin/TradeLineOpsPage.tsx:151:90	rule-c	square w-10 h-10
+client/src/pages/admin/TradelineTemplatesPage.tsx:314:15	rule-c	square w-7 h-7
+client/src/pages/admin/TradelineTemplatesPage.tsx:331:15	rule-c	square w-7 h-7
+client/src/pages/admin/TradelineTemplatesPage.tsx:339:15	rule-c	square w-7 h-7
+client/src/pages/admin/TradelineTemplatesPage.tsx:741:27	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/TradelineTemplatesPage.tsx:742:27	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/TradelineTemplatesPage.tsx:743:27	rule-c	square w-1.5 h-1.5
 client/src/pages/calculator.tsx:155:22	rule-c	square w-10 h-10
 client/src/pages/demos/RankFlowDemo.tsx:706:72	rule-c	size={90}
 client/src/pages/demos/RankFlowDemo.tsx:707:74	rule-c	size={90}

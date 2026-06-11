@@ -36,6 +36,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import {
+  AlertTriangle,
   Phone,
   Sparkles,
   RotateCcw,
@@ -47,6 +48,7 @@ import {
   Copy,
   Plus,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import VoicePreviewButton from "@/components/tradeline/VoicePreviewButton";
 
 type TemplateKind = "tradeline" | "concierge";
@@ -103,6 +105,7 @@ const CONCIERGE_FIELDS: Array<{ key: string; label: string; multiline: boolean; 
 export default function TradelineTemplatesPage() {
   usePageTitle("TradeLine Templates");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [activeKind, setActiveKind] = useState<TemplateKind>("tradeline");
   const [search, setSearch] = useState("");
   const [openTemplate, setOpenTemplate] = useState<{ kind: TemplateKind; templateId: string } | null>(null);
@@ -111,7 +114,11 @@ export default function TradelineTemplatesPage() {
 
   const list = useQuery<ListResponse>({
     queryKey: ["/api/admin/tradeline/templates"],
-    queryFn: () => fetch("/api/admin/tradeline/templates", { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/admin/tradeline/templates", { credentials: "include" });
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
+    },
   });
 
   const duplicateMutation = useMutation({
@@ -130,6 +137,8 @@ export default function TradelineTemplatesPage() {
       setActiveKind(data.kind);
       setOpenTemplate({ kind: data.kind, templateId: data.templateId });
     },
+    onError: (err: Error) =>
+      toast({ title: "Duplicate failed", description: err.message, variant: "destructive" }),
   });
 
   const filtered = useMemo(() => {
@@ -185,6 +194,21 @@ export default function TradelineTemplatesPage() {
               Portal Concierge ({list.data?.concierge?.length ?? "…"})
             </TabsTrigger>
           </TabsList>
+
+          {list.isError && (
+            <Card className="p-6 border-red-200 bg-red-50/50 mt-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-800">Couldn't load templates</p>
+                  <p className="text-xs text-red-700 mt-1">
+                    This is a backend failure, not an empty library — the 80 code-default personas are still live.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => list.refetch()}>Retry</Button>
+              </div>
+            </Card>
+          )}
 
           <TabsContent value="tradeline" className="mt-4">
             <TemplateGrid
@@ -365,9 +389,14 @@ function TemplateDetailDialog({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const detail = useQuery<DetailResponse>({
     queryKey: [`/api/admin/tradeline/templates/${kind}/${templateId}`],
-    queryFn: () => fetch(`/api/admin/tradeline/templates/${kind}/${templateId}`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/admin/tradeline/templates/${kind}/${templateId}`, { credentials: "include" });
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
+    },
   });
 
   const [dirty, setDirty] = useState<Record<string, unknown>>({});
@@ -414,6 +443,9 @@ function TemplateDetailDialog({
       queryClient.invalidateQueries({ queryKey: [`/api/admin/tradeline/templates/${kind}/${templateId}`] });
       setDirty({});
     },
+    /* These templates drive live customer voice agents — a failed save must be loud. */
+    onError: (err: Error) =>
+      toast({ title: "Save failed", description: err.message, variant: "destructive" }),
   });
 
   const resetMutation = useMutation({
@@ -430,6 +462,8 @@ function TemplateDetailDialog({
       queryClient.invalidateQueries({ queryKey: [`/api/admin/tradeline/templates/${kind}/${templateId}`] });
       setDirty({});
     },
+    onError: (err: Error) =>
+      toast({ title: "Reset failed", description: err.message, variant: "destructive" }),
   });
 
   return (
@@ -449,6 +483,16 @@ function TemplateDetailDialog({
         </DialogHeader>
 
         {detail.isLoading && <Skeleton className="h-96" />}
+        {detail.isError && (
+          <div className="flex items-start gap-3 border border-red-200 bg-red-50/50 rounded-lg p-4">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Couldn't load this template</p>
+              <p className="text-xs text-red-700 mt-1">The editor can't open without it — this is a backend failure.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => detail.refetch()}>Retry</Button>
+          </div>
+        )}
         {detail.data && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
