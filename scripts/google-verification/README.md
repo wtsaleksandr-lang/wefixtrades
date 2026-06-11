@@ -1,22 +1,37 @@
-# Google OAuth verification kit — MapGuard `business.manage` scope
+# Google OAuth verification kit — all sensitive scopes
 
-This folder is everything needed to submit MapGuard's Google OAuth verification request. The submission unlocks the `https://www.googleapis.com/auth/business.manage` scope for production (real customers can connect without the "unverified app" warning).
+This folder is everything needed to submit WeFixTrades' Google OAuth consent-screen verification for project `acx-audiobooks`. The submission unlocks **all five sensitive scopes the codebase requests** (verified against source 2026-06-10), so real customers and operators can connect without the "unverified app" warning:
+
+- `…/auth/business.manage` — MapGuard GBP posting / review replies / listing monitoring (customer flow + admin)
+- `…/auth/webmasters.readonly` — RankFlow Search Console reads for the customer dashboard (customer flow)
+- `…/auth/webmasters` — sitemap submission + URL inspection on the admin SEO console
+- `…/auth/analytics.edit` — GA4 property/stream provisioning on the admin SEO console
+- `…/auth/analytics.readonly` — GA4 status reads on the admin SEO console
+
+(`openid email profile`, used by "Continue with Google" sign-in, are non-sensitive and need no justification.)
 
 ## TL;DR
 
-1. Read [`submission-checklist.md`](./submission-checklist.md) end-to-end.
+1. Read [`submission-checklist.md`](./submission-checklist.md) end-to-end — **Step 0 first**: `GOOGLE_OAUTH_CLIENT_ID/_SECRET` are missing from Doppler (verified 2026-06-10), so the admin flow must be wired up before it can be demoed.
 2. Verify `wefixtrades.com` in Google Search Console (one-time, if not already).
-3. Fill out the OAuth consent screen in Google Cloud Console.
-4. Record the demo video:
+3. Fill out the OAuth consent screen in Google Cloud Console (all 5 sensitive scopes).
+4. Record the demo videos:
    ```bash
+   # Customer flow (business.manage + webmasters.readonly)
    DEMO_PORTAL_EMAIL=<your-test-portal-account> \
    DEMO_PORTAL_PASSWORD=<password> \
+   DEMO_INCLUDE_RANKFLOW=1 \
+   npm run record:google-verification
+
+   # Admin flow (webmasters + analytics.edit + analytics.readonly) —
+   # add admin creds and re-run; the second test activates:
+   DEMO_ADMIN_EMAIL=<admin-account> DEMO_ADMIN_PASSWORD=<password> \
    npm run record:google-verification
    ```
-5. Watch the resulting `.webm` (in `test-results/google-verification/<...>/video.webm`).
-6. Convert to `.mp4`, upload as Unlisted to YouTube.
-7. Paste the URL + the text in [`scope-justification.md`](./scope-justification.md) into the verification form.
-8. Submit. Wait 3–7 business days.
+5. Watch the resulting `.webm`s (in `test-results/google-verification/<...>/video.webm`).
+6. Convert/merge to `.mp4`, upload as Unlisted to YouTube.
+7. Paste the URL + the per-scope text in [`scope-justification.md`](./scope-justification.md) into the verification form.
+8. Submit. Wait 3–7 business days (budget 2 weeks with 5 sensitive scopes).
 
 ## What's in this folder
 
@@ -38,9 +53,11 @@ Total operator time per recording: about **60 seconds of attention** during the 
 
 - [ ] You have a demo Google account that owns at least one Google Business Profile.
 - [ ] You have a WeFixTrades portal account with an active MapGuard subscription (so the Connect banner is visible).
+- [ ] For the RankFlow scene (`DEMO_INCLUDE_RANKFLOW=1`): the same portal account has RankFlow access so `/portal/rankflow/dashboard` renders data.
+- [ ] For the admin recording: an admin account, and `GOOGLE_OAUTH_CLIENT_ID/_SECRET` configured in Doppler + the `/api/admin/integrations/google/callback` redirect URI added to the OAuth client (submission-checklist.md Step 0).
 - [ ] You've installed Playwright locally: `npm install && npx playwright install chromium`.
 - [ ] You're running this from your local machine, NOT Replit (needs a real visible browser).
-- [ ] Optional: install ffmpeg if you want to convert the .webm to .mp4 before uploading (YouTube accepts both).
+- [ ] Optional: install ffmpeg if you want to convert/merge the .webm(s) to .mp4 before uploading (YouTube accepts both).
 
 ## Re-running
 

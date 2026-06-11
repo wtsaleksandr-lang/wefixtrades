@@ -49,6 +49,14 @@
  *   DEMO_APP_URL                 — defaults to https://wefixtrades.com
  *   DEMO_PORTAL_EMAIL            — login email for the portal account
  *   DEMO_PORTAL_PASSWORD         — password for that account
+ *   DEMO_INCLUDE_RANKFLOW        — set to "1" to append the RankFlow
+ *                                  dashboard scene (webmasters.readonly
+ *                                  scope in use) to the customer demo
+ *   DEMO_ADMIN_EMAIL             — admin account email; enables the
+ *                                  second test (admin 4-scope flow:
+ *                                  webmasters + analytics.edit +
+ *                                  analytics.readonly + business.manage)
+ *   DEMO_ADMIN_PASSWORD          — password for the admin account
  *
  * NOTE: do not commit credentials. Set them in your shell before
  * running, e.g.:
@@ -60,6 +68,9 @@ import { test, expect } from "@playwright/test";
 const APP_URL = process.env.DEMO_APP_URL || "https://wefixtrades.com";
 const PORTAL_EMAIL = process.env.DEMO_PORTAL_EMAIL || "";
 const PORTAL_PASSWORD = process.env.DEMO_PORTAL_PASSWORD || "";
+const INCLUDE_RANKFLOW = process.env.DEMO_INCLUDE_RANKFLOW === "1";
+const ADMIN_EMAIL = process.env.DEMO_ADMIN_EMAIL || "";
+const ADMIN_PASSWORD = process.env.DEMO_ADMIN_PASSWORD || "";
 
 // Use a longer per-step timeout — reviewers need time to read the
 // screen, and the manual Google-login pause section can take a
@@ -175,11 +186,113 @@ test("Google verification — MapGuard OAuth demo recording", async ({ page, con
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(6000); // let reviewer absorb the connected dashboard
 
+  /* ─── 11. OPTIONAL additive scene — RankFlow dashboard ───
+   *
+   * Demonstrates the `webmasters.readonly` scope in use: the customer's
+   * RankFlow dashboard renders Search Console-derived metrics (clicks,
+   * impressions, position, index status) for their connected site.
+   * Gated behind DEMO_INCLUDE_RANKFLOW=1 so the original MapGuard-only
+   * recording flow is unchanged by default.
+   */
+  if (INCLUDE_RANKFLOW) {
+    await page.goto(`${APP_URL}/portal/rankflow`);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    await page.waitForTimeout(4000);
+    await page.goto(`${APP_URL}/portal/rankflow/dashboard`);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    await scrollSlowly(page);
+    await page.waitForTimeout(5000); // let reviewer read the GSC-derived charts
+  }
+
   console.log("\n=== Recording complete ===");
   console.log(`Video saved under: ${testInfo.outputDir}`);
   console.log("Convert to .mp4 (optional but YouTube-friendly):");
   console.log("  ffmpeg -i <video.webm> -c:v libx264 -preset slow -crf 22 demo.mp4");
   console.log("Then upload as Unlisted to YouTube and paste the URL in the verification form.\n");
+});
+
+/**
+ * Second recording — admin SEO integrations OAuth flow.
+ *
+ * Demonstrates the remaining sensitive scopes requested by
+ * server/lib/seo/googleOauth.ts:
+ *   - webmasters          (sitemap submit / URL inspection — GSC card +
+ *                          indexing history panel)
+ *   - analytics.edit      (GA4 property provisioning — shown via the GA4
+ *                          card; the actual create action is recorded
+ *                          manually, see submission-checklist.md Step 4b,
+ *                          because it creates a real GA4 property)
+ *   - analytics.readonly  (GA4 property/Measurement-ID status reads)
+ *   - business.manage     (GBP card on the same console)
+ *
+ * Skipped unless DEMO_ADMIN_EMAIL + DEMO_ADMIN_PASSWORD are set, so the
+ * original customer-flow recording is unaffected by default.
+ *
+ * Pre-requisite: GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET must
+ * be configured (Doppler) or the Connect button will error — see
+ * submission-checklist.md Step 0.
+ */
+test("Google verification — admin SEO integrations OAuth demo recording", async ({ page }, testInfo) => {
+  test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD,
+    "Set DEMO_ADMIN_EMAIL and DEMO_ADMIN_PASSWORD to record the admin-flow demo.");
+
+  console.log("\n=== Google verification admin demo recording ===");
+  console.log(`App: ${APP_URL}`);
+  console.log(`Recording to: ${testInfo.outputDir}`);
+  console.log("Stay watching — the script will pause for you to log in to Google.\n");
+
+  /* ─── 1. Log in with the admin account ─── */
+  await page.goto(`${APP_URL}/login`);
+  await page.waitForLoadState("networkidle");
+  await page.fill('input[type="email"]', ADMIN_EMAIL);
+  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.click('button[type="submit"]');
+  await page.waitForURL(/\/(portal|admin)/, { timeout: 30_000 });
+  await page.waitForLoadState("networkidle");
+
+  /* ─── 2. Open the SEO integrations console ─── */
+  await page.goto(`${APP_URL}/admin/integrations/google`);
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(4000); // let reviewer see the 4-card console
+
+  /* ─── 3. Click Connect Google → redirect to consent screen ─── */
+  await page.click("text=Connect Google");
+  await page.waitForURL(/accounts\.google\.com/, { timeout: 30_000 });
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForTimeout(3000); // URL bar settles so reviewers can read client_id
+
+  /* ─── 4. MANUAL PAUSE — operator drives Google login ───
+   * Sign in with the company Google account. On the consent screen,
+   * pause 4–5 seconds with ALL scope entries visible (Search Console,
+   * Analytics, Business Profile), then click Allow and wait for the
+   * redirect back to /admin/integrations/google. Close the Playwright
+   * Inspector to resume.
+   */
+  console.log("\n=== MANUAL STEP ===");
+  console.log("Log in with the company Google account, show all scopes, click Allow.");
+  console.log("Wait for the redirect back to /admin/integrations/google.");
+  console.log("Then close the Playwright Inspector window to resume.\n");
+  await page.pause();
+
+  /* ─── 5. Resume — connected admin console ─── */
+  await page.waitForURL(/\/admin\/integrations\/google/, { timeout: 120_000 }).catch(() => {});
+  await page.waitForLoadState("networkidle").catch(() => {});
+  await page.waitForTimeout(4000);
+
+  /* ─── 6. Show each scope's in-product surface ───
+   * GSC card (webmasters), GA4 card (analytics.readonly / .edit
+   * outcome), GBP card (business.manage), and the sitemap/indexing
+   * history panel that `webmasters` writes populate.
+   */
+  await page.goto(`${APP_URL}/admin/integrations/google`);
+  await page.waitForLoadState("networkidle");
+  await scrollSlowly(page);
+  await page.waitForTimeout(6000); // let reviewer absorb connected cards + history
+
+  console.log("\n=== Admin recording complete ===");
+  console.log(`Video saved under: ${testInfo.outputDir}`);
+  console.log("See submission-checklist.md Step 4b for the optional manual");
+  console.log("analytics.edit (GA4 property creation) segment.\n");
 });
 
 /** Smooth-scrolls a page to the bottom over ~8 seconds so reviewers
