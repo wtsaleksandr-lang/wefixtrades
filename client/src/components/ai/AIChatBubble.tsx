@@ -878,8 +878,8 @@ export default function AIChatBubble({
 
             {trialExpired && (
               <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', color: '#92400e', textAlign: 'center' }} data-testid="chat-trial-expired">
-                <div style={{ fontWeight: 600, marginBottom: '4px' }}>AI Assistant paused</div>
-                <div>The free trial has ended. Upgrade to reactivate.</div>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>AI Assistant unavailable</div>
+                <div>The Pro preview of the AI assistant has ended. Upgrading to Pro turns it back on.</div>
               </div>
             )}
 
@@ -900,7 +900,7 @@ export default function AIChatBubble({
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder={trialExpired ? 'AI paused' : 'Type your message...'}
+                placeholder={trialExpired ? 'AI assistant unavailable' : 'Type your message...'}
                 disabled={isLoading || trialExpired}
                 rows={inputExpanded ? 6 : 3}
                 style={{

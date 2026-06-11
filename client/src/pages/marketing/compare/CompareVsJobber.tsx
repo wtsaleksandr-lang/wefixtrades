@@ -32,7 +32,7 @@ export default function CompareVsJobber() {
       competitorName="Jobber"
       competitorPossessive="Jobber's"
       pageTitle="WeFixTrades vs Jobber: which is right for your trades business?"
-      pageDescription="Honest WeFixTrades vs Jobber comparison for trades. Pricing, AI voice, scheduling, dispatching, and where each one wins. Free trial, no card."
+      pageDescription="Honest WeFixTrades vs Jobber comparison for trades. Pricing, AI voice, scheduling, dispatching, and where each one wins. Permanent free tiers, no card."
       keywords={[
         "jobber alternative",
         "jobber vs wefixtrades",

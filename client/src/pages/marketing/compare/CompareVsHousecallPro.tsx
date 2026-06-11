@@ -31,7 +31,7 @@ export default function CompareVsHousecallPro() {
       competitorName="Housecall Pro"
       competitorPossessive="Housecall Pro's"
       pageTitle="WeFixTrades vs Housecall Pro: which is right for your trades business?"
-      pageDescription="Honest WeFixTrades vs Housecall Pro comparison. Pricing, AI voice + content, mobile app, and where each one wins for HVAC, plumbing, electrical. Free trial."
+      pageDescription="Honest WeFixTrades vs Housecall Pro comparison. Pricing, AI voice + content, mobile app, and where each one wins for HVAC, plumbing, electrical. Permanent free tiers."
       keywords={[
         "housecall pro alternative",
         "housecall pro vs wefixtrades",

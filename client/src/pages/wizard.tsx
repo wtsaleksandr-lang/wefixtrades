@@ -1,8 +1,9 @@
 // /wizard — Elfsight-clone editor shell (Wave H1).
 //
-// The new shell is the canonical builder. The legacy 5-step wizard is
-// preserved at /wizard/legacy (see pages/wizard-legacy.tsx) and will be
-// retired once H2-H7 finish the tab content.
+// The new shell is the canonical builder. The legacy 5-step wizard was
+// retired in the trial-truth sweep (its PublishStep advertised a 14-day
+// AI trial that contradicted the permanent free tier); /wizard/legacy now
+// redirects here.
 
 import WizardShell from '@/components/wizard/elfsight/WizardShell';
 import { PageMeta } from '@/components/seo/PageMeta';

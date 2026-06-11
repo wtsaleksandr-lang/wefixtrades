@@ -49,7 +49,6 @@ import RequirePaid from "@/components/portal/RequirePaid";
 
 // ── Wizard/calculator/audit family (already lazy pre-Wave-9) ───────────────
 const Wizard = lazy(() => import("@/pages/wizard"));
-const WizardLegacy = lazy(() => import("@/pages/wizard-legacy"));
 const Calculator = lazy(() => import("@/pages/calculator"));
 const FreeAudit = lazy(() => import("@/pages/marketing/FreeAudit"));
 const TradePromptsPage = lazy(() => import("@/pages/marketing/TradePromptsPage"));
@@ -761,14 +760,18 @@ function Router() {
       <Route path="/pay/:token" component={PayInvoicePage} />
       {/* Wave R3 — public shareable quote URL (snapshot pattern). */}
       <Route path="/q/:slug" component={QuoteSnapshotPage} />
-      <Route path="/wizard/legacy" component={WizardLegacy} />
+      {/* Trial-truth: the legacy 5-step wizard is retired. Nothing
+          customer-facing linked to it, and its PublishStep advertised +
+          activated a 14-day AI trial that contradicts the permanent free
+          tier. Old bookmarks land on the canonical builder. */}
+      <Route path="/wizard/legacy">{() => <Redirect to="/wizard" />}</Route>
       <Route path="/wizard" component={Wizard} />
       <Route path="/calculator" component={Calculator} />
       <Route path="/edit-calculator" component={EditCalculator} />
       <Route path="/leads" component={LeadsPage} />
       <Route path="/dashboard" component={Dashboard} />
       {/* Redirect legacy uppercase routes to canonical lowercase */}
-      <Route path="/Wizard/legacy">{() => <Redirect to="/wizard/legacy" />}</Route>
+      <Route path="/Wizard/legacy">{() => <Redirect to="/wizard" />}</Route>
       <Route path="/Wizard">{() => <Redirect to="/wizard" />}</Route>
       <Route path="/Calculator">{() => <Redirect to="/calculator" />}</Route>
       <Route path="/EditCalculator">{() => <Redirect to="/edit-calculator" />}</Route>

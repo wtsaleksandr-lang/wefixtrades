@@ -23,6 +23,7 @@ import {
   HelpCircle, X, TicketCheck, Sparkles,
 } from 'lucide-react';
 import UpgradeGate, { PlanBadge } from '@/components/dashboard/UpgradeGate';
+import { QUOTEQUICK, getTier, formatPrice } from '@shared/pricing';
 
 const p = platformTheme;
 
@@ -223,21 +224,16 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
   const { calculator, status, hosted_url, subdomain, custom_domain, custom_domain_status, stats, plan_tier } = data;
   const currentPlan = plan_tier || calculator?.plan_tier || "free";
 
-  // Trial expiry detection
-  const createdAt = calculator?.created_at ? new Date(calculator.created_at) : null;
-  const daysSinceCreation = createdAt ? Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-  const isTrialExpired = currentPlan === 'free' && daysSinceCreation >= 14 && status !== 'live';
-  const isTrialActive = currentPlan === 'free' && daysSinceCreation < 14;
-  const trialDaysLeft = isTrialActive ? Math.max(0, 14 - daysSinceCreation) : 0;
+  // Trial-truth: the free plan is permanent — no expiry detection, no
+  // countdown, no pause banner. Free calculators stay live forever.
 
   // Upgrade success detection
   const params = new URLSearchParams(window.location.search);
   const justUpgraded = params.get('upgraded') === '1';
 
-  // Checkout handler
+  // Checkout handler — Wave Q ladder (Free / Pro / Business).
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [billingAnnual, setBillingAnnual] = useState(false);
-  const startCheckout = async (plan: 'solo' | 'business') => {
+  const startCheckout = async (plan: 'pro' | 'business') => {
     setCheckoutLoading(plan);
     try {
       const res = await fetch('/api/calculators/checkout', {
@@ -247,7 +243,7 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
           calculator_id: calculator.id,
           token,
           plan,
-          billing: billingAnnual ? 'annual' : 'monthly',
+          billing: 'monthly',
         }),
       });
       const data = await res.json();
@@ -282,66 +278,6 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
         </div>
       )}
 
-      {/* Trial expired banner */}
-      {isTrialExpired && (
-        <div data-testid="banner-trial-expired" style={{
-          padding: '20px', borderRadius: p.radius.sm,
-          background: '#FEF2F2', border: '1px solid #FECACA',
-          marginBottom: 20,
-        }}>
-          <p style={{ fontSize: 15, fontWeight: 700, color: '#991B1B', margin: '0 0 4px' }}>
-            Your trial has ended and your calculator is paused.
-          </p>
-          <p style={{ fontSize: 13, color: '#B91C1C', margin: '0 0 14px', lineHeight: 1.5 }}>
-            Choose a plan to turn it back on instantly. Your leads and settings are still saved.
-          </p>
-          {/* Billing toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <button onClick={() => setBillingAnnual(false)} style={{
-              padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
-              fontSize: 12, fontWeight: 600,
-              background: !billingAnnual ? '#fff' : 'transparent',
-              color: !billingAnnual ? p.colors.heading : '#9B2C2C',
-              boxShadow: !billingAnnual ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            }}>Monthly</button>
-            <button onClick={() => setBillingAnnual(true)} style={{
-              padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
-              fontSize: 12, fontWeight: 600,
-              background: billingAnnual ? '#fff' : 'transparent',
-              color: billingAnnual ? p.colors.heading : '#9B2C2C',
-              boxShadow: billingAnnual ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            }}>Annual <span style={{ fontSize: 10, color: '#059669' }}>Save 20%</span></button>
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => startCheckout('solo')}
-              disabled={!!checkoutLoading}
-              style={{
-                padding: '10px 20px', borderRadius: 8, border: `1px solid ${p.colors.border}`,
-                background: '#fff', color: p.colors.heading, cursor: 'pointer',
-                fontSize: 13, fontWeight: 700, opacity: checkoutLoading ? 0.6 : 1,
-              }}
-            >
-              {checkoutLoading === 'solo' ? 'Redirecting...' : `Solo — $${billingAnnual ? 39 : 49}/mo`}
-            </button>
-            <button
-              onClick={() => startCheckout('business')}
-              disabled={!!checkoutLoading}
-              style={{
-                padding: '10px 20px', borderRadius: 8, border: 'none',
-                background: p.colors.accent, color: '#fff', cursor: 'pointer',
-                fontSize: 13, fontWeight: 700, opacity: checkoutLoading ? 0.6 : 1,
-              }}
-            >
-              {checkoutLoading === 'business' ? 'Redirecting...' : `Business — $${billingAnnual ? 79 : 99}/mo`}
-            </button>
-          </div>
-          <p style={{ fontSize: 11, color: '#9B2C2C', margin: '10px 0 0' }}>
-            No data was deleted. Reactivation is instant.
-          </p>
-        </div>
-      )}
-
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -349,23 +285,14 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
             <PlanBadge plan={currentPlan} />
           </div>
           <p style={{ ...p.typography.body, color: p.colors.muted }}>{calculator.trade_type}</p>
-          {isTrialActive && trialDaysLeft <= 7 && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6,
-              fontSize: 11, fontWeight: 700, color: '#D97706', textDecoration: 'none',
-              background: '#FFFBEB', border: '1px solid #FDE68A', padding: '3px 10px', borderRadius: 20,
-            }}>
-              <Clock size={12} /> {trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''} left in trial
-            </span>
-          )}
-          {currentPlan === 'free' && !isTrialExpired && trialDaysLeft > 7 && (
-            <button onClick={() => startCheckout('solo')} style={{
+          {currentPlan === 'free' && (
+            <button onClick={() => startCheckout('pro')} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6,
               fontSize: 11, fontWeight: 700, color: '#0d3cfc', textDecoration: 'none',
               background: '#EEF3FF', border: '1px solid #A7F3D0', padding: '3px 10px', borderRadius: 20,
               cursor: 'pointer',
             }}>
-              <Sparkles size={12} /> Upgrade — from $29/mo
+              <Sparkles size={12} /> Upgrade — from {formatPrice(getTier(QUOTEQUICK, 'Pro')!.price)}/mo
             </button>
           )}
         </div>

@@ -50,9 +50,9 @@ const GEN_MODEL = OPENAI_GPT_4O_MINI;
 /**
  * P2-gating — the calculator-authoring routes below (generate-pricing,
  * generate-advanced-calculator, generate-formula, quote-to-calculator) live
- * on the PUBLIC try-it wizard (`/wizard`, `/wizard/legacy` — both mounted
- * without an auth guard so an anonymous visitor can build a calculator to
- * trial the product; all wizard features are free). They are therefore kept
+ * on the PUBLIC try-it wizard (`/wizard` — mounted without an auth guard so
+ * an anonymous visitor can build a calculator and see the product working;
+ * all wizard features are free, permanently). They are therefore kept
  * public but every direct OpenAI call now runs through this wrapper, which:
  *   1. checks the per-surface kill switch + monthly budget cap BEFORE the
  *      call (so the global kill switch can actually stop them), and
@@ -923,9 +923,12 @@ Return ONLY the JSON object.`;
       if (subscriptionStatus === "trial" && aiEmployee.trial_started_at) {
         const trialDays = (Date.now() - aiEmployee.trial_started_at) / (1000 * 60 * 60 * 24);
         if (trialDays > 14) {
+          // Wire code keeps its legacy value — cached embed-widget bundles
+          // in the wild still match on "trial_expired". The human-readable
+          // message is the honest Pro-preview phrasing.
           return res.status(403).json({
             error: "trial_expired",
-            message: "AI Assistant paused — upgrade to continue",
+            message: "The AI assistant's Pro preview has ended — upgrade to Pro to turn it back on",
           });
         }
       } else if (subscriptionStatus === "inactive") {

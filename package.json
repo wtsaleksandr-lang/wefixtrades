@@ -31,6 +31,7 @@
     "check:drizzle-kit-is-dev-dep": "node scripts/check-drizzle-kit-is-dev-dep.mjs",
     "check:no-silent-catch": "node scripts/check-no-silent-catch.mjs",
     "check:pricing-truth": "tsx server/services/knowledgeBase.test.ts",
+    "check:trial-truth": "tsx server/jobs/trialLifecycleWorker.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",
