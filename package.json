@@ -41,6 +41,7 @@
     "check:contentflow-reference-replication": "tsx server/services/contentflow/referenceReplication.test.ts",
     "check:contentflow-imagen4": "tsx server/services/contentflow/imageOrchestrator.imagen4.test.ts",
     "check:contentflow-flux2": "tsx server/services/contentflow/imageOrchestrator.flux2.test.ts",
+    "check:contentflow-video-storage": "tsx server/storage/contentflowVideo.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",

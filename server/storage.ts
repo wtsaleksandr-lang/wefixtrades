@@ -89,6 +89,7 @@ type User, type InsertUser,
   type ContentApproval, type InsertContentApproval,
   type ContentAsset, type InsertContentAsset,
   type ContentflowSettings,
+  type VideoProject, type VideoScene,
   // Routing Events
   routingEvents,
   type RoutingEvent, type InsertRoutingEvent,
@@ -120,6 +121,7 @@ import * as productsImpl from "./storage/products";
 import * as tradelineImpl from "./storage/tradeline";
 import * as rankflowImpl from "./storage/rankflow";
 import * as contentflowImpl from "./storage/contentflow";
+import * as contentflowVideoImpl from "./storage/contentflowVideo";
 import * as reputationImpl from "./storage/reputation";
 import * as analyticsImpl from "./storage/analytics";
 import * as fulfillmentImpl from "./storage/fulfillment";
@@ -2348,7 +2350,7 @@ export class DatabaseStorage implements IStorage {
   listContentDrafts(opts: { client_id?: number; status?: string; surface?: string; kind?: string; limit?: number; offset?: number } = {}): Promise<ContentDraft[]> { return contentflowImpl.listContentDrafts(opts); }
   updateContentDraft(id: number, updates: Partial<InsertContentDraft>): Promise<ContentDraft | undefined> { return contentflowImpl.updateContentDraft(id, updates); }
   getContentflowSettings(): Promise<ContentflowSettings> { return contentflowImpl.getContentflowSettings(); }
-  updateContentflowSettings(patch: { kill_switch?: boolean; text_tier?: string; disabled_channels?: string[]; monthly_spend_cap_usd?: number | null }, updatedBy?: number): Promise<ContentflowSettings> { return contentflowImpl.updateContentflowSettings(patch, updatedBy); }
+  updateContentflowSettings(patch: { kill_switch?: boolean; text_tier?: string; disabled_channels?: string[]; monthly_spend_cap_usd?: number | null; max_video_cost_usd?: number | null }, updatedBy?: number): Promise<ContentflowSettings> { return contentflowImpl.updateContentflowSettings(patch, updatedBy); }
   getContentflowMonthlySpendMicroUsd(): Promise<number> { return contentflowImpl.getContentflowMonthlySpendMicroUsd(); }
   addDraftGenerationCost(draftId: number, microUsd: number): Promise<void> { return contentflowImpl.addDraftGenerationCost(draftId, microUsd); }
   findQueuedWordpressDrafts(opts: { limit?: number; now?: Date } = {}): Promise<ContentDraft[]> { return contentflowImpl.findQueuedWordpressDrafts(opts); }
@@ -2361,6 +2363,26 @@ export class DatabaseStorage implements IStorage {
   getContentAssetById(id: number): Promise<ContentAsset | undefined> { return contentflowImpl.getContentAssetById(id); }
   listContentAssets(clientId: number): Promise<ContentAsset[]> { return contentflowImpl.listContentAssets(clientId); }
   deleteContentDraftCascade(draftId: number, postId?: number): Promise<{ deleted_draft: boolean; deleted_approvals: number; deleted_post: boolean }> { return contentflowImpl.deleteContentDraftCascade(draftId, postId); }
+
+  /* ═══════════════════════════════════════════
+     ContentFlow video pipeline (impl in ./storage/contentflowVideo.ts)
+     ═══════════════════════════════════════════ */
+
+  createVideoProject(input: contentflowVideoImpl.CreateVideoProjectInput): Promise<contentflowVideoImpl.VideoProjectWithScenes & { created: boolean }> { return contentflowVideoImpl.createVideoProject(input); }
+  claimPlannedVideoScenes(limit: number, lockedBy: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<VideoScene[]> { return contentflowVideoImpl.claimPlannedScenes(limit, lockedBy, opts); }
+  claimStitchableVideoProject(lockedBy: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<VideoProject | null> { return contentflowVideoImpl.claimStitchableProject(lockedBy, opts); }
+  recoverStaleVideoClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<{ recovered_scene_claims: number; recovered_lost_submits: number; recovered_stitch_claims: number }> { return contentflowVideoImpl.recoverStaleVideoClaims(opts); }
+  recordVideoSceneProviderRequest(sceneId: number, provider: string, requestId: string): Promise<VideoScene | undefined> { return contentflowVideoImpl.recordSceneProviderRequest(sceneId, provider, requestId); }
+  markVideoSceneRendering(sceneId: number, fields: { provider: string; operationRef: string; requestId?: string }): Promise<VideoScene | undefined> { return contentflowVideoImpl.markSceneRendering(sceneId, fields); }
+  markVideoSceneRendered(sceneId: number, fields: { videoUrl: string; costMicroUsd?: number }): Promise<VideoScene | undefined> { return contentflowVideoImpl.markSceneRendered(sceneId, fields); }
+  markVideoSceneFailed(sceneId: number, fields: { error: string; retryable?: boolean }, opts: { now?: Date; attemptsCeiling?: number; backoffBaseSec?: number } = {}): Promise<VideoScene | undefined> { return contentflowVideoImpl.markSceneFailed(sceneId, fields, opts); }
+  advanceVideoProjectIfComplete(projectId: number): Promise<VideoProject | null> { return contentflowVideoImpl.advanceProjectIfComplete(projectId); }
+  addVideoProjectCost(projectId: number, category: contentflowVideoImpl.VideoCostCategory, microUsd: number): Promise<VideoProject | undefined> { return contentflowVideoImpl.addProjectCost(projectId, category, microUsd); }
+  cancelVideoProject(projectId: number, opts: { clientId?: number } = {}): Promise<VideoProject | null> { return contentflowVideoImpl.cancelVideoProject(projectId, opts); }
+  retryVideoScene(projectId: number, sceneIndex: number, opts: { clientId?: number } = {}): Promise<VideoScene | null> { return contentflowVideoImpl.retryScene(projectId, sceneIndex, opts); }
+  listVideoProjectsForClient(clientId: number, opts: { limit?: number; offset?: number } = {}): Promise<VideoProject[]> { return contentflowVideoImpl.listProjectsForClient(clientId, opts); }
+  getVideoProjectWithScenes(projectId: number, opts: { clientId?: number } = {}): Promise<contentflowVideoImpl.VideoProjectWithScenes | undefined> { return contentflowVideoImpl.getProjectWithScenes(projectId, opts); }
+  getAdminVideoQueue(opts: { limit?: number } = {}): Promise<{ counts: Record<string, number>; projects: contentflowVideoImpl.AdminVideoQueueProject[] }> { return contentflowVideoImpl.getAdminVideoQueue(opts); }
 
   // ─── Routing Events (Phase 1) ───
 

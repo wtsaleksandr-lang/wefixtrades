@@ -41,6 +41,8 @@ jobs:
         run: npm run check:contentflow-imagen4
       - name: ContentFlow FLUX.2 pro guard (fal auth/body shape, MP-based cost, 4MP clamp, graceful skip without FAL_KEY)
         run: npm run check:contentflow-flux2
+      - name: ContentFlow video-storage guard (SKIP LOCKED claims, stale recovery, dual-write cost invariant, idempotent create)
+        run: npm run check:contentflow-video-storage
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
