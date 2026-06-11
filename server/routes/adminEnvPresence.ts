@@ -50,6 +50,13 @@ const CATEGORIES = {
     "REPLICATE_API_TOKEN",
     "MAILERLITE_API_KEY",
   ],
+  // Vertex AI (ContentFlow image/video orchestrators — Imagen 4 + Veo).
+  // Auth is ADC / service-account JSON, NOT an API key.
+  google_vertex_ai: [
+    "GOOGLE_IMAGEN_PROJECT_ID",
+    "GOOGLE_VEO_PROJECT_ID",
+    "GOOGLE_APPLICATION_CREDENTIALS_JSON",
+  ],
   // Lane OC — outreach platform capability flags. The Campaigns page reads
   // these to enable/disable platform selectors (e.g. Smartlead stays disabled
   // until SMARTLEAD_API_KEY is actually present in the running container).

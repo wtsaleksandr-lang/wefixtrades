@@ -14,6 +14,8 @@
  *   4. Together AI FLUX schnell — free tier, env TOGETHER_API_KEY
  *   5. Replicate SDXL           — free signup credits, env REPLICATE_API_TOKEN
  *   6. DALL-E 3 (OpenAI)        — paid fallback only, env OPENAI_API_KEY
+ *   7. Google Imagen 4          — premium photoreal (Vertex AI / ADC auth);
+ *                                 leads PHOTOREAL_PROVIDER_ORDER, $0.04-0.06/img
  *
  * Detector pre-check: stubbed via callDetector(). Sightengine wiring is
  * scaffolded but disabled until SIGHTENGINE_USER + SIGHTENGINE_SECRET are
@@ -45,7 +47,8 @@ export type ImageProviderId =
   | "stability"
   | "together_flux"
   | "replicate_sdxl"
-  | "dalle";
+  | "dalle"
+  | "imagen4";
 
 export interface ImageProvider {
   id: ImageProviderId;
@@ -55,6 +58,9 @@ export interface ImageProvider {
   detectorPassScore: number; // historical avg ai-detector pass rate (0-100, higher = more likely to pass as human)
   enabled: boolean;
   envVarRequired?: string;
+  /** Provider is available when ANY of these env vars is present (used by
+   *  providers with aliased config, e.g. imagen4's project-id envs). */
+  envVarAnyOf?: readonly string[];
 }
 
 export interface ImageGenOpts {
@@ -168,12 +174,11 @@ export const IMAGE_PROVIDERS: readonly ImageProvider[] = [
   },
 
   /* ─────────────────────────────────────────────────────────────────
-   * FUTURE PHOTOREAL PROVIDERS — research-supplied model IDs plug in HERE.
+   * PHOTOREAL PROVIDERS — premium photoreal models plug in HERE.
    *
-   * A separate research task supplies the exact Flux 2 / Imagen 4 model
-   * identifiers + endpoints. To add one:
-   *   1. Append an ImageProvider entry below (id: "flux2_pro" |
-   *      "imagen4_ultra"), with envVarRequired set to the new key.
+   * Imagen 4 (below) is the first one wired. To add the next (Flux 2):
+   *   1. Append an ImageProvider entry below (id: "flux2_pro"), with
+   *      envVarRequired set to the new key (fal.ai).
    *   2. Add the id to the ImageProviderId union above.
    *   3. Implement a call<Provider>() function and wire it into
    *      callProvider()'s switch (see ~callProvider, "PHOTOREAL DISPATCH"
@@ -181,26 +186,40 @@ export const IMAGE_PROVIDERS: readonly ImageProvider[] = [
    *   4. Add the id to PHOTOREAL_PROVIDER_ORDER below so realistic mode
    *      prefers it.
    * Nothing else changes — the gate/cost/persist pipeline is provider-
-   * agnostic. Until those IDs land, realistic mode prefers the highest-
-   * photorealism providers already wired (stability SD3 → dalle).
+   * agnostic.
    * ───────────────────────────────────────────────────────────────── */
+  {
+    id: "imagen4",
+    name: "Google Imagen 4 (Vertex AI)",
+    /* $0.04/img standard (imagen-4.0-generate-001). Photoreal requests use
+     * Ultra (imagen-4.0-ultra-generate-001) at $0.06/img — callImagen4
+     * reports the actual per-call cost via ProviderResult.costUsd, which
+     * overrides this registry figure. NOTE: every Imagen output carries a
+     * non-optional SynthID watermark (invisible, Google-detectable). */
+    costPerImage: 0.04,
+    qualityScore: 92,        // standout: on-image TEXT rendering
+    detectorPassScore: 55,
+    enabled: true,
+    /* Vertex AI auth = ADC / service-account JSON, NOT an API key. The
+     * provider is considered available when a project id is configured;
+     * credential acquisition degrades gracefully inside callImagen4. */
+    envVarAnyOf: ["GOOGLE_IMAGEN_PROJECT_ID", "GOOGLE_VEO_PROJECT_ID"],
+  },
 ] as const;
 
 /**
  * Realistic-mode provider preference. When ImageGenOpts.photoreal is set,
  * the orchestrator tries these ids (in order, if available) BEFORE the
- * normal cost-optimised rotation. Update this list when the research-
- * supplied photoreal models (flux2_pro / imagen4_ultra) are added to
- * IMAGE_PROVIDERS above — put the new ids at the FRONT so they become the
- * realistic-mode default by config, no further code change required.
+ * normal cost-optimised rotation.
  *
- * Today (pre-research): the most photorealistic providers already wired
- * are Stability SD3 and DALL-E 3, so they lead. Pollinations FLUX is a
- * free photoreal-capable backstop.
+ * Imagen 4 leads — it is the photoreal default until Flux 2 lands. When
+ * the fal.ai Flux 2 provider is wired, drop its id at the FRONT of this
+ * list and it becomes the realistic-mode default by config, no further
+ * code change required.
  */
 export const PHOTOREAL_PROVIDER_ORDER: readonly ImageProviderId[] = [
-  // "flux2_pro",     // ← research model ID drops in here (front of list)
-  // "imagen4_ultra", // ← research model ID drops in here
+  // TODO(flux2): fal.ai Flux 2 provider id goes HERE (front of list) when wired.
+  "imagen4",
   "stability",
   "dalle",
   "pollinations",
@@ -220,6 +239,7 @@ function isOrchestratorEnabled(): boolean {
 function isProviderAvailable(p: ImageProvider): boolean {
   if (!p.enabled) return false;
   if (p.envVarRequired && !process.env[p.envVarRequired]) return false;
+  if (p.envVarAnyOf && !p.envVarAnyOf.some((name) => !!process.env[name])) return false;
   return true;
 }
 
@@ -266,6 +286,10 @@ interface ProviderResult {
   ok: boolean;
   buffer?: Buffer;
   error?: string;
+  /** Actual USD cost of THIS call, when it differs per-call from the
+   *  registry costPerImage (e.g. imagen4 standard vs ultra). When set, it
+   *  overrides the registry figure in the orchestrator's returned cost. */
+  costUsd?: number;
 }
 
 async function callPollinations(prompt: string, opts: ImageGenOpts): Promise<ProviderResult> {
@@ -488,6 +512,160 @@ async function callDalle(prompt: string, opts: ImageGenOpts): Promise<ProviderRe
   }
 }
 
+/* ─── Google Imagen 4 (Vertex AI) ──────────────────────────────────── */
+
+/** Imagen 4 model IDs + per-image cost, expressed in micro-USD to match the
+ *  generation_cost_micro_usd convention used by draft cost tracking
+ *  (storage.addDraftGenerationCost). $0.04 = 40,000 µUSD; $0.06 = 60,000. */
+const IMAGEN4_MODEL_STANDARD = "imagen-4.0-generate-001";
+const IMAGEN4_MODEL_ULTRA = "imagen-4.0-ultra-generate-001";
+export const IMAGEN4_COST_MICRO_USD: Readonly<Record<string, number>> = {
+  [IMAGEN4_MODEL_STANDARD]: 40_000, // $0.04/img
+  [IMAGEN4_MODEL_ULTRA]: 60_000,    // $0.06/img
+};
+
+/** Aspect ratios Imagen 4 supports, with their numeric width/height ratio
+ *  and the pixel dimensions a "1K" sample produces for that ratio. */
+const IMAGEN4_ASPECTS: ReadonlyArray<{ id: string; ratio: number; oneK: { w: number; h: number } }> = [
+  { id: "1:1", ratio: 1, oneK: { w: 1024, h: 1024 } },
+  { id: "3:4", ratio: 3 / 4, oneK: { w: 896, h: 1280 } },
+  { id: "4:3", ratio: 4 / 3, oneK: { w: 1280, h: 896 } },
+  { id: "16:9", ratio: 16 / 9, oneK: { w: 1408, h: 768 } },
+  { id: "9:16", ratio: 9 / 16, oneK: { w: 768, h: 1408 } },
+];
+
+/**
+ * Map requested pixel dimensions onto Imagen 4's fixed parameter space:
+ * nearest supported aspect ratio (log-scale distance, so 2:1 is as far
+ * from 1:1 as 1:2) + 1K/2K sample size ("2K" only when the request
+ * exceeds what a 1K sample of that aspect delivers). Exported for unit
+ * tests.
+ */
+export function mapDimsToImagen4Params(
+  width: number,
+  height: number,
+): { aspectRatio: string; sampleImageSize: "1K" | "2K" } {
+  const ratio = width > 0 && height > 0 ? width / height : 1;
+  let best = IMAGEN4_ASPECTS[0];
+  let bestDist = Infinity;
+  for (const a of IMAGEN4_ASPECTS) {
+    const dist = Math.abs(Math.log(ratio) - Math.log(a.ratio));
+    if (dist < bestDist) { best = a; bestDist = dist; }
+  }
+  const sampleImageSize: "1K" | "2K" =
+    width > best.oneK.w || height > best.oneK.h ? "2K" : "1K";
+  return { aspectRatio: best.id, sampleImageSize };
+}
+
+/** Test seam — lets the unit test inject a fake token acquirer so the
+ *  request/response mapping can be exercised without live GCP auth. */
+export interface Imagen4Deps {
+  getAccessToken?: () => Promise<string | null>;
+}
+
+/**
+ * Google Imagen 4 via the Vertex AI REST predict endpoint.
+ *
+ * Auth = Application Default Credentials / service-account JSON
+ * (GOOGLE_APPLICATION_CREDENTIALS_JSON), NOT an API key — mirrors the
+ * callGoogleVeo() pattern in videoOrchestrator.ts. Skips gracefully (clear
+ * log, ok:false) when project/creds are absent so the rotation falls
+ * through to the next provider.
+ *
+ * Model: imagen-4.0-generate-001 by default; imagen-4.0-ultra-generate-001
+ * when the request is photoreal. NOTE: every Imagen 4 output carries a
+ * non-optional SynthID watermark (invisible, Google-detectable) — there is
+ * no API switch to disable it. Imagen's standout capability is on-image
+ * TEXT rendering.
+ */
+export async function callImagen4(
+  prompt: string,
+  opts: ImageGenOpts,
+  deps?: Imagen4Deps,
+): Promise<ProviderResult> {
+  try {
+    const projectId = process.env.GOOGLE_IMAGEN_PROJECT_ID || process.env.GOOGLE_VEO_PROJECT_ID;
+    if (!projectId) {
+      logger.info("imagen4: skipped — GOOGLE_IMAGEN_PROJECT_ID / GOOGLE_VEO_PROJECT_ID not set");
+      return { ok: false, error: "imagen4: GOOGLE_IMAGEN_PROJECT_ID / GOOGLE_VEO_PROJECT_ID missing" };
+    }
+    const region = process.env.GOOGLE_IMAGEN_REGION || "us-central1";
+
+    let token: string | null = null;
+    if (deps?.getAccessToken) {
+      token = await deps.getAccessToken();
+    } else {
+      /* Vertex AI auth uses ADC via GOOGLE_APPLICATION_CREDENTIALS_JSON.
+       * Lazy-import google-auth-library so we don't pay the cost when
+       * imagen4 isn't in the rotation — same pattern as callGoogleVeo(). */
+      let GoogleAuth: any;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        GoogleAuth = require("google-auth-library").GoogleAuth;
+      } catch {
+        logger.info("imagen4: skipped — google-auth-library not installed");
+        return { ok: false, error: "imagen4: google-auth-library not installed" };
+      }
+      const credJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+      const auth = credJson
+        ? new GoogleAuth({ credentials: JSON.parse(credJson), scopes: ["https://www.googleapis.com/auth/cloud-platform"] })
+        : new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] });
+      try {
+        const client = await auth.getClient();
+        const tokenResp = await client.getAccessToken();
+        token = typeof tokenResp === "string" ? tokenResp : tokenResp?.token ?? null;
+      } catch (authErr: any) {
+        logger.info(`imagen4: skipped — credentials unavailable (${authErr?.message || authErr})`);
+        return { ok: false, error: "imagen4: credentials unavailable" };
+      }
+    }
+    if (!token) {
+      logger.info("imagen4: skipped — failed to acquire access token");
+      return { ok: false, error: "imagen4: failed to acquire access token" };
+    }
+
+    const model = opts.photoreal ? IMAGEN4_MODEL_ULTRA : IMAGEN4_MODEL_STANDARD;
+    /* Imagen takes aspectRatio + sampleImageSize, not raw pixels — map from
+     * the ORIGINAL requested dimensions (parseDims clamps to 1536 which
+     * would distort wide ratios like 1920x1080 → 4:3 instead of 16:9). */
+    const { width, height } =
+      opts.dimensions && opts.dimensions.width > 0 && opts.dimensions.height > 0
+        ? opts.dimensions
+        : parseDims(opts);
+    const { aspectRatio, sampleImageSize } = mapDimsToImagen4Params(width, height);
+
+    const endpoint =
+      `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}` +
+      `/locations/${region}/publishers/google/models/${model}:predict`;
+    const res = await fetchWithTimeout(
+      endpoint,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instances: [{ prompt }],
+          parameters: { sampleCount: 1, aspectRatio, sampleImageSize },
+        }),
+      },
+      opts.timeoutMs ?? 60_000,
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `imagen4 ${res.status}: ${text.slice(0, 200)}` };
+    }
+    const json = await res.json().catch(() => ({})) as any; // body-parse fallback — error surfaces below
+    const b64 = json?.predictions?.[0]?.bytesBase64Encoded;
+    if (!b64 || typeof b64 !== "string") {
+      return { ok: false, error: "imagen4: no image in response" };
+    }
+    const buf = Buffer.from(b64, "base64");
+    if (buf.length < 1024) return { ok: false, error: "imagen4: response too small" };
+    return { ok: true, buffer: buf, costUsd: IMAGEN4_COST_MICRO_USD[model] / 1_000_000 };
+  } catch (err: any) {
+    return { ok: false, error: `imagen4: ${err?.message || err}` };
+  }
+}
+
 /** Dispatch by provider id. */
 async function callProvider(
   id: ImageProviderId,
@@ -502,10 +680,11 @@ async function callProvider(
     case "replicate_sdxl":   return callReplicateSDXL(prompt, opts);
     case "dalle":            return callDalle(prompt, opts);
     /* ── PHOTOREAL DISPATCH ──────────────────────────────────────────
-     * Future research-supplied photoreal providers (flux2_pro,
-     * imagen4_ultra) add their `case "<id>": return call<Provider>(...)`
-     * lines here. Keep the ImageProviderId union + IMAGE_PROVIDERS +
+     * Premium photoreal providers dispatch here. TODO(flux2): add
+     * `case "flux2_pro": return callFlux2(...)` when the fal.ai provider
+     * is wired. Keep the ImageProviderId union + IMAGE_PROVIDERS +
      * PHOTOREAL_PROVIDER_ORDER in sync (see registry marker above). */
+    case "imagen4":          return callImagen4(prompt, opts);
   }
 }
 
@@ -623,16 +802,16 @@ export async function generateImageViaOrchestrator(
       callProvider(pb.id, prompt, opts),
     ]);
 
-    const winners: Array<{ provider: ImageProvider; buffer: Buffer; score: number }> = [];
+    const winners: Array<{ provider: ImageProvider; buffer: Buffer; score: number; costUsd: number }> = [];
     if (ra.ok && ra.buffer) {
       const score = opts.skipDetector ? 0.5 : await callDetector(ra.buffer);
-      winners.push({ provider: pa, buffer: ra.buffer, score });
+      winners.push({ provider: pa, buffer: ra.buffer, score, costUsd: ra.costUsd ?? pa.costPerImage });
     } else {
       logger.warn(`multi candidate A failed: ${ra.error}`);
     }
     if (rb.ok && rb.buffer) {
       const score = opts.skipDetector ? 0.5 : await callDetector(rb.buffer);
-      winners.push({ provider: pb, buffer: rb.buffer, score });
+      winners.push({ provider: pb, buffer: rb.buffer, score, costUsd: rb.costUsd ?? pb.costPerImage });
     } else {
       logger.warn(`multi candidate B failed: ${rb.error}`);
     }
@@ -649,7 +828,7 @@ export async function generateImageViaOrchestrator(
         imageBuffer: best.buffer,
         providerUsed: best.provider.id,
         detectorScore: best.score,
-        cost: best.provider.costPerImage,
+        cost: best.costUsd,
         candidates_tried: winners.length,
         fallback_chain: chain,
       };
@@ -678,7 +857,7 @@ export async function generateImageViaOrchestrator(
       imageBuffer: result.buffer,
       providerUsed: provider.id,
       detectorScore: score,
-      cost: provider.costPerImage,
+      cost: result.costUsd ?? provider.costPerImage,
       candidates_tried: 1,
       fallback_chain: chain,
     };
