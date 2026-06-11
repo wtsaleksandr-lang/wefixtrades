@@ -1,4 +1,7 @@
--- 0080_admin_2fa_recovery_codes.sql
+-- 0081_admin_2fa_recovery_codes.sql
+-- (renumbered from 0080 — main took 0080_rankflow_ranking_provenance.sql
+--  first; this file had not been applied anywhere, so the rename is safe:
+--  the boot migrator ledgers by full filename)
 --
 -- Lane C — mandatory admin 2FA + recovery codes.
 --
