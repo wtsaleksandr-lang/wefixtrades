@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { TemplatePreview } from "@/components/outbound/TemplatePreview";
 import { useCopilotForm } from "@/context/CopilotFormContext";
+import { humanizeBlockCode } from "./outboundUiHelpers";
 
 /* ─── Types ─── */
 interface ProspectEnrichment {
@@ -37,6 +38,11 @@ interface ProspectEnrichment {
   ai_first_line: string | null;
   ai_offer_angle: string | null;
   ai_cta_variant: string | null;
+  // Artifact-first outreach (Lane OC) — served by the existing prospects
+  // endpoint (it returns the full enrichment row).
+  artifact_url: string | null;
+  artifact_score: number | null;
+  artifact_viewed_at: string | null;
 }
 
 interface Prospect {
@@ -99,6 +105,7 @@ const STATUS_COLORS: Record<string, string> = {
   campaign_queued: "bg-brand-blue-100 text-brand-blue-700",
   in_outreach: "bg-brand-blue-100 text-brand-blue-700",
   replied: "bg-amber-100 text-amber-700",
+  converted: "bg-green-200 text-green-800",
   bounced: "bg-orange-100 text-orange-700",
   unsubscribed: "bg-red-100 text-red-600",
   opted_out: "bg-red-100 text-red-600",
@@ -337,6 +344,64 @@ function CsvUploadDialog({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
+/* ─── Per-prospect consent-block history (Lane OC) ───
+   Lane OB logs every consent-gate block to prospect_events
+   (event_type='blocked_consent', metadata.code). The existing
+   GET /prospects/:id already returns those events — surfaced here, in the
+   review dialog, because this is where the operator decides what to do
+   with a held-back prospect. */
+interface ProspectEventRow {
+  id: number;
+  event_type: string;
+  summary: string | null;
+  metadata: { code?: string; campaign_id?: number } | null;
+  created_at: string;
+}
+
+function BlockedHistory({ prospectId, enabled }: { prospectId: number; enabled: boolean }) {
+  const { data: blocks = [] } = useQuery<ProspectEventRow[]>({
+    queryKey: ["/api/admin/outbound/prospects", prospectId, "blocked-events"],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/outbound/prospects/${prospectId}`, { credentials: "include" });
+      if (!res.ok) throw new Error(`prospect detail failed (${res.status})`);
+      const json = await res.json();
+      return ((json.events ?? []) as ProspectEventRow[])
+        .filter((e) => e.event_type === "blocked_consent")
+        .slice(0, 5);
+    },
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  if (blocks.length === 0) return null;
+  return (
+    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg" data-testid="prospect-blocked-history">
+      <div className="flex items-center gap-1.5">
+        {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="w-3 h-3 text-amber-700/70 cursor-default shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[280px] text-xs">
+            The consent gate blocked this prospect from outreach — most recent reasons below. Approving here records a human review, which lets medium/low-confidence contacts pass the gate (expired or missing CASL consent still blocks).
+          </TooltipContent>
+        </Tooltip>
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+        <p className="text-xs font-medium text-amber-700">Held back by the consent gate</p>
+      </div>
+      <ul className="mt-1.5 space-y-1">
+        {blocks.map((b) => (
+          <li key={b.id} className="text-[11px] text-amber-700 flex items-baseline gap-1.5">
+            <span className="font-semibold shrink-0">{humanizeBlockCode(b.metadata?.code)}</span>
+            <span className="text-amber-700/70">{new Date(b.created_at).toLocaleDateString()}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /* ─── Review Dialog ─── */
 function ReviewDialog({
   prospect,
@@ -375,6 +440,8 @@ function ReviewDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Review: {prospect.business_name}</DialogTitle></DialogHeader>
         <div className="space-y-3">
+          {/* Why the consent gate held this prospect back (renders only when blocked) */}
+          <BlockedHistory prospectId={prospect.id} enabled={open} />
           <div>
             <label className="text-xs font-medium text-muted-foreground">Action</label>
             <Select value={action} onValueChange={(v) => setAction(v as typeof action)}>
@@ -668,6 +735,7 @@ export default function ProspectsPage() {
               <SelectItem value="campaign_queued">Campaign Queued</SelectItem>
               <SelectItem value="in_outreach">In Outreach</SelectItem>
               <SelectItem value="replied">Replied</SelectItem>
+              <SelectItem value="converted">Converted</SelectItem>
               <SelectItem value="bounced">Bounced</SelectItem>
               <SelectItem value="unsubscribed">Unsubscribed</SelectItem>
               <SelectItem value="opted_out">Opted Out</SelectItem>
@@ -732,6 +800,18 @@ export default function ProspectsPage() {
                     </Tooltip>
                   </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="px-3 py-2.5 text-center text-xs font-medium text-muted-foreground hidden lg:table-cell">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-0.5 cursor-default">
+                          Artifact <HelpCircle className="w-3 h-3 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[260px] text-xs">
+                        The personalized audit report generated for this prospect's business. "Viewed" means the prospect opened their report — a strong buy signal worth a fast follow-up.
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">AI Notes</th>
                   <th className="px-3 py-2.5 text-right text-xs font-medium text-muted-foreground">Actions</th>
                 </tr>
@@ -789,6 +869,37 @@ export default function ProspectsPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       <StatusBadge status={p.status} />
+                    </td>
+                    <td className="px-3 py-2.5 text-center hidden lg:table-cell">
+                      {e?.artifact_url ? (
+                        <div className="inline-flex flex-col items-center gap-0.5">
+                          <a
+                            href={e.artifact_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-brand-blue-600 hover:underline"
+                            title="Open audit report"
+                            data-testid={`prospect-artifact-link-${p.id}`}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            {e.artifact_score != null ? `${e.artifact_score}/100` : "Report"}
+                          </a>
+                          {e.artifact_viewed_at && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 cursor-default">
+                                  Viewed <CheckCircle className="w-3 h-3" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[220px] text-xs">
+                                Prospect opened their report {new Date(e.artifact_viewed_at).toLocaleString()} — buy signal, follow up fast.
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/70">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 max-w-[220px]">
                       {e?.ai_notes ? (

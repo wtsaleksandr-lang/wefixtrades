@@ -43,8 +43,8 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 /** Random delay between 1 000 ms and 3 000 ms between API calls */
 const apiDelay = () => sleep(1000 + Math.random() * 2000);
 
-/** Start-of-today UTC as a Date */
-function startOfDayUtc(): Date {
+/** Start-of-today UTC as a Date. Exported for the budget read API (Lane OC). */
+export function startOfDayUtc(): Date {
   const d = new Date();
   d.setUTCHours(0, 0, 0, 0);
   return d;
@@ -88,8 +88,10 @@ async function countSyncedSince(campaignId: number, since: Date): Promise<number
  * Dry-run pushes neither count toward the cap (they log `dry_run_push`)
  * nor consume budget. */
 
-/** Count REAL pushes across ALL campaigns since `since`. */
-async function countGlobalSyncedSince(since: Date): Promise<number> {
+/** Count REAL pushes across ALL campaigns since `since`.
+ *  Exported for the budget read API (Lane OC) so the dashboard's
+ *  "sent today" uses the EXACT same event filter the enforcement does. */
+export async function countGlobalSyncedSince(since: Date): Promise<number> {
   const rows = await db
     .select({ c: sql<number>`count(*)` })
     .from(prospectEvents)

@@ -50,6 +50,13 @@ const CATEGORIES = {
     "REPLICATE_API_TOKEN",
     "MAILERLITE_API_KEY",
   ],
+  // Lane OC — outreach platform capability flags. The Campaigns page reads
+  // these to enable/disable platform selectors (e.g. Smartlead stays disabled
+  // until SMARTLEAD_API_KEY is actually present in the running container).
+  outreach_platforms: [
+    "INSTANTLY_API_KEY",
+    "SMARTLEAD_API_KEY",
+  ],
   existing_critical: [
     "STRIPE_SECRET_KEY",
     "DATABASE_URL",

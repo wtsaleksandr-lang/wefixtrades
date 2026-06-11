@@ -179,6 +179,7 @@ const ProspectsPage = lazy(() => import("@/pages/admin/outbound/ProspectsPage"))
 const CampaignsPage = lazy(() => import("@/pages/admin/outbound/CampaignsPage"));
 const PipelinePage = lazy(() => import("@/pages/admin/outbound/PipelinePage"));
 const SequencesPage = lazy(() => import("@/pages/admin/outbound/SequencesPage"));
+const SendingPage = lazy(() => import("@/pages/admin/outbound/SendingPage"));
 const SocialSyncOpsPage = lazy(() => import("@/pages/admin/SocialSyncOpsPage"));
 const ContentFlowQueuePage = lazy(() => import("@/pages/admin/ContentFlowQueuePage"));
 const SalesPipelinePage = lazy(() => import("@/pages/admin/SalesPipelinePage"));
@@ -465,6 +466,7 @@ function Router() {
       <Route path="/admin/outbound/prospects">{() => <RequirePortal><ProspectsPage /></RequirePortal>}</Route>
       <Route path="/admin/outbound/campaigns">{() => <RequirePortal><CampaignsPage /></RequirePortal>}</Route>
       <Route path="/admin/outbound/sequences">{() => <RequirePortal><SequencesPage /></RequirePortal>}</Route>
+      <Route path="/admin/outbound/sending">{() => <RequirePortal><SendingPage /></RequirePortal>}</Route>
       <Route path="/admin/outbound/pipeline">{() => <RequirePortal><PipelinePage /></RequirePortal>}</Route>
       <Route path="/admin/outbound">{() => <Redirect to="/admin/outbound/prospects" />}</Route>
 
