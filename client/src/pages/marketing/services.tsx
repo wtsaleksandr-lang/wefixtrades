@@ -288,7 +288,9 @@ export default function ServicesPage() {
       id: "website",
       img: sitelaunchIcon,
       title: "SiteLaunch",
-      desc: "Professional trade website built from scratch with QuoteQuick embed, mobile & speed optimization. Includes 14-day free trial.",
+      // Wave 11D D3 — 14-day TradeLine + QuoteQuick trial bonus DROPPED;
+      // SiteLaunch sells as the standalone one-time build (shared/pricing.ts).
+      desc: "Professional trade website built from scratch with QuoteQuick embed, mobile & speed optimization.",
       from: `${formatPrice(SITELAUNCH.tiers[0].price)} one-time`,
       testid: "service-website",
       btnTestid: "button-request-info-website",

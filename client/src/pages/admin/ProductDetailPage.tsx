@@ -640,7 +640,7 @@ export default function ProductDetailPage() {
               <FeaturesEditor
                 features={form.features}
                 onChange={(features) => setForm((f) => ({ ...f, features }))}
-                placeholder={"Mobile-optimised website\nContact form + QuoteQuick embed\nBasic SEO setup\n14-day TradeLine trial"}
+                placeholder={"Mobile-optimised website\nContact form + QuoteQuick embed\nBasic SEO setup\nSpeed optimization"}
                 testid="input-features"
               />
             </Card>

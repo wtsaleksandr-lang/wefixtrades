@@ -402,7 +402,10 @@ export function registerPortalCatalogRoutes(app: Express) {
       const dbById = new Map(dbRows.map((r) => [r.id, r]));
 
       const available = SERVICES
-        .filter((svc) => !activeIds.has(svc.id))
+        // BookFlow is not sold standalone (Wave 11D D2 — it's included with
+        // every QuoteQuick plan and has no service_catalog row, so subscribing
+        // would 400). Hide it from the purchasable catalog.
+        .filter((svc) => !activeIds.has(svc.id) && svc.id !== "bookflow")
         .map((svc) => {
           const override = dbById.get(svc.id);
           if (!override) return { ...svc, tiers: null };
