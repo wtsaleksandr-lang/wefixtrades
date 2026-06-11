@@ -1,15 +1,20 @@
 /**
- * Lane A2 — pricing-truth regression tests for the chat-AI knowledge base.
+ * Lane A2 — pricing-truth regression tests for the chat-AI knowledge base
+ * AND the marketing-chat widget PRODUCT MAP.
  *
- * The knowledge base is quoted verbatim to customers by the marketing chat
- * AI, so every price in it MUST come from @shared/pricing (single source of
- * truth). These tests assert (a) the real tier prices are present, and
- * (b) the previously fabricated "Starter $99 / Pro $199 / Elite $299"
- * platform ladder, the fake bundles, and all "free trial" claims can never
- * silently reappear.
+ * Both surfaces are quoted verbatim to customers by sales AIs, so every
+ * price in them MUST come from @shared/pricing (single source of truth).
+ * These tests assert (a) the real tier prices are present, (b) the
+ * previously fabricated "Starter $99 / Pro $199 / Elite $299" platform
+ * ladder, the fake bundles, and all "free trial" claims can never silently
+ * reappear, and (c) the marketing-chat PRODUCT MAP quotes canon and the
+ * 2026-06 stale figures ($149 TradeLine, $49 QuoteQuick, $249 RankFlow,
+ * $1,499 SiteLaunch, $399 MapSetup, $49 WebCare, $79 SocialSync, $97
+ * anything) can never come back.
  *
  * Runnable standalone via:
  *   npx tsx server/services/knowledgeBase.test.ts
+ * Wired into CI as `npm run check:pricing-truth` (.github/workflows/ci.yml).
  *
  * Excluded from `tsc --noEmit` via the project tsconfig's **\/*.test.ts
  * pattern. Uses node:assert/strict, no test runner dependency.
@@ -17,8 +22,22 @@
 import assert from "node:assert/strict";
 import { compileKnowledge } from "./knowledgeBase";
 import {
+  buildMarketingProductMap,
+  CITATION_TRACKER_ADDON_MONTHLY,
+} from "./marketingProductMap";
+import {
   ALL_PRODUCTS,
   ALL_BUNDLES,
+  TRADELINE,
+  QUOTEQUICK,
+  MAPGUARD,
+  RANKFLOW,
+  REPUTATIONSHIELD,
+  SOCIALSYNC,
+  SITELAUNCH,
+  WEBCARE,
+  getTier,
+  lowestMonthly,
   formatPrice,
 } from "@shared/pricing";
 
@@ -104,4 +123,85 @@ assert.ok(
   "knowledge base should describe the QuoteQuick/ContentFlow free TIERS"
 );
 
-console.log("knowledgeBase.test.ts — all pricing-truth assertions passed");
+/* ═══ 6. Marketing-chat PRODUCT MAP (server/routes/marketingChatRoutes.ts) ═══
+ * The anonymous sales-chat widget quotes ONLY this map ("Never quote prices
+ * outside the PRODUCT MAP" hard rule), so it gets the same treatment: every
+ * price must equal canon, and the stale figures the 2026-06 review caught
+ * must never reappear. The map is compiled via the pure builder in
+ * services/marketingProductMap.ts — no express/db needed. */
+const productMap = buildMarketingProductMap();
+
+/** The single map line for a product label, e.g. mapLine("TradeLine"). */
+function mapLine(label: string): string {
+  const line = productMap
+    .split("\n")
+    .find((l) => l.startsWith(`- ${label} —`));
+  assert.ok(line, `PRODUCT MAP missing entry: ${label}`);
+  return line!;
+}
+
+/* 6a. Canonical prices appear on each product's line (derived from canon,
+ * so these assertions track shared/pricing if it legitimately changes). */
+const MAP_EXPECTED: Array<[label: string, pricePhrase: string]> = [
+  ["MapGuard", `${formatPrice(lowestMonthly(MAPGUARD)!)}/mo`],
+  ["MapGuard Suite", `${formatPrice(getTier(MAPGUARD, "Pro")!.price)}/mo`],
+  ["MapSetup", `One-time ${formatPrice(MAPGUARD.setup!)}`],
+  ["TradeLine", `From ${formatPrice(lowestMonthly(TRADELINE)!)}/mo`],
+  ["QuoteQuick", `Free + from ${formatPrice(getTier(QUOTEQUICK, "Pro")!.price)}/mo`],
+  ["RankFlow", `From ${formatPrice(lowestMonthly(RANKFLOW)!)}/mo`],
+  ["ReputationShield", `From ${formatPrice(lowestMonthly(REPUTATIONSHIELD)!)}/mo`],
+  ["SocialSync", `From ${formatPrice(lowestMonthly(SOCIALSYNC)!)}/mo`],
+  ["SiteLaunch", `${formatPrice(SITELAUNCH.tiers[0].price)} one-time`],
+  ["WebCare", `From ${formatPrice(lowestMonthly(WEBCARE)!)}/mo`],
+];
+for (const [label, pricePhrase] of MAP_EXPECTED) {
+  assert.ok(
+    mapLine(label).includes(pricePhrase),
+    `PRODUCT MAP ${label} line must quote the canonical price "${pricePhrase}" — got: ${mapLine(label)}`
+  );
+}
+
+/* 6b. The exact stale/fabricated figures the review caught can never come
+ * back. Per-line where the figure is legitimate elsewhere in the map
+ * (e.g. $149/mo is MapGuard Suite's real price but was TradeLine's stale
+ * one). \b after the digits stops "$49" matching "$490" etc. */
+const MAP_FORBIDDEN: Array<[label: string, stale: RegExp]> = [
+  ["TradeLine", /\$149\b/],      // pre-realignment price; canon is from $99
+  ["QuoteQuick", /\$49\b/],      // retired Solo tier; canon is Free + from $29
+  ["RankFlow", /\$249\b/],       // canon is from $349
+  ["SocialSync", /\$79\b/],      // canon is from $99
+  ["SiteLaunch", /\$1,499\b/],   // canon is $1,197
+  ["WebCare", /\$49\b/],         // canon is from $79
+  ["MapSetup", /\$399\b/],       // canon is $397
+];
+for (const [label, stale] of MAP_FORBIDDEN) {
+  assert.ok(
+    !stale.test(mapLine(label)),
+    `stale price ${stale} reappeared on the PRODUCT MAP ${label} line: ${mapLine(label)}`
+  );
+}
+// The retired TradeLine "$97/mo" must not appear anywhere in the map.
+assert.ok(
+  !/\$97\b/.test(productMap),
+  `retired "$97" TradeLine price reappeared in the PRODUCT MAP`
+);
+// SiteLaunch is a single one-time tier — "From" framing is a drift signal.
+assert.ok(
+  !/SiteLaunch[^\n]*From \$/.test(productMap),
+  `PRODUCT MAP SiteLaunch line must not use "From $" framing (single one-time price)`
+);
+// No trial claims in the map either.
+assert.ok(
+  !/\btrial\b/i.test(productMap),
+  `the word "trial" appears in the PRODUCT MAP — no trials exist`
+);
+
+/* 6c. Citation Tracker cross-sell add-on price derives from canon
+ * (shared/schemas/citationTracker.ts bundle_monthly_cents). */
+assert.equal(
+  CITATION_TRACKER_ADDON_MONTHLY,
+  formatPrice(500 / 100),
+  "Citation Tracker MapGuard-bundle add-on must be $5/mo (bundle_monthly_cents)"
+);
+
+console.log("knowledgeBase.test.ts — all pricing-truth assertions passed (knowledge base + marketing-chat PRODUCT MAP)");

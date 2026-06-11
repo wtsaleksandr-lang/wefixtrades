@@ -11,9 +11,12 @@ const DEMO_CONFIGS: Record<
   string,
   { title: string; desc: string; icon: string; productSlug: string; features: string[] }
 > = {
+  // Slugs are inbound URLs (kept stable); titles/copy use the CURRENT
+  // product names — the standalone "AI ChatLine" / "AI CallLine" brands are
+  // retired, these are TradeLine™ variants now (see shared/pricing TRADELINE).
   "ai-chatline": {
-    title: "AI ChatLine Demo",
-    desc: "Experience how AI ChatLine captures website visitors and SMS leads around the clock. Watch the chat widget qualify prospects, collect contact info, and send you instant notifications.",
+    title: "TradeLine™ Chat Demo",
+    desc: "Experience how TradeLine™ chat captures website visitors and SMS leads around the clock. Watch the chat widget qualify prospects, collect contact info, and send you instant notifications.",
     icon: "message",
     productSlug: "tradeline",
     features: [
@@ -24,8 +27,8 @@ const DEMO_CONFIGS: Record<
     ],
   },
   "ai-callline": {
-    title: "AI CallLine Demo",
-    desc: "Hear how AI CallLine answers calls, captures caller details, and delivers instant summaries so you never miss a lead — even at 2 AM.",
+    title: "TradeLine™ Voice Demo",
+    desc: "Hear how TradeLine™ voice answers calls, captures caller details, and delivers instant summaries so you never miss a lead — even at 2 AM.",
     icon: "phone",
     productSlug: "tradeline",
     features: [
@@ -48,7 +51,7 @@ const DEMO_CONFIGS: Record<
     ],
   },
   "tradeline-complete": {
-    title: "TradeLine Complete Demo",
+    title: "TradeLine™ Complete Demo",
     desc: "See Chat + Voice + DMs working together as a single unified lead engine. Every channel covered, every lead captured.",
     icon: "workflow",
     productSlug: "tradeline",

@@ -21,6 +21,8 @@ jobs:
         run: npm run check:hardcoded-colors
       - name: Silent-catch guard
         run: npm run check:no-silent-catch
+      - name: Pricing-truth guard (chat AI quotes canonical prices only)
+        run: npm run check:pricing-truth
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
