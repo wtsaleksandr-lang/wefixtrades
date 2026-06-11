@@ -353,7 +353,27 @@ export function registerPortalCatalogRoutes(app: Express) {
 
       res.json({ checkout_url: session.url, session_id: session.id });
     } catch (err: any) {
-      log.error("[portal/catalog/subscribe] Error:", { error: err.message });
+      // Sentry NODEWEFIXTRADES-9: Stripe rejects checkout when the resolved
+      // price has been archived in Stripe ("The price specified is inactive").
+      // That is a catalog-sync configuration state, not a server fault — the
+      // source-side guard is PR #1660's catalog Stripe-sync hard-block. Map
+      // it to a 409 with an actionable message instead of a generic 500, and
+      // log at warn (the alert channel for catalog drift is the sync guard).
+      const isInactivePrice =
+        err?.type === "StripeInvalidRequestError" &&
+        /price specified is inactive|no such price/i.test(String(err?.message ?? ""));
+      if (isInactivePrice) {
+        log.warn("[portal/catalog/subscribe] stale Stripe price blocked checkout", {
+          error: err.message,
+          param: err?.param,
+        });
+        return res.status(409).json({
+          error:
+            "This plan is being updated and can't be purchased right now. Please try again shortly or contact support.",
+          error_code: "price_unavailable",
+        });
+      }
+      log.error("[portal/catalog/subscribe] Error:", { error: err.message, err });
       res.status(500).json({ error: "Failed to start checkout. Please try again." });
     }
   });

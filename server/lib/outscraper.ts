@@ -112,7 +112,10 @@ export async function fetchGoogleReviews(
   }
 
   if (!r.ok) {
-    log.error("[outscraper] Non-OK response:", { arg0: r.status, arg1: rawText.slice(0, 500) });
+    // warn, not error: Outscraper non-OK (esp. 402 credits-exhausted) is a
+    // known degraded state with fallback providers in the chain — the
+    // account/billing gap is handled operationally, not via Sentry pages.
+    log.warn("[outscraper] Non-OK response:", { status: r.status, body: rawText.slice(0, 500) });
     return null;
   }
 

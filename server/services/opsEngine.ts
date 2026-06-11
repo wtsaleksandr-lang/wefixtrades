@@ -88,6 +88,41 @@ function buildSignalContext(signals: OpsSignal[]): string {
 }
 
 /* ─── Validate AI output shape ─── */
+/**
+ * Parse the model's JSON reply. Strips markdown fences, then falls back to
+ * extracting the outermost {...} block — models occasionally wrap the object
+ * in prose or emit trailing junk, and a truncated reply should fail with a
+ * clear error rather than whatever JSON.parse happens to say.
+ * Exported for the standalone unit test.
+ */
+export function parseOpsJson(raw: string): unknown {
+  const cleaned = (raw ?? "")
+    .replace(/^```json\s*/m, "")
+    .replace(/^```\s*/m, "")
+    .replace(/```\s*$/m, "")
+    .trim();
+  if (!cleaned) throw new Error("AI returned an empty response");
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const first = cleaned.indexOf("{");
+    const last = cleaned.lastIndexOf("}");
+    if (first === -1) {
+      throw new Error(`AI response is not JSON (${cleaned.length} chars, no object found)`);
+    }
+    if (last <= first) {
+      // An opening brace with no close is the truncation signature
+      // (mid-object token-cap cut — the NODEWEFIXTRADES-A failure).
+      throw new Error(`AI response JSON truncated (${cleaned.length} chars, unterminated object)`);
+    }
+    try {
+      return JSON.parse(cleaned.slice(first, last + 1));
+    } catch {
+      throw new Error(`AI response JSON unparseable even after salvage (${cleaned.length} chars — likely truncated)`);
+    }
+  }
+}
+
 function validateOutput(raw: unknown): DailyOpsSummaryOutput {
   if (!raw || typeof raw !== "object") {
     throw new Error("AI output is not an object");
@@ -159,24 +194,35 @@ Return a JSON object matching this exact schema:
   "recommendations": ["string"]
 }`;
 
-    rawResponse = await chat({
-      system: OPS_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
-      maxTokens: 800,
-      // audit/ai 2026-05-24: gate + log under the ops_engine surface
-      // (lazy-created in ai_system_gates via ensureGateRow).
-      surface: "ops_engine",
-    });
+    // Sentry NODEWEFIXTRADES-A ("Unexpected end of JSON input", recurring at
+    // the daily 07:00 run): the model response was truncated mid-JSON at the
+    // old 800-token cap (10 priorities × reasons doesn't fit on busy days) and
+    // JSON.parse hard-failed the whole summary. Three-layer fix: more
+    // headroom, salvage-extraction of the outermost JSON object, and one
+    // bounded retry before declaring the run failed.
+    const requestSummary = () =>
+      chat({
+        system: OPS_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userMessage }],
+        maxTokens: 1200,
+        // audit/ai 2026-05-24: gate + log under the ops_engine surface
+        // (lazy-created in ai_system_gates via ensureGateRow).
+        surface: "ops_engine",
+      });
 
-    // Parse and validate — hard fail if structure is wrong
-    const cleaned = rawResponse
-      .replace(/^```json\s*/m, "")
-      .replace(/^```\s*/m, "")
-      .replace(/```\s*$/m, "")
-      .trim();
+    rawResponse = await requestSummary();
 
-    const parsed = JSON.parse(cleaned);
-    const aiOutput = validateOutput(parsed);
+    let aiOutput: DailyOpsSummaryOutput;
+    try {
+      aiOutput = validateOutput(parseOpsJson(rawResponse));
+    } catch (parseErr: any) {
+      log.warn("[opsEngine] AI summary unparseable — retrying once", {
+        error: parseErr?.message,
+        responseChars: rawResponse.length,
+      });
+      rawResponse = await requestSummary();
+      aiOutput = validateOutput(parseOpsJson(rawResponse));
+    }
 
     const latencyMs = Date.now() - startedAt;
 
@@ -204,7 +250,7 @@ Return a JSON object matching this exact schema:
 
     return { snapshot: inserted };
   } catch (err: any) {
-    log.error("[opsEngine] generateDailyOpsSummary failed:", err.message);
+    log.error("[opsEngine] generateDailyOpsSummary failed:", { error: err?.message, err });
 
     // Store a failed snapshot so the run is traceable even on AI error
     try {
@@ -225,7 +271,7 @@ Return a JSON object matching this exact schema:
       }).returning();
       return { snapshot: inserted, error: err.message };
     } catch (dbErr: any) {
-      log.error("[opsEngine] Failed to store error snapshot:", dbErr.message);
+      log.error("[opsEngine] Failed to store error snapshot:", { error: dbErr?.message, err: dbErr });
     }
 
     return { snapshot: null, error: err.message };

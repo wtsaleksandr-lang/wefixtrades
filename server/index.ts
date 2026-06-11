@@ -497,7 +497,20 @@ app.use(
         return cb(null, true);
       }
       logger.info("[cors] rejected cross-origin request", { origin });
-      return cb(new Error("CORS: origin not allowed"));
+      // Sentry NODEWEFIXTRADES-K (183 events): a bare Error here defaults to
+      // HTTP 500 in the error envelope and logs at error level — foreign
+      // domains pointed at this deployment (e.g. your-quote.net loading
+      // /assets/*.js with its own Origin) were generating an error-level
+      // Sentry event per asset request. The denial itself is correct and the
+      // allowlist is unchanged; it is a CLIENT error (403), not a server
+      // fault. The envelope below logs 4xx at warn.
+      const corsErr = new Error("CORS: origin not allowed") as Error & {
+        status?: number;
+        code?: string;
+      };
+      corsErr.status = 403;
+      corsErr.code = "cors_origin_denied";
+      return cb(corsErr);
     },
     credentials: true,
   }),
@@ -731,13 +744,22 @@ app.use((req, res, next) => {
 
     // Log the raw error server-side regardless of env — Sentry + our
     // logs are where the diagnostic detail lives; the wire body is not.
-    logger.error("Request failed", {
+    // Sentry NODEWEFIXTRADES-J: 4xx client errors (CORS denials, bad
+    // requests, auth failures) were logged at error level, so foreign-origin
+    // asset requests alone produced 64+ Sentry events. Client errors are
+    // warn; only 5xx — a genuine server fault — stays error-level.
+    const reqFailurePayload = {
       requestId: rid,
       status,
       errorCode,
       error: String(err),
       stack: err?.stack,
-    });
+    };
+    if (status >= 500) {
+      logger.error("Request failed", reqFailurePayload);
+    } else {
+      logger.warn("Request failed (client error)", reqFailurePayload);
+    }
 
     if (res.headersSent) {
       return next(err);

@@ -15,6 +15,7 @@ import { db } from "../db";
 import { eq, desc, sql } from "drizzle-orm";
 import { users, adminNotices } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { isTransientInfraError } from "../lib/transientInfraErrors";
 
 const log = createLogger("FounderNotifyRoutes");
 
@@ -36,7 +37,7 @@ export function registerFounderNotifyRoutes(app: Express): void {
         ai_contact_phone: row?.phone ?? "",
       });
     } catch (err: any) {
-      log.error("[ai-contact] GET error:", err?.message);
+      log.error("[ai-contact] GET error:", { error: err?.message, err });
       res.status(500).json({ error: "Failed to load AI contact preference" });
     }
   });
@@ -65,7 +66,9 @@ export function registerFounderNotifyRoutes(app: Express): void {
         .where(eq(users.id, userId));
       res.json({ ai_contact_method: method, ai_contact_phone: phone });
     } catch (err: any) {
-      log.error("[ai-contact] PATCH error:", err?.message);
+      // NOTE: was `log.error(msg, err?.message)` — passing a string as the
+      // data payload spread it into {"0":"F","1":"a",…} garbage in Sentry.
+      log.error("[ai-contact] PATCH error:", { error: err?.message, err });
       res.status(500).json({ error: "Failed to save AI contact preference" });
     }
   });
@@ -97,7 +100,16 @@ export function registerFounderNotifyRoutes(app: Express): void {
       // rather than 500s — the agenda is read-only and non-critical.
       const msg: string = String(err?.message ?? "");
       const isSchemaDrift = /relation .* does not exist|column .* does not exist|undefined (table|column)/i.test(msg);
-      log.error("[notices] GET error:", err?.message);
+      // Sentry NODEWEFIXTRADES-1M: this fired error-level with a string data
+      // payload (char-spread context). The handler already degrades to a 200
+      // empty state by design — schema drift and transient DB blips are the
+      // expected causes and shouldn't page; anything else stays error-level
+      // with the real Error attached.
+      if (isSchemaDrift || isTransientInfraError(err)) {
+        log.warn("[notices] GET degraded", { error: msg, schemaDrift: isSchemaDrift });
+      } else {
+        log.error("[notices] GET error:", { error: msg, err });
+      }
       res.json({
         notices: [],
         unread_count: 0,
@@ -125,7 +137,7 @@ export function registerFounderNotifyRoutes(app: Express): void {
       if (!row) return res.status(404).json({ error: "Notice not found" });
       res.json(row);
     } catch (err: any) {
-      log.error("[notices] PATCH error:", err?.message);
+      log.error("[notices] PATCH error:", { error: err?.message, err });
       res.status(500).json({ error: "Failed to update notice" });
     }
   });

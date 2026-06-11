@@ -3261,8 +3261,12 @@ export function registerAdminCrmRoutes(app: Express): void {
       }
 
       // 1. Set assistant status to disabled and mode to after_hours (safest fallback)
+      // "disabled" is now a first-class member of the assistant.status enum
+      // (shared/schemas/adminCrm.ts). The old `as any` smuggled it past TS
+      // while the runtime zod parse REJECTED it → this whole endpoint 500'd
+      // and the kill-switch never stuck (Sentry NODEWEFIXTRADES-M).
       await storage.updateTradeLineConfig(csId, {
-        assistant: { ...config.assistant, status: "disabled" as any },
+        assistant: { ...config.assistant, status: "disabled" },
         currentMode: "after_hours",
       });
       // Log mode change with kill switch reason

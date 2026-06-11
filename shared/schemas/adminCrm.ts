@@ -695,7 +695,12 @@ export const tradelineConfigSchema = z.object({
     mode: z.enum(["request_only", "book_if_available"]).default("request_only"),
   }).default({}),
   assistant: z.object({
-    status: z.enum(["not_built", "building", "built", "failed"]).default("not_built"),
+    // "disabled" — emergency kill-switch state set by
+    // POST /api/admin/crm/tradeline/:id/disable. It was written with
+    // `as any` while missing from this enum, so the runtime parse rejected
+    // it and the disable endpoint 500'd (Sentry NODEWEFIXTRADES-M) — the
+    // kill-switch silently failed to stick. Re-enable rebuilds → "building".
+    status: z.enum(["not_built", "building", "built", "failed", "disabled"]).default("not_built"),
     templateId: z.string().default(""),
     inputHash: z.string().default(""),
     vapiAssistantId: z.string().default(""),
