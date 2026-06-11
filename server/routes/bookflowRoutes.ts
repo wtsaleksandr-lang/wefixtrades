@@ -853,14 +853,14 @@ export function registerBookflowRoutes(app: Express): void {
       const platformFeePercent = 2.9;
       const applicationFee = Math.round(invoice.total_cents * platformFeePercent / 100);
 
-      // Broad payment method types — Stripe auto-shows relevant options
-      const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] = [
-        "card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit",
-      ];
+      /* P0 2026-06-11 (mirrors PR #1681): no hardcoded payment_method_types —
+       * us_bank_account/cashapp are invalid on this CA Stripe account and made
+       * every deposit/invoice sessions.create throw (BookFlow pay links were
+       * dead in prod). Omitting the param lets Stripe apply the dashboard's
+       * dynamic payment-method configuration. */
 
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
-        payment_method_types: paymentMethodTypes,
         line_items: [{
           price_data: {
             currency: ((invoice as any).currency || "usd").toLowerCase(),
