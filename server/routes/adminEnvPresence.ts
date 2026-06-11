@@ -61,6 +61,12 @@ const CATEGORIES = {
   fal_ai: [
     "FAL_KEY",
   ],
+  // ContentFlow reference replication — real rendered-page screenshot
+  // capture via Playwright (flag, not a secret; presence confirms the
+  // prod container actually has it set).
+  contentflow_reference_capture: [
+    "REFERENCE_SCREENSHOT_ENABLED",
+  ],
   // Lane OC — outreach platform capability flags. The Campaigns page reads
   // these to enable/disable platform selectors (e.g. Smartlead stays disabled
   // until SMARTLEAD_API_KEY is actually present in the running container).
