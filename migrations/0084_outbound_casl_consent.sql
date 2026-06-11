@@ -1,4 +1,4 @@
--- 0080_outbound_casl_consent.sql
+-- 0084_outbound_casl_consent.sql
 --
 -- Lane OB — CASL consent bookkeeping + global send-ramp state.
 --

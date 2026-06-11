@@ -98,7 +98,7 @@ export const prospects = pgTable("prospects", {
   do_not_contact: boolean("do_not_contact").notNull().default(false),
   dnc_reason: text("dnc_reason"),
 
-  // ── Lane OB: CASL consent bookkeeping (migration 0080) ─
+  // ── Lane OB: CASL consent bookkeeping (migration 0082) ─
   // express             — recipient explicitly opted in (never expires)
   // implied_conspicuous — address conspicuously published (e.g. on the
   //                       business's own website) with no opt-out notice;
@@ -417,7 +417,7 @@ export const outboundBlockedEmails = pgTable("outbound_blocked_emails", {
 export type BlockedEmail = typeof outboundBlockedEmails.$inferSelect;
 
 /* ═══════════════════════════════════════════════════
-   Lane OB — Global send-ramp state (migration 0080)
+   Lane OB — Global send-ramp state (migration 0082)
    Single-row table persisting the FIRST real (non-dry-run) send date.
    The global daily volume ramp (50/day, +25/day per full week) is
    computed from this date, cross-campaign.
