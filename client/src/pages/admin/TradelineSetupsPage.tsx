@@ -418,6 +418,7 @@ interface DetailResponse {
 }
 
 function DetailDialog({ id, onClose, onMutate }: { id: number; onClose: () => void; onMutate: () => void }) {
+  const { toast } = useToast();
   const { data, isLoading, refetch } = useQuery<DetailResponse>({
     queryKey: [`/api/admin/tradeline-setups/${id}`],
     queryFn: () => apiRequest("GET", `/api/admin/tradeline-setups/${id}`).then((r) => r.json()),
@@ -429,6 +430,9 @@ function DetailDialog({ id, onClose, onMutate }: { id: number; onClose: () => vo
       refetch();
       onMutate();
     },
+    /* P-D audit P1-3: a failed retry must not look identical to a queued one. */
+    onError: (err: Error) =>
+      toast({ title: "Retry provision failed", description: err.message, variant: "destructive" }),
   });
 
   const [portStatusInput, setPortStatusInput] = useState("");
@@ -444,6 +448,8 @@ function DetailDialog({ id, onClose, onMutate }: { id: number; onClose: () => vo
       refetch();
       onMutate();
     },
+    onError: (err: Error) =>
+      toast({ title: "Couldn't update port status", description: err.message, variant: "destructive" }),
   });
 
   return (

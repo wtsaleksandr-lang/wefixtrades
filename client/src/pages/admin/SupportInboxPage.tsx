@@ -91,7 +91,7 @@ const PRIORITY_STYLES: Record<string, string> = {
 
 function formatDate(d: string | null): string {
   if (!d) return "";
-  return new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+  return new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }
 
 function timeAgo(d: string | null): string {

@@ -203,7 +203,9 @@ function useFunnelMap() {
   });
 }
 
-function FunnelStrip({ funnel }: { funnel: CampaignFunnel | undefined }) {
+/* When the funnel endpoint fails we render "—" per stage rather than zeros —
+ * a fake "Sent 0 → Converted 0" reads as measured data (P-D audit P2-2). */
+function FunnelStrip({ funnel, isError }: { funnel: CampaignFunnel | undefined; isError?: boolean }) {
   const stages = [
     { label: "Sent", value: funnel?.sent ?? 0, cls: "text-blue-600" },
     { label: "Opened", value: funnel?.opened ?? 0, cls: "text-sky-600" },
@@ -226,7 +228,9 @@ function FunnelStrip({ funnel }: { funnel: CampaignFunnel | undefined }) {
         <span key={s.label} className="flex items-center gap-1 text-[11px]">
           {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground/50" />}
           <span className="text-muted-foreground">{s.label}</span>
-          <span className={`font-semibold ${s.cls}`}>{s.value}</span>
+          <span className={isError ? "font-semibold text-muted-foreground" : `font-semibold ${s.cls}`}>
+            {isError ? "—" : s.value}
+          </span>
         </span>
       ))}
     </div>
@@ -740,7 +744,7 @@ export default function CampaignsPage() {
   });
 
   // Attribution funnel — one fetch for all cards.
-  const { data: funnelMap } = useFunnelMap();
+  const { data: funnelMap, isError: funnelMapError } = useFunnelMap();
 
   const PLATFORM_COLORS: Record<string, string> = {
     instantly: "bg-blue-100 text-blue-700",
@@ -816,7 +820,7 @@ export default function CampaignsPage() {
                       <p className="text-xs text-muted-foreground mt-1">{new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  <FunnelStrip funnel={funnelMap?.[c.id]} />
+                  <FunnelStrip funnel={funnelMap?.[c.id]} isError={funnelMapError} />
                 </div>
               ))
             )}

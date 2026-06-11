@@ -2871,7 +2871,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                       )}
                       {data.assistantBuiltAt && (
                         <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                          {new Date(data.assistantBuiltAt).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          {new Date(data.assistantBuiltAt).toLocaleString("en-US", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                         </p>
                       )}
                     </div>
