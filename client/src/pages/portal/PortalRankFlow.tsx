@@ -601,7 +601,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
           <Sparkles className="w-7 h-7 text-[#0d3cfc]" />
         </div>
-        <h1 className="text-lg font-semibold text-foreground mb-2">You're all set!</h1>
+        <h2 className="text-lg font-semibold text-foreground mb-2">You're all set!</h2>
         <p className="text-sm text-muted-foreground">We're starting your SEO work now. Check back soon to see progress.</p>
       </div>
     );
@@ -611,7 +611,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     <div className="max-w-md mx-auto py-8">
       <div className="text-center mb-6">
         <TrendingUp className="w-8 h-8 text-[#0d3cfc] mx-auto mb-3" />
-        <h1 className="text-lg font-semibold text-foreground">Set Up RankFlow</h1>
+        <h2 className="text-lg font-semibold text-foreground">Set Up RankFlow</h2>
         <p className="text-sm text-muted-foreground mt-1">Tell us about your business so we can start improving your local SEO.</p>
       </div>
       <div className="flex items-center gap-2 mb-6">

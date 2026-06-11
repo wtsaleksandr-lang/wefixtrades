@@ -6,11 +6,13 @@
  * `<PageMeta>` + `<FreeToolLayout>` with its own form and result panel
  * slotted in via the `form` / `result` props.
  *
- * Visual standard: keeps the FreeAudit hero rhythm (centered title +
- * subtitle, dotted-grid backdrop, card with form, optional result panel
- * below) so the new surfaces feel like siblings of the Free Audit page
- * instead of orphans. Light theme only — these are public marketing
- * pages and DESIGN-SYSTEM.md fixes them as light surfaces.
+ * Visual standard: matches the FreeAudit hero rhythm AND the hard layout
+ * rules 4/5 — eyebrow top-left, title LEFT with the tool visual RIGHT
+ * (P2-4, night audit 2026-06-11), dotted-grid backdrop, form card in the
+ * left column, optional result panel below. Mobile stacks title → form →
+ * illustration so the input never sinks below the fold behind artwork.
+ * Light theme only — these are public marketing pages and DESIGN-SYSTEM.md
+ * fixes them as light surfaces.
  */
 import { type ReactNode, useEffect } from "react";
 import { Link } from "wouter";
@@ -95,6 +97,25 @@ export default function FreeToolLayout({
         @media (min-width: 768px) {
           .ftool-container { padding: 120px 24px 80px; }
         }
+        /* P2-4 (night audit 2026-06-11) — hard layout rules 4/5: eyebrow
+           top-left, title LEFT + visual RIGHT (was a centered hero with the
+           illustration full-width below). Mobile stacks title-first, with
+           the FORM above the decorative illustration (P2-5: the input must
+           not land below the fold behind artwork). */
+        .ftool-container--wide { max-width: 1080px; }
+        .ftool-hero {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 28px;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+        @media (min-width: 900px) {
+          .ftool-hero--with-visual {
+            grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+            gap: 44px;
+          }
+        }
         .ftool-card {
           background: rgba(255,255,255,0.82);
           border: 1px solid rgba(0,0,0,0.08);
@@ -110,7 +131,7 @@ export default function FreeToolLayout({
         }
       `}</style>
       <div className="ftool-page" data-theme="light">
-        <div className="ftool-container">
+        <div className={`ftool-container${heroImageSrc ? " ftool-container--wide" : ""}`}>
           <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
             <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
             <span style={{ margin: "0 6px" }}>/</span>
@@ -119,82 +140,86 @@ export default function FreeToolLayout({
             <span style={{ color: "#111827" }}>{breadcrumbLabel}</span>
           </nav>
 
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <div style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "#0d3cfc",
-              marginBottom: 10,
-            }}>
-              <Search size={12} strokeWidth={2.2} />
-              {eyebrow}
-            </div>
-            <h1 style={{
-              fontSize: "clamp(28px, 4.6vw, 38px)",
-              fontWeight: 900,
-              letterSpacing: "-0.02em",
-              color: "#1E1E1E",
-              margin: "0 0 10px",
-              lineHeight: 1.08,
-            }}>{title}</h1>
-            <p style={{
-              fontSize: 16,
-              color: "rgba(0,0,0,0.62)",
-              maxWidth: "60ch",
-              margin: "0 auto 4px",
-              lineHeight: 1.55,
-            }}>{subtitle}</p>
-            <div style={{
-              marginTop: 10,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 12,
-              fontWeight: 500,
-              color: "rgba(0,0,0,0.48)",
-            }}>
-              <span>100% free</span>
-              <span style={{ opacity: 0.4 }}>·</span>
-              <span>No signup</span>
-              <span style={{ opacity: 0.4 }}>·</span>
-              <span>Results in seconds</span>
-            </div>
-          </div>
+          {/* Hero — title-left / visual-right (hard rules 4/5). On mobile the
+              DOM order gives title → form → illustration. */}
+          <div className={`ftool-hero${heroImageSrc ? " ftool-hero--with-visual" : ""}`}>
+            <div>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "#0d3cfc",
+                  marginBottom: 10,
+                }}>
+                  <Search size={12} strokeWidth={2.2} />
+                  {eyebrow}
+                </div>
+                <h1 style={{
+                  fontSize: "clamp(28px, 4.6vw, 38px)",
+                  fontWeight: 900,
+                  letterSpacing: "-0.02em",
+                  color: "#1E1E1E",
+                  margin: "0 0 10px",
+                  lineHeight: 1.08,
+                }}>{title}</h1>
+                <p style={{
+                  fontSize: 16,
+                  color: "rgba(0,0,0,0.62)",
+                  maxWidth: "60ch",
+                  margin: "0 0 4px",
+                  lineHeight: 1.55,
+                }}>{subtitle}</p>
+                <div style={{
+                  marginTop: 10,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: "rgba(0,0,0,0.48)",
+                }}>
+                  <span>100% free</span>
+                  <span style={{ opacity: 0.4 }}>·</span>
+                  <span>No signup</span>
+                  <span style={{ opacity: 0.4 }}>·</span>
+                  <span>Results in seconds</span>
+                </div>
+              </div>
 
-          {heroImageSrc && (
-            <div
-              style={{
-                margin: "0 auto 28px",
-                maxWidth: 760,
-                borderRadius: 18,
-                overflow: "clip",
-                border: "1px solid rgba(13,60,252,0.18)",
-                background: "linear-gradient(135deg, rgba(13,60,252,0.06), rgba(13,60,252,0.02))",
-                boxShadow: "0 14px 40px rgba(13,60,252,0.10)",
-                aspectRatio: "16 / 9",
-              }}
-            >
-              <img
-                src={heroImageSrc}
-                alt={heroImageAlt ?? ""}
-                loading="lazy"
-                decoding="async"
+              <div className="ftool-card">{form}</div>
+            </div>
+
+            {heroImageSrc && (
+              <div
                 style={{
-                  display: "block",
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
+                  borderRadius: 18,
+                  overflow: "clip",
+                  border: "1px solid rgba(13,60,252,0.18)",
+                  background: "linear-gradient(135deg, rgba(13,60,252,0.06), rgba(13,60,252,0.02))",
+                  boxShadow: "0 14px 40px rgba(13,60,252,0.10)",
+                  aspectRatio: "16 / 9",
                 }}
-              />
-            </div>
-          )}
-
-          <div className="ftool-card">{form}</div>
+              >
+                <img
+                  src={heroImageSrc}
+                  alt={heroImageAlt ?? ""}
+                  loading="lazy"
+                  decoding="async"
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              </div>
+            )}
+          </div>
 
           {result && <div style={{ marginTop: 16 }}>{result}</div>}
 

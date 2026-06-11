@@ -8,6 +8,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { FreeToolFormField, FreeToolFormFieldStyles } from "@/components/marketing/FreeToolFormField";
 import {
   SmsConsentDisclosure,
   SMS_CONSENT_LABEL,
@@ -110,27 +111,6 @@ export default function SignupBusinessNamePage() {
     },
   });
 
-  const labelStyle = {
-    display: "block" as const,
-    fontSize: 12,
-    fontWeight: 600,
-    color: mkt.textFaint,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.06em",
-    marginBottom: 6,
-  };
-  const inputStyle = {
-    width: "100%",
-    padding: "12px 14px",
-    fontSize: 14,
-    color: mkt.onDark,
-    background: "rgba(255,255,255,0.04)",
-    border: `1px solid ${mkt.onDarkBorder}`,
-    borderRadius: 8,
-    outline: "none",
-    boxSizing: "border-box" as const,
-  };
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!businessName.trim() || complete.isPending) return;
@@ -168,31 +148,37 @@ export default function SignupBusinessNamePage() {
               <p style={{ fontSize: 14, color: mkt.onDarkMuted }}>Loading…</p>
             ) : (
               <form onSubmit={handleSubmit}>
-                <label htmlFor="finish-business-name" style={labelStyle}>Business name</label>
-                <input
-                  id="finish-business-name"
-                  type="text"
-                  required
-                  autoFocus
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. Smith Plumbing Ltd"
-                  style={{ ...inputStyle, marginBottom: 20 }}
-                  data-testid="input-business-name"
-                />
-
-                <label htmlFor="finish-phone" style={labelStyle}>
-                  Phone <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span>
-                </label>
-                <input
-                  id="finish-phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  autoComplete="tel"
-                  style={{ ...inputStyle, marginBottom: 8 }}
-                  data-testid="input-phone"
-                />
+                {/* P2-1 (night audit 2026-06-11): locked input rules —
+                    title-in-field, help cue top-left, 2px stacked gaps. */}
+                <FreeToolFormFieldStyles />
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 8, ["--ftool-label-bg" as any]: mkt.sectionLight }}>
+                  <FreeToolFormField
+                    id="finish-business-name"
+                    theme="dark"
+                    label="Business Name"
+                    placeholder="e.g. Smith Plumbing Ltd"
+                    helpText="The trading name of your business — it appears on your dashboard, quotes, and invoices."
+                    value={businessName}
+                    onChange={setBusinessName}
+                    autoComplete="organization"
+                    autoFocus
+                    required
+                    testId="input-business-name"
+                  />
+                  <FreeToolFormField
+                    id="finish-phone"
+                    theme="dark"
+                    label="Phone (optional)"
+                    type="tel"
+                    placeholder="(555) 123-4567"
+                    helpText="Optional — only needed if you'd like SMS updates (opt-in below)."
+                    value={phone}
+                    onChange={setPhone}
+                    inputMode="tel"
+                    autoComplete="tel"
+                    testId="input-phone"
+                  />
+                </div>
                 {phoneProvided && (
                   <label
                     htmlFor="finish-sms-consent"

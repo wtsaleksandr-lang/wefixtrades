@@ -252,7 +252,11 @@ export default function SocialSyncOpsPage() {
    * avoids nulling tone/frequency/etc. No backend change needed. */
   const toggleEnabled = useMutation({
     mutationFn: async ({ clientId, enabled }: { clientId: number; enabled: boolean }) => {
-      const cur = await fetch(`/api/socialsync/clients/${clientId}/profile`, { credentials: "include" }).then((r) => r.json());
+      const curRes = await fetch(`/api/socialsync/clients/${clientId}/profile`, { credentials: "include" });
+      /* A failed GET must never become a write: PUTting an error body back
+       * would upsert undefined over the client's live config. */
+      if (!curRes.ok) throw new Error(`Couldn't load current profile (HTTP ${curRes.status})`);
+      const cur = await curRes.json();
       const res = await apiRequest("PUT", `/api/socialsync/clients/${clientId}/profile`, {
         enabled,
         niche: cur.niche,

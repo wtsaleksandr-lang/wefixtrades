@@ -176,7 +176,7 @@ export default function ContentFlowLibrary() {
           <Link href="/portal/contentflow" className="mb-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3 w-3" /> Back to prompt library
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight">Your content library</h1>
+          <h2 className="text-2xl font-bold tracking-tight">Your content library</h2>
           <p className="text-sm text-muted-foreground">
             Every image, article, and asset you generate lands here. Open, edit, download, delete, or send it to SocialSync to schedule.
           </p>

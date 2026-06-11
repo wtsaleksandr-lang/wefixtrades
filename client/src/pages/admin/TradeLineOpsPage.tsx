@@ -11,6 +11,7 @@ import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { Loader2, AlertTriangle, Phone, RefreshCw, XCircle, ChevronDown, RotateCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import AiResponseRating from "@/components/ai/AiResponseRating";
 
 const PRODUCT_ID = "tradeline";
@@ -69,6 +70,9 @@ function CallsTab() {
 function FleetTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  /* P-D audit P1-6: disabling kills a paying customer's live call handling —
+   * route both Disable buttons through the DS ConfirmDialog (same class as #1137/#1142). */
+  const [confirmDisable, setConfirmDisable] = useState<FleetRow | null>(null);
   const { data: fleet, isLoading, isError, refetch } = useQuery<FleetRow[]>({ queryKey: ["/api/admin/crm/tradeline/fleet"], queryFn: async () => { const res = await fetch("/api/admin/crm/tradeline/fleet", { credentials: "include" }); if (!res.ok) throw new Error("Failed"); return res.json(); } });
   const rebuildMutation = useMutation({
     mutationFn: async (csId: number) => {
@@ -142,9 +146,22 @@ function FleetTab() {
           </div>
         </Card>
       )}
-      {failedItems.length>0&&(<Card className="border-red-200 bg-red-50/50 p-4"><div className="flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-red-600"/><h2 className="text-sm font-semibold text-red-800">Attention Required ({failedItems.length})</h2></div><div className="space-y-2">{failedItems.map(row=>(<div key={row.clientServiceId} className="flex items-center justify-between bg-white border border-red-100 rounded-lg px-4 py-3"><div className="flex items-center gap-3"><span className="font-medium text-sm text-gray-900">{row.businessName}</span><AssistantStatusBadge status={row.assistantStatus}/>{row.failedCalls24h>0&&<span className="text-xs text-red-600 font-medium">{row.failedCalls24h} failed call{row.failedCalls24h>1?"s":""} (24h)</span>}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={()=>rebuildMutation.mutate(row.clientServiceId)} disabled={rebuildMutation.isPending}><RefreshCw className="w-3.5 h-3.5 mr-1"/>Rebuild</Button><Button variant="destructive" size="sm" onClick={()=>disableMutation.mutate(row.clientServiceId)} disabled={disableMutation.isPending}><XCircle className="w-3.5 h-3.5 mr-1"/>Disable</Button></div></div>))}</div></Card>)}
-      {!isLoading&&activeItems.length>0&&(<Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-gray-50/80"><th className="text-left px-4 py-3 font-medium text-gray-600">Client</th><th className="text-left px-4 py-3 font-medium text-gray-600">Variant</th><th className="text-left px-4 py-3 font-medium text-gray-600">Mode</th><th className="text-left px-4 py-3 font-medium text-gray-600">Assistant</th><th className="text-left px-4 py-3 font-medium text-gray-600">Last Call</th><th className="text-right px-4 py-3 font-medium text-gray-600">Minutes</th><th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th></tr></thead><tbody className="divide-y divide-gray-100">{activeItems.map(row=>(<tr key={row.clientServiceId} className="hover:bg-gray-50/50"><td className="px-4 py-3 font-medium text-gray-900">{row.businessName}</td><td className="px-4 py-3"><VariantBadge variant={row.variant}/></td><td className="px-4 py-3"><ModeBadge mode={row.mode}/></td><td className="px-4 py-3"><AssistantStatusBadge status={row.assistantStatus}/></td><td className="px-4 py-3 text-gray-500">{relativeTime(row.lastCallAt)}</td><td className="px-4 py-3 text-right text-gray-700 font-mono">{row.periodMinutes}</td><td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" onClick={()=>rebuildMutation.mutate(row.clientServiceId)} disabled={rebuildMutation.isPending} title="Rebuild"><RefreshCw className="w-3.5 h-3.5"/></Button><Button variant="ghost" size="sm" onClick={()=>disableMutation.mutate(row.clientServiceId)} disabled={disableMutation.isPending} title="Disable" className="text-red-500 hover:text-red-700 hover:bg-red-50"><XCircle className="w-3.5 h-3.5"/></Button></div></td></tr>))}</tbody></table></div></Card>)}
+      {failedItems.length>0&&(<Card className="border-red-200 bg-red-50/50 p-4"><div className="flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-red-600"/><h2 className="text-sm font-semibold text-red-800">Attention Required ({failedItems.length})</h2></div><div className="space-y-2">{failedItems.map(row=>(<div key={row.clientServiceId} className="flex items-center justify-between bg-white border border-red-100 rounded-lg px-4 py-3"><div className="flex items-center gap-3"><span className="font-medium text-sm text-gray-900">{row.businessName}</span><AssistantStatusBadge status={row.assistantStatus}/>{row.failedCalls24h>0&&<span className="text-xs text-red-600 font-medium">{row.failedCalls24h} failed call{row.failedCalls24h>1?"s":""} (24h)</span>}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={()=>rebuildMutation.mutate(row.clientServiceId)} disabled={rebuildMutation.isPending}><RefreshCw className="w-3.5 h-3.5 mr-1"/>Rebuild</Button><Button variant="destructive" size="sm" onClick={()=>setConfirmDisable(row)} disabled={disableMutation.isPending}><XCircle className="w-3.5 h-3.5 mr-1"/>Disable</Button></div></div>))}</div></Card>)}
+      {!isLoading&&activeItems.length>0&&(<Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-gray-50/80"><th className="text-left px-4 py-3 font-medium text-gray-600">Client</th><th className="text-left px-4 py-3 font-medium text-gray-600">Variant</th><th className="text-left px-4 py-3 font-medium text-gray-600">Mode</th><th className="text-left px-4 py-3 font-medium text-gray-600">Assistant</th><th className="text-left px-4 py-3 font-medium text-gray-600">Last Call</th><th className="text-right px-4 py-3 font-medium text-gray-600">Minutes</th><th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th></tr></thead><tbody className="divide-y divide-gray-100">{activeItems.map(row=>(<tr key={row.clientServiceId} className="hover:bg-gray-50/50"><td className="px-4 py-3 font-medium text-gray-900">{row.businessName}</td><td className="px-4 py-3"><VariantBadge variant={row.variant}/></td><td className="px-4 py-3"><ModeBadge mode={row.mode}/></td><td className="px-4 py-3"><AssistantStatusBadge status={row.assistantStatus}/></td><td className="px-4 py-3 text-gray-500">{relativeTime(row.lastCallAt)}</td><td className="px-4 py-3 text-right text-gray-700 font-mono">{row.periodMinutes}</td><td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" onClick={()=>rebuildMutation.mutate(row.clientServiceId)} disabled={rebuildMutation.isPending} title="Rebuild"><RefreshCw className="w-3.5 h-3.5"/></Button><Button variant="ghost" size="sm" onClick={()=>setConfirmDisable(row)} disabled={disableMutation.isPending} title="Disable" className="text-red-500 hover:text-red-700 hover:bg-red-50"><XCircle className="w-3.5 h-3.5"/></Button></div></td></tr>))}</tbody></table></div></Card>)}
       {!isLoading&&(!fleet||fleet.length===0)&&<Card className="p-12 text-center"><Phone className="w-10 h-10 text-gray-300 mx-auto mb-3"/><p className="text-gray-500">No TradeLine services found.</p></Card>}
+      <ConfirmDialog
+        open={confirmDisable !== null}
+        onOpenChange={(o) => { if (!o) setConfirmDisable(null); }}
+        title={confirmDisable ? `Disable TradeLine for ${confirmDisable.businessName}?` : "Disable TradeLine service?"}
+        description="This immediately stops the AI receptionist handling this customer's live calls. The service stays disabled until it's rebuilt and re-enabled."
+        destructive
+        confirmLabel="Disable service"
+        pending={disableMutation.isPending}
+        onConfirm={() => {
+          if (confirmDisable) disableMutation.mutate(confirmDisable.clientServiceId);
+          setConfirmDisable(null);
+        }}
+      />
     </div>
   );
 }

@@ -119,10 +119,10 @@ export default function AdFlowSetup() {
       <div className="flex flex-col gap-3 p-4 md:p-6">
         <div className="flex items-baseline justify-between gap-2">
           <div className="flex flex-col">
-            <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground md:text-2xl">
+            <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground md:text-2xl">
               <Megaphone className="h-5 w-5" aria-hidden="true" />
               AdFlow setup
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground">
               3 quick questions — under 5 minutes — to launch your first ad.
             </p>

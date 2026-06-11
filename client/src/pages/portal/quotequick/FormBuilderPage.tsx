@@ -69,9 +69,9 @@ export default function QuoteQuickFormBuilderPage() {
       <div className="flex flex-col gap-4 p-4 md:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="flex flex-col">
-            <h1 className="text-xl font-semibold text-foreground md:text-2xl">
+            <h2 className="text-xl font-semibold text-foreground md:text-2xl">
               Form builder
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground">
               22 field types • drag-to-reorder • live preview • smart colorizer.
             </p>

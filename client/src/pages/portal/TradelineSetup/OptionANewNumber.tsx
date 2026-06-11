@@ -22,6 +22,7 @@ import { Loader2, CheckCircle2, Copy, ArrowLeft, AlertTriangle, MailCheck, Searc
 import type { TradelinePhoneSetup } from "@shared/schema";
 import { apiFetch } from "./apiClient";
 import { buildChecklist } from "./templateCopy";
+import { FieldHelpCue, TitleInField } from "../FreeTools/_shared";
 
 interface ProvisionResponse {
   setup: TradelinePhoneSetup;
@@ -237,7 +238,8 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
   const showPicker = preference === "local" && !forceAutoPick;
 
   return (
-    <div className="space-y-5">
+    /* data-cue-allowed-multiple: one cue per field below (locked input rules). */
+    <div className="space-y-5" data-cue-allowed-multiple>
       <BackLink onBack={onBack} />
 
       <div>
@@ -247,10 +249,15 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
         </p>
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5 block">Country</label>
-          <div className="grid grid-cols-2 gap-2">
+      {/* Two stacked button-choice clusters — per the locked input rules the
+          choices ARE the label (rule 5); the question lives in the top-left
+          help cue (rule 2) and stacked clusters sit 2px apart (rule 4). */}
+      <div className="space-y-0.5" data-cue-allowed-multiple>
+        <div className="relative pl-5">
+          <span className="absolute top-1 left-0">
+            <FieldHelpCue label="Country" help="Pick where your business answers calls — we reserve your new number in that country." />
+          </span>
+          <div className="grid grid-cols-2 gap-0.5">
             {(["US", "CA"] as const).map((c) => (
               <button
                 type="button"
@@ -272,9 +279,11 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
           </div>
         </div>
 
-        <div>
-          <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5 block">Number type</label>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="relative pl-5">
+          <span className="absolute top-1 left-0">
+            <FieldHelpCue label="Number type" help="Local numbers carry your area code so neighbours recognise the call. Toll-free numbers start with 800, 833, 844 and look national." />
+          </span>
+          <div className="grid grid-cols-2 gap-0.5">
             <TypeOption
               selected={preference === "local"}
               onClick={() => {
@@ -308,40 +317,36 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
             </p>
           </div>
 
-          <div className="grid grid-cols-[1fr_1.4fr_auto] gap-2">
-            <div>
-              <label htmlFor="wave85-area-code" className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">Area code</label>
-              <input
-                id="wave85-area-code"
-                type="text"
-                inputMode="numeric"
-                maxLength={3}
-                value={areaCodeInput}
-                onChange={(e) => setAreaCodeInput(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                placeholder="415"
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-blue-500 focus:outline-none focus:ring-1 focus:ring-brand-blue-500"
-                data-testid="wave85-area-code-input"
-              />
-            </div>
-            <div>
-              <label htmlFor="wave85-vanity" className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">Contains (optional)</label>
-              <input
-                id="wave85-vanity"
-                type="text"
-                maxLength={8}
-                value={vanityInput}
-                onChange={(e) => setVanityInput(e.target.value.replace(/[^A-Za-z0-9*]/g, "").slice(0, 8))}
-                placeholder="777 or LOVE"
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-blue-500 focus:outline-none focus:ring-1 focus:ring-brand-blue-500"
-                data-testid="wave85-vanity-input"
-              />
-            </div>
+          {/* Title-in-field inputs (locked input rules) — label floats inside
+              the field, help cue top-left, 2px column gap. */}
+          <div className="grid grid-cols-[1fr_1.4fr_auto] gap-0.5">
+            <TitleInField
+              id="wave85-area-code"
+              label="Area code"
+              value={areaCodeInput}
+              onChange={(v) => setAreaCodeInput(v.replace(/\D/g, "").slice(0, 3))}
+              placeholder="415"
+              maxLength={3}
+              inputMode="numeric"
+              help="The 3-digit dialing prefix you want — usually your city's, e.g. 415 for San Francisco."
+              testid="wave85-area-code-input"
+            />
+            <TitleInField
+              id="wave85-vanity"
+              label="Contains (optional)"
+              value={vanityInput}
+              onChange={(v) => setVanityInput(v.replace(/[^A-Za-z0-9*]/g, "").slice(0, 8))}
+              placeholder="777 or LOVE"
+              maxLength={8}
+              help={'Digits or letters you want inside the number, like "777" or "LOVE". Leave blank to see everything.'}
+              testid="wave85-vanity-input"
+            />
             <div className="flex items-end">
               <Button
                 type="button"
                 onClick={() => searchMutation.mutate()}
                 disabled={searchMutation.isPending}
-                className="h-[38px]"
+                className="h-[46px]"
                 data-testid="wave85-search-button"
               >
                 {searchMutation.isPending ? (

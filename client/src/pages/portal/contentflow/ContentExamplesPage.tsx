@@ -237,7 +237,7 @@ export default function ContentExamplesPage() {
         <header className="space-y-2">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-brand-blue-600" aria-hidden="true" />
-            <h1 className="text-2xl font-semibold text-foreground">See what ContentFlow generates</h1>
+            <h2 className="text-2xl font-semibold text-foreground">See what ContentFlow generates</h2>
           </div>
           <p className="max-w-3xl text-sm text-muted-foreground">
             Every article, image, and social post below was produced by ContentFlow using the same

@@ -1,7 +1,8 @@
 import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus, Sparkles, LifeBuoy } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, ExternalLink, HelpCircle, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus, Sparkles, LifeBuoy } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
@@ -44,7 +45,7 @@ class PortalErrorBoundary extends Component<{ children: ReactNode }, { error: Er
             </button>
             <Link
               href="/portal/help"
-              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-brand-blue border border-brand-blue/40 rounded-lg hover:bg-[#EEF3FF] transition-colors"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-brand-blue border border-brand-blue/40 rounded-lg hover:bg-[#EEF3FF] dark:hover:bg-brand-blue/15 transition-colors"
             >
               Help
             </Link>
@@ -308,10 +309,10 @@ function PortalDashboardInner() {
            to their user account. Show what the customer view looks like
            but empty + give them next-step links. */
         <div className="max-w-2xl mt-8" data-testid="admin-no-client-empty">
-          <Card className="border-amber-200 p-6 space-y-4">
+          <Card className="border-amber-200 dark:border-amber-800/60 p-6 space-y-4">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                <UserPlus className="w-5 h-5 text-amber-700" />
+              <div className="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center shrink-0">
+                <UserPlus className="w-5 h-5 text-amber-700 dark:text-amber-300" />
               </div>
               <div>
                 <h2 className="text-base font-semibold text-foreground">No client account linked to your admin user</h2>
@@ -328,7 +329,7 @@ function PortalDashboardInner() {
               <div className="space-y-2">
                 <Link
                   href="/admin/crm/clients"
-                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-border hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 transition-colors group"
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-border hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 dark:hover:bg-brand-blue/10 transition-colors group"
                   data-testid="empty-state-clients-link"
                 >
                   <div className="min-w-0">
@@ -339,7 +340,7 @@ function PortalDashboardInner() {
                 </Link>
                 <Link
                   href="/admin/crm"
-                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-border hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 transition-colors group"
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-border hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 dark:hover:bg-brand-blue/10 transition-colors group"
                   data-testid="empty-state-admin-link"
                 >
                   <div className="min-w-0">
@@ -358,9 +359,9 @@ function PortalDashboardInner() {
         </div>
       )}
       {error && !isAdminWithoutClient && (
-        <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
+        <div className="bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 rounded-lg p-4 text-sm flex items-center justify-between">
           <span>We hit a snag loading your dashboard. A refresh usually fixes it.</span>
-          <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-card border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+          <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-card border border-red-200 dark:border-red-800/60 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors">
             <RefreshCw className="w-3 h-3" /> Try again
           </button>
         </div>
@@ -470,8 +471,9 @@ function PortalDashboardInner() {
               }
               icon={Wrench}
               color="text-brand-blue"
-              bgColor="bg-[#EEF3FF]"
+              bgColor="bg-[#EEF3FF] dark:bg-brand-blue/15"
               href="/portal/services"
+              help="Services currently running on your account. Click through to see each one's progress and settings."
             />
             <StatCard
               label="Setup Required"
@@ -482,9 +484,10 @@ function PortalDashboardInner() {
               }
               subtitle="Forms to complete"
               icon={ClipboardList}
-              color="text-amber-600"
-              bgColor="bg-amber-50"
+              color="text-amber-600 dark:text-amber-300"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
               href="/portal/services"
+              help="Setup forms we still need from you — your services can't launch until these are in."
             />
             <StatCard
               label="Action Needed"
@@ -495,9 +498,10 @@ function PortalDashboardInner() {
               }
               subtitle="Waiting on you"
               icon={AlertCircle}
-              color={data.action_needed > 0 ? "text-red-600" : "text-muted-foreground/70"}
-              bgColor={data.action_needed > 0 ? "bg-red-50" : "bg-muted/50"}
+              color={data.action_needed > 0 ? "text-red-600 dark:text-red-300" : "text-muted-foreground/70"}
+              bgColor={data.action_needed > 0 ? "bg-red-50 dark:bg-red-950/40" : "bg-muted/50"}
               href="/portal/services"
+              help="Items blocked on a decision or approval from you — clear these to keep work moving."
             />
             <StatCard
               label="Amount Due"
@@ -511,9 +515,10 @@ function PortalDashboardInner() {
                   : formatCents(0)
               }
               icon={CreditCard}
-              color="text-blue-600"
-              bgColor="bg-blue-50"
+              color="text-blue-600 dark:text-blue-300"
+              bgColor="bg-blue-50 dark:bg-blue-950/40"
               href="/portal/billing"
+              help="Your current outstanding balance across all invoices. Click through to Billing to pay or see details."
             />
           </div>
 
@@ -523,7 +528,7 @@ function PortalDashboardInner() {
               className="flex items-center justify-between hover:border-brand-blue/40 p-5 transition-all group cursor-pointer"
             >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#EEF3FF] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-[#EEF3FF] dark:bg-brand-blue/15 flex items-center justify-center">
                 <Plus className="w-5 h-5 text-brand-blue" />
               </div>
               <div>
@@ -537,11 +542,11 @@ function PortalDashboardInner() {
 
           {/* Pending onboarding card — only shows if there are any forms to complete */}
           {pendingOnboarding?.submissions && pendingOnboarding.submissions.length > 0 && (
-            <Card className="border-amber-200 p-5">
+            <Card className="border-amber-200 dark:border-amber-800/60 p-5">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-                    <ClipboardList className="w-5 h-5 text-amber-600" />
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5 text-amber-600 dark:text-amber-300" />
                   </div>
                   <div>
                     <h3 className="text-sm font-semibold text-foreground">Complete your setup</h3>
@@ -571,8 +576,8 @@ function PortalDashboardInner() {
                     <div className="flex items-center gap-2">
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
                         sub.has_draft
-                          ? "bg-blue-50 text-blue-700"
-                          : "bg-amber-50 text-amber-700"
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
                       }`}>
                         {sub.has_draft ? "In progress" : "Start"}
                       </span>
@@ -592,20 +597,31 @@ function PortalDashboardInner() {
           {tradeLineService && tlData?.config && (() => {
             const stage = tlData.setupStage || tlData.config.setupStage || tradeLineService.status;
             const statusBadge = stage === "live"
-              ? { label: "Live", cls: "bg-emerald-50 text-emerald-700" }
+              ? { label: "Live", cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" }
               : stage === "ready_for_testing"
-              ? { label: "Ready for testing", cls: "bg-amber-50 text-amber-700" }
+              ? { label: "Ready for testing", cls: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" }
               : { label: "Setting up", cls: "bg-muted text-muted-foreground" };
 
             return (
               <Card className="p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                      <PhoneCall className="w-5 h-5 text-blue-600" />
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center">
+                      <PhoneCall className="w-5 h-5 text-blue-600 dark:text-blue-300" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-foreground">TradeLine</h3>
+                      <div className="flex items-center gap-1.5">
+                        {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[280px] text-xs">
+                            Your AI phone assistant. The toggle switches between AI answering and forwarding to you; Details opens call history and voice settings.
+                          </TooltipContent>
+                        </Tooltip>
+                        <h3 className="text-sm font-semibold text-foreground">TradeLine</h3>
+                      </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-muted text-foreground">
                           {(tlData.config.variant ?? "").replace(/_/g, " ")}
@@ -718,6 +734,7 @@ function StatCard({
   color,
   bgColor,
   href,
+  help,
 }: {
   label: string;
   value: React.ReactNode;
@@ -726,9 +743,21 @@ function StatCard({
   color: string;
   bgColor: string;
   href?: string;
+  help?: string;
 }) {
   const card = (
-    <Card className="h-full p-4 cursor-pointer">
+    <Card className="relative h-full p-4 cursor-pointer">
+      {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+      {help && (
+        <span className="absolute top-1 left-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[280px] text-xs">{help}</TooltipContent>
+          </Tooltip>
+        </span>
+      )}
       <div className="flex items-center gap-3">
         <div className={`w-8 h-8 rounded-lg ${bgColor} flex items-center justify-center`}>
           <Icon className={`w-4 h-4 ${color}`} />
@@ -764,12 +793,12 @@ function SimplifiedDashboardBanner() {
   if (dismissed) return null;
   return (
     <Card
-      className="flex items-start justify-between gap-3 border-blue-200 bg-blue-50 p-3 text-xs text-blue-900"
+      className="flex items-start justify-between gap-3 border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-200 p-3 text-xs"
       data-testid="simplified-dashboard-banner"
     >
       <div className="flex-1">
         <p className="font-medium">We've flipped the default to Advanced.</p>
-        <p className="mt-0.5 text-blue-900/80">
+        <p className="mt-0.5 text-blue-900/80 dark:text-blue-200/80">
           Every gauge, chart, and inbox is now visible by default. Toggle Simple Mode in{" "}
           <Link href="/portal/settings?tab=display" className="underline font-medium">
             Settings → Display
@@ -779,7 +808,7 @@ function SimplifiedDashboardBanner() {
       </div>
       <button
         type="button"
-        className="shrink-0 rounded p-1 text-blue-900/70 hover:bg-blue-100 hover:text-blue-900"
+        className="shrink-0 rounded p-1 text-blue-900/70 hover:bg-blue-100 hover:text-blue-900 dark:text-blue-200/70 dark:hover:bg-blue-900/40 dark:hover:text-blue-200"
         aria-label="Dismiss banner"
         onClick={() => {
           try {

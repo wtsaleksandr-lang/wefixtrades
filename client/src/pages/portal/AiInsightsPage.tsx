@@ -319,7 +319,7 @@ export default function AiInsightsPage() {
                 <Sparkles className="h-3 w-3" />
                 AI Insights
               </span>
-              <h1 className="mt-3 text-2xl font-semibold text-foreground">Turning your data into direction</h1>
+              <h2 className="mt-3 text-2xl font-semibold text-foreground">Turning your data into direction</h2>
               <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
                 Your latest MapGuard scan, citation health, and rank trend — turned into a prioritized to-do list. Cached for 24 hours; refresh anytime.
               </p>

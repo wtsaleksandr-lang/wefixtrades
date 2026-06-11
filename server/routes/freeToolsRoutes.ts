@@ -38,6 +38,7 @@ import { rankfluxSubscriptions } from "@shared/schemas/rankfluxSubscriptions";
 import { sql } from "drizzle-orm";
 import { queueEmail } from "../services/emailQueueService";
 import { searchSerp } from "../lib/serpOrchestrator";
+import { deriveCountryFromLocation } from "@shared/locationCountry";
 
 const log = createLogger("free-tools");
 
@@ -924,7 +925,23 @@ async function localSerpCheckHandler(req: Request, res: Response) {
   if (!query || !location) {
     return res.status(400).json({ ok: false, error: "Both search term and location are required." });
   }
-  const country = ALLOWED_COUNTRIES.has(countryRaw) ? countryRaw : "us";
+  /* Country resolution (T-sweep 2026-06-11 P1 — geo-default trap):
+   * a blind country=us default sent "Toronto, Ontario, Canada" to the US
+   * index and returned Baltimore results. The typed location is the
+   * strongest signal of which country index the visitor means, so:
+   *   1. countryExplicit=true (the visitor manually picked a country in the
+   *      UI) → honor their choice;
+   *   2. otherwise, derive the country from the location string when the
+   *      evidence is unambiguous (province/state, postal code, major city);
+   *   3. otherwise fall back to the submitted value, then "us".
+   * Derivation only ever returns codes within ALLOWED_COUNTRIES, but guard
+   * anyway so provider gl params can never receive an unsupported code. */
+  const submitted = ALLOWED_COUNTRIES.has(countryRaw) ? countryRaw : null;
+  const countryExplicit = req.body?.countryExplicit === true;
+  const derivedRaw = deriveCountryFromLocation(location);
+  const derived = derivedRaw && ALLOWED_COUNTRIES.has(derivedRaw) ? derivedRaw : null;
+  const country =
+    countryExplicit && submitted ? submitted : (derived ?? submitted ?? "us");
   const language = ALLOWED_LANGUAGES.has(languageRaw) ? languageRaw : "en";
   const engine = engineRaw === "maps" ? "maps" : "search";
   const serpEngine = engine === "maps" ? "google_maps" : "google_web";

@@ -39,7 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Plus, ImageIcon } from "lucide-react";
+import { Search, Plus, ImageIcon, AlertTriangle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CATEGORIES } from "@/data/trades";
@@ -81,7 +81,10 @@ export default function QuoteQuickTradesPage() {
   const list = useQuery<ListResponse>({
     queryKey: ["/api/admin/quotequick/trades"],
     queryFn: () =>
-      fetch("/api/admin/quotequick/trades", { credentials: "include" }).then((r) => r.json()),
+      fetch("/api/admin/quotequick/trades", { credentials: "include" }).then((r) => {
+        if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+        return r.json();
+      }),
   });
 
   const filtered = useMemo(() => {
@@ -165,6 +168,19 @@ export default function QuoteQuickTradesPage() {
           </div>
         )}
 
+        {list.isError && (
+          <Card className="p-6 border-red-200 bg-red-50/50">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800">Couldn't load trades</p>
+                <p className="text-xs text-red-700 mt-1">This is a backend failure, not an empty catalog.</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => list.refetch()}>Retry</Button>
+            </div>
+          </Card>
+        )}
+
         {!list.isLoading &&
           CATEGORIES.map((cat) => {
             const items = grouped.get(cat.id) ?? [];
@@ -188,7 +204,7 @@ export default function QuoteQuickTradesPage() {
             );
           })}
 
-        {!list.isLoading && filtered.length === 0 && (
+        {!list.isLoading && !list.isError && filtered.length === 0 && (
           <div className="text-sm text-gray-500 py-10 text-center">
             No trades match your filters.
           </div>

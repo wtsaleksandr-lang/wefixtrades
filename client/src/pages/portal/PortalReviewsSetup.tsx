@@ -179,7 +179,7 @@ export default function PortalReviewsSetup() {
 
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold text-foreground">Set up ReputationShield</h1>
+            <h2 className="text-lg font-semibold text-foreground">Set up ReputationShield</h2>
             <p className="text-sm text-muted-foreground">
               Three quick steps and your reviews start growing on autopilot.
             </p>

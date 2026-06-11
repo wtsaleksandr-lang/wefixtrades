@@ -119,6 +119,14 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
     ? (yearly ? yearlyMonthlyEquiv(bundlePrice) : bundlePrice)
     : (yearly ? yearlyMonthlyEquiv(totalMonthly) : totalMonthly);
 
+  // P1-3 (night audit 2026-06-11): the line items render full per-service
+  // prices, but a bundle total is discounted — without an explicit discount
+  // row the summary math looks wrong at the moment of maximum buyer
+  // scrutiny ($476 of items vs "$449/mo total"). Derived from the same
+  // props the rows render — never hardcoded. Shown in the same raw-monthly
+  // basis as the line items; the annual 10% note covers the yearly step.
+  const monthlyDiscount = isBundle ? Math.max(0, totalMonthly - bundlePrice) : 0;
+
   return (
     <>
       {/* Backdrop */}
@@ -212,6 +220,16 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
               </div>
             ))}
 
+            {/* Bundle discount row — keeps items vs total honest (P1-3) */}
+            {monthlyDiscount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
+                <span style={{ fontSize: 13, color: mkt.text }}>Bundle discount</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: mkt.success }}>
+                  −{formatPrice(monthlyDiscount)}/mo
+                </span>
+              </div>
+            )}
+
             {/* Total */}
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 10, paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: mkt.onDark }}>Total</span>
@@ -239,8 +257,11 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
               background is matched to the panel via --ftool-label-bg. The 2px
               gap between stacked fields is the design-system spacing. */}
           <FreeToolFormFieldStyles />
+          {/* P2-12 (night audit 2026-06-11): noValidate so the handler's
+              inline errors render instead of silent native bubbles. */}
           <form
             onSubmit={handleSubmit}
+            noValidate
             style={{ display: "flex", flexDirection: "column", gap: 16, ["--ftool-label-bg" as any]: mkt.bg }}
           >
             <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: -4 }}>

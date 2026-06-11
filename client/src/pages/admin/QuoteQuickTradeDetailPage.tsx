@@ -116,7 +116,10 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
     queryFn: () =>
       fetch(`/api/admin/quotequick/templates?trade=${encodeURIComponent(tradeId)}`, {
         credentials: "include",
-      }).then((r) => r.json()),
+      }).then((r) => {
+        if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+        return r.json();
+      }),
   });
 
   const [dirty, setDirty] = useState<Partial<Record<FieldKey, string>>>({});
@@ -525,6 +528,13 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
               </h2>
               {templates.isLoading ? (
                 <Skeleton className="h-16" />
+              ) : templates.isError ? (
+                <div className="text-sm text-red-700">
+                  Couldn't load linked templates — backend failure, not an empty list.{" "}
+                  <button type="button" className="underline" onClick={() => templates.refetch()}>
+                    Retry
+                  </button>
+                </div>
               ) : linkedTemplates.length === 0 ? (
                 <div className="text-sm text-gray-500">
                   No templates currently reference this trade.

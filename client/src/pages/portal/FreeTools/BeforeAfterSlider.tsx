@@ -239,7 +239,7 @@ export default function BeforeAfterSlider() {
         <header>
           <div className="flex items-center gap-2 mb-1">
             <SplitSquareHorizontal className="w-5 h-5 text-brand-blue" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-gray-900">Before / After Slider</h1>
+            <h2 className="text-2xl font-bold text-gray-900">Before / After Slider</h2>
           </div>
           <p className="text-sm text-gray-600 max-w-3xl">
             Show off a transformation — a re-roof, a repainted room, a cleaned

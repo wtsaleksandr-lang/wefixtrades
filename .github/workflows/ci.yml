@@ -29,6 +29,10 @@ jobs:
         run: npm run check:checkout-provisioning-order
       - name: Sub-cancel free-tier guard (cancel reverts to free but never pauses the calculator)
         run: npm run check:cancel-keeps-free-live
+      - name: SERP-country guard (location string derives the country index)
+        run: npm run check:serp-country
+      - name: Demo-persona guard (TradeLine demo role-plays the receptionist, not the platform)
+        run: npm run check:demo-persona
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations

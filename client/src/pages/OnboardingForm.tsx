@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Loader2, AlertCircle, ArrowRight, Settings2, Zap, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ArrowRight, Settings2, Zap, AlertTriangle, Mail } from "lucide-react";
 import { getFieldConfig } from "@/config/onboardingFields";
 // BD-2a-polish — reuse the floating-label + help-cue primitives from
 // PortalOnboarding so both onboarding surfaces follow the same input rules.
@@ -288,14 +288,35 @@ export default function OnboardingForm() {
     );
   }
 
-  // Error (form not found)
+  // Error (form not found) — never a dead end: customers land here from OUR
+  // emails, so give them a way forward (support + back to the site).
   if (!data) {
     return (
       <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
         <Card className="max-w-md w-full p-8 text-center">
           <AlertCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <h1 className="text-lg font-semibold text-gray-900">Form Not Found</h1>
-          <p className="text-sm text-gray-500 mt-2">{error || "This link may be invalid or expired."}</p>
+          <h1 className="text-lg font-semibold text-gray-900">We can't open this setup link</h1>
+          <p className="text-sm text-gray-500 mt-2">
+            {error || "This link may be invalid or expired."} Setup links expire
+            after a while for security. Your account and service are unaffected —
+            email us and we'll send you a fresh link right away.
+          </p>
+          <div className="mt-5 flex flex-col items-center gap-2">
+            <a
+              href="mailto:support@wefixtrades.com?subject=Onboarding%20link%20not%20working"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors"
+              data-testid="onboarding-error-support-link"
+            >
+              <Mail className="w-4 h-4" aria-hidden="true" /> Email support@wefixtrades.com
+            </a>
+            <a
+              href="https://wefixtrades.com"
+              className="text-sm text-brand-blue hover:underline"
+              data-testid="onboarding-error-home-link"
+            >
+              Back to wefixtrades.com
+            </a>
+          </div>
         </Card>
       </div>
     );

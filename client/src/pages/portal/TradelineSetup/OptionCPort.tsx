@@ -27,6 +27,7 @@ import {
 import type { TradelinePhoneSetup } from "@shared/schema";
 import { apiFetch } from "./apiClient";
 import { SignaturePad, type SignaturePadHandle } from "./SignaturePad";
+import { FieldHelpCue, TitleInField } from "../FreeTools/_shared";
 
 interface Props {
   setup: TradelinePhoneSetup;
@@ -118,8 +119,13 @@ function BillUploadStep({ setup, onBack }: { setup: TradelinePhoneSetup; onBack:
         </p>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Phone bill</p>
+      {/* Drop zone is self-labelling ("Tap to choose a file") — the old
+          "Phone bill" micro-label above it moved into the top-left help cue
+          per the locked input rules. */}
+      <div className="relative pl-5 space-y-0.5">
+        <span className="absolute top-1 left-0">
+          <FieldHelpCue label="Phone bill" help="A bill from the last 90 days for the number you're porting — it proves the number belongs to you. PDF, JPG, or PNG up to 5 MB." />
+        </span>
         <label
           htmlFor="bill-file"
           className="block rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center cursor-pointer hover:border-gray-400 hover:bg-gray-100"
@@ -221,23 +227,23 @@ function LoaSignStep({ setup, onBack }: { setup: TradelinePhoneSetup; onBack: ()
         <p>Your existing number continues working normally during the transfer.</p>
       </div>
 
-      <div className="space-y-2">
-        <label htmlFor="signer-name" className="text-xs font-semibold text-gray-700 uppercase tracking-wide block">
-          Type your full name (as it appears on the bill)
-        </label>
-        <input
+      <div className="space-y-0.5">
+        <TitleInField
           id="signer-name"
-          type="text"
+          label="Full name (as on the bill)"
           value={signerName}
-          onChange={(e) => setSignerName(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:ring-2 focus:ring-brand-blue-100 focus:outline-none"
+          onChange={setSignerName}
           autoComplete="name"
+          help="Type your legal name exactly as it appears on the phone bill you uploaded."
+          testid="optionc-signer-name-input"
         />
-      </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Your signature</p>
-        <SignaturePad ref={padRef} onChange={setHasInk} />
+        <div className="relative pl-5">
+          <span className="absolute top-1 left-0">
+            <FieldHelpCue label="Your signature" help="Draw your signature in the box with your finger or mouse — it goes on the Letter of Authorization." />
+          </span>
+          <SignaturePad ref={padRef} onChange={setHasInk} />
+        </div>
       </div>
 
       {error && (
@@ -288,18 +294,20 @@ function PortSubmitForm({ setup, onBack }: { setup: TradelinePhoneSetup; onBack:
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-0.5">
         <Field
           label="Business name (as on the bill)"
           value={businessName}
           onChange={setBusinessName}
           autoComplete="organization"
+          help="Your company name exactly as the carrier has it on the bill."
         />
         <Field
           label="Authorized signer"
           value={authorizedSignerName}
           onChange={setAuthorizedSignerName}
           autoComplete="name"
+          help="The person allowed to approve the transfer — usually the account holder on the bill."
         />
       </div>
 
@@ -391,25 +399,26 @@ function BackLink({ onBack }: { onBack: () => void }) {
   );
 }
 
-function Field({ label, value, onChange, autoComplete }: {
+/* Thin wrapper over the canonical TitleInField (locked input rules) — keeps
+ * the existing call sites while the label floats inside the field and the
+ * help cue anchors top-left. */
+function Field({ label, value, onChange, autoComplete, help }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   autoComplete?: string;
+  help?: string;
 }) {
+  const id = `port-field-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
   return (
-    <div>
-      <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1 block">
-        {label}
-      </label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete={autoComplete}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:ring-2 focus:ring-brand-blue-100 focus:outline-none"
-      />
-    </div>
+    <TitleInField
+      id={id}
+      label={label}
+      value={value}
+      onChange={onChange}
+      autoComplete={autoComplete}
+      help={help}
+    />
   );
 }
 

@@ -214,7 +214,7 @@ export default function CallbackForm() {
         <header>
           <div className="flex items-center gap-2 mb-1">
             <PhoneCall className="w-5 h-5 text-brand-blue" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-gray-900">Callback Form Widget</h1>
+            <h2 className="text-2xl font-bold text-gray-900">Callback Form Widget</h2>
           </div>
           <p className="text-sm text-gray-600 max-w-3xl">
             A simple drop-in form so site visitors can request a call back when

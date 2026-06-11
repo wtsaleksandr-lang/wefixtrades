@@ -176,7 +176,7 @@ export default function CitationTrackerDashboard() {
       <div data-theme="light" className="ct-dashboard" style={{ display: "grid", gap: 2, padding: 16 }}>
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Citation Tracker</h1>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Citation Tracker</h2>
             <p style={{ margin: "2px 0 0", color: "var(--muted-foreground)", fontSize: 13 }}>
               Continuous NAP drift monitoring across 50+ directories.
             </p>

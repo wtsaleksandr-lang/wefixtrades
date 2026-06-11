@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { HelpCueRow } from "@/components/primitives/HelpCueRow";
+import { FieldHelpCue, TitleInField } from "./FreeTools/_shared";
 import InfoCue from "@/components/wizard/elfsight/InfoCue";
 import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 import { resetFirstVisits } from "@/hooks/useFirstVisit";
@@ -202,7 +203,6 @@ export default function PortalSettings() {
     saveMutation.mutate(form);
   };
 
-  const labelClass = "block text-xs font-medium text-gray-600 mb-1";
   const inputClass =
     "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
 
@@ -242,7 +242,7 @@ export default function PortalSettings() {
           page root — opt out explicitly via the documented escape hatch. */}
       <div data-theme="light" data-cue-allowed-multiple className="max-w-2xl space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Settings</h1>
+          <h2 className="text-xl font-semibold text-foreground">Settings</h2>
           <p className="text-sm text-gray-500 mt-0.5">Manage your account, notifications, AI behaviour, and security.</p>
         </div>
 
@@ -343,43 +343,43 @@ export default function PortalSettings() {
               <form onSubmit={handleSubmit}>
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                   <h2 className="text-sm font-semibold text-gray-900 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">Contact Information</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Contact Name</label>
-                      <input
-                        className={inputClass}
-                        placeholder="John's Plumbing"
-                        value={form.contact_name}
-                        onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Contact Email</label>
-                      <input
-                        type="email"
-                        className={inputClass}
-                        value={form.contact_email}
-                        onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Phone</label>
-                      <input
-                        className={inputClass}
-                        placeholder="+1 555 0123"
-                        value={form.contact_phone}
-                        onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Website</label>
-                      <input
-                        className={inputClass}
-                        placeholder="https://example.com"
-                        value={form.website_url}
-                        onChange={(e) => setForm({ ...form, website_url: e.target.value })}
-                      />
-                    </div>
+                  {/* Title-in-field inputs (locked input rules) — labels float
+                      inside the fields, help cues top-left, 2px gaps. */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
+                    <TitleInField
+                      id="settings-contact-name"
+                      label="Contact Name"
+                      value={form.contact_name}
+                      onChange={(v) => setForm({ ...form, contact_name: v })}
+                      placeholder="John's Plumbing"
+                      help="Who we ask for when we call or email about your account."
+                    />
+                    <TitleInField
+                      id="settings-contact-email"
+                      label="Contact Email"
+                      type="email"
+                      value={form.contact_email}
+                      onChange={(v) => setForm({ ...form, contact_email: v })}
+                      help="Where service updates and billing emails go."
+                    />
+                    <TitleInField
+                      id="settings-contact-phone"
+                      label="Phone"
+                      type="tel"
+                      value={form.contact_phone}
+                      onChange={(v) => setForm({ ...form, contact_phone: v })}
+                      placeholder="+1 555 0123"
+                      help="Best number to reach you about your services."
+                    />
+                    <TitleInField
+                      id="settings-website"
+                      label="Website"
+                      type="url"
+                      value={form.website_url}
+                      onChange={(v) => setForm({ ...form, website_url: v })}
+                      placeholder="https://example.com"
+                      help="Your business website — used by your SEO and content services."
+                    />
                   </div>
                   <div className="flex items-center gap-3 pt-3 mt-4 border-t border-gray-200 dark:border-gray-700">
                     <button
@@ -402,10 +402,10 @@ export default function PortalSettings() {
               </form>
 
               {/* Business Logo (Q15) */}
-              <LogoSection initialLogoUrl={data.logo_url} labelClass={labelClass} inputClass={inputClass} />
+              <LogoSection initialLogoUrl={data.logo_url} />
 
               {/* Brand Voice (AI tone lives in the AI tab; brand identity in Account) */}
-              <BrandProfileSection inputClass={inputClass} labelClass={labelClass} />
+              <BrandProfileSection inputClass={inputClass} />
 
               {/* Reset onboarding tips — clears localStorage flags so the
                   light progressive-disclosure tooltips re-appear on each
@@ -466,7 +466,7 @@ export default function PortalSettings() {
             <TabsContent value="security" className="space-y-3">
               <TwoFactorSection />
               <ActiveSessionsSection />
-              <ChangePasswordSection inputClass={inputClass} labelClass={labelClass} />
+              <ChangePasswordSection />
             </TabsContent>
           </Tabs>
         )}
@@ -585,7 +585,7 @@ function TagInput({
   );
 }
 
-function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; labelClass: string }) {
+function BrandProfileSection({ inputClass }: { inputClass: string }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [brandSaved, setBrandSaved] = useState(false);
@@ -696,7 +696,8 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    /* data-cue-allowed-multiple: one cue per field below (locked input rules). */
+    <div className="bg-white rounded-xl border border-gray-200 p-5" data-cue-allowed-multiple>
       <div className="flex items-center gap-2 mb-2">
         <Palette className="w-4 h-4 text-brand-blue" />
         <h2 className="text-sm font-semibold text-gray-900">Brand Voice</h2>
@@ -705,11 +706,14 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
         Shape how AI generates content for your business. These preferences guide the tone, style, and focus of articles, social posts, and emails.
       </p>
 
-      <div className="divide-y divide-gray-200 dark:divide-gray-700">
-        {/* Tone selector */}
-        <div className="pb-3">
-          <label className={labelClass}>Tone</label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="divide-y divide-gray-200 dark:divide-gray-700" data-cue-allowed-multiple>
+        {/* Tone selector — button-choice cluster: the options ARE the label
+            (locked input rule 5); the question lives in the top-left cue. */}
+        <div className="pb-3 relative pl-5">
+          <span className="absolute top-0.5 left-0">
+            <FieldHelpCue label="Tone" help="How AI-generated content for your business sounds — pick the voice that fits." />
+          </span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-0.5">
             {TONE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
@@ -727,61 +731,56 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
           </div>
         </div>
 
-        {/* Style keywords */}
-        <div className="py-3">
-          <label className={labelClass}>Style Keywords</label>
-          <p className="text-[10px] text-gray-400 mb-1">
-            Words that describe your brand (e.g. "reliable", "family-owned", "modern"). Press Enter or comma to add.
-          </p>
+        {/* Style keywords — TagInput's placeholder is the in-field title;
+            the old label + hint live in the top-left cue. */}
+        <div className="py-3 relative pl-5">
+          <span className="absolute top-3.5 left-0">
+            <FieldHelpCue label="Style Keywords" help={'Words that describe your brand — "reliable", "family-owned", "modern". Press Enter or comma to add each one.'} />
+          </span>
           <TagInput
             tags={brandForm.style_keywords}
             onAdd={addStyleKeyword}
             onRemove={removeStyleKeyword}
-            placeholder="Add a keyword..."
+            placeholder="Style keywords — add one and press Enter"
             inputClass={inputClass}
           />
         </div>
 
         {/* Avoid list */}
-        <div className="py-3">
-          <label className={labelClass}>Avoid List</label>
-          <p className="text-[10px] text-gray-400 mb-1">
-            Words or phrases AI should never use in your content.
-          </p>
+        <div className="py-3 relative pl-5">
+          <span className="absolute top-3.5 left-0">
+            <FieldHelpCue label="Avoid List" help="Words or phrases AI should never use in your content." />
+          </span>
           <TagInput
             tags={brandForm.avoid}
             onAdd={addAvoidWord}
             onRemove={removeAvoidWord}
-            placeholder="Add a word to avoid..."
+            placeholder="Words to avoid — add one and press Enter"
             inputClass={inputClass}
           />
         </div>
 
         {/* Service focus */}
         <div className="py-3">
-          <label className={labelClass}>Service Focus</label>
-          <p className="text-[10px] text-gray-400 mb-1">
-            Comma-separated list of your primary services (e.g. "drain cleaning, water heater repair").
-          </p>
-          <input
-            className={inputClass}
+          <TitleInField
+            id="settings-service-focus"
+            label="Service Focus"
             value={brandForm.service_focus}
-            onChange={(e) => setBrandForm({ ...brandForm, service_focus: e.target.value })}
-            placeholder="drain cleaning, water heater repair, pipe relining"
+            onChange={(v) => setBrandForm({ ...brandForm, service_focus: v })}
+            placeholder="drain cleaning, water heaters, …"
+            help={'Comma-separated list of your primary services — e.g. "drain cleaning, water heater repair".'}
           />
         </div>
 
         {/* Location cue */}
         <div className="pt-3">
-          <label className={labelClass}>Location Cue</label>
-          <p className="text-[10px] text-gray-400 mb-1">
-            Your service area for local SEO (e.g. "Hamilton, Ontario suburbs").
-          </p>
-          <input
-            className={inputClass}
+          <TitleInField
+            id="settings-location-cue"
+            label="Location Cue"
             value={brandForm.location_cue}
-            onChange={(e) => setBrandForm({ ...brandForm, location_cue: e.target.value })}
-            placeholder="e.g. Hamilton, Ontario suburbs"
+            onChange={(v) => setBrandForm({ ...brandForm, location_cue: v })}
+            placeholder="Hamilton, Ontario suburbs"
+            help={'Your service area for local SEO — e.g. "Hamilton, Ontario suburbs".'}
           />
         </div>
       </div>
@@ -806,7 +805,7 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
 }
 
 /* ─── Change Password Section ─── */
-function ChangePasswordSection({ inputClass, labelClass }: { inputClass: string; labelClass: string }) {
+function ChangePasswordSection() {
   const [pw, setPw] = useState({ current: "", new_password: "", confirm: "" });
   const [pwSaved, setPwSaved] = useState(false);
   const [pwError, setPwError] = useState("");
@@ -860,42 +859,41 @@ function ChangePasswordSection({ inputClass, labelClass }: { inputClass: string;
           cue={<InfoCue text="Set a strong, unique password — at least 8 characters." testid="security-password" />}
           title="Change Password"
         />
+        {/* Title-in-field inputs (locked input rules) — the section's InfoCue
+            above carries the guidance, so the fields stay cue-less. */}
         <div className="space-y-[2px] pt-2 border-t border-gray-200 dark:border-gray-700">
-          <div>
-            <label className={labelClass}>Current Password</label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              className={inputClass}
-              value={pw.current}
-              onChange={(e) => setPw({ ...pw, current: e.target.value })}
-              required
-            />
-          </div>
-          <div>
-            <label className={labelClass}>New Password</label>
-            <input
-              type="password"
-              autoComplete="new-password"
-              placeholder="At least 8 characters"
-              className={inputClass}
-              value={pw.new_password}
-              onChange={(e) => setPw({ ...pw, new_password: e.target.value })}
-              required
-              minLength={8}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Confirm New Password</label>
-            <input
-              type="password"
-              autoComplete="new-password"
-              className={inputClass}
-              value={pw.confirm}
-              onChange={(e) => setPw({ ...pw, confirm: e.target.value })}
-              required
-            />
-          </div>
+          <TitleInField
+            id="settings-current-password"
+            label="Current Password"
+            type="password"
+            autoComplete="current-password"
+            className="pl-0"
+            required
+            value={pw.current}
+            onChange={(v) => setPw({ ...pw, current: v })}
+          />
+          <TitleInField
+            id="settings-new-password"
+            label="New Password"
+            type="password"
+            autoComplete="new-password"
+            className="pl-0"
+            placeholder="At least 8 characters"
+            required
+            minLength={8}
+            value={pw.new_password}
+            onChange={(v) => setPw({ ...pw, new_password: v })}
+          />
+          <TitleInField
+            id="settings-confirm-password"
+            label="Confirm New Password"
+            type="password"
+            autoComplete="new-password"
+            className="pl-0"
+            required
+            value={pw.confirm}
+            onChange={(v) => setPw({ ...pw, confirm: v })}
+          />
         </div>
         <div className="flex items-center gap-3 pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
           <button
@@ -1575,12 +1573,8 @@ function fileToBase64(file: File): Promise<string> {
 
 function LogoSection({
   initialLogoUrl,
-  labelClass,
-  inputClass,
 }: {
   initialLogoUrl: string | null;
-  labelClass: string;
-  inputClass: string;
 }) {
   const queryClient = useQueryClient();
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl ?? "");
@@ -1693,9 +1687,12 @@ function LogoSection({
         )}
 
         <div className="flex-1 min-w-0 divide-y divide-gray-200 dark:divide-gray-700">
-          {/* Path B — file upload */}
-          <div className="pb-3">
-            <label className={labelClass}>Upload a file</label>
+          {/* Path B — file upload. The button is self-labelling ("Choose
+              image"); the old label + format hint live in the top-left cue. */}
+          <div className="pb-3 relative pl-5">
+            <span className="absolute top-0.5 left-0">
+              <FieldHelpCue label="Upload a file" help="PNG, JPG, GIF, WEBP or SVG — up to 5 MB. Square logos look best in the portal header." />
+            </span>
             <label
               className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white hover:border-brand-blue/40 cursor-pointer transition-colors ${
                 busy ? "opacity-60 pointer-events-none" : ""
@@ -1717,21 +1714,22 @@ function LogoSection({
                 data-testid="input-logo-file"
               />
             </label>
-            <p className="text-[10px] text-gray-400 mt-1">PNG, JPG, GIF, WEBP or SVG — up to 5 MB.</p>
           </div>
 
           {/* Path A — paste URL */}
           <form onSubmit={handleSubmit} className="pt-3">
-            <label className={labelClass}>Or paste a logo URL</label>
             <div className="flex items-center gap-2">
-              <input
+              <TitleInField
+                id="settings-logo-url"
+                label="Or paste a logo URL"
                 type="url"
+                className="flex-1"
                 placeholder="https://example.com/logo.png"
-                className={inputClass}
                 value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
+                onChange={setLogoUrl}
                 disabled={busy}
-                data-testid="input-logo-url"
+                help="A direct link to your logo image if it's already hosted somewhere."
+                testid="input-logo-url"
               />
               <button
                 type="submit"

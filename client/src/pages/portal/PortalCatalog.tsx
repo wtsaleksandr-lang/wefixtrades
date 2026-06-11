@@ -22,7 +22,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, ArrowRight, ExternalLink, Star } from "lucide-react";
+import { Loader2, ArrowRight, ExternalLink, HelpCircle, Star } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -60,6 +61,9 @@ interface CatalogBundle {
   includes: Array<{ tier_id: string; label: string; value: number }>;
 }
 
+/* UNIT BOUNDARY: tier prices arrive in CENTS (Tier.price_cents → formatCents);
+ * bundle price/savings arrive in DOLLARS (CatalogBundle.price, rendered as
+ * `${b.price}` directly). Never pass one through the other's path. */
 function formatCents(cents: number): string {
   if (cents % 100 === 0) return `$${cents / 100}`;
   return `$${(cents / 100).toFixed(2)}`;
@@ -76,11 +80,11 @@ function tierPriceLabel(t: Tier): string {
 }
 
 const CATEGORY_STYLES: Record<CatalogService["category"], string> = {
-  leads: "bg-brand-blue-50 text-brand-blue-700",
-  visibility: "bg-sky-50 text-sky-700",
-  reputation: "bg-orange-50 text-orange-700",
-  website: "bg-teal-50 text-teal-700",
-  automation: "bg-pink-50 text-pink-700",
+  leads: "bg-brand-blue-50 text-brand-blue-700 dark:bg-brand-blue/15 dark:text-brand-blue-300",
+  visibility: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300",
+  reputation: "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300",
+  website: "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300",
+  automation: "bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300",
 };
 
 /* Wave 12B Bug #4a — the previous implementation produced a top-level
@@ -235,7 +239,16 @@ export default function PortalCatalog() {
                 alt="WeFixTrades"
                 className="h-8 hidden dark:block"
               />
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
+                {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px] text-xs">
+                    Adding a service starts a Stripe checkout; once paid, it appears under Your Services and we guide you through setup. Monthly services prorate onto your existing billing.
+                  </TooltipContent>
+                </Tooltip>
                 Expand your subscription. Click any service to add it to your account or learn more.
               </p>
             </div>
