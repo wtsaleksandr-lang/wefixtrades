@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, RefreshCw, Users, Send, CheckCircle, AlertCircle, HelpCircle } from "lucide-react";
+import { Plus, RefreshCw, Users, Send, CheckCircle, AlertCircle, HelpCircle, ChevronRight, ShieldCheck } from "lucide-react";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
@@ -60,10 +60,261 @@ interface CampaignDetail {
   leads: CampaignLead[];
 }
 
+/* ─── Verify-link (frozen Lane OA contract) ───
+   GET /api/admin/outbound/campaigns/:id/verify-link →
+   { linked, verified, platform_status, email_accounts: [{email, domain}] } */
+interface VerifyLinkResult {
+  linked: boolean;
+  verified: boolean;
+  platform_status: string;
+  email_accounts: { email: string; domain: string }[];
+}
+
+/**
+ * Verify a campaign's platform link on demand, cached for 5 minutes.
+ * A 404 means the verify endpoint isn't deployed yet (Lane OA merge) —
+ * surfaced as "Unverified", never as a fake green "Linked".
+ */
+function useVerifyLink(campaignId: number, enabled: boolean) {
+  return useQuery<VerifyLinkResult | null>({
+    queryKey: ["/api/admin/outbound/campaigns", campaignId, "verify-link"],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/outbound/campaigns/${campaignId}/verify-link`, { credentials: "include" });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`verify-link failed (${res.status})`);
+      return res.json();
+    },
+    enabled,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+}
+
+/**
+ * P0 audit fix: the old badge showed green "Linked" whenever
+ * external_campaign_id was non-empty — zero platform verification.
+ * Now: green "Linked ✓" ONLY when verify-link returns verified:true;
+ * a non-empty but unverified ID renders amber "Unverified" (click to
+ * re-verify on demand).
+ */
+function LinkStatusBadge({ campaign }: { campaign: Campaign }) {
+  const hasId = !!campaign.external_campaign_id;
+  const { data, isFetching, refetch } = useVerifyLink(campaign.id, hasId);
+
+  if (!hasId) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-amber-500" data-testid="campaign-link-no-id">
+        <AlertCircle className="w-3.5 h-3.5" />
+        No ID
+      </span>
+    );
+  }
+  if (isFetching && !data) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="campaign-link-verifying">
+        <RefreshCw className="w-3 h-3 animate-spin" />
+        Verifying…
+      </span>
+    );
+  }
+  if (data?.verified) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="flex items-center gap-1 text-xs text-green-600 cursor-default" data-testid="campaign-link-verified">
+            <CheckCircle className="w-3.5 h-3.5" />
+            Linked ✓
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[260px] text-xs">
+          Verified against the platform — status "{data.platform_status}",{" "}
+          {data.email_accounts.length} sending account{data.email_accounts.length !== 1 ? "s" : ""} attached.
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); refetch(); }}
+          className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700"
+          data-testid="campaign-link-unverified"
+        >
+          <AlertCircle className="w-3.5 h-3.5" />
+          Unverified
+          <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-[260px] text-xs">
+        An external campaign ID is set, but the platform hasn't confirmed it exists. Click to re-verify against Instantly/Smartlead.
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/* ─── Attribution funnel (Lane OC) ─── */
+interface CampaignFunnel {
+  campaign_id: number;
+  sent: number;
+  opened: number;
+  replied: number;
+  positive: number;
+  converted: number;
+}
+
+/** One fetch for all campaigns; mapped by campaign_id for the card strips. */
+function useFunnelMap() {
+  return useQuery<Record<number, CampaignFunnel>>({
+    queryKey: ["/api/admin/outbound/attribution/funnel"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/outbound/attribution/funnel", { credentials: "include" });
+      if (!res.ok) throw new Error(`funnel failed (${res.status})`);
+      const json = await res.json();
+      const map: Record<number, CampaignFunnel> = {};
+      for (const row of (json.funnel ?? []) as CampaignFunnel[]) map[row.campaign_id] = row;
+      return map;
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+function FunnelStrip({ funnel }: { funnel: CampaignFunnel | undefined }) {
+  const stages = [
+    { label: "Sent", value: funnel?.sent ?? 0, cls: "text-blue-600" },
+    { label: "Opened", value: funnel?.opened ?? 0, cls: "text-sky-600" },
+    { label: "Replied", value: funnel?.replied ?? 0, cls: "text-green-600" },
+    { label: "Positive", value: funnel?.positive ?? 0, cls: "text-amber-600" },
+    { label: "Converted", value: funnel?.converted ?? 0, cls: "text-brand-blue-600" },
+  ];
+  return (
+    <div className="mt-2 flex items-center gap-1 flex-wrap" data-testid="campaign-funnel-strip">
+      {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[280px] text-xs">
+          Attribution funnel: emails sent → opened → replied → positive replies → converted (signed up or paid). Conversions are linked back to this campaign automatically when a prospect's email converts.
+        </TooltipContent>
+      </Tooltip>
+      {stages.map((s, i) => (
+        <span key={s.label} className="flex items-center gap-1 text-[11px]">
+          {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground/50" />}
+          <span className="text-muted-foreground">{s.label}</span>
+          <span className={`font-semibold ${s.cls}`}>{s.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Compliance protection counts (Lane OB consent gate) ─── */
+interface ComplianceCounts {
+  blocked_low_confidence: number;
+  blocked_expired_consent: number;
+  blocked_suppressed: number;
+}
+
+/**
+ * MERGE WIRING (Lane OB): the per-campaign consent-gate count endpoint ships
+ * with Lane OB. Until it's merged, a 404 here falls back to the documented
+ * mocked shape (zero counts) — the strip still renders so operators learn
+ * the surface. Swap nothing at merge time: once OB's endpoint exists at
+ * GET /api/admin/outbound/campaigns/:id/compliance-counts returning
+ * { blocked_low_confidence, blocked_expired_consent, blocked_suppressed },
+ * real counts appear automatically.
+ */
+function useComplianceCounts(campaignId: number) {
+  return useQuery<{ counts: ComplianceCounts; mocked: boolean }>({
+    queryKey: ["/api/admin/outbound/campaigns", campaignId, "compliance-counts"],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/outbound/campaigns/${campaignId}/compliance-counts`, { credentials: "include" });
+      if (res.status === 404) {
+        return { counts: { blocked_low_confidence: 0, blocked_expired_consent: 0, blocked_suppressed: 0 }, mocked: true };
+      }
+      if (!res.ok) throw new Error(`compliance counts failed (${res.status})`);
+      const json = await res.json();
+      return {
+        counts: {
+          blocked_low_confidence: Number(json.blocked_low_confidence ?? 0),
+          blocked_expired_consent: Number(json.blocked_expired_consent ?? 0),
+          blocked_suppressed: Number(json.blocked_suppressed ?? 0),
+        },
+        mocked: false,
+      };
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/** Frames consent blocks as protection (deliverability + legal), not breakage. */
+function ComplianceStrip({ campaignId }: { campaignId: number }) {
+  const { data } = useComplianceCounts(campaignId);
+  const c = data?.counts;
+  const total = c ? c.blocked_low_confidence + c.blocked_expired_consent + c.blocked_suppressed : 0;
+  const chips = [
+    { label: "low confidence", value: c?.blocked_low_confidence ?? 0 },
+    { label: "expired consent", value: c?.blocked_expired_consent ?? 0 },
+    { label: "suppressed", value: c?.blocked_suppressed ?? 0 },
+  ];
+  return (
+    <div className="mx-4 mt-3 p-3 bg-green-50 border border-green-200 rounded-lg" data-testid="campaign-compliance-strip">
+      <div className="flex items-center gap-1.5">
+        {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="w-3 h-3 text-green-700/70 cursor-default shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[280px] text-xs">
+            The consent gate holds back contacts that would hurt deliverability or compliance: low-confidence emails, consent records past their window, and suppressed addresses. Held contacts are protection, not failures — they keep the sending domains healthy.
+          </TooltipContent>
+        </Tooltip>
+        <ShieldCheck className="w-3.5 h-3.5 text-green-600 shrink-0" />
+        <p className="text-xs font-medium text-green-700">
+          Compliance protection — {total} contact{total !== 1 ? "s" : ""} held back
+        </p>
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {chips.map((chip) => (
+          <span key={chip.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-card border border-green-200 text-green-700">
+            <span className="font-semibold">{chip.value}</span> {chip.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── New Campaign Dialog ─── */
 function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  /* Smartlead capability gate (documented choice): a capability read DOES
+     exist — GET /api/admin/env-presence reports boolean-only env presence,
+     extended with an `outreach_platforms` category (SMARTLEAD_API_KEY /
+     INSTANTLY_API_KEY). The selector stays disabled until the server
+     reports the Smartlead key present, so the stub adapter can never be
+     selected and silently fail on Push. (The verify-link not_configured
+     derivation was rejected: it needs an existing campaign, and this
+     selector lives in the create dialog where none exists yet.) */
+  const { data: envPresence } = useQuery<{ categories?: Record<string, Record<string, boolean>> }>({
+    queryKey: ["/api/admin/env-presence"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/env-presence", { credentials: "include" });
+      if (!res.ok) throw new Error(`env-presence failed (${res.status})`);
+      return res.json();
+    },
+    enabled: open,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const smartleadReady = envPresence?.categories?.outreach_platforms?.SMARTLEAD_API_KEY === true;
+
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -117,20 +368,22 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="instantly">Instantly</SelectItem>
-                  {/* P0-2: Smartlead adapter is an unverified stub — disable until
-                      its endpoints + credentials are verified, so it can't be
-                      selected and silently fail on Push. */}
+                  {/* P0-2: Smartlead stays disabled until the server capability
+                      flag (env-presence → outreach_platforms.SMARTLEAD_API_KEY)
+                      reports the key present, so it can't be selected and
+                      silently fail on Push. */}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="block">
-                        <SelectItem value="smartlead" disabled>
-                          Smartlead (coming soon)
+                        <SelectItem value="smartlead" disabled={!smartleadReady}>
+                          {smartleadReady ? "Smartlead" : "Smartlead (key missing)"}
                         </SelectItem>
                       </span>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-[240px] text-xs">
-                      Coming soon — verify credentials. The Smartlead integration is
-                      not yet verified, so it can't be selected for live campaigns.
+                      {smartleadReady
+                        ? "Smartlead key detected on the server — campaigns can be linked and pushed."
+                        : "SMARTLEAD_API_KEY isn't configured on the server, so the integration can't push leads. Add the key to enable this option."}
                     </TooltipContent>
                   </Tooltip>
                 </SelectContent>
@@ -291,6 +544,9 @@ function CampaignDetail({ campaignId, onClose }: { campaignId: number; onClose: 
         </div>
       )}
 
+      {/* Consent-gate counts framed as protection (Lane OB merge wiring inside the hook) */}
+      <ComplianceStrip campaignId={campaign.id} />
+
       <div className="flex-1 overflow-y-auto">
         {leads.length === 0 ? (
           <div className="p-6 text-center text-sm text-muted-foreground">No leads assigned yet. Go to Prospects and assign approved leads to this campaign.</div>
@@ -374,6 +630,9 @@ export default function CampaignsPage() {
     },
   });
 
+  // Attribution funnel — one fetch for all cards.
+  const { data: funnelMap } = useFunnelMap();
+
   const PLATFORM_COLORS: Record<string, string> = {
     instantly: "bg-blue-100 text-blue-700",
     smartlead: "bg-brand-blue-100 text-brand-blue-700",
@@ -441,20 +700,11 @@ export default function CampaignsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      {c.external_campaign_id ? (
-                        <span className="flex items-center gap-1 text-xs text-green-600">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          Linked
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-xs text-amber-500">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          No ID
-                        </span>
-                      )}
+                      <LinkStatusBadge campaign={c} />
                       <p className="text-xs text-muted-foreground mt-1">{new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
+                  <FunnelStrip funnel={funnelMap?.[c.id]} />
                 </div>
               ))
             )}

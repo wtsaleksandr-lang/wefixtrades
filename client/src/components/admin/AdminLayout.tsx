@@ -220,6 +220,7 @@ const OUTBOUND_ITEMS: NavItem[] = [
   { label: "Prospects", href: "/admin/outbound/prospects", icon: Users },
   { label: "Campaigns", href: "/admin/outbound/campaigns", icon: Megaphone },
   { label: "Sequences", href: "/admin/outbound/sequences", icon: Layers },
+  { label: "Sending", href: "/admin/outbound/sending", icon: Radio },
   { label: "Pipeline", href: "/admin/outbound/pipeline", icon: CreditCard },
 ];
 

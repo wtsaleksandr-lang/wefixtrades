@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Phone, Mail, Star, ChevronRight, HelpCircle, AlertTriangle, RefreshCw } from "lucide-react";
+import { Globe, Phone, Mail, Star, ChevronRight, HelpCircle, AlertTriangle, RefreshCw, FileText } from "lucide-react";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
@@ -49,6 +49,10 @@ interface PipelineRow {
     quality_score: number | null;
     ai_personalization_line: string | null;
     ai_notes: string | null;
+    // Artifact-first outreach (Lane OC) — the pipeline endpoint returns the
+    // full enrichment row, so these are already in the payload.
+    artifact_url: string | null;
+    artifact_viewed_at: string | null;
   } | null;
 }
 
@@ -185,6 +189,34 @@ function OpportunityCard({
             >
               <Globe className="w-3 h-3 shrink-0" />{p.website_domain}
             </a>
+          )}
+        </div>
+      )}
+
+      {e?.artifact_url && (
+        <div className="mt-1.5 flex items-center flex-wrap gap-1.5">
+          <a
+            href={e.artifact_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:underline"
+            onClick={(ev) => ev.stopPropagation()}
+            title="Open the audit report sent to this prospect"
+          >
+            <FileText className="w-3 h-3 shrink-0" />
+            Audit report
+          </a>
+          {e.artifact_viewed_at && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 cursor-default">
+                  Viewed report
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[220px] text-xs">
+                Prospect opened their audit report {new Date(e.artifact_viewed_at).toLocaleString()} — buy signal.
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       )}

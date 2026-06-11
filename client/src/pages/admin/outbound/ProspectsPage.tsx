@@ -37,6 +37,11 @@ interface ProspectEnrichment {
   ai_first_line: string | null;
   ai_offer_angle: string | null;
   ai_cta_variant: string | null;
+  // Artifact-first outreach (Lane OC) — served by the existing prospects
+  // endpoint (it returns the full enrichment row).
+  artifact_url: string | null;
+  artifact_score: number | null;
+  artifact_viewed_at: string | null;
 }
 
 interface Prospect {
@@ -99,6 +104,7 @@ const STATUS_COLORS: Record<string, string> = {
   campaign_queued: "bg-brand-blue-100 text-brand-blue-700",
   in_outreach: "bg-brand-blue-100 text-brand-blue-700",
   replied: "bg-amber-100 text-amber-700",
+  converted: "bg-green-200 text-green-800",
   bounced: "bg-orange-100 text-orange-700",
   unsubscribed: "bg-red-100 text-red-600",
   opted_out: "bg-red-100 text-red-600",
@@ -668,6 +674,7 @@ export default function ProspectsPage() {
               <SelectItem value="campaign_queued">Campaign Queued</SelectItem>
               <SelectItem value="in_outreach">In Outreach</SelectItem>
               <SelectItem value="replied">Replied</SelectItem>
+              <SelectItem value="converted">Converted</SelectItem>
               <SelectItem value="bounced">Bounced</SelectItem>
               <SelectItem value="unsubscribed">Unsubscribed</SelectItem>
               <SelectItem value="opted_out">Opted Out</SelectItem>
@@ -732,6 +739,18 @@ export default function ProspectsPage() {
                     </Tooltip>
                   </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="px-3 py-2.5 text-center text-xs font-medium text-muted-foreground hidden lg:table-cell">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-0.5 cursor-default">
+                          Artifact <HelpCircle className="w-3 h-3 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[260px] text-xs">
+                        The personalized audit report generated for this prospect's business. "Viewed" means the prospect opened their report — a strong buy signal worth a fast follow-up.
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">AI Notes</th>
                   <th className="px-3 py-2.5 text-right text-xs font-medium text-muted-foreground">Actions</th>
                 </tr>
@@ -789,6 +808,37 @@ export default function ProspectsPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       <StatusBadge status={p.status} />
+                    </td>
+                    <td className="px-3 py-2.5 text-center hidden lg:table-cell">
+                      {e?.artifact_url ? (
+                        <div className="inline-flex flex-col items-center gap-0.5">
+                          <a
+                            href={e.artifact_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-brand-blue-600 hover:underline"
+                            title="Open audit report"
+                            data-testid={`prospect-artifact-link-${p.id}`}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            {e.artifact_score != null ? `${e.artifact_score}/100` : "Report"}
+                          </a>
+                          {e.artifact_viewed_at && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 cursor-default">
+                                  Viewed <CheckCircle className="w-3 h-3" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[220px] text-xs">
+                                Prospect opened their report {new Date(e.artifact_viewed_at).toLocaleString()} — buy signal, follow up fast.
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/70">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 max-w-[220px]">
                       {e?.ai_notes ? (
