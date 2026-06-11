@@ -601,6 +601,8 @@ export interface IStorage {
   listRecentSocialSyncPosts(clientId: number, limit?: number): Promise<SocialSyncPost[]>;
   fetchStaleSocialSyncLocks(thresholdMs: number): Promise<SocialSyncQueueItem[]>;
   listAllSocialSyncConnections(): Promise<SocialSyncConnection[]>;
+  listSocialSyncConnectionsByExternalAccountId(platform: string, externalAccountId: string): Promise<SocialSyncConnection[]>;
+  eraseSocialSyncConnectionData(id: number, replacementMetadata: Record<string, unknown>): Promise<SocialSyncConnection | undefined>;
 
   // ─── Reviews ───
   upsertReview(data: InsertReview): Promise<Review>;
@@ -2093,6 +2095,12 @@ export class DatabaseStorage implements IStorage {
   }
   async fetchStaleSocialSyncLocks(thresholdMs: number): Promise<SocialSyncQueueItem[]> {
     return socialsyncImpl.fetchStaleSocialSyncLocks(thresholdMs);
+  }
+  async listSocialSyncConnectionsByExternalAccountId(platform: string, externalAccountId: string): Promise<SocialSyncConnection[]> {
+    return socialsyncImpl.listSocialSyncConnectionsByExternalAccountId(platform, externalAccountId);
+  }
+  async eraseSocialSyncConnectionData(id: number, replacementMetadata: Record<string, unknown>): Promise<SocialSyncConnection | undefined> {
+    return socialsyncImpl.eraseSocialSyncConnectionData(id, replacementMetadata);
   }
 
   // ─── Reviews (impl in ./storage/reviews.ts) ───

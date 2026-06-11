@@ -56,6 +56,13 @@ const REQUIRED_SCOPES = [
   "pages_read_engagement",
   "pages_manage_posts",
   "pages_read_user_content",
+  // ReputationShield — lets the connected Page post owner replies to Page
+  // recommendations ("reviews"). Exercised by
+  // server/services/reputation/facebookReplyClient.ts
+  // (POST /{recommendation-id}/comments). Added 2026-06-10 so FB review
+  // replies ship at launch; existing connections must re-consent to pick
+  // up the new scope.
+  "pages_manage_engagement",
   // Lets the customer edit their Page's basic metadata (name, about, category)
   // from the WeFixTrades portal. Read/update routes live in
   // server/routes/portal/socialsync.ts → /facebook-page/:pageId/metadata.
@@ -87,6 +94,12 @@ const REQUIRED_SCOPES = [
   // Instagram scopes — requested during the same Meta OAuth flow
   "instagram_basic",
   "instagram_content_publish",
+  // ContentFlow IG performance metrics — reading media insights
+  // (GET /{media-id}/insights?metric=impressions,reach,engagement / saved)
+  // requires this scope; without it the reads in
+  // server/services/contentflow/performanceCollectors.ts 403 at runtime.
+  // Added 2026-06-10; existing connections must re-consent to pick it up.
+  "instagram_manage_insights",
 ].join(",");
 
 export function buildFacebookOAuthUrl(clientId: number): string {

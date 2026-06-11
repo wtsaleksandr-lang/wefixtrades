@@ -26,8 +26,10 @@ Pre-filled with WeFixTrades details. Where information is unknown, a `[TODO: Ale
 - [ ] App tagline (short): `Done-for-you social posting for trades businesses.`
 - [ ] Privacy Policy URL: `https://wefixtrades.com/privacy`
 - [ ] Terms of Service URL: `https://wefixtrades.com/terms`
-- [ ] Data Deletion Instructions URL: `https://wefixtrades.com/privacy#data-deletion`
-  - `[TODO: Alex confirms an explicit data-deletion section/anchor exists in the privacy policy]`
+- [ ] Data Deletion Callback URL (preferred option): `https://wefixtrades.com/api/meta/data-deletion`
+  - Implemented in `server/routes/metaDataDeletionRoutes.ts` — verifies Meta's `signed_request` (HMAC-SHA256), scrubs the user's SocialSync tokens + connection data, responds `{url, confirmation_code}` per spec.
+- [ ] Data Deletion Instructions URL (fallback option): `https://wefixtrades.com/privacy#data-deletion`
+  - Anchor verified: the privacy page section "10. Deleting your data" answers to both `#deletion` and the `#data-deletion` alias (`client/src/pages/marketing/privacy.tsx`).
 - [ ] User Support email: `support@wefixtrades.com`
 - [ ] Business contact email: `support@wefixtrades.com`
 - [ ] Platforms used by the app: `Website` (server-side OAuth)
@@ -51,9 +53,14 @@ Sourced from `server/services/socialSync/facebookService.ts`:
 - [ ] `pages_read_engagement` — read post insights for the monthly performance report.
 - [ ] `pages_manage_posts` — publish, edit, and delete posts on the selected page.
 - [ ] `pages_read_user_content` — read existing posts to detect duplicate scheduling.
-- [ ] `pages_manage_metadata` — edit Page name / About / category from the portal "Page Settings" tab.
+- [ ] `pages_manage_engagement` — post owner replies to Page recommendations (ReputationShield review replies).
+- [ ] `pages_manage_metadata` — edit Page name / About / category from the portal "Page Settings" tab; also covers webhook subscription (`/subscribed_apps`).
+- [ ] `business_management` — read-only Business Assets inventory + Tech Provider attestation.
+- [ ] `pages_messaging` — Messenger DM foundation: webhook intake + manual portal reply.
+- [ ] `whatsapp_business_messaging` — WhatsApp Cloud API foundation: webhook intake + portal send.
 - [ ] `instagram_basic` — discover Instagram Business accounts linked to the page.
 - [ ] `instagram_content_publish` — publish photo posts to the linked Instagram Business account.
+- [ ] `instagram_manage_insights` — read IG media insights (impressions/reach/engagement/saved) for ContentFlow performance metrics.
 
 See `permissions-justification.md` for the per-scope rationale.
 

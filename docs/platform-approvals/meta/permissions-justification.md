@@ -20,6 +20,11 @@ Each scope below is requested by `server/services/socialSync/facebookService.ts`
 - **Why:** Before scheduling a new post we check the page's recent posts to avoid duplicating content the customer (or a previous SocialSync run) already posted. This protects the customer's feed from looking spammy or repetitive.
 - **Code:** Duplicate-detection inside `orchestrator.ts` calls `/{page-id}/posts` and compares hashes before queueing a new draft.
 
+### `pages_manage_engagement`
+- **Why:** ReputationShield (WeFixTrades' review-management product) lets the trades business reply to Facebook Page recommendations ("reviews") from the WeFixTrades portal. Owner replies to recommendations are posted as comments on the recommendation thread, which requires this permission. Replies are always customer-initiated or customer-approved; every send is audit-logged.
+- **Code:** `server/services/reputation/facebookReplyClient.ts` — `POST /{recommendation-id}/comments` using the page access token stored (encrypted) by the SocialSync OAuth connection.
+- **Reviewer test path:** Connect a Facebook Page in the portal → open ReputationShield → Reviews → select a Facebook recommendation → type a reply → Send. The reply appears as an owner comment on the recommendation on facebook.com.
+
 ### `pages_manage_metadata`
 - **Why:** The "Page Settings" tab in the customer portal lets trades businesses edit their Facebook Page's basic details (name, About / short description, category) without leaving WeFixTrades. Most trades customers manage one Page and rarely touch Meta Business Suite, so consolidating this into the portal saves time and keeps their public-facing information accurate. We do not change page roles, page admins, or any sensitive settings — only the customer-visible fields they would otherwise edit in the Page's own Settings → Page Info screen.
 - **Code:** `fetchFacebookPageMetadata()` and `updateFacebookPageMetadata()` in `facebookService.ts` (GET / POST `/{page-id}`). Exposed at portal routes `GET /api/portal/socialsync/facebook-page/:pageId/metadata` and `PATCH /api/portal/socialsync/facebook-page/:pageId/metadata`. Every update writes an audit-log row (`socialsync.facebook_page.metadata_update`) capturing actor, fields changed, and before/after snapshot.
@@ -59,6 +64,11 @@ Each scope below is requested by `server/services/socialSync/facebookService.ts`
 ### `instagram_content_publish`
 - **Why:** When the customer enables Instagram cross-posting, we publish the same AI-generated post (re-formatted for IG aspect ratios) to their Instagram Business account. This is the only scope that allows the IG content publishing API.
 - **Code:** `instagramPublisher.ts` calls `/{ig-user-id}/media` then `/{ig-user-id}/media_publish`.
+
+### `instagram_manage_insights`
+- **Why:** ContentFlow shows the customer how their cross-posted Instagram content performed (impressions, reach, engagement, saves) inside the same portal performance report that already covers their Facebook posts. Reading IG media insights requires this permission; we read only aggregate, media-level counts for media our app published — never follower lists or user-level data.
+- **Code:** `server/services/contentflow/performanceCollectors.ts` — `GET /{media-id}/insights?metric=impressions,reach,engagement` and `GET /{media-id}/insights?metric=saved`.
+- **Reviewer test path:** With Instagram cross-posting enabled, approve a draft → after it publishes to the linked IG Business account, open the portal's performance panel → the IG row populates with impressions/reach/engagement counts (allow a few minutes for insights availability).
 
 ## Scopes We Are Explicitly NOT Requesting
 
