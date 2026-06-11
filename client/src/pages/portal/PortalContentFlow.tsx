@@ -318,12 +318,19 @@ export default function PortalContentFlow() {
         rendered: previewEdit,
         assetType: selected.asset,
       };
-      const res = await apiRequest("POST", "/api/portal/contentflow/generate", body);
-      const json = (await res.json()) as GenerateResult;
+      /* Raw fetch, NOT apiRequest — apiRequest throws on any non-2xx
+       * before the body can be read, so the 402/502 JSON (tier_too_low,
+       * upgrade_required, draftId) would be lost and the toast would show
+       * raw "<status>: <json>" text. Parse the body ourselves so the
+       * onError handler can branch on the real error code. */
+      const res = await fetch("/api/portal/contentflow/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res.json().catch(() => ({}))) as GenerateResult;
       if (!res.ok) {
-        /* surface 402 / 503 / 502 with our friendlier UI rather than
-         * throwing into the toast — react-query treats non-2xx as
-         * errors only when apiRequest does, which it doesn't here. */
         const err: GenerateResult = { ...json, ok: false };
         throw Object.assign(new Error(json.error || "Generation failed"), { result: err, status: res.status });
       }

@@ -247,8 +247,18 @@ export default function ContentFlowCreatePanel() {
             ? { imageBase64: reference.base64, mediaType: reference.mediaType }
             : { url: reference.url };
       }
-      const res = await apiRequest("POST", "/api/portal/contentflow/generate", body);
-      const json = (await res.json()) as GenerateResponse;
+      /* Raw fetch, NOT apiRequest — apiRequest throws on any non-2xx
+       * before we can read the body, which would reduce 402/502 to a raw
+       * "<status>: <json>" message and skip toPanelError entirely (the
+       * upgrade CTA would never render). Parse the body ourselves and
+       * route non-2xx through toPanelError. */
+      const res = await fetch("/api/portal/contentflow/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res.json().catch(() => ({}))) as GenerateResponse;
       if (!res.ok) {
         throw Object.assign(new Error(json.error || "Generation failed"), {
           panelError: toPanelError(json, res.status),
