@@ -11,6 +11,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import MicrosoftSignInButton from "@/components/auth/MicrosoftSignInButton";
 import FacebookSignInButton from "@/components/auth/FacebookSignInButton";
+import { FreeToolFormField, FreeToolFormFieldStyles } from "@/components/marketing/FreeToolFormField";
 import { ga4Event } from "@/lib/ga4";
 import {
   SmsConsentDisclosure,
@@ -125,28 +126,6 @@ export default function SignupPage() {
     signup.mutate();
   };
 
-  const labelStyle = {
-    display: "block" as const,
-    fontSize: 12,
-    fontWeight: 600,
-    color: mkt.textFaint,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.06em",
-    marginBottom: 6,
-  };
-
-  const inputStyle = {
-    width: "100%",
-    padding: "12px 14px",
-    fontSize: 14,
-    color: mkt.onDark,
-    background: "rgba(255,255,255,0.04)",
-    border: `1px solid ${mkt.onDarkBorder}`,
-    borderRadius: 8,
-    outline: "none",
-    boxSizing: "border-box" as const,
-  };
-
   return (
     <MarketingLayout>
       <V7PageShell>
@@ -196,62 +175,74 @@ export default function SignupPage() {
           </div>
 
           <form onSubmit={handleSubmit}>
-            <label htmlFor="signup-business-name" style={labelStyle}>Business name</label>
-            <input
-              id="signup-business-name"
-              type="text"
-              required
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="e.g. Smith Plumbing Ltd"
-              style={{ ...inputStyle, marginBottom: 20 }}
-            />
-
-            <label htmlFor="signup-name" style={labelStyle}>Your name</label>
-            <input
-              id="signup-name"
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. John Smith"
-              autoComplete="name"
-              style={{ ...inputStyle, marginBottom: 20 }}
-            />
-
-            <label htmlFor="signup-email" style={labelStyle}>Email</label>
-            <input
-              id="signup-email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              style={{ ...inputStyle, marginBottom: 20 }}
-            />
-
-            <label htmlFor="signup-password" style={labelStyle}>Password</label>
-            <input
-              id="signup-password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              placeholder="Min. 8 characters"
-              style={{ ...inputStyle, marginBottom: 20 }}
-            />
-
-            <label htmlFor="signup-phone" style={labelStyle}>Phone <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></label>
-            <input
-              id="signup-phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              autoComplete="tel"
-              style={{ ...inputStyle, marginBottom: 8 }}
-            />
+            {/* P2-1 (night audit 2026-06-11): retrofit to the locked input
+                rules — title-in-field floating labels, `?` help cue top-left,
+                2px gaps between stacked fields — via the shared
+                FreeToolFormField primitive (same as the checkout drawer and
+                every free tool). */}
+            <FreeToolFormFieldStyles />
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 8, ["--ftool-label-bg" as any]: mkt.sectionLight }}>
+              <FreeToolFormField
+                id="signup-business-name"
+                theme="dark"
+                label="Business Name"
+                placeholder="e.g. Smith Plumbing Ltd"
+                helpText="The trading name of your business — it appears on your dashboard, quotes, and invoices."
+                value={businessName}
+                onChange={setBusinessName}
+                autoComplete="organization"
+                required
+              />
+              <FreeToolFormField
+                id="signup-name"
+                theme="dark"
+                label="Your Name"
+                placeholder="e.g. John Smith"
+                helpText="Who we should address account emails to."
+                value={name}
+                onChange={setName}
+                autoComplete="name"
+                required
+              />
+              <FreeToolFormField
+                id="signup-email"
+                theme="dark"
+                label="Email"
+                type="email"
+                placeholder="john@smithplumbing.com"
+                helpText="You'll use this to sign in. Account and billing emails go here."
+                value={email}
+                onChange={setEmail}
+                inputMode="email"
+                autoComplete="email"
+                required
+              />
+              <FreeToolFormField
+                id="signup-password"
+                theme="dark"
+                label="Password"
+                type="password"
+                placeholder="Min. 8 characters"
+                helpText="At least 8 characters. You'll use it with your email to sign in."
+                value={password}
+                onChange={setPassword}
+                minLength={8}
+                autoComplete="new-password"
+                required
+              />
+              <FreeToolFormField
+                id="signup-phone"
+                theme="dark"
+                label="Phone (optional)"
+                type="tel"
+                placeholder="(555) 123-4567"
+                helpText="Optional — only needed if you'd like SMS updates (opt-in below)."
+                value={phone}
+                onChange={setPhone}
+                inputMode="tel"
+                autoComplete="tel"
+              />
+            </div>
             {phoneProvided && (
               <label
                 htmlFor="signup-sms-consent"

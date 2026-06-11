@@ -30,9 +30,10 @@ export default function FacebookSignInButton({ mode }: FacebookSignInButtonProps
         fontSize: 14,
         fontWeight: 600,
         borderRadius: 10,
-        // Facebook brand blue (#1877F2) on the border only — neutral
-        // interior keeps the row of social buttons visually consistent.
-        border: "1px solid #1877F2",
+        // P2-3 (night audit 2026-06-11): neutral border matching the Google
+        // button — the glyph carries the brand; the bright brand-blue
+        // outline made the SSO row read as mismatched.
+        border: "1px solid #DADCE0",
         textDecoration: "none",
         boxSizing: "border-box",
         transition: "box-shadow 160ms ease",

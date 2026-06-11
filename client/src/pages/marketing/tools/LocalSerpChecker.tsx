@@ -373,15 +373,15 @@ export default function LocalSerpChecker() {
         }}
       >
         <Globe size={14} />
+        {/* P2-6 (night audit 2026-06-11): the backend geo-targets search via
+            `location` — say so. "in United States (you entered Denver, CO)"
+            read as if the query ran nationally. */}
         {resultCount} {result.engine === "maps" ? "local pack" : "organic"} results
         {result.engine === "maps"
           ? ` for ${locationLabel || countryLabel}`
-          : ` in ${countryLabel}`} · {languageLabel}
-        {result.engine === "search" && locationLabel && (
-          <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 500, opacity: 0.8 }}>
-            (you entered “{locationLabel}”)
-          </span>
-        )}
+          : locationLabel
+            ? ` near ${locationLabel} · ${countryLabel}`
+            : ` in ${countryLabel}`} · {languageLabel}
         {result.cached && (
           <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 500, opacity: 0.7 }}>cached</span>
         )}

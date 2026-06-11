@@ -113,6 +113,38 @@ export default function SiteChatWidget() {
     return () => io.disconnect();
   }, [location]);
 
+  /* P1-2 (night audit 2026-06-11): GLOBAL guarantee that the launcher never
+   * covers a form control the user is interacting with at phone widths.
+   * The route lift above fixes the auth forms' resting layout, but ANY
+   * full-width input/select can scroll under the fixed launcher (signup
+   * email, serp-checker Country select at 375px). While a text-entry
+   * control has focus, the launcher hides entirely — CSS-gated to
+   * ≤640px, desktop unaffected. */
+  const [formControlFocused, setFormControlFocused] = useState(false);
+  useEffect(() => {
+    const SELECTOR = 'input, select, textarea, [contenteditable="true"]';
+    let blurTimer: ReturnType<typeof setTimeout> | undefined;
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as Element | null;
+      if (t && typeof t.closest === "function" && t.closest(SELECTOR)) {
+        if (blurTimer) clearTimeout(blurTimer);
+        setFormControlFocused(true);
+      }
+    };
+    const onFocusOut = () => {
+      if (blurTimer) clearTimeout(blurTimer);
+      // Small delay so tabbing between fields doesn't flicker the launcher.
+      blurTimer = setTimeout(() => setFormControlFocused(false), 150);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+      if (blurTimer) clearTimeout(blurTimer);
+    };
+  }, []);
+
   // Persist messages and open state
   useEffect(() => { saveMessages(messages); }, [messages]);
   useEffect(() => { saveOpenState(open); }, [open]);
@@ -244,7 +276,7 @@ export default function SiteChatWidget() {
         <button
           onClick={openChat}
           aria-label={showDot ? "Open chat, 1 unread message" : "Open chat"}
-          className={`wft-chat-bubble${onConversionForm ? " wft-chat-bubble--lifted" : ""}${footerUnderFab ? " wft-chat-bubble--footer-clear" : ""}`}
+          className={`wft-chat-bubble${onConversionForm ? " wft-chat-bubble--lifted" : ""}${footerUnderFab ? " wft-chat-bubble--footer-clear" : ""}${formControlFocused ? " wft-chat-bubble--form-focus" : ""}`}
           style={{
             position: "fixed",
             right: 24,
@@ -656,11 +688,25 @@ export default function SiteChatWidget() {
         }
         @media (max-width: 480px) {
           .wft-chat-bubble {
-            bottom: calc(24px + var(--mkt-sticky-bar-h, 0px) + 8px);
-            transition: bottom 320ms cubic-bezier(0.4, 0, 0.6, 1);
+            /* P1-2: safe-area insets so the launcher clears the home
+               indicator / curved corners on notched phones. */
+            bottom: calc(24px + var(--mkt-sticky-bar-h, 0px) + env(safe-area-inset-bottom, 0px) + 8px);
+            right: calc(16px + env(safe-area-inset-right, 0px)) !important;
+            transition: bottom 320ms cubic-bezier(0.4, 0, 0.6, 1), transform 0.2s ease, opacity 0.2s ease;
           }
           .wft-chat-bubble--lifted {
-            bottom: calc(88px + var(--mkt-sticky-bar-h, 0px) + 8px) !important;
+            bottom: calc(88px + var(--mkt-sticky-bar-h, 0px) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+          }
+        }
+        /* P1-2 (night audit 2026-06-11): while ANY form control is focused
+           at phone widths, the launcher gets out of the way entirely — it
+           must never cover an interactive field (signup email, serp-checker
+           Country select) at 375px. Desktop unaffected. */
+        @media (max-width: 640px) {
+          .wft-chat-bubble--form-focus {
+            opacity: 0 !important;
+            transform: translateY(12px) !important;
+            pointer-events: none !important;
           }
         }
         @media (max-width: 480px) {

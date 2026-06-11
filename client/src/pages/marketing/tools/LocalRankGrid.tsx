@@ -500,6 +500,15 @@ export default function LocalRankGrid() {
             Center: {result.center.address || `${result.center.lat.toFixed(4)}, ${result.center.lng.toFixed(4)}`}.
             Each cell is a live Google search from that exact lat/lng — hover to see who ranks there.
           </div>
+
+          {/* P2-8 (night audit 2026-06-11): an all-red grid with avg "—" is a
+              legitimate result but reads like an error — explain it. */}
+          {result.summary.avgRank == null && (
+            <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.62)", lineHeight: 1.55, textAlign: "center", background: "rgba(13,60,252,0.05)", border: "1px solid rgba(13,60,252,0.14)", borderRadius: 10, padding: "10px 14px" }}>
+              Business not found in the top 20 at any grid point — common for franchises with
+              location-suffixed names. Try the exact name on your Google Business Profile listing.
+            </div>
+          )}
         </div>
 
         {/* Competitor sidebar — right side of the grid. Stacks below the

@@ -231,6 +231,206 @@ const TOOLS: ToolPreview[] = [
         <p style="margin: 10px 0 0; font-size: 11px; color: #64748b;">Static image, immutable cache — fast on every device.</p>
       </div>`,
   },
+
+  /* ── Local SEO tools (P2-7, night audit 2026-06-11) ─────────────────
+   * The 7 /tools/* cards on /free-tools rendered stub previews (lone icon
+   * in an empty box) while the widget cards above have real thumbnails.
+   * Same pipeline, same realistic sample-data approach — each preview
+   * mirrors the tool's actual RESULT surface. */
+  {
+    // Mirrors the gated audit report: score ring + per-area lines.
+    slug: "free-audit",
+    renderHTML: () => `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px 24px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; width: 470px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 14px;">
+          <div style="width: 74px; height: 74px; border-radius: 50%; background: conic-gradient(#10b981 0deg 277deg, #e5e7eb 277deg 360deg); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <div style="width: 58px; height: 58px; border-radius: 50%; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+              <span style="font-size: 21px; font-weight: 800; color: #0f172a; line-height: 1;">77</span>
+              <span style="font-size: 8px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em;">/ 100</span>
+            </div>
+          </div>
+          <div>
+            <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; color: #0f172a;">Joe's Plumbing</h2>
+            <p style="margin: 0; font-size: 12px; color: #64748b;">Local SEO audit · Austin, TX</p>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 7px; border: 1px solid #eef2f7;">
+            <span style="font-size: 13px; color: #0f172a; font-weight: 600;">Google Business Profile</span>
+            <span style="font-size: 11px; padding: 2px 8px; background: #ecfdf5; color: #047857; border-radius: 999px; font-weight: 700;">STRONG</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 7px; border: 1px solid #eef2f7;">
+            <span style="font-size: 13px; color: #0f172a; font-weight: 600;">Citations &amp; directories</span>
+            <span style="font-size: 11px; padding: 2px 8px; background: #fef3c7; color: #b45309; border-radius: 999px; font-weight: 700;">3 MISSING</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 7px; border: 1px solid #eef2f7;">
+            <span style="font-size: 13px; color: #0f172a; font-weight: 600;">Reviews velocity</span>
+            <span style="font-size: 11px; padding: 2px 8px; background: #fee2e2; color: #b91c1c; border-radius: 999px; font-weight: 700;">BEHIND RIVALS</span>
+          </div>
+        </div>
+      </div>`,
+  },
+  {
+    // Mirrors the citation-checker result list: directory rows + found/missing.
+    slug: "citation-checker",
+    renderHTML: () => `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px 24px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; width: 440px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Citation coverage</h2>
+          <span style="font-size: 11px; padding: 3px 9px; background: #ecfdf5; color: #047857; border-radius: 999px; font-weight: 700;">9 / 10 FOUND</span>
+        </div>
+        ${[
+          ["Google Business Profile", true],
+          ["Yelp", true],
+          ["Better Business Bureau", true],
+          ["Facebook", true],
+          ["Angi", false],
+        ]
+          .map(
+            ([name, found]) => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #f1f5f9;">
+            <span style="font-size: 13px; color: #0f172a; font-weight: 500;">${name}</span>
+            ${
+              found
+                ? '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#047857;font-weight:700;"><span style="width:16px;height:16px;border-radius:50%;background:#ecfdf5;display:inline-flex;align-items:center;justify-content:center;">✓</span>Listed</span>'
+                : '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#b91c1c;font-weight:700;"><span style="width:16px;height:16px;border-radius:50%;background:#fee2e2;display:inline-flex;align-items:center;justify-content:center;">✗</span>Missing</span>'
+            }
+          </div>`,
+          )
+          .join("")}
+      </div>`,
+  },
+  {
+    // Mirrors the generator result: direct review URL + QR + copy button.
+    slug: "review-link-generator",
+    renderHTML: () => `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 22px 24px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; width: 460px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; gap: 18px; align-items: center;">
+        <div style="flex: 1; min-width: 0;">
+          <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #0f172a;">Your review link is ready</h2>
+          <p style="margin: 0 0 12px; font-size: 12px; color: #64748b;">Joe's Plumbing · Austin, TX</p>
+          <div style="display: flex; gap: 8px; align-items: stretch;">
+            <div style="flex: 1; min-width: 0; padding: 9px 12px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 7px; font-size: 11px; color: #0d3cfc; font-family: 'SF Mono', Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">g.page/r/CXq8…/review</div>
+            <button style="padding: 9px 14px; background: #0d3cfc; color: white; border: none; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0;">Copy</button>
+          </div>
+          <p style="margin: 10px 0 0; font-size: 11px; color: #94a3b8;">Share it in texts, invoices, and email signatures.</p>
+        </div>
+        <div style="flex-shrink: 0; width: 96px; height: 96px; background: linear-gradient(45deg, #0f172a 25%, white 25%, white 50%, #0f172a 50%, #0f172a 75%, white 75%); background-size: 11px 11px; border-radius: 6px; border: 4px solid white; box-shadow: 0 0 0 1px #e5e7eb; display: flex; align-items: center; justify-content: center;">
+          <div style="background: white; padding: 3px 5px; font-size: 9px; color: #0f172a; font-weight: 800;">QR</div>
+        </div>
+      </div>`,
+  },
+  {
+    // Mirrors the 5×5 geo-grid result with per-point rank colors.
+    slug: "rank-grid",
+    renderHTML: () => {
+      const ranks = [
+        [3, 2, 4, 7, 11],
+        [2, 1, 2, 5, 9],
+        [4, 1, 1, 3, 8],
+        [6, 3, 2, 6, 12],
+        [9, 7, 5, 10, 16],
+      ];
+      const color = (r: number) =>
+        r <= 3
+          ? "background:#10b981;color:white;"
+          : r <= 10
+            ? "background:#f59e0b;color:white;"
+            : "background:#ef4444;color:white;";
+      return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 16px 20px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; width: 300px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <h2 style="margin: 0; font-size: 14px; font-weight: 700; color: #0f172a;">"plumber near me"</h2>
+          <span style="font-size: 10px; padding: 2px 8px; background: #ecfdf5; color: #047857; border-radius: 999px; font-weight: 700;">AVG #5.2</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
+          ${ranks
+            .flat()
+            .map(
+              (r) =>
+                `<div style="width: 100%; height: 44px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; box-sizing: border-box; ${color(r)}">${r}</div>`,
+            )
+            .join("")}
+        </div>
+        <p style="margin: 9px 0 0; font-size: 10px; color: #64748b;">5×5 grid · 1-mile spacing · Google Maps rankings</p>
+      </div>`;
+    },
+  },
+  {
+    // Mirrors the multi-engine rank snapshot table.
+    slug: "rank-tracker",
+    renderHTML: () => `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px 24px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; width: 430px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <h2 style="margin: 0 0 2px; font-size: 15px; font-weight: 700; color: #0f172a;">"emergency plumber austin"</h2>
+        <p style="margin: 0 0 12px; font-size: 12px; color: #64748b;">Joe's Plumbing · checked just now</p>
+        ${[
+          ["Google Search", "#4", "#ecfdf5", "#047857", "▲ 2"],
+          ["Google Maps", "#2", "#ecfdf5", "#047857", "▲ 1"],
+          ["Brave Search", "#7", "#fef3c7", "#b45309", "— 0"],
+        ]
+          .map(
+            ([engine, pos, bg, fg, delta]) => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 8px; margin-bottom: 7px;">
+            <span style="font-size: 13px; color: #0f172a; font-weight: 600;">${engine}</span>
+            <span style="display: inline-flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; color: #64748b;">${delta}</span>
+              <span style="font-size: 13px; padding: 3px 10px; background: ${bg}; color: ${fg}; border-radius: 999px; font-weight: 800;">${pos}</span>
+            </span>
+          </div>`,
+          )
+          .join("")}
+      </div>`,
+  },
+  {
+    // Mirrors the rankflux gauge: today's volatility + 7-day bars.
+    slug: "rankflux",
+    renderHTML: () => `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px 24px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; width: 420px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 14px;">
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-size: 34px; font-weight: 800; color: #f59e0b; line-height: 1;">5.6</span>
+            <span style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em;">/ 10 volatility</span>
+          </div>
+          <div>
+            <span style="font-size: 11px; padding: 4px 10px; background: #fef3c7; color: #b45309; border-radius: 999px; font-weight: 800; letter-spacing: 0.04em;">MEDIUM</span>
+            <p style="margin: 6px 0 0; font-size: 12px; color: #64748b; line-height: 1.45;">Local rankings are shifting more than usual today.</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-end; gap: 7px; height: 64px; padding: 0 2px;">
+          ${[34, 28, 42, 38, 61, 56, 72]
+            .map(
+              (h, i) =>
+                `<div style="flex: 1; height: ${h}%; border-radius: 4px 4px 0 0; background: ${i === 6 ? "#f59e0b" : "#dbeafe"};"></div>`,
+            )
+            .join("")}
+        </div>
+        <p style="margin: 8px 0 0; font-size: 11px; color: #94a3b8;">Last 7 days · plumbing &amp; trades keyword set</p>
+      </div>`,
+  },
+  {
+    // Mirrors the SERP viewer result list with geo-targeted header.
+    slug: "serp-checker",
+    renderHTML: () => `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px 24px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; width: 460px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">"water heater repair"</h2>
+          <span style="font-size: 11px; padding: 3px 9px; background: #eef3ff; color: #0d3cfc; border-radius: 999px; font-weight: 700;">AUSTIN, TX</span>
+        </div>
+        ${[
+          ["Joe's Plumbing — Water Heater Repair Austin", "joesplumbing.com", true],
+          ["Water Heater Repair &amp; Installation | Roto…", "rotorooter.com", false],
+          ["24/7 Emergency Water Heater Service", "mrplumber.com", false],
+        ]
+          .map(
+            ([title, url, mine]) => `
+          <div style="padding: 9px 12px; border-radius: 8px; margin-bottom: 7px; ${mine ? "background:#eef3ff;border:1px solid #c7d6ff;" : "background:#f8fafc;border:1px solid #eef2f7;"}">
+            <div style="font-size: 13px; color: #1a0dab; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${title}</div>
+            <div style="font-size: 11px; color: #047857;">${url}${mine ? ' · <strong style="color:#0d3cfc;">you — #1</strong>' : ""}</div>
+          </div>`,
+          )
+          .join("")}
+        <p style="margin: 4px 0 0; font-size: 11px; color: #94a3b8;">10 organic results · near Austin, TX · English</p>
+      </div>`,
+  },
 ];
 
 async function main() {

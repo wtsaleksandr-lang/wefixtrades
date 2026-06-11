@@ -955,8 +955,9 @@ export default function FreeAudit() {
             gap: 36px;
             padding: 100px 20px 60px;
           }
+          /* P1-1 (night audit 2026-06-11): no order:-1 — title + audit input
+             must stay above the illustrative mockup on mobile. */
           .audit-hero-right {
-            order: -1;
             display: flex;
             justify-content: center;
           }
