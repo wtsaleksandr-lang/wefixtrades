@@ -434,7 +434,7 @@ export default function PortalContentFlowDashboard() {
             <Button asChild size="sm">
               <Link href="/portal/contentflow">
                 <Wand2 className="h-4 w-4 mr-2" />
-                New from template
+                Create
               </Link>
             </Button>
             <DropdownMenu>

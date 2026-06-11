@@ -52,6 +52,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import TokenChip from "@/components/forms/TokenChip";
 import BusinessProfileEditor, { type ExtractedBusinessProfile } from "@/components/portal/BusinessProfileEditor";
 import QuotaBanner from "@/components/portal/QuotaBanner";
+import ContentFlowCreatePanel from "@/components/portal/contentflow/ContentFlowCreatePanel";
 
 /* The filter axis enums duplicated client-side so the picker can
  * render without a server round-trip. The /api/portal/contentflow/prompts
@@ -200,7 +201,7 @@ const ASSET_ICON: Record<PromptListItem["asset"], React.ComponentType<{ classNam
 };
 
 export default function PortalContentFlow() {
-  usePageTitle("ContentFlow — Prompt Library");
+  usePageTitle("ContentFlow — Create");
   const { toast } = useToast();
 
   const [goal, setGoal] = useState<string>("all");
@@ -544,9 +545,9 @@ export default function PortalContentFlow() {
       <div className="px-4 py-6 sm:px-6 lg:px-8" data-testid="portal-contentflow">
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-1">
-            <h2 className="text-2xl font-bold tracking-tight">ContentFlow — Prompt Library</h2>
+            <h2 className="text-2xl font-bold tracking-tight">ContentFlow — Create</h2>
             <p className="text-sm text-muted-foreground">
-              60 trade-adapted prompts across 12 named patterns. Pick one, preview it filled with your brand details, then generate.
+              Describe what you want and generate it — or pick from 60 trade-adapted prompt templates below.
             </p>
           </div>
           <Link href="/portal/contentflow/library">
@@ -555,6 +556,12 @@ export default function PortalContentFlow() {
             </Button>
           </Link>
         </div>
+
+        {/* Phase 3 generate surface — the simple Create panel is the hero
+         * entry: free prompt + optional reference + realistic toggle, with
+         * aspect ratios / saved prompts behind its Advanced expander. The
+         * template library below stays the guided path. */}
+        <ContentFlowCreatePanel />
 
         {/* Phase 4 wire-up: monthly usage bars (images / articles / videos).
          * QuotaBanner self-fetches GET /api/portal/contentflow/quota and
