@@ -1645,6 +1645,10 @@ export default function StyleTab({
           padding: 0;
           background: #fff;
           margin: 0;
+          /* fieldset UA default min-inline-size:min-content balloons the panel
+             to the preset strip's content width, killing its overflow scroll */
+          min-inline-size: 0;
+          min-width: 0;
         }
         /* BD-3f Item 1 — header row sits flush at the top of the
          * fieldset. display:block + width:100% is required because the
