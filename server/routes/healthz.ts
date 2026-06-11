@@ -2,8 +2,13 @@
  * Public deep health-check endpoint — Deploy Safety Wave 2.
  *
  *   GET /api/healthz
- *     → 200 { status: "ok",   checks: {...}, version, boot_time }   when healthy
+ *     → 200 { status: "ok",   checks: {...}, version, built_at, boot_time }
  *     → 503 { status: "down"|"degraded", checks: {...}, ... }       when not
+ *
+ * `version` is the short git sha stamped into dist/build-info.json by
+ * script/build.ts ("dev" when running unbundled); `built_at` is the build
+ * timestamp. Together with boot_time they prove WHICH build a Replit publish
+ * actually put live — see scripts/staging-gate/wait-for-staging.mjs.
  *
  * Goal: catch broken deploys at runtime even when migrations are clean.
  * The post-deploy verifier (scripts/post-deploy-verify.mjs) polls this for
@@ -48,6 +53,9 @@ import { createLogger } from "../lib/logger";
 // Both are read-only and owned by the sibling AI services (do not edit there).
 import { getPrimaryCircuitState } from "../services/aiService";
 import { readyFallbackProviders } from "../services/llmFallbackChain";
+// Build-identity stamp written by script/build.ts at build time
+// (dist/build-info.json). Lazy + cached + never-throws — see buildInfo.ts.
+import { getBuildInfo } from "../lib/buildInfo";
 
 const log = createLogger("Healthz");
 
@@ -70,7 +78,13 @@ interface CheckResult extends ProbeOutcome {
 interface HealthzResponse {
   status: "ok" | "degraded" | "down";
   checks: Record<string, CheckResult>;
+  /** Short git sha of the deployed build ("dev" when unstamped). */
   version: string;
+  /** ISO timestamp the deployed bundle was built ("null" when unstamped).
+   *  version + built_at + boot_time together prove WHICH build a publish
+   *  actually shipped — closes the `version: "unknown"` blind spot that
+   *  made publish verification guesswork. */
+  built_at: string | null;
   boot_time: string;
 }
 
@@ -79,11 +93,29 @@ const PROBE_TIMEOUT_MS = 2_000;
 const DB_TABLE_MIN = Number(process.env.HEALTHZ_DB_TABLE_MIN ?? 25);
 
 const BOOT_TIME = new Date().toISOString();
-const VERSION =
-  process.env.GIT_SHA ??
-  process.env.REPL_DEPLOYMENT_ID ??
-  process.env.SOURCE_VERSION ??
-  "unknown";
+
+/**
+ * Deployed-build identity. Primary source is the build-time stamp
+ * (dist/build-info.json, written by script/build.ts) — build truth beats
+ * runtime env. Env vars remain as fallbacks for environments that surface a
+ * sha without the stamp (start-prod GIT_SHA wiring, see
+ * scripts/staging-gate/wait-for-staging.mjs). Final fallback is "dev"
+ * (local tsx, no bundle) — never "unknown".
+ *
+ * Resolved lazily per response (getBuildInfo caches the fs read for the
+ * process lifetime) and guaranteed not to throw.
+ */
+function resolveVersionInfo(): { version: string; built_at: string | null } {
+  const stamp = getBuildInfo();
+  if (stamp.version !== "dev") {
+    return { version: stamp.version, built_at: stamp.built_at };
+  }
+  const envSha =
+    process.env.GIT_SHA ??
+    process.env.REPL_DEPLOYMENT_ID ??
+    process.env.SOURCE_VERSION;
+  return { version: envSha ?? "dev", built_at: stamp.built_at };
+}
 
 let cached: { at: number; body: HealthzResponse; http: number } | null = null;
 
@@ -547,10 +579,11 @@ async function buildHealthz(): Promise<{ body: HealthzResponse; http: number }> 
 
   const status = aggregate(checks);
   const http = status === "ok" ? 200 : 503;
+  const { version, built_at } = resolveVersionInfo();
 
   return {
     http,
-    body: { status, checks, version: VERSION, boot_time: BOOT_TIME },
+    body: { status, checks, version, built_at, boot_time: BOOT_TIME },
   };
 }
 
@@ -572,10 +605,14 @@ export function registerHealthzRoute(app: Express): void {
       res.status(result.http).json(result.body);
     } catch (err) {
       log.error("healthz handler failed", { error: String(err) });
+      // resolveVersionInfo() is guaranteed non-throwing (buildInfo.ts
+      // contract), so the crash path still reports build identity.
+      const { version, built_at } = resolveVersionInfo();
       res.status(503).json({
         status: "down",
         checks: {},
-        version: VERSION,
+        version,
+        built_at,
         boot_time: BOOT_TIME,
         detail: "healthz handler crashed",
       });
