@@ -153,7 +153,7 @@ export default function HeroProductPreview() {
             Your AI back-office · live
           </span>
         </div>
-        <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.35)" }}>
+        <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.55)" }}>
           today
         </span>
       </div>
@@ -170,7 +170,10 @@ export default function HeroProductPreview() {
               padding: "10px 12px",
             }}
           >
-            <div style={{ fontSize: 20, fontWeight: 800, color: mkt.accent, lineHeight: 1, letterSpacing: "-0.02em" }}>
+            {/* Flat white, not the accent — the locked CONTRAST rule bans
+                accent-as-total text on dark panels (accent read ~2.4:1 here;
+                night-audit P-A). */}
+            <div style={{ fontSize: 20, fontWeight: 800, color: mkt.onDark, lineHeight: 1, letterSpacing: "-0.02em" }}>
               {kpi.prefix ?? ""}{kpiValues[i].toLocaleString()}{kpi.suffix ?? ""}
             </div>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 4, lineHeight: 1.3 }}>
@@ -219,7 +222,7 @@ export default function HeroProductPreview() {
                   {ev.subtitle}
                 </div>
               </div>
-              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "'DM Mono', monospace", flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", fontFamily: "'DM Mono', monospace", flexShrink: 0 }}>
                 {formatAgo(ev.agoSec)}
               </span>
             </div>

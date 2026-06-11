@@ -83,7 +83,7 @@ export default function MapGuardHeroAnimation() {
               key={rank}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              style={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, color: mkt.accent }}
+              style={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, color: mkt.accentOnDark }}
             >
               {rank}
             </motion.span>

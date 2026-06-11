@@ -460,7 +460,7 @@ function TestimonialCard({ study }: { study: Study }) {
           <span style={{
             fontFamily: MONO, fontSize: 11, fontWeight: 700,
             letterSpacing: "0.08em", textTransform: "uppercase",
-            color: mkt.accent,
+            color: mkt.accentOnDark,
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "6px 12px",
             borderRadius: 999,
@@ -754,7 +754,7 @@ export default function CaseStudiesPage() {
               lineHeight: 1.08, letterSpacing: "-0.025em",
               fontFamily: SANS,
             }}>
-              Success Stories — How <span style={{ color: mkt.accent }}>WeFixTrades</span> Transforms Trades Businesses
+              Success Stories — How <span style={{ color: mkt.accentOnDark }}>WeFixTrades</span> Transforms Trades Businesses
             </h1>
           </div>
         </section>

@@ -320,12 +320,14 @@ function MarketingFooter() {
             {/* Free Tools Wave 1 — Brightlocal-style standalone tools, each
                 with its own /tools/* URL + lead-magnet page. */}
             {/* Wave 49 — labels shortened so each fits one line at the
-                current column width. hrefs unchanged. */}
-            <FtLink href="/tools/google-review-link-generator">Review Link Generator</FtLink>
+                current column width. hrefs unchanged. Night-audit P-A:
+                shortened again ("Review Link Generator" / "Google Ranking
+                Checker" still wrapped to 2 lines on desktop AND mobile —
+                hard layout rule 1). */}
+            <FtLink href="/tools/google-review-link-generator">Review Links</FtLink>
             {/* Wave 6E — BrightLocal-parity SERP viewer (Google + Maps, multi-country / language).
-                Visible label de-jargoned to "Google Ranking Checker"; the
                 /tools/local-serp-checker slug/route is unchanged for SEO. */}
-            <FtLink href="/tools/local-serp-checker">Google Ranking Checker</FtLink>
+            <FtLink href="/tools/local-serp-checker">Rank Checker</FtLink>
             {/* Wave 6F — single-business multi-engine rank snapshot (Google + Brave + Maps). */}
             <FtLink href="/tools/local-rank-tracker">Rank Tracker</FtLink>
             <FtLink href="/tools/citation-checker">Citation Checker</FtLink>
@@ -368,7 +370,7 @@ function MarketingFooter() {
             gap: 16,
             marginTop: 28,
             fontSize: 11,
-            color: "rgba(255,255,255,0.45)",
+            color: "rgba(255,255,255,0.55)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0 16px", flexWrap: "wrap" }}>
@@ -586,7 +588,9 @@ function MarketingFooter() {
            .mkt-ft-soft pattern but smaller and dimmer. */
         .mkt-ft-util {
           font-size: 11px;
-          color: rgba(255,255,255,0.45);
+          /* 0.55 (≈5.6:1 on #22282a) — 0.45 measured 4.2:1, under AA for
+             11px text (night-audit P-A footer batch). */
+          color: rgba(255,255,255,0.55);
           text-decoration: none;
           font-family: 'DM Mono', monospace;
           letter-spacing: 0.04em;
@@ -690,6 +694,14 @@ export default function MarketingLayout({ children, hideSiteChat = false }: { ch
         background: mkt.bg,
       }}
     >
+      {/* Night-audit P-A C3 — hard layout rule 1 (no single-word orphan
+          lines in headings). `text-wrap: balance` on every marketing
+          heading balances line lengths without adding lines; browsers
+          without support simply ignore it. One rule clears 40+ confirmed
+          orphans across home/about/blog/products/vs-pages. */}
+      <style>{`
+        .mkt-layout h1, .mkt-layout h2, .mkt-layout h3 { text-wrap: balance; }
+      `}</style>
       {/* Skip-to-content — sr-only until focused. Lets keyboard users
           jump past the announcement banner + nav straight to the page
           body. WCAG 2.4.1 (Bypass Blocks). Matches AdminLayout pattern. */}

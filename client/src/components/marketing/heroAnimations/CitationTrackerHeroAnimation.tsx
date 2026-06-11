@@ -26,7 +26,7 @@ export default function CitationTrackerHeroAnimation() {
             <motion.span
               animate={phase === 0 ? { opacity: [1, 0.4, 1] } : { opacity: 1 }}
               transition={{ duration: 0.9, repeat: Infinity }}
-              style={{ ...monoLabel, color: mkt.accent }}
+              style={{ ...monoLabel, color: mkt.accentOnDark }}
             >
               ◉ scanning
             </motion.span>

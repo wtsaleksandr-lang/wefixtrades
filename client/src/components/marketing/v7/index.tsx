@@ -91,7 +91,9 @@ export function V7Hero({ productName, eyebrow, headline, sub, ctas = [], visual,
         )}
         {eyebrow && (
           <Reveal delay={0.04}>
-            <p style={{ fontSize: 14, color: mkt.onDarkFaint, fontStyle: "italic", maxWidth: 640, margin: "0 0 18px" }}>
+            {/* onDarkMuted, not onDarkFaint — the faint step (#5F6F77) reads
+                3.26:1 on the dark hero (night-audit P-A C2; same swap as PR #1391). */}
+            <p style={{ fontSize: 14, color: mkt.onDarkMuted, fontStyle: "italic", maxWidth: 640, margin: "0 0 18px" }}>
               {eyebrow}
             </p>
           </Reveal>
@@ -100,6 +102,7 @@ export function V7Hero({ productName, eyebrow, headline, sub, ctas = [], visual,
           <h1 style={{
             fontSize: "clamp(40px, 6.5vw, 80px)", fontWeight: 700, lineHeight: 1.0, letterSpacing: "-0.03em",
             color: mkt.onDark, maxWidth: 920, margin: "0 0 24px", fontFamily: SANS,
+            textWrap: "balance",
           }}>
             {headline}
           </h1>
@@ -201,11 +204,11 @@ export function V7SectionHeading({
     <Reveal>
       <div style={{ textAlign: align, marginBottom: 48, maxWidth: align === "center" ? 720 : undefined, margin: align === "center" ? "0 auto 48px" : "0 0 48px", ...style }}>
         {eyebrow && (
-          <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 12 }}>
+          <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accentOnDark, marginBottom: 12 }}>
             {eyebrow}
           </p>
         )}
-        <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, marginBottom: sub ? 14 : 0, fontFamily: SANS }}>
+        <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, marginBottom: sub ? 14 : 0, fontFamily: SANS, textWrap: "balance" }}>
           {title}
         </h2>
         {sub && (
@@ -251,7 +254,7 @@ export function V7FinalCta({ title, sub = "Setup is fast. No card required. Canc
           position: "absolute", inset: 0, pointerEvents: "none",
           background: "radial-gradient(ellipse 50% 80% at 50% 50%, rgba(13,60,252,0.10) 0%, transparent 60%)",
         }} />
-        <h2 style={{ position: "relative", fontSize: "clamp(32px, 4.5vw, 52px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, marginBottom: 18, fontFamily: SANS }}>
+        <h2 style={{ position: "relative", fontSize: "clamp(32px, 4.5vw, 52px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, marginBottom: 18, fontFamily: SANS, textWrap: "balance" }}>
           {title}
         </h2>
         <p style={{ position: "relative", fontSize: 16, lineHeight: 1.55, color: mkt.onDarkMuted, marginBottom: 32, fontFamily: SANS }}>

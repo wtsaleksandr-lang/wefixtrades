@@ -74,7 +74,7 @@ function BookingMockup() {
             <span style={{ fontSize: 13, fontWeight: 600, color: sel ? "#FFFFFF" : mkt.text }}>{time}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {spots && <span style={{ fontSize: 11, color: mkt.orange }}>{spots}</span>}
-              {sel && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Selected ✓</span>}
+              {sel && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.95)" }}>Selected ✓</span>}
             </div>
           </div>
         ))}

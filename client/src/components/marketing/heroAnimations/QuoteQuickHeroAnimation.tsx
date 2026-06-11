@@ -28,7 +28,7 @@ export default function QuoteQuickHeroAnimation() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={monoLabel}>Instant quote</span>
-            <span style={{ ...monoLabel, color: mkt.accent }}>Live preview</span>
+            <span style={{ ...monoLabel, color: mkt.accentOnDark }}>Live preview</span>
           </div>
 
           <div style={cardStyle}>

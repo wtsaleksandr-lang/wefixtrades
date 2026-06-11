@@ -394,7 +394,9 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
                 <span
                   style={{
                     background: active ? "rgba(0,0,0,0.15)" : mkt.accentTint,
-                    color: active ? mkt.dark : mkt.accent,
+                    /* Light inks both states — near-black-on-darkened-blue and
+                       blue-on-dark both read ~2.1-2.5:1 (night-audit P-A). */
+                    color: active ? mkt.onDark : mkt.accentOnDark,
                     fontSize: 9,
                     fontWeight: 800,
                     padding: "2px 6px",
@@ -1479,7 +1481,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
         <V7Hero
           productName="Pricing"
           eyebrow="Pick what you need. Cancel any month."
-          headline={<>One job pays for the system.<br/><span style={{ color: mkt.accent }}>Pick what you need — cancel any month.</span></>}
+          headline={<>One job pays for the system.<br/><span style={{ color: mkt.accentOnDark }}>Pick what you need — cancel any month.</span></>}
           sub="No contracts. No setup gotchas. You own everything you build with us."
         />
       <div style={{ paddingBottom: 80 }}>

@@ -92,7 +92,7 @@ export default function ContactPage() {
                     <a
                       href="tel:+19156153280"
                       data-testid="contact-phone"
-                      style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}
+                      style={{ fontSize: 15, color: mkt.accentOnDark, textDecoration: "none", fontWeight: 500 }}
                     >
                       +1 (915) 615-3280
                     </a>
@@ -118,10 +118,10 @@ export default function ContactPage() {
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Email</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      <a href="mailto:sales@wefixtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
+                      <a href="mailto:sales@wefixtrades.com" style={{ fontSize: 15, color: mkt.accentOnDark, textDecoration: "none", fontWeight: 500 }}>
                         sales@wefixtrades.com
                       </a>
-                      <a href="mailto:support@wefixtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
+                      <a href="mailto:support@wefixtrades.com" style={{ fontSize: 15, color: mkt.accentOnDark, textDecoration: "none", fontWeight: 500 }}>
                         support@wefixtrades.com
                       </a>
                     </div>
@@ -180,7 +180,7 @@ export default function ContactPage() {
                 borderRadius: radius.md,
                 border: `1px solid ${mkt.accentGlow}`,
               }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: mkt.accent, marginBottom: 6 }}>Already a customer?</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: mkt.accentOnDark, marginBottom: 6 }}>Already a customer?</div>
                 <div style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7 }}>
                   Open a support ticket from your portal for the fastest route — your message lands directly in your account file.
                 </div>

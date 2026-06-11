@@ -267,7 +267,9 @@ const RESPONSIVE_CSS = `
   .hero-cta-primary-warm {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 14px 22px; border-radius: 10px;
-    background: ${mkt.accent}; color: ${mkt.buttonText};
+    /* White-on-blue per DESIGN-SYSTEM (night-audit P-A: mkt.buttonText is
+     * the deprecated cream-button ink #1E1E1E — dark-on-blue read 2.44:1). */
+    background: ${mkt.accent}; color: ${mkt.onDark};
     font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
     text-decoration: none; cursor: pointer;
     border: 0.5px solid rgba(15,23,42,0.06);
@@ -303,7 +305,7 @@ const RESPONSIVE_CSS = `
     color: ${mkt.onWarm};
   }
   .hero-cta-secondary-warm:focus-visible { outline: 2px solid ${mkt.accent}; outline-offset: 3px; }
-  .hero-cta-note-warm { font-size: 12px; color: ${mkt.onWarmFaint}; }
+  .hero-cta-note-warm { font-size: 12px; color: ${mkt.onWarmMuted}; }
   /* Warm-variant CTA row keeps the same mobile collapse rules. */
   .hero-cta-row > .hero-cta-primary-warm,
   .hero-cta-row > .hero-cta-secondary-warm { box-sizing: border-box; }

@@ -30,7 +30,7 @@ export default function WebFixHeroAnimation() {
         <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={monoLabel}>PageSpeed audit</span>
-            <span style={{ ...monoLabel, color: mkt.accent }}>WebFix · live</span>
+            <span style={{ ...monoLabel, color: mkt.accentOnDark }}>WebFix · live</span>
           </div>
 
           {/* Score dial */}

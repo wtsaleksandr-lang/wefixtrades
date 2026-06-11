@@ -202,6 +202,14 @@ export const mkt = {
   accent: colors.effortel.a400,
   accentHover: colors.effortel.a200,
   accentDark: colors.effortel.a700,
+  /* Accent used AS TEXT on dark surfaces. Brand blue #0d3cfc is a FILL
+   * colour — as text on near-black it reads ~2.5:1 (fails WCAG AA and the
+   * locked CONTRAST rule). This lighter step of the same hue holds ≥4.5:1
+   * on every dark surface in use: 5.51 on bg #181D1F, 5.76 on dark
+   * #171818, 4.84 on n800 #22282A, 4.55 on sectionLight #242D30.
+   * Use for eyebrows, accent headline spans, stat values, and inline
+   * links on dark; keep mkt.accent for fills (with white labels). */
+  accentOnDark: '#6E8BFF',
   accentTint: 'rgba(13,60,252,0.10)',
   accentGlow: 'rgba(13,60,252,0.20)',
   dark: colors.effortel.n900,
