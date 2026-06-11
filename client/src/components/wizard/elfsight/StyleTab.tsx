@@ -2787,7 +2787,22 @@ function BrandStudioGroup({
          *  Removed both; the legend is now a plain title like Theme/Typography.
          *  Wave 57 — Lock icon + "Pro" pill already removed (builder-time
          *  customisation is unlimited); `data-pro-tier` kept for back-compat. */}
-        <span className="qq-bs-header-title">Brand Studio</span>
+        {/* Rule 5 — help cue anchored top-left via <HelpCueRow> (Alex flag
+         *  2026-06-11: Brand Studio + Brand Kit were the only Style-tab
+         *  panels missing the cue). */}
+        <HelpCueRow
+          className="!mb-0"
+          cue={
+            <>
+              <InfoCue
+                testid="style-section-brand-studio"
+                region="background"
+                text="Deeper brand controls: custom CSS scoped to your widget, image or gradient backgrounds, result-panel colour overrides, and step/feedback animations."
+              />
+              <span className="qq-bs-header-title" style={{ marginLeft: 6 }}>Brand Studio</span>
+            </>
+          }
+        />
       </legend>
 
       <div className="qq-style-group-body qq-bs-body">
@@ -3775,7 +3790,20 @@ function BrandKitGroup({
           {/* Wave 57 — Pro pill removed; the kit-PICKER is a builder feature.
            *  The cross-calculator save/apply API still gates to Pro on the
            *  server (you need 2+ live calculators to benefit). */}
-          Brand Kit
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-brand-kit"
+                  region="background"
+                  text="A Brand Kit saves this calculator's colours, typography, shape and logo as a reusable bundle you can apply to any of your other calculators, keeping branding consistent."
+                />
+                <span style={{ marginLeft: 6 }}>Brand Kit</span>
+              </>
+            }
+          />
         </legend>
         <div className="qq-style-group-body">
           <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
@@ -3792,7 +3820,20 @@ function BrandKitGroup({
     <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="true">
       <legend className="qq-style-legend">
         {/* Wave 57 — Pro pill removed; see comment above. */}
-        Brand Kit
+        {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+        <HelpCueRow
+          className="!mb-0"
+          cue={
+            <>
+              <InfoCue
+                testid="style-section-brand-kit"
+                region="background"
+                text="A Brand Kit saves this calculator's colours, typography, shape and logo as a reusable bundle you can apply to any of your other calculators, keeping branding consistent."
+              />
+              <span style={{ marginLeft: 6 }}>Brand Kit</span>
+            </>
+          }
+        />
       </legend>
       <div className="qq-style-group-body">
 
