@@ -18,8 +18,9 @@
  *      request's aspectRatio/sampleImageSize parameters.
  *   4. Graceful skip when project id is absent — ok:false, clear error,
  *      NO fetch performed (rotation falls through).
- *   5. Registry wiring — "imagen4" present in IMAGE_PROVIDERS and FIRST
- *      in PHOTOREAL_PROVIDER_ORDER (photoreal default until Flux 2 lands).
+ *   5. Registry wiring — "imagen4" present in IMAGE_PROVIDERS and SECOND
+ *      in PHOTOREAL_PROVIDER_ORDER (flux2_pro leads; imagen4 is the
+ *      on-image-TEXT specialist).
  */
 
 import assert from "node:assert/strict";
@@ -181,15 +182,17 @@ async function main() {
     }));
 
   /* 5. registry + photoreal-order wiring */
-  await test("registry: imagen4 entry exists; FIRST in PHOTOREAL_PROVIDER_ORDER", () => {
+  await test("registry: imagen4 entry exists; SECOND in PHOTOREAL_PROVIDER_ORDER", () => {
     const entry = IMAGE_PROVIDERS.find((p) => p.id === "imagen4");
     assert.ok(entry, "imagen4 registered in IMAGE_PROVIDERS");
     assert.equal(entry!.costPerImage, 0.04);
     assert.deepEqual(entry!.envVarAnyOf, ["GOOGLE_IMAGEN_PROJECT_ID", "GOOGLE_VEO_PROJECT_ID"]);
+    /* Flux 2 (fal.ai) landed and took the photoreal lead; imagen4 stays
+     * second as the on-image-TEXT specialist. */
     assert.equal(
-      PHOTOREAL_PROVIDER_ORDER[0],
+      PHOTOREAL_PROVIDER_ORDER[1],
       "imagen4",
-      "imagen4 leads photoreal rotation (default until Flux 2 lands)",
+      "imagen4 second in photoreal rotation (behind flux2_pro)",
     );
   });
 

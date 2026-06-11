@@ -15,7 +15,11 @@
  *   5. Replicate SDXL           — free signup credits, env REPLICATE_API_TOKEN
  *   6. DALL-E 3 (OpenAI)        — paid fallback only, env OPENAI_API_KEY
  *   7. Google Imagen 4          — premium photoreal (Vertex AI / ADC auth);
- *                                 leads PHOTOREAL_PROVIDER_ORDER, $0.04-0.06/img
+ *                                 photoreal #2 (on-image TEXT specialist),
+ *                                 $0.04-0.06/img
+ *   8. FLUX.2 pro (fal.ai)      — photoreal PRIMARY; leads
+ *                                 PHOTOREAL_PROVIDER_ORDER, env FAL_KEY,
+ *                                 $0.03 first MP + $0.015/extra MP (≤4MP)
  *
  * Detector pre-check: stubbed via callDetector(). Sightengine wiring is
  * scaffolded but disabled until SIGHTENGINE_USER + SIGHTENGINE_SECRET are
@@ -48,7 +52,8 @@ export type ImageProviderId =
   | "together_flux"
   | "replicate_sdxl"
   | "dalle"
-  | "imagen4";
+  | "imagen4"
+  | "flux2_pro";
 
 export interface ImageProvider {
   id: ImageProviderId;
@@ -176,15 +181,15 @@ export const IMAGE_PROVIDERS: readonly ImageProvider[] = [
   /* ─────────────────────────────────────────────────────────────────
    * PHOTOREAL PROVIDERS — premium photoreal models plug in HERE.
    *
-   * Imagen 4 (below) is the first one wired. To add the next (Flux 2):
-   *   1. Append an ImageProvider entry below (id: "flux2_pro"), with
-   *      envVarRequired set to the new key (fal.ai).
+   * Imagen 4 and FLUX.2 pro (below) are wired. To add the NEXT one:
+   *   1. Append an ImageProvider entry below (LAST — premium providers
+   *      absorb normal-rotation fallthrough only; free tiers stay first).
    *   2. Add the id to the ImageProviderId union above.
    *   3. Implement a call<Provider>() function and wire it into
    *      callProvider()'s switch (see ~callProvider, "PHOTOREAL DISPATCH"
    *      marker).
-   *   4. Add the id to PHOTOREAL_PROVIDER_ORDER below so realistic mode
-   *      prefers it.
+   *   4. Slot the id into PHOTOREAL_PROVIDER_ORDER below so realistic
+   *      mode prefers it.
    * Nothing else changes — the gate/cost/persist pipeline is provider-
    * agnostic.
    * ───────────────────────────────────────────────────────────────── */
@@ -205,6 +210,20 @@ export const IMAGE_PROVIDERS: readonly ImageProvider[] = [
      * credential acquisition degrades gracefully inside callImagen4. */
     envVarAnyOf: ["GOOGLE_IMAGEN_PROJECT_ID", "GOOGLE_VEO_PROJECT_ID"],
   },
+  {
+    id: "flux2_pro",
+    name: "FLUX.2 pro (fal.ai)",
+    /* fal.ai bills by output megapixels: $0.03 for the first MP +
+     * $0.015/extra MP (native up to 4MP). This registry figure is the
+     * 1MP base; callFlux2Pro reports the actual per-call cost via
+     * ProviderResult.costUsd (computed from output megapixels), which
+     * overrides this figure — same convention as imagen4. */
+    costPerImage: 0.03,
+    qualityScore: 94,        // photoreal PRIMARY — above imagen4 (92)
+    detectorPassScore: 60,   // seed estimate; update from telemetry
+    enabled: true,
+    envVarRequired: "FAL_KEY",
+  },
 ] as const;
 
 /**
@@ -212,13 +231,14 @@ export const IMAGE_PROVIDERS: readonly ImageProvider[] = [
  * the orchestrator tries these ids (in order, if available) BEFORE the
  * normal cost-optimised rotation.
  *
- * Imagen 4 leads — it is the photoreal default until Flux 2 lands. When
- * the fal.ai Flux 2 provider is wired, drop its id at the FRONT of this
- * list and it becomes the realistic-mode default by config, no further
- * code change required.
+ * FLUX.2 pro (fal.ai) leads — it is the photoreal PRIMARY. Imagen 4 stays
+ * second as the on-image-TEXT specialist (its standout capability) and the
+ * fallthrough when FAL_KEY is absent or fal errors. To promote a future
+ * provider, drop its id at the FRONT of this list — realistic-mode default
+ * changes by config, no further code change required.
  */
 export const PHOTOREAL_PROVIDER_ORDER: readonly ImageProviderId[] = [
-  // TODO(flux2): fal.ai Flux 2 provider id goes HERE (front of list) when wired.
+  "flux2_pro",
   "imagen4",
   "stability",
   "dalle",
@@ -666,6 +686,139 @@ export async function callImagen4(
   }
 }
 
+/* ─── FLUX.2 pro (fal.ai) ──────────────────────────────────────────── */
+
+/** fal.ai synchronous run endpoint for FLUX.2 pro. Images complete well
+ *  inside the request window, so the direct run endpoint is standard
+ *  (queue.fal.run exists for long jobs but isn't needed here). */
+const FLUX2_ENDPOINT = "https://fal.run/fal-ai/flux-2-pro";
+
+/** fal.ai FLUX.2 pro pricing: $0.03 for the first output megapixel +
+ *  $0.015 per additional megapixel (native output up to 4MP). MP = 10^6
+ *  pixels (SI megapixel, fal's billing unit). */
+export const FLUX2_BASE_COST_USD = 0.03;
+export const FLUX2_EXTRA_MP_COST_USD = 0.015;
+/** Hard output cap — FLUX.2 pro generates natively up to 4MP. */
+export const FLUX2_MAX_TOTAL_PIXELS = 4_000_000;
+
+/**
+ * Per-call cost from output megapixels: $0.03 covers the first MP, each
+ * extra MP adds $0.015 (fractional MP prorated linearly), floor $0.03.
+ * Exported for unit tests. NOTE: linear proration of partial MP matches
+ * fal's published per-MP pricing; first live call should confirm against
+ * the billed amount.
+ */
+export function computeFlux2CostUsd(width: number, height: number): number {
+  const mp = (Math.max(0, width) * Math.max(0, height)) / 1_000_000;
+  return Math.max(
+    FLUX2_BASE_COST_USD,
+    FLUX2_BASE_COST_USD + FLUX2_EXTRA_MP_COST_USD * (mp - 1),
+  );
+}
+
+/**
+ * Map requested pixel dimensions onto fal's `image_size` object. fal
+ * accepts custom {width, height} at any aspect ratio, so unlike Imagen we
+ * pass pixels through — with two adjustments, documented because fal's
+ * validation rules should be confirmed on the first live call:
+ *   1. Total pixels clamped to 4MP (FLUX.2 pro's native ceiling) by
+ *      scaling down proportionally (aspect ratio preserved).
+ *   2. Each side floored to a multiple of 16 (FLUX-family latent-grid
+ *      requirement; flooring keeps us under the 4MP cap), minimum 256.
+ * Exported for unit tests.
+ */
+export function mapDimsToFlux2Size(
+  width: number,
+  height: number,
+): { width: number; height: number } {
+  let w = width > 0 ? Math.round(width) : 1024;
+  let h = height > 0 ? Math.round(height) : 1024;
+  if (w * h > FLUX2_MAX_TOTAL_PIXELS) {
+    const scale = Math.sqrt(FLUX2_MAX_TOTAL_PIXELS / (w * h));
+    w = w * scale;
+    h = h * scale;
+  }
+  w = Math.max(256, Math.floor(w / 16) * 16);
+  h = Math.max(256, Math.floor(h / 16) * 16);
+  /* Backstop for extreme aspect ratios where the 256 floor pushed the
+   * total back over the cap — shrink the larger side to fit. */
+  if (w * h > FLUX2_MAX_TOTAL_PIXELS) {
+    if (w >= h) w = Math.max(256, Math.floor(FLUX2_MAX_TOTAL_PIXELS / h / 16) * 16);
+    else h = Math.max(256, Math.floor(FLUX2_MAX_TOTAL_PIXELS / w / 16) * 16);
+  }
+  return { width: w, height: h };
+}
+
+/**
+ * FLUX.2 pro via fal.ai — the photoreal PRIMARY provider.
+ *
+ * Auth: `Authorization: Key ${FAL_KEY}` header (fal convention, NOT
+ * Bearer). Skips gracefully (clear log, ok:false, no network) when
+ * FAL_KEY is absent so the rotation falls through — mirrors imagen4.
+ * 429 / non-200 surface as ok:false with the status in the error, which
+ * the orchestrator treats as standard fallthrough like every provider.
+ *
+ * FIELD-MAPPING NOTE: no prior fal.ai usage exists in this repo, so the
+ * request body ({prompt, image_size:{width,height}, num_images:1}) and
+ * response shape (images[{url,width,height}]) follow fal's documented
+ * conventions for FLUX-family models. The mapping is isolated to this
+ * function — the FIRST LIVE CALL should confirm the exact field names.
+ */
+export async function callFlux2Pro(prompt: string, opts: ImageGenOpts): Promise<ProviderResult> {
+  try {
+    const key = process.env.FAL_KEY;
+    if (!key) {
+      logger.info("flux2_pro: skipped — FAL_KEY not set");
+      return { ok: false, error: "flux2_pro: FAL_KEY missing" };
+    }
+    /* fal accepts arbitrary custom dimensions — map from the ORIGINAL
+     * requested dimensions (parseDims clamps to 1536 which would distort
+     * large or wide requests), same rationale as callImagen4. */
+    const { width, height } =
+      opts.dimensions && opts.dimensions.width > 0 && opts.dimensions.height > 0
+        ? opts.dimensions
+        : parseDims(opts);
+    const imageSize = mapDimsToFlux2Size(width, height);
+
+    const res = await fetchWithTimeout(
+      FLUX2_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Key ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          image_size: imageSize,
+          num_images: 1,
+        }),
+      },
+      opts.timeoutMs ?? 60_000,
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `flux2_pro ${res.status}: ${text.slice(0, 200)}` };
+    }
+    const json = await res.json().catch(() => ({})) as any; // body-parse fallback — error surfaces below
+    const img = json?.images?.[0];
+    if (!img?.url || typeof img.url !== "string") {
+      return { ok: false, error: "flux2_pro: no image in response" };
+    }
+    const fetched = await fetchWithTimeout(img.url, { method: "GET" }, opts.timeoutMs ?? 30_000);
+    if (!fetched.ok) return { ok: false, error: `flux2_pro fetch ${fetched.status}` };
+    const buf = Buffer.from(await fetched.arrayBuffer());
+    if (buf.length < 1024) return { ok: false, error: "flux2_pro: response too small" };
+    /* Per-call cost from OUTPUT megapixels — prefer the dimensions fal
+     * reports on the image; fall back to what we requested. */
+    const outW = typeof img.width === "number" && img.width > 0 ? img.width : imageSize.width;
+    const outH = typeof img.height === "number" && img.height > 0 ? img.height : imageSize.height;
+    return { ok: true, buffer: buf, costUsd: computeFlux2CostUsd(outW, outH) };
+  } catch (err: any) {
+    return { ok: false, error: `flux2_pro: ${err?.message || err}` };
+  }
+}
+
 /** Dispatch by provider id. */
 async function callProvider(
   id: ImageProviderId,
@@ -680,11 +833,11 @@ async function callProvider(
     case "replicate_sdxl":   return callReplicateSDXL(prompt, opts);
     case "dalle":            return callDalle(prompt, opts);
     /* ── PHOTOREAL DISPATCH ──────────────────────────────────────────
-     * Premium photoreal providers dispatch here. TODO(flux2): add
-     * `case "flux2_pro": return callFlux2(...)` when the fal.ai provider
-     * is wired. Keep the ImageProviderId union + IMAGE_PROVIDERS +
-     * PHOTOREAL_PROVIDER_ORDER in sync (see registry marker above). */
+     * Premium photoreal providers dispatch here. Keep the
+     * ImageProviderId union + IMAGE_PROVIDERS + PHOTOREAL_PROVIDER_ORDER
+     * in sync (see registry marker above). */
     case "imagen4":          return callImagen4(prompt, opts);
+    case "flux2_pro":        return callFlux2Pro(prompt, opts);
   }
 }
 
