@@ -51,6 +51,8 @@ jobs:
         run: npm run check:contentflow-video-providers
       - name: ContentFlow video-stitcher guard (selection ladder + no whole-clip memory buffering)
         run: npm run check:contentflow-video-stitcher
+      - name: ContentFlow video-worker guard (flag inertness, gate-blocked poll-only, double-spend resubmit guard, cost ceiling, stitch happy path)
+        run: npm run check:contentflow-video-worker
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
