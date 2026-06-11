@@ -33,6 +33,18 @@ import { resolveStripePriceId } from "../../lib/stripePriceResolver";
 
 const log = createLogger("PortalCatalog");
 
+/**
+ * Stripe client factory — a seam so tests can inject a fake Stripe client
+ * (catalog.test.ts drives the real route handlers with a throwing/recording
+ * sessions.create). Production behavior is unchanged: one client per request,
+ * same pinned apiVersion.
+ */
+export const stripeClientFactory = {
+  create(key: string): Stripe {
+    return new Stripe(key, { apiVersion: "2025-01-27.acacia" as any });
+  },
+};
+
 /** Resolve client_id from the authenticated user's id. Returns null if no client record linked. */
 async function resolveClientId(userId: number): Promise<number | null> {
   const [row] = await db
@@ -87,7 +99,7 @@ export function registerPortalCatalogRoutes(app: Express) {
 
       const stripeKey = process.env.STRIPE_SECRET_KEY;
       if (!stripeKey) return res.status(503).json({ error: "Payments are not configured yet. Please contact us." });
-      const stripe = new Stripe(stripeKey, { apiVersion: "2025-01-27.acacia" as any });
+      const stripe = stripeClientFactory.create(stripeKey);
 
       const { service_id, billing_period, tier_id, bundle_id } = req.body ?? {};
 
@@ -139,31 +151,16 @@ export function registerPortalCatalogRoutes(app: Express) {
           await storage.updateClient(client.id, { stripe_customer_id: stripeCustomerId });
         }
 
-        // Pre-create each included service in pending state.
-        const createdIds: number[] = [];
-        for (const s of includedSvcs) {
-          const cs = await storage.createClientService({
-            client_id: client.id,
-            service_id: s.id,
-            status: "pending",
-            enabled: true,
-            fulfillment_mode: "internal",
-            price_cents: s.default_price,
-            billing_period: s.billing_period,
-            metadata: { bundle_id: bundle.id, bundle_name: bundle.name },
-          });
-          createdIds.push(cs.id);
-          await storage.createClientPayment({
-            client_id: client.id,
-            client_service_id: cs.id,
-            type: s.billing_period === "monthly" ? "invoice" : "payment",
-            amount_cents: s.default_price ?? 0,
-            status: "pending",
-            description: `${s.name} (bundle: ${bundle.name})`,
-            actor_type: "system",
-          });
-        }
-
+        /* Session FIRST, rows after (night-audit P-C P1 / P-B). Any
+           sessions.create failure (invalid payment-method types, archived
+           price, Stripe outage) used to strand pending client_service +
+           client_payment rows in the CRM — phantom "onboarding" work for
+           checkouts that never had a session. The webhook does not need
+           pre-created rows to exist at session-create time (it looks rows up
+           by crm_client_id + service_catalog_id, and provisions from scratch
+           when none exist); it only needs them before payment completes,
+           which is guaranteed because the customer can't reach Stripe until
+           we return checkout_url below. */
         const hasMonthly = includedSvcs.some((s) => s.billing_period === "monthly");
         const mode = hasMonthly ? "subscription" : "payment";
         const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
@@ -178,7 +175,6 @@ export function registerPortalCatalogRoutes(app: Express) {
             crm_client_id: String(client.id),
             bundle_id: bundle.id,
             service_catalog_id: includedSvcs.map((s) => s.id).join(","),
-            client_service_ids: createdIds.join(","),
             source: "portal_catalog_bundle",
           },
           success_url: `${baseUrl}/portal/services?checkout=success&bundle=${encodeURIComponent(bundle.id)}`,
@@ -186,6 +182,32 @@ export function registerPortalCatalogRoutes(app: Express) {
           allow_promotion_codes: true,
           billing_address_collection: "auto",
         });
+
+        // Session exists — now pre-create each included service in pending
+        // state (keyed to the session in the activity trail via the log
+        // below). The webhook flips these to paid/active on
+        // checkout.session.completed.
+        for (const s of includedSvcs) {
+          const cs = await storage.createClientService({
+            client_id: client.id,
+            service_id: s.id,
+            status: "pending",
+            enabled: true,
+            fulfillment_mode: "internal",
+            price_cents: s.default_price,
+            billing_period: s.billing_period,
+            metadata: { bundle_id: bundle.id, bundle_name: bundle.name, stripe_session_id: session.id },
+          });
+          await storage.createClientPayment({
+            client_id: client.id,
+            client_service_id: cs.id,
+            type: s.billing_period === "monthly" ? "invoice" : "payment",
+            amount_cents: s.default_price ?? 0,
+            status: "pending",
+            description: `${s.name} (bundle: ${bundle.name})`,
+            actor_type: "system",
+          });
+        }
 
         log.info("[portal/catalog/subscribe] bundle session created", {
           clientId, bundle_id: bundle.id, items: includedSvcs.length, session_id: session.id,
@@ -274,10 +296,38 @@ export function registerPortalCatalogRoutes(app: Express) {
         await storage.updateClient(client.id, { stripe_customer_id: stripeCustomerId });
       }
 
-      // Pre-create pending clientService + payment + onboarding + tasks (same shape as public flow)
+      /* Session FIRST, rows after (night-audit P-C P1 / P-B). See the bundle
+         path above for the full rationale — a sessions.create failure must
+         leave zero pending rows behind. */
       const effectivePriceCents = tierPriceCents ?? svc.default_price;
       const effectiveBillingPeriod = tierBillingPeriod ?? svc.billing_period;
       const tierLabel = pickedTier ? ` (${pickedTier.name})` : "";
+      const mode = effectiveBillingPeriod === "monthly" ? "subscription" : "payment";
+      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+      const session = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
+        // P0 2026-06-11: no payment_method_types — hardcoded lists with
+        // us_bank_account/cashapp throw on this CA account; the dashboard's
+        // dynamic payment-method configuration applies instead (PR #1681).
+        line_items: [{ price: resolvedPriceId, quantity: 1 }],
+        metadata: {
+          crm_client_id: String(client.id),
+          service_catalog_id: svc.id,
+          billing_period: wantsYearly ? "yearly" : "monthly",
+          source: "portal_catalog",
+          ...(pickedTier ? { tier_id: pickedTier.id, tier_name: pickedTier.name } : {}),
+        },
+        success_url: `${baseUrl}/portal/services?checkout=success&service=${encodeURIComponent(svc.id)}`,
+        cancel_url: `${baseUrl}/portal/catalog?checkout=cancelled`,
+        allow_promotion_codes: true,
+        billing_address_collection: "auto",
+      });
+
+      // Session exists — now pre-create the pending clientService + payment +
+      // onboarding + tasks (same shape as public flow), keyed to the session
+      // via metadata.stripe_session_id. The webhook flips these on
+      // checkout.session.completed.
       const cs = await storage.createClientService({
         client_id: client.id,
         service_id: svc.id,
@@ -286,7 +336,10 @@ export function registerPortalCatalogRoutes(app: Express) {
         fulfillment_mode: "internal",
         price_cents: effectivePriceCents,
         billing_period: effectiveBillingPeriod,
-        metadata: pickedTier ? { tier_id: pickedTier.id, tier_name: pickedTier.name } : null,
+        metadata: {
+          stripe_session_id: session.id,
+          ...(pickedTier ? { tier_id: pickedTier.id, tier_name: pickedTier.name } : {}),
+        },
       });
       await storage.createClientPayment({
         client_id: client.id,
@@ -324,29 +377,6 @@ export function registerPortalCatalogRoutes(app: Express) {
           actor_type: "system",
         });
       }
-
-      const mode = effectiveBillingPeriod === "monthly" ? "subscription" : "payment";
-      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
-      const session = await stripe.checkout.sessions.create({
-        customer: stripeCustomerId,
-        mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
-        // P0 2026-06-11: no payment_method_types — hardcoded lists with
-        // us_bank_account/cashapp throw on this CA account; the dashboard's
-        // dynamic payment-method configuration applies instead (PR #1681).
-        line_items: [{ price: resolvedPriceId, quantity: 1 }],
-        metadata: {
-          crm_client_id: String(client.id),
-          service_catalog_id: svc.id,
-          client_service_id: String(cs.id),
-          billing_period: wantsYearly ? "yearly" : "monthly",
-          source: "portal_catalog",
-          ...(pickedTier ? { tier_id: pickedTier.id, tier_name: pickedTier.name } : {}),
-        },
-        success_url: `${baseUrl}/portal/services?checkout=success&service=${encodeURIComponent(svc.id)}`,
-        cancel_url: `${baseUrl}/portal/catalog?checkout=cancelled`,
-        allow_promotion_codes: true,
-        billing_address_collection: "auto",
-      });
 
       log.info("[portal/catalog/subscribe] session created", {
         clientId,

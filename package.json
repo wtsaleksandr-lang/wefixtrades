@@ -32,6 +32,8 @@
     "check:no-silent-catch": "node scripts/check-no-silent-catch.mjs",
     "check:pricing-truth": "tsx server/services/knowledgeBase.test.ts",
     "check:trial-truth": "tsx server/jobs/trialLifecycleWorker.test.ts",
+    "check:checkout-provisioning-order": "tsx server/routes/portal/catalog.test.ts",
+    "check:cancel-keeps-free-live": "tsx server/routes/stripeBillingRoutes.subscriptionCancel.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",

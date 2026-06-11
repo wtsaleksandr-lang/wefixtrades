@@ -1389,17 +1389,20 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, _eve
     reason: "subscription_canceled",
   }).catch(err => log.warn(`[dunning] cancel-pending-on-deleted failed:`, err.message));
 
-  // ── QuoteQuick-direct subscription: revert calculator to free/draft ──
+  // ── QuoteQuick-direct subscription: revert entitlements to free, KEEP LIVE ──
+  // Trial-truth (#1682): the free tier is permanent — free tools never pause.
+  // Cancelling a paid sub drops the calculator's entitlements to the free
+  // plan, but the deployment stays live and keeps serving on free
+  // entitlements. (Previously this also set deployment_status='draft', which
+  // took the customer's published calculator off the air on cancel —
+  // violating the permanent-free promise. Deployment status is owned by the
+  // customer's own publish/unpublish actions, never by billing events.)
   const qqCalculator = await storage.findCalculatorByStripeSubscriptionId(subscription.id);
   if (qqCalculator) {
     await storage.updateCalculator(qqCalculator.id, {
       plan_tier: "free",
     });
-    await storage.upsertDeploymentStatus({
-      calculator_id: qqCalculator.id,
-      status: "draft",
-    });
-    log.info(`[billing-webhook] QuoteQuick calculator ${qqCalculator.id} reverted to free/draft after subscription cancellation`);
+    log.info(`[billing-webhook] QuoteQuick calculator ${qqCalculator.id} reverted to free plan after subscription cancellation (deployment stays live)`);
   }
 
   const client = await storage.findClientByStripeCustomerId(customerId);
