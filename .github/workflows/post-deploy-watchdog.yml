@@ -1,26 +1,48 @@
 name: Post-Deploy Watchdog
 
-# Deploy Safety Wave 4 — auto-rollback on healthz degradation.
+# Deploy Safety Wave 4 — reworked by CI-QUIET (2026-06-11).
 #
-# Triggers immediately after a commit lands on `main` (which is what causes
-# Replit to auto-deploy prod). Waits 60s for the swap, then polls
-# /api/healthz on prod for up to 10 minutes. If the deploy fails to stabilise,
-# we:
-#   1. Open a GitHub issue with the failing probe and the captured healthz body.
-#   2. Open an "emergency revert" PR that resets main to the previous-good SHA
-#      (the parent of the just-deployed commit, except for merge commits where
-#      we use the first parent — main's prior tip).
-#   3. Mark the workflow as failed so it shows up in the deploys dashboard.
+# REALITY THIS WORKFLOW NOW RESPECTS: Replit prod publishes are MANUAL.
+# A push to `main` is STAGED code, not a deploy — Alex clicks Publish later
+# (sometimes hours later, sometimes batching many merges into one publish).
+# The old design assumed push == auto-deploy, so it verified the live (stale)
+# build after every merge and FAILED every time: a failure email + GitHub
+# issue per merge, all noise — which then masked a genuinely stuck publish.
 #
-# Replit has no programmatic rollback API, so the revert PR is the rollback
-# mechanism: when Alex merges it, Replit auto-deploys the older code. We
-# deliberately do NOT auto-merge — this is the one place where human approval
-# matters (a false positive merging itself would be worse than a flaky probe).
+# NEW CONTRACT — on every main push:
+#   1. DETECT (scripts/deploy/detect-publish.mjs): poll prod /api/healthz for
+#      up to ~10 min looking for a publish pickup:
+#        - pickup=version  — healthz `version` stamp matches the pushed SHA
+#                            (provable; requires the GIT_SHA build stamp —
+#                            until that ships prod reports version:"unknown").
+#        - pickup=movement — boot_time (or the version string) changed during
+#                            the window: a publish/restart happened, build
+#                            identity unproven.
+#        - pickup=none     — nothing changed: the push is simply not deployed
+#                            yet. NEUTRAL EXIT (success + notice). No email.
+#   2. VERIFY only when a pickup was detected:
+#        - healthz stability (rollback-monitor) — unhealthy prod after a
+#          publish FAILS loudly (issue + rollback PR + failed run) for any
+#          pickup kind. This is the one signal worth an email.
+#        - content verification — full fail path (issue + failed run) only
+#          when the build is attributable (pickup=version, or the operator
+#          asserted the publish via the assume_published dispatch input);
+#          with an unattributable movement-pickup it reports a WARNING +
+#          artifact only.
 #
-# Constraints honoured:
-#   - No `npm install` — the monitor script only uses node built-ins.
-#   - No external action dependencies beyond actions/checkout + github-script.
-#   - Concurrency-grouped so two rapid pushes don't open duplicate PRs.
+# Note: Replit's own "Published your App" commit lands on main when Alex
+# publishes, so real publishes DO produce a push event → that run's detect
+# window is the one that sees movement and verifies the fresh build.
+#
+# AFTER A MANUAL PUBLISH you can demand a full verification immediately:
+#   gh workflow run post-deploy-watchdog.yml -f assume_published=true
+#
+# Prod outages with NO publish involved are the scheduled Post-Deploy Verify
+# workflow's job (15-min cadence, deduped issue) — not this watchdog's.
+#
+# Replit has no programmatic rollback API, so the revert PR remains the
+# rollback mechanism; merging it stages the older code for Alex's next
+# Publish click. Deliberately NOT auto-merged.
 
 on:
   push:
@@ -31,6 +53,11 @@ on:
         description: "Base URL to watch"
         required: false
         default: "https://wefixtrades.com"
+      assume_published:
+        description: "Operator just clicked Publish — skip pickup detection and verify the live build now"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   # Serialize per-branch so a rapid second push waits for the first watchdog
@@ -47,13 +74,18 @@ jobs:
   watch:
     name: watch
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30  # detect window (~10 min) + monitor (~10 min) + content
 
     env:
       DEPLOY_URL: ${{ github.event.inputs.deploy_url || 'https://wefixtrades.com' }}
       DEPLOYED_SHA: ${{ github.sha }}
+      # Attributability: content-verification failures only fail the run when
+      # we can pin the live build to this push (version stamp) or the operator
+      # asserted the publish. Movement-only pickups warn instead.
+      ASSUME_PUBLISHED: ${{ github.event.inputs.assume_published == 'true' && 'true' || 'false' }}
 
     outputs:
+      pickup: ${{ steps.detect.outputs.pickup }}
       verdict: ${{ steps.monitor.outputs.verdict }}
       reason: ${{ steps.monitor.outputs.reason }}
       failed_check: ${{ steps.monitor.outputs.failed_check }}
@@ -85,16 +117,49 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          # No npm cache: the monitor uses node built-ins, no install needed.
+          # No npm cache: all watchdog scripts use node built-ins, no install needed.
+
+      - name: Detect publish pickup (manual-publish aware)
+        id: detect
+        # Always exits 0; the pickup output drives everything downstream.
+        run: node scripts/deploy/detect-publish.mjs
+        env:
+          DEPLOY_URL: ${{ env.DEPLOY_URL }}
+          EXPECTED_SHA: ${{ env.DEPLOYED_SHA }}
+          TIMEOUT_S: "600"
+          POLL_INTERVAL_S: "20"
+          ASSUME_PUBLISHED: ${{ env.ASSUME_PUBLISHED }}
+
+      - name: Neutral exit — prod publish is manual, push not yet deployed
+        if: steps.detect.outputs.pickup == 'none'
+        env:
+          DETECT_DETAIL: ${{ steps.detect.outputs.detail }}
+        run: |
+          echo "::notice::prod publish is manual — ${DEPLOYED_SHA:0:7} not picked up within the window; watchdog has nothing to judge. ($DETECT_DETAIL)"
+          {
+            echo "## Watchdog: nothing to judge (neutral)"
+            echo ""
+            echo "Replit prod publish is **manual by design** — this push is staged, not deployed."
+            echo ""
+            echo "- Detector: $DETECT_DETAIL"
+            echo "- After clicking Publish, run: \`gh workflow run post-deploy-watchdog.yml -f assume_published=true\` for a full verification."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ---------- Everything below runs ONLY when a publish pickup was ----------
+      # ---------- detected — i.e. there is a live deploy to judge.      ----------
 
       - name: Watch /api/healthz for degradation
         id: monitor
+        if: steps.detect.outputs.pickup != 'none'
         # Pure node, zero deps. Exit 0 = healthy, 1 = degraded/down (trigger
         # rollback), 2 = monitor crash (no rollback — fix the workflow).
         run: node scripts/deploy/rollback-monitor.mjs
         env:
           DEPLOY_URL: ${{ env.DEPLOY_URL }}
           LAST_BODY_PATH: ${{ runner.temp }}/watchdog-last-body.json
+          # The detector already proved the live build is serving — no extra
+          # settle wait needed before the stability polls.
+          WATCHDOG_SETTLE_S: "0"
         continue-on-error: true
 
       - name: Verify critical-route content
@@ -107,7 +172,7 @@ jobs:
         # Only runs when the healthz monitor passed — if the API itself
         # is degraded, content verification adds nothing actionable and
         # we want the healthz failure to drive the rollback flow.
-        if: steps.monitor.outputs.verdict == 'pass'
+        if: steps.detect.outputs.pickup != 'none' && steps.monitor.outputs.verdict == 'pass'
         run: node scripts/deploy/content-verification.mjs
         env:
           DEPLOY_URL: ${{ env.DEPLOY_URL }}
@@ -123,8 +188,27 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
+      - name: Content warning only — build not attributable to this push
+        # CI-QUIET: with a movement-only pickup we cannot prove WHICH commit
+        # is live (version stamp not deployed yet). A content failure here is
+        # a property of whatever build Replit is serving — flag it as a
+        # warning + artifact, never as a failure email against this push.
+        # Hard gate returns automatically once pickup=version (stamp live).
+        if: >-
+          steps.content.outputs.content_verdict == 'fail' &&
+          steps.detect.outputs.pickup != 'version' &&
+          env.ASSUME_PUBLISHED != 'true'
+        env:
+          CONTENT_REASON: ${{ steps.content.outputs.content_reason }}
+          CONTENT_ROUTE: ${{ steps.content.outputs.content_failed_route }}
+          PICKUP: ${{ steps.detect.outputs.pickup }}
+        run: |
+          echo "::warning::content verification failed against the LIVE build ($CONTENT_REASON) — build identity unproven (pickup=$PICKUP), not failing the run. First failed route: $CONTENT_ROUTE"
+
       - name: Open content-verification issue
-        if: steps.content.outputs.content_verdict == 'fail'
+        if: >-
+          steps.content.outputs.content_verdict == 'fail' &&
+          (steps.detect.outputs.pickup == 'version' || env.ASSUME_PUBLISHED == 'true')
         uses: actions/github-script@v7
         env:
           DEPLOYED_SHA: ${{ env.DEPLOYED_SHA }}
@@ -177,7 +261,10 @@ jobs:
             });
 
       - name: Ping Sentry on content-verification fail (best-effort)
-        if: steps.content.outputs.content_verdict == 'fail' && env.SENTRY_DSN != ''
+        if: >-
+          steps.content.outputs.content_verdict == 'fail' &&
+          (steps.detect.outputs.pickup == 'version' || env.ASSUME_PUBLISHED == 'true') &&
+          env.SENTRY_DSN != ''
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           FAILED_ROUTE: ${{ steps.content.outputs.content_failed_route }}
@@ -200,7 +287,7 @@ jobs:
 
       - name: Read captured healthz body
         id: body
-        if: always()
+        if: always() && steps.detect.outputs.pickup != 'none'
         run: |
           BODY_PATH="${{ runner.temp }}/watchdog-last-body.json"
           if [ -f "$BODY_PATH" ]; then
@@ -223,7 +310,7 @@ jobs:
           fi
 
       - name: Upload captured healthz body
-        if: always()
+        if: always() && steps.detect.outputs.pickup != 'none'
         uses: actions/upload-artifact@v4
         with:
           name: watchdog-healthz-body
@@ -240,6 +327,8 @@ jobs:
           REASON: ${{ steps.monitor.outputs.reason }}
           FAILED_CHECK: ${{ steps.monitor.outputs.failed_check }}
           FAILED_STATUS: ${{ steps.monitor.outputs.failed_status }}
+          PICKUP: ${{ steps.detect.outputs.pickup }}
+          PICKUP_DETAIL: ${{ steps.detect.outputs.detail }}
           HEALTHZ_BODY_B64: ${{ steps.body.outputs.body_b64 }}
           HEALTHZ_BODY_MISSING: ${{ steps.body.outputs.body_missing }}
           TARGET_URL: ${{ env.DEPLOY_URL }}
@@ -259,10 +348,11 @@ jobs:
 
             const title = `Post-deploy watchdog FAILED — ${deployed.substring(0,7)} (${failedCheck || 'unknown'})`;
             const issueBody = [
-              `**Deployed commit:** \`${deployed.substring(0,7)}\` (\`${deployed}\`)`,
+              `**Pushed commit:** \`${deployed.substring(0,7)}\` (\`${deployed}\`)`,
               `**Previous good:** \`${previous.substring(0,7)}\` (\`${previous}\`)`,
               `**Target URL:** ${url}`,
               `**Workflow run:** ${run}`,
+              `**Publish pickup:** \`${process.env.PICKUP}\` — ${process.env.PICKUP_DETAIL}`,
               ``,
               `## Verdict`,
               `- **Reason:** ${reason}`,
@@ -276,6 +366,7 @@ jobs:
               ``,
               `## What happens next`,
               `An emergency rollback PR has been opened reverting \`main\` to \`${previous.substring(0,7)}\`.`,
+              `Replit prod publish is MANUAL: merging the revert PR stages the older code — Alex must still click Publish.`,
               `See [docs/operations/auto-rollback-playbook.md](../blob/main/docs/operations/auto-rollback-playbook.md) for the response procedure.`,
             ].join('\n');
 
@@ -344,7 +435,7 @@ jobs:
               `Resets \`main\` to \`${previous.substring(0,7)}\` (the commit prior to \`${deployed.substring(0,7)}\`).`,
               ``,
               `## Why`,
-              `Prod \`/api/healthz\` failed the post-deploy stability window:`,
+              `A publish pickup was detected on prod and \`/api/healthz\` then failed the stability window:`,
               `- **Reason:** ${reason}`,
               `- **Failed check:** \`${failedCheck || '(none)'}\``,
               ``,
@@ -355,7 +446,7 @@ jobs:
               ``,
               `## Action required from a human`,
               `1. Review whether the failing check is a real regression in \`${deployed.substring(0,7)}\` or a transient vendor issue.`,
-              `2. If real: **merge this PR**. Replit will auto-deploy the older code from \`main\`.`,
+              `2. If real: **merge this PR**, then click Publish in Replit (prod deploys are manual) to ship the older code.`,
               `3. If transient: **close this PR**, mark the linked rollback issue resolved, and consider widening the watchdog thresholds.`,
               ``,
               `See [docs/operations/auto-rollback-playbook.md](../blob/main/docs/operations/auto-rollback-playbook.md).`,
@@ -404,12 +495,26 @@ jobs:
             core.notice(`Opened rollback PR #${pr.number}: ${pr.html_url}`);
 
       - name: Mark workflow as failed
-        if: steps.monitor.outputs.verdict == 'fail' || steps.content.outputs.content_verdict == 'fail'
+        # CI-QUIET: the ONLY paths that produce a failed run (= an email):
+        #   1. a publish pickup was detected AND healthz failed stability;
+        #   2. a publish pickup attributable to this push (version stamp or
+        #      operator-asserted) is serving broken content.
+        # "Push not deployed yet" is NEUTRAL, never a failure.
+        if: >-
+          steps.monitor.outputs.verdict == 'fail' ||
+          (steps.content.outputs.content_verdict == 'fail' &&
+           (steps.detect.outputs.pickup == 'version' || env.ASSUME_PUBLISHED == 'true'))
+        env:
+          MONITOR_VERDICT: ${{ steps.monitor.outputs.verdict }}
+          MONITOR_REASON: ${{ steps.monitor.outputs.reason }}
+          CONTENT_VERDICT: ${{ steps.content.outputs.content_verdict }}
+          CONTENT_REASON: ${{ steps.content.outputs.content_reason }}
+          PICKUP: ${{ steps.detect.outputs.pickup }}
         run: |
-          if [ "${{ steps.monitor.outputs.verdict }}" = "fail" ]; then
-            echo "::error::Post-deploy watchdog failed (healthz): ${{ steps.monitor.outputs.reason }}"
+          if [ "$MONITOR_VERDICT" = "fail" ]; then
+            echo "::error::Post-deploy watchdog failed (healthz, pickup=$PICKUP): $MONITOR_REASON"
           fi
-          if [ "${{ steps.content.outputs.content_verdict }}" = "fail" ]; then
-            echo "::error::Post-deploy watchdog failed (content verification): ${{ steps.content.outputs.content_reason }}"
+          if [ "$CONTENT_VERDICT" = "fail" ]; then
+            echo "::error::Post-deploy watchdog failed (content verification): $CONTENT_REASON"
           fi
           exit 1
