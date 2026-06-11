@@ -103,6 +103,7 @@ export function registerPortalBillingRoutes(app: Express) {
           id: clientPayments.id,
           type: clientPayments.type,
           amount_cents: clientPayments.amount_cents,
+          currency: clientPayments.currency,
           status: clientPayments.status,
           description: clientPayments.description,
           service_name: serviceCatalog.name,

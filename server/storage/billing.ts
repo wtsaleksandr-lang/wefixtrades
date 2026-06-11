@@ -32,6 +32,7 @@ export async function listAllPayments(opts: { status?: string; limit?: number; o
     id: clientPayments.id, client_id: clientPayments.client_id,
     client_service_id: clientPayments.client_service_id, order_id: clientPayments.order_id,
     type: clientPayments.type, amount_cents: clientPayments.amount_cents,
+    currency: clientPayments.currency,
     status: clientPayments.status, description: clientPayments.description,
     stripe_invoice_id: clientPayments.stripe_invoice_id,
     stripe_payment_intent_id: clientPayments.stripe_payment_intent_id,

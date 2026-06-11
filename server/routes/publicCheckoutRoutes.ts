@@ -321,15 +321,56 @@ export function registerPublicCheckoutRoutes(app: Express): void {
       const discounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
       if (bundle_id) {
         try {
-          const { ALL_BUNDLES, bundleSavings } = await import("@shared/pricing");
+          const { ALL_BUNDLES, bundleSavings, bundleYearlySavings, yearlyTotal } = await import("@shared/pricing");
           const bundle = ALL_BUNDLES.find(b => b.id === bundle_id);
           if (bundle) {
-            const savingsDollars = bundleSavings(bundle);
-            if (savingsDollars > 0) {
+            /* Lane B — yearly bundle alignment. On a yearly checkout each
+             * component line item charges its YEARLY Stripe price, so the
+             * coupon must be in yearly terms too. Previously the monthly
+             * bundleSavings() was applied to the yearly invoice, so the page
+             * (yearlyTotal(bundle.price)), the coupon (monthly savings), and
+             * the actual charge (Σ component yearly − monthly savings) were
+             * three different numbers.
+             *
+             * Canonical estimate: bundleYearlySavings() (assumes each yearly
+             * price = monthly × 12 × 0.90). Some products mint different
+             * yearly policies (e.g. TradeLine is 2-months-free), so when we
+             * can resolve every line item to a real Stripe price we compute
+             * the EXACT coupon: (actual pre-discount sum) − advertised
+             * yearly bundle total — which makes the final charge land
+             * precisely on the advertised yearlyTotal(bundle.price). */
+            const isYearlyBundle = billingPeriod === "yearly" && bundle.billingPeriod === "monthly";
+            let savingsCents = (isYearlyBundle ? bundleYearlySavings(bundle) : bundleSavings(bundle)) * 100;
+            if (isYearlyBundle) {
+              try {
+                let actualSumCents = 0;
+                for (const svc of services) {
+                  if (svc._resolvedPriceId) {
+                    const pr = await stripe.prices.retrieve(svc._resolvedPriceId);
+                    if (typeof pr.unit_amount !== "number") throw new Error(`price ${svc._resolvedPriceId} has no flat unit_amount`);
+                    actualSumCents += pr.unit_amount;
+                  } else {
+                    // Inline price_data fallback charges the catalog amount directly.
+                    actualSumCents += svc.default_price ?? 0;
+                  }
+                }
+                savingsCents = actualSumCents - yearlyTotal(bundle.price) * 100;
+              } catch (err: any) {
+                log.warn("[public-checkout] exact yearly bundle coupon failed — using canonical estimate", { err: err?.message });
+              }
+            }
+            if (savingsCents > 0) {
               const coupon = await stripe.coupons.create({
-                amount_off: savingsDollars * 100, // cents
+                amount_off: Math.round(savingsCents),
                 currency: "usd",
-                duration: "once",
+                /* Lane B: was "once", which discounted only the FIRST invoice
+                 * — bundle subscribers paid the full component sum on every
+                 * renewal even though the page advertises the bundle price as
+                 * the recurring price. "forever" applies the discount to every
+                 * invoice of this subscription (the coupon is minted per
+                 * checkout and attached only to this session, so "forever"
+                 * scopes to this customer's subscription, not globally). */
+                duration: "forever",
                 name: `${bundle.name} bundle savings`,
                 metadata: { bundle_id, source: "public_checkout_bundle" },
               });
@@ -343,7 +384,10 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         try {
           const coupon = await stripe.coupons.create({
             percent_off: 7,
-            duration: "once",
+            /* Lane B: same renewal bug as the bundle coupon — the pricing
+             * page shows the 7%-discounted total as the recurring price, so
+             * the discount must persist past the first invoice. */
+            duration: "forever",
             name: "System Builder — 7% bundle discount",
             metadata: { source: "system_builder" },
           });

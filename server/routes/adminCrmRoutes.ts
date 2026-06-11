@@ -1,6 +1,6 @@
 import express, { type Express, type Request, type Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
-import { storage } from "../storage";
+import { storage, PublishBlockedError } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness, getTradeLineDefaultConfig } from "@shared/schema";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { tiersSchema } from "@shared/tiers";
@@ -58,7 +58,7 @@ import { sendWelcomePackage } from "../lib/welcomeEmail";
 import { sendApprovalNotificationEmail } from "../lib/approvalNotificationEmail";
 import { runSiteLaunchFinalization } from "../services/sitelaunchFinalization";
 import { runPreFixAudit, runPostFixAudit } from "../services/webfixAuditService";
-import { validateStripePriceId } from "../services/stripeProductSync";
+import { validateStripePriceId, monthlyToYearlyCents } from "../services/stripeProductSync";
 import { compileAndSendAdFlowReport, previewAdFlowReportHtml } from "../services/adflowReports";
 import { sendAdflowCreativeApprovalEmail } from "../lib/adflowCreativeApprovalEmail";
 import crypto from "crypto";
@@ -651,6 +651,24 @@ export function registerAdminCrmRoutes(app: Express): void {
         }
       }
 
+      // Lane B: a pasted YEARLY price_id was previously never amount-checked.
+      // Validate it against the canonical yearly amount (monthly × 12 × 0.90,
+      // rounded to the dollar — same formula sync-stripe mints with).
+      if (typeof draftData.stripe_yearly_price_id === "string" && draftData.stripe_yearly_price_id) {
+        const expectedMonthly =
+          typeof draftData.default_price === "number" ? draftData.default_price : live.default_price;
+        const billingPeriod = (draftData.billing_period ?? live.billing_period) as string | undefined;
+        if (typeof expectedMonthly === "number" && billingPeriod === "monthly") {
+          priceIdChecks.push(
+            validateStripePriceId({
+              stripePriceId: draftData.stripe_yearly_price_id,
+              expectedAmountCents: monthlyToYearlyCents(expectedMonthly),
+              label: `${svcId} (yearly)`,
+            }),
+          );
+        }
+      }
+
       // Tier price_ids: each tier's stripe_price_id must match its price_cents.
       if (Array.isArray(draftData.tiers)) {
         for (const t of draftData.tiers as Array<{ id?: string; price_cents?: number; stripe_price_id?: string | null }>) {
@@ -678,7 +696,35 @@ export function registerAdminCrmRoutes(app: Express): void {
         }
       }
 
-      const { updatedRow: updated, stripeSync } = await storage.publishProductDraft(draft.id, svcId, draftData, u.id);
+      /* Lane B: price-sync failures are now a hard block. PublishBlockedError
+       * means the draft was NOT published and no price mismatch was left
+       * behind (the affected row was reverted / fail-safed) — surface a real
+       * error to the admin UI instead of a success-with-warnings toast. */
+      let publishResult;
+      try {
+        publishResult = await storage.publishProductDraft(draft.id, svcId, draftData, u.id);
+      } catch (err: any) {
+        if (err instanceof PublishBlockedError) {
+          log.warn(`[products publish POST] blocked by Stripe price sync: ${err.blockers.join(" | ")}`);
+          await storage.logAdminActivity({
+            actor_type: "human",
+            actor_id: u.id,
+            actor_name: u.name || u.email,
+            action: "product.draft_publish_blocked",
+            entity_type: "service_catalog",
+            entity_id: null,
+            summary: `Publish BLOCKED for "${svcId}" — Stripe price sync failed (${err.blockers.length} blocker(s))`,
+            metadata: { service_id: svcId, draft_id: draft.id, blockers: err.blockers },
+          });
+          return res.status(409).json({
+            error: "Publish blocked — Stripe price sync failed. The draft was not published and no mismatched price went live.",
+            code: "stripe_sync_blocked",
+            blockers: err.blockers,
+          });
+        }
+        throw err;
+      }
+      const { updatedRow: updated, stripeSync } = publishResult;
 
       // Q5f: surface tier-mirror summary so audit log readers can see which
       // sibling rows got updated by this publish. publishProductDraft handles

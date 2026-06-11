@@ -33,7 +33,10 @@ export type {
   BundleDef,
 } from "@shared/pricing";
 
-export const BASE_CURRENCY = "CAD" as const;
+// Lane B USD canonicalization (2026-06-10): all catalog prices, Stripe prices,
+// and client_payments rows are USD. (Was "CAD" — a stale, unused leftover from
+// the legacy /plans page, which is unrouted and FX-toggle based.)
+export const BASE_CURRENCY = "USD" as const;
 
 /**
  * Legacy flat Product type for backwards compatibility with marketing/pricing.tsx

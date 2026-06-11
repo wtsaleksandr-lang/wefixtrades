@@ -504,6 +504,9 @@ export const clientPayments = pgTable("client_payments", {
   type: varchar("type", { length: 20 }).notNull().default("invoice"),
   // invoice | payment | refund | credit
   amount_cents: integer("amount_cents").notNull(),
+  // Lane B USD canonicalization: ISO 4217 lowercase (Stripe convention).
+  // All historical rows are USD; the default backfills them via migration 0082.
+  currency: varchar("currency", { length: 3 }).notNull().default("usd"),
   status: varchar("status", { length: 20 }).notNull().default("pending"),
   // pending | paid | failed | partial | refunded
   description: text("description"),

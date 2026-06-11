@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { hashPassword } from "./auth";
 import { db } from "./db";
+import { resolveStripePriceId } from "./lib/stripePriceResolver";
 import {
   // Calculator + leads + analytics_events + deployment_status table objects
   // moved with impl to ./storage/calculator.ts and ./storage/leads.ts /
@@ -207,6 +208,40 @@ export interface PublishProductDraftResult {
   };
 }
 
+/**
+ * Lane B — publish hard-block. Thrown by publishProductDraft when a PRICE
+ * change cannot be (or failed to be) mirrored to Stripe while a Stripe price
+ * is what customers actually pay through. Pre-Lane-B this was a soft warning
+ * and the catalog write went live anyway — leaving the site advertising one
+ * amount while Stripe kept charging another. Now the publish FAILS, the
+ * affected row is left in a site↔Stripe-consistent state, and the draft stays
+ * in `draft` so the admin can fix the cause and retry.
+ *
+ * Cosmetic sync failures (product name/description metadata, tier rows with
+ * no Stripe wiring at all) remain non-blocking warnings.
+ */
+export class PublishBlockedError extends Error {
+  readonly code = "stripe_sync_blocked";
+  readonly blockers: string[];
+  constructor(blockers: string[]) {
+    super(blockers[0] ?? "Stripe price sync failed — publish blocked");
+    this.name = "PublishBlockedError";
+    this.blockers = blockers;
+  }
+}
+
+/**
+ * Injectable Stripe-sync dependencies for publishProductDraft. Production
+ * always uses the real ./services/stripeProductSync module; tests inject a
+ * failing syncProductPrice to prove the publish gate blocks (see
+ * tests/publish-stripe-gate.test.ts).
+ */
+export interface StripeSyncDeps {
+  syncProductMetadata: typeof import("./services/stripeProductSync").syncProductMetadata;
+  syncProductPrice: typeof import("./services/stripeProductSync").syncProductPrice;
+  monthlyToYearlyCents: typeof import("./services/stripeProductSync").monthlyToYearlyCents;
+}
+
 export interface IStorage {
   createCalculator(data: InsertCalculator): Promise<Calculator>;
   getCalculatorById(id: number): Promise<Calculator | undefined>;
@@ -334,7 +369,7 @@ export interface IStorage {
   // Product drafts (Q28)
   getLatestProductDraft(serviceId: string): Promise<ProductDraft | undefined>;
   upsertProductDraft(data: Omit<InsertProductDraft, "status">): Promise<ProductDraft>;
-  publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<PublishProductDraftResult>;
+  publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null, syncDeps?: StripeSyncDeps): Promise<PublishProductDraftResult>;
   addProductDraftApprover(draftId: number, userId: number, email: string | null): Promise<ProductDraft | undefined>;
   rejectProductDraft(draftId: number, rejectedBy: number | null, reason: string | null): Promise<ProductDraft>;
 
@@ -974,13 +1009,17 @@ export class DatabaseStorage implements IStorage {
   upsertProductDraft(data: Omit<InsertProductDraft, "status">): Promise<ProductDraft> { return productsImpl.upsertProductDraft(data); }
   addProductDraftApprover(draftId: number, userId: number, email: string | null): Promise<ProductDraft | undefined> { return productsImpl.addProductDraftApprover(draftId, userId, email); }
 
-  async publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<PublishProductDraftResult> {
+  async publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null, syncDeps?: StripeSyncDeps): Promise<PublishProductDraftResult> {
     /* Collect every best-effort Stripe-sync warning so the publish route can
      * tell the admin "site updated, but Stripe needs attention" instead of a
-     * misleading "Live everywhere". A sync that returns ok:false (Stripe down,
-     * missing stripe_product_id, key unset) pushes its warning here; skipped
-     * tier rows (no matching sibling) are surfaced too. The site/catalog write
-     * still succeeds regardless — visibility, not blocking. */
+     * misleading "Live everywhere". A sync that returns ok:false on a
+     * COSMETIC change (metadata, skipped tier rows with no Stripe wiring)
+     * pushes its warning here — visibility, not blocking.
+     *
+     * Lane B hardening: PRICE sync failures/skips are no longer warnings.
+     * When a Stripe price is what customers pay through and the new price
+     * can't reach Stripe, the publish throws PublishBlockedError instead of
+     * leaving the site advertising an amount Stripe doesn't charge. */
     const stripeWarnings: string[] = [];
     const noteSync = (res: { ok: boolean; warning?: string }, context: string) => {
       if (!res.ok) {
@@ -1004,6 +1043,66 @@ export class DatabaseStorage implements IStorage {
      * old-vs-new and only push to Stripe what actually changed. */
     const [prevRow] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
 
+    /* ── Lane B pre-flight: block un-syncable price changes BEFORE any write ──
+     * A price change on a row with NO stripe_product_id can never be pushed
+     * to Stripe by the sync below. If customers are nevertheless charged via
+     * a Stripe price (catalog stripe_price_id, or an env-var-provisioned
+     * price — resolveStripePriceId covers both), publishing would create a
+     * permanent site≠Stripe mismatch. Reject up front; nothing is written.
+     * Rows where the resolver finds NO price are safe: their checkout falls
+     * back to inline price_data built from the catalog amount itself. */
+    const preflightBlockers: string[] = [];
+    const tierSiblingPrev = new Map<string, ServiceCatalogRow>();
+    if (prevRow) {
+      const parentPriceChanged =
+        typeof updates.default_price === "number" && updates.default_price !== prevRow.default_price;
+      const parentStripeProductId =
+        (typeof updates.stripe_product_id === "string" && updates.stripe_product_id)
+          ? updates.stripe_product_id
+          : (prevRow.stripe_product_id as string | null);
+      if (parentPriceChanged && !parentStripeProductId) {
+        const expectedPriceId = resolveStripePriceId(
+          { id: serviceId, stripe_price_id: prevRow.stripe_price_id as string | null, stripe_yearly_price_id: prevRow.stripe_yearly_price_id as string | null },
+          false,
+        );
+        if (expectedPriceId) {
+          preflightBlockers.push(
+            `Product "${serviceId}" has no stripe_product_id, but customers are charged through Stripe price ${expectedPriceId}. ` +
+            `Publishing this price change would leave Stripe charging the old amount. Link the Stripe product (stripe_product_id) and re-publish.`,
+          );
+        }
+      }
+
+      if (Array.isArray(updates.tiers)) {
+        for (const t of updates.tiers as Array<{ id?: string; price_cents?: number; stripe_price_id?: string | null }>) {
+          if (!t?.id) continue;
+          const [sib] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, t.id)).limit(1);
+          if (!sib) continue; // missing sibling stays a non-blocking warning below
+          tierSiblingPrev.set(t.id, sib);
+          const tierPriceChanged = typeof t.price_cents === "number" && t.price_cents !== sib.default_price;
+          if (tierPriceChanged && !sib.stripe_product_id) {
+            const expectedPriceId = resolveStripePriceId(
+              {
+                id: t.id,
+                stripe_price_id: (t.stripe_price_id !== undefined ? t.stripe_price_id : (sib.stripe_price_id as string | null)),
+                stripe_yearly_price_id: sib.stripe_yearly_price_id as string | null,
+              },
+              false,
+            );
+            if (expectedPriceId) {
+              preflightBlockers.push(
+                `Tier "${t.id}" has no stripe_product_id, but customers are charged through Stripe price ${expectedPriceId}. ` +
+                `Publishing this price change would leave Stripe charging the old amount. Link the Stripe product for this tier and re-publish.`,
+              );
+            }
+          }
+        }
+      }
+    }
+    if (preflightBlockers.length > 0) {
+      throw new PublishBlockedError(preflightBlockers);
+    }
+
     const [updatedRow] = await db.update(serviceCatalog)
       .set({ ...updates, updated_at: new Date() })
       .where(eq(serviceCatalog.id, serviceId))
@@ -1019,8 +1118,18 @@ export class DatabaseStorage implements IStorage {
      * If STRIPE_SECRET_KEY isn't configured, helpers no-op silently
      * (e.g. in test env). Logged via createLogger("stripe-product-sync").
      */
+    /* Lane B: revert helper — restores exactly the fields this publish wrote
+     * on the parent row, used when a price sync hard-fails mid-flight so the
+     * site never advertises a price Stripe doesn't charge. */
+    const revertParentRow = async () => {
+      const revert: Record<string, unknown> = { updated_at: new Date() };
+      for (const k of Object.keys(updates)) revert[k] = (prevRow as any)[k];
+      await db.update(serviceCatalog).set(revert).where(eq(serviceCatalog.id, serviceId));
+    };
+
     if (prevRow) {
-      const { syncProductMetadata, syncProductPrice, monthlyToYearlyCents } = await import("./services/stripeProductSync");
+      const { syncProductMetadata, syncProductPrice, monthlyToYearlyCents } =
+        syncDeps ?? await import("./services/stripeProductSync");
       const stripeProductId = (updatedRow.stripe_product_id as string | null) ?? (prevRow.stripe_product_id as string | null);
       // W-AU-2: detect a stripe_product_id swap so we can push the current
       // name/description to the newly-linked Stripe Product even if those
@@ -1065,8 +1174,18 @@ export class DatabaseStorage implements IStorage {
             newAmountCents: newPriceCents,
             period,
           });
-          noteSync(priceResult, `Stripe price for "${serviceId}"`);
-          if (priceResult.ok && priceResult.newStripePriceId) {
+          if (!priceResult.ok) {
+            /* Lane B hard block: the new price never reached Stripe (no new
+             * price was created, the old one is untouched and still active),
+             * so reverting the catalog write restores a fully consistent
+             * state. Draft stays 'draft' — fix the cause and retry. */
+            await revertParentRow();
+            throw new PublishBlockedError([
+              `Stripe price sync failed for "${serviceId}": ${priceResult.warning ?? "unknown error"}. ` +
+              `The publish was rolled back — nothing changed on the site or in Stripe. Fix the cause and re-publish.`,
+            ]);
+          }
+          if (priceResult.newStripePriceId) {
             await db.update(serviceCatalog)
               .set({ stripe_price_id: priceResult.newStripePriceId, updated_at: new Date() })
               .where(eq(serviceCatalog.id, serviceId));
@@ -1081,8 +1200,24 @@ export class DatabaseStorage implements IStorage {
               newAmountCents: monthlyToYearlyCents(newPriceCents),
               period: "yearly",
             });
-            noteSync(yearlyResult, `Stripe yearly price for "${serviceId}"`);
-            if (yearlyResult.ok && yearlyResult.newStripeYearlyPriceId) {
+            if (!yearlyResult.ok) {
+              /* The MONTHLY price was already re-minted (site↔Stripe are
+               * consistent for monthly), but the old YEARLY price still
+               * charges the old amount. Fail safe: detach the stale yearly
+               * price id so yearly checkout rejects cleanly ("no yearly
+               * price configured") instead of mis-billing, then block the
+               * publish so the admin knows to re-mint the yearly price
+               * (edit the price again, or run sync-stripe). */
+              await db.update(serviceCatalog)
+                .set({ stripe_yearly_price_id: null, updated_at: new Date() })
+                .where(eq(serviceCatalog.id, serviceId));
+              throw new PublishBlockedError([
+                `Stripe YEARLY price sync failed for "${serviceId}": ${yearlyResult.warning ?? "unknown error"}. ` +
+                `The monthly price was updated, and the stale yearly price was detached so yearly checkout cannot mis-bill. ` +
+                `Fix the cause, then re-mint the yearly price (re-save the price and publish again, or run sync-stripe).`,
+              ]);
+            }
+            if (yearlyResult.newStripeYearlyPriceId) {
               await db.update(serviceCatalog)
                 .set({ stripe_yearly_price_id: yearlyResult.newStripeYearlyPriceId, updated_at: new Date() })
                 .where(eq(serviceCatalog.id, serviceId));
@@ -1114,7 +1249,8 @@ export class DatabaseStorage implements IStorage {
      * a tier id in the jsonb doesn't have a matching sibling row, log and
      * skip (admin needs to insert the row out-of-band first). */
     if (Array.isArray(updates.tiers)) {
-      const { syncProductMetadata, syncProductPrice, monthlyToYearlyCents } = await import("./services/stripeProductSync");
+      const { syncProductMetadata, syncProductPrice, monthlyToYearlyCents } =
+        syncDeps ?? await import("./services/stripeProductSync");
       for (const t of updates.tiers as Array<{
         id: string;
         name?: string;
@@ -1123,7 +1259,8 @@ export class DatabaseStorage implements IStorage {
         stripe_price_id?: string | null;
       }>) {
         if (!t?.id) continue;
-        const [siblingPrev] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, t.id)).limit(1);
+        const siblingPrev = tierSiblingPrev.get(t.id)
+          ?? (await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, t.id)).limit(1))[0];
         if (!siblingPrev) {
           log.warn("[publishProductDraft] tier id has no sibling row — skipped", { parent: serviceId, tier_id: t.id });
           noteSync(
@@ -1173,8 +1310,23 @@ export class DatabaseStorage implements IStorage {
               newAmountCents: t.price_cents as number,
               period,
             });
-            noteSync(priceResult, `Stripe price for tier "${t.id}"`);
-            if (priceResult.ok && priceResult.newStripePriceId) {
+            if (!priceResult.ok) {
+              /* Lane B hard block (tier): no new Stripe price was created, so
+               * reverting this sibling's catalog write restores a consistent
+               * state for the price customers actually pay. Rows already
+               * synced earlier in this publish stay (they are consistent);
+               * the draft stays 'draft' so a retry re-attempts this tier. */
+              const revertSibling: Record<string, unknown> = { updated_at: new Date() };
+              for (const k of Object.keys(siblingUpdate)) {
+                if (k !== "updated_at") revertSibling[k] = (siblingPrev as any)[k];
+              }
+              await db.update(serviceCatalog).set(revertSibling).where(eq(serviceCatalog.id, t.id));
+              throw new PublishBlockedError([
+                `Stripe price sync failed for tier "${t.id}": ${priceResult.warning ?? "unknown error"}. ` +
+                `This tier's change was rolled back — nothing changed for the price customers pay. Fix the cause and re-publish.`,
+              ]);
+            }
+            if (priceResult.newStripePriceId) {
               await db.update(serviceCatalog)
                 .set({ stripe_price_id: priceResult.newStripePriceId, updated_at: new Date() })
                 .where(eq(serviceCatalog.id, t.id));
@@ -1187,8 +1339,20 @@ export class DatabaseStorage implements IStorage {
                 newAmountCents: monthlyToYearlyCents(t.price_cents as number),
                 period: "yearly",
               });
-              noteSync(yearlyResult, `Stripe yearly price for tier "${t.id}"`);
-              if (yearlyResult.ok && yearlyResult.newStripeYearlyPriceId) {
+              if (!yearlyResult.ok) {
+                /* Monthly already re-minted; detach the stale yearly price so
+                 * yearly checkout rejects cleanly instead of mis-billing,
+                 * then block (same rationale as the parent yearly mirror). */
+                await db.update(serviceCatalog)
+                  .set({ stripe_yearly_price_id: null, updated_at: new Date() })
+                  .where(eq(serviceCatalog.id, t.id));
+                throw new PublishBlockedError([
+                  `Stripe YEARLY price sync failed for tier "${t.id}": ${yearlyResult.warning ?? "unknown error"}. ` +
+                  `The monthly price was updated, and the stale yearly price was detached so yearly checkout cannot mis-bill. ` +
+                  `Fix the cause, then re-mint the yearly price (re-save the price and publish again, or run sync-stripe).`,
+                ]);
+              }
+              if (yearlyResult.newStripeYearlyPriceId) {
                 await db.update(serviceCatalog)
                   .set({ stripe_yearly_price_id: yearlyResult.newStripeYearlyPriceId, updated_at: new Date() })
                   .where(eq(serviceCatalog.id, t.id));

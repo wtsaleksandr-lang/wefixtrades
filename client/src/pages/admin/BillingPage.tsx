@@ -22,6 +22,7 @@ interface PaymentRow {
   client_name: string | null;
   type: string;
   amount_cents: number;
+  currency?: string | null;
   status: string;
   description: string | null;
   due_at: string | null;
@@ -45,8 +46,15 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function fmt(cents: number) {
-  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/* Render the amount in the row's own currency (USD canonical — the column
+ * defaults to "usd"; non-USD only ever appears if Stripe settles otherwise). */
+function fmt(cents: number, currency?: string | null) {
+  const code = (currency || "usd").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(cents / 100);
+  } catch {
+    return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
 }
 
 function fmtDate(d: string | null) {
@@ -99,7 +107,7 @@ export default function BillingPage() {
     return payments.filter((p) => {
       const name = (p.client_name || `Client #${p.client_id}`).toLowerCase();
       const desc = (p.description || "").toLowerCase();
-      const amount = fmt(p.amount_cents).toLowerCase();
+      const amount = fmt(p.amount_cents, p.currency).toLowerCase();
       const amountRaw = (p.amount_cents / 100).toString();
       return name.includes(q) || desc.includes(q) || amount.includes(q) || amountRaw.includes(q);
     });
@@ -147,6 +155,7 @@ export default function BillingPage() {
                     { header: "client_name", value: (p) => p.client_name },
                     { header: "type", value: (p) => p.type },
                     { header: "amount_cents", value: (p) => p.amount_cents },
+                    { header: "currency", value: (p) => p.currency ?? "usd" },
                     { header: "status", value: (p) => p.status },
                     { header: "description", value: (p) => p.description },
                     { header: "due_at", value: (p) => p.due_at },
@@ -255,7 +264,7 @@ export default function BillingPage() {
                         </Link>
                       </TableCell>
                       <TableCell className="text-sm capitalize">{p.type}</TableCell>
-                      <TableCell className="text-sm font-medium">{fmt(p.amount_cents)}</TableCell>
+                      <TableCell className="text-sm font-medium">{fmt(p.amount_cents, p.currency)}</TableCell>
                       <TableCell>
                         <Select value={p.status} onValueChange={(v) => { if (["paid", "refunded", "failed"].includes(v) && !window.confirm(`Set this payment to "${v}"? This changes the financial record for this client.`)) return; updatePaymentStatus.mutate({ id: p.id, status: v }); }}>
                           <SelectTrigger className="h-7 w-auto min-w-[90px] text-[11px] px-2">
@@ -306,7 +315,7 @@ export default function BillingPage() {
                           {p.client_name || `Client #${p.client_id}`}
                         </span>
                       </Link>
-                      <p className="text-xs text-muted-foreground capitalize mt-0.5">{p.type} &middot; {fmt(p.amount_cents)}</p>
+                      <p className="text-xs text-muted-foreground capitalize mt-0.5">{p.type} &middot; {fmt(p.amount_cents, p.currency)}</p>
                     </div>
                     <Select value={p.status} onValueChange={(v) => { if (["paid", "refunded", "failed"].includes(v) && !window.confirm(`Set this payment to "${v}"? This changes the financial record for this client.`)) return; updatePaymentStatus.mutate({ id: p.id, status: v }); }}>
                       <SelectTrigger className="h-7 w-auto min-w-[80px] text-[11px] px-2">
