@@ -1,4 +1,4 @@
--- 0082_outreach_sending_domains.sql
+-- 0083_outreach_sending_domains.sql
 --
 -- Lane OA: sending-domain pool for cold outreach (Smartlead rail).
 -- Cold mail NEVER sends from wefixtrades.com or any subdomain — the
