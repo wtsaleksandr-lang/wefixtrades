@@ -3,6 +3,20 @@ import { useLocation } from "wouter";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { AuthCard } from "@/components/auth/AuthCard";
+import { FreeToolFormField, FreeToolFormFieldStyles } from "@/components/marketing/FreeToolFormField";
+
+/* P2-1 (night audit 2026-06-11): locked input rules — title-in-field,
+ * help cue top-left, 2px stacked gaps — via the shared FreeToolFormField
+ * primitive. The AuthCard surface is translucent glass, so the floated
+ * label uses a transparent backing (it sits inside the field's padding,
+ * clear of both the border and the typed value). */
+const FIELD_STACK_STYLE = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 2,
+  marginBottom: 20,
+  ["--ftool-label-bg" as string]: "transparent",
+};
 
 export default function ResetPasswordPage() {
   const [, navigate] = useLocation();
@@ -48,28 +62,6 @@ function RequestReset() {
     }
   }
 
-  const labelStyle = {
-    display: "block" as const,
-    fontSize: 12,
-    fontWeight: 600,
-    color: mkt.onDarkFaint,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.06em",
-    marginBottom: 6,
-  };
-
-  const inputStyle = {
-    width: "100%",
-    padding: "12px 14px",
-    fontSize: 14,
-    color: mkt.onDark,
-    background: mkt.sectionLight,
-    border: `1px solid ${mkt.onDarkBorder}`,
-    borderRadius: 8,
-    outline: "none",
-    boxSizing: "border-box" as const,
-  };
-
   return (
     <AuthCard
       title="Reset password"
@@ -94,16 +86,23 @@ function RequestReset() {
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <label htmlFor="reset-request-email" style={labelStyle}>Email</label>
-          <input
-            id="reset-request-email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            style={{ ...inputStyle, marginBottom: 20 }}
-          />
+          <FreeToolFormFieldStyles />
+          <div style={FIELD_STACK_STYLE}>
+            <FreeToolFormField
+              id="reset-request-email"
+              theme="dark"
+              label="Email"
+              type="email"
+              placeholder="john@smithplumbing.com"
+              helpText="The email you signed up with — we'll send the reset link there."
+              value={email}
+              onChange={setEmail}
+              inputMode="email"
+              autoComplete="email"
+              autoFocus
+              required
+            />
+          </div>
 
           {error && (
             <p style={{ fontSize: 13, color: mkt.danger, marginBottom: 16 }}>{error}</p>
@@ -177,28 +176,6 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
     }
   }
 
-  const labelStyle = {
-    display: "block" as const,
-    fontSize: 12,
-    fontWeight: 600,
-    color: mkt.onDarkFaint,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.06em",
-    marginBottom: 6,
-  };
-
-  const inputStyle = {
-    width: "100%",
-    padding: "12px 14px",
-    fontSize: 14,
-    color: mkt.onDark,
-    background: mkt.sectionLight,
-    border: `1px solid ${mkt.onDarkBorder}`,
-    borderRadius: 8,
-    outline: "none",
-    boxSizing: "border-box" as const,
-  };
-
   return (
     <AuthCard
       title="Set new password"
@@ -231,29 +208,34 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <label htmlFor="reset-new-password" style={labelStyle}>New password</label>
-          <input
-            id="reset-new-password"
-            type="password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-            placeholder="At least 8 characters"
-            style={{ ...inputStyle, marginBottom: 20 }}
-          />
-
-          <label htmlFor="reset-confirm-password" style={labelStyle}>Confirm password</label>
-          <input
-            id="reset-confirm-password"
-            type="password"
-            required
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            autoComplete="new-password"
-            style={{ ...inputStyle, marginBottom: 20 }}
-          />
+          <FreeToolFormFieldStyles />
+          <div style={FIELD_STACK_STYLE}>
+            <FreeToolFormField
+              id="reset-new-password"
+              theme="dark"
+              label="New Password"
+              type="password"
+              placeholder="At least 8 characters"
+              helpText="At least 8 characters. You'll use it with your email to sign in."
+              value={password}
+              onChange={setPassword}
+              minLength={8}
+              autoComplete="new-password"
+              autoFocus
+              required
+            />
+            <FreeToolFormField
+              id="reset-confirm-password"
+              theme="dark"
+              label="Confirm Password"
+              type="password"
+              helpText="Type the same password again so we know there's no typo."
+              value={confirm}
+              onChange={setConfirm}
+              autoComplete="new-password"
+              required
+            />
+          </div>
 
           {error && (
             <p style={{ fontSize: 13, color: mkt.danger, marginBottom: 16 }}>{error}</p>

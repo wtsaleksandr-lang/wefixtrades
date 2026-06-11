@@ -30,9 +30,10 @@ export default function MicrosoftSignInButton({ mode }: MicrosoftSignInButtonPro
         fontSize: 14,
         fontWeight: 600,
         borderRadius: 10,
-        // Microsoft brand blue (#00A4EF) used for the border only —
-        // neutral interior keeps it in family with the Google button.
-        border: "1px solid #00A4EF",
+        // P2-3 (night audit 2026-06-11): neutral border matching the Google
+        // button — the glyph carries the brand; the bright brand-blue
+        // outline made the SSO row read as mismatched.
+        border: "1px solid #DADCE0",
         textDecoration: "none",
         boxSizing: "border-box",
         transition: "box-shadow 160ms ease",

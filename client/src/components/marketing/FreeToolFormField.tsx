@@ -64,12 +64,25 @@ interface BaseFieldProps {
 }
 
 interface InputFieldProps extends BaseFieldProps {
-  type?: "text" | "email" | "tel" | "url" | "search" | "number";
+  type?: "text" | "email" | "tel" | "url" | "search" | "number" | "password";
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   inputMode?: "text" | "email" | "tel" | "url" | "numeric" | "decimal" | "search" | "none";
   autoComplete?: string;
+  /* Native constraint passthroughs — needed by the auth forms
+     (P2-1 retrofit, night audit 2026-06-11). */
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  autoFocus?: boolean;
+  /** Optional trailing adornment (e.g. password show/hide toggle) rendered
+   *  inside the field's right edge. Rendered AFTER the floating label so the
+   *  `input + label` adjacent-sibling CSS keeps working. */
+  trailing?: ReactNode;
+  /** Optional style override on the `<input>` itself (e.g. monospace,
+   *  centered 2FA code). Merged over the base field styles. */
+  fieldStyle?: CSSProperties;
 }
 
 interface SelectFieldProps extends BaseFieldProps {
@@ -96,6 +109,7 @@ function FieldWrapper({
   wrapperStyle,
   children,
   testId,
+  trailing,
 }: {
   htmlFor: string;
   label: string;
@@ -105,6 +119,7 @@ function FieldWrapper({
   wrapperStyle?: CSSProperties;
   children: ReactNode;
   testId?: string;
+  trailing?: ReactNode;
 }) {
   return (
     <div
@@ -140,6 +155,24 @@ function FieldWrapper({
         {label}
         {required && <span className="ftool-form-field__required"> *</span>}
       </label>
+
+      {/* Trailing adornment (password eye, etc.) — after the label so the
+          `input + label` adjacent-sibling selectors stay intact. */}
+      {trailing && (
+        <div
+          style={{
+            position: "absolute",
+            right: 6,
+            top: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            zIndex: 2,
+          }}
+        >
+          {trailing}
+        </div>
+      )}
     </div>
   );
 }
@@ -161,6 +194,12 @@ export function FreeToolFormField({
   disabled,
   wrapperStyle,
   theme,
+  minLength,
+  maxLength,
+  pattern,
+  autoFocus,
+  trailing,
+  fieldStyle,
 }: InputFieldProps) {
   const generatedId = useId();
   const fieldId = id || `ftool-${generatedId}`;
@@ -173,6 +212,7 @@ export function FreeToolFormField({
       theme={theme}
       wrapperStyle={wrapperStyle}
       testId={testId}
+      trailing={trailing}
     >
       <input
         id={fieldId}
@@ -193,9 +233,14 @@ export function FreeToolFormField({
         disabled={disabled}
         inputMode={inputMode}
         autoComplete={autoComplete}
+        minLength={minLength}
+        maxLength={maxLength}
+        pattern={pattern}
+        autoFocus={autoFocus}
         aria-label={label}
         data-testid={testId}
         className="ftool-form-field__field"
+        style={{ ...(trailing ? { paddingRight: 44 } : {}), ...(fieldStyle || {}) }}
       />
     </FieldWrapper>
   );

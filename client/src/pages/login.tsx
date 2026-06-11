@@ -13,6 +13,7 @@ import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import MicrosoftSignInButton from "@/components/auth/MicrosoftSignInButton";
 import FacebookSignInButton from "@/components/auth/FacebookSignInButton";
 import { AuthCard } from "@/components/auth/AuthCard";
+import { FreeToolFormField, FreeToolFormFieldStyles } from "@/components/marketing/FreeToolFormField";
 
 /** Friendly copy for the ?google_error= codes the OAuth callback may return. */
 const GOOGLE_ERROR_COPY: Record<string, string> = {
@@ -226,26 +227,16 @@ export default function LoginPage() {
 
   /* ─── Styles ──────────────────────────────────────────────────── */
 
-  const labelStyle = {
-    display: "block",
-    fontSize: 12,
-    fontWeight: 600,
-    color: mkt.textFaint,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.06em",
-    marginBottom: 6,
-  };
-
-  const inputStyle = {
-    width: "100%",
-    padding: "12px 14px",
-    fontSize: 14,
-    color: mkt.onDark,
-    background: "rgba(255,255,255,0.04)",
-    border: `1px solid ${mkt.onDarkBorder}`,
-    borderRadius: 8,
-    outline: "none",
-    boxSizing: "border-box" as const,
+  /* P2-1 (night audit 2026-06-11): locked input rules — title-in-field,
+   * help cue top-left, 2px stacked gaps — via the shared FreeToolFormField
+   * primitive. The AuthCard surface is translucent glass, so the floated
+   * label uses a transparent backing (it sits inside the field's padding,
+   * clear of both the border and the typed value). */
+  const fieldStackStyle = {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 2,
+    ["--ftool-label-bg" as string]: "transparent",
   };
 
   const tabBtnStyle = (active: boolean) => ({
@@ -318,6 +309,7 @@ export default function LoginPage() {
   return (
     <AuthCard title={requires2fa ? "Two-factor verification" : "Sign in"} testId="auth-card-login">
       <>
+            <FreeToolFormFieldStyles />
             {/* Tabs — hidden during 2FA step since the user is past
                 that decision. */}
             {!requires2fa && (
@@ -330,13 +322,16 @@ export default function LoginPage() {
                 >
                   Email Link
                 </button>
+                {/* P2-2: was "Login" — ambiguous next to "Email Link" (and
+                    colliding with the nav's LOGIN). The tabs pick an auth
+                    METHOD, so name the method. */}
                 <button
                   type="button"
                   onClick={() => setMode("password")}
                   style={tabBtnStyle(mode === "password")}
                   data-testid="tab-password"
                 >
-                  Login
+                  Password
                 </button>
               </div>
             )}
@@ -386,20 +381,23 @@ export default function LoginPage() {
               <>
                 {!linkSent ? (
                   <form onSubmit={handleEmailLinkSubmit}>
-                    <label htmlFor="login-emaillink-email" style={labelStyle}>
-                      Email <span style={{ color: "#FCA5A5" }}>*</span>
-                    </label>
-                    <input
-                      id="login-emaillink-email"
-                      type="email"
-                      required
-                      autoFocus
-                      autoComplete="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      style={inputStyle}
-                      data-testid="input-email"
-                    />
+                    <div style={fieldStackStyle}>
+                      <FreeToolFormField
+                        id="login-emaillink-email"
+                        theme="dark"
+                        label="Email"
+                        type="email"
+                        placeholder="john@smithplumbing.com"
+                        helpText="The email on your account — we'll send a one-time sign-in link there. It expires in 15 minutes."
+                        value={email}
+                        onChange={setEmail}
+                        inputMode="email"
+                        autoComplete="email"
+                        autoFocus
+                        required
+                        testId="input-email"
+                      />
+                    </div>
 
                     {requestLink.error && (
                       <p style={{ marginTop: 12, fontSize: 13, color: "#FCA5A5" }}>
@@ -463,51 +461,54 @@ export default function LoginPage() {
               <div style={{ overflow: "hidden" }}>
               <form onSubmit={handlePasswordSubmit}>
                 {!requires2fa ? (
-                  <>
-                    <label htmlFor="login-password-email" style={labelStyle}>Email</label>
-                    <input
+                  <div style={fieldStackStyle}>
+                    <FreeToolFormField
                       id="login-password-email"
+                      theme="dark"
+                      label="Email"
                       type="email"
-                      required
-                      autoComplete="email"
+                      placeholder="john@smithplumbing.com"
+                      helpText="The email you signed up with."
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      style={{ ...inputStyle, marginBottom: 14 }}
-                      data-testid="input-password-email"
+                      onChange={setEmail}
+                      inputMode="email"
+                      autoComplete="email"
+                      required
+                      testId="input-password-email"
                     />
-
-                    <label htmlFor="login-password" style={labelStyle}>Password</label>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        id="login-password"
-                        type={showPassword ? "text" : "password"}
-                        required
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        style={{ ...inputStyle, paddingRight: 40 }}
-                        data-testid="input-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                        style={{
-                          position: "absolute",
-                          top: 0, right: 0, height: "100%",
-                          width: 40,
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          color: mkt.onDarkMuted,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}
-                        data-testid="toggle-password-visibility"
-                      >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </>
+                    <FreeToolFormField
+                      id="login-password"
+                      theme="dark"
+                      label="Password"
+                      type={showPassword ? "text" : "password"}
+                      helpText="Your account password. Use the eye icon to check what you've typed."
+                      value={password}
+                      onChange={setPassword}
+                      autoComplete="current-password"
+                      required
+                      testId="input-password"
+                      trailing={
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          style={{
+                            width: 36,
+                            height: 36,
+                            padding: 0,
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            color: mkt.onDarkMuted,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}
+                          data-testid="toggle-password-visibility"
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      }
+                    />
+                  </div>
                 ) : (
                   <>
                     <p style={{ fontSize: 13, color: mkt.onDarkMuted, marginBottom: 14 }}>
@@ -515,29 +516,36 @@ export default function LoginPage() {
                         ? "Enter one of your single-use recovery codes."
                         : "Enter the 6-digit code from your authenticator app."}
                     </p>
-                    <label htmlFor="login-2fa-code" style={labelStyle}>
-                      {useRecoveryCode ? "Recovery code" : "Authentication code"}
-                    </label>
-                    <input
-                      id="login-2fa-code"
-                      type="text"
-                      required
-                      inputMode={useRecoveryCode ? "text" : "numeric"}
-                      pattern={useRecoveryCode ? undefined : "[0-9]{6}"}
-                      maxLength={useRecoveryCode ? 13 : 6}
-                      autoFocus
-                      autoComplete="one-time-code"
-                      value={totpCode}
-                      onChange={(e) =>
-                        setTotpCode(
-                          useRecoveryCode
-                            ? e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "")
-                            : e.target.value.replace(/[^0-9]/g, ""),
-                        )
-                      }
-                      style={{ ...inputStyle, fontFamily: "ui-monospace, monospace", letterSpacing: useRecoveryCode ? "0.1em" : "0.4em", textAlign: "center" as const }}
-                      data-testid="input-2fa-code"
-                    />
+                    <div style={fieldStackStyle}>
+                      <FreeToolFormField
+                        id="login-2fa-code"
+                        theme="dark"
+                        label={useRecoveryCode ? "Recovery Code" : "Authentication Code"}
+                        helpText={useRecoveryCode
+                          ? "One of the single-use recovery codes you saved when enabling 2FA."
+                          : "The 6-digit code currently shown in your authenticator app."}
+                        value={totpCode}
+                        onChange={(v) =>
+                          setTotpCode(
+                            useRecoveryCode
+                              ? v.toUpperCase().replace(/[^A-Z0-9-]/g, "")
+                              : v.replace(/[^0-9]/g, ""),
+                          )
+                        }
+                        inputMode={useRecoveryCode ? "text" : "numeric"}
+                        pattern={useRecoveryCode ? undefined : "[0-9]{6}"}
+                        maxLength={useRecoveryCode ? 13 : 6}
+                        autoFocus
+                        autoComplete="one-time-code"
+                        required
+                        testId="input-2fa-code"
+                        fieldStyle={{
+                          fontFamily: "ui-monospace, monospace",
+                          letterSpacing: useRecoveryCode ? "0.1em" : "0.4em",
+                          textAlign: "center" as const,
+                        }}
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => { setUseRecoveryCode((v) => !v); setTotpCode(""); }}
@@ -584,8 +592,10 @@ export default function LoginPage() {
                     </button>
                   ) : (
                     <>
+                      {/* P2-2: style as the link it is — was plain muted text
+                          while "Sign up free" below got the blue treatment. */}
                       <a href="/reset-password" style={{ fontSize: 13, color: mkt.onDarkMuted, textDecoration: "none" }}>
-                        Forgot your password?
+                        Forgot your password? <span style={{ color: "#0d3cfc" }}>Reset it</span>
                       </a>
                       <a href="/signup" style={{ fontSize: 13, color: mkt.onDarkMuted, textDecoration: "none" }}>
                         Don't have an account? <span style={{ color: "#0d3cfc" }}>Sign up free</span>
