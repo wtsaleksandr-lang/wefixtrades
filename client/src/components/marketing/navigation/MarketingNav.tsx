@@ -433,10 +433,17 @@ export function MarketingNav() {
          * to maxWidth:1280 (≈1224px of content after 28px×2 padding), so the
          * full cluster — logo + menus + Login + Start free + TradeLine Demo —
          * fits within that box. Across the intermediate desktop band
-         * (1130–1429px) we compress the two CTA pills' padding + font a touch
-         * so nothing clips. Below 1130px (NAV_MOBILE_BREAKPOINT) the hamburger
-         * takes over and both CTAs live inside the mobile menu. */
-        @media (min-width: 1130px) and (max-width: 1429px) {
+         * (1256–1429px) we compress the two CTA pills' padding + font a touch
+         * so nothing clips.
+         *
+         * FIX 4: lower bound raised 1130 → 1256 to match the new
+         * NAV_MOBILE_BREAKPOINT. Below 1256px the desktop CTAs don't render at
+         * all (hamburger takes over, carrying both CTAs in the mobile menu), so
+         * the compression band only needs to cover 1256–1429 — the range where
+         * both pills are in the bar AND space is tight. The cluster hit its
+         * intrinsic min-width ~1251px and overran/clipped below that; handing it
+         * to the hamburger at 1256 avoids the impossible squeeze entirely. */
+        @media (min-width: 1256px) and (max-width: 1429px) {
           .nav-cta-start-free,
           .mkt-btn-demo {
             padding: 7px 13px !important;

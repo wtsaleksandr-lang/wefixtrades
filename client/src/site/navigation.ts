@@ -80,11 +80,22 @@ export type NavItem = {
  *
  * At 900, items crop on intermediate widths (~900–1024) before the hamburger
  * kicks in. Lifted to 1024 so the desktop nav always has room for: logo + 6
- * top-level menus + auth CTA. Below 1130 we go straight to hamburger
- * (measured: the full desktop row needs ~1120px (measured maxRight 1118) before the right CTA
- * cluster clips — see MarketingNav FIX 2).
+ * top-level menus + auth CTA.
+ *
+ * Raised 1130 → 1256 (FIX 4). The nav's inner row is clamped to maxWidth:1280;
+ * as the viewport narrows the clamped row keeps shrinking, but the right CTA
+ * cluster (Login + Start free + TradeLine Demo) hits its intrinsic min
+ * content-width around ~1251px and stops shrinking — so below ~1251 the demo
+ * pill overran the row's right edge (+22px@1230 … +121px@1131) and got clipped
+ * by an overflow:clip ancestor, also pushing "Start free" off-edge. Compression
+ * (FIX 2) reclaims well under the ~120px needed at the bottom of the band.
+ * Instead of cramming, we hand the whole cluster to the hamburger earlier:
+ * 1256–1440 shows both CTAs in the desktop bar (they fit — the squeeze only
+ * starts at 1251); below 1256 the hamburger carries BOTH CTAs in the mobile
+ * menu (already works). Demo CTA is therefore reachable at every width — bar
+ * or hamburger, never neither, never clipped. See MarketingNav FIX 2/FIX 4.
  */
-export const NAV_MOBILE_BREAKPOINT = 1130;
+export const NAV_MOBILE_BREAKPOINT = 1256;
 
 export const NAV_LINKS: NavItem[] = [
   {
