@@ -42,6 +42,9 @@ export const contentflowSettings = pgTable("contentflow_settings", {
   disabled_channels: jsonb("disabled_channels").$type<string[]>().notNull().default([]),
   // Monthly AI spend cap in whole USD. null = no cap.
   monthly_spend_cap_usd: integer("monthly_spend_cap_usd"),
+  // Per-video render cost ceiling in whole USD (Phase 2 video pipeline).
+  // null = fall back to env VIDEO_MAX_COST_USD / built-in default.
+  max_video_cost_usd: integer("max_video_cost_usd"),
   updated_at: timestamp("updated_at").defaultNow(),
   updated_by: integer("updated_by"),
 });
@@ -58,5 +61,6 @@ export const contentflowSettingsPatchSchema = z.object({
   text_tier: z.enum(CONTENTFLOW_TEXT_TIERS).optional(),
   disabled_channels: z.array(z.enum(CONTENTFLOW_CHANNELS)).optional(),
   monthly_spend_cap_usd: z.number().int().min(0).max(1_000_000).nullable().optional(),
+  max_video_cost_usd: z.number().int().min(0).max(10_000).nullable().optional(),
 });
 export type ContentflowSettingsPatch = z.infer<typeof contentflowSettingsPatchSchema>;

@@ -185,7 +185,12 @@ let _cfSettingsTableReady = false;
 /** Lazily create the contentflow_settings table. The repo has no
  *  migration step in the deploy pipeline, so this mirrors the same
  *  CREATE TABLE IF NOT EXISTS pattern used by unsubscribeStorage —
- *  the table self-creates on whichever database the app connects to. */
+ *  the table self-creates on whichever database the app connects to.
+ *
+ *  BOTH-PLACES RULE: new columns must ALSO be added to the migration
+ *  that introduces them (the migration's ALTER ... ADD COLUMN IF NOT
+ *  EXISTS upgrades databases where this lazy CREATE already ran — see
+ *  migrations/0085_contentflow_video_pipeline.sql for max_video_cost_usd). */
 async function ensureContentflowSettingsTable(): Promise<void> {
   if (_cfSettingsTableReady) return;
   await db.execute(sql`
@@ -195,6 +200,7 @@ async function ensureContentflowSettingsTable(): Promise<void> {
       text_tier VARCHAR(20) NOT NULL DEFAULT 'standard',
       disabled_channels JSONB NOT NULL DEFAULT '[]'::jsonb,
       monthly_spend_cap_usd INTEGER,
+      max_video_cost_usd INTEGER,
       updated_at TIMESTAMP DEFAULT NOW(),
       updated_by INTEGER
     )
@@ -220,7 +226,7 @@ export async function getContentflowSettings(): Promise<ContentflowSettings> {
 }
 
 export async function updateContentflowSettings(
-  patch: { kill_switch?: boolean; text_tier?: string; disabled_channels?: string[]; monthly_spend_cap_usd?: number | null },
+  patch: { kill_switch?: boolean; text_tier?: string; disabled_channels?: string[]; monthly_spend_cap_usd?: number | null; max_video_cost_usd?: number | null },
   updatedBy?: number,
 ): Promise<ContentflowSettings> {
   await getContentflowSettings(); // ensure the singleton row exists
