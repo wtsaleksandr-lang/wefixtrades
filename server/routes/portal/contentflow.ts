@@ -63,8 +63,26 @@ import {
   buildPhotorealPrompt,
   moderatePromptText,
 } from "../../services/contentflow/referenceReplication";
-import { generateVideoViaOrchestrator } from "../../services/contentflow/videoOrchestrator";
+import { generateVideoViaOrchestrator, VIDEO_PROVIDERS } from "../../services/contentflow/videoOrchestrator";
 import { generateContentflowText } from "../../services/contentflow/aiText";
+import {
+  type IntakeBrief,
+  type SlotFill,
+  type BriefLayer,
+  parseIntakePartial,
+  emptyBrief,
+} from "@shared/contentflow/intakeBrief";
+import {
+  defaultBriefExtractor,
+  extractBriefFromPrompt,
+  fillFromProfile,
+  scoreSufficiency,
+  composeBriefLayer,
+  assemblePreflight,
+  aspectRatioForPlacement,
+  estimateVideoCost,
+  type BriefExtractor,
+} from "../../services/contentflow/intakeSufficiency";
 import { listPending as listPipelineForClient } from "../../services/contentflow/api";
 import { humanizeViaOrchestrator } from "../../services/contentflow/humanizationOrchestrator";
 import { writeAudit } from "../../lib/auditLog";
@@ -632,6 +650,94 @@ export function registerPortalContentflowRoutes(app: Express) {
    * kind matches assetType) so the customer can see the output in their
    * library. Audit row on each success/failure.
    */
+
+  /**
+   * POST /api/portal/contentflow/generate/preflight   (Phase A)
+   *
+   * Body: { rendered: string, assetType?: "image"|"article"|"multi"|"video",
+   *         photoreal?: boolean }
+   * Returns: PreflightResult — the assembled brief, provenance, sufficiency
+   * score, one-line interpretation, the single skippable question (or null),
+   * derived aspect ratio + composition hint, and (for video) a cost estimate.
+   *
+   * This is advisory ONLY — it never generates, never writes a draft, never
+   * charges. FAIL-OPEN: any engine error returns ok:false with an empty
+   * all-unspecified brief so the panel falls back to today's behavior.
+   *
+   * Cost control: results are cached in-proc by (clientId, sha1(rendered),
+   * assetType, photoreal) for 10 min so the debounced panel preflight + the
+   * eventual Generate click reuse one engine run. Free tier gets
+   * deterministic profile fills ONLY (no LLM call); Starter+ runs the
+   * extractor (still cached, still cheap).
+   */
+  app.post("/api/portal/contentflow/generate/preflight", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res, { ok: false, brief: emptyBrief() });
+      if (!clientId) return;
+
+      const rendered = typeof req.body?.rendered === "string" ? req.body.rendered : "";
+      const assetTypeRaw = typeof req.body?.assetType === "string" ? req.body.assetType : "image";
+      const assetType = ["image", "article", "multi", "video"].includes(assetTypeRaw) ? assetTypeRaw : "image";
+      const photoreal = req.body?.photoreal === true;
+
+      if (!rendered.trim()) {
+        /* Nothing to interpret yet — return the fail-open empty shape. */
+        return res.json({
+          ok: true,
+          brief: emptyBrief(),
+          fills: [],
+          sufficiency: 0,
+          interpretation: "",
+          ask: null,
+          derived: { aspectRatio: null, compositionHint: null },
+        });
+      }
+
+      const client = await storage.getClientById(clientId);
+      const brand = readBrandProfile(client);
+      const tradeType = (client?.trade_type as string | null) ?? null;
+      const tier = await resolveContentflowTier(clientId);
+      /* Free tier = deterministic fills only (no LLM). Starter+ runs the
+       * extractor. Shadow flag can force the LLM on for baselining too. */
+      const runLlm = (tier !== "free") || isIntakeShadowEnabled();
+
+      const cacheKey = preflightCacheKey(clientId, rendered, assetType, photoreal);
+      let engine = preflightCacheGet(cacheKey);
+      if (!engine || (runLlm && !engine.llmExtractionRan)) {
+        engine = await runPreflightEngine({ rendered, brand, tradeType, photoreal, runLlm });
+        preflightCacheSet(cacheKey, engine);
+      }
+
+      const estimate = assetType === "video"
+        ? estimateVideoCost(tier, engine.brief, { providers: VIDEO_PROVIDERS })
+        : undefined;
+
+      res.json({
+        ok: true,
+        brief: engine.brief,
+        fills: engine.fills,
+        sufficiency: engine.sufficiency,
+        interpretation: engine.interpretation,
+        ask: engine.ask,
+        derived: engine.derived,
+        ...(estimate ? { estimate } : {}),
+        tier,
+      });
+    } catch (err: any) {
+      /* FAIL-OPEN: never 500 the panel — return today's empty shape. */
+      log.warn("[portal/contentflow/generate/preflight] fail-open", { err: err?.message });
+      res.json({
+        ok: false,
+        brief: emptyBrief(),
+        fills: [],
+        sufficiency: 0,
+        interpretation: "",
+        ask: null,
+        derived: { aspectRatio: null, compositionHint: null },
+      });
+    }
+  });
+
   app.post("/api/portal/contentflow/generate", requireClient, async (req: Request, res: Response) => {
     const t0 = Date.now();
     try {
@@ -650,6 +756,8 @@ export function registerPortalContentflowRoutes(app: Express) {
         aspectRatio,
         reference,
         extraInstructions,
+        /* ── Phase A: intake-sufficiency answers (optional). ── */
+        intake: intakeRaw,
       } = (req.body || {}) as {
         templateId?: string;
         customPromptId?: string;
@@ -675,7 +783,16 @@ export function registerPortalContentflowRoutes(app: Express) {
         };
         /** Customer free-text guidance layered on top of any reference. */
         extraInstructions?: string;
+        /** Phase A — optional intake answers, merged at intake_answer
+         *  priority. Omitting this MUST behave exactly as today. */
+        intake?: unknown;
       };
+
+      /* Parse the optional intake payload up front (fail-open → {} on junk).
+       * `hasIntake` gates the whole engine-merge path so a request with no
+       * intake is byte-identical to the historical behavior. */
+      const intakeAnswers = parseIntakePartial(intakeRaw);
+      const hasIntake = Object.keys(intakeAnswers).length > 0;
 
       /* ── Mode detection ───────────────────────────────────────────
        * Three prompt sources — library template, saved custom prompt,
@@ -731,8 +848,9 @@ export function registerPortalContentflowRoutes(app: Express) {
 
       /* ── Validate optional aspect ratio → explicit dimensions. ──── */
       let dimensions: { width: number; height: number } | undefined;
-      if (typeof aspectRatio === "string" && aspectRatio.trim()) {
-        const dims = aspectRatioToDimensions(aspectRatio.trim());
+      const callerSetAspectRatio = typeof aspectRatio === "string" && aspectRatio.trim().length > 0;
+      if (callerSetAspectRatio) {
+        const dims = aspectRatioToDimensions((aspectRatio as string).trim());
         if (!dims) {
           return res.status(400).json({
             error: "aspectRatio must be one of 1:1, 4:5, 5:4, 3:2, 2:3, 16:9, 9:16",
@@ -954,6 +1072,81 @@ export function registerPortalContentflowRoutes(app: Express) {
           ? brand.image_style_preset
           : defaultPresetForIndustry(tradeType);
 
+      /* ── Phase A: intake-sufficiency engine + shadow mode. ────────────
+       * FAIL-OPEN: any failure here leaves briefLayer undefined → the image
+       * path assembles EXACTLY as before. The engine runs on EVERY generate
+       * to baseline the sufficiency score, but the LLM extractor only fires
+       * when shadow mode is on (default off → deterministic-fill score only,
+       * zero cost) OR when the caller actually supplied intake answers (then
+       * we want the extraction to merge under them). The reference path is
+       * vision-derived and skips intake entirely.
+       *
+       * The cache (clientId, sha1(rendered), assetType, photoreal) is shared
+       * with the /preflight route so a debounced panel preflight + the
+       * Generate click reuse one engine run. */
+      let intakeBrief: IntakeBrief = emptyBrief();
+      let intakeFills: SlotFill[] = [];
+      let sufficiencyScore = 0;
+      let briefLayer: BriefLayer | undefined;
+      let intakeAsked = false;
+      if (!hasReference && (assetType === "image" || assetType === "article" || assetType === "multi")) {
+        try {
+          const runLlm = isIntakeShadowEnabled() || hasIntake;
+          const cacheKey = preflightCacheKey(clientId, renderedPrompt, assetType, !!photoreal);
+          /* Reuse a fresh preflight run when one exists AND we won't need a
+           * NEW llm pass it didn't do (cache stores llmExtractionRan). */
+          const cached = preflightCacheGet(cacheKey);
+          let engine = cached && (cached.llmExtractionRan || !runLlm) ? cached : null;
+          if (!engine) {
+            engine = await runPreflightEngine({
+              rendered: renderedPrompt,
+              brand,
+              tradeType,
+              photoreal: !!photoreal,
+              runLlm,
+              intake: hasIntake ? intakeAnswers : undefined,
+            });
+            preflightCacheSet(cacheKey, engine);
+          } else if (hasIntake) {
+            /* Cache hit but the caller passed answers — re-merge them at
+             * intake_answer priority without re-running the LLM. */
+            engine = await runPreflightEngine({
+              rendered: renderedPrompt,
+              brand,
+              tradeType,
+              photoreal: !!photoreal,
+              runLlm: false,
+              intake: intakeAnswers,
+            });
+          }
+          intakeBrief = engine.brief;
+          intakeFills = engine.fills;
+          sufficiencyScore = engine.sufficiency;
+          intakeAsked = !!engine.ask;
+          /* Only let the brief SHAPE generation when the caller opted in via
+           * intake answers — shadow mode observes silently. */
+          if (hasIntake) {
+            briefLayer = composeBriefLayer(intakeBrief);
+            /* Derive aspect ratio ONLY when the caller didn't pass an
+             * explicit pill (design: Advanced pills are a power override). */
+            if (!callerSetAspectRatio) {
+              const derived = briefLayer.derivedAspectRatio ?? aspectRatioForPlacement(intakeBrief.placement);
+              if (derived) {
+                const dims = aspectRatioToDimensions(derived);
+                if (dims) dimensions = dims;
+              }
+            }
+          }
+        } catch (err: any) {
+          /* Hard fail-open — discard everything intake and proceed unmodified. */
+          log.warn("[intake] engine failed (fail-open, generating unmodified)", { err: err?.message });
+          briefLayer = undefined;
+          intakeBrief = emptyBrief();
+          intakeFills = [];
+          sufficiencyScore = 0;
+        }
+      }
+
       /* ── Single insert of a draft row that we then attach the result
        *    to. Doing this up front means a failure mid-pipeline still
        *    leaves a record the customer can re-run. */
@@ -1047,10 +1240,19 @@ export function registerPortalContentflowRoutes(app: Express) {
           referenceStyleDescription = composed.styleDescription.description;
           referenceSource = composed.source ?? undefined;
         } else {
-          basePrompt = applyStyleSuffixToPrompt(renderedPrompt, customerStylePreset);
-          /* Realistic mode for non-reference prompts: augment prompt-side
-           * (camera/lens/lighting + raw-photo + illustration negatives). */
-          if (photoreal) basePrompt = buildPhotorealPrompt(basePrompt);
+          /* Non-reference image prompt assembly goes through the single
+           * assembleImagePrompt() seam. With briefLayer undefined (no intake)
+           * it reproduces the historical sequence byte-for-byte —
+           * applyStyleSuffixToPrompt → buildPhotorealPrompt — so a generate
+           * without intake is identical to the pre-change path. With a brief
+           * layer it appends the composition guidance through the existing
+           * guidance channel and honors style-suffix suppression. */
+          basePrompt = assembleImagePrompt({
+            rendered: renderedPrompt,
+            stylePreset: customerStylePreset,
+            photoreal: !!photoreal,
+            layer: briefLayer,
+          });
         }
 
         const finalPrompt = basePrompt;
@@ -1083,9 +1285,15 @@ export function registerPortalContentflowRoutes(app: Express) {
       };
 
       const runArticle = async (): Promise<void> => {
+        /* No-intake path: user prompt is the rendered text, byte-identical to
+         * before. With a brief layer present, append the compact guidance
+         * block through the same channel. */
+        const articleUser = briefLayer?.promptBlock?.trim()
+          ? `${renderedPrompt}\n\n${briefLayer.promptBlock.trim()}`
+          : renderedPrompt;
         const draftRaw = await generateContentflowText({
           system: "You are an SEO content writer for a local trade-services business. Produce a single short-form article (300-500 words) that answers the brief. Markdown headings allowed (## only). No fabricated testimonials, certifications, or prices. Plain prose only.",
-          user: renderedPrompt,
+          user: articleUser,
           maxTokens: 1500,
         }).catch((e: any) => ({ text: "", provider: "error", costMicroUsd: 0, _err: e?.message } as any));
         const draftText = (draftRaw as any).text as string;
@@ -1153,6 +1361,18 @@ export function registerPortalContentflowRoutes(app: Express) {
           aspect_ratio: typeof aspectRatio === "string" ? aspectRatio : null,
           reference_source: referenceSource ?? null,
           reference_style_description: referenceStyleDescription ?? null,
+          /* ── Phase A intake learning-loop provenance. Persisted on EVERY
+           * generate (shadow baseline). intake_answered=true means the caller
+           * supplied answers that actually shaped this generation; otherwise
+           * the brief/score come from extraction (shadow) + deterministic
+           * profile fills only. overlay_text is the wants_text UI handoff. */
+          intake_brief: intakeBrief,
+          intake_fills: intakeFills,
+          sufficiency_score: sufficiencyScore,
+          intake_asked: intakeAsked,
+          intake_answered: hasIntake,
+          intake_shadow: isIntakeShadowEnabled(),
+          intake_overlay_text: briefLayer?.overlayText ?? null,
           generation_status: succeeded ? "succeeded" : "failed",
           generation_errors: errors,
           media_plan: assetUrl ? { image_url: assetUrl, prompt: renderedPrompt, image_style_preset: customerStylePreset } : null,
@@ -1895,6 +2115,160 @@ function applyStyleSuffixToPrompt(rendered: string, preset: string): string {
     return applyStylePreset(rendered, preset as ImageStylePresetId);
   }
   return rendered;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Phase A — intake-sufficiency assembly glue.
+ *
+ * assembleImagePrompt() is the SINGLE place the non-reference image prompt
+ * is built. It is the no-regression seam: with `layer` omitted (the
+ * no-intake path) it reproduces the historical sequence EXACTLY —
+ * applyStyleSuffixToPrompt → buildPhotorealPrompt — so generate-without-
+ * intake is byte-identical to the pre-change path. The intake test captures
+ * its output via this exported pure function. When a brief layer IS present,
+ * its compact prompt block is appended as guidance (the existing
+ * extraInstructions/guidance channel) and an explicit style suppresses the
+ * preset suffix.
+ *
+ * Pure + dependency-free → unit-testable without express/db. Wired into CI as
+ * `npm run check:contentflow-intake`.
+ * ────────────────────────────────────────────────────────────────── */
+export function assembleImagePrompt(args: {
+  rendered: string;
+  stylePreset: string;
+  photoreal: boolean;
+  /** Brief layer from composeBriefLayer(); omit for the no-intake path. */
+  layer?: BriefLayer;
+}): string {
+  const { rendered, stylePreset, photoreal, layer } = args;
+  /* Style suffix — suppressed only when the customer's style is explicit. */
+  let prompt = layer?.suppressPresetSuffix
+    ? rendered
+    : applyStyleSuffixToPrompt(rendered, stylePreset);
+  /* Intake guidance through the existing extraInstructions/guidance channel:
+   * append the compact composition block. Only when present — keeps the
+   * no-intake path byte-identical. */
+  if (layer?.promptBlock && layer.promptBlock.trim()) {
+    prompt = `${prompt}\n\n${layer.promptBlock.trim()}`;
+  }
+  /* Realistic-mode augmentation last — identical ordering to the historical
+   * path so the no-layer call is byte-identical. */
+  if (photoreal) prompt = buildPhotorealPrompt(prompt);
+  return prompt;
+}
+
+/* ── Shadow-mode flag. When OFF (default), the generate path persists only a
+ *    DETERMINISTIC-fill sufficiency score (no LLM call → zero cost). When ON,
+ *    the LLM extractor runs to baseline against real prompt understanding.
+ *    Read per-call so an env flip takes effect without a restart in dev. */
+export function isIntakeShadowEnabled(): boolean {
+  return String(process.env.CONTENTFLOW_INTAKE_SHADOW_ENABLED || "").toLowerCase() === "true";
+}
+
+/**
+ * In-proc preflight cache. Keyed (clientId, sha1(rendered), assetType,
+ * photoreal). 10-minute TTL so the debounced panel preflight + the eventual
+ * Generate click reuse one engine run. Tiny bounded map — evicts oldest when
+ * it grows past the cap. Process-local (acceptable: preflight is advisory).
+ */
+interface PreflightCacheEntry {
+  at: number;
+  value: PreflightEngineResult;
+}
+const PREFLIGHT_CACHE = new Map<string, PreflightCacheEntry>();
+const PREFLIGHT_TTL_MS = 10 * 60 * 1000;
+const PREFLIGHT_CACHE_MAX = 500;
+
+function preflightCacheKey(
+  clientId: number,
+  rendered: string,
+  assetType: string,
+  photoreal: boolean,
+): string {
+  const h = crypto.createHash("sha1").update(rendered).digest("hex");
+  return `${clientId}:${h}:${assetType}:${photoreal ? 1 : 0}`;
+}
+
+function preflightCacheGet(key: string): PreflightEngineResult | null {
+  const hit = PREFLIGHT_CACHE.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > PREFLIGHT_TTL_MS) {
+    PREFLIGHT_CACHE.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+
+function preflightCacheSet(key: string, value: PreflightEngineResult): void {
+  if (PREFLIGHT_CACHE.size >= PREFLIGHT_CACHE_MAX) {
+    const oldest = PREFLIGHT_CACHE.keys().next().value;
+    if (oldest !== undefined) PREFLIGHT_CACHE.delete(oldest);
+  }
+  PREFLIGHT_CACHE.set(key, { at: Date.now(), value });
+}
+
+/** What runPreflightEngine returns — the assembled brief + scoring + asks. */
+export interface PreflightEngineResult {
+  brief: IntakeBrief;
+  fills: SlotFill[];
+  sufficiency: number;
+  interpretation: string;
+  ask: ReturnType<typeof assemblePreflight>["ask"];
+  derived: { aspectRatio: string | null; compositionHint: string | null };
+  /** True when the LLM extractor actually ran (shadow on / preflight paid). */
+  llmExtractionRan: boolean;
+}
+
+/**
+ * Run the intake engine for a (rendered, profile, trade) tuple. FAIL-OPEN:
+ * any engine error degrades to a deterministic-only assembly. The LLM
+ * extractor runs ONLY when `runLlm` is true (shadow on, or a paid-tier
+ * preflight) — otherwise scoring is from deterministic profile fills alone,
+ * which costs nothing.
+ */
+export async function runPreflightEngine(args: {
+  rendered: string;
+  brand: ReturnType<typeof readBrandProfile>;
+  tradeType: string | null;
+  photoreal: boolean;
+  runLlm: boolean;
+  extractor?: BriefExtractor;
+  /** Caller-provided intake answers, merged at intake_answer priority. */
+  intake?: Partial<IntakeBrief>;
+}): Promise<PreflightEngineResult> {
+  let extracted: { brief: Partial<IntakeBrief>; fills: SlotFill[] } = { brief: {}, fills: [] };
+  let llmExtractionRan = false;
+  if (args.runLlm) {
+    try {
+      extracted = await extractBriefFromPrompt(args.rendered, {
+        extractor: args.extractor ?? defaultBriefExtractor,
+      });
+      llmExtractionRan = true;
+    } catch (err: any) {
+      /* extractBriefFromPrompt is already fail-open, but belt-and-suspenders. */
+      log.warn("[intake] extraction failed (fail-open)", { err: err?.message });
+      extracted = { brief: {}, fills: [] };
+    }
+  }
+
+  /* Deterministic profile/trade fills layered under the extraction. */
+  const profileFilled = fillFromProfile(extracted.brief, args.brand, args.tradeType);
+
+  /* Merge caller intake answers at intake_answer priority (highest). */
+  let brief = profileFilled.brief;
+  const fills: SlotFill[] = [...extracted.fills, ...profileFilled.fills];
+  if (args.intake) {
+    const answerFills: SlotFill[] = [];
+    for (const [slot, value] of Object.entries(args.intake)) {
+      if (value === undefined || value === null || value === "") continue;
+      (brief as unknown as Record<string, unknown>)[slot] = value;
+      answerFills.push({ slot: slot as keyof IntakeBrief, value: String(value), source: "intake_answer" });
+    }
+    fills.push(...answerFills);
+  }
+
+  const assembled = assemblePreflight({ brief, fills, photoreal: args.photoreal });
+  return { ...assembled, llmExtractionRan };
 }
 
 /* ──────────────────────────────────────────────────────────────────

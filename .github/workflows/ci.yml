@@ -55,6 +55,8 @@ jobs:
         run: npm run check:contentflow-video-worker
       - name: ContentFlow video-routes guard (estimate math + cost-cap precheck, tier-cap clamp, idempotency, 402 upgrade shape)
         run: npm run check:contentflow-video-routes
+      - name: ContentFlow intake-sufficiency guard (brief extraction/fills/scoring, placement-first ask, composeBriefLayer rules, no-regression byte-identical no-intake assembly)
+        run: npm run check:contentflow-intake
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
