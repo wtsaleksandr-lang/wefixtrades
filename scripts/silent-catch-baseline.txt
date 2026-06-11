@@ -4,8 +4,6 @@
 # (server/lib/silentFailureGuard.ts), then delete the matching line here
 # and re-run `node scripts/check-no-silent-catch.mjs` to confirm.
 # Format: <file>:<line>:<col>\t<kind>\t<snippet>
-script/build.ts:236:31	silent-catch	.catch(() => undefined)
-script/build.ts:245:31	silent-catch	.catch(() => undefined)
 scripts/verify-ai-extraction.mjs:145:3	empty-catch-block	} catch {}
 scripts/verify-ai-extraction.mjs:150:5	empty-catch-block	} catch {}
 scripts/verify-ai-extraction.mjs:157:5	empty-catch-block	} catch {}

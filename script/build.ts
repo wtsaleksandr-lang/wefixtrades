@@ -1,7 +1,7 @@
 import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
-import { rm, readFile } from "fs/promises";
-import { spawn } from "node:child_process";
+import { rm, readFile, writeFile } from "fs/promises";
+import { spawn, execSync } from "node:child_process";
 import * as Sentry from "@sentry/node";
 
 /**
@@ -165,6 +165,82 @@ function isPrerenderSkipped(tag: string): boolean {
 }
 
 /**
+ * Healthz version stamp — write dist/build-info.json after the bundles are
+ * produced so GET /api/healthz can report WHICH build is live (version was
+ * previously hard-wired to "unknown" on prod, which made publish
+ * verification guesswork — one false "deploy failed" alarm and one delayed
+ * real-failure detection). Read at runtime by server/lib/buildInfo.ts.
+ *
+ * Identity source order: local git (`rev-parse --short HEAD`) → CI/Replit
+ * env (REPL_GIT_SHA / GITHUB_SHA) → "nogit". Even with no sha available,
+ * built_at alone proves a fresh build shipped.
+ *
+ * HARD CONTRACT: this step must NEVER fail the build. Every path is wrapped;
+ * worst case the stamp is skipped and healthz reports "dev".
+ */
+function resolveBuildIdentity(): { git_sha: string; git_branch: string | null } {
+  try {
+    const sha = execSync("git rev-parse --short HEAD", {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    if (sha) {
+      let branch: string | null = null;
+      try {
+        const b = execSync("git rev-parse --abbrev-ref HEAD", {
+          encoding: "utf-8",
+          stdio: ["ignore", "pipe", "ignore"],
+        }).trim();
+        branch = b && b !== "HEAD" ? b : null; // detached HEAD → no branch name
+      } catch {
+        branch = null; // branch is informational — sha alone is enough
+      }
+      return { git_sha: sha, git_branch: branch };
+    }
+  } catch {
+    // No .git in the deploy build context (Replit copies may strip it) —
+    // fall through to env-provided shas.
+  }
+  const envSha = process.env.REPL_GIT_SHA ?? process.env.GITHUB_SHA;
+  if (envSha?.trim()) {
+    return {
+      git_sha: envSha.trim().slice(0, 9),
+      git_branch: process.env.GITHUB_REF_NAME?.trim() || null,
+    };
+  }
+  return { git_sha: "nogit", git_branch: null };
+}
+
+async function stampBuildInfo(): Promise<void> {
+  let payload: { git_sha: string; git_branch: string | null; built_at: string } = {
+    git_sha: "nogit",
+    git_branch: null,
+    built_at: new Date().toISOString(),
+  };
+  try {
+    payload = { ...payload, ...resolveBuildIdentity() };
+  } catch (err) {
+    // Keep the "nogit" fallback payload — still stamps built_at.
+    reportBuildIssue(
+      "build-info",
+      `resolveBuildIdentity failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  try {
+    await writeFile("dist/build-info.json", JSON.stringify(payload, null, 2) + "\n", "utf-8");
+    console.log(
+      `[build] stamped dist/build-info.json (git_sha=${payload.git_sha}, built_at=${payload.built_at})`,
+    );
+  } catch (err) {
+    // Never break the build over the stamp — healthz degrades to "dev".
+    reportBuildIssue(
+      "build-info",
+      `failed to write dist/build-info.json: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
+/**
  * Wave 90 — post-build smoke check.
  *
  * After the client + prerender + server bundles are emitted, verify
@@ -227,13 +303,17 @@ async function buildAll() {
     logLevel: "info",
   });
 
+  // After both bundles exist, stamp the build identity for /api/healthz.
+  await stampBuildInfo();
+
   await runBuildSmoke();
 }
 
 buildAll()
   .then(async () => {
     if (SENTRY_BUILD_INITIALIZED) {
-      await Sentry.flush(2000).catch(() => undefined);
+      // boolean-return guard: flush() resolves boolean; failure → false.
+      await Sentry.flush(2000).catch(() => false);
     }
   })
   .catch(async (err) => {
@@ -242,7 +322,7 @@ buildAll()
       stack: err?.stack,
     });
     if (SENTRY_BUILD_INITIALIZED) {
-      await Sentry.flush(2000).catch(() => undefined);
+      await Sentry.flush(2000).catch(() => false);
     }
     process.exit(1);
   });
