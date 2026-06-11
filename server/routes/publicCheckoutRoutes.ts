@@ -185,91 +185,19 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         await storage.updateClient(client.id, { stripe_customer_id: stripeCustomerId });
       }
 
-      /* ─── Provision each service (pending — payment not yet confirmed) ─── */
-      for (const svc of services) {
-        // Skip if already provisioned (idempotent)
-        const existing = await storage.findClientServiceByServiceId(client.id, svc.id);
-        if (existing) continue;
-
-        // Set TradeLine config defaults if this is a TradeLine service
-        const tradelineDefaults = getTradeLineDefaultConfig(svc.id);
-        const metadata = tradelineDefaults ? { tradeline: tradelineDefaults } : undefined;
-
-        const cs = await storage.createClientService({
-          client_id: client.id,
-          service_id: svc.id,
-          status: "pending",
-          enabled: true,
-          fulfillment_mode: "internal",
-          price_cents: svc.default_price,
-          billing_period: svc.billing_period,
-          metadata,
-        });
-
-        // Auto-populate TradeLine notifications from client contact info
-        if (tradelineDefaults) {
-          const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
-          if (client.contact_email) notifications.email.push(client.contact_email);
-          if (client.contact_phone) notifications.sms.push(client.contact_phone);
-          if (notifications.email.length || notifications.sms.length) {
-            await storage.updateTradeLineConfig(cs.id, { notifications });
-          }
-        }
-
-        // Create pending payment record (webhook will mark it paid)
-        await storage.createClientPayment({
-          client_id: client.id,
-          client_service_id: cs.id,
-          type: svc.billing_period === "monthly" ? "invoice" : "payment",
-          amount_cents: svc.default_price ?? 0,
-          status: "pending",
-          description: `${svc.name} — ${svc.billing_period === "monthly" ? "monthly" : "one-time"}`,
-          actor_type: "system",
-        });
-
-        // Create onboarding if template exists
-        const tmpl = await storage.getOnboardingTemplate(svc.id);
-        if (tmpl) {
-          await storage.createOnboardingSubmission({
-            client_service_id: cs.id,
-            client_id: client.id,
-            template_id: tmpl.id,
-            status: "not_sent",
-            actor_type: "system",
-          });
-        }
-
-        // Create fulfillment tasks
-        const tasks = await storage.getTaskTemplates(svc.id);
-        for (const t of tasks) {
-          const task = await storage.createFulfillmentTask({
-            client_service_id: cs.id,
-            client_id: client.id,
-            title: t.title,
-            description: t.description,
-            sort_order: t.sort_order,
-            priority: t.default_priority,
-            handled_by: t.default_handled_by,
-            waiting_on: t.default_waiting_on,
-            human_review_required: t.human_review_required,
-            due_at: t.sla_days ? new Date(Date.now() + t.sla_days * 86400000) : null,
-            status: "not_started",
-            actor_type: "system",
-          });
-
-          // Auto-assign supplier if template specifies handled_by = "supplier"
-          if (t.default_handled_by === "supplier") {
-            try { await autoAssignSupplier(task); } catch (_) { /* fail-safe */ }
-          }
-        }
-      }
-
-      // Update client status to onboarding
-      if (client.status === "lead") {
-        await storage.updateClient(client.id, { status: "onboarding" });
-      }
-
-      /* ─── Build Stripe Checkout Session ─── */
+      /* ─── Build Stripe Checkout Session ───
+       * Session FIRST, provisioning after (night-audit P-B P1). Any
+       * sessions.create failure (invalid params, archived price, Stripe
+       * outage) used to strand pending client_services + payments + tasks +
+       * onboarding rows — every failed checkout became a phantom
+       * "onboarding" client with open work in the CRM. The webhook does not
+       * need the rows to exist at session-create time (it looks them up by
+       * crm_client_id + service_catalog_id and provisions from scratch when
+       * none exist); it only needs them before payment completes, which is
+       * guaranteed because the visitor can't reach Stripe until we return
+       * checkout_url below. The client/lead row + Stripe customer above are
+       * intentionally still created first — the session needs the customer
+       * id, and a form-fill IS a lead even if the session fails. */
       // Determine mode: if ANY item is subscription, use subscription mode
       // (Stripe subscription mode supports mixing subscription + one-time line items)
       const hasSubscription = services.some(s => s.billing_period === "monthly");
@@ -465,6 +393,96 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         cancel_url: `${baseUrl}/checkout/cancelled`,
         billing_address_collection: "auto",
       });
+
+      /* ─── Provision each service (pending — payment not yet confirmed) ───
+       * Runs only after sessions.create succeeded; rows are keyed to the
+       * session via metadata.stripe_session_id. The webhook flips them to
+       * paid/active on checkout.session.completed. */
+      for (const svc of services) {
+        // Skip if already provisioned (idempotent)
+        const existing = await storage.findClientServiceByServiceId(client.id, svc.id);
+        if (existing) continue;
+
+        // Set TradeLine config defaults if this is a TradeLine service
+        const tradelineDefaults = getTradeLineDefaultConfig(svc.id);
+        const metadata = {
+          stripe_session_id: session.id,
+          ...(tradelineDefaults ? { tradeline: tradelineDefaults } : {}),
+        };
+
+        const cs = await storage.createClientService({
+          client_id: client.id,
+          service_id: svc.id,
+          status: "pending",
+          enabled: true,
+          fulfillment_mode: "internal",
+          price_cents: svc.default_price,
+          billing_period: svc.billing_period,
+          metadata,
+        });
+
+        // Auto-populate TradeLine notifications from client contact info
+        if (tradelineDefaults) {
+          const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
+          if (client.contact_email) notifications.email.push(client.contact_email);
+          if (client.contact_phone) notifications.sms.push(client.contact_phone);
+          if (notifications.email.length || notifications.sms.length) {
+            await storage.updateTradeLineConfig(cs.id, { notifications });
+          }
+        }
+
+        // Create pending payment record (webhook will mark it paid)
+        await storage.createClientPayment({
+          client_id: client.id,
+          client_service_id: cs.id,
+          type: svc.billing_period === "monthly" ? "invoice" : "payment",
+          amount_cents: svc.default_price ?? 0,
+          status: "pending",
+          description: `${svc.name} — ${svc.billing_period === "monthly" ? "monthly" : "one-time"}`,
+          actor_type: "system",
+        });
+
+        // Create onboarding if template exists
+        const tmpl = await storage.getOnboardingTemplate(svc.id);
+        if (tmpl) {
+          await storage.createOnboardingSubmission({
+            client_service_id: cs.id,
+            client_id: client.id,
+            template_id: tmpl.id,
+            status: "not_sent",
+            actor_type: "system",
+          });
+        }
+
+        // Create fulfillment tasks
+        const tasks = await storage.getTaskTemplates(svc.id);
+        for (const t of tasks) {
+          const task = await storage.createFulfillmentTask({
+            client_service_id: cs.id,
+            client_id: client.id,
+            title: t.title,
+            description: t.description,
+            sort_order: t.sort_order,
+            priority: t.default_priority,
+            handled_by: t.default_handled_by,
+            waiting_on: t.default_waiting_on,
+            human_review_required: t.human_review_required,
+            due_at: t.sla_days ? new Date(Date.now() + t.sla_days * 86400000) : null,
+            status: "not_started",
+            actor_type: "system",
+          });
+
+          // Auto-assign supplier if template specifies handled_by = "supplier"
+          if (t.default_handled_by === "supplier") {
+            try { await autoAssignSupplier(task); } catch (_) { /* fail-safe */ }
+          }
+        }
+      }
+
+      // Update client status to onboarding (only once a real session exists)
+      if (client.status === "lead") {
+        await storage.updateClient(client.id, { status: "onboarding" });
+      }
 
       /* ─── Log activity ─── */
       await storage.logAdminActivity({

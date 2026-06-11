@@ -25,6 +25,10 @@ jobs:
         run: npm run check:pricing-truth
       - name: Trial-truth guard (free tools never pause; honest Pro-preview copy)
         run: npm run check:trial-truth
+      - name: Checkout provisioning-order guard (session first — no phantom rows on session failure)
+        run: npm run check:checkout-provisioning-order
+      - name: Sub-cancel free-tier guard (cancel reverts to free but never pauses the calculator)
+        run: npm run check:cancel-keeps-free-live
       - name: SERP-country guard (location string derives the country index)
         run: npm run check:serp-country
       - name: Demo-persona guard (TradeLine demo role-plays the receptionist, not the platform)
