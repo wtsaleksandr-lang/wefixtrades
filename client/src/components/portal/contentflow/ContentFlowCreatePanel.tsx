@@ -25,6 +25,17 @@
  * use — rendered here with the same upgrade affordance the library's
  * generate modal uses (CTA → /contentflow#pricing). Capability is shown,
  * never hidden.
+ *
+ * Phase 2 video pipeline (WP6) — the panel now has a MODE switch
+ * (Image | Video) as outline pills. Video mode keeps the SAME description
+ * box + SAME Generate button (the 3-decision contract holds: mode,
+ * description, generate); Advanced gains scene-count / aspect / narration.
+ * Because video costs real dollars, submit shows ONE deliberate
+ * pre-confirm step ("≈$X · ~N min") from the 202 estimate, then a
+ * progress strip polling GET /videos/:id every 4s with per-scene tiles,
+ * per-scene Retry on needs_attention, cancel while planned/rendering,
+ * and the final player on ready. Video 402s reuse the same upgrade-card
+ * path (server returns {code:"tier_too_low", upgrade_required:true}).
  */
 import { useRef, useState } from "react";
 import { Link } from "wouter";
@@ -32,8 +43,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
   ChevronDown,
+  Clapperboard,
   Download,
   FolderOpen,
+  Image as ImageIcon,
   ImagePlus,
   Link2,
   Loader2,
@@ -46,6 +59,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { apiRequest } from "@/lib/queryClient";
 import { useCopilotForm } from "@/context/CopilotFormContext";
+import { getVideoSceneCapsForTier } from "@shared/contentflow/quotas";
 import { cn } from "@/lib/utils";
 import {
   FieldHelpCue,
@@ -98,6 +112,62 @@ interface PanelError {
   message: string;
   upgradeRequired: boolean;
 }
+
+/* ─── Video pipeline shapes (server/routes/portal/contentflowVideo.ts) ─── */
+
+type CreateMode = "image" | "video";
+
+const VIDEO_ASPECTS = ["16:9", "9:16", "1:1"] as const;
+type VideoAspect = (typeof VIDEO_ASPECTS)[number];
+
+interface VideoCreateResponse {
+  ok: boolean;
+  projectId?: number;
+  created?: boolean;
+  scenePlan?: { title: string; totalDurationSec: number; scenes: Array<{ index: number; durationSec: number }> };
+  estimateUsd?: number;
+  estimatedMinutes?: number;
+  quota?: { tier: string; videosUsed: number; videosLimit: number };
+  /* error shape */
+  error?: string;
+  code?: string;
+  tier?: string;
+  upgrade_required?: boolean;
+}
+
+interface VideoPollScene {
+  index: number;
+  status: "planned" | "rendering" | "rendered" | "failed";
+  durationSec?: number;
+  thumb?: string;
+  error?: string;
+}
+
+interface VideoPollResponse {
+  id: number;
+  title: string | null;
+  status: "planned" | "rendering" | "stitching" | "ready" | "needs_attention" | "failed" | "canceled";
+  stitch_status: string | null;
+  progressPct: number;
+  scenes: VideoPollScene[];
+  videoUrl?: string;
+  costUsd: number;
+  error?: string;
+}
+
+interface QuotaStateResponse {
+  tier: string;
+}
+
+const VIDEO_TERMINAL_STATES = new Set(["ready", "failed", "canceled"]);
+const VIDEO_CANCELABLE_STATES = new Set(["planned", "rendering"]);
+
+const SCENE_TILE_LABEL: Record<VideoPollScene["status"], string> = {
+  planned: "Queued",
+  rendering: "Rendering…",
+  rendered: "Done",
+  failed: "Failed",
+};
 
 /* ─── Aspect-ratio options (server: aspectRatioToDimensions) ─── */
 
@@ -191,6 +261,22 @@ export default function ContentFlowCreatePanel() {
   /* Decision 2 — realistic photo. */
   const [photoreal, setPhotoreal] = useState(false);
 
+  /* Mode — Image | Video (outline pills). Video = Phase 2 pipeline. */
+  const [mode, setMode] = useState<CreateMode>("image");
+
+  /* Video advanced (collapsed by default, like the image options). */
+  const [sceneCount, setSceneCount] = useState<number | "auto">("auto");
+  const [videoAspect, setVideoAspect] = useState<VideoAspect>("16:9");
+  const [narration, setNarration] = useState(true);
+
+  /* Video flow: idle → preconfirm (the ONE deliberate dollars step) →
+   * progress (4s polling). */
+  const [videoPhase, setVideoPhase] = useState<"idle" | "preconfirm" | "progress">("idle");
+  const [videoCreate, setVideoCreate] = useState<VideoCreateResponse | null>(null);
+  /* One idempotency key per deliberate Generate click — a double-submit
+   * (network retry / double tap) reuses it and the server dedupes. */
+  const idemKeyRef = useRef<string>("");
+
   /* Advanced (collapsed by default). */
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<RatioOption>("auto");
@@ -282,13 +368,136 @@ export default function ContentFlowCreatePanel() {
     },
   });
 
-  const pending = generateMutation.isPending;
-  const canGenerate = !pending && (prompt.trim().length > 0 || !!savedPromptId || !!reference);
+  /* ─── Video pipeline wiring ─────────────────────────────────── */
+
+  /* Tier → scene caps for the Advanced scene-count pills. */
+  const quotaQuery = useQuery<QuotaStateResponse>({
+    queryKey: ["/api/portal/contentflow/quota"],
+    enabled: mode === "video",
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/portal/contentflow/quota");
+      return res.json();
+    },
+  });
+  const videoCaps = getVideoSceneCapsForTier(quotaQuery.data?.tier ?? "contentflow-creator");
+
+  const createVideoMutation = useMutation<VideoCreateResponse, Error, void>({
+    mutationFn: async () => {
+      const body: Record<string, unknown> = {
+        description: prompt.trim(),
+        idempotencyKey: idemKeyRef.current,
+        advanced: {
+          ...(sceneCount !== "auto" ? { sceneCount } : {}),
+          aspectRatio: videoAspect,
+          narration,
+        },
+      };
+      /* Raw fetch for the same reason as the image path: 402 bodies
+       * (tier_too_low / quota / cost-cap) must reach toPanelError. */
+      const res = await fetch("/api/portal/contentflow/videos", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res.json().catch(() => ({}))) as VideoCreateResponse;
+      if (!res.ok) {
+        throw Object.assign(new Error(json.error || "Video planning failed"), {
+          panelError: toPanelError(json as GenerateResponse, res.status),
+        });
+      }
+      return json;
+    },
+    onSuccess: (data) => {
+      setVideoCreate(data);
+      setVideoPhase("preconfirm");
+      setPanelError(null);
+    },
+    onError: (err: Error & { panelError?: PanelError }) => {
+      setVideoCreate(null);
+      setVideoPhase("idle");
+      setPanelError(
+        err.panelError ?? {
+          title: "Video planning failed",
+          message: err.message || "Something went wrong. Try again.",
+          upgradeRequired: false,
+        },
+      );
+    },
+  });
+
+  const videoProjectId = videoCreate?.projectId ?? null;
+  const pollQuery = useQuery<VideoPollResponse>({
+    queryKey: ["/api/portal/contentflow/videos", videoProjectId],
+    enabled: videoPhase === "progress" && videoProjectId != null,
+    refetchInterval: (query) =>
+      query.state.data && VIDEO_TERMINAL_STATES.has(query.state.data.status) ? false : 4000,
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/portal/contentflow/videos/${videoProjectId}`);
+      return res.json();
+    },
+  });
+  const videoStatus = pollQuery.data;
+
+  const cancelVideoMutation = useMutation<unknown, Error, void>({
+    mutationFn: async () => apiRequest("POST", `/api/portal/contentflow/videos/${videoProjectId}/cancel`),
+    onSettled: () => {
+      void pollQuery.refetch();
+    },
+  });
+
+  const retrySceneMutation = useMutation<unknown, Error, number>({
+    mutationFn: async (sceneIndex: number) =>
+      apiRequest("POST", `/api/portal/contentflow/videos/${videoProjectId}/scenes/${sceneIndex}/retry`),
+    onSettled: () => {
+      void pollQuery.refetch();
+    },
+  });
+
+  const pending = generateMutation.isPending || createVideoMutation.isPending;
+  const canGenerate =
+    !pending &&
+    (mode === "video"
+      ? prompt.trim().length > 0 && videoPhase === "idle"
+      : prompt.trim().length > 0 || !!savedPromptId || !!reference);
 
   function handleGenerate() {
     setPanelError(null);
     setResult(null);
+    if (mode === "video") {
+      /* crypto.randomUUID needs a secure context — same fallback as
+       * useCalculatorAnalytics. */
+      idemKeyRef.current =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      createVideoMutation.mutate();
+      return;
+    }
     generateMutation.mutate();
+  }
+
+  function switchMode(next: CreateMode) {
+    if (next === mode) return;
+    setMode(next);
+    setPanelError(null);
+    setResult(null);
+    /* Leaving video mid-flow keeps the project server-side (it shows in
+     * the library); the panel itself resets to a clean slate. */
+    setVideoPhase("idle");
+    setVideoCreate(null);
+  }
+
+  function confirmVideo() {
+    setVideoPhase("progress");
+  }
+
+  function declineVideo() {
+    /* Decline the dollars step → cancel server-side so unsubmitted
+     * scenes never render, then reset. */
+    if (videoProjectId != null) cancelVideoMutation.mutate();
+    setVideoPhase("idle");
+    setVideoCreate(null);
   }
 
   function handlePromptChange(v: string) {
@@ -352,6 +561,8 @@ export default function ContentFlowCreatePanel() {
     setReference(null);
     setSavedPromptId(null);
     setPhotoreal(false);
+    setVideoPhase("idle");
+    setVideoCreate(null);
   }
 
   return (
@@ -369,6 +580,39 @@ export default function ContentFlowCreatePanel() {
           <span className="hidden text-xs text-muted-foreground sm:inline">— describe it, we make it</span>
         </div>
 
+        {/* ── Mode switch (Image | Video) — selected = outline, never bright fill. ── */}
+        <div className="mb-3 flex items-center gap-2">
+          <FieldHelpCue
+            label="What to create"
+            help="Image makes a single branded picture. Video plans a short multi-scene clip — you'll see the estimated cost before anything renders."
+          />
+          {(
+            [
+              { id: "image" as CreateMode, label: "Image", Icon: ImageIcon },
+              { id: "video" as CreateMode, label: "Video", Icon: Clapperboard },
+            ]
+          ).map(({ id, label, Icon }) => {
+            const isActive = mode === id;
+            return (
+              <button
+                type="button"
+                key={id}
+                onClick={() => switchMode(id)}
+                aria-pressed={isActive}
+                data-testid={`cf-create-mode-${id}`}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition",
+                  isActive
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-foreground hover:border-primary/60",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" aria-hidden /> {label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* ── Decision 1: prompt + optional inline reference ── */}
         <div data-input-cluster className="space-y-0.5">
           <TitleInFieldTextarea
@@ -381,7 +625,7 @@ export default function ContentFlowCreatePanel() {
             testid="cf-create-prompt"
           />
 
-          {selectedSaved && (
+          {mode === "image" && selectedSaved && (
             <div className="flex items-center gap-2 pl-5 text-xs">
               <span className="rounded-full border border-primary/50 bg-primary/5 px-2 py-0.5 text-primary">
                 Saved prompt: {selectedSaved.title}
@@ -397,8 +641,8 @@ export default function ContentFlowCreatePanel() {
             </div>
           )}
 
-          {/* Inline reference attach. */}
-          {!reference && !refOpen && (
+          {/* Inline reference attach (image-only — vision→generate). */}
+          {mode === "image" && !reference && !refOpen && (
             <div className="pl-5">
               <button
                 type="button"
@@ -411,7 +655,7 @@ export default function ContentFlowCreatePanel() {
             </div>
           )}
 
-          {refOpen && !reference && (
+          {mode === "image" && refOpen && !reference && (
             <div className="ml-5 rounded-lg border border-border bg-muted/20 p-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
@@ -467,7 +711,7 @@ export default function ContentFlowCreatePanel() {
             </div>
           )}
 
-          {reference && (
+          {mode === "image" && reference && (
             <div className="ml-5 flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-2" data-testid="cf-create-reference-chip">
               {reference.kind === "upload" ? (
                 <img src={reference.previewUrl} alt="Reference preview" className="h-8 w-8 rounded object-cover" />
@@ -489,30 +733,36 @@ export default function ContentFlowCreatePanel() {
             </div>
           )}
 
-          {refError && <p className="pl-5 text-xs text-destructive">{refError}</p>}
+          {mode === "image" && refError && <p className="pl-5 text-xs text-destructive">{refError}</p>}
         </div>
 
-        {/* ── Decisions 2 + 3: realistic toggle + Generate ── */}
+        {/* ── Decisions 2 + 3: realistic toggle (image) + Generate ── */}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <FieldHelpCue
-              label="Realistic photo"
-              help="Generates a true-to-life photo with camera-style lighting instead of stylized artwork. Included from the Starter plan."
-            />
-            <Switch
-              id="cf-create-photoreal"
-              checked={photoreal}
-              onCheckedChange={setPhotoreal}
-              data-testid="cf-create-photoreal"
-            />
-            <label htmlFor="cf-create-photoreal" className="cursor-pointer text-sm text-foreground">
-              Realistic photo
-            </label>
-          </div>
+          {mode === "image" ? (
+            <div className="flex items-center gap-2">
+              <FieldHelpCue
+                label="Realistic photo"
+                help="Generates a true-to-life photo with camera-style lighting instead of stylized artwork. Included from the Starter plan."
+              />
+              <Switch
+                id="cf-create-photoreal"
+                checked={photoreal}
+                onCheckedChange={setPhotoreal}
+                data-testid="cf-create-photoreal"
+              />
+              <label htmlFor="cf-create-photoreal" className="cursor-pointer text-sm text-foreground">
+                Realistic photo
+              </label>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              You'll see the cost estimate before anything renders.
+            </span>
+          )}
           <Button onClick={handleGenerate} disabled={!canGenerate} data-testid="cf-create-generate">
             {pending ? (
               <>
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Generating…
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> {mode === "video" ? "Planning…" : "Generating…"}
               </>
             ) : (
               <>
@@ -535,7 +785,96 @@ export default function ContentFlowCreatePanel() {
             Advanced
           </button>
 
-          {advancedOpen && (
+          {advancedOpen && mode === "video" && (
+            /* Video advanced — scene count / format / narration, each
+             * with its own top-left cue — allowed. */
+            <div className="mt-3 space-y-4" data-cue-allowed-multiple>
+              {/* Scene count (within the tier cap) — selected = outline. */}
+              <div>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <FieldHelpCue
+                    label="Scenes"
+                    help={`How many shots your video is built from — each scene is 4–8 seconds. Your plan allows up to ${videoCaps.maxScenes}. Auto lets us pick.`}
+                  />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Scenes</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(["auto", ...Array.from({ length: Math.max(0, videoCaps.maxScenes) }, (_, i) => i + 1)] as Array<number | "auto">).map(
+                    (n) => {
+                      const isActive = sceneCount === n;
+                      return (
+                        <button
+                          type="button"
+                          key={String(n)}
+                          onClick={() => setSceneCount(n)}
+                          data-testid={`cf-create-scenes-${n}`}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-medium transition",
+                            isActive
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-background text-foreground hover:border-primary/60",
+                          )}
+                        >
+                          {n === "auto" ? "Auto" : n}
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
+
+              {/* Aspect — video providers support 16:9 / 9:16 / 1:1. */}
+              <div>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <FieldHelpCue
+                    label="Format"
+                    help="16:9 for YouTube and websites, 9:16 for stories and reels, 1:1 for feeds."
+                  />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Format</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {VIDEO_ASPECTS.map((r) => {
+                    const isActive = videoAspect === r;
+                    return (
+                      <button
+                        type="button"
+                        key={r}
+                        onClick={() => setVideoAspect(r)}
+                        data-testid={`cf-create-video-ratio-${r.replace(":", "x")}`}
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-xs font-medium transition",
+                          isActive
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-background text-foreground hover:border-primary/60",
+                        )}
+                      >
+                        {r}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Narration toggle. */}
+              <div className="flex items-center gap-2">
+                <FieldHelpCue
+                  label="Narration"
+                  help="Adds a spoken voiceover that matches each scene. Turn off for a silent, music-friendly clip."
+                />
+                <Switch
+                  id="cf-create-narration"
+                  checked={narration}
+                  onCheckedChange={setNarration}
+                  data-testid="cf-create-narration"
+                />
+                <label htmlFor="cf-create-narration" className="cursor-pointer text-sm text-foreground">
+                  Narration
+                </label>
+              </div>
+            </div>
+          )}
+
+          {advancedOpen && mode === "image" && (
             /* Two sections, each with its own top-left cue — allowed. */
             <div className="mt-3 space-y-4" data-cue-allowed-multiple>
               {/* Aspect-ratio pills — selected = outline, never bright fill. */}
@@ -619,7 +958,7 @@ export default function ContentFlowCreatePanel() {
         </div>
 
         {/* ── Generating skeleton ── */}
-        {pending && (
+        {pending && mode === "image" && (
           <div className="mt-4" data-testid="cf-create-skeleton">
             <div
               className="max-w-xs animate-pulse rounded-lg bg-muted"
@@ -627,6 +966,170 @@ export default function ContentFlowCreatePanel() {
               aria-hidden
             />
             <p className="mt-2 text-xs text-muted-foreground">Creating your image — usually under 30 seconds…</p>
+          </div>
+        )}
+        {pending && mode === "video" && (
+          <p className="mt-4 text-xs text-muted-foreground" data-testid="cf-create-video-planning">
+            Planning your scenes — a few seconds…
+          </p>
+        )}
+
+        {/* ── Video pre-confirm — the ONE deliberate dollars step ── */}
+        {mode === "video" && videoPhase === "preconfirm" && videoCreate && !pending && (
+          <div
+            className="mt-4 rounded-lg border border-border bg-muted/20 p-3"
+            data-testid="cf-create-video-preconfirm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-foreground">
+                  ≈${(videoCreate.estimateUsd ?? 0).toFixed(2)} · ~{videoCreate.estimatedMinutes ?? 5} min
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {videoCreate.scenePlan?.scenes.length ?? 0} scenes · {videoCreate.scenePlan?.totalDurationSec ?? 0}s total
+                  {videoCreate.created === false ? " · already planned (no double charge)" : ""}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={confirmVideo} data-testid="cf-create-video-confirm">
+                  Start rendering
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={declineVideo}
+                  disabled={cancelVideoMutation.isPending}
+                  data-testid="cf-create-video-decline"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Video progress strip (4s polling) ── */}
+        {mode === "video" && videoPhase === "progress" && (
+          <div className="mt-4 space-y-3" data-testid="cf-create-video-progress">
+            {/* Progress bar — theme tokens only. */}
+            <div>
+              <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {videoStatus?.status === "ready"
+                    ? "Done"
+                    : videoStatus?.status === "stitching"
+                      ? "Stitching scenes together…"
+                      : videoStatus?.status === "needs_attention"
+                        ? "A scene needs your attention"
+                        : videoStatus?.status === "failed"
+                          ? "This video failed"
+                          : videoStatus?.status === "canceled"
+                            ? "Canceled"
+                            : "Rendering scenes…"}
+                </span>
+                <span>{videoStatus?.progressPct ?? 5}%</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${videoStatus?.progressPct ?? 5}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Per-scene tiles. */}
+            <div className="flex flex-wrap gap-2">
+              {(videoStatus?.scenes ?? videoCreate?.scenePlan?.scenes.map((s) => ({
+                index: s.index,
+                status: "planned" as const,
+                durationSec: s.durationSec,
+              })) ?? []).map((s) => (
+                <div
+                  key={s.index}
+                  data-testid={`cf-create-scene-tile-${s.index}`}
+                  className={cn(
+                    "flex min-w-[88px] flex-col gap-0.5 rounded-lg border p-2 text-xs",
+                    s.status === "rendered" && "border-primary/60 text-foreground",
+                    s.status === "rendering" && "animate-pulse border-border text-foreground",
+                    s.status === "planned" && "border-border text-muted-foreground",
+                    s.status === "failed" && "border-destructive/60 text-destructive",
+                  )}
+                >
+                  <span className="font-medium">Scene {s.index + 1}</span>
+                  <span className={s.status === "failed" ? "" : "text-muted-foreground"}>
+                    {SCENE_TILE_LABEL[s.status]}
+                    {s.durationSec ? ` · ${s.durationSec}s` : ""}
+                  </span>
+                  {s.status === "failed" && videoStatus?.status === "needs_attention" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 h-6 px-2 text-xs"
+                      onClick={() => retrySceneMutation.mutate(s.index)}
+                      disabled={retrySceneMutation.isPending}
+                      data-testid={`cf-create-scene-retry-${s.index}`}
+                    >
+                      <RefreshCw className="mr-1 h-3 w-3" /> Retry
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Ready → player + library link. */}
+            {videoStatus?.status === "ready" && videoStatus.videoUrl && (
+              <div className="space-y-2">
+                <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
+                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                  <video
+                    src={videoStatus.videoUrl}
+                    controls
+                    playsInline
+                    className="block max-h-[420px] w-full"
+                    data-testid="cf-create-video-player"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+                  <span>
+                    Saved to your library —{" "}
+                    <Link
+                      href="/portal/contentflow/library"
+                      className="underline underline-offset-2 hover:text-foreground"
+                      data-testid="cf-create-video-open-library"
+                    >
+                      open My library
+                    </Link>
+                  </span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={resetAll} data-testid="cf-create-video-new">
+                  Start new
+                </Button>
+              </div>
+            )}
+
+            {/* Terminal failure / canceled. */}
+            {(videoStatus?.status === "failed" || videoStatus?.status === "canceled") && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden />
+                <span>{videoStatus.error || (videoStatus.status === "canceled" ? "This video was canceled." : "This video failed to render.")}</span>
+                <Button variant="ghost" size="sm" onClick={resetAll} data-testid="cf-create-video-reset">
+                  Start new
+                </Button>
+              </div>
+            )}
+
+            {/* Cancel affordance while planned/rendering. */}
+            {videoStatus && VIDEO_CANCELABLE_STATES.has(videoStatus.status) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => cancelVideoMutation.mutate()}
+                disabled={cancelVideoMutation.isPending}
+                data-testid="cf-create-video-cancel"
+              >
+                <X className="mr-1 h-3.5 w-3.5" /> Cancel video
+              </Button>
+            )}
           </div>
         )}
 

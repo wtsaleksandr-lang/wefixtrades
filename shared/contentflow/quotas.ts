@@ -53,6 +53,37 @@ export function emptyUsage(): QuotaUsage {
   return { images_used: 0, articles_used: 0, videos_used: 0 };
 }
 
+/* ─── Phase 2 video pipeline — per-tier scene/duration caps ──────────
+ * Route-level prechecks (server/routes/portal/contentflowVideo.ts) clamp
+ * the Director's tierConstraints to these BEFORE any AI spend. Keys match
+ * the tier-id strings in QUOTAS_BY_TIER above; the getter also accepts the
+ * short form ("starter") used by route-level tier resolvers. */
+
+export interface VideoSceneCaps {
+  /** Maximum number of scenes per video project for the tier. */
+  maxScenes: number;
+  /** Maximum total video duration (seconds) per project for the tier. */
+  maxTotalSec: number;
+}
+
+export const VIDEO_SCENE_CAPS: Record<string, VideoSceneCaps> = {
+  "contentflow-free":    { maxScenes: 0, maxTotalSec: 0 },
+  "contentflow-starter": { maxScenes: 2, maxTotalSec: 16 },
+  "contentflow-creator": { maxScenes: 4, maxTotalSec: 32 },
+  "contentflow-studio":  { maxScenes: 6, maxTotalSec: 48 },
+  "contentflow-agency":  { maxScenes: 8, maxTotalSec: 64 },
+};
+
+/** Resolve scene caps for a tier id ("contentflow-starter" or "starter").
+ *  Unknown ids fall back to the Free tier (0 scenes → video blocked). */
+export function getVideoSceneCapsForTier(tierId: string): VideoSceneCaps {
+  return (
+    VIDEO_SCENE_CAPS[tierId] ??
+    VIDEO_SCENE_CAPS[`contentflow-${tierId}`] ??
+    VIDEO_SCENE_CAPS["contentflow-free"]!
+  );
+}
+
 export interface QuotaCheck {
   allowed: boolean;
   reason?: string;
