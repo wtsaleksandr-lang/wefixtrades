@@ -679,6 +679,23 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
+  // Boot schema sentinel — runs right AFTER bootstrapMigrations. Guards the
+  // 2026-06-10 publish trap: Replit's publish flow dropped 7 prod columns
+  // while __bootstrap_migrations still said their migrations were applied,
+  // so no reboot would ever re-apply them and checkout died silently. The
+  // sentinel probes declared ledger-file ↔ schema-object pairs against
+  // information_schema; on drift it logs CRITICAL (forced through the Sentry
+  // bridge), re-applies that ONE additive/idempotent migration file, and
+  // re-probes. Unhealed drift degrades /api/healthz (schema_sentinel check)
+  // instead of crashing the boot — a degraded server beats a dead one.
+  // runSchemaSentinel never throws; the catch covers import failures only.
+  try {
+    const { runSchemaSentinel } = await import("./lib/schemaSentinel");
+    await runSchemaSentinel();
+  } catch (err: any) {
+    logger.error("[boot] schema sentinel failed to load (non-fatal)", { error: err?.message });
+  }
+
   await registerRoutes(httpServer, app);
 
   /* Ensure the contentflow_settings table exists at boot (not lazily) so
