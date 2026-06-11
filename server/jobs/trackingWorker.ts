@@ -1,7 +1,7 @@
 import { storage } from "../storage";
 import { checkKeywordRanks } from "../services/rankflow/rankTracker";
 import { checkIndexStatuses } from "../services/rankflow/indexChecker";
-import { WORKER_LIMITS, prioritizeProfiles } from "../services/rankflow/scalingConfig";
+import { WORKER_LIMITS, keywordCapForTier, prioritizeProfiles } from "../services/rankflow/scalingConfig";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("TrackingWorker");
@@ -32,30 +32,44 @@ export async function processRankFlowTracking(): Promise<{
       const domain = profile.website_url;
       if (!domain) continue;
 
-      // 1. Check keyword rankings (capped per client and globally)
+      // 1. Check keyword rankings (capped per client by tier and globally)
       if (globalKwBudget > 0) {
         const keywords = await storage.listKeywordsByClient(profile.client_id);
+        // Per-run Serper budget guard (Lane H): the tier keyword cap
+        // (Starter 25 / Growth 75 / Pro 200) bounds how many SERP
+        // queries a single client can consume per run.
         const kwLimit = Math.min(
           keywords.length,
-          WORKER_LIMITS.tracking_keywords_per_client,
+          keywordCapForTier(profile.plan_tier),
           globalKwBudget,
         );
 
         if (kwLimit > 0) {
           // Priority keywords first (already sorted by priority desc from storage)
           const kwInputs = keywords.slice(0, kwLimit).map(k => ({ id: k.id, keyword: k.keyword }));
-          // Pass client_id so checkKeywordRanks can use the client's
-          // Search Console connection as the rank data source. Without
-          // it, SC is skipped and every keyword logs position: null.
+          // Business name enables local-pack matching in Serper results
+          // (the map pack has no website link to match the domain on).
+          const client = await storage.getClientById(profile.client_id);
+          // Pass client_id so checkKeywordRanks can layer the client's
+          // Search Console connection on top of the Serper data (or use
+          // it as the fallback source when no SERPER_API_KEY).
           const rankResults = await checkKeywordRanks(
             kwInputs,
             domain,
             profile.location || undefined,
             undefined,
             profile.client_id,
+            {
+              maxSerpQueries: kwLimit,
+              businessName: client?.business_name || undefined,
+            },
           );
 
           for (const result of rankResults) {
+            // A skipped check (API error / budget / no source) is NOT a
+            // "not ranking" signal — never store a false null.
+            if (result.skipped) continue;
+
             const lastRanking = await storage.getLastRankingForKeyword(result.keyword_id);
             const previousPosition = lastRanking?.position ?? null;
             const change = (previousPosition !== null && result.position !== null)
@@ -68,6 +82,12 @@ export async function processRankFlowTracking(): Promise<{
               previous_position: previousPosition,
               change,
               checked_at: new Date(),
+              source: result.source ?? null,
+              url_found: result.url_found ?? null,
+              local_pack_position: result.local_pack_position ?? null,
+              impressions: result.impressions ?? null,
+              clicks: result.clicks ?? null,
+              ctr: result.ctr != null ? String(result.ctr) : null,
             });
             keywords_checked++;
             globalKwBudget--;
