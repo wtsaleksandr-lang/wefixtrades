@@ -68,32 +68,29 @@ function extractUnsubscribeUrl(html: string | undefined): string | null {
 let cached: Transporter | null = null;
 
 /**
- * SendGrid X-SMTPAPI header that disables per-email click tracking +
- * open tracking + subscription tracking, regardless of account-level
- * defaults. We force this on every outbound message because:
+ * SendGrid X-SMTPAPI header that explicitly enables per-email click +
+ * open tracking, regardless of account-level defaults.
  *
- *   1. Click tracking rewrites every <a href> to a branded subdomain
- *      like url1527.wefixtrades.com.
- *   2. SendGrid's auto-issued SSL cert for that subdomain is currently
- *      not provisioned, so the rewritten URL resolves as `http://`.
- *   3. Gmail flags the email — strikes through HTTPS in the URL bar
- *      and may show a "this site is not secure" interstitial on click.
+ * History: tracking was disabled here while the link-branding CNAMEs
+ * (url4862.wefixtrades.com / 106210522.wefixtrades.com → sendgrid.net)
+ * were missing — they were lost in the IONOS → Cloudflare DNS migration,
+ * which left click-tracking rewrites pointing at a dead subdomain.
  *
- * Until link branding SSL is fixed via the SendGrid dashboard
- * (Sender Authentication → Link Branding → enable Automated Security
- * + verify the new CNAMEs), the safest behavior is to bypass tracking
- * entirely. Tracking adds little value to transactional + report
- * emails, and the broken links would damage trust.
+ * 2026-06-10: both CNAMEs were restored in the Cloudflare zone
+ * (DNS-only / unproxied) and SendGrid link branding re-validated
+ * (POST /v3/whitelabel/links/5335587/validate → valid:true on both
+ * domain_cname and owner_cname), so tracking is re-enabled.
  *
- * Re-enable by removing this header (or setting `enable: 1`) once the
- * branded link domain shows a valid green-padlock HTTPS cert.
+ * If the branded subdomain ever breaks again (NXDOMAIN, cert errors,
+ * Gmail "not secure" interstitials on rewritten links), flip these to
+ * `enable: 0` to bypass tracking until the DNS/SSL chain is repaired.
  *
  * Reference: https://docs.sendgrid.com/api-reference/tracking-settings
  */
-const SENDGRID_TRACKING_DISABLED_HEADER = JSON.stringify({
+const SENDGRID_TRACKING_ENABLED_HEADER = JSON.stringify({
   filters: {
-    clicktrack: { settings: { enable: 0, enable_text: false } },
-    opentrack: { settings: { enable: 0 } },
+    clicktrack: { settings: { enable: 1, enable_text: false } },
+    opentrack: { settings: { enable: 1 } },
   },
 });
 
@@ -102,8 +99,8 @@ const SENDGRID_TRACKING_DISABLED_HEADER = JSON.stringify({
  * Returns null if SMTP env vars are not configured.
  *
  * Every message sent through the transporter automatically receives the
- * X-SMTPAPI header that disables SendGrid click + open tracking. See
- * SENDGRID_TRACKING_DISABLED_HEADER above for rationale.
+ * X-SMTPAPI header that enables SendGrid click + open tracking. See
+ * SENDGRID_TRACKING_ENABLED_HEADER above for rationale.
  */
 export function getEmailTransporter(): Transporter | null {
   if (cached) return cached;
@@ -178,7 +175,7 @@ export function getEmailTransporter(): Transporter | null {
     {
       // Defaults applied to every sendMail() call
       headers: {
-        "X-SMTPAPI": SENDGRID_TRACKING_DISABLED_HEADER,
+        "X-SMTPAPI": SENDGRID_TRACKING_ENABLED_HEADER,
       },
     },
   );
