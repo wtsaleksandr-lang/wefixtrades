@@ -38,6 +38,7 @@
  */
 
 import { createLogger } from "../../lib/logger";
+import { captureWebpageReference, type OgFallbackResult } from "./referenceCapture";
 
 const logger = createLogger("ContentFlow:RefReplication");
 
@@ -123,8 +124,10 @@ export interface ResolvedReference {
   ok: boolean;
   bytes?: Buffer;
   mediaType?: ReferenceMediaType;
-  /** Where the image came from, for audit/provenance. */
-  source?: "upload" | "image_url" | "page_og_image";
+  /** Where the image came from, for audit/provenance. `page_screenshot`
+   *  = REAL rendered-page capture via Playwright (referenceCapture.ts);
+   *  `page_og_image` = the legacy og:image fallback. */
+  source?: "upload" | "image_url" | "page_og_image" | "page_screenshot";
   reason?: string;
 }
 
@@ -267,9 +270,30 @@ export async function resolveReferenceImage(input: ReferenceInput): Promise<Reso
     return { ok: true, bytes: fetched.buffer, mediaType: ct, source: "image_url" };
   }
 
-  /* Otherwise treat it as a web page: extract og:image and fetch that. */
+  /* Otherwise it's a web page. Try a REAL rendered screenshot first
+   * (Playwright, gated on REFERENCE_SCREENSHOT_ENABLED — see
+   * referenceCapture.ts); the og:image extraction is passed in as the
+   * fallback closure so the flag-off / no-chromium behaviour is byte-for-
+   * byte the pre-existing one. */
   const html = fetched.buffer.toString("utf8");
-  const ogUrl = extractOgImageUrl(html, url);
+  const captured = await captureWebpageReference(url, {
+    ogFallback: () => fetchOgImageFromHtml(html, url),
+  });
+  if (!captured.ok || !captured.imageBuffer) {
+    return { ok: false, reason: captured.reason || "webpage reference capture failed" };
+  }
+  return {
+    ok: true,
+    bytes: captured.imageBuffer,
+    mediaType: captured.mediaType ?? "image/png",
+    source: captured.capturedWith === "playwright" ? "page_screenshot" : "page_og_image",
+  };
+}
+
+/** The pre-existing og:image path, extracted so referenceCapture.ts can use
+ *  it as the screenshot fallback without duplicating the logic. */
+export async function fetchOgImageFromHtml(html: string, pageUrl: string): Promise<OgFallbackResult> {
+  const ogUrl = extractOgImageUrl(html, pageUrl);
   if (!ogUrl) {
     return { ok: false, reason: "reference URL is a web page with no og:image/twitter:image" };
   }
@@ -278,7 +302,7 @@ export async function resolveReferenceImage(input: ReferenceInput): Promise<Reso
     return { ok: false, reason: ogFetched.reason || "og:image fetch failed" };
   }
   const ogCt = mediaTypeFromContentType(ogFetched.contentType ?? null) ?? mediaTypeFromUrl(ogUrl) ?? "image/png";
-  return { ok: true, bytes: ogFetched.buffer, mediaType: ogCt, source: "page_og_image" };
+  return { ok: true, buffer: ogFetched.buffer, mediaType: ogCt };
 }
 
 /* ─── Vision describe (multimodal LLM) ─────────────────────────────── */
@@ -294,7 +318,17 @@ export interface ReferenceStyleDescription {
   lighting?: string;
   composition?: string;
   style?: string;
+  /** Webpage-design fields — populated when the reference is a REAL
+   *  rendered-page screenshot (capturedWith === "playwright"). */
+  spacing?: string;
+  typography?: string;
+  components?: string;
 }
+
+/** What kind of reference the vision model is looking at. `webpage` =
+ *  full-page screenshot → extract DESIGN structure; `image` = the original
+ *  plain-image behaviour (unchanged shape). */
+export type ReferenceKind = "image" | "webpage";
 
 /**
  * Injectable vision describer so tests can mock the multimodal call without
@@ -302,7 +336,10 @@ export interface ReferenceStyleDescription {
  * default implementation uses aiService.chat() with userImageBlocks.
  */
 export interface VisionDescriber {
-  describe(image: { bytes: Buffer; mediaType: ReferenceMediaType }): Promise<ReferenceStyleDescription>;
+  describe(
+    image: { bytes: Buffer; mediaType: ReferenceMediaType },
+    kind?: ReferenceKind,
+  ): Promise<ReferenceStyleDescription>;
 }
 
 const VISION_SYSTEM = `You are an art director analysing a reference image so another image-generation
@@ -321,21 +358,47 @@ Return STRICT JSON with these keys (all strings):
 }
 Do not include any commentary outside the JSON.`;
 
+/** Webpage-design variant — used when the reference is a REAL full-page
+ *  screenshot (Playwright capture). Where the plain-image prompt extracts
+ *  photographic style, this one extracts the page's DESIGN SYSTEM: layout
+ *  structure, spacing rhythm, palette, typography feel, component shapes —
+ *  precise enough to replicate the design language, never its content. */
+export const VISION_SYSTEM_WEBPAGE = `You are a senior web designer analysing a FULL-PAGE SCREENSHOT of a website so
+another generation model can produce a NEW design in the same visual language (NOT a
+copy of the site's content, text, logos, or photos). Extract ONLY the transferable
+DESIGN characteristics. Be concrete and concise.
+
+Return STRICT JSON with these keys (all strings):
+{
+  "subject": "what kind of site/page this is, in general terms",
+  "layout": "page structure top-to-bottom: header style, hero arrangement, section order, grid/column usage, alignment",
+  "spacing": "spacing rhythm: section padding scale, density, whitespace usage, vertical cadence",
+  "palette": "dominant colors, background/surface treatment, accent usage, light vs dark",
+  "typography": "typeface feel (serif/sans/display), heading-to-body scale contrast, weights, casing",
+  "components": "shapes of buttons/cards/nav/inputs: corner radii, borders, shadows, fills vs outlines",
+  "composition": "visual hierarchy and focal flow: what draws the eye first, image vs text balance",
+  "style": "overall design era and finish: minimal/brutalist/corporate/playful, flat vs dimensional, texture",
+  "description": "one tight paragraph a generation model can follow to recreate this page's design language"
+}
+Do not include any commentary outside the JSON.`;
+
 /** Default vision describer backed by aiService.chat() multimodal input.
  *  aiService is imported lazily so unit tests that inject a mock describer
  *  don't pull the DB-dependent module graph at import time. */
 export const defaultVisionDescriber: VisionDescriber = {
-  async describe({ bytes, mediaType }) {
+  async describe({ bytes, mediaType }, kind = "image") {
     const { chat: aiChat } = await import("../aiService");
     const raw = await aiChat({
-      system: VISION_SYSTEM,
+      system: kind === "webpage" ? VISION_SYSTEM_WEBPAGE : VISION_SYSTEM,
       surface: "contentflow",
       maxTokens: 700,
       messages: [
         {
           role: "user",
           content:
-            "Analyse this reference image and return the JSON style description.",
+            kind === "webpage"
+              ? "Analyse this full-page website screenshot and return the JSON design description."
+              : "Analyse this reference image and return the JSON style description.",
         },
       ],
       userImageBlocks: [{ mediaType, data: bytes }],
@@ -357,7 +420,17 @@ export function parseStyleDescription(raw: string): ReferenceStyleDescription {
       const str = (v: unknown) => (typeof v === "string" ? v.trim() : undefined);
       const description =
         str(j.description) ||
-        [str(j.subject), str(j.layout), str(j.palette), str(j.lighting), str(j.composition), str(j.style)]
+        [
+          str(j.subject),
+          str(j.layout),
+          str(j.spacing),
+          str(j.palette),
+          str(j.typography),
+          str(j.components),
+          str(j.lighting),
+          str(j.composition),
+          str(j.style),
+        ]
           .filter(Boolean)
           .join("; ");
       if (description) {
@@ -369,6 +442,9 @@ export function parseStyleDescription(raw: string): ReferenceStyleDescription {
           lighting: str(j.lighting),
           composition: str(j.composition),
           style: str(j.style),
+          spacing: str(j.spacing),
+          typography: str(j.typography),
+          components: str(j.components),
         };
       }
     } catch {
@@ -403,10 +479,18 @@ export async function describeReferenceAndComposePrompt(args: {
     return { ok: false, reason: resolved.reason || "reference could not be resolved" };
   }
 
+  /* A REAL rendered-page screenshot gets the webpage-design vision prompt
+   * (layout/spacing/typography/components); everything else keeps the
+   * original plain-image style prompt. */
+  const kind: ReferenceKind = resolved.source === "page_screenshot" ? "webpage" : "image";
+
   let styleDescription: ReferenceStyleDescription;
   try {
     const describer = args.describer ?? defaultVisionDescriber;
-    styleDescription = await describer.describe({ bytes: resolved.bytes, mediaType: resolved.mediaType });
+    styleDescription = await describer.describe(
+      { bytes: resolved.bytes, mediaType: resolved.mediaType },
+      kind,
+    );
   } catch (err: any) {
     logger.warn(`vision describe failed: ${err?.message || err}`);
     return { ok: false, reason: `vision describe failed: ${err?.message || err}` };
@@ -420,7 +504,9 @@ export async function describeReferenceAndComposePrompt(args: {
    * (optionally) photoreal augmentation. This is the prompt the existing
    * generate path consumes. */
   const parts = [
-    `Create a NEW image in this visual style (do not copy the subject): ${styleDescription.description.trim()}`,
+    kind === "webpage"
+      ? `Create a NEW design in this website's visual language (do not copy its content, text, or logos): ${styleDescription.description.trim()}`
+      : `Create a NEW image in this visual style (do not copy the subject): ${styleDescription.description.trim()}`,
   ];
   if (args.brandLayer?.trim()) parts.push(args.brandLayer.trim());
   if (args.extraInstructions?.trim()) parts.push(`Additional instructions: ${args.extraInstructions.trim()}`);

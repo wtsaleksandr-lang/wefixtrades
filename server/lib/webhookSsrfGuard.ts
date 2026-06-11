@@ -12,7 +12,13 @@
  * internal address through).
  */
 
-function isPrivateAddress(ip: string): boolean {
+/**
+ * Exported so other outbound-fetch SSRF guards (e.g. ContentFlow's
+ * reference-screenshot capture in server/services/contentflow/
+ * referenceCapture.ts) share THIS single private-range rule instead of
+ * duplicating it.
+ */
+export function isPrivateAddress(ip: string): boolean {
   return (
     ip.startsWith("10.") ||
     ip.startsWith("192.168.") ||
