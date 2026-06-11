@@ -68,6 +68,16 @@ const CATEGORIES = {
     "INSTANTLY_API_KEY",
     "SMARTLEAD_API_KEY",
   ],
+  // ContentFlow video pipeline Phase 2 (WP3) — render provider credentials.
+  // Veo 3.1 prefers GOOGLE_IMAGEN_PROJECT_ID, falls back to
+  // GOOGLE_VEO_PROJECT_ID; Kling 3.0 runs through fal.ai with FAL_KEY.
+  contentflow_video_providers: [
+    "GOOGLE_IMAGEN_PROJECT_ID",
+    "GOOGLE_VEO_PROJECT_ID",
+    "GOOGLE_APPLICATION_CREDENTIALS_JSON",
+    "GOOGLE_VIDEO_GCS_BUCKET",
+    "FAL_KEY",
+  ],
   existing_critical: [
     "STRIPE_SECRET_KEY",
     "DATABASE_URL",

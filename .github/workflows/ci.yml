@@ -45,6 +45,8 @@ jobs:
         run: npm run check:contentflow-video-storage
       - name: ContentFlow video-director guard (scene plan invariants — sum==total, styleBible injection, narration budget, tier clamps)
         run: npm run check:contentflow-video-director
+      - name: ContentFlow video-providers guard (Veo/Kling submit-poll contract, 429 retryable, env-skip)
+        run: npm run check:contentflow-video-providers
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
