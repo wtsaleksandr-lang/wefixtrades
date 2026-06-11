@@ -18,7 +18,7 @@
 // Zero new dependencies — colour pickers are native `<input type="color">`
 // with a hex text field as a fallback / direct-edit affordance.
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   MousePointerClick, Square, Type, Receipt,
@@ -76,6 +76,17 @@ import { useLayoutGuard } from '@/lib/layoutGuard';
 import { HelpCueRow } from '@/components/primitives';
 
 const p = platformTheme;
+
+/**
+ * THEME-STRIP — the colour slots a theme preset writes (the exact keys
+ * `comboToStyleColors` produces). When the current Style matches a preset on
+ * ALL of these, that preset renders as "selected" in the theme strip below.
+ * Non-colour tokens (radius, fonts, density) are deliberately excluded — the
+ * user customising those after picking a theme shouldn't lose the highlight.
+ */
+const PRESET_COLOR_KEYS = [
+  'accent', 'background', 'text', 'surface', 'border', 'resultsBg', 'ctaColor',
+] as const satisfies ReadonlyArray<keyof ShellStyle>;
 
 interface Props {
   style: ShellStyle;
@@ -410,6 +421,111 @@ export default function StyleTab({
     });
   }, [onChange, style.widgetWidthDesktop, style.widgetWidthMobile]);
 
+  // ── THEME-STRIP — single-row horizontally scrollable theme strip ────
+  // Mirrors the marketing template page's theme selector (`.tpl-color-row` /
+  // `.tpl-color-scroll` in client/src/pages/marketing/template-detail.tsx):
+  // one non-wrapping row, thin scrollbar, native touch momentum, clickable
+  // ‹ › arrows, and mouse drag-to-pan. NO wheel listeners (see the wizard
+  // scroll-glitch investigation — the vertical wheel must keep scrolling the
+  // panel, never get hijacked by this strip).
+  const presetRowRef = useRef<HTMLDivElement | null>(null);
+  const scrollPresetRow = useCallback((dir: -1 | 1) => {
+    presetRowRef.current?.scrollBy({ left: dir * 184, behavior: 'smooth' });
+  }, []);
+
+  // Which preset (if any) matches the current Style's colour slots — drives
+  // the outline-selected state on the strip (Rule: selected = outline, never
+  // a bright fill).
+  const activePresetId = useMemo(
+    () =>
+      QUOTEQUICK_STYLE_PRESETS.find((preset) =>
+        PRESET_COLOR_KEYS.every((k) => preset.style[k] === style[k]),
+      )?.id,
+    [style],
+  );
+
+  // On mount, bring the selected swatch into view (centred) so the active
+  // theme is never hidden off-strip. scrollLeft is set directly — never
+  // scrollIntoView — so revealing the swatch can't vertically scroll the
+  // wizard panel. Mount-only: the strip must not jump around while the user
+  // edits colours below.
+  useEffect(() => {
+    const row = presetRowRef.current;
+    if (!row) return;
+    const sel = row.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!sel) return;
+    const rowRect = row.getBoundingClientRect();
+    const selRect = sel.getBoundingClientRect();
+    if (selRect.left < rowRect.left || selRect.right > rowRect.right) {
+      row.scrollLeft += selRect.left - rowRect.left - (rowRect.width - selRect.width) / 2;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Click-and-DRAG to pan the theme strip horizontally with the mouse cursor
+  // (not just the scrollbar / arrows). Copied from the marketing theme row
+  // (template-detail.tsx): pointerdown grabs, pointermove translates
+  // scrollLeft, grab/grabbing cursor. Only mouse/pen drags — touch keeps
+  // native momentum swipe. A small movement threshold means a real click on
+  // a swatch still applies it; only a deliberate drag suppresses the click.
+  useEffect(() => {
+    const el = presetRowRef.current;
+    if (!el) return;
+    let isDown = false;
+    let moved = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    const DRAG_THRESHOLD = 4;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return; // native swipe owns touch
+      isDown = true;
+      moved = false;
+      startX = e.pageX - el.offsetLeft;
+      scrollLeft = el.scrollLeft;
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!isDown) return;
+      const x = e.pageX - el.offsetLeft;
+      const walk = x - startX;
+      if (!moved && Math.abs(walk) > DRAG_THRESHOLD) {
+        moved = true;
+        el.classList.add('is-dragging');
+        try { el.setPointerCapture(e.pointerId); } catch {}
+      }
+      if (moved) {
+        e.preventDefault();
+        el.scrollLeft = scrollLeft - walk;
+      }
+    };
+    const endDrag = (e: PointerEvent) => {
+      if (!isDown) return;
+      isDown = false;
+      el.classList.remove('is-dragging');
+      try { el.releasePointerCapture(e.pointerId); } catch {}
+      // Swallow the click that follows a real drag so it doesn't apply a
+      // preset the cursor happened to land on at release.
+      if (moved) {
+        const swallow = (ce: MouseEvent) => { ce.stopPropagation(); ce.preventDefault(); };
+        el.addEventListener('click', swallow, { capture: true, once: true });
+        // Safety: if no click fires, drop the one-shot listener next tick.
+        window.setTimeout(() => el.removeEventListener('click', swallow, true), 0);
+      }
+      moved = false;
+    };
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    el.addEventListener('pointerleave', endDrag);
+    return () => {
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', endDrag);
+      el.removeEventListener('pointercancel', endDrag);
+      el.removeEventListener('pointerleave', endDrag);
+    };
+  }, []);
+
   // BD-3g Item 2 — wire fold/unfold behavior onto every <fieldset.qq-style-group>
   // under this panel. Per-panel state persists in sessionStorage keyed by
   // `qq-wizard-panel-style-${panelId}` where panelId is the fieldset's
@@ -458,13 +574,26 @@ export default function StyleTab({
           />
         </legend>
         <div className="qq-style-group-body">
+        {/* THEME-STRIP — single horizontal row (mirrors the marketing page's
+            `.tpl-color-scroll` arrows + scrollable `.tpl-color-row`): the 13
+            themes scroll left↔right instead of stacking 4 rows deep. */}
+        <div className="qq-style-preset-scroll">
+        <button
+          type="button"
+          className="qq-style-preset-arrow qq-style-preset-arrow-l"
+          aria-label="Scroll themes left"
+          onClick={() => scrollPresetRow(-1)}
+        >‹</button>
         <div
           className="qq-style-preset-cards"
           role="listbox"
           aria-label="Theme presets"
           data-testid="style-theme-presets"
+          ref={presetRowRef}
         >
-          {QUOTEQUICK_STYLE_PRESETS.map((preset) => (
+          {QUOTEQUICK_STYLE_PRESETS.map((preset) => {
+            const sel = preset.id === activePresetId;
+            return (
             <button
               key={preset.id}
               type="button"
@@ -472,6 +601,7 @@ export default function StyleTab({
               data-testid={`style-theme-preset-${preset.id}`}
               title={preset.description}
               aria-label={`Apply ${preset.name} theme — ${preset.description}`}
+              aria-pressed={sel}
               onClick={() => applyPreset(preset.style)}
             >
               <div
@@ -494,7 +624,15 @@ export default function StyleTab({
 
               <span className="qq-style-preset-card-name">{preset.name}</span>
             </button>
-          ))}
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className="qq-style-preset-arrow qq-style-preset-arrow-r"
+          aria-label="Scroll themes right"
+          onClick={() => scrollPresetRow(1)}
+        >›</button>
         </div>
         </div>
       </fieldset>
@@ -2108,19 +2246,56 @@ export default function StyleTab({
         .qq-style-panel input[type="checkbox"] {
           accent-color: var(--qq-accent, ${p.colors.accent});
         }
-        /* ── W-AO-6b — theme preset cards ────────────────────────── */
+        /* ── W-AO-6b / THEME-STRIP — theme preset strip ──────────────
+         * Single non-wrapping horizontal row, mirroring the marketing
+         * template page's theme selector (.tpl-color-scroll/.tpl-color-row
+         * in template-detail.tsx): ‹ › arrows flank the row as flex
+         * siblings, the row scrolls with a thin unobtrusive scrollbar +
+         * native touch momentum + mouse drag-to-pan (grab cursor). One
+         * swatch row of vertical footprint instead of the old 4-row grid. */
+        .qq-style-preset-scroll {
+          display: flex; align-items: center; gap: 2px;
+          max-width: 100%; min-width: 0;
+        }
         .qq-style-preset-cards {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          /* FIX 6 — denser grid: 8px → 4px inter-card gap. */
+          display: flex; flex-wrap: nowrap;
+          /* FIX 6 — dense 4px inter-card gap (kept from the grid). */
           gap: 4px;
+          flex: 1 1 auto; min-width: 0;
+          overflow-x: auto; overflow-y: hidden;
+          /* Top/bottom breathing room so the hover lift + selected outline
+             aren't clipped by overflow-y:hidden; bottom also clears the
+             scrollbar. */
+          padding: 3px 2px 7px;
+          scrollbar-width: thin;
+          -webkit-overflow-scrolling: touch;
+          /* Drag-to-scroll affordance — grab cursor at rest, grabbing while
+             a pointer drag is panning the row (JS toggles .is-dragging). */
+          cursor: grab;
         }
-        @media (max-width: 480px) {
-          .qq-style-preset-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .qq-style-preset-cards.is-dragging {
+          cursor: grabbing; user-select: none; scroll-behavior: auto;
         }
+        .qq-style-preset-cards.is-dragging .qq-style-preset-card { pointer-events: none; }
+        .qq-style-preset-cards::-webkit-scrollbar { height: 6px; }
+        .qq-style-preset-cards::-webkit-scrollbar-thumb {
+          background: ${p.colors.border}; border-radius: 999px;
+        }
+        .qq-style-preset-cards::-webkit-scrollbar-track { background: transparent; }
+        .qq-style-preset-arrow {
+          flex: 0 0 auto; width: 18px; height: 32px;
+          display: grid; place-items: center; padding: 0;
+          border: none; background: transparent; cursor: pointer;
+          font-size: 17px; font-weight: 700; line-height: 1;
+          color: ${p.colors.muted}; user-select: none;
+        }
+        .qq-style-preset-arrow:hover { color: ${p.colors.heading}; }
         .qq-style-preset-card {
           display: flex; flex-direction: column; align-items: stretch;
-          /* FIX 6 — tighten internal spacing/padding so the grid reads denser. */
+          /* THEME-STRIP — fixed card width in the scroll row (≈ the old
+             4-per-row grid cell) so swatch + label keep their size. */
+          flex: 0 0 84px; width: 84px;
+          /* FIX 6 — tighten internal spacing/padding so the strip reads denser. */
           gap: 3px;
           padding: 5px;
           background: #fff;
@@ -2135,6 +2310,12 @@ export default function StyleTab({
           border-color: ${p.colors.accent};
           transform: translateY(-1px);
           box-shadow: 0 4px 10px rgba(15,23,42,0.08);
+        }
+        /* Selected = OUTLINE, never a bright fill (hard UI rule). The ring
+           follows the live accent like the segmented controls above. */
+        .qq-style-preset-card[aria-pressed="true"] {
+          border-color: var(--qq-accent, ${p.colors.accent});
+          box-shadow: 0 0 0 1px var(--qq-accent, ${p.colors.accent});
         }
         .qq-style-preset-card-swatch {
           position: relative;
