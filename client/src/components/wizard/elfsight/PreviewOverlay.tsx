@@ -94,10 +94,17 @@ function measureFields(
     const fieldId = node.getAttribute('data-shell-field-id');
     if (!fieldId || !knownIds.has(fieldId)) continue;
     const r = node.getBoundingClientRect();
+    // Phone-frame fix — the container (overlayHost) is now a real scroll
+    // container on mobile. This overlay is absolutely positioned INSIDE it,
+    // so it scrolls along with the content; decorator coordinates must be
+    // CONTENT offsets, not viewport-relative deltas. Adding scrollTop/Left
+    // converts the rect delta (which shrinks as the host scrolls) back to
+    // the content coordinate. At scroll 0 this is a no-op, so desktop and
+    // the unscrolled mobile frame behave exactly as before.
     out.push({
       fieldId,
-      left: r.left - containerRect.left,
-      top: r.top - containerRect.top,
+      left: r.left - containerRect.left + container.scrollLeft,
+      top: r.top - containerRect.top + container.scrollTop,
       width: r.width,
       height: r.height,
     });
