@@ -4,7 +4,24 @@
  * Competitor pricing is sourced from public pricing pages (as of 2026).
  * WeFixTrades pricing is derived from shared/pricing.ts.
  */
-import { TRADELINE, lowestMonthly, formatPrice } from "@shared/pricing";
+import {
+  TRADELINE,
+  QUOTEQUICK,
+  MAPGUARD,
+  REPUTATIONSHIELD,
+  SOCIALSYNC,
+  RANKFLOW,
+  SITELAUNCH,
+  WEBCARE,
+  WEBFIX,
+  getTier,
+  lowestMonthly,
+  formatPrice,
+} from "@shared/pricing";
+
+// Lane A2 — every WeFixTrades-side price in this file derives from
+// @shared/pricing (single source of truth). Competitor prices stay static.
+const RS_FROM = formatPrice(lowestMonthly(REPUTATIONSHIELD)!);
 
 export interface CompetitorColumn {
   name: string;
@@ -110,7 +127,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoDescription:
       "Compare QuoteQuick to Jobber, ServiceTitan, and Housecall Pro. AI-powered instant quotes, embeddable widget, no manual work.",
     // Wave Q — three-tier ladder. Free forever, paid plans start at $29/mo (Pro).
-    weFixTradesPrice: "Free + from $29/mo",
+    weFixTradesPrice: `Free + from ${formatPrice(getTier(QUOTEQUICK, "Pro")!.price)}/mo`,
     competitors: [
       { name: "Jobber", price: "$30–$100/mo" },
       { name: "ServiceTitan", price: "$200+/mo" },
@@ -166,7 +183,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoTitle: "MapGuard vs BrightLocal, Yext, Moz Local | WeFixTrades",
     seoDescription:
       "Compare MapGuard to BrightLocal, Yext, and Moz Local. Active monitoring, automated fixes, trades-specific, and cheaper.",
-    weFixTradesPrice: "From $99/mo",
+    weFixTradesPrice: `From ${formatPrice(lowestMonthly(MAPGUARD)!)}/mo`,
     competitors: [
       { name: "BrightLocal", price: "$39–$79/mo" },
       { name: "Yext", price: "$199+/mo" },
@@ -221,7 +238,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoTitle: "ReputationShield vs Birdeye, Podium, NiceJob | WeFixTrades",
     seoDescription:
       "Compare ReputationShield to Birdeye, Podium, and NiceJob. AI-powered responses, automated SMS requests, trades-focused, from $79/mo.",
-    weFixTradesPrice: "From $79/mo",
+    weFixTradesPrice: `From ${formatPrice(lowestMonthly(REPUTATIONSHIELD)!)}/mo`,
     competitors: [
       { name: "Birdeye", price: "$299+/mo" },
       { name: "Podium", price: "$399+/mo" },
@@ -245,7 +262,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     whyBullets: [
       {
         title: "Same features, fraction of the price",
-        body: "Birdeye starts at $299/mo and Podium at $399/mo. ReputationShield starts at $79/mo — with AI response drafting, private feedback shield, and QR codes included.",
+        body: `Birdeye starts at $299/mo and Podium at $399/mo. ReputationShield starts at ${RS_FROM}/mo — with AI response drafting, private feedback shield, and QR codes included.`,
       },
       {
         title: "AI responses that sound human",
@@ -278,7 +295,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoTitle: "SocialSync vs Hootsuite, Buffer, Sprout Social | WeFixTrades",
     seoDescription:
       "Compare SocialSync to Hootsuite, Buffer, and Sprout Social. AI generates posts automatically, done-for-you, trades-specific content.",
-    weFixTradesPrice: "From $99/mo",
+    weFixTradesPrice: `From ${formatPrice(lowestMonthly(SOCIALSYNC)!)}/mo`,
     competitors: [
       { name: "Hootsuite", price: "$49–$249/mo" },
       { name: "Buffer", price: "$6–$120/mo" },
@@ -334,7 +351,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoTitle: "RankFlow vs Semrush, Ahrefs, SE Ranking, SEO Agencies | WeFixTrades",
     seoDescription:
       "Compare RankFlow to Semrush, Ahrefs, and SEO agencies. Done-for-you SEO, AI-powered content, trades-specific, from $349/mo.",
-    weFixTradesPrice: "From $349/mo",
+    weFixTradesPrice: `From ${formatPrice(lowestMonthly(RANKFLOW)!)}/mo`,
     competitors: [
       { name: "Semrush", price: "$129–$499/mo" },
       { name: "Ahrefs", price: "$99–$999/mo" },
@@ -390,7 +407,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoTitle: "SiteLaunch vs Squarespace, Wix, Freelancers, Agencies | WeFixTrades",
     seoDescription:
       "Compare SiteLaunch to Squarespace, Wix, freelancers, and agencies. One-time fee, 5-day delivery, built for trades businesses.",
-    weFixTradesPrice: "$1,197 one-time",
+    weFixTradesPrice: `${formatPrice(SITELAUNCH.tiers[0].price)} one-time`,
     competitors: [
       { name: "Squarespace", price: "$16–$49/mo" },
       { name: "Freelancer", price: "$1,000–$5,000" },
@@ -445,7 +462,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoTitle: "WebCare vs WP Buffs, GoWP, Sucuri, Maintainn | WeFixTrades",
     seoDescription:
       "Compare WebCare to WP Buffs, GoWP, Sucuri, and Maintainn. AI-powered monitoring, automated updates, trades-specific, from $79/mo.",
-    weFixTradesPrice: "From $79/mo",
+    weFixTradesPrice: `From ${formatPrice(lowestMonthly(WEBCARE)!)}/mo`,
     competitors: [
       { name: "WP Buffs", price: "$67–$197/mo" },
       { name: "GoWP", price: "$29–$79/mo" },
@@ -501,7 +518,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoTitle: "WebFix vs Fiverr, Codeable, WP Fix It, Agencies | WeFixTrades",
     seoDescription:
       "Compare WebFix to Fiverr freelancers, Codeable developers, WP Fix It, and agencies. Flat rate, comprehensive fixes, before/after report.",
-    weFixTradesPrice: "$249 one-time",
+    weFixTradesPrice: `${formatPrice(WEBFIX.tiers[0].price)} one-time`,
     competitors: [
       { name: "Fiverr Freelancer", price: "$50–$500" },
       { name: "Codeable", price: "$70–$120/hr" },

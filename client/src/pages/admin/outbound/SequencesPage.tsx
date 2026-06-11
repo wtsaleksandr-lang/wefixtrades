@@ -462,7 +462,7 @@ function GenerateWithAiDialog({ open, onClose }: { open: boolean; onClose: () =>
             <Input value={form.painPoint} onChange={(e) => setForm((f) => ({ ...f, painPoint: e.target.value }))} placeholder="missing calls = lost jobs; no time to chase reviews" />
           </FieldRow>
           <FieldRow label="Offer" tooltip="What you're selling — concrete.">
-            <Input value={form.offer} onChange={(e) => setForm((f) => ({ ...f, offer: e.target.value }))} placeholder="free local-SEO audit + 14-day MapGuard trial" />
+            <Input value={form.offer} onChange={(e) => setForm((f) => ({ ...f, offer: e.target.value }))} placeholder="free local-SEO audit + done-for-you MapGuard setup" />
           </FieldRow>
           <FieldRow label="Sender persona" tooltip="Who the email is from.">
             <Input value={form.senderPersona} onChange={(e) => setForm((f) => ({ ...f, senderPersona: e.target.value }))} placeholder="Aleksandr from WeFixTrades, AI tools for trades" />

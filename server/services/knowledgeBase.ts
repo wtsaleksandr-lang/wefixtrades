@@ -117,7 +117,7 @@ function compilePlans(): string {
   return (
     ALL_PRODUCTS.map(describeProductPlans).join("\n") +
     `\n\nAll monthly plans are cancel-anytime, no lock-in. Yearly billing saves ${yearlyPct}% on most products (${QUOTEQUICK.name}: ${qqYearlyPct}% — two months free).` +
-    `\nNo product has a time-limited promotional period. ${QUOTEQUICK.name} and ${CONTENTFLOW.name} each have a permanent free tier — start free with no credit card, upgrade only when you need more. Never quote a customer any plan, price, or discount that is not listed above.`
+    `\n${QUOTEQUICK.name} and ${CONTENTFLOW.name} each have a permanent free tier — start free with no credit card, upgrade only when you need more. Never quote a customer any plan, price, discount, or promotional period that is not listed above.`
   );
 }
 
