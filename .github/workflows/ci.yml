@@ -47,6 +47,8 @@ jobs:
         run: npm run check:contentflow-video-director
       - name: ContentFlow video-providers guard (Veo/Kling submit-poll contract, 429 retryable, env-skip)
         run: npm run check:contentflow-video-providers
+      - name: ContentFlow video-stitcher guard (selection ladder + no whole-clip memory buffering)
+        run: npm run check:contentflow-video-stitcher
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
