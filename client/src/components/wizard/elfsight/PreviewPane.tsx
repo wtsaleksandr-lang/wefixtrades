@@ -651,11 +651,39 @@ export default function PreviewPane({
   // used to estimate release velocity for the inertia / momentum coast.
   const dragStateRef = useRef<{
     startX: number; startY: number; baseX: number; baseY: number; pointerId: number;
+    // ESC-cancel — the element holding pointer capture, so the Escape
+    // handler can release it mid-gesture (Figma/Canva drag-cancel parity).
+    captureEl: HTMLElement;
     samples: Array<{ t: number; x: number; y: number }>;
   } | null>(null);
   // Wave 18 — animation frame id for the inertia coast so we can cancel it
   // when the user grabs the widget again mid-coast (matches Canva).
   const momentumRafRef = useRef<number | null>(null);
+
+  // ESC-cancel — keydown listeners that live exactly as long as their
+  // gesture (added at pointer-down, removed at pointer-up / cancel / the
+  // Escape itself). Capture-phase so they run BEFORE the bubble-phase
+  // "Escape deselects the widget" nudge handler and can stopPropagation():
+  // Esc mid-drag means "cancel the drag", not "deselect" (Figma parity).
+  const dragEscListenerRef = useRef<((ke: KeyboardEvent) => void) | null>(null);
+  const removeDragEscListener = useCallback(() => {
+    if (dragEscListenerRef.current) {
+      window.removeEventListener('keydown', dragEscListenerRef.current, true);
+      dragEscListenerRef.current = null;
+    }
+  }, []);
+  const resizeEscListenerRef = useRef<((ke: KeyboardEvent) => void) | null>(null);
+  const removeResizeEscListener = useCallback(() => {
+    if (resizeEscListenerRef.current) {
+      window.removeEventListener('keydown', resizeEscListenerRef.current, true);
+      resizeEscListenerRef.current = null;
+    }
+  }, []);
+  // Defensive: never leak a gesture-scoped keydown listener past unmount.
+  useEffect(() => () => {
+    removeDragEscListener();
+    removeResizeEscListener();
+  }, [removeDragEscListener, removeResizeEscListener]);
 
   // prefers-reduced-motion — used by both inertia (skip coast) and the
   // selection outline transition. Tracked as a ref so handlers don't need a
@@ -700,16 +728,18 @@ export default function PreviewPane({
     const out = { x: rawX, y: rawY };
     const g: Array<{ kind: 'vertical' | 'horizontal'; pos: number }> = [];
     if (Math.abs(dxPane) <= ALIGN_SNAP_PX) {
-      // Convert pane delta → stage delta (divide by zoom). Snap on X axis.
-      out.x = rawX + dxPane / zoom;
+      // Drag-zoom fix — the stage transform is `translate(x,y) scale(z)`
+      // with origin 0 0, so the translate is OUTSIDE the scale: 1 offset px
+      // = 1 pane/screen px at ANY zoom. No `/ zoom` conversion. Snap on X.
+      out.x = rawX + dxPane;
       g.push({ kind: 'vertical', pos: paneCenterX });
     }
     if (Math.abs(dyPane) <= ALIGN_SNAP_PX) {
-      out.y = rawY + dyPane / zoom;
+      out.y = rawY + dyPane;
       g.push({ kind: 'horizontal', pos: paneCenterY });
     }
     return { x: out.x, y: out.y, guides: g };
-  }, [zoom]);
+  }, []);
 
   /**
    * BD-3b — start a widget drag from the top-bar handle. The handle covers
@@ -736,11 +766,31 @@ export default function PreviewPane({
       startX: e.clientX, startY: e.clientY,
       baseX: widgetOffset.x, baseY: widgetOffset.y,
       pointerId: e.pointerId,
+      captureEl: handle,
       samples: [{ t: performance.now(), x: e.clientX, y: e.clientY }],
     };
     if (paneRef.current) paneRef.current.dataset.dragging = '1';
     setWidgetSelected(true);
-  }, [widgetOffset.x, widgetOffset.y]);
+    // ESC-cancel — while this drag is live, Escape restores the gesture's
+    // start position and aborts the move (no snap-back, no momentum, no
+    // persist — the pre-drag offset is already the persisted state).
+    removeDragEscListener();
+    const onDragEsc = (ke: KeyboardEvent) => {
+      if (ke.key !== 'Escape') return;
+      const cur = dragStateRef.current;
+      if (!cur) { removeDragEscListener(); return; }
+      ke.preventDefault();
+      ke.stopPropagation(); // keep selection — Esc here only cancels the drag
+      setWidgetOffset({ x: cur.baseX, y: cur.baseY });
+      setGuides([]);
+      try { cur.captureEl.releasePointerCapture(cur.pointerId); } catch {}
+      dragStateRef.current = null;
+      if (paneRef.current) delete paneRef.current.dataset.dragging;
+      removeDragEscListener();
+    };
+    window.addEventListener('keydown', onDragEsc, true);
+    dragEscListenerRef.current = onDragEsc;
+  }, [widgetOffset.x, widgetOffset.y, removeDragEscListener]);
 
   const onHandlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = dragStateRef.current;
@@ -748,17 +798,22 @@ export default function PreviewPane({
     const pane = paneRef.current;
     const stage = stageRef.current;
     if (!pane || !stage) return;
-    // Coords need to be divided by the zoom factor — at scale(0.5) one CSS
-    // pixel of mouse movement equals 2 stage pixels, etc.
-    const dx = (e.clientX - st.startX) / zoom;
-    const dy = (e.clientY - st.startY) / zoom;
+    // Drag-zoom fix — the stage transform is `translate(x,y) scale(zoom)`
+    // with transformOrigin '0 0'. The translate sits OUTSIDE the scale, so
+    // widgetOffset is in SCREEN px: 1 px of pointer movement = 1 offset px
+    // at EVERY zoom level. The old `/ zoom` here (which assumed translate-
+    // inside-scale) made zoom 0.5 overshoot 2× and zoom 1.5 undershoot.
+    const dx = e.clientX - st.startX;
+    const dy = e.clientY - st.startY;
     const paneRect = pane.getBoundingClientRect();
     const stageRect = stage.getBoundingClientRect();
     const VISIBLE_MIN = 80;
-    const naturalLeft = stageRect.left - widgetOffset.x * zoom;
-    const naturalTop = stageRect.top - widgetOffset.y * zoom;
-    const minDx = (paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width)) / zoom;
-    const maxDx = (paneRect.right - VISIBLE_MIN - naturalLeft) / zoom;
+    // Natural (offset-zero) stage position: rect.left minus the CURRENT
+    // offset — no zoom factor, same translate-outside-scale reasoning.
+    const naturalLeft = stageRect.left - widgetOffset.x;
+    const naturalTop = stageRect.top - widgetOffset.y;
+    const minDx = paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width);
+    const maxDx = paneRect.right - VISIBLE_MIN - naturalLeft;
     // Drag-bug fix — instead of letting the user drag the widget all the way
     // up until only `VISIBLE_MIN` of the bottom remains, clamp the upward
     // drag so the bezel TOP (where the 28-px drag handle sits) stays at
@@ -771,9 +826,9 @@ export default function PreviewPane({
     // so the bezel top is below the stage top by `padTop * zoom` pane px.
     const bezel = bezelMeasureRef.current;
     const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
-    const bezelTopOffset = (bezelRect.top - stageRect.top) / zoom; // stage-px above bezel
-    const minDy = (paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop) / zoom - bezelTopOffset;
-    const maxDy = (paneRect.bottom - VISIBLE_MIN - naturalTop) / zoom;
+    const bezelTopOffset = bezelRect.top - stageRect.top; // screen px above bezel
+    const minDy = paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop - bezelTopOffset;
+    const maxDy = paneRect.bottom - VISIBLE_MIN - naturalTop;
     const rawX = Math.max(minDx, Math.min(maxDx, st.baseX + dx));
     const rawY = Math.max(minDy, Math.min(maxDy, st.baseY + dy));
     // Record velocity sample for the post-release momentum coast.
@@ -791,7 +846,7 @@ export default function PreviewPane({
     const aligned = applyAlignSnap(rawX, rawY);
     setWidgetOffset({ x: aligned.x, y: aligned.y });
     setGuides(aligned.guides);
-  }, [widgetOffset.x, widgetOffset.y, zoom, applyAlignSnap]);
+  }, [widgetOffset.x, widgetOffset.y, applyAlignSnap]);
 
   const onHandlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = dragStateRef.current;
@@ -805,6 +860,8 @@ export default function PreviewPane({
     // so the post-release inertia coast can read them.
     const releaseSamples = st.samples.slice();
     dragStateRef.current = null;
+    // ESC-cancel — the drag ended normally; retire its Escape listener.
+    removeDragEscListener();
 
     // Drag-bug fix — snap-back. If the user releases with less than
     // SNAP_BACK_MIN_VISIBLE_FRACTION (20 %) of the bezel still visible inside
@@ -833,9 +890,11 @@ export default function PreviewPane({
           correctY = (paneRect.bottom - 80) - bezelRect.top;
         }
         if (correctX !== 0 || correctY !== 0) {
+          // Drag-zoom fix — corrections measured in pane px ARE offset px
+          // (translate-outside-scale); no `/ zoom`.
           finalOffset = {
-            x: snap(widgetOffset.x + correctX / zoom),
-            y: snap(widgetOffset.y + correctY / zoom),
+            x: snap(widgetOffset.x + correctX),
+            y: snap(widgetOffset.y + correctY),
           };
           setWidgetOffset(finalOffset);
         }
@@ -869,11 +928,12 @@ export default function PreviewPane({
       const vy = (b.y - a.y) / dt;
       const speed = Math.hypot(vx, vy);
       if (speed >= MOMENTUM_MIN_VELOCITY) {
-        // Translate fling velocity into a stage-CSS-px coast delta.
-        // The 0.5 multiplier yields the right "throw distance" feel after
+        // Translate fling velocity into an offset-px coast delta. Offset px
+        // are screen px (translate-outside-scale), so no zoom factor. The
+        // 0.5 multiplier yields the right "throw distance" feel after
         // ease-out integration — calibrated to Canva (a 1px/ms swipe
-        // travels ~180px post-release at scale 1).
-        const coastScale = MOMENTUM_DURATION_MS * 0.5 / zoom;
+        // travels ~180px post-release).
+        const coastScale = MOMENTUM_DURATION_MS * 0.5;
         let deltaX = vx * coastScale;
         let deltaY = vy * coastScale;
         // Cap the absolute distance per fling so a fast swipe can't
@@ -888,16 +948,18 @@ export default function PreviewPane({
         if (pane && stage) {
           const paneRect = pane.getBoundingClientRect();
           const stageRect = stage.getBoundingClientRect();
-          const naturalLeft = stageRect.left - widgetOffset.x * zoom;
-          const naturalTop = stageRect.top - widgetOffset.y * zoom;
+          // Drag-zoom fix — same translate-outside-scale bounds as the
+          // in-drag clamp: no zoom factors anywhere.
+          const naturalLeft = stageRect.left - widgetOffset.x;
+          const naturalTop = stageRect.top - widgetOffset.y;
           const VISIBLE_MIN = 80;
-          const minX = (paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width)) / zoom;
-          const maxX = (paneRect.right - VISIBLE_MIN - naturalLeft) / zoom;
+          const minX = paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width);
+          const maxX = paneRect.right - VISIBLE_MIN - naturalLeft;
           const bezel = bezelMeasureRef.current;
           const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
-          const bezelTopOffset = (bezelRect.top - stageRect.top) / zoom;
-          const minY = (paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop) / zoom - bezelTopOffset;
-          const maxY = (paneRect.bottom - VISIBLE_MIN - naturalTop) / zoom;
+          const bezelTopOffset = bezelRect.top - stageRect.top;
+          const minY = paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop - bezelTopOffset;
+          const maxY = paneRect.bottom - VISIBLE_MIN - naturalTop;
           const targetX = Math.max(minX, Math.min(maxX, coastFromOffset.x + deltaX));
           const targetY = Math.max(minY, Math.min(maxY, coastFromOffset.y + deltaY));
           const startTs = performance.now();
@@ -935,7 +997,7 @@ export default function PreviewPane({
     try {
       localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(nextOffset));
     } catch {}
-  }, [device, widgetOffset, zoom]);
+  }, [device, widgetOffset, removeDragEscListener]);
 
   // Wave 18 — clean up any in-flight momentum animation on unmount so we
   // don't end up scheduling state updates after the component is gone.
@@ -946,16 +1008,8 @@ export default function PreviewPane({
     }
   }, []);
 
-  const resetWidgetOffset = useCallback(() => {
-    setWidgetOffset({ x: 0, y: 0 });
-    // Clear the per-device resize SCALE override and hand control back to
-    // auto-fit (unlock the zoom lock so the fit Observer re-fits the mockup).
-    userZoomLockedRef.current = false;
-    try {
-      localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`);
-      localStorage.removeItem(`${WIDGET_SCALE_KEY}_${device}`);
-    } catch {}
-  }, [device]);
+  // (resetWidgetOffset is declared below `_fitToCanvas` — it needs
+  // `computeFitZoom`, which is a `const` defined later in this scope.)
 
   // Drag-bug fix — Recenter button. Restores widgetOffset to {0,0} so the
   // bezel sits at its natural top-anchored position inside the pane, without
@@ -984,6 +1038,8 @@ export default function PreviewPane({
     startZoom: number;
     baseOffsetX: number; baseOffsetY: number;
     pointerId: number;
+    // ESC-cancel — element holding pointer capture (released on Escape).
+    captureEl: HTMLElement;
   } | null>(null);
 
   // BH-1 — track whether the user has explicitly set zoom (via +/-/wheel/
@@ -1049,9 +1105,29 @@ export default function PreviewPane({
       startZoom: zoom,
       baseOffsetX: widgetOffset.x, baseOffsetY: widgetOffset.y,
       pointerId: e.pointerId,
+      captureEl: handle,
     };
     setWidgetSelected(true);
-  }, [widgetOffset.x, widgetOffset.y, zoom]);
+    // ESC-cancel — while this resize is live, Escape restores the gesture's
+    // start zoom + offset and aborts (nothing is persisted mid-gesture, so
+    // no localStorage cleanup is needed). Mirrors the move-drag Escape.
+    removeResizeEscListener();
+    const onResizeEsc = (ke: KeyboardEvent) => {
+      if (ke.key !== 'Escape') return;
+      const cur = resizeStateRef.current;
+      if (!cur) { removeResizeEscListener(); return; }
+      ke.preventDefault();
+      ke.stopPropagation(); // keep selection — Esc here only cancels the resize
+      setZoom(cur.startZoom);
+      setWidgetOffset({ x: cur.baseOffsetX, y: cur.baseOffsetY });
+      setResizeDims(null);
+      try { cur.captureEl.releasePointerCapture(cur.pointerId); } catch {}
+      resizeStateRef.current = null;
+      removeResizeEscListener();
+    };
+    window.addEventListener('keydown', onResizeEsc, true);
+    resizeEscListenerRef.current = onResizeEsc;
+  }, [widgetOffset.x, widgetOffset.y, zoom, removeResizeEscListener]);
 
   const onResizePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = resizeStateRef.current;
@@ -1132,6 +1208,8 @@ export default function PreviewPane({
     const handle = e.currentTarget;
     try { handle.releasePointerCapture(e.pointerId); } catch {}
     resizeStateRef.current = null;
+    // ESC-cancel — the resize ended normally; retire its Escape listener.
+    removeResizeEscListener();
     // Hide the scale tooltip on release.
     setResizeDims(null);
     try {
@@ -1141,7 +1219,7 @@ export default function PreviewPane({
       localStorage.setItem(`${WIDGET_SCALE_KEY}_${device}`, String(zoom));
       localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffset));
     } catch {}
-  }, [device, zoom, widgetOffset]);
+  }, [device, zoom, widgetOffset, removeResizeEscListener]);
 
   // ── Zoom controls ────────────────────────────────────────────────────
   const clampZoom = useCallback((n: number) => {
@@ -1204,6 +1282,24 @@ export default function PreviewPane({
     const next = computeFitZoom();
     if (next != null) setZoom(next);
   }, [computeFitZoom]);
+
+  // "Reset position" pill — aria promises "Reset widget position AND size".
+  const resetWidgetOffset = useCallback(() => {
+    setWidgetOffset({ x: 0, y: 0 });
+    // Clear the per-device resize SCALE override and hand control back to
+    // auto-fit (unlock the zoom lock so the fit Observer re-fits the mockup).
+    userZoomLockedRef.current = false;
+    try {
+      localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`);
+      localStorage.removeItem(`${WIDGET_SCALE_KEY}_${device}`);
+    } catch {}
+    // Reset-size fix — clearing the lock alone is NOT enough: the auto-fit
+    // ResizeObserver only ticks on SIZE changes, so a reset with a stable
+    // pane left the user's manual zoom in place and only the offset moved.
+    // Re-fit immediately (mirrors `_fitToCanvas` semantics).
+    const next = computeFitZoom();
+    if (next != null) setZoom(next);
+  }, [device, computeFitZoom]);
 
   /* Wave 54 — Fullscreen preview modal.
    *
@@ -1314,13 +1410,16 @@ export default function PreviewPane({
         const paneRect = pane.getBoundingClientRect();
         const stageRect = stage.getBoundingClientRect();
         const VISIBLE_MIN = 80;
-        const z = zoomRef.current || 1;
         const cur = widgetOffsetRef.current;
-        const naturalTop = stageRect.top - cur.y * z;
+        // Drag-zoom fix — the stage transform is translate-OUTSIDE-scale
+        // (origin 0 0), so offset px = screen px and the pan bounds carry
+        // NO zoom factor (same derivation as the drag clamp; the old `* z`
+        // / `/ z` here was the identical error — invisible at zoom 1).
+        const naturalTop = stageRect.top - cur.y;
         const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
-        const bezelTopOffset = (bezelRect.top - stageRect.top) / z;
-        const minY = (paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop) / z - bezelTopOffset;
-        const maxY = (paneRect.bottom - VISIBLE_MIN - naturalTop) / z;
+        const bezelTopOffset = bezelRect.top - stageRect.top;
+        const minY = paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop - bezelTopOffset;
+        const maxY = paneRect.bottom - VISIBLE_MIN - naturalTop;
         burst = { zone: 'canvas', minY, maxY };
       }
       wheelBurstRef.current = burst;
@@ -1352,12 +1451,12 @@ export default function PreviewPane({
       momentumRafRef.current = null;
     }
     e.preventDefault();
-    const z = zoomRef.current || 1;
     const cur = widgetOffsetRef.current;
     // Wheel down (deltaY > 0) scrolls content down → move the bezel UP, like a
-    // scroll container. Divide by zoom so the pan tracks 1:1 in screen px.
+    // scroll container. Offset px are screen px (translate-outside-scale), so
+    // deltaY applies 1:1 at any zoom — no `/ zoom`.
     // Bounds come from the burst cache — stable for the whole burst.
-    const nextY = Math.max(burst.minY, Math.min(burst.maxY, cur.y - e.deltaY / z));
+    const nextY = Math.max(burst.minY, Math.min(burst.maxY, cur.y - e.deltaY));
     if (nextY === cur.y) return;
     setWidgetOffset((prev) => ({ x: prev.x, y: nextY }));
     // Debounced (trailing) persist — one localStorage write per pause, not
@@ -1602,8 +1701,9 @@ export default function PreviewPane({
       if (e.touches.length !== 1) { active = false; setGuides([]); return; }
       if (!active) return;
       e.preventDefault();
-      const z = zoomRef.current || 1;
-      const aligned = applyAlignSnap(bx + (e.touches[0].clientX - sx) / z, by + (e.touches[0].clientY - sy) / z);
+      // Drag-zoom fix — offset px are screen px (translate-outside-scale);
+      // finger delta maps 1:1 at any zoom, no `/ zoom`.
+      const aligned = applyAlignSnap(bx + (e.touches[0].clientX - sx), by + (e.touches[0].clientY - sy));
       setWidgetOffset({ x: aligned.x, y: aligned.y });
       setGuides(aligned.guides);
     };
