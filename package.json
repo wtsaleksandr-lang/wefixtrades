@@ -38,6 +38,7 @@
     "check:serp-country": "tsx shared/locationCountry.test.ts",
     "check:demo-persona": "tsx shared/prompts/tradelineDemoPrompt.test.ts",
     "check:contentflow-generate-source": "tsx server/routes/portal/contentflow.generateSource.test.ts",
+    "check:contentflow-reference-replication": "tsx server/services/contentflow/referenceReplication.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",
