@@ -47,6 +47,7 @@
     "check:contentflow-video-providers": "tsx server/services/contentflow/videoProviders/providers.test.ts",
     "check:contentflow-video-stitcher": "tsx server/services/contentflow/videoStitcher/stitcher.test.ts",
     "check:contentflow-video-worker": "tsx server/jobs/videoRenderWorker.test.ts",
+    "check:contentflow-video-routes": "tsx server/routes/portal/contentflowVideo.routes.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",
