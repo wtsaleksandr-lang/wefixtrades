@@ -42,7 +42,7 @@ export default function BookFlowDemo() {
                 key={i}
                 animate={{
                   background: booked ? mkt.accent : "rgba(255,255,255,0.04)",
-                  color: booked ? mkt.dark : mkt.onDarkMuted,
+                  color: booked ? mkt.onDark : mkt.onDarkMuted,
                   borderColor: booked ? mkt.accent : mkt.onDarkBorder,
                 }}
                 transition={{ duration: 0.4 }}

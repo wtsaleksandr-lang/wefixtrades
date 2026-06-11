@@ -40,6 +40,7 @@
 
 import { type CSSProperties, type ReactNode, useId } from "react";
 import InfoCue from "@/components/wizard/elfsight/InfoCue";
+import { mkt } from "@/theme/tokens";
 
 /* ─── Shared types ─────────────────────────────────────────────────── */
 
@@ -402,9 +403,13 @@ export function FreeToolFormFieldStyles() {
       }
       .ftool-form-field__required { color: rgb(239,68,68); }
 
-      /* Dark-surface variant for the contact page (white-on-dark form). */
+      /* Dark-surface variant for the contact page (white-on-dark form).
+         NOTE: background-COLOR longhand on purpose — the \`background:\`
+         shorthand resets background-repeat/position to repeat/0 0, which
+         tiled the select's caret SVG across the whole field (night-audit
+         P-A: contact Subject select looked glitched). */
       .ftool-form-field--dark .ftool-form-field__field {
-        background: rgba(255,255,255,0.04);
+        background-color: rgba(255,255,255,0.04);
         border-color: rgba(255,255,255,0.15);
         color: rgb(255,255,255);
       }
@@ -417,13 +422,22 @@ export function FreeToolFormFieldStyles() {
            transparent rgba(255,255,255,0.04) on a dark section, the label's
            own background must match the section so the floated label reads
            crisply. Consumers can override via the --ftool-label-bg custom
-           property on a wrapping container. */
+           property on a wrapping container.
+           Ink is the accent-on-dark step: brand blue rgb(13,60,252) read
+           ~2.1:1 on the dark label bg (night-audit P-A). */
         background: var(--ftool-label-bg, rgb(36,45,48));
-        color: rgb(13,60,252);
+        color: ${mkt.accentOnDark};
       }
       .ftool-form-field--dark .ftool-form-field__field:placeholder-shown + .ftool-form-field__label,
       .ftool-form-field--dark .ftool-form-field__field--select[data-has-value="false"] + .ftool-form-field__label {
         color: rgba(255,255,255,0.55);
+      }
+      /* Focused label on dark — must out-rank the base :focus rule above
+         (which re-asserts the light-theme blue) so the lifted label keeps
+         the readable accent-on-dark ink. */
+      .ftool-form-field--dark .ftool-form-field__field:focus + .ftool-form-field__label,
+      .ftool-form-field--dark .ftool-form-field__field--select:focus + .ftool-form-field__label {
+        color: ${mkt.accentOnDark};
       }
       .ftool-form-field--dark .ftool-form-field__field--select {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.7)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");

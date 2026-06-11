@@ -26,7 +26,10 @@ const C = {
   bgGray: colors.surface.muted,
   heading: colors.text.primary,
   body: colors.text.secondary,
-  muted: colors.text.secondary,
+  /* gray-600, not gray-500 — benefit-card body copy sat at 4.35:1 on the
+     muted card surface (#F1F3F6), just under AA. 6.8:1 now (night-audit
+     P-A C4; one line, fixes all 5 /features/* pages). */
+  muted: "#4B5563",
   border: mkt.border,
   borderLight: mkt.borderLight,
 };

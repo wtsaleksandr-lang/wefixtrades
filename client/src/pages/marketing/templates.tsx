@@ -112,7 +112,7 @@ export default function TemplatesPage() {
             <>
               {totalCount} high-converting
               <br />
-              <span style={{ color: mkt.accent }}>
+              <span style={{ color: mkt.accentOnDark }}>
                 calculator templates.
               </span>
             </>

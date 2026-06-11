@@ -29,7 +29,7 @@ export default function AdFlowHeroAnimation() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={monoLabel}>AdFlow · example</span>
-            <span style={{ ...monoLabel, color: mkt.accent }}>Variant {phase + 1}/3</span>
+            <span style={{ ...monoLabel, color: mkt.accentOnDark }}>Variant {phase + 1}/3</span>
           </div>
 
           {/* Ad preview */}
@@ -40,7 +40,7 @@ export default function AdFlowHeroAnimation() {
             transition={{ duration: 0.35 }}
             style={cardStyle}
           >
-            <div style={{ ...monoLabel, color: mkt.accent, marginBottom: 6 }}>Ad · Google</div>
+            <div style={{ ...monoLabel, color: mkt.accentOnDark, marginBottom: 6 }}>Ad · Google</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDark, lineHeight: 1.4 }}>
               {COPIES[phase]}
             </div>

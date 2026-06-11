@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from "react";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
+import { ensureReadableText } from "@/lib/contrastGuard";
 import { getCategoryStyle } from "@/lib/categoryStyles";
 import { getQuoteQuickIcon } from "@/data/quoteQuickIcons";
 import type { TemplateConfig } from "@shared/templatePresets";
@@ -41,7 +42,17 @@ export default function CalculatorTemplateCard({ template, tryHref, useHref, new
     <div
       className="calx-card"
       data-testid={`template-card-${template.id}`}
-      style={{ ["--calx-accent" as string]: cat.heroAccent, ["--calx-ink" as string]: cat.ctaText, ["--calx-cta" as string]: cat.ctaOnWhite } as CSSProperties}
+      style={{
+        ["--calx-accent" as string]: cat.heroAccent,
+        /* --calx-ink paints the "Try" chip label on a --calx-cta fill (and
+         * the "Use" chip on hover). ctaText is tuned for the mockup's
+         * bright gradient CTA — on dark ctaOnWhite tiles (construction:
+         * slate #1e293b on amber-800 #92400e) it read 2.06:1. Derive the
+         * ink from the actual tile colour so it always clears WCAG
+         * (night-audit P-A: templates "Try" chip). */
+        ["--calx-ink" as string]: ensureReadableText(cat.ctaText, cat.ctaOnWhite),
+        ["--calx-cta" as string]: cat.ctaOnWhite,
+      } as CSSProperties}
     >
       <div className="calx-thumb">
         <div className="calx-bg" />

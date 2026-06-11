@@ -32,7 +32,7 @@ export default function AboutPage() {
         <V7Hero
           productName="About WeFixTrades"
           eyebrow="Most trades owners are losing work they'll never know about."
-          headline={<>The growth team trades businesses<br/><span style={{ color: mkt.accent }}>can't afford to hire — and shouldn't need to.</span></>}
+          headline={<>The growth team trades businesses<br/><span style={{ color: mkt.accentOnDark }}>can't afford to hire — and shouldn't need to.</span></>}
           sub="The operating system behind the marketing, quoting, and customer-handling work that most trades owners either skip or overpay an agency to do."
         />
 
@@ -40,7 +40,7 @@ export default function AboutPage() {
         <V7Section padding="80px">
           <V7Container maxWidth={760}>
             <Reveal>
-              <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 14 }}>
+              <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accentOnDark, marginBottom: 14 }}>
                 Why we exist
               </p>
               <h2 style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 700, color: mkt.onDark, marginBottom: 24, letterSpacing: "-0.025em", lineHeight: 1.1 }}>
@@ -102,7 +102,7 @@ export default function AboutPage() {
                   <Reveal key={step.step} delay={i * 0.05}>
                     <div style={{ background: mkt.sectionLight, borderRadius: 18, padding: "28px 26px", border: `1px solid ${mkt.onDarkBorder}`, display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: mkt.accent, letterSpacing: "0.08em", fontFamily: MONO }}>{step.step}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: mkt.accentOnDark, letterSpacing: "0.08em", fontFamily: MONO }}>{step.step}</span>
                         <Icon size={20} color={mkt.onDarkFaint} strokeWidth={1.6} />
                       </div>
                       <h3 style={{ fontSize: 17, fontWeight: 600, color: mkt.onDark, margin: 0, letterSpacing: "-0.01em" }}>{step.title}</h3>
@@ -116,7 +116,7 @@ export default function AboutPage() {
         </V7Section>
 
         <V7FinalCta
-          title={<>See what we'd do<br/><span style={{ color: mkt.accent }}>for your business.</span></>}
+          title={<>See what we'd do<br/><span style={{ color: mkt.accentOnDark }}>for your business.</span></>}
           sub="Free audit, no signup. Takes 30 seconds."
           primaryCta={{ label: "Run a free audit", href: "/tools/free-audit" }}
         />

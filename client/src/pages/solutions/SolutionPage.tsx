@@ -1168,7 +1168,7 @@ export default function SolutionPage() {
         <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="solution-pain-points">
           <div style={{ maxWidth: 800, margin: "0 auto" }} data-reveal="fade-up">
             <div style={{ textAlign: "center", marginBottom: 40 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accentOnDark, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 Sound Familiar?
               </div>
               <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
@@ -1218,7 +1218,7 @@ export default function SolutionPage() {
                     boxShadow: shadows.card,
                   }}
                 >
-                  <div style={{ fontSize: "clamp(28px, 3vw, 40px)", fontWeight: 700, color: mkt.accent, marginBottom: 8 }}>
+                  <div style={{ fontSize: "clamp(28px, 3vw, 40px)", fontWeight: 700, color: mkt.accentOnDark, marginBottom: 8 }}>
                     {o.stat}
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 500, color: mkt.onDarkMuted, lineHeight: 1.4 }}>
@@ -1234,7 +1234,7 @@ export default function SolutionPage() {
         <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="solution-stack">
           <div style={{ maxWidth: 1080, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
-              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accentOnDark, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 Recommended Stack
               </div>
               <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
@@ -1278,7 +1278,7 @@ export default function SolutionPage() {
                     <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, margin: 0, flex: 1 }}>
                       {product.desc}
                     </p>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent, marginTop: 16 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accentOnDark, marginTop: 16 }}>
                       Learn more <ArrowRight size={14} />
                     </span>
                   </div>
@@ -1300,7 +1300,7 @@ export default function SolutionPage() {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: mkt.accent,
+                color: mkt.accentOnDark,
                 letterSpacing: "0.12em",
                 textTransform: "uppercase",
                 margin: "0 0 14px",

@@ -91,6 +91,28 @@ export default function SiteChatWidget() {
   const onConversionForm = path === "/signup" || path === "/login"
     || path.startsWith("/signup/") || path.startsWith("/login/");
 
+  /* Night-audit P-A C5 (#1165): the launcher overlapped the footer's
+   * "VS SERVICETITAN" + legal "SMS Consent" links at 375px (tap-target
+   * collision). Observe the marketing footer against the launcher's band
+   * (bottom 15% of the viewport, via the shrunken rootMargin) and fade +
+   * disable the launcher while footer content sits under it; it returns
+   * as soon as the user scrolls back up. */
+  const [footerUnderFab, setFooterUnderFab] = useState(false);
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const footer = document.querySelector('[data-testid="footer-marketing"]');
+    if (!footer) {
+      setFooterUnderFab(false);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => setFooterUnderFab(entries[0]?.isIntersecting ?? false),
+      { rootMargin: "-85% 0px 0px 0px" },
+    );
+    io.observe(footer);
+    return () => io.disconnect();
+  }, [location]);
+
   // Persist messages and open state
   useEffect(() => { saveMessages(messages); }, [messages]);
   useEffect(() => { saveOpenState(open); }, [open]);
@@ -222,7 +244,7 @@ export default function SiteChatWidget() {
         <button
           onClick={openChat}
           aria-label={showDot ? "Open chat, 1 unread message" : "Open chat"}
-          className={`wft-chat-bubble${onConversionForm ? " wft-chat-bubble--lifted" : ""}`}
+          className={`wft-chat-bubble${onConversionForm ? " wft-chat-bubble--lifted" : ""}${footerUnderFab ? " wft-chat-bubble--footer-clear" : ""}`}
           style={{
             position: "fixed",
             right: 24,
@@ -238,7 +260,7 @@ export default function SiteChatWidget() {
             alignItems: "center",
             justifyContent: "center",
             boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
-            transition: "transform 0.2s ease",
+            transition: "transform 0.2s ease, opacity 0.2s ease",
           }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.06)"; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
@@ -626,6 +648,12 @@ export default function SiteChatWidget() {
         /* Conversion-form routes (/signup, /login): lift the launcher clear of
            the email/password input tap area so it can't be mis-tapped. */
         .wft-chat-bubble--lifted { bottom: 88px !important; }
+        /* Footer in the launcher's band — fade out + drop tap target so the
+           footer's links ("VS SERVICETITAN", "SMS Consent") stay tappable. */
+        .wft-chat-bubble--footer-clear {
+          opacity: 0;
+          pointer-events: none;
+        }
         @media (max-width: 480px) {
           .wft-chat-bubble {
             bottom: calc(24px + var(--mkt-sticky-bar-h, 0px) + 8px);

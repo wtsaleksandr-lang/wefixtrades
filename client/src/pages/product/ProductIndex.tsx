@@ -173,7 +173,7 @@ function ProductCard({ p, i }: { p: ProductItem; i: number }) {
             transition: "opacity 280ms ease 60ms, transform 280ms cubic-bezier(0.22,1,0.36,1) 60ms",
             pointerEvents: "none",
           }}>
-            <span style={{ color: mkt.accent }}>{p.statValue}</span>
+            <span style={{ color: mkt.accentOnDark }}>{p.statValue}</span>
             <span style={{ color: mkt.onDarkMuted, fontSize: 10 }}>
               [{p.statLabel.toUpperCase()}]
             </span>
@@ -242,7 +242,7 @@ export default function ProductIndex() {
         <V7Hero
           productName="All Products"
           eyebrow="Twelve tools. One operating system for your trades business."
-          headline={<>Pick the ones you need.<br/><span style={{ color: mkt.accent }}>Skip the rest.</span></>}
+          headline={<>Pick the ones you need.<br/><span style={{ color: mkt.accentOnDark }}>Skip the rest.</span></>}
           sub="Everything we make is built for trades buyers — plumbers, electricians, roofers, HVAC techs. No generic SaaS retrofits."
           ctas={[
             { label: "See Pricing", href: "/pricing" },
@@ -267,7 +267,7 @@ export default function ProductIndex() {
         />
 
         <V7FinalCta
-          title={<>One operating system.<br/><span style={{ color: mkt.accent }}>Twelve outcomes.</span></>}
+          title={<>One operating system.<br/><span style={{ color: mkt.accentOnDark }}>Twelve outcomes.</span></>}
           sub="Pick a tier. Cancel any month. We do the work — you stay in the field."
           primaryCta={{ label: "See Pricing", href: "/pricing" }}
         />

@@ -62,63 +62,63 @@ import DataStreamCard from "@/components/marketing/showcase/DataStreamCard";
 const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: string }> = {
   tradeline: {
     eyebrow: "Every missed call is a competitor's win.",
-    headline: <>Never miss a lead. <span style={{ display: "block", color: mkt.accent }}>Even at 2 AM.</span></>,
+    headline: <>Never miss a lead. <span style={{ display: "block", color: mkt.accentOnDark }}>Even at 2 AM.</span></>,
     sub: "AI answers every call and chat 24/7, gives instant estimates, books jobs, and follows up — automatically.",
   },
   quickquotepro: {
     eyebrow: "",
-    headline: <>Instant quotes. <span style={{ color: mkt.accent }}>Live in 5 minutes.</span></>,
+    headline: <>Instant quotes. <span style={{ color: mkt.accentOnDark }}>Live in 5 minutes.</span></>,
     sub: "Customers get accurate prices on your website 24/7. Every quote captures a lead. Live in 5 minutes — no platform switch.",
   },
   mapguard: {
     eyebrow: "Customers can't book you if they can't find you.",
-    headline: <>Show up first. <span style={{ display: "block", color: mkt.accent }}>On Google Maps.</span></>,
+    headline: <>Show up first. <span style={{ display: "block", color: mkt.accentOnDark }}>On Google Maps.</span></>,
     sub: "We monitor your Google Business Profile every week and fix issues before customers see them. You get the calls, not your competitors.",
   },
   reputationshield: {
     eyebrow: "One ignored bad review can cost you 22 customers.",
-    headline: <>Every review answered. <span style={{ display: "block", color: mkt.accent }}>Within minutes.</span></>,
+    headline: <>Every review answered. <span style={{ display: "block", color: mkt.accentOnDark }}>Within minutes.</span></>,
     sub: "AI drafts a personal reply to every Google and Facebook review. 5-stars get amplified. 1-stars get flagged to your phone.",
   },
   socialsync: {
     eyebrow: "Posting consistently is a full-time job. You already have one.",
-    headline: <>Stay visible. <span style={{ display: "block", color: mkt.accent }}>Without lifting a finger.</span></>,
+    headline: <>Stay visible. <span style={{ display: "block", color: mkt.accentOnDark }}>Without lifting a finger.</span></>,
     sub: "AI drafts your weekly social posts in your voice. You approve in one tap. We handle the calendar, the captions, and the analytics.",
   },
   rankflow: {
     eyebrow: "Hiring an SEO agency? They charge $2K/mo for the same data.",
-    headline: <>Outrank competitors. <span style={{ display: "block", color: mkt.accent }}>Without an agency.</span></>,
+    headline: <>Outrank competitors. <span style={{ display: "block", color: mkt.accentOnDark }}>Without an agency.</span></>,
     sub: "Weekly keyword tracking + monthly reports that tell you exactly which pages to update. No fluff, no agency-speak.",
   },
   sitelaunch: {
     eyebrow: "Your current site looks like 2014. Visitors notice.",
-    headline: <>A site that converts. <span style={{ display: "block", color: mkt.accent }}>Live in a week.</span></>,
+    headline: <>A site that converts. <span style={{ display: "block", color: mkt.accentOnDark }}>Live in a week.</span></>,
     sub: "We design, build, and launch a trade-tuned site that ranks on Google and turns visitors into booked jobs.",
   },
   webcare: {
     eyebrow: "Last time WordPress broke your site, you lost a day fixing it.",
-    headline: <>We watch your site. <span style={{ display: "block", color: mkt.accent }}>So you don't have to.</span></>,
+    headline: <>We watch your site. <span style={{ display: "block", color: mkt.accentOnDark }}>So you don't have to.</span></>,
     sub: "Uptime checks every 15 minutes. Plugin updates auto-tested. Security & SSL checks. Monthly health report.",
   },
   webfix: {
     eyebrow: "Slow website? You're invisible to Google and your visitors.",
-    headline: <>From 42 to 98. <span style={{ display: "block", color: mkt.accent }}>In a week.</span></>,
+    headline: <>From 42 to 98. <span style={{ display: "block", color: mkt.accentOnDark }}>In a week.</span></>,
     sub: "We audit, fix, and monitor your site speed and SEO. Lighthouse scores climb from 40s to 90s — and your Google rank follows.",
   },
   contentflow: {
     eyebrow: "Blog posts won't write themselves. Until now.",
-    headline: <>Build authority. <span style={{ display: "block", color: mkt.accent }}>Without writing a word.</span></>,
+    headline: <>Build authority. <span style={{ display: "block", color: mkt.accentOnDark }}>Without writing a word.</span></>,
     sub: "AI drafts trade-specific articles every month — tuned to your service area, your voice, and what's actually ranking.",
   },
   adflow: {
     eyebrow: "Most trade businesses pay $80+ per Google Ads lead. There's a way down to $20.",
-    headline: <>Real ads. <span style={{ display: "block", color: mkt.accent }}>Real ROI.</span></>,
+    headline: <>Real ads. <span style={{ display: "block", color: mkt.accentOnDark }}>Real ROI.</span></>,
     sub: "Google + Meta campaigns run by a vetted ad-agency partner. Weekly tuning. Plain-English reports — no agency-speak.",
   },
   bookflow: {
     // Wave 11D D2 — reframed as a QuoteQuick-bundled feature, not a standalone SKU.
     eyebrow: "Booking is part of QuoteQuick now — not a separate bill.",
-    headline: <>Booking flow. <span style={{ display: "block", color: mkt.accent }}>Included with QuoteQuick.</span></>,
+    headline: <>Booking flow. <span style={{ display: "block", color: mkt.accentOnDark }}>Included with QuoteQuick.</span></>,
     sub: "Every QuoteQuick plan ships with the BookFlow scheduling experience — customers quote and book in one flow, you pay one subscription.",
   },
 };
@@ -452,13 +452,13 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
           {/* LEFT — copy + CTAs */}
           <div className="tlhp-split-text" style={{ minWidth: 0 }}>
             <Reveal>
-              <span style={{ display: "inline-block", fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 16 }}>
+              <span style={{ display: "inline-block", fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accentOnDark, marginBottom: 16 }}>
                 {cfg.name}
               </span>
             </Reveal>
             {hook?.eyebrow && (
               <Reveal delay={0.04}>
-                <p style={{ fontSize: 14, color: mkt.onDarkFaint, fontStyle: "italic", marginBottom: 18, maxWidth: 520 }}>
+                <p style={{ fontSize: 14, color: mkt.onDarkMuted, fontStyle: "italic", marginBottom: 18, maxWidth: 520 }}>
                   {hook.eyebrow}
                 </p>
               </Reveal>
@@ -563,7 +563,7 @@ function TrustStrip({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) 
   return (
     <section style={{ padding: "32px 24px", borderTop: `1px solid ${mkt.onDarkBorder}`, borderBottom: `1px solid ${mkt.onDarkBorder}`, background: "rgba(255,255,255,0.02)" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        <p style={{ textAlign: "center", fontSize: 11, fontFamily: MONO, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase", color: mkt.onDarkFaint, marginBottom: 18 }}>
+        <p style={{ textAlign: "center", fontSize: 11, fontFamily: MONO, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase", color: mkt.onDarkMuted, marginBottom: 18 }}>
           Trusted by trades businesses across
         </p>
         <div style={{ display: "flex", justifyContent: "space-around", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
@@ -826,7 +826,7 @@ function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans:
             {!comingSoon && pricing.noteLink && (
               <>
                 {displayNote ? " " : ""}
-                <Link href={pricing.noteLink.href} style={{ color: mkt.accent, textDecoration: "underline" }}>
+                <Link href={pricing.noteLink.href} style={{ color: mkt.accentOnDark, textDecoration: "underline" }}>
                   {pricing.noteLink.label}
                 </Link>
               </>
@@ -1083,7 +1083,7 @@ function FinalCta({ cfg, comingSoon, oneTime }: { cfg: ReturnType<typeof getProd
         }} />
         <h2 style={{ position: "relative", fontSize: "clamp(32px, 4.5vw, 52px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, marginBottom: 18 }}>
           Ready to start with{" "}
-          <span style={{ display: "block", color: mkt.accent }}>{cfg.name}?</span>
+          <span style={{ display: "block", color: mkt.accentOnDark }}>{cfg.name}?</span>
         </h2>
         <p style={{ position: "relative", fontSize: 16, lineHeight: 1.55, color: mkt.onDarkMuted, marginBottom: 32 }}>
           {reassurance}
@@ -1157,7 +1157,7 @@ function QuickQuoteLandingLiveDemo() {
           style={{
             fontSize: 11,
             fontWeight: 700,
-            color: mkt.accent,
+            color: mkt.accentOnDark,
             textAlign: "center",
             letterSpacing: "0.12em",
             textTransform: "uppercase",
@@ -1239,7 +1239,7 @@ function RankFlowFreeTools() {
           style={{
             fontSize: 11,
             fontWeight: 700,
-            color: mkt.accent,
+            color: mkt.accentOnDark,
             textAlign: "center",
             letterSpacing: "0.12em",
             textTransform: "uppercase",
@@ -1334,7 +1334,7 @@ function MapGuardLandingTeaser() {
           style={{
             fontSize: 11,
             fontWeight: 700,
-            color: mkt.accent,
+            color: mkt.accentOnDark,
             textAlign: "center",
             letterSpacing: "0.12em",
             textTransform: "uppercase",
@@ -1677,7 +1677,7 @@ function WaitlistForm({ productSlug, productName }: { productSlug: string; produ
                 htmlFor="waitlist-email"
                 style={{ display: "block", fontSize: 12, color: mkt.onDarkMuted, marginBottom: 6, fontFamily: MONO, letterSpacing: "0.04em" }}
               >
-                Email <span style={{ color: mkt.accent }}>*</span>
+                Email <span style={{ color: mkt.accentOnDark }}>*</span>
               </label>
               <input
                 id="waitlist-email"
@@ -1802,7 +1802,7 @@ function TradeLineArchSection() {
       <div style={{ maxWidth: 980, margin: "0 auto" }}>
         <Reveal>
           <p style={{
-            fontSize: 11, fontWeight: 700, color: mkt.accent,
+            fontSize: 11, fontWeight: 700, color: mkt.accentOnDark,
             textAlign: "center", letterSpacing: "0.12em",
             textTransform: "uppercase", margin: "0 0 10px", fontFamily: MONO,
           }}>
@@ -1924,7 +1924,7 @@ function ReputationShieldDataSection() {
       <div style={{ maxWidth: 980, margin: "0 auto" }}>
         <Reveal>
           <p style={{
-            fontSize: 11, fontWeight: 700, color: mkt.accent,
+            fontSize: 11, fontWeight: 700, color: mkt.accentOnDark,
             textAlign: "center", letterSpacing: "0.12em",
             textTransform: "uppercase", margin: "0 0 10px", fontFamily: MONO,
           }}>

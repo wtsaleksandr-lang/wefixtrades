@@ -162,7 +162,7 @@ function UpsellRibbon({ text, href, label }: { text: string; href: string; label
           fontSize: 12,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
-          color: mkt.accent,
+          color: mkt.accentOnDark,
           textDecoration: "none",
           whiteSpace: "nowrap",
         }}
@@ -190,7 +190,7 @@ export default function FreeToolsHubPage() {
         <V7Hero
           productName="Free Tools"
           eyebrow="Built by WeFixTrades. Free to use. No signup."
-          headline={<>Free tools to grow<br/><span style={{ color: mkt.accent }}>your trade business.</span></>}
+          headline={<>Free tools to grow<br/><span style={{ color: mkt.accentOnDark }}>your trade business.</span></>}
           sub="19 free tools across local SEO, AI content, and customer engagement. Use them today — no credit card, no signup."
           ctas={[
             { label: "Start with Free Audit", href: "/tools/free-audit" },

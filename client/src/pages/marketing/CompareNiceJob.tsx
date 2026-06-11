@@ -53,15 +53,17 @@ export default function CompareNiceJob() {
         keywords={["nicejob alternative", "review management for trades"]}
       />
       <div data-theme="light" style={{ maxWidth: 880, margin: "0 auto", padding: "60px 20px 80px" }}>
-        {/* Hero */}
+        {/* Hero — naked on the dark marketing page bg, so every ink here
+            must be a dark-surface token (the page previously hardcoded
+            light-theme inks → invisible text; night-audit P-A P0). */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: mkt.accent, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: mkt.accentOnDark, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>
             Comparison
           </p>
-          <h1 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.1, marginBottom: 16 }}>
+          <h1 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 700, color: mkt.onDark, lineHeight: 1.1, marginBottom: 16 }}>
             ReputationShield vs NiceJob
           </h1>
-          <p style={{ fontSize: 17, color: "#6B7280", maxWidth: 600, margin: "0 auto", lineHeight: 1.6 }}>
+          <p style={{ fontSize: 17, color: mkt.onDarkMuted, maxWidth: 600, margin: "0 auto", lineHeight: 1.6 }}>
             Both help trades businesses get more reviews. Here's where ReputationShield goes further — at the same price point.
           </p>
           {/* Compact stats */}
@@ -72,8 +74,8 @@ export default function CompareNiceJob() {
               { value: "93%", label: "complaints caught privately" },
             ].map((s) => (
               <div key={s.label} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: mkt.accent }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: "#9CA3AF" }}>{s.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: mkt.accentOnDark }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: mkt.onDarkMuted }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -191,27 +193,27 @@ export default function CompareNiceJob() {
           details[open] .compare-faq-chevron { transform: rotate(180deg); }
         `}</style>
         <div style={{ marginBottom: 48 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e", marginBottom: 16 }}>Common questions</h3>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: mkt.onDark, marginBottom: 16 }}>Common questions</h3>
           {[
             { q: "Is ReputationShield only for trades businesses?", a: "It's built for trades — plumbers, electricians, HVAC, roofers, contractors — but works for any local service business. The automation, templates, and AI are tuned for how trades businesses operate." },
             { q: "Do I have to ask customers for reviews manually?", a: "No. Review requests are sent automatically by SMS or email after every completed job. You can also send them manually from the portal or use QR codes for in-person collection — but the system works without you doing anything." },
             { q: "What happens if a customer is unhappy?", a: "They see a private feedback form instead of the Google review page. You get their complaint directly and can resolve it before it becomes a public 1-star review. This is the 'shield' in ReputationShield." },
             { q: "Why choose ReputationShield over NiceJob?", a: "Both handle automated review collection well. ReputationShield adds AI response drafting, direct Google posting, QR codes, low-rating alerts, and source tracking — for $4/mo more. The difference is what happens after the review request is sent." },
           ].map((item) => (
-            <details key={item.q} style={{ borderBottom: "1px solid #E5E7EB", paddingBottom: 12, marginBottom: 12 }}>
-              <summary style={{ fontSize: 14, fontWeight: 600, color: "#374151", cursor: "pointer", padding: "4px 0", listStyle: "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <details key={item.q} style={{ borderBottom: `1px solid ${mkt.onDarkBorder}`, paddingBottom: 12, marginBottom: 12 }}>
+              <summary style={{ fontSize: 14, fontWeight: 600, color: mkt.onDark, cursor: "pointer", padding: "4px 0", listStyle: "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 {item.q}
-                <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 compare-faq-chevron" />
+                <ChevronDown className="w-4 h-4 shrink-0 compare-faq-chevron" style={{ color: mkt.onDarkMuted }} />
               </summary>
-              <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.6, marginTop: 8, paddingLeft: 0 }}>{item.a}</p>
+              <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.6, marginTop: 8, paddingLeft: 0 }}>{item.a}</p>
             </details>
           ))}
         </div>
 
         {/* CTA */}
         <div style={{ textAlign: "center" }}>
-          <h2 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a2e", marginBottom: 12 }}>Your next 5-star review is one completed job away.</h2>
-          <p style={{ fontSize: 15, color: "#6B7280", marginBottom: 24 }}>No contracts. No sales calls. No setup fees. 30-day money-back guarantee.</p>
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: mkt.onDark, marginBottom: 12 }}>Your next 5-star review is one completed job away.</h2>
+          <p style={{ fontSize: 15, color: mkt.onDarkMuted, marginBottom: 24 }}>No contracts. No sales calls. No setup fees. 30-day money-back guarantee.</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/wizard">
               <Button style={{ background: mkt.accent, color: "#FFFFFF", fontWeight: 700, padding: "14px 28px", borderRadius: 10, fontSize: 15 }}>
@@ -219,7 +221,10 @@ export default function CompareNiceJob() {
               </Button>
             </Link>
             <Link href="/products/reputationshield">
-              <Button variant="outline" style={{ padding: "14px 28px", borderRadius: 10, fontSize: 15 }}>
+              <Button
+                variant="outline"
+                style={{ padding: "14px 28px", borderRadius: 10, fontSize: 15, background: "transparent", color: mkt.onDark, borderColor: "rgba(255,255,255,0.25)" }}
+              >
                 See Full Product Details
               </Button>
             </Link>

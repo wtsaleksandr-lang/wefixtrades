@@ -307,11 +307,15 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       fontSize: 11,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: mkt.onDarkFaint,
+                      /* onDarkMuted, not onDarkFaint — the faint step
+                         (#5F6F77) reads ~2.7:1 on the sectionLight panel
+                         (night-audit P-A C2; same swap as the rest of the
+                         dark-surface sub-copy in this file). */
+                      color: mkt.onDarkMuted,
                     }}
                   >
                     <div role="columnheader" style={{ padding: "14px 18px" }}>Category</div>
-                    <div role="columnheader" style={{ padding: "14px 18px", color: mkt.accent }}>WeFixTrades</div>
+                    <div role="columnheader" style={{ padding: "14px 18px", color: mkt.accentOnDark }}>WeFixTrades</div>
                     <div role="columnheader" style={{ padding: "14px 18px" }}>{competitorName}</div>
                   </div>
                   {tldrRows.map((r, i) => (
@@ -386,11 +390,11 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       fontSize: 11,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: mkt.onDarkFaint,
+                      color: mkt.onDarkMuted,
                     }}
                   >
                     <div role="columnheader" style={{ padding: "14px 18px" }}>Feature</div>
-                    <div role="columnheader" style={{ padding: "14px 12px", color: mkt.accent, textAlign: "center" }}>
+                    <div role="columnheader" style={{ padding: "14px 12px", color: mkt.accentOnDark, textAlign: "center" }}>
                       WeFixTrades
                     </div>
                     <div role="columnheader" style={{ padding: "14px 12px", textAlign: "center" }}>
@@ -439,14 +443,14 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
               <p
                 style={{
                   fontSize: 12,
-                  color: mkt.onDarkFaint,
+                  color: mkt.onDarkMuted,
                   textAlign: "center",
                   marginTop: 16,
                   fontFamily: SANS,
                 }}
               >
                 Public pricing + feature data as of {publishedDate}. Spotted something out of date?{" "}
-                <a href="/contact" style={{ color: mkt.accent, textDecoration: "none" }}>
+                <a href="/contact" style={{ color: mkt.accentOnDark, textDecoration: "none" }}>
                   Tell us
                 </a>{" "}
                 and we&rsquo;ll fix it.
@@ -485,7 +489,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       fontSize: 11,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: mkt.accent,
+                      color: mkt.accentOnDark,
                       marginBottom: 10,
                     }}
                   >
@@ -536,7 +540,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       fontSize: 11,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: mkt.onDarkFaint,
+                      color: mkt.onDarkMuted,
                       marginBottom: 10,
                     }}
                   >
@@ -630,7 +634,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                             position: "absolute",
                             left: 0,
                             top: 2,
-                            color: mkt.onDarkFaint,
+                            color: mkt.onDarkMuted,
                           }}
                         >
                           —
@@ -680,7 +684,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                             position: "absolute",
                             left: 0,
                             top: 2,
-                            color: mkt.accent,
+                            color: mkt.accentOnDark,
                           }}
                         >
                           +
@@ -714,7 +718,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                     fontSize: 11,
                     letterSpacing: "0.16em",
                     textTransform: "uppercase",
-                    color: mkt.accent,
+                    color: mkt.accentOnDark,
                     marginBottom: 18,
                   }}
                 >
@@ -738,7 +742,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                     fontSize: 12,
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
-                    color: mkt.onDarkFaint,
+                    color: mkt.onDarkMuted,
                     margin: 0,
                   }}
                 >
@@ -764,7 +768,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                       fontSize: 11,
                       letterSpacing: "0.16em",
                       textTransform: "uppercase",
-                      color: mkt.accent,
+                      color: mkt.accentOnDark,
                       marginBottom: 14,
                     }}
                   >
@@ -858,7 +862,7 @@ export default function CompareLandingPage(props: CompareLandingPageProps) {
                     fontSize: 11,
                     letterSpacing: "0.16em",
                     textTransform: "uppercase",
-                    color: mkt.accent,
+                    color: mkt.accentOnDark,
                     marginBottom: 14,
                   }}
                 >

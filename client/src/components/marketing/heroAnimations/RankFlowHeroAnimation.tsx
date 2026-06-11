@@ -101,7 +101,7 @@ export default function RankFlowHeroAnimation() {
               }}
             >
               <span>Wk 1 · #42</span>
-              <span style={{ color: mkt.accent, fontWeight: 700 }}>Wk 12 · #5</span>
+              <span style={{ color: mkt.accentOnDark, fontWeight: 700 }}>Wk 12 · #5</span>
             </div>
           </div>
         </div>
