@@ -5,7 +5,11 @@
  *
  * Strategy:
  *  - Title  →   header.title + a single readonly heading row.
- *  - Base   →   one `number` field "Base price" with the extracted default.
+ *  - Base   →   flat charge folded into the formula as a numeric constant
+ *               (business pricing config, NOT a customer-facing field — the
+ *               same input-vs-config rule the chat path enforces). Only when
+ *               the AI returned no price at all do we emit an editable
+ *               "Base price" field so the owner has something to fill in.
  *  - Addons →   each addon → a toggle field (`type: "checkbox"`) or a
  *               quantity number field (`type: "quantity"`) with `on_value`
  *               carrying the unit price.
@@ -152,23 +156,40 @@ export function imageTemplateToConfig(t: ImageTemplate): TemplateConfig {
   );
   const hasLineItems = lineItems.length > 0;
 
-  /* ─── Base price field ───
-   * Always present for the single-service case. When line items drive the
-   * price we still keep a base field for any flat charge the AI returned
-   * (basePrice), but default it to 0 if the AI (correctly) left it null —
-   * the prompt instructs basePrice=null when line items are used. */
-  const baseId = uniqId('base_price', used);
+  /* ─── Base price: business config, NOT a customer question ───
+   * A flat basePrice is the owner's pricing config (call-out fee / flat
+   * service charge). Per the input-vs-config rule (AI-gen quality wave,
+   * gap 3) it must NEVER surface as a customer-facing field — it gets
+   * folded into the subtotal formula as a numeric constant instead,
+   * exactly the way preset formulas embed constants
+   * (e.g. `[Bedrooms] * 28 + 95`).
+   *
+   * basePrice in this converter is always a FLAT charge: per-unit rates
+   * arrive via lineItems[].unitPrice (multiplied by an editable quantity
+   * field) and addons[].price (on_value) — basePrice is never multiplied
+   * by a quantity anywhere, so folding every positive numeric basePrice
+   * is semantics-preserving.
+   *
+   * When the AI extracted NO price at all (basePrice null/0) and there are
+   * no line items, behaviour is unchanged: emit the editable "Base price"
+   * field defaulting to 0 so the owner has something to fill in. */
+  const flatBaseConst =
+    typeof t.basePrice === 'number' && isFinite(t.basePrice) && t.basePrice > 0
+      ? t.basePrice
+      : null;
   const baseDefault = typeof t.basePrice === 'number' ? t.basePrice : 0;
-  // Skip a $0 base field entirely when line items carry the whole price, so
-  // the customer isn't shown a redundant "Base price: 0" input.
-  const includeBaseField = !hasLineItems || baseDefault > 0;
+  // Editable placeholder only when nothing priced the base AND no line
+  // items carry the price (skips the redundant "Base price: 0" input).
+  const includeBaseField = flatBaseConst === null && !hasLineItems;
+  let baseId: string | null = null;
   if (includeBaseField) {
+    baseId = uniqId('base_price', used);
     fields.push({
       id: baseId,
       name: baseId,
-      label: hasLineItems ? 'Base / call-out fee' : 'Base price',
+      label: 'Base price',
       type: 'number',
-      required: !hasLineItems,
+      required: true,
       default_value: baseDefault,
       min: 0,
       step: 1,
@@ -271,12 +292,16 @@ export function imageTemplateToConfig(t: ImageTemplate): TemplateConfig {
   }
 
   /* ─── Calculations ─── */
-  // Subtotal = base (if present) + line items + addons + (base modifiers)
+  // Subtotal = flat base constant (folded, never a field) OR the editable
+  // base placeholder field + line items + addons + (base modifiers)
   const baseModifiers = modifierExprs.filter((m) => m.appliesTo === 'base');
   const totalModifiers = modifierExprs.filter((m) => m.appliesTo === 'total');
 
   const subtotalParts = [
-    ...(includeBaseField ? [baseId] : []),
+    // Flat fee baked in as a numeric constant — mirrors preset formulas
+    // like `[Bedrooms] * 28 + 95`.
+    ...(flatBaseConst !== null ? [String(flatBaseConst)] : []),
+    ...(baseId !== null ? [baseId] : []),
     ...lineItemExprs,
     ...addonExprs,
     ...baseModifiers.map((m) => m.expr),

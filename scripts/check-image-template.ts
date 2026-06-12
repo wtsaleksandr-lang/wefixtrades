@@ -9,8 +9,10 @@
  *   - a multi-line-item extraction  → one editable quantity field per product
  *     (default = quoted count), per-unit prices in the formula, and a primary
  *     Total that equals Σ(qty × unitPrice) + addons + modifiers.
- *   - a single-base extraction       → unchanged (one base field) AND a
- *     non-zero primary Total (the "$0.00 headline" regression guard).
+ *   - a single-base extraction       → the flat fee is folded into the
+ *     formula as a constant (business config, NEVER a customer-facing
+ *     "Base price" field) AND a non-zero primary Total (the "$0.00
+ *     headline" regression guard).
  *
  * Exits non-zero on any failure so CI can gate it.
  */
@@ -98,7 +100,9 @@ function headline(cfg: ReturnType<typeof imageTemplateToConfig>): number {
   ok(values['Total'] === 6530, 'windows: editing a count recomputes Total (10 dh → 6530)', String(values['Total']));
 }
 
-/* ── 2. Single flat service (cleaning) — must be UNCHANGED + non-zero headline ── */
+/* ── 2. Single flat service (cleaning) — flat basePrice is business config:
+ * folded into the formula as a constant, NEVER a customer-facing field
+ * (input-vs-config rule, AI-gen quality wave gap 3). ── */
 {
   const t: ImageTemplate = {
     title: 'House cleaning',
@@ -110,14 +114,17 @@ function headline(cfg: ReturnType<typeof imageTemplateToConfig>): number {
   };
   const cfg = imageTemplateToConfig(t);
 
-  const base = cfg.fields.find((f) => f.label === 'Base price');
-  ok(!!base, 'cleaning: single base-price field present');
-  ok(base?.default_value === 180, 'cleaning: base defaults to 180', String(base?.default_value));
-  ok(cfg.fields.filter((f) => f.type === 'number').length === 1,
-     'cleaning: exactly one number field (the base)');
+  ok(!cfg.fields.some((f) => f.label === 'Base price'),
+     'cleaning: NO customer-facing base-price field (business config)');
+  ok(cfg.fields.filter((f) => f.type === 'number').length === 0,
+     'cleaning: zero number fields (flat fee folded into formula)',
+     cfg.fields.map((f) => f.label).join(','));
+  const subtotal = cfg.calculations.find((c) => c.name === 'Subtotal');
+  ok(/(^|[^\d.])180($|[^\d.])/.test(subtotal?.formula ?? ''),
+     'cleaning: constant 180 baked into Subtotal formula', subtotal?.formula);
 
-  // Headline must NOT be $0.00 — base flows into Total via the Subtotal name ref.
-  // Tax toggle defaults OFF → Total == base == 180.
+  // Headline must NOT be $0.00 — the constant flows into Total via the
+  // Subtotal name ref. Tax toggle defaults OFF → Total == base == 180.
   ok(headline(cfg) === 180, 'cleaning: headline Total = 180 (not $0.00)', String(headline(cfg)));
   ok(cfg.result_calc === 'Total', 'cleaning: result_calc points at Total');
 }
@@ -130,6 +137,47 @@ function headline(cfg: ReturnType<typeof imageTemplateToConfig>): number {
     title: 'Flat fee', basePrice: 99, currency: 'USD', addons: [], modifiers: [], notes: null,
   });
   ok(headline(cfg) === 99, 'bare-base: headline Total = 99 (id-vs-name $0.00 fix)', String(headline(cfg)));
+}
+
+/* ── 3b. Flat call-out fee + line items — fee folded as a constant, no
+ * "Base / call-out fee" customer field either (input-vs-config parity). ── */
+{
+  const t: ImageTemplate = {
+    title: 'Window replacement',
+    basePrice: 95, // flat call-out fee printed on the quote
+    lineItems: [
+      { label: 'Double-hung window', unitPrice: 525, quantity: 8, unit: 'window' },
+    ],
+    currency: 'USD',
+    addons: [],
+    modifiers: [],
+    notes: null,
+  };
+  const cfg = imageTemplateToConfig(t);
+
+  ok(!cfg.fields.some((f) => f.label === 'Base price' || f.label === 'Base / call-out fee'),
+     'flat+items: no base / call-out customer field (fee folded as constant)',
+     cfg.fields.map((f) => f.label).join(','));
+  const subtotal = cfg.calculations.find((c) => c.name === 'Subtotal');
+  ok(/(^|[^\d.])95($|[^\d.])/.test(subtotal?.formula ?? ''),
+     'flat+items: constant 95 baked into Subtotal formula', subtotal?.formula);
+  // 95 + 8 × 525 = 4295 — flat fee still contributes through the constant.
+  ok(headline(cfg) === 4295, 'flat+items: headline Total = 4295 (95 + 8×525)', String(headline(cfg)));
+  // The quantity field stays editable — only the FLAT fee became a constant.
+  ok(cfg.fields.some((f) => f.type === 'number' && f.default_value === 8),
+     'flat+items: per-unit quantity field still editable (rate semantics preserved)');
+}
+
+/* ── 3c. basePrice ABSENT (null) + no line items — behaviour unchanged:
+ * the editable "Base price" placeholder field remains so the owner has
+ * something to fill in. ── */
+{
+  const cfg = imageTemplateToConfig({
+    title: 'Mystery job', basePrice: null, currency: 'USD', addons: [], modifiers: [], notes: null,
+  });
+  const base = cfg.fields.find((f) => f.label === 'Base price');
+  ok(!!base, 'null-base: editable Base price placeholder field still present');
+  ok(base?.default_value === 0, 'null-base: placeholder defaults to 0', String(base?.default_value));
 }
 
 /* ── 4. Styling: themeHint:'red' → scarlet theme + ctaLabel applied ──
