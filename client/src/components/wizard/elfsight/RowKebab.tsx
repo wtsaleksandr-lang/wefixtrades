@@ -196,7 +196,11 @@ export default function RowKebab({
         .qq-row-kebab svg { display: block; }
 
         .qq-row-kebab-menu {
-          position: fixed; z-index: 1000;
+          /* MOBILE-FIELD-CONTROLS — raised 1000→10000 so the portaled menu
+           * never renders behind the mobile bottom sheet (z 9998). On mobile
+           * the row now uses inline controls instead, but this keeps the menu
+           * safe if it ever surfaces over the sheet. */
+          position: fixed; z-index: 10000;
           min-width: ${MENU_W}px;
           padding: 6px;
           background: ${AE.color.bg};
