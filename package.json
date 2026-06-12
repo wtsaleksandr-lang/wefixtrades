@@ -40,6 +40,7 @@
     "check:funnel-analytics": "tsx server/lib/analytics.funnel.test.ts",
     "check:serp-country": "tsx shared/locationCountry.test.ts",
     "check:calculator-schema": "tsx shared/schemas/calculator.fieldTypes.test.ts",
+    "check:quote-widget-distance": "tsx server/routes/quoteWidgetDistanceRoutes.test.ts",
     "check:demo-persona": "tsx shared/prompts/tradelineDemoPrompt.test.ts",
     "check:contentflow-generate-source": "tsx server/routes/portal/contentflow.generateSource.test.ts",
     "check:contentflow-reference-replication": "tsx server/services/contentflow/referenceReplication.test.ts",
