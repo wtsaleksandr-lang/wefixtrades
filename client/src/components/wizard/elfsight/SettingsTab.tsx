@@ -258,7 +258,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       <AdvancedSection
         id="settings-advanced"
         label="Advanced settings"
-        hint="pricing, deposit, scheduling, trade & business details"
+        hint="pricing, deposit, scheduling & business details"
       >
       {/* ── Pricing model ───────────────────────────────────────── */}
       {/* W-AO-7 — restored section legend (top-left + InfoCue) per the
