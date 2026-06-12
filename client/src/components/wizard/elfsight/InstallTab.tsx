@@ -685,6 +685,32 @@ export default function InstallTab({
             {snippetCopyOk ? 'Copied' : 'Copy'}
           </button>
         </div>
+
+        {/* Beginner fallback — for users who don't want to (or can't) paste a
+            script tag into their site. Points them at the zero-setup hosted
+            link (section 1 above) as the no-website-skills option, and copies
+            it for them in one click. Outline callout, never a bright fill. */}
+        <div
+          className="qq-install-nocode"
+          data-testid="install-nocode-fallback"
+        >
+          <p className="qq-install-nocode-h">Not sure how to add this to your site?</p>
+          <p className="qq-install-nocode-sub">
+            You don't need any website skills. Share your free hosted link
+            instead — it runs the calculator on its own page with nothing to
+            install. Drop it in an email, your Instagram bio, or your Google
+            Business profile.
+          </p>
+          <button
+            type="button"
+            onClick={() => copyText(hostedUrl, setHostedCopyOk)}
+            className="qq-install-nocode-copy"
+            data-testid="install-nocode-copy"
+            aria-label="Copy hosted link"
+          >
+            {hostedCopyOk ? 'Hosted link copied' : 'Copy my hosted link instead'}
+          </button>
+        </div>
       </section>
 
       <div className="qq-install-divider" />
@@ -1150,6 +1176,67 @@ export default function InstallTab({
         }
         .qq-install-mode-position {
           margin: 0 0 8px;
+        }
+
+        /* Beginner "no-code" fallback callout — outline card (faint accent
+           tint + accent border), never a bright fill, per the hard UI rules.
+           Sits just below the embed snippet so users who can't paste a script
+           see the zero-setup hosted-link option immediately. */
+        .qq-install-nocode {
+          margin-top: 10px;
+          padding: 12px 14px;
+          border: 1px solid rgba(13,60,252,0.28);
+          background: rgba(13,60,252,0.05);
+          border-radius: 10px;
+          display: flex; flex-direction: column; gap: 4px;
+        }
+        .qq-install-nocode-h {
+          margin: 0;
+          font-size: 12.5px; font-weight: 700;
+          color: ${p.colors.heading};
+          line-height: 1.35;
+        }
+        .qq-install-nocode-sub {
+          margin: 0;
+          font-size: 11.5px; color: ${p.colors.body};
+          line-height: 1.5;
+        }
+        .qq-install-nocode-copy {
+          align-self: flex-start;
+          margin-top: 4px;
+          display: inline-flex; align-items: center; justify-content: center;
+          font: inherit; font-size: 12px; font-weight: 700;
+          color: ${p.colors.accent};
+          background: #fff;
+          border: 1px solid ${p.colors.accent};
+          border-radius: 8px;
+          padding: 6px 12px;
+          cursor: pointer;
+          min-height: 32px; line-height: 1.2;
+          transition: background 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-install-nocode-copy:hover {
+          background: rgba(13,60,252,0.06);
+        }
+        .qq-install-nocode-copy:focus-visible {
+          outline: none; box-shadow: ${p.shadows.button};
+        }
+        @media (max-width: 768px) {
+          .qq-install-nocode-copy { min-height: 44px; font-size: 13px; }
+        }
+        /* Dark-mode — match the slate editor surface (the embed section sits on
+           the dark shell in dark theme). Outline stays; surfaces go dark. */
+        .qq-editor-shell[data-theme="dark"] .qq-install-nocode {
+          background: rgba(79,124,255,0.10);
+          border-color: rgba(79,124,255,0.40);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-nocode-copy {
+          background: #1e293b;
+          color: #c7d4ff;
+          border-color: var(--qq-accent, #4f7cff);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-nocode-copy:hover {
+          background: #243149;
         }
 
         /* Wave O — platform guide cards (modal-based). 2-up grid that

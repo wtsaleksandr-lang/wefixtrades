@@ -178,6 +178,13 @@ export default function BuildTab({
             <Sparkles size={16} />
           </span>
           <span className="qq-buildai-title">Generate with AI</span>
+          {/* Fastest-path affordance — subtle OUTLINE pill (NOT a bright fill,
+              per the hard UI rules) that nudges first-time users toward the
+              30-second AI path over manual building. Visual emphasis only;
+              behavior unchanged. */}
+          <span className="qq-buildai-fastest" data-testid="build-ai-fastest-badge">
+            Fastest
+          </span>
           {/* Rule 5 — every panel header carries a help cue (2026-06-11
               sweep: this card head was missing one). */}
           <InfoCue
@@ -413,6 +420,20 @@ export default function BuildTab({
           font-size: ${AE.type.title.size};
           font-weight: 600;
           color: ${AE.color.text};
+        }
+        /* "Fastest" pill — OUTLINE affordance (accent border + faint accent
+           tint), never a bright fill, per the hard UI rules. Draws the eye to
+           the AI path without shouting. Sits right of the title in the header. */
+        .qq-buildai-fastest {
+          display: inline-flex; align-items: center;
+          font-size: 10.5px; font-weight: 700;
+          letter-spacing: 0.03em; text-transform: uppercase;
+          color: ${AE.color.accent};
+          background: ${AE.color.accentTint};
+          border: 1px solid ${AE.color.accent};
+          border-radius: ${AE.radius.pill};
+          padding: 1px 7px;
+          line-height: 1.4;
         }
         .qq-buildai-sub {
           margin: -4px 0 0;

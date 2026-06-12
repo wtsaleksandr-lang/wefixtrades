@@ -212,7 +212,7 @@ function PortalDashboardInner() {
     },
   });
 
-  const { data: qqData } = useQuery<QuoteQuickData>({
+  const { data: qqData, isSuccess: qqLoaded } = useQuery<QuoteQuickData>({
     queryKey: ["/api/portal/quotequick/summary"],
     queryFn: async () => {
       const res = await fetch("/api/portal/quotequick/summary", { credentials: "include" });
@@ -278,6 +278,10 @@ function PortalDashboardInner() {
     (t) => t.status !== "resolved" && t.status !== "closed",
   ).length;
   const leadsThisMonth = qqData?.calculator?.total_leads ?? 0;
+  // First-run signal — the QuoteQuick summary query has resolved AND the user
+  // owns no calculator yet. Drives the "build your first calculator" hero so a
+  // new signup lands on the wizard CTA instead of a generic admin dashboard.
+  const hasNoCalculator = qqLoaded && qqData?.calculator == null;
   const nextBillingDays = daysUntil(billingSlice?.summary.next_due_at);
   const nextBillCents = billingSlice?.summary.next_due_amount_cents ?? null;
 
@@ -368,28 +372,61 @@ function PortalDashboardInner() {
       )}
       {data && data.active_services === 0 && (
         /* New-customer welcome flow — zero active services. Replaces
-           StatCards + Recent Activity with a focused first-action prompt. */
+           StatCards + Recent Activity with a focused first-action prompt.
+           Activation fix: QuoteQuick (the free wizard) is the product's front
+           door, so for a brand-new signup that owns NO calculator yet the
+           PRIMARY action is "build your first quote calculator → /wizard"
+           (free, no card). "Browse services"/catalog is demoted to a secondary
+           link. A zero-services user who ALREADY built a calculator (free
+           QuoteQuick signup) instead leads with "Browse services" — no point
+           pushing them to build a second one. */
         <div className="max-w-3xl" data-testid="dashboard-new-customer-welcome">
           <Card className="p-8 text-center">
-            <Sparkles className="mx-auto text-muted-foreground mb-4" size={32} aria-hidden="true" />
+            <Sparkles className="mx-auto text-brand-blue mb-4" size={32} aria-hidden="true" />
             <h2 className="text-xl font-bold text-foreground mb-2">Welcome to WeFixTrades</h2>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Pick your first service to get started. We'll guide you through setup and connect everything for you.
-            </p>
-            <Link
-              href="/portal/catalog"
-              data-testid="dashboard-welcome-browse"
-              className="btn-primary-premium inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg"
-            >
-              Browse services
-            </Link>
-            <Link
-              href="/tools/free-audit"
-              className="block mt-3 text-sm text-muted-foreground hover:underline"
-              data-testid="dashboard-welcome-free-audit"
-            >
-              Or run a free audit first →
-            </Link>
+            {hasNoCalculator ? (
+              <>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Start with a free quote calculator — describe your job and the
+                  AI drafts the whole thing. Live in ~5 minutes, no card needed.
+                </p>
+                <Link
+                  href="/wizard"
+                  data-testid="dashboard-welcome-build-calculator"
+                  className="btn-primary-premium inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg"
+                >
+                  <Sparkles className="w-4 h-4" aria-hidden="true" />
+                  Build your first quote calculator
+                </Link>
+                <Link
+                  href="/portal/catalog"
+                  data-testid="dashboard-welcome-browse"
+                  className="block mt-3 text-sm text-muted-foreground hover:underline"
+                >
+                  Or browse done-for-you services →
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Pick your first service to get started. We'll guide you through setup and connect everything for you.
+                </p>
+                <Link
+                  href="/portal/catalog"
+                  data-testid="dashboard-welcome-browse"
+                  className="btn-primary-premium inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg"
+                >
+                  Browse services
+                </Link>
+                <Link
+                  href="/tools/free-audit"
+                  className="block mt-3 text-sm text-muted-foreground hover:underline"
+                  data-testid="dashboard-welcome-free-audit"
+                >
+                  Or run a free audit first →
+                </Link>
+              </>
+            )}
           </Card>
         </div>
       )}
@@ -589,9 +626,48 @@ function PortalDashboardInner() {
             </Card>
           )}
 
-          {/* QuoteQuick card removed from dashboard — canonical home is
-             /portal/services. The generic "Add Services" CTA above + the
-             services page itself cover discovery now. Per Alex: dedupe. */}
+          {/* First-run hero — shown only when the user owns ZERO calculators
+             (qqData resolved + calculator == null). The wizard is the product's
+             strength but was invisible on the dashboard; this is the primary
+             "build your first calculator" front door → /wizard. Hidden once the
+             user has any calculator, so returning users see the normal board. */}
+          {hasNoCalculator && (
+            <Card
+              className="relative border-brand-blue/30 bg-[#EEF3FF]/60 dark:bg-brand-blue/10 p-6"
+              data-testid="dashboard-first-calculator-cta"
+            >
+              {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+              <span className="absolute top-1 left-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px] text-xs">
+                    Build a quote calculator your customers fill in to get an instant price — it captures their details as a lead. The wizard drafts the whole thing for you; you can edit everything afterwards.
+                  </TooltipContent>
+                </Tooltip>
+              </span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="w-8 h-8 rounded-lg bg-brand-blue/15 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-brand-blue" aria-hidden="true" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-semibold text-foreground">Build your first quote calculator</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Free, no card — live in ~5 minutes. Describe your job and the AI drafts the whole thing.
+                  </p>
+                </div>
+                <Link
+                  href="/wizard"
+                  data-testid="dashboard-first-calculator-start"
+                  className="btn-primary-premium inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg shrink-0"
+                >
+                  <Sparkles className="w-4 h-4" aria-hidden="true" />
+                  Start building
+                </Link>
+              </div>
+            </Card>
+          )}
 
           {/* TradeLine card */}
           {tradeLineService && tlData?.config && (() => {
