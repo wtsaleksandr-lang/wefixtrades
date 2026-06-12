@@ -23,6 +23,8 @@ client/src/pages/admin/BookingCalendarPage.tsx
 client/src/pages/admin/ClientsPage.tsx
 client/src/pages/admin/ContentPipelinePage.tsx
 client/src/pages/admin/ContentFlowQueuePage.tsx
+# SEO content review queue — read-only list + preview; edit is an inline reviewer action (not a fillable intake form).
+client/src/pages/admin/SeoReviewQueuePage.tsx
 client/src/pages/admin/CrmOverview.tsx
 client/src/pages/admin/InboxPage.tsx
 client/src/pages/admin/InstallQueuePage.tsx

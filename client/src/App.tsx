@@ -182,6 +182,7 @@ const SequencesPage = lazy(() => import("@/pages/admin/outbound/SequencesPage"))
 const SendingPage = lazy(() => import("@/pages/admin/outbound/SendingPage"));
 const SocialSyncOpsPage = lazy(() => import("@/pages/admin/SocialSyncOpsPage"));
 const ContentFlowQueuePage = lazy(() => import("@/pages/admin/ContentFlowQueuePage"));
+const SeoReviewQueuePage = lazy(() => import("@/pages/admin/SeoReviewQueuePage"));
 const SalesPipelinePage = lazy(() => import("@/pages/admin/SalesPipelinePage"));
 const BookingCalendarPage = lazy(() => import("@/pages/admin/BookingCalendarPage"));
 const SystemJobsPage = lazy(() => import("@/pages/admin/SystemJobsPage"));
@@ -394,6 +395,7 @@ function Router() {
       <Route path="/admin/crm/socialsync">{() => <RequirePortal><SocialSyncOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/contentflow">{() => <RequirePortal><ContentFlowQueuePage /></RequirePortal>}</Route>
       <Route path="/admin/contentflow">{() => <Redirect to="/admin/crm/contentflow" />}</Route>
+      <Route path="/admin/seo/review">{() => <RequirePortal><SeoReviewQueuePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients/:id">{() => <RequirePortal><ClientDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients">{() => <RequirePortal><ClientsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>

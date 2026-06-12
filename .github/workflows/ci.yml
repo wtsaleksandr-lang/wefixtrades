@@ -72,6 +72,8 @@ jobs:
         run: npm run check:seo-engine
       - name: SEO OriginalDataService guard (aggregation math, k-anonymity/anti-thin gate below MIN_SAMPLE, no-PII output shape, deliberate-failure fixture)
         run: npm run check:seo-original-data
+      - name: SEO article-generator guard (below-floor skips, in_review never auto-publishes, cites real data + CTA + internal links, flag-off inert, deliberate-failure fixture)
+        run: npm run check:seo-generator
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
