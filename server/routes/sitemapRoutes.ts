@@ -25,6 +25,10 @@
 import type { Express } from "express";
 import { PRODUCT_PAGES } from "../../client/src/config/products";
 import { TEMPLATE_PRESETS } from "../../shared/templatePresets";
+import { listPublishedSeoPagesForSitemap } from "../storage/seoContent";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Sitemap");
 
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL?.replace(/\/$/, "") || "https://wefixtrades.com";
 
@@ -227,7 +231,7 @@ function urlNode(loc: string, lastmod: string, changefreq: string, priority: str
   </url>`;
 }
 
-function buildSitemapXml(): string {
+async function buildSitemapXml(): Promise<string> {
   const lines: string[] = [];
 
   for (const r of STATIC_ROUTES) {
@@ -244,6 +248,23 @@ function buildSitemapXml(): string {
     lines.push(urlNode(`/ai-receptionists/${slug}`, "2026-06-02", "monthly", "0.8"));
   }
 
+  // Dynamic: owned-domain SEO engine — one URL per PUBLISHED seo_content_pages
+  // row, at /blog/<slug>, with a REAL lastmod (updated_at/published_at — never
+  // now(); see the lastmod-hygiene note above). Draft/in_review/archived rows
+  // are excluded by the storage query, so the sitemap can never advertise an
+  // unpublished page. DB failure is non-fatal — we still serve the static
+  // sitemap rather than 500 the whole file.
+  try {
+    const seoPages = await listPublishedSeoPagesForSitemap();
+    for (const page of seoPages) {
+      lines.push(urlNode(`/blog/${page.slug}`, page.lastmod, "weekly", "0.7"));
+    }
+  } catch (err) {
+    log.error("published SEO pages query failed — serving static sitemap only", {
+      err: (err as Error).message,
+    });
+  }
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${lines.join("\n")}
@@ -256,10 +277,10 @@ let cachedAt = 0;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export function registerSitemapRoutes(app: Express): void {
-  app.get("/sitemap.xml", (_req, res) => {
+  app.get("/sitemap.xml", async (_req, res) => {
     const now = Date.now();
     if (!cachedXml || now - cachedAt > CACHE_TTL_MS) {
-      cachedXml = buildSitemapXml();
+      cachedXml = await buildSitemapXml();
       cachedAt = now;
     }
     res.setHeader("Cache-Control", "public, max-age=3600");

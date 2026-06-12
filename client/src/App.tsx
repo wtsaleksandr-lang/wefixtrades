@@ -133,6 +133,7 @@ const DesignShowcase = lazy(() => import("@/pages/marketing/DesignShowcase"));
 const CompeteMockups = lazy(() => import("@/pages/marketing/CompeteMockups"));
 const About = lazy(() => import("@/pages/About"));
 const Blog = lazy(() => import("@/pages/Blog"));
+const BlogArticle = lazy(() => import("@/pages/BlogArticle"));
 const CaseStudies = lazy(() => import("@/pages/CaseStudies"));
 const PrimitivesPage = lazy(() => import("@/pages/dev/primitives"));
 const DemoCanvas = lazy(() => import("@/pages/dev/DemoCanvas"));
@@ -654,6 +655,9 @@ function Router() {
       <Route path="/mockups/compete">{() => <CompeteMockups />}</Route>
       <Route path="/about" component={About} />
       <Route path="/blog" component={Blog} />
+      {/* DB-backed SEO article page (owned-domain SEO engine). Must come
+          after /blog so the static index wins the exact path. */}
+      <Route path="/blog/:slug">{(params) => <BlogArticle slug={params.slug} />}</Route>
       <Route path="/case-studies" component={CaseStudies} />
       {/* Audience landing pages (Brightlocal-style) */}
       <Route path="/for-agencies" component={ForAgenciesPage} />

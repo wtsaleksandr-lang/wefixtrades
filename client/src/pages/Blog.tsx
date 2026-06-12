@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
@@ -575,9 +576,30 @@ function FilterBar({ categories, active, onToggle, onClear }: {
 
 /* ─── Page ──────────────────────────────────────────────────── */
 
+/* DB-backed published articles from the owned-domain SEO engine. These are
+   ADDITIVE: the 6 hardcoded BLOG_POSTS above keep working (in-page modal),
+   and any published seo_content_pages rows appear in a "Latest articles"
+   strip that links to the real /blog/:slug pages. When there are zero
+   published rows (the default, engine-off state), nothing extra renders and
+   the live /blog is visually unchanged. */
+interface PublishedArticle {
+  slug: string;
+  title: string;
+  excerpt: string;
+  author: string;
+  publishedAt: string | null;
+}
+
 export default function BlogPage() {
   const [openArticle, setOpenArticle] = useState<number | null>(null);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+
+  // Published DB articles. Failures are swallowed to an empty list so the
+  // static blog never breaks if the API is unavailable.
+  const { data: publishedData } = useQuery<{ articles: PublishedArticle[] }>({
+    queryKey: ["/api/blog/articles"],
+  });
+  const publishedArticles = publishedData?.articles ?? [];
 
   // Title + meta tags handled by <PageMeta> below.
   useEffect(() => { window.scrollTo({ top: 0, behavior: "auto" }); }, [openArticle]);
@@ -691,6 +713,60 @@ export default function BlogPage() {
 
             {/* ─ Featured swiper ─ */}
             <FeaturedSwiper posts={BLOG_POSTS} onOpen={setOpenArticle} />
+
+            {/* ─ Latest articles (DB-backed, owned-domain SEO engine) ─
+                  Only renders when published rows exist — keeps the live
+                  /blog unchanged while the engine is off. */}
+            {publishedArticles.length > 0 && (
+              <section style={{ background: mkt.bg, padding: "16px 24px 8px" }}>
+                <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+                  <h2 style={{
+                    fontSize: "clamp(20px, 2.4vw, 28px)", fontWeight: 700,
+                    color: mkt.onDark, margin: "0 0 20px",
+                    lineHeight: 1.1, letterSpacing: "-0.02em", fontFamily: SANS,
+                  }}>
+                    Latest articles
+                  </h2>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                    gap: 14,
+                  }}>
+                    {publishedArticles.map((a) => (
+                      <Link key={a.slug} href={`/blog/${a.slug}`} style={{
+                        display: "flex", flexDirection: "column", gap: 10,
+                        padding: "20px 18px", borderRadius: 16,
+                        background: mkt.sectionLight,
+                        border: `1px solid ${mkt.onDarkBorder}`,
+                        textDecoration: "none",
+                      }}>
+                        <h3 style={{
+                          fontSize: 18, fontWeight: 700, color: mkt.onDark, margin: 0,
+                          lineHeight: 1.2, letterSpacing: "-0.01em", fontFamily: SANS,
+                        }}>{a.title}</h3>
+                        {a.excerpt && (
+                          <p style={{
+                            fontSize: 13.5, color: mkt.onDarkMuted, margin: 0,
+                            lineHeight: 1.5,
+                            display: "-webkit-box", WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical", overflow: "hidden",
+                          }}>{a.excerpt}</p>
+                        )}
+                        <span style={{
+                          marginTop: "auto", fontFamily: MONO, fontSize: 11,
+                          color: mkt.onDarkMuted, letterSpacing: "0.04em",
+                        }}>
+                          {a.author}
+                          {a.publishedAt
+                            ? ` · ${new Date(a.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "short" })}`
+                            : ""}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* ─ Stay-Ahead section — Effortel-style bright grey panel
                   with rounded top corners, filter bar + archive grid ─ */}
