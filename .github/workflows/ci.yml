@@ -64,6 +64,8 @@ jobs:
         run: npm run check:contentflow-video-routes
       - name: ContentFlow intake-sufficiency guard (brief extraction/fills/scoring, placement-first ask, composeBriefLayer rules, no-regression byte-identical no-intake assembly)
         run: npm run check:contentflow-intake
+      - name: SEO engine foundation guard (published-only visibility, Article JSON-LD author entity, sitemap real-lastmod, flag + kill-switch gate, deliberate-failure fixture)
+        run: npm run check:seo-engine
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations

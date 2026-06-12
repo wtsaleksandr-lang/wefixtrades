@@ -20,7 +20,12 @@ export const contentDrafts = pgTable("content_drafts", {
   kind: varchar("kind", { length: 30 }).notNull(),
   // 'social_post' | 'article' | 'caption'
   surface: varchar("surface", { length: 30 }).notNull(),
-  // 'socialsync' | 'rankflow'
+  // 'socialsync' | 'rankflow' | 'wfx_seo'
+  // 'wfx_seo' = the owned-domain SEO content engine (shared/schemas/seoContent.ts):
+  // attributed, E-E-A-T, human-reviewed pages published on wefixtrades.com.
+  // It reuses this draft + content_approvals plumbing but NOT the rankflow
+  // detection-evasion machinery. On publish, the approved draft is copied
+  // into seo_content_pages (the durable, sitemap-feeding read path).
   title: text("title"),
   body: text("body"),                                 // post text or article body (markdown for articles)
   excerpt: text("excerpt"),                           // short summary for cards/previews

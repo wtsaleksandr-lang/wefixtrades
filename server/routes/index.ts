@@ -8,6 +8,7 @@ import { registerMarketingWaitlistRoutes } from "./marketingWaitlistRoutes";
 import { registerMarketingChatRoutes } from "./marketingChatRoutes";
 import { registerSitemapRoutes } from "./sitemapRoutes";
 import { registerRobotsRoutes } from "./robotsRoutes";
+import { registerSeoBlogRoutes } from "./seoBlogRoutes";
 import { registerAiRoutes } from "./aiRoutes";
 import { registerCalculatorRoutes } from "./calculatorRoutes";
 import { registerLeadRoutes } from "./leadRoutes";
@@ -161,6 +162,8 @@ export async function registerRoutes(
   // SEO Wave A — public sitemap.xml + robots.txt.
   registerSitemapRoutes(app);
   registerRobotsRoutes(app);
+  // Owned-domain SEO content engine — public published-article read API.
+  registerSeoBlogRoutes(app);
   registerUnsubscribeRoutes(app);
   registerAiRoutes(app);
   registerCalculatorRoutes(app);
