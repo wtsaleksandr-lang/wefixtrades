@@ -231,7 +231,9 @@ export function imageDemoTemplateToConfig(t: DemoImageTemplate): TemplateConfig 
     result_calc: "Total",
     header: {
       title,
-      subtitle: "Powered by your AI assistant",
+      // Chat rebrand (2026-06-12) — customer-facing copy, keep it about the
+      // customer's outcome rather than "AI".
+      subtitle: "Get your instant quote",
       align: "left",
     },
     results: {

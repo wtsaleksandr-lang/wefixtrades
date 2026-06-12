@@ -34,8 +34,8 @@ test.describe("Regression: AI Copilot", () => {
     const nav = adminPage.locator("nav");
     await expect(nav).toBeVisible({ timeout: 10000 });
 
-    // Click the Copilot button (title="AI Copilot")
-    const copilotBtn = adminPage.locator('button[title="AI Copilot"]');
+    // Click the Copilot button (chat rebrand: title="WeFixTrades assistant")
+    const copilotBtn = adminPage.locator('button[title="WeFixTrades assistant"]');
     await expect(copilotBtn).toBeVisible({ timeout: 5000 });
     await copilotBtn.click();
 

@@ -1782,7 +1782,7 @@ function DisplayPreferencesSection() {
         description:
           next === "advanced"
             ? "Every gauge, chart, and inbox is back on the page."
-            : "Dashboards now show only the essentials. Ask the AI Copilot for anything hidden, or flip Simple Mode off here to bring it back.",
+            : "Dashboards now show only the essentials. Ask your WeFixTrades assistant for anything hidden, or flip Simple Mode off here to bring it back.",
       });
     } catch {
       toast({ title: "Couldn't update display mode", variant: "destructive" });
@@ -1821,7 +1821,7 @@ function DisplayPreferencesSection() {
       <div data-theme="light" className="bg-white rounded-xl border border-gray-200 p-5">
         <h2 className="text-sm font-semibold text-gray-900 mb-1">Dashboard layout</h2>
         <p className="text-xs text-gray-500 mb-4">
-          Advanced is the default — every gauge, chart, and inbox is on the page. Opt into Simple Mode for a stripped-down view; your AI Copilot can surface anything hidden when you ask.
+          Advanced is the default — every gauge, chart, and inbox is on the page. Opt into Simple Mode for a stripped-down view; your WeFixTrades assistant can surface anything hidden when you ask.
         </p>
 
         <div

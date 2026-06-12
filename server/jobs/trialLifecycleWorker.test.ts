@@ -126,7 +126,9 @@ assert.ok(
   "AIChatBubble expiry message must not say 'free trial'"
 );
 assert.ok(
-  chatBubbleSrc.includes("Pro preview of the AI assistant has ended"),
+  // Chat rebrand (2026-06-12): "AI assistant" → "chat assistant" — the
+  // honest Pro-preview phrasing is the part that matters here.
+  chatBubbleSrc.includes("Pro preview of the chat assistant has ended"),
   "AIChatBubble must use the honest Pro-preview phrasing"
 );
 
