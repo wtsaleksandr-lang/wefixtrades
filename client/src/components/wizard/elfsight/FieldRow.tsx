@@ -24,8 +24,9 @@ import {
   SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronUp, ChevronDown, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, X, Trash2 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { TemplateField, TemplateOption } from '@shared/templatePresets';
 import { FIELD_TYPE_TO_PUBLIC } from './types';
 import { useEditorDndSensors, DND_CONTAINERS, DragHandleGlyph } from './dnd';
@@ -145,6 +146,11 @@ export default function FieldRow({
   field, allFields, index, total, onChange, onRemove, onMoveUp, onMoveDown,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
+  // MOBILE-FIELD-CONTROLS — on touch/mobile (≤768px) the portaled RowKebab
+  // menu rendered BEHIND the bottom sheet (z 1000 < sheet 9998) and was
+  // unreachable, so we swap it for inline up/down/delete controls. Desktop
+  // keeps the kebab. Canonical 768px breakpoint via the shared useIsMobile.
+  const isMobile = useIsMobile();
   // Wave J item 4 — exposes hover state as a data attribute so the spec can
   // assert "row gets a hover outline" without sniffing computed CSS.
   const [hoverOutline, setHoverOutline] = useState(false);
@@ -332,23 +338,66 @@ export default function FieldRow({
           <span className="qq-field-row-typename">{TYPE_LABEL[field.type]}</span>
         </button>
 
-        {/* Elfsight-clean — the old inline ▲ ▼ ✕ cluster is relocated into a
-         * single overflow menu. Move up / Move down / Delete are wired to the
-         * exact same handlers (onMoveUp / onMoveDown / onRemove) the inline
-         * buttons used, with the same first/last disabled logic. */}
+        {/* Desktop (>768px): the inline ▲ ▼ ✕ cluster is relocated into a
+         * single overflow menu (RowKebab). Move up / Move down / Delete are
+         * wired to the same handlers (onMoveUp / onMoveDown / onRemove) the
+         * inline buttons used, with the same first/last disabled logic.
+         *
+         * MOBILE-FIELD-CONTROLS — on mobile (≤768px) the portaled kebab menu
+         * rendered behind the bottom sheet and was untappable, so we render
+         * INLINE up / down / delete controls instead. Same handlers, same
+         * testids — only the affordance differs. The left drag-handle keeps
+         * drag-reorder either way. */}
         <div className="qq-field-row-actions">
-          <RowKebab
-            testidBase={`field-row-${field.id}`}
-            label={`Actions for ${field.label || 'field'}`}
-            onMoveUp={onMoveUp}
-            onMoveDown={onMoveDown}
-            onDelete={onRemove}
-            disableUp={index === 0}
-            disableDown={index === total - 1}
-            upTestid={`field-row-up-${field.id}`}
-            downTestid={`field-row-down-${field.id}`}
-            deleteTestid={`field-row-remove-${field.id}`}
-          />
+          {isMobile ? (
+            <>
+              <button
+                type="button"
+                className="qq-iconbtn qq-field-row-mobilebtn"
+                onClick={onMoveUp}
+                disabled={index === 0}
+                aria-label={`Move ${field.label || 'field'} up`}
+                data-no-select=""
+                data-testid={`field-row-up-${field.id}`}
+              >
+                <ChevronUp aria-hidden="true" width={18} height={18} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className="qq-iconbtn qq-field-row-mobilebtn"
+                onClick={onMoveDown}
+                disabled={index === total - 1}
+                aria-label={`Move ${field.label || 'field'} down`}
+                data-no-select=""
+                data-testid={`field-row-down-${field.id}`}
+              >
+                <ChevronDown aria-hidden="true" width={18} height={18} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className="qq-iconbtn qq-field-row-mobilebtn is-danger"
+                onClick={onRemove}
+                aria-label={`Delete ${field.label || 'field'}`}
+                data-no-select=""
+                data-testid={`field-row-remove-${field.id}`}
+              >
+                <Trash2 aria-hidden="true" width={18} height={18} strokeWidth={2} />
+              </button>
+            </>
+          ) : (
+            <RowKebab
+              testidBase={`field-row-${field.id}`}
+              label={`Actions for ${field.label || 'field'}`}
+              onMoveUp={onMoveUp}
+              onMoveDown={onMoveDown}
+              onDelete={onRemove}
+              disableUp={index === 0}
+              disableDown={index === total - 1}
+              upTestid={`field-row-up-${field.id}`}
+              downTestid={`field-row-down-${field.id}`}
+              deleteTestid={`field-row-remove-${field.id}`}
+            />
+          )}
         </div>
       </div>
 
@@ -1071,6 +1120,19 @@ export default function FieldRow({
         }
         .qq-field-row-actions {
           display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+        }
+        /* MOBILE-FIELD-CONTROLS — inline up / down / delete buttons shown in
+         * place of the (untappable-behind-sheet) kebab on mobile. ≥40px touch
+         * targets. The delete button shows its destructive token color at rest
+         * (not only on hover) so "delete" reads clearly on touch. */
+        .qq-field-row-actions .qq-field-row-mobilebtn {
+          width: 40px; height: 40px;
+          min-width: 40px; min-height: 40px;
+          border-radius: 8px;
+        }
+        .qq-field-row-actions .qq-field-row-mobilebtn svg { width: 18px; height: 18px; }
+        .qq-field-row-actions .qq-field-row-mobilebtn.is-danger {
+          color: ${p.colors.danger};
         }
         /* Premium-SaaS icon button (shared) — Linear / Stripe / Vercel
          * aesthetic. Still used by the nested per-option editor (option

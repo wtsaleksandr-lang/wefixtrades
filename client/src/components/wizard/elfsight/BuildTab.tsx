@@ -312,7 +312,7 @@ export default function BuildTab({
               {logo ? (
                 <img src={logo} alt="" data-testid="editor-logo-preview" />
               ) : (
-                <span className="qq-logo-upload-plus" aria-hidden="true">＋</span>
+                <ImagePlus size={20} aria-hidden="true" />
               )}
             </button>
             {logo && (
@@ -608,9 +608,7 @@ export default function BuildTab({
         .qq-logo-upload img {
           width: 100%; height: 100%; object-fit: contain;
         }
-        .qq-logo-upload-plus {
-          font-size: 22px; line-height: 1; font-weight: 600;
-        }
+        .qq-logo-upload svg { display: block; }
         .qq-logo-clear {
           position: absolute; top: -8px; right: -8px;
           width: 18px; height: 18px;
