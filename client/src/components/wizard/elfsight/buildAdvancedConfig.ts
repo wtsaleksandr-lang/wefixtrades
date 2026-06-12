@@ -60,6 +60,11 @@ export interface BuildAdvancedConfigInput {
   /** AI-gen quality (gap 4) — niche default icon (QUOTEQUICK_ICONS key);
    *  rendered by AdvancedCalculator's header when no logo is uploaded. */
   defaultIcon?: string;
+  /** PRICING-MODELS — per-business anchor address for `address_distance`
+   *  fields (`settings.origin`). Threaded to `advanced.origin` so the
+   *  server geocodes it once on save and the public distance endpoint can
+   *  read it server-side (the widget client never supplies the origin). */
+  origin?: ShellSettings['origin'];
   steps?: TemplateStep[];
   category?: string;
   /**
@@ -93,7 +98,7 @@ export function buildAdvancedConfig(
   const {
     layout, businessName, fields, calculations, header, results,
     resultCalcId, style, settings, stepLayout, tiered, trustBadges,
-    defaultIcon, steps, category, forSave,
+    defaultIcon, origin, steps, category, forSave,
   } = input;
 
   const advanced = buildBlankPreviewConfig(layout, businessName);
@@ -152,6 +157,19 @@ export function buildAdvancedConfig(
   }
   if (defaultIcon) {
     merged = { ...merged, defaultIcon };
+  }
+  // PRICING-MODELS — thread the business anchor address only when it is
+  // actually set (non-empty after trim); preserve any already-geocoded
+  // lat/lng so a round-tripped origin doesn't lose its coordinates.
+  if (origin && origin.address.trim() !== '') {
+    merged = {
+      ...merged,
+      origin: {
+        address: origin.address.trim(),
+        ...(origin.lat != null ? { lat: origin.lat } : {}),
+        ...(origin.lng != null ? { lng: origin.lng } : {}),
+      },
+    };
   }
   if (steps && steps.length > 0) {
     merged = { ...merged, steps };

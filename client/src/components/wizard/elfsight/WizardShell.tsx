@@ -1383,6 +1383,9 @@ export default function WizardShell({ embed = false }: Props) {
         tiered: state.tiered,
         trustBadges: state.trustBadges,
         defaultIcon: state.defaultIcon,
+        // PRICING-MODELS — business anchor address for `address_distance`
+        // fields → `advanced.origin`; the server geocodes it on save.
+        origin: settings.origin,
         steps: state.steps,
         category: state.activeTemplateId
           ? getTemplatePreset(state.activeTemplateId)?.category

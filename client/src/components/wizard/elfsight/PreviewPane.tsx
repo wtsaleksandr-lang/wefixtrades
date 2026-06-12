@@ -1882,7 +1882,7 @@ export default function PreviewPane({
     const merged = buildAdvancedConfig({
       layout, businessName, fields, calculations, header, results,
       resultCalcId, style, settings, stepLayout, tiered, trustBadges,
-      defaultIcon, steps, category,
+      defaultIcon, origin: settings?.origin, steps, category,
     });
     return {
       id: -1,
