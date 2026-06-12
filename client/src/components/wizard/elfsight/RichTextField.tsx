@@ -613,7 +613,14 @@ export default function RichTextField({
           overflow: hidden;
         }
         .qq-rtf-toolbar {
-          display: flex; align-items: center; gap: 2px;
+          /* Issue 5 — the toolbar renders ~8 controls and the panel inner is
+             overflow:hidden, so at narrow pane widths the trailing buttons
+             (image / Done) were CLIPPED and unreachable. flex-wrap lets the
+             controls wrap onto a second row instead of clipping, so every
+             control stays reachable at any pane width. The panel keeps its
+             fixed height with the editor flex:1, so a wrapped second toolbar
+             row simply takes a little height from the editor (which scrolls). */
+          display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
           padding: 4px 6px;
           background: #fafbfc;
           border-bottom: 1px solid ${p.colors.borderLight};
