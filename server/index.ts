@@ -536,6 +536,23 @@ app.use("/portal", denyFrameEmbedding);
 app.use("/api/admin", denyFrameEmbedding);
 app.use("/api/portal", denyFrameEmbedding);
 
+/* PRICING-MODELS U4 — the public photo-upload body is base64 JSON up to
+ * ~11 MB (8 MB decoded). The global parser below has the 100 KB default
+ * limit and would 413 the request before the route ever runs (a route-scoped
+ * parser mounted later CANNOT raise the limit once the global parser has
+ * rejected the body — verified empirically). Path-scoped and mounted FIRST,
+ * so the global parser sees req.body already parsed and skips; every other
+ * path keeps the strict global default. */
+app.use(
+  "/api/quote-widget/upload",
+  express.json({
+    limit: "12mb",
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {

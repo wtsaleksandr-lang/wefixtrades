@@ -116,6 +116,7 @@ import { registerTwilioCommsRoutes } from "./twilioCommsRoutes";
 import { registerAdminContactsRoutes } from "./adminContactsRoutes";
 import { registerWidgetSchedulingRoutes } from "./widgetSchedulingRoutes";
 import { registerQuoteWidgetDistanceRoutes } from "./quoteWidgetDistanceRoutes";
+import { registerQuoteWidgetUploadRoutes } from "./quoteWidgetUploadRoutes";
 import { registerQuoteSnapshotRoutes } from "./quoteSnapshotRoutes";
 import { registerAdminQuoteQuickTemplatesRoutes } from "./adminQuoteQuickTemplatesRoutes";
 import { registerAdminQuoteQuickTradesRoutes } from "./adminQuoteQuickTradesRoutes";
@@ -300,6 +301,7 @@ export async function registerRoutes(
   registerAdminContactsRoutes(app);
   registerWidgetSchedulingRoutes(app);
   registerQuoteWidgetDistanceRoutes(app); // PRICING-MODELS U1 — public address_distance resolver
+  registerQuoteWidgetUploadRoutes(app); // PRICING-MODELS U4 — public photo_upload endpoint
   registerQuoteSnapshotRoutes(app);
   registerAdminQuoteQuickTemplatesRoutes(app);
   registerAdminQuoteQuickTradesRoutes(app);

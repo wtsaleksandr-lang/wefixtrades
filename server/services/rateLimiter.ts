@@ -410,3 +410,30 @@ export const distanceResolvePerCalcPerDayLimiter = new RateLimiter(
   envInt("DISTANCE_RESOLVE_PER_CALC_PER_DAY", 500),
   DAY_MS,
 );
+
+/**
+ * PRICING-MODELS U4 — public photo-upload endpoint
+ * (POST /api/quote-widget/upload). Anonymous buyers attach job photos from
+ * the embedded widget; every accepted upload writes up to 8 MB to
+ * data/uploads/lead-photos, so two per-IP layers bound disk abuse:
+ *   - `photoUploadPerMinLimiter` → per-IP, 5 / min. Bounds a single client
+ *     hammering the endpoint (a real buyer uploads at most maxPhotos ≤ 5
+ *     per quote, so 5/min is generous for legitimate use).
+ *   - `photoUploadPerDayLimiter` → per-IP, 30 / day. The hard per-IP disk
+ *     budget (~240 MB/day worst case). Only requests that pass validation
+ *     consume it — rejected junk can't starve a buyer's real photos.
+ * Over-cap returns 429 {ok:false, reason:'quota'} — the widget shows a retry
+ * badge on the tile and the quote submit NEVER blocks on photos. Both caps
+ * are env-overridable so they can be tuned without a redeploy.
+ */
+export const photoUploadPerMinLimiter = new RateLimiter(
+  defaultStore,
+  envInt("QUOTE_PHOTO_UPLOAD_PER_MIN", 5),
+  60_000,
+);
+
+export const photoUploadPerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("QUOTE_PHOTO_UPLOAD_PER_DAY", 30),
+  DAY_MS,
+);
