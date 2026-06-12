@@ -28,6 +28,7 @@ import {
 } from '@shared/templatePresets';
 import TemplateMockup from './TemplateMockup';
 import InfoCue from './InfoCue';
+import { getTradeById } from '@/data/trades';
 
 /**
  * Elfsight-style thumbnail pipeline. Each template ships a pre-rendered PNG
@@ -113,6 +114,18 @@ function deriveCategories(templates: TemplateConfig[]): string[] {
   const set = new Set<string>();
   for (const t of templates) if (t.category) set.add(t.category);
   return Array.from(set).sort();
+}
+
+/** Derive the trade-filter options from the slugs actually present on
+ *  templates (`TemplateConfig.trades[]`). Labels resolve via the trades
+ *  taxonomy (`getTradeById`), falling back to a humanized slug. Sorted by
+ *  label. This is what backs the "Trade" select in Browse-all. */
+function deriveTradeOptions(templates: TemplateConfig[]): Array<{ id: string; label: string }> {
+  const set = new Set<string>();
+  for (const t of templates) for (const slug of t.trades ?? []) set.add(slug);
+  return Array.from(set)
+    .map((id) => ({ id, label: getTradeById(id)?.label ?? formatTradeChip(id) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /* P1 RE-FIX — `formatTradeId` (snake_case → Title Case) was used to
@@ -771,7 +784,11 @@ interface ModalProps {
 function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: ModalProps) {
   const templates = useMergedTemplates();
   const categories = useMemo(() => deriveCategories(templates), [templates]);
+  const tradeOptions = useMemo(() => deriveTradeOptions(templates), [templates]);
   const [activeCategory, setActiveCategory] = useState<string>('All');
+  // Trade filter (2026-06-12) — replaces the removed Settings-tab trade
+  // selector. Filters templates by the trade slugs on `TemplateConfig.trades[]`.
+  const [activeTrade, setActiveTrade] = useState<string>('All');
   // Wave M — search field (case-insensitive substring on name). Combines
   // with the active category (AND logic).
   const [search, setSearch] = useState<string>('');
@@ -787,12 +804,15 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const byCat = activeCategory === 'All'
+    let out = activeCategory === 'All'
       ? templates
       : templates.filter((t) => t.category === activeCategory);
-    if (!q) return byCat;
-    return byCat.filter((t) => t.name.toLowerCase().includes(q));
-  }, [activeCategory, search, templates]);
+    if (activeTrade !== 'All') {
+      out = out.filter((t) => (t.trades ?? []).includes(activeTrade));
+    }
+    if (q) out = out.filter((t) => t.name.toLowerCase().includes(q));
+    return out;
+  }, [activeCategory, activeTrade, search, templates]);
 
   // ESC to close.
   useEffect(() => {
@@ -844,8 +864,15 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         {/* Wave Q-Hotfix — category filter is now a dropdown <select>
             (per user request). The previous Wave M chips strip was
             scroll-x with a fade mask; the dropdown is more compact and
-            doesn't require horizontal swiping to discover categories. */}
+            doesn't require horizontal swiping to discover categories.
+            2026-06-12 — added a second "Trade" <select> beside Category
+            (replaces the removed Settings-tab trade selector). Both filters
+            AND together with the name search. Help cue anchored top-left. */}
         <div className="qq-tg-modal-filter-row">
+          <InfoCue
+            testid="template-browse-filter"
+            text="Filter by category or by the specific trade each template is built for. Both narrow the list together with your search."
+          />
           <select
             id="qq-tg-modal-cat-select"
             className="qq-tg-modal-cat-select"
@@ -860,6 +887,24 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
               return (
                 <option key={c} value={c}>
                   {c} ({count})
+                </option>
+              );
+            })}
+          </select>
+          <select
+            id="qq-tg-modal-trade-select"
+            className="qq-tg-modal-cat-select"
+            value={activeTrade}
+            onChange={(e) => setActiveTrade(e.target.value)}
+            data-testid="template-browse-trade-select"
+            aria-label="Filter templates by trade"
+          >
+            <option value="All">All trades ({tradeOptions.length})</option>
+            {tradeOptions.map((opt) => {
+              const count = templates.filter((t) => (t.trades ?? []).includes(opt.id)).length;
+              return (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label} ({count})
                 </option>
               );
             })}
@@ -890,7 +935,9 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           })}
           {visible.length === 0 && (
             <p className="qq-tg-modal-empty" data-testid="template-browse-empty">
-              No templates match "{search}".
+              {search.trim()
+                ? `No templates match "${search}".`
+                : 'No templates match these filters.'}
             </p>
           )}
         </div>

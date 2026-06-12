@@ -890,6 +890,16 @@ export default function WizardShell({ embed = false }: Props) {
         ...(accentOverride ? { accent: accentOverride } : {}),
       };
 
+      // Trade persistence (2026-06-12) — the Settings-tab trade selector was
+      // removed; trade is now categorised via the template. When the calculator
+      // has no trade set yet, seed `settings.tradeId` from the template's first
+      // trade slug so the save path's `trade_type` stays non-'general' for
+      // trade-bearing templates. Never overwrite an existing user choice.
+      const nextSettings =
+        (s.settings?.tradeId ?? '').trim() === '' && preset.trades?.[0]
+          ? { ...(s.settings ?? {}), tradeId: preset.trades[0] }
+          : s.settings;
+
       // DATA-LOSS FIX — when the user has already built on this calculator and
       // the caller hasn't explicitly opted into a full structural replace,
       // treat the template card as a THEME picker: apply only the visual style
@@ -900,12 +910,14 @@ export default function WizardShell({ embed = false }: Props) {
           ...s,
           activeTemplateId: preset.id,
           style: nextStyle,
+          settings: nextSettings,
         };
       }
 
       return {
         ...s,
         activeTemplateId: preset.id,
+        settings: nextSettings,
         layout: preset.layout,
         fields: nextFields,
         calculations: nextCalcs,
