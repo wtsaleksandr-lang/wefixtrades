@@ -37,6 +37,7 @@ import { trackEvent, clientDistinctId } from "../lib/analytics";
 import { recordRevenueForClient } from "../services/clientCostBilling";
 import { releaseTwilioNumber } from "../services/twilioNumberRelease";
 import { fireAlert } from "../services/alertService";
+import { notifySiteLaunchPaidOrder, isSiteLaunchServiceId } from "../services/sitelaunchPaidOrderNotify";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { runPreFixAudit } from "../services/webfixAuditService";
 import { sendAdflowOnboardingEmail } from "../lib/adflowOnboardingEmail";
@@ -470,6 +471,36 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   for (const serviceId of serviceIds) {
     await provisionOrConfirmService(session, clientId, serviceId, baseUrl);
+  }
+
+  // ─── SiteLaunch paid-order: notify Alex + create the 5-day kickoff task ───
+  // SiteLaunch ($1,197) is fulfilled outsourced/AI-built with NO supplier-
+  // dispatch automation — a paid order otherwise creates a CRM row and waits
+  // for Alex to notice. Fire the existing alert channel + drop ONE actionable
+  // kickoff task that anchors the delivery clock. Scoped to SiteLaunch only,
+  // idempotent on the session id, fire-and-forget (never disrupts the webhook;
+  // errors are logged inside the service, not swallowed silently).
+  for (const serviceId of serviceIds) {
+    if (!isSiteLaunchServiceId(serviceId)) continue;
+    try {
+      const clientService = await storage.findClientServiceByServiceId(clientId, serviceId);
+      if (!clientService) {
+        log.warn(`[billing-webhook] SiteLaunch notify: client_service not found for client ${clientId} / ${serviceId}`);
+        continue;
+      }
+      notifySiteLaunchPaidOrder({
+        sessionId: session.id,
+        clientId,
+        serviceId,
+        clientServiceId: clientService.id,
+        amountCents: session.amount_total,
+        currency: session.currency,
+      }).catch(err =>
+        log.warn(`[billing-webhook] SiteLaunch notify failed for session ${session.id} / ${serviceId}: ${err.message}`),
+      );
+    } catch (err: any) {
+      log.warn(`[billing-webhook] SiteLaunch notify lookup failed for client ${clientId} / ${serviceId}: ${err.message}`);
+    }
   }
 
   // Funnel analytics — subscription_created. QQ + service subscriptions are
