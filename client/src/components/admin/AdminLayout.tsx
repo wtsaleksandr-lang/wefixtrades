@@ -1502,7 +1502,7 @@ export default function AdminLayout({
               className={`h-8 w-8 ${copilotOpen ? "bg-brand-blue/10 text-brand-blue" : "text-muted-foreground"}`}
               onClick={() => setCopilotOpen(!copilotOpen)}
               data-testid="admin-copilot-trigger"
-              title="AI Copilot"
+              title="WeFixTrades assistant"
             >
               <Sparkles className="w-4 h-4" />
             </Button>

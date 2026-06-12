@@ -403,7 +403,7 @@ export default function PortalLayout({
             <FirstVisitTooltip
               storageKey="portal-topnav-ai-copilot"
               enabled={location === "/portal" || location === "/portal/dashboard"}
-              title="Meet your AI Copilot"
+              title="Meet your WeFixTrades assistant"
               position="bottom"
               align="end"
               anchor={
@@ -416,12 +416,12 @@ export default function PortalLayout({
                       ? "bg-brand-blue/10 text-brand-blue"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
-                  title="AI Copilot — your assistant"
+                  title="WeFixTrades assistant"
                   aria-pressed={copilotOpen}
                   data-testid="portal-copilot-trigger"
                 >
                   <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>AI Copilot</span>
+                  <span>Assistant</span>
                 </button>
               }
             >

@@ -177,7 +177,7 @@ function clearHistory(calculatorId: number): void {
 export default function AIChatBubble({
   calculatorId,
   accentColor = '#6366f1',
-  businessName = 'AI Assistant',
+  businessName = 'Assistant',
   theme,
   useAgentLoop = true,
   customerEmail,
@@ -439,7 +439,7 @@ export default function AIChatBubble({
     } else {
       setMessages([{
         role: 'assistant',
-        content: `Hi! I'm the AI assistant for ${businessName}. How can I help you today?`,
+        content: `Hi! I'm the virtual assistant for ${businessName}. How can I help you today?`,
         ts: Date.now(),
       }]);
     }
@@ -532,7 +532,7 @@ export default function AIChatBubble({
       if (!res.ok) {
         if (data.error === 'trial_expired') {
           setTrialExpired(true);
-          setMessages(prev => [...prev, { role: 'assistant', content: data.message || 'AI Assistant paused — upgrade to continue.', ts: Date.now() }]);
+          setMessages(prev => [...prev, { role: 'assistant', content: data.message || 'Assistant paused — upgrade to continue.', ts: Date.now() }]);
         } else {
           setError(data.error || 'Something went wrong. Please try again.');
         }
@@ -560,7 +560,7 @@ export default function AIChatBubble({
     clearHistory(calculatorId);
     setMessages([{
       role: 'assistant',
-      content: `Hi! I'm the AI assistant for ${businessName}. How can I help you today?`,
+      content: `Hi! I'm the virtual assistant for ${businessName}. How can I help you today?`,
       ts: Date.now(),
     }]);
     setError(null);
@@ -695,7 +695,7 @@ export default function AIChatBubble({
           onClick={handlePillClick}
           data-theme="light"
           data-testid="button-chat-help-pill"
-          aria-label="Open AI assistant"
+          aria-label="Open chat"
           style={{
             position: 'fixed',
             bottom: '20px',
@@ -794,7 +794,7 @@ export default function AIChatBubble({
               <div style={{ color: '#fff', fontWeight: 700, fontSize: '15px', lineHeight: 1.2 }} data-testid="text-chat-business-name">
                 {businessName}
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>AI Assistant</div>
+              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>Virtual assistant</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* BD-3c Feature 3 — clear conversation. Wipes localStorage
@@ -824,7 +824,11 @@ export default function AIChatBubble({
             style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', background: '#f8f9fa' }}
             data-testid="chat-messages-area"
           >
-            {messages.map((msg, i) => (
+            {/* Skip empty messages — the SSE branch reserves a placeholder
+                assistant message with content '' which otherwise renders as
+                a bare empty bubble next to the typing indicator (and lingers
+                if the stream errors before the first token). */}
+            {messages.filter(msg => msg.content).map((msg, i) => (
               <div
                 key={i}
                 style={{
@@ -878,8 +882,8 @@ export default function AIChatBubble({
 
             {trialExpired && (
               <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', color: '#92400e', textAlign: 'center' }} data-testid="chat-trial-expired">
-                <div style={{ fontWeight: 600, marginBottom: '4px' }}>AI Assistant unavailable</div>
-                <div>The Pro preview of the AI assistant has ended. Upgrading to Pro turns it back on.</div>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>Assistant unavailable</div>
+                <div>The Pro preview of the chat assistant has ended. Upgrading to Pro turns it back on.</div>
               </div>
             )}
 
@@ -900,7 +904,7 @@ export default function AIChatBubble({
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder={trialExpired ? 'AI assistant unavailable' : 'Type your message...'}
+                placeholder={trialExpired ? 'Assistant unavailable' : 'Type your message...'}
                 disabled={isLoading || trialExpired}
                 rows={inputExpanded ? 6 : 3}
                 style={{
@@ -991,7 +995,7 @@ export default function AIChatBubble({
           animation: 'qq-ai-bubble-rise 200ms ease-out both',
         }}
         data-testid="button-chat-bubble"
-        aria-label={isOpen ? 'Close AI assistant' : 'Open AI assistant'}
+        aria-label={isOpen ? 'Close chat' : 'Open chat'}
         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.07)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
       >
