@@ -1809,6 +1809,9 @@ export default function WizardShell({ embed = false }: Props) {
       };
       try {
         sessionStorage.setItem('qq-wizard-minimized-from', JSON.stringify(payload));
+        // Same-tab SPA navigation fires no storage/focus event, so the App-root
+        // MinimizedWizardBadge won't re-read the stash on its own — notify it directly.
+        window.dispatchEvent(new Event('qq-wizard-minimized-change'));
       } catch { /* sessionStorage blocked — badge won't show but minimize still navigates */ }
 
       setOpenPhase('leaving');
