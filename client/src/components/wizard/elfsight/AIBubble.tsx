@@ -126,6 +126,17 @@ interface ChatMessage {
   /** Wave 65.1 — when set, render the clarification question + quick-reply
    *  buttons instead of plain message text. */
   clarification?: PendingClarification;
+  /** Gap 6 — post-apply follow-up: scripted LOCAL quick-reply chips appended
+   *  after a successful replace_template / apply_template confirm. Each chip
+   *  either routes its `send` text through the normal send path as a user
+   *  message, or (logo chip sentinel) opens the file picker. `consumed`
+   *  flips true after one click and disables every chip on the card.
+   *  MUST be included in hasVisibleContent or the message is dropped as an
+   *  empty husk at render + save time. */
+  followUp?: {
+    options: Array<{ label: string; send: string }>;
+    consumed?: boolean;
+  };
 }
 
 /** A destructive tool call (replace_template / apply_template) queued for
@@ -242,6 +253,7 @@ function hasVisibleContent(m: ChatMessage): boolean {
     || m.buildingTemplate
     || m.imageError
     || m.clarification
+    || m.followUp
     || (m.toolChips && m.toolChips.length > 0)
     || (m.pendingConfirms && m.pendingConfirms.length > 0),
   );
@@ -325,6 +337,23 @@ function describePendingConfirm(call: AiToolCall): { title: string; body: string
  * toolChips is a string[]; we encode failure in-band so we don't widen the
  * Message type just for one flag. (anti-hallucination Fix 4) */
 const TOOL_CHIP_FAIL_PREFIX = ' fail:';
+
+/* ─── Gap 6 — post-apply follow-up quick replies ───────────────────────────
+ * Scripted LOCAL assistant message appended after a successful
+ * replace_template / apply_template confirm. No model round-trip — it only
+ * asks a question and offers next actions, claiming nothing beyond what the
+ * green "Applied" card already proves, so it cannot violate the
+ * anti-hallucination rules. The logo chip is special-cased via sentinel:
+ * it opens the existing file picker instead of sending a chat message. */
+const FOLLOWUP_UPLOAD_LOGO_SENTINEL = '__followup_upload_logo__';
+const FOLLOWUP_QUESTION = 'Your calculator is in the editor — how does it look?';
+const FOLLOWUP_OPTIONS: Array<{ label: string; send: string }> = [
+  { label: "Looks good — what's next?", send: 'The calculator looks good. What should I do next to finish and publish it?' },
+  { label: 'Make some changes', send: "I'd like to make some changes to the calculator." },
+  { label: 'Upload my logo', send: FOLLOWUP_UPLOAD_LOGO_SENTINEL },
+  { label: 'Fix the pricing logic', send: "The pricing logic needs fixing — let me walk you through what's wrong." },
+  { label: 'How do I publish?', send: 'How do I publish this calculator on my website?' },
+];
 
 /* ─── Tool-chip label (one-liner the user sees) ─── */
 function describeTool(call: AiToolCall): string {
@@ -908,47 +937,25 @@ export default function AIBubble(props: AIBubbleProps) {
     }
   }, [sending, props]);
 
-  const onSend = useCallback(async () => {
-    const trimmed = input.trim();
-    if ((!trimmed && !pendingImage && !pendingFile) || sending) return;
-    if (capExceeded) return;
-
-    // BF-5 + Wave 64 — pricing-doc-only send (no text typed) → dedicated
-    // multi-format endpoint. Image data URLs and raw Files both work.
-    if (!trimmed && (pendingImage || pendingFile)) {
-      const src = pendingFile ?? pendingImage!;
-      setInput('');
-      await onImageToTemplate(src);
-      return;
-    }
-
-    // Wave 65.1 — if there's a pending clarification in the last assistant
-    // message and the user typed a free-text reply, route it as the answer.
-    if (trimmed) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg?.role === 'assistant' && lastMsg.clarification) {
-        setInput('');
-        // Show the user's typed answer as a user bubble first.
-        setMessages((prev) => [
-          ...prev,
-          { id: uid(), role: 'user' as const, content: trimmed },
-        ]);
-        await onClarificationAnswer(lastMsg.id, trimmed, lastMsg.clarification);
-        return;
-      }
-    }
+  /** Gap 6 — core send path shared by the composer (onSend) and the
+   *  follow-up quick-reply chips. Appends `text` as a user message, streams
+   *  the model reply, and applies/queues tool calls — exactly the path the
+   *  typed input takes. Callers own composer-state cleanup (input/pending
+   *  image); this function never touches them. */
+  const sendText = useCallback(async (text: string, imageToSend: string | null = null) => {
+    if (!text || sending || capExceeded) return;
 
     const userMsg: ChatMessage = {
       id: uid(),
       role: 'user',
-      content: trimmed,
-      imageThumb: pendingImage ?? undefined,
+      content: text,
+      imageThumb: imageToSend ?? undefined,
     };
     const assistantId = uid();
     // Wave AR-1 — choose a label up-front so we can render an inline
     // CalcAssemblySpinner inside the empty placeholder. Image flow gets the
     // multi-stage label; text-only chat gets "Thinking…".
-    const placeholderLabel = pendingImage ? 'Analyzing your screenshot…' : 'Thinking…';
+    const placeholderLabel = imageToSend ? 'Analyzing your screenshot…' : 'Thinking…';
     const placeholder: ChatMessage = {
       id: assistantId,
       role: 'assistant',
@@ -963,9 +970,6 @@ export default function AIBubble(props: AIBubbleProps) {
     const historyForServer = messages.map(m => ({ role: m.role, content: m.content }));
 
     setMessages(prev => [...prev, userMsg, placeholder]);
-    setInput('');
-    const imageToSend = pendingImage;
-    setPendingImage(null);
     setSending(true);
     setStreamErr(null);
 
@@ -975,7 +979,7 @@ export default function AIBubble(props: AIBubbleProps) {
     try {
       await streamChat(
         {
-          message: trimmed,
+          message: text,
           image: imageToSend ?? undefined,
           history: historyForServer,
           shellState: state,
@@ -1060,7 +1064,43 @@ export default function AIBubble(props: AIBubbleProps) {
         m.id === assistantId && m.pendingLabel ? { ...m, pendingLabel: undefined } : m
       ));
     }
-  }, [input, sending, capExceeded, pendingImage, pendingFile, messages, state, props, onImageToTemplate, onClarificationAnswer]);
+  }, [sending, capExceeded, messages, state, props]);
+
+  const onSend = useCallback(async () => {
+    const trimmed = input.trim();
+    if ((!trimmed && !pendingImage && !pendingFile) || sending) return;
+    if (capExceeded) return;
+
+    // BF-5 + Wave 64 — pricing-doc-only send (no text typed) → dedicated
+    // multi-format endpoint. Image data URLs and raw Files both work.
+    if (!trimmed && (pendingImage || pendingFile)) {
+      const src = pendingFile ?? pendingImage!;
+      setInput('');
+      await onImageToTemplate(src);
+      return;
+    }
+
+    // Wave 65.1 — if there's a pending clarification in the last assistant
+    // message and the user typed a free-text reply, route it as the answer.
+    if (trimmed) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.role === 'assistant' && lastMsg.clarification) {
+        setInput('');
+        // Show the user's typed answer as a user bubble first.
+        setMessages((prev) => [
+          ...prev,
+          { id: uid(), role: 'user' as const, content: trimmed },
+        ]);
+        await onClarificationAnswer(lastMsg.id, trimmed, lastMsg.clarification);
+        return;
+      }
+    }
+
+    const imageToSend = pendingImage;
+    setInput('');
+    setPendingImage(null);
+    await sendText(trimmed, imageToSend);
+  }, [input, sending, capExceeded, pendingImage, pendingFile, messages, onImageToTemplate, onClarificationAnswer, sendText]);
 
   /* ─── "Generate with AI" seed-and-autosend (Build-tab card entry point) ───
    * Effect 1: when a NEW seed arrives (nonce changes, > 0) open + un-collapse
@@ -1138,32 +1178,54 @@ export default function AIBubble(props: AIBubbleProps) {
 
   /** User clicked [Apply] on a queued replace_template / apply_template card. */
   const onConfirmApply = useCallback((messageId: string, confirmKey: string) => {
-    setMessages(prev => prev.map(m => {
-      if (m.id !== messageId) return m;
-      const pending = (m.pendingConfirms ?? []).find(p => p.key === confirmKey);
-      if (!pending || pending.resolved) return m;
-      try {
-        applyAiToolCall(pending.call, props);
-      } catch (err: any) {
-        // Surface the failed apply as a warning chip, and mark the card itself
-        // 'cancelled' (not 'applied') so the UI never claims it landed. (Fix 4)
-        setStreamErr(`tool ${pending.call.name} failed: ${err?.message ?? err}`);
+    setMessages(prev => {
+      // Gap 6 — flips true only on the success branch below; gates the
+      // scripted follow-up question appended after the map.
+      let appliedOk = false;
+      const next = prev.map(m => {
+        if (m.id !== messageId) return m;
+        const pending = (m.pendingConfirms ?? []).find(p => p.key === confirmKey);
+        if (!pending || pending.resolved) return m;
+        try {
+          applyAiToolCall(pending.call, props);
+        } catch (err: any) {
+          // Surface the failed apply as a warning chip, and mark the card itself
+          // 'cancelled' (not 'applied') so the UI never claims it landed. (Fix 4)
+          setStreamErr(`tool ${pending.call.name} failed: ${err?.message ?? err}`);
+          return {
+            ...m,
+            pendingConfirms: (m.pendingConfirms ?? []).map(p =>
+              p.key === confirmKey ? { ...p, resolved: 'cancelled' as const } : p,
+            ),
+            toolChips: [...(m.toolChips ?? []), `${TOOL_CHIP_FAIL_PREFIX}Couldn't apply: ${pending.call.name}`],
+          };
+        }
+        appliedOk = true;
         return {
           ...m,
           pendingConfirms: (m.pendingConfirms ?? []).map(p =>
-            p.key === confirmKey ? { ...p, resolved: 'cancelled' as const } : p,
+            p.key === confirmKey ? { ...p, resolved: 'applied' as const } : p,
           ),
-          toolChips: [...(m.toolChips ?? []), `${TOOL_CHIP_FAIL_PREFIX}Couldn't apply: ${pending.call.name}`],
+          toolChips: [...(m.toolChips ?? []), describeTool(pending.call)],
         };
-      }
-      return {
-        ...m,
-        pendingConfirms: (m.pendingConfirms ?? []).map(p =>
-          p.key === confirmKey ? { ...p, resolved: 'applied' as const } : p,
-        ),
-        toolChips: [...(m.toolChips ?? []), describeTool(pending.call)],
-      };
-    }));
+      });
+      if (!appliedOk) return next;
+      // Gap 6 — scripted LOCAL follow-up (no model round-trip). The apply DID
+      // succeed (green "Applied" card just landed), so "Your calculator is in
+      // the editor" is tool-confirmed truth, not a model claim. Skip if the
+      // chat already ends with a live follow-up so cards never stack.
+      const last = next[next.length - 1];
+      if (last?.followUp && !last.followUp.consumed) return next;
+      return [
+        ...next,
+        {
+          id: uid(),
+          role: 'assistant' as const,
+          content: FOLLOWUP_QUESTION,
+          followUp: { options: FOLLOWUP_OPTIONS.map(o => ({ ...o })) },
+        },
+      ];
+    });
   }, [props]);
 
   /** User clicked [Cancel] — drop the queued call. We don't send a follow-up
@@ -1180,6 +1242,25 @@ export default function AIBubble(props: AIBubbleProps) {
       };
     }));
   }, []);
+
+  /** Gap 6 — follow-up chip click. One-shot: the first click consumes the
+   *  whole card (all chips dim + disable), then either opens the file picker
+   *  (logo sentinel — a real user gesture, so the browser allows .click())
+   *  or routes the chip's scripted text through the normal send path as a
+   *  user message, exactly like the Wave 65.1 clarification quick replies. */
+  const onFollowUpChip = useCallback((messageId: string, opt: { label: string; send: string }) => {
+    if (sending || capExceeded) return;
+    setMessages(prev => prev.map(m =>
+      m.id === messageId && m.followUp && !m.followUp.consumed
+        ? { ...m, followUp: { ...m.followUp, consumed: true } }
+        : m,
+    ));
+    if (opt.send === FOLLOWUP_UPLOAD_LOGO_SENTINEL) {
+      fileInputRef.current?.click();
+      return;
+    }
+    void sendText(opt.send);
+  }, [sending, capExceeded, sendText]);
 
   /* ─── Render ─── */
 
@@ -1402,6 +1483,31 @@ export default function AIBubble(props: AIBubbleProps) {
                   </div>
                 )}
                 {m.content && <div className="qq-ai-msg-text">{m.content}</div>}
+                {/* Gap 6 — post-apply follow-up quick replies. Reuses the
+                    clarify chip styles (≥44px touch targets); row layout that
+                    wraps cleanly at 375px. After one click the whole card is
+                    consumed: every chip dims + disables, mirroring
+                    disabled={sending} on the clarify options. */}
+                {m.role === 'assistant' && m.followUp && (
+                  <div
+                    className="qq-ai-clarify-options qq-ai-followup-options"
+                    data-testid="aibubble-followup-options"
+                    data-consumed={m.followUp.consumed ? 'true' : undefined}
+                  >
+                    {m.followUp.options.map((opt, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        className="qq-ai-clarify-opt qq-ai-followup-opt"
+                        data-testid="aibubble-followup-opt"
+                        disabled={sending || Boolean(m.followUp?.consumed)}
+                        onClick={() => onFollowUpChip(m.id, opt)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {m.toolChips && m.toolChips.length > 0 && (
                   <div className="qq-ai-chips">
                     {m.toolChips.map((chip, i) => {
@@ -1982,6 +2088,22 @@ export default function AIBubble(props: AIBubbleProps) {
         [data-theme="dark"] .qq-ai-clarify-hint { color: #94a3b8; }
         @media (prefers-reduced-motion: reduce) {
           .qq-ai-clarify-opt { transition: none; }
+        }
+
+        /* Gap 6 — post-apply follow-up quick replies. Same chip skin as the
+           clarify options, but laid out as a wrapping row so the five short
+           labels pack tightly and wrap cleanly at 375px. Keeps the 44px
+           touch-target minimum from .qq-ai-clarify-opt. */
+        .qq-ai-followup-options {
+          flex-direction: row; flex-wrap: wrap;
+          margin-top: 8px;
+        }
+        .qq-ai-followup-opt {
+          flex: 0 1 auto;
+          max-width: 100%;
+        }
+        .qq-ai-followup-options[data-consumed="true"] .qq-ai-followup-opt {
+          opacity: 0.5; cursor: not-allowed;
         }
 
         .qq-ai-chips {
