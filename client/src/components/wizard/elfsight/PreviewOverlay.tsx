@@ -86,6 +86,27 @@ function measureFields(
   if (!calc) return { fieldBoxes: [] };
   const fieldNodes = calc.querySelectorAll<HTMLElement>('[data-colspan]');
   const containerRect = container.getBoundingClientRect();
+  // Desktop-zoom fix (fix/preview-selection-rect) — on desktop the overlay
+  // host lives inside `.qq-preview-stage`, which carries
+  // `transform: scale(zoom)` (scale-to-fit / the zoom pill). Every
+  // getBoundingClientRect() below returns POST-transform (scaled) screen
+  // coordinates, but the decorators are absolutely-positioned children of
+  // the host and therefore live in the host's UNSCALED local coordinate
+  // space. Without normalising, each selection ring was drawn at
+  // `zoom ×` its true offset/size — at zoom < 1 the blue ring floated
+  // up-left over the WRONG components (Alex's stray-rectangle screenshots).
+  // Derive the effective scale empirically from the host itself
+  // (rect width ÷ offsetWidth — the exact technique measureTitle uses in
+  // PreviewPane), so it's exactly 1 on the mobile-clean / fullscreen paths
+  // (no scaled ancestor → behaviour unchanged) and equals `zoom` on the
+  // desktop stage. scrollTop/Left are already unscaled layout px, so they
+  // are added AFTER the division. The resulting content coordinates are
+  // zoom-invariant, so a later zoom change needs no re-measure (the
+  // ancestor transform scales fields and decorators together).
+  const rawScale = container.offsetWidth > 0
+    ? containerRect.width / container.offsetWidth
+    : 1;
+  const s = rawScale > 0 ? rawScale : 1;
   const out: FieldBox[] = [];
   // Build an O(1) lookup so each DOM node's id check is constant-time.
   const knownIds = new Set(fields.map((f) => f.id));
@@ -103,10 +124,10 @@ function measureFields(
     // the unscrolled mobile frame behave exactly as before.
     out.push({
       fieldId,
-      left: r.left - containerRect.left + container.scrollLeft,
-      top: r.top - containerRect.top + container.scrollTop,
-      width: r.width,
-      height: r.height,
+      left: (r.left - containerRect.left) / s + container.scrollLeft,
+      top: (r.top - containerRect.top) / s + container.scrollTop,
+      width: r.width / s,
+      height: r.height / s,
     });
   }
   return { fieldBoxes: out };

@@ -2091,6 +2091,19 @@ export default function PreviewPane({
     const sel = selection.selected;
     if (!host || !sel) return null;
     if (sel.kind === 'field') {
+      // fix/preview-selection-rect — resolve by the STABLE shell-field id the
+      // widget stamps on each rendered cell (`data-shell-field-id`, Wave 60).
+      // The old positional `cells[idx]` lookup indexed the FULL shellFields
+      // list into the RENDERED cells — but the multi-step renderer filters
+      // `visibleFields → renderedFields` (only the current step's fields are
+      // in the DOM), so the persistent `.qq-selected` outline + the
+      // centre-scroll could land on the WRONG cell. Same contract fix
+      // PreviewOverlay.measureFields already uses. Positional lookup is kept
+      // strictly as a fallback for render paths that predate the attribute.
+      let esc = sel.id;
+      try { esc = CSS.escape(sel.id); } catch { /* older engines — raw id */ }
+      const byId = host.querySelector<HTMLElement>(`[data-shell-field-id="${esc}"]`);
+      if (byId) return byId;
       const idx = shellFields.findIndex((f) => f.id === sel.id);
       if (idx < 0) return null;
       const cells = Array.from(host.querySelectorAll<HTMLElement>('[data-colspan]'));
