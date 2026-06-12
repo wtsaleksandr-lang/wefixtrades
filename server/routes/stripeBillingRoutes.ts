@@ -33,6 +33,7 @@ import { noisyCatch } from "../lib/silentFailureGuard";
 import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { trackEvent, clientDistinctId } from "../lib/analytics";
 import { recordRevenueForClient } from "../services/clientCostBilling";
 import { releaseTwilioNumber } from "../services/twilioNumberRelease";
 import { fireAlert } from "../services/alertService";
@@ -469,6 +470,21 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   for (const serviceId of serviceIds) {
     await provisionOrConfirmService(session, clientId, serviceId, baseUrl);
+  }
+
+  // Funnel analytics — subscription_created. QQ + service subscriptions are
+  // bootstrapped here (checkout.session.completed), NOT on
+  // customer.subscription.created (see the webhook switch — that case is API-
+  // platform only). Gated to subscription-mode sessions so one-time payments
+  // never count as subscriptions. Fire-and-forget; trackEvent no-ops/swallows
+  // internally so it can never disrupt webhook provisioning. No PII in props;
+  // distinct_id is the opaque CRM client id. mrr = settled amount (cents).
+  if (session.mode === "subscription") {
+    trackEvent(clientDistinctId(clientId), "subscription_created", {
+      product: serviceIds.join(","),
+      tier: session.metadata?.billing_period ?? null,
+      mrr: typeof session.amount_total === "number" ? session.amount_total : null,
+    });
   }
 
   // Branded payment receipt — sent once per session, after all services provisioned.
@@ -1410,9 +1426,11 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, _eve
 
   // Find active monthly services for this client and pause them
   const services = await storage.listClientServices(client.id);
+  const cancelledServiceIds: string[] = [];
   for (const svc of services) {
     if (svc.billing_period === "monthly" && svc.status === "active") {
       await storage.updateClientService(svc.id, { status: "cancelled", cancelled_at: new Date() });
+      cancelledServiceIds.push(svc.service_id);
 
       // Send branded cancellation confirmation + exit survey (non-blocking, idempotent per service)
       sendCancellationEmail({
@@ -1429,6 +1447,16 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, _eve
     entity_type: "client",
     entity_id: client.id,
     summary: `Subscription cancelled for client "${client.business_name}"`,
+  });
+
+  // Funnel analytics — subscription_cancelled (churn). Fire-and-forget;
+  // trackEvent no-ops/swallows internally so it can never disrupt the cancel
+  // webhook. No PII in props; distinct_id is the opaque CRM client id. product
+  // = the cancelled monthly service ids; tier reflects whether a QuoteQuick
+  // calculator sub (qqCalculator above) drove the cancel vs a CRM service sub.
+  trackEvent(clientDistinctId(client.id), "subscription_cancelled", {
+    product: qqCalculator ? "quotequick" : cancelledServiceIds.join(","),
+    tier: qqCalculator ? "quotequick" : "service",
   });
 
   // Cost-leak plug: release any Twilio number this client's TradeLine setup

@@ -18,6 +18,7 @@ import { storage } from "../storage";
 import type { ServiceCatalogRow } from "@shared/schema";
 import { getTradeLineDefaultConfig, serviceCatalog } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { trackEvent, clientDistinctId } from "../lib/analytics";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { getUpsellsForCart } from "../lib/checkoutUpsells";
 import { resolveStripePriceId } from "../lib/stripePriceResolver";
@@ -392,6 +393,24 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/checkout/cancelled`,
         billing_address_collection: "auto",
+      });
+
+      // Funnel analytics — checkout_started (fire-and-forget; trackEvent
+      // no-ops/swallows internally so it can never block the checkout
+      // response). Keyed to the CRM client id (public checkout has no logged-in
+      // user). No PII in props. amount is a best-effort catalog estimate in
+      // cents (Σ default_price across line items); tier carries the
+      // bundle/system-builder/single dimension since this cart can mix tiers.
+      const checkoutAmountCents = services.reduce(
+        (sum, s) => sum + (s.default_price ?? 0),
+        0,
+      );
+      trackEvent(clientDistinctId(client.id), "checkout_started", {
+        product: services.map((s) => s.id).join(","),
+        tier: bundle_id ? "bundle" : system_builder ? "system_builder" : "single",
+        amount: checkoutAmountCents,
+        billing_period: billingPeriod,
+        item_count: services.length,
       });
 
       /* ─── Provision each service (pending — payment not yet confirmed) ───

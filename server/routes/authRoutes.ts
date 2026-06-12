@@ -11,6 +11,7 @@ import { getMemory, linkSessionToUser, extractMemorySignals } from "../services/
 import { storage } from "../storage";
 import { generateSecret, verifyCode as verifyTotpCode } from "../services/totpService";
 import { createLogger } from "../lib/logger";
+import { trackEvent, userDistinctId } from "../lib/analytics";
 import { verifyLoginToken, getCheckoutLoginToken, buildLoginToken, MAGIC_LINK_TTL } from "../lib/loginToken";
 import Stripe from "stripe";
 import { verifyCheckoutSessionPaid } from "../lib/checkoutPaymentGate";
@@ -539,6 +540,15 @@ export function registerAuthRoutes(app: Express) {
         }
       }
 
+      // Funnel analytics — signup_completed (fire-and-forget; trackEvent is
+      // internally try/caught + no-ops when PostHog is unconfigured, so it
+      // can never block or fail signup). No PII in props — distinct_id is the
+      // opaque user id; we send only method + a has_phone boolean.
+      trackEvent(userDistinctId(user.id), "signup_completed", {
+        method: "email",
+        has_phone: Boolean(phone?.trim()),
+      });
+
       // Auto-login
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
       req.logIn(sessionUser, (loginErr) => {
@@ -783,6 +793,12 @@ export function registerAuthRoutes(app: Express) {
       );
 
       delete sess.pendingGoogleSignup;
+
+      // Funnel analytics — signup_completed via Google (fire-and-forget).
+      trackEvent(userDistinctId(user.id), "signup_completed", {
+        method: "google",
+        has_phone: Boolean(typeof phone === "string" && phone.trim()),
+      });
 
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
       req.logIn(sessionUser, (loginErr) => {
