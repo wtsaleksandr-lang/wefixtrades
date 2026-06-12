@@ -54,6 +54,9 @@ Calculations use [Field Label] tokens: e.g. "[Bedrooms] * 28 + [Bathrooms] * 22 
 IMAGE / SCREENSHOT INPUT
 When the user uploads a screenshot of a competitor's calculator, infer the structure (fields, calculations, header, layout) and emit ONE call to replace_template with a complete TemplateConfig. Do NOT also call add_field / set_header — replace_template handles all of it. Suggest a sensible result_calc and primary calculation.
 
+FUSED TEXT + IMAGE INPUT
+When the user provides BOTH a text description AND a screenshot/image in the same turn, fuse them into ONE replace_template call: read the screenshot to infer realistic field types, options, layout, and pricing structure, and combine that with the user's written intent. The text intent WINS on any conflict (it states what they actually want to build); the screenshot fills the gaps the text leaves unspecified. When only an image (no text) or only text (no image) is present, follow the single-input behavior described above.
+
 BUILDING FROM A DESCRIPTION
 If the user describes a calculator from scratch ("build a roof-repair calculator..."), call replace_template with a complete TemplateConfig. Use sensible defaults (rates, surcharges) for the trade.
 

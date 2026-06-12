@@ -678,15 +678,17 @@ export default function WizardShell({ embed = false }: Props) {
   /** "Generate with AI" Build-tab card → routes a prompt into the existing
    *  floating AIBubble (seed + auto-send). `nonce` bumps per Generate click so
    *  the bubble's seed effect re-fires even when the prompt text is unchanged. */
-  const [aiSeed, setAiSeed] = useState<{ prompt: string; nonce: number }>({ prompt: '', nonce: 0 });
+  const [aiSeed, setAiSeed] = useState<{ prompt: string; image?: string; nonce: number }>({ prompt: '', nonce: 0 });
   /** ?ai-upload=1 entry-point — when the wizard is opened via the /templates
    *  "Upload your quote" card, this nonce ticks so AIBubble opens + highlights
    *  the paperclip with a hint message. Mirrors the ?template= param pattern. */
   const [aiUploadNonce, setAiUploadNonce] = useState(0);
-  const handleAIGenerate = useCallback((prompt: string) => {
+  const handleAIGenerate = useCallback((prompt: string, image?: string) => {
     const p = prompt.trim();
     if (!p) return;
-    setAiSeed((s) => ({ prompt: p, nonce: s.nonce + 1 }));
+    // `image` (optional data URL) is the Build-card reference screenshot — it
+    // rides the same seed so the auto-sent turn fuses text + image server-side.
+    setAiSeed((s) => ({ prompt: p, image: image || undefined, nonce: s.nonce + 1 }));
   }, []);
   const toggleFloatingLauncherPreview = useCallback(() => {
     setFloatingLauncherPreview((v) => {
@@ -2303,6 +2305,7 @@ export default function WizardShell({ embed = false }: Props) {
                  action — force the full replace past the theme-switch guard. */
               replaceTemplate={(cfg) => applyTemplate(cfg, undefined, true)}
               seedPrompt={aiSeed.prompt}
+              seedImage={aiSeed.image}
               seedNonce={aiSeed.nonce}
               openForUploadNonce={aiUploadNonce}
             />

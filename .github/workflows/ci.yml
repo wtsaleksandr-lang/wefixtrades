@@ -37,6 +37,8 @@ jobs:
         run: npm run check:contentflow-generate-source
       - name: ContentFlow reference-replication guard (photoreal augmentation + reference vision-describe→generate)
         run: npm run check:contentflow-reference-replication
+      - name: QuoteQuick fusion guard (text+image → vision model, tools stay available, text-first blocks)
+        run: npm run check:quotequick-fusion
       - name: ContentFlow reference-capture guard (Playwright webpage screenshot — SSRF gate, og:image fallback, height cap)
         run: npm run check:contentflow-reference-capture
       - name: ContentFlow Imagen 4 guard (dimension→aspect mapping, standard/ultra cost, graceful skip without creds)

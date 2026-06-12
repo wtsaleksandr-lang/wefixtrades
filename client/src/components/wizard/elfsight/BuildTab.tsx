@@ -10,7 +10,7 @@
 // (floating-label) on the right.
 
 import { useCallback, useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, ImagePlus, X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { AE } from './appleEditor';
 import { useLayoutGuard } from '@/lib/layoutGuard';
@@ -57,13 +57,32 @@ interface Props {
    * "Generate with AI" card → routes the typed prompt into the existing
    * floating AI assistant (seed + auto-send). Optional so the panel still
    * renders if a caller omits it (the card just won't fire).
+   *
+   * `image` (optional data URL) is a reference screenshot the user attached
+   * via "+ Add screenshot". When present it's fused with the text prompt by
+   * the server (vision model). Text-only callers omit it — behavior unchanged.
    */
-  onGenerateWithAI?: (prompt: string) => void;
+  onGenerateWithAI?: (prompt: string, image?: string) => void;
 }
 
 // Max raw bytes accepted by the logo upload before we reject (1 MB). The
 // data URL inflates ~33% on top of this. Keeps localStorage from blowing up.
 const LOGO_MAX_BYTES = 1024 * 1024;
+
+// "Generate with AI" reference screenshot — mirrors the AIBubble paperclip
+// caps. ≤8MB raw; jpeg/png/webp/gif only (the server's parseImage accepts the
+// same media types). The data URL rides the seed into the chat send.
+const AI_REF_MAX_BYTES = 8 * 1024 * 1024;
+const AI_REF_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
 
 export default function BuildTab({
   businessName, onBusinessNameChange,
@@ -80,16 +99,38 @@ export default function BuildTab({
   // "Generate with AI" card prompt — local; on Generate it's handed to the
   // shell, which seeds + auto-sends the floating AI assistant.
   const [aiPrompt, setAiPrompt] = useState('');
+  // Optional reference screenshot fused with the prompt (data URL). null = none.
+  const [aiRefImage, setAiRefImage] = useState<string | null>(null);
+  const [aiRefError, setAiRefError] = useState<string | null>(null);
+  const aiRefInputRef = useRef<HTMLInputElement | null>(null);
   const AI_EXAMPLES = [
     'Mobile car detailing quote',
     'Plumbing call-out estimate',
     'Event catering per head',
   ] as const;
+  const onAiRefFile = useCallback(async (file: File | null) => {
+    if (!file) return;
+    if (!AI_REF_TYPES.includes(file.type)) {
+      setAiRefError('Use a JPG, PNG, WebP, or GIF screenshot.');
+      return;
+    }
+    if (file.size > AI_REF_MAX_BYTES) {
+      setAiRefError('Screenshot is too large — keep it under 8 MB.');
+      return;
+    }
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setAiRefImage(dataUrl);
+      setAiRefError(null);
+    } catch {
+      setAiRefError('Could not read that image. Try another file.');
+    }
+  }, []);
   const generateAi = useCallback(() => {
     const v = aiPrompt.trim();
     if (!v) return;
-    onGenerateWithAI?.(v);
-  }, [aiPrompt, onGenerateWithAI]);
+    onGenerateWithAI?.(v, aiRefImage ?? undefined);
+  }, [aiPrompt, aiRefImage, onGenerateWithAI]);
   // LAYOUT-1 — dev-only overlap/crumple detector on the Build panel.
   // Tight maxGapPx because the Build column is a vertical stack of
   // input clusters; runaway gaps here indicate a missed spacing token.
@@ -141,7 +182,7 @@ export default function BuildTab({
               sweep: this card head was missing one). */}
           <InfoCue
             testid="build-section-generate-ai"
-            text="Describe the job you quote in plain English and the AI drafts the whole calculator — fields, steps and pricing math. It hands off to the chat assistant, where you can refine the result or edit everything by hand afterwards."
+            text="Describe the job you quote in plain English and the AI drafts the whole calculator — fields, steps and pricing math. Optionally add a reference screenshot of a calculator you like and the AI matches its fields, layout and pricing structure, fusing that with your description (your written request wins where they disagree). It hands off to the chat assistant, where you can refine the result or edit everything by hand afterwards."
           />
         </div>
         <p className="qq-buildai-sub">
@@ -176,6 +217,56 @@ export default function BuildTab({
             </button>
           ))}
         </div>
+
+        {/* Optional reference screenshot — fused with the text prompt server-
+            side (vision model). Outline affordance + outline chip, never a
+            bright fill, per the hard UI rules. */}
+        <input
+          ref={aiRefInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          aria-label="Add a reference screenshot"
+          data-testid="build-ai-ref-input"
+          style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            void onAiRefFile(f);
+            e.target.value = '';
+          }}
+        />
+        {aiRefImage ? (
+          <div className="qq-buildai-refrow">
+            <div className="qq-buildai-refchip" data-testid="build-ai-ref-chip">
+              <img src={aiRefImage} alt="" className="qq-buildai-refthumb" />
+              <span className="qq-buildai-reflabel">Reference screenshot attached</span>
+              <button
+                type="button"
+                className="qq-buildai-refremove"
+                data-testid="build-ai-ref-remove"
+                aria-label="Remove reference screenshot"
+                onClick={() => { setAiRefImage(null); setAiRefError(null); }}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="qq-buildai-addref"
+            data-testid="build-ai-add-ref"
+            onClick={() => aiRefInputRef.current?.click()}
+          >
+            <ImagePlus size={14} aria-hidden="true" />
+            <span>Add screenshot (optional)</span>
+          </button>
+        )}
+        {aiRefError && (
+          <p className="qq-buildai-referror" role="alert" data-testid="build-ai-ref-error">
+            {aiRefError}
+          </p>
+        )}
+
         <button
           type="button"
           className="qq-buildai-generate"
@@ -368,6 +459,72 @@ export default function BuildTab({
         }
         .qq-buildai-chip:focus-visible {
           outline: none; box-shadow: ${AE.shadow.focus};
+        }
+        /* "+ Add screenshot" — outline affordance (NOT a bright fill), aligned
+           left so it reads as a secondary option above the primary Generate. */
+        .qq-buildai-addref {
+          align-self: flex-start;
+          display: inline-flex; align-items: center; gap: 6px;
+          font: inherit; font-size: 12.5px; font-weight: 500;
+          color: ${AE.color.secondary};
+          background: ${AE.color.surface};
+          border: 1px dashed ${AE.color.hairline};
+          border-radius: ${AE.radius.pill};
+          padding: 6px 12px;
+          cursor: pointer;
+          transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+        }
+        .qq-buildai-addref:hover {
+          color: ${AE.color.accent};
+          border-color: ${AE.color.accent};
+          background: ${AE.color.accentTint};
+        }
+        .qq-buildai-addref:focus-visible {
+          outline: none; box-shadow: ${AE.shadow.focus};
+        }
+        /* Attached-screenshot chip — outline, with a small thumbnail + remove. */
+        .qq-buildai-refrow {
+          display: flex; flex-wrap: wrap; gap: 6px;
+        }
+        .qq-buildai-refchip {
+          display: inline-flex; align-items: center; gap: 8px;
+          background: ${AE.color.surface};
+          border: 1px solid ${AE.color.hairline};
+          border-radius: ${AE.radius.pill};
+          padding: 5px 8px 5px 6px;
+          max-width: 100%;
+        }
+        .qq-buildai-refthumb {
+          width: 28px; height: 28px; flex-shrink: 0;
+          object-fit: cover;
+          border-radius: ${AE.radius.sm};
+          border: 1px solid ${AE.color.hairline};
+        }
+        .qq-buildai-reflabel {
+          font-size: 12.5px; font-weight: 500;
+          color: ${AE.color.text};
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          min-width: 0;
+        }
+        .qq-buildai-refremove {
+          display: inline-flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+          width: 20px; height: 20px;
+          background: transparent; border: none; border-radius: 50%;
+          color: ${AE.color.secondary}; cursor: pointer; padding: 0;
+          transition: color 0.12s ease, background 0.12s ease;
+        }
+        .qq-buildai-refremove:hover {
+          color: ${AE.color.danger};
+        }
+        .qq-buildai-refremove:focus-visible {
+          outline: none; box-shadow: ${AE.shadow.focus};
+        }
+        .qq-buildai-referror {
+          margin: 0;
+          font-size: ${AE.type.helper.size};
+          color: ${AE.color.danger};
+          line-height: 1.4;
         }
         /* Primary Generate button — accent fill (this is the primary action,
            per AE.color.accent/publish). */
