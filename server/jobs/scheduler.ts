@@ -92,6 +92,7 @@ import { processCitationTrackerDailyScan } from "./citationTrackerDailyScan";
 import { runRankfluxAlertTick } from "./rankfluxAlertWorker";
 import { processQuotequickExpiresSoon } from "./quotequickExpiresSoonWorker";
 import { processQuotequickPostJob } from "./quotequickPostJobWorker";
+import { processIncompleteSignupTick, incompleteSignupEmailsEnabled } from "./incompleteSignupWorker";
 
 const log = createLogger("Scheduler");
 
@@ -1543,6 +1544,33 @@ export function initScheduler() {
       log.error("vapi_recording_mirror cron handler error", { error: err.message });
     } finally {
       vapiRecordingMirrorRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Incomplete-signup re-engagement — daily at 09:20 UTC (off-minute,
+  // staggered after the trial-lifecycle onboarding emails at 09:00 to avoid
+  // email-provider pile-up). Wins back free signups who created an account
+  // but never published a QuoteQuick calculator (a measured activation
+  // leak — signups auto-login with no verify checkpoint, so a confused
+  // drop-off gets no follow-up).
+  //
+  // INERT unless INCOMPLETE_SIGNUP_EMAILS_ENABLED==="true" — the flag is
+  // checked here too (like the IMAP poller / video render worker) so inert
+  // ticks don't spam job_logs daily and NO email is ever sent while off.
+  // Overlap-guarded so a slow batch can't stack with the next day's tick.
+  let incompleteSignupRunning = false;
+  cron.schedule("20 9 * * *", async () => {
+    if (!incompleteSignupEmailsEnabled() || incompleteSignupRunning) {
+      if (incompleteSignupRunning) log.debug("incomplete_signup_emails skipped — previous tick still running");
+      return;
+    }
+    incompleteSignupRunning = true;
+    try {
+      await runJob("incomplete_signup_emails", () => processIncompleteSignupTick());
+    } catch (err: any) {
+      log.error("incomplete_signup_emails cron handler error", { error: err.message });
+    } finally {
+      incompleteSignupRunning = false;
     }
   }, { timezone: "UTC" });
 }

@@ -28,6 +28,8 @@ jobs:
         run: npm run check:pricing-truth
       - name: Trial-truth guard (free tools never pause; honest Pro-preview copy)
         run: npm run check:trial-truth
+      - name: Incomplete-signup re-engagement guard (flag-off inertness, ≥24h-no-calc selection, idempotent steps, unsubscribe suppression, batch cap, per-recipient failure isolation)
+        run: npm run check:incomplete-signup-emails
       - name: Checkout provisioning-order guard (session first — no phantom rows on session failure)
         run: npm run check:checkout-provisioning-order
       - name: Sub-cancel free-tier guard (cancel reverts to free but never pauses the calculator)
