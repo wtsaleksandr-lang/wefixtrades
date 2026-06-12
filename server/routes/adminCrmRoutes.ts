@@ -4743,11 +4743,12 @@ export function registerAdminCrmRoutes(app: Express): void {
    * Upload a deliverable (base64 JSON body — no multer dependency).
    * Body: { file: "base64data...", filename: "mockup.png", label: "Design mockup v1", kind: "mockup" }
    */
-  // The global express.json() parser defaults to a 100 KB body limit, which
-  // is far too small for a base64-encoded deliverable (handler enforces a
-  // 10 MB binary cap). Mount a route-scoped parser with a raised limit
-  // (matches the portal logo upload pattern in portalRoutes.ts) so the
-  // upload body actually reaches the handler before being rejected.
+  // NOTE: a route-scoped parser CANNOT raise the global 100 KB limit — the
+  // global express.json() in server/index.ts runs first and would 413 the
+  // body before this ever executes. The real raised limit for this path is
+  // mounted ahead of the global parser via server/lib/bodyLimits.ts
+  // ("/api/admin/crm/fulfillment/:id/deliverables" → 16mb). This parser is
+  // kept only as a no-op backstop (body arrives already parsed, so it skips).
   const deliverableUploadBodyParser = express.json({ limit: "16mb" });
 
   app.post("/api/admin/crm/fulfillment/:id/deliverables", requireAdmin, deliverableUploadBodyParser, async (req: Request, res: Response) => {

@@ -282,7 +282,13 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
   /* ─── Streaming chat (POST) ──────────────────────────────────────────
    * Wave WAI — anonymous + free, all tiers. No requireAuth, no Business-tier
    * gate. Logged-in callers keep the DB budget caps; anonymous callers are
-   * bounded by the per-IP rate limiter (the anonymous spend ceiling). */
+   * bounded by the per-IP rate limiter (the anonymous spend ceiling).
+   *
+   * NOTE: the body may carry a base64 image (schema max 2,000,000 chars,
+   * ~1.9 MB). The global express.json() parser in server/index.ts has a
+   * 100 KB limit and runs first — the raised limit for this path is mounted
+   * ahead of it via server/lib/bodyLimits.ts ("/api/quotequick/ai/chat" →
+   * 3mb). Do NOT add a route-scoped parser here; it would be dead code. */
   app.post("/api/quotequick/ai/chat", async (req: Request, res: Response) => {
     const userId = optionalUserId(req);
 
