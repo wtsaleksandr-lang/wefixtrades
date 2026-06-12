@@ -42,8 +42,8 @@ client/src/components/wizard/elfsight/StyleTab.tsx:1289:31	rule-c	size={10}
 client/src/components/wizard/elfsight/StyleTab.tsx:4557:30	rule-c	size={13}
 client/src/components/wizard/elfsight/StyleTab.tsx:4567:32	rule-c	size={13}
 client/src/components/wizard/elfsight/StyleTab.tsx:4580:26	rule-c	size={13}
-client/src/components/wizard/elfsight/TemplateGallery.tsx:237:5	rule-b	<div> contains 2 cues
-client/src/components/wizard/elfsight/TemplateGallery.tsx:802:16	rule-c	size={18}
+client/src/components/wizard/elfsight/TemplateGallery.tsx:248:5	rule-b	<div> contains 2 cues
+client/src/components/wizard/elfsight/TemplateGallery.tsx:826:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:228:17	rule-c	size={11}
 client/src/pages/Blog.tsx:240:19	rule-c	size={120}
 client/src/pages/Blog.tsx:359:17	rule-c	size={84}
