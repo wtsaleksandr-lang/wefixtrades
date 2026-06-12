@@ -1931,6 +1931,61 @@
   color: var(--qq-muted);
 }
 
+/* 2026-06-12 — Browse-all templates modal is now portaled to <body>
+ * (TemplateGallery.tsx). On mobile it used to mount inside the wizard bottom
+ * sheet, whose transform + overflow:clip clipped the fixed overlay's top
+ * ~230px (header / search / filters were untappable). Because the portal
+ * escapes .qq-editor-shell, none of the [data-theme] descendant rules above
+ * reach it — TemplateGallery stamps data-theme on the backdrop instead, and
+ * these rules mirror the in-shell dark equivalents. The shell's --qq-*
+ * variable definitions don't reach <body>, so the backdrop defines its own
+ * (same values as .qq-editor-shell[data-theme="dark"]). */
+.qq-tg-modal-backdrop[data-theme="dark"] {
+  --qq-bg: #0F172A;
+  --qq-surface: #1E293B;
+  --qq-text: #F1F5F9;
+  --qq-muted: #94A3B8;
+  --qq-border: #334155;
+}
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-card-name,
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-card-tags,
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-modal-title {
+  color: var(--qq-text) !important;
+}
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-card-tags {
+  color: var(--qq-muted) !important;
+}
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-card,
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-modal,
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-modal-header,
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-modal-close,
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-mockup {
+  background: #243149 !important;
+  border-color: var(--qq-border) !important;
+  color: var(--qq-text);
+}
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-modal-search-input,
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-modal-cat-select {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-tg-modal-search-input::placeholder {
+  color: var(--qq-muted);
+}
+/* InfoCue inside the portaled modal — mirrors the in-shell
+ * .qq-editor-shell[data-theme="dark"] .qq-info-cue rules. */
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-info-cue {
+  --info-bg: var(--qq-surface);
+  --info-border: var(--qq-border);
+  --info-fg: var(--qq-muted);
+}
+.qq-tg-modal-backdrop[data-theme="dark"] .qq-info-cue-popover {
+  background: var(--qq-surface);
+  color: var(--qq-text);
+  border-color: var(--qq-border);
+}
+
 /* WizardShell — device-mode picker bezel, help-modal card, mobile
  * action-bar secondary buttons. */
 .qq-editor-shell[data-theme="dark"] .qq-editor-device {

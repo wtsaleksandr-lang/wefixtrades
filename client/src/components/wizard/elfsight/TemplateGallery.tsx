@@ -17,8 +17,19 @@
 //
 // Mobile: same horizontal scroller. Drag-to-scroll on mouse, native
 // touch swipe on phones. The Browse-all modal is full-screen on phones.
+//
+// 2026-06-12 — the Browse-all modal is PORTALED to <body> (same pattern as
+// HelpModal / RowKebab's menu). On mobile the strip mounts inside the wizard
+// bottom sheet (.qq-sheet), whose transform + overflow:clip made the sheet
+// the containing block for the modal's position:fixed backdrop — the top
+// ~230px (header / close / search / filters) rendered above the sheet's clip
+// window and was untappable. Portaling makes fixed resolve against the real
+// viewport on every device. Because the portal escapes .qq-editor-shell, the
+// backdrop carries its own data-theme stamp; the dark-mode rules live in
+// index.css under .qq-tg-modal-backdrop[data-theme="dark"].
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, type MouseEvent as ReactMouseEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -777,12 +788,25 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  return (
+  // Detect the editor-chrome theme so the body-portaled overlay can match
+  // dark/light chrome (same render-time detection as RowKebab's menu — the
+  // portal escapes .qq-editor-shell, so descendant [data-theme] selectors
+  // can't reach it and the backdrop carries its own stamp instead).
+  const editorTheme = (() => {
+    if (typeof document === 'undefined') return 'light';
+    const shell = document.querySelector('.qq-editor-shell');
+    return shell?.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  })();
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
       className="qq-tg-modal-backdrop"
       role="dialog"
       aria-modal="true"
       aria-label="Browse all templates"
+      data-theme={editorTheme}
       data-testid="template-browse-modal"
       onClick={onClose}
     >
@@ -899,7 +923,12 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
 
       <style>{`
         .qq-tg-modal-backdrop {
-          position: fixed; inset: 0; z-index: 1200;
+          /* 2026-06-12 — portaled to <body>: fixed now resolves against the
+           * real viewport (no longer clipped by the mobile sheet's transform
+           * containing block). z-index raised 1200 → 10000, the established
+           * above-bottom-sheet tier (sheet sits at 9998; same tier as
+           * RowKebab's portaled menu). */
+          position: fixed; inset: 0; z-index: 10000;
           background: rgba(15, 23, 42, 0.55);
           backdrop-filter: blur(2px);
           -webkit-backdrop-filter: blur(2px);
@@ -1093,6 +1122,7 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           .qq-tg-modal-cat-select { min-height: 44px; font-size: 14px; }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   );
 }
