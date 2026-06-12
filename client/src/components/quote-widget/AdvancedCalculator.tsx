@@ -3633,7 +3633,11 @@ export default function AdvancedCalculator({
 function scopeCustomCss(raw: string, scope: string): string {
   // Strip the wizard's most common copy-paste hazard (a wrapping <style>
   // tag) so users who copy-paste a snippet don't blow up the renderer.
-  const clean = raw.replace(/<\/?style[^>]*>/gi, '');
+  // Also strip @import entirely: an imported stylesheet's rules cannot be
+  // scoped to the widget root, so they would hit the whole host page.
+  const clean = raw
+    .replace(/<\/?style[^>]*>/gi, '')
+    .replace(/@import\b[^;]*(;|$)/gi, '');
   // Walk rule by rule. We split on `}` to keep `@media (...) { ... }`
   // groups intact at the outer level — the prefixer recurses into the
   // inner body of those groups too.
@@ -3668,8 +3672,9 @@ function prefixRuleBlock(block: string, scope: string): string {
     const head = trimmed.slice(0, openIdx + 1);
     const inner = trimmed.slice(openIdx + 1, -1); // drop trailing `}`
     // @keyframes — selectors inside are `from`/`to`/`<percent>%`; not
-    // selectors we should scope. Pass through.
-    if (/^@(keyframes|font-face|charset|import|namespace)/i.test(trimmed)) {
+    // selectors we should scope. Pass through. (`import` removed from this
+    // list — @import is stripped at scopeCustomCss entry, never passed through.)
+    if (/^@(keyframes|font-face|charset|namespace)/i.test(trimmed)) {
       return trimmed;
     }
     return head + '\n' + scopeCustomCss(inner, scope) + '\n}';

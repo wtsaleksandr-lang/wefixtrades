@@ -27,7 +27,7 @@ The "CURRENT EDITOR STATE (JSON)" block appended to this system prompt is the li
   - header       : { title?, subtitle? }
   - results      : { heading?, footnote? }
   - resultCalcId : string  (the calc id chosen as the headline)
-  - style        : { accent_color?, bg_color?, font_family?, field_style?, widget_width? }
+  - style        : partial ShellStyle (real keys listed under RESTYLING below)
   - settings     : { tradeId?, leadEmail?, pricing?, numberFormat?, ctaLabel?, language? }
   - activeTemplateId?: string
   - logo?        : string | null  (data URL)
@@ -75,6 +75,22 @@ AirVent, AlertTriangle, AppWindow, Axe, Bath, BatteryCharging, Biohazard, Bolt, 
 
 TRUST BADGES
 Include 3-4 niche-relevant trustBadges on replace_template (florist: "Same-Day Delivery" truck, "Freshness Guarantee" leaf, "Locally Grown" heart). Labels short (≤30 chars); icons ONLY from the enum in the tool schema.
+
+RESTYLING
+set_style(patch) merges into ShellStyle. These are the REAL keys — anything else risks being a dead key that silently does nothing:
+- Colour tokens (3- or 6-digit hex like "#0af" or "#0a7cff"): accent, ctaColor (CTA button background ONLY — accent drives the rest), background, text, resultsBg, secondary, surface, border, success, error.
+- fontFamily: system | inter | manrope | satoshi | geist | jakarta | plex | outfit | sora.
+- fieldStyle: "filled" | "outline".   labelLayout: "float" | "stacked".
+- radius: number 0-24 (px).   widgetWidth: "narrow" | "wide" | "full".
+- headingWeight: 500 | 600 | 700 | 800.   bodyWeight: 400 | 500.   fontSize: "small" | "medium" | "large".
+- bgMode: "solid" | "gradient" | "image";  bgGradient: { from, to, direction (e.g. "to bottom right") }.
+- animations: { step_transition: "none" | "fade" | "slide" | "slide-fade", duration_ms: 100-600 }.
+- customCss: string — scoped to the widget root at render; @import is stripped.
+Rules:
+- Prefer style tokens first. Use customCss ONLY for effects tokens can't express (hover states, shadows, transitions).
+- NEVER use customCss for structural/layout changes (position, display, overflow, width of internal elements) — that breaks the widget.
+- Colors must be 3- or 6-digit hex; invalid values are dropped by the editor.
+- After a style change, confirm by referring to what you changed, not what you "see".
 
 SAFETY
 - Never call set_logo unless the user explicitly uploaded a logo.
@@ -204,11 +220,40 @@ export const QUOTEQUICK_AI_TOOLS = [
   },
   {
     name: "set_style",
-    description: "Partial update to ShellStyle (accent color, bg, font, etc.).",
+    description: "Partial update merged into ShellStyle. Colour tokens take 3- or 6-digit hex; see the RESTYLING section of the system prompt for the full key list and rules.",
     input_schema: {
       type: "object",
       properties: {
-        patch: { type: "object" },
+        patch: {
+          type: "object",
+          description: "Partial ShellStyle — set only the keys you want to change.",
+          properties: {
+            accent: { type: "string", description: "Accent colour — 3- or 6-digit hex (e.g. #0a7cff)." },
+            ctaColor: { type: "string", description: "CTA button background ONLY — 3- or 6-digit hex. accent drives everything else." },
+            background: { type: "string", description: "Widget body background — 3- or 6-digit hex." },
+            text: { type: "string", description: "Primary text colour — 3- or 6-digit hex." },
+            resultsBg: { type: "string", description: "Result-panel background — 3- or 6-digit hex." },
+            secondary: { type: "string", description: "Secondary accent — 3- or 6-digit hex." },
+            surface: { type: "string", description: "Card / panel surface colour — 3- or 6-digit hex." },
+            border: { type: "string", description: "Input + container border colour — 3- or 6-digit hex." },
+            success: { type: "string", description: "Positive-state colour — 3- or 6-digit hex." },
+            error: { type: "string", description: "Error / validation colour — 3- or 6-digit hex." },
+            fontFamily: {
+              type: "string",
+              enum: ["system", "inter", "manrope", "satoshi", "geist", "jakarta", "plex", "outfit", "sora"],
+            },
+            fieldStyle: { type: "string", enum: ["filled", "outline"] },
+            radius: { type: "number", minimum: 0, maximum: 24, description: "Corner radius in px, 0-24." },
+            widgetWidth: { type: "string", enum: ["narrow", "wide", "full"] },
+            customCss: {
+              type: "string",
+              description: "Scoped CSS for effects tokens can't express (hover states, shadows, transitions). NEVER structural/layout rules; @import is stripped.",
+            },
+          },
+          // Lesser-known valid ShellStyle keys (bgGradient, animations,
+          // headingWeight, …) still pass through — validated client-side.
+          additionalProperties: true,
+        },
       },
       required: ["patch"],
     },
