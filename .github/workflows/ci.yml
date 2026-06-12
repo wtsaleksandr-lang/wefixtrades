@@ -40,6 +40,8 @@ jobs:
         run: npm run check:funnel-analytics
       - name: SERP-country guard (location string derives the country index)
         run: npm run check:serp-country
+      - name: Calculator-schema guard (advanced.fields[].type enum stays in sync with the 19-type FieldType union; bogus type rejected)
+        run: npm run check:calculator-schema
       - name: Demo-persona guard (TradeLine demo role-plays the receptionist, not the platform)
         run: npm run check:demo-persona
       - name: ContentFlow generate-source guard (saved custom prompts can drive generation — not template-bound)

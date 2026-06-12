@@ -57,6 +57,16 @@ const TYPE_ALIASES: Record<string, FieldType> = {
   imagechoice: 'image_choice',
   imageChoice: 'image_choice' as FieldType,
   heading: 'heading',
+  // PRICING-MODELS — distance / rate-matrix / photo-upload + the friendly
+  // aliases the model is likely to send.
+  address_distance: 'address_distance',
+  distance: 'address_distance',
+  address: 'address_distance',
+  rate_matrix: 'rate_matrix',
+  matrix: 'rate_matrix',
+  photo_upload: 'photo_upload',
+  photo: 'photo_upload',
+  file_upload: 'photo_upload',
 };
 
 function coerceFieldType(raw: string): FieldType | null {
@@ -91,6 +101,11 @@ const ENGINE_TO_PUBLIC: Record<FieldType, PublicFieldType | null> = {
   video: 'video',
   // WIZARD-GAPS — contact form content component.
   contact_form: 'contact_form',
+  // PRICING-MODELS — first-class public types (canonical names pass through)
+  // so the AI tool applier hydrates them via makeField with sane defaults.
+  address_distance: 'address_distance',
+  rate_matrix: 'rate_matrix',
+  photo_upload: 'photo_upload',
 };
 
 function uid(prefix: string): string {

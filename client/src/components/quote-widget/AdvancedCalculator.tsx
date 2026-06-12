@@ -242,7 +242,11 @@ interface AdvField {
     // WIZARD-GAPS — contact form. No quote answer; renders an inline
     // name + email + message block that submits via the existing /api/leads
     // path and is excluded from the formula context.
-    | 'contact_form';
+    | 'contact_form'
+    // PRICING-MODELS (U0 — type union only; the renderer branches +
+    // rawFieldValue/defaultAnswer handling land in U2). Until U2 ships, the
+    // existing if-chains fall through safely (contributes the neutral value).
+    | 'address_distance' | 'rate_matrix' | 'photo_upload';
   help?: string;
   required?: boolean;
   default_value?: number;

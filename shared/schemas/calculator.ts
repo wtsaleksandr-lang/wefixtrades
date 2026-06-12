@@ -410,7 +410,24 @@ export const calculatorSettingsSchema = z.object({
       id: z.string(),
       name: z.string(),
       label: z.string(),
-      type: z.enum(['number', 'slider', 'select', 'radio', 'multi_select', 'toggle', 'text', 'image_choice', 'heading']),
+      // PRICING-MODELS P1 fix — this enum previously listed only the original
+      // 9 engine types while the client `FieldType` union had grown to 16
+      // (paragraph / divider / image / button / link / video / contact_form),
+      // so any save containing one of the 7 newer types 400'd on POST + PATCH.
+      // Now mirrors the FULL `shared/templatePresets.ts` FieldType union
+      // (19 incl. the pricing-model types). Guarded by
+      // `check:calculator-schema` (shared/schemas/calculator.fieldTypes.test.ts)
+      // which fails on any future drift.
+      type: z.enum([
+        'number', 'slider', 'select', 'radio', 'multi_select', 'toggle',
+        'text', 'image_choice', 'heading',
+        // COMPONENTS-1 / BUILDER-COMPONENTS / FIELD-PALETTE / WIZARD-GAPS —
+        // display-only + content components.
+        'paragraph', 'divider', 'image', 'button', 'link', 'video',
+        'contact_form',
+        // PRICING-MODELS — distance / rate-matrix / photo-upload inputs.
+        'address_distance', 'rate_matrix', 'photo_upload',
+      ]),
       help: z.string().optional(),
       required: z.boolean().default(false),
       // number / slider
@@ -436,7 +453,30 @@ export const calculatorSettingsSchema = z.object({
         op: z.enum(['eq', 'ne', 'gt', 'lt', 'gte', 'lte']),
         value: z.number().default(0),
       }).optional(),
-    })).default([]),
+      // PRICING-MODELS — address_distance config (see TemplateField docs in
+      // shared/templatePresets.ts). Permissive per the passthrough precedent
+      // below: the renderer is the source of truth for shapes/defaults.
+      distanceUnit: z.enum(['miles', 'km']).optional(),
+      roundTrip: z.boolean().optional(),
+      maxDistanceMiles: z.number().optional(),
+      allowManualDistance: z.boolean().optional(),
+      // PRICING-MODELS — rate_matrix rate table (TemplateRateMatrix).
+      // `.passthrough()` so the nested rows/cols/rates round-trip without
+      // this schema mirroring every nested field (style-slot precedent).
+      matrix: z.object({}).passthrough().optional(),
+      // PRICING-MODELS — photo_upload caps (defaults applied at render time;
+      // the upload route enforces the hard server-side limits).
+      maxPhotos: z.number().optional(),
+      maxPhotoMb: z.number().optional(),
+      // P1 fix (part 2) — the per-type slots of the 7 newer content types
+      // (`content`, `imageUrl`, `videoUrl`, `href`, `buttonAction`,
+      // `contactRequire`, `dividerThickness`, …) plus editor slots like
+      // `show_if` / `inlineStyle` / `colSpan` were never mirrored here, so
+      // Zod's strip-unknown-keys behaviour would silently drop them even
+      // once the type enum admits the types. Same passthrough rationale as
+      // the `advanced` object itself (see the P0 data-loss precedent below):
+      // the renderer is the source of truth for these shapes.
+    }).passthrough()).default([]),
     // Named calculations. `formula` may reference field names and the result
     // of any earlier calculation; they run top-to-bottom (subtotals → total).
     calculations: z.array(z.object({
@@ -543,6 +583,14 @@ export const calculatorSettingsSchema = z.object({
     // Action tab — client-side spam honeypot. Absent / true → ON; explicit
     // false → OFF.
     spamProtection: z.boolean().optional(),
+    // PRICING-MODELS — per-business anchor address for address_distance
+    // fields. Server geocodes once on save and persists lat/lng beside the
+    // address; the public distance endpoint reads it server-side only.
+    origin: z.object({
+      address: z.string(),
+      lat: z.number().optional(),
+      lng: z.number().optional(),
+    }).passthrough().optional(),
     // Forward-compat safety net — never silently drop a future authored slot
     // the renderer adds to AdvancedConfigShape before this schema is bumped.
   }).passthrough().default({}),

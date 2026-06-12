@@ -121,6 +121,11 @@ const TYPE_ICON: Record<TemplateField['type'], string> = {
   video: '▷',
   // WIZARD-GAPS — contact form.
   contact_form: '✉',
+  // PRICING-MODELS (U0) — map entries only, so the exhaustive Record keeps
+  // compiling; the dedicated FieldRow config sections land in U3.
+  address_distance: '⇥',
+  rate_matrix: '⊞',
+  photo_upload: '⛶',
 };
 
 const TYPE_LABEL: Record<TemplateField['type'], string> = {
@@ -140,6 +145,10 @@ const TYPE_LABEL: Record<TemplateField['type'], string> = {
   link: 'Link',
   video: 'Video',
   contact_form: 'Contact form',
+  // PRICING-MODELS (U0) — map entries only (see TYPE_ICON note above).
+  address_distance: 'Distance',
+  rate_matrix: 'Rate matrix',
+  photo_upload: 'Photo upload',
 };
 
 export default function FieldRow({

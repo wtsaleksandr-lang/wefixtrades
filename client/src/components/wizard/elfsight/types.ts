@@ -78,7 +78,10 @@ export type PublicFieldType =
   // WIZARD-GAPS — `contact_form` content type → canonical 'contact_form'.
   // Inline name + email + message block; submits via the existing /api/leads
   // path. No quote contribution.
-  | 'contact_form';
+  | 'contact_form'
+  // PRICING-MODELS — distance / rate-matrix / photo-upload pricing inputs.
+  // Public names match the canonical engine names (contact_form precedent).
+  | 'address_distance' | 'rate_matrix' | 'photo_upload';
 
 export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']> = {
   slider: 'slider',
@@ -97,6 +100,10 @@ export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']
   toggle: 'toggle',
   video: 'video',
   contact_form: 'contact_form',
+  // PRICING-MODELS — canonical names pass straight through.
+  address_distance: 'address_distance',
+  rate_matrix: 'rate_matrix',
+  photo_upload: 'photo_upload',
 };
 
 export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicFieldType>> = {
@@ -116,6 +123,10 @@ export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicF
   toggle: 'toggle',
   video: 'video',
   contact_form: 'contact_form',
+  // PRICING-MODELS — canonical names pass straight through.
+  address_distance: 'address_distance',
+  rate_matrix: 'rate_matrix',
+  photo_upload: 'photo_upload',
 };
 
 /** Header overrides — Wave H4. Both optional; blank values fall back to
@@ -345,6 +356,15 @@ export interface ShellSettings {
    * UI entirely when the object is undefined OR every field is empty.
    */
   businessProfile?: BusinessProfile;
+  /**
+   * PRICING-MODELS — per-business anchor address for `address_distance`
+   * fields. Maps to `advanced.origin` on save; the server geocodes it once
+   * (lat/lng persisted beside the address) and the public distance endpoint
+   * reads it server-side — the widget client never supplies the origin.
+   * Optional like every other settings slot (older persisted state parses
+   * cleanly; absent → distance fields fall back to manual entry).
+   */
+  origin?: { address: string; lat?: number; lng?: number };
 }
 
 /**
