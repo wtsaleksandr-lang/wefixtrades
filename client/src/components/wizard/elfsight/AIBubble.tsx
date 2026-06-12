@@ -45,6 +45,10 @@ export interface AIBubbleProps {
   setStyle: (next: ShellStyle) => void;
   setSettings: (next: ShellSettings) => void;
   setLogo: (next: string | null) => void;
+  /** AI-gen quality (gap 1) — props double as the AiApplierContext
+   *  (`applyAiToolCall(call, props)`), so the replace_template applier's
+   *  `business_name` support needs this setter threaded through. */
+  setBusinessName: (v: string) => void;
   applyTemplatePreset: (presetId: string) => void;
   replaceTemplate: (cfg: TemplateConfig) => void;
   /**

@@ -13,7 +13,9 @@
 
 import { makeField } from './FieldsPanel';
 import type { ShellState, ShellHeader, ShellResults, ShellStyle, ShellSettings, PublicFieldType } from './types';
-import type { TemplateField, TemplateCalculation, TemplateConfig, TemplateOption, FieldType } from '@shared/templatePresets';
+import { THEME_COMBOS, comboToStyleColors } from '@shared/templatePresets';
+import type { TemplateField, TemplateCalculation, TemplateConfig, TemplateOption, FieldType, TrustBadge } from '@shared/templatePresets';
+import { QUOTEQUICK_ICONS } from '@/data/quoteQuickIcons';
 
 export interface AiToolCall {
   id?: string;
@@ -30,6 +32,9 @@ export interface AiApplierContext {
   setStyle: (next: ShellStyle) => void;
   setSettings: (next: ShellSettings) => void;
   setLogo: (next: string | null) => void;
+  /** AI-gen quality (gap 1) — writes `ShellState.businessName` so the
+   *  replace_template tool's optional `business_name` param is honoured. */
+  setBusinessName: (v: string) => void;
   applyTemplatePreset: (presetId: string) => void;
   replaceTemplate: (cfg: TemplateConfig) => void;
 }
@@ -233,7 +238,60 @@ function applyReplaceTemplate(input: any, ctx: AiApplierContext): void {
   // optional bits but we at least need fields[] + calculations[].
   if (!Array.isArray(cfg.fields)) throw new Error('fields[] required');
   if (!Array.isArray(cfg.calculations)) throw new Error('calculations[] required');
-  ctx.replaceTemplate(cfg);
+
+  // ── AI-gen quality (Wave 66) — optional niche-aware params on the
+  // replace_template tool (see server/services/quotequickAiTools.ts).
+  // Every branch is strictly additive: absent/invalid input leaves the
+  // config exactly as before, so this is merge-order-safe with the
+  // server-side schema change. We spread into a copy so the model's raw
+  // input object is never mutated.
+  const next: TemplateConfig = { ...cfg };
+
+  // Gap 2 — `palette`: curated THEME_COMBOS id → explicit style block, so
+  // applyTemplate uses it instead of falling back to
+  // deriveStyleFromCategory(undefined) ('mortgage' blue). Mirrors the
+  // colour slots + bgMode that deriveStyleFromCategory emits; invalid or
+  // missing ids keep the current category-derived fallback.
+  if (typeof input.palette === 'string') {
+    const combo = THEME_COMBOS.find((c) => c.id === input.palette);
+    if (combo) next.style = { ...comboToStyleColors(combo), bgMode: 'solid' };
+  }
+
+  // Gap 4 — `default_icon`: allowlist-validated against the curated
+  // QUOTEQUICK_ICONS registry; unknown names are dropped (renderer would
+  // silently show nothing for a bogus key).
+  if (
+    typeof input.default_icon === 'string' &&
+    Object.prototype.hasOwnProperty.call(QUOTEQUICK_ICONS, input.default_icon)
+  ) {
+    next.defaultIcon = input.default_icon;
+  }
+
+  // Gap 5 — `trustBadges`: sanitise like the image-fusion path
+  // (imageTemplateToConfig.ts) — cap at 4 for visual balance, require a
+  // non-empty label (trimmed, ≤30 chars), keep the icon as-is (the
+  // TrustBadgeRow renderer falls back to BadgeCheck on unknown icons).
+  if (Array.isArray(input.trustBadges)) {
+    const badges: TrustBadge[] = (input.trustBadges as any[])
+      .map((b) => {
+        if (!b || typeof b !== 'object' || typeof b.label !== 'string') return null;
+        const label = b.label.trim().slice(0, 30);
+        if (!label) return null;
+        return { label, icon: b.icon } as TrustBadge;
+      })
+      .filter((b): b is TrustBadge => b !== null)
+      .slice(0, 4);
+    if (badges.length > 0) next.trustBadges = badges;
+  }
+
+  // Gap 1 — `business_name`: the user's stated name, never invented (the
+  // prompt forbids it). Written to ShellState BEFORE the structural
+  // replace so the header fallback + save payload pick it up together.
+  if (typeof input.business_name === 'string' && input.business_name.trim() !== '') {
+    ctx.setBusinessName(input.business_name.trim());
+  }
+
+  ctx.replaceTemplate(next);
 }
 
 function applyPrefill(input: any, ctx: AiApplierContext): void {

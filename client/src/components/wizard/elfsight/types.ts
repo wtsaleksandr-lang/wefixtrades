@@ -682,6 +682,14 @@ export interface ShellState {
    */
   trustBadges?: readonly import('@shared/templatePresets').TrustBadge[];
   /**
+   * AI-gen quality (gap 4) — niche default icon. Seeded from the applied
+   * template's `defaultIcon` (incl. AI replace_template builds) and
+   * surfaced as `advanced.defaultIcon`, which AdvancedCalculator's header
+   * renders whenever the owner hasn't uploaded a logo (an uploaded logo
+   * always wins). Must be a `QUOTEQUICK_ICONS` registry key.
+   */
+  defaultIcon?: string;
+  /**
    * BG-7 Item 4 — owner-edited per-step content. Seeded from the active
    * template's `steps[]` (when present); owner edits flow through the
    * BuildTab "Step content" panel and propagate to the preview via
