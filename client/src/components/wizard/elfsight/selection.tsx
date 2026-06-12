@@ -151,7 +151,35 @@ export function SelectionProvider({ children }: ProviderProps) {
         }
         cursor = cursor.parentElement;
       }
-      try { paneEl.scrollIntoView({ block: 'center', behavior }); } catch {}
+      // Wave 61 — manual scroll-container math (mirrors PreviewPane's
+      // centerPreviewNode). Native scrollIntoView({block:'center'}) is
+      // unreliable inside the nested overflow:clip ancestors of the config
+      // pane — it frequently no-ops or scrolls the wrong ancestor. Scroll the
+      // real container (`.qq-editor-left`) by hand so the row lands dead-centre.
+      // Wrapped in rAF so geometry is fresh after a tab-switch / just-rendered
+      // row. Graceful fallback to the old behaviour if the container is absent.
+      const centerInPane = () => {
+        const container = paneEl.closest<HTMLElement>('.qq-editor-left');
+        if (!container) {
+          try { paneEl.scrollIntoView({ block: 'center', behavior }); } catch {}
+          return;
+        }
+        const cRect = container.getBoundingClientRect();
+        const nRect = paneEl.getBoundingClientRect();
+        const delta =
+          (nRect.top - cRect.top) - (container.clientHeight / 2 - nRect.height / 2);
+        if (Math.abs(delta) < 2) return;
+        try {
+          container.scrollBy({ top: delta, behavior });
+        } catch {
+          container.scrollTop += delta;
+        }
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(centerInPane);
+      } else {
+        centerInPane();
+      }
       // Wave 60 — flash pulse so the user spots where the edit row landed.
       // Skipped under prefers-reduced-motion (the CSS rule below also
       // suppresses the keyframes — belt + braces).
