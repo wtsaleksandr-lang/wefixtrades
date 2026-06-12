@@ -120,12 +120,12 @@ client/src/pages/edit-calculator.tsx:459:20	rule-c	square w-16 h-16
 client/src/pages/edit-calculator.tsx:460:23	rule-c	square w-7 h-7
 client/src/pages/edit-calculator.tsx:572:25	rule-c	square w-9 h-9
 client/src/pages/edit-calculator.tsx:578:23	rule-c	square w-9 h-9
-client/src/pages/leads.tsx:104:14	rule-c	square w-16 h-16
-client/src/pages/leads.tsx:105:26	rule-c	square w-7 h-7
-client/src/pages/leads.tsx:118:14	rule-c	square w-16 h-16
-client/src/pages/leads.tsx:119:26	rule-c	square w-7 h-7
-client/src/pages/leads.tsx:167:20	rule-c	square w-16 h-16
-client/src/pages/leads.tsx:168:28	rule-c	square w-7 h-7
+client/src/pages/leads.tsx:231:14	rule-c	square w-16 h-16
+client/src/pages/leads.tsx:232:26	rule-c	square w-7 h-7
+client/src/pages/leads.tsx:245:14	rule-c	square w-16 h-16
+client/src/pages/leads.tsx:246:26	rule-c	square w-7 h-7
+client/src/pages/leads.tsx:294:20	rule-c	square w-16 h-16
+client/src/pages/leads.tsx:295:28	rule-c	square w-7 h-7
 client/src/pages/marketing/DesignShowcase.tsx:130:50	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:134:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:138:52	rule-c	size={720}
