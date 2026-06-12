@@ -73,7 +73,7 @@ function prefersReducedMotion(): boolean {
 
 export default function MinimizedWizardBadge() {
   const [state, setState] = useState<MinimizedState | null>(() => readState());
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const reduceMotion = prefersReducedMotion();
 
   // Re-read on focus / storage events so multi-tab and same-tab
@@ -92,6 +92,11 @@ export default function MinimizedWizardBadge() {
   }, []);
 
   if (!state) return null;
+  // Never surface the resume badge while the wizard itself is open — the
+  // stash lingers in sessionStorage until the user resumes, so a fresh
+  // /wizard navigation (e.g. opening a different calculator) would
+  // otherwise render a redundant "resume" pill over the live editor.
+  if (location.startsWith('/wizard')) return null;
 
   const businessLabel = state.businessName?.trim() || 'your calculator';
   const tooltip = `Resume editing ${businessLabel}`;
