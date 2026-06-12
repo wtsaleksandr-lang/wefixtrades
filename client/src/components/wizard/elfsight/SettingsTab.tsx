@@ -921,6 +921,19 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             grid-template-columns: 1fr;
           }
         }
+        /* Business Profile field list — uniform 2px inter-field gaps
+         * (hard input-field-rule). Scoped to this wrapper so it does NOT
+         * affect the generic .qq-settings-row used elsewhere (e.g. pricing
+         * custom mode). The flex gap is the single source of vertical
+         * spacing; ad-hoc margins inside are neutralized here. */
+        .qq-bp-fieldlist {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .qq-bp-fieldlist .qq-settings-row {
+          margin-top: 0;
+        }
         .qq-trade-results {
           margin-top: 8px;
           max-height: 240px; overflow-y: auto;
@@ -1259,7 +1272,7 @@ function TradeSection({
             <>
               <InfoCue
                 testid="settings-section-trade"
-                text="Which trade this calculator is for. Drives template suggestions and downstream copy."
+                text="Categorizes this calculator by trade — used for dashboard organization and content suggestions. It doesn't change the calculator itself."
               />
               <span style={{ marginLeft: 6 }}>Trade</span>
             </>
@@ -1523,6 +1536,7 @@ function BusinessProfileSection({
       </legend>
       <div className="qq-style-group-body">
 
+      <div className="qq-bp-fieldlist">
       <div className="qq-settings-row" data-testid="settings-bp-row-rating">
         <FloatField label="Google rating (0-5)" htmlFor="qq-settings-bp-rating">
           <input
@@ -1618,7 +1632,7 @@ function BusinessProfileSection({
 
       <p
         style={{
-          fontSize: 11, color: p.colors.subtle, margin: '6px 0 0',
+          fontSize: 11, color: p.colors.subtle, margin: 0,
           lineHeight: 1.4,
         }}
       >
@@ -1626,6 +1640,7 @@ function BusinessProfileSection({
         and below the CTA. Leave any field blank to hide that signal —
         nothing renders as a placeholder.
       </p>
+      </div>
       </div>
     </fieldset>
   );
