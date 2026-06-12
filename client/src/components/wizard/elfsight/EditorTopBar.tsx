@@ -30,14 +30,14 @@
 // editor-theme-toggle, editor-undo, editor-redo, editor-tabs,
 // editor-tab-build, editor-tab-style, editor-tab-settings, editor-tab-install.
 
-import { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useState } from 'react';
 import {
-  CheckCircle2, CloudUpload, HelpCircle, LifeBuoy, Lightbulb, Minimize2,
+  CheckCircle2, CloudUpload, HelpCircle, Minimize2,
   Monitor, Moon, PanelRightClose, PanelRightOpen, Redo2, Smartphone, Sun,
   Tablet, Undo2, X,
 } from 'lucide-react';
 import { AE } from './appleEditor';
+import HelpModal from './HelpModal';
 // Phase 0b — EDITOR_TABS is no longer rendered here; the section nav moved to
 // the left icon rail in WizardShell. The EditorTab type is still imported for
 // the (still-accepted) activeTab / onTabChange props.
@@ -117,27 +117,11 @@ export default function EditorTopBar({
   const nextTheme: EditorTheme = editorTheme === 'dark' ? 'light' : 'dark';
   const ThemeIcon = editorTheme === 'dark' ? Sun : Moon;
 
-  // 2026-06-04 — self-contained Help popover. The previous implementation
-  // called `onHelp()` which flipped WizardShell's `showHelp` overlay: that
-  // overlay had NO Escape handler and, because it's a fixed inset:0 layer at
-  // z-index 1100, it captured every pointer event until dismissed. We replace
-  // it with a local modal that closes on (a) Escape, (b) backdrop click, and
-  // (c) the explicit "Got it" button. Rendered via a portal to document.body
-  // so the wizard-shell-modal's transform doesn't reparent its fixed layer.
+  // 2026-06-04 — self-contained Help popover (2026-06-12: extracted to the
+  // shared <HelpModal>, which now owns the portal + Escape/backdrop
+  // dismissal). The top bar only keeps the open flag.
   const [helpOpen, setHelpOpen] = useState(false);
   const closeHelp = useCallback(() => setHelpOpen(false), []);
-  useEffect(() => {
-    if (!helpOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        setHelpOpen(false);
-      }
-    };
-    // Capture phase so this wins even if an ancestor also listens for Escape.
-    document.addEventListener('keydown', onKey, true);
-    return () => document.removeEventListener('keydown', onKey, true);
-  }, [helpOpen]);
   // BD-3a fix 1 — Mac-style shortcut label is purely cosmetic; the keyboard
   // listener in WizardShell handles both ⌘ and Ctrl.
   const isMac = typeof navigator !== 'undefined'
@@ -575,123 +559,12 @@ export default function EditorTopBar({
         </button>
       </div>
 
-      {/* 2026-06-04 — self-contained Help modal (replaces the WizardShell
-       *  trap overlay). Portaled to <body> so the wizard-shell-modal's
-       *  open-animation transform doesn't reparent this fixed layer.
-       *  Dismissal: Escape (capture-phase listener above), backdrop click,
-       *  or the "Got it" button. data-theme mirrors the editor chrome so the
-       *  card reads correctly in both light and dark mode. */}
-      {helpOpen && typeof document !== 'undefined' && createPortal(
-        <div
-          className="qq-editor-help"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Editor help"
-          data-theme={editorTheme}
-          data-testid="editor-help-overlay"
-          onClick={closeHelp}
-        >
-          <div
-            className="qq-editor-help-card"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: AE.color.text }}>
-              Need a hand?
-            </p>
-            <p style={{ fontSize: 13, color: AE.color.secondary, margin: '6px 0 0', lineHeight: 1.5 }}>
-              Build on the left, preview on the right. Esc or click outside to close.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-              <a
-                href="mailto:support@wefixtrades.com"
-                data-testid="help-action-get-help"
-                aria-label="Get help — email our support team"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: 12,
-                  borderRadius: AE.radius.md,
-                  border: `1px solid ${AE.color.hairline}`,
-                  background: AE.color.surface,
-                  textDecoration: 'none',
-                  color: AE.color.text,
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    flexShrink: 0,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 32, height: 32,
-                    borderRadius: AE.radius.sm,
-                    background: AE.color.accentTint,
-                    color: AE.color.accent,
-                  }}
-                >
-                  <LifeBuoy style={{ width: 20, height: 20 }} />
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
-                    Get help
-                  </span>
-                  <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
-                    Questions or stuck? Our team replies fast.
-                  </span>
-                </span>
-              </a>
-
-              <a
-                href="mailto:support@wefixtrades.com?subject=Feature%20request"
-                data-testid="help-action-request-feature"
-                aria-label="Request a feature — email us your idea"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: 12,
-                  borderRadius: AE.radius.md,
-                  border: `1px solid ${AE.color.hairline}`,
-                  background: AE.color.surface,
-                  textDecoration: 'none',
-                  color: AE.color.text,
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    flexShrink: 0,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 32, height: 32,
-                    borderRadius: AE.radius.sm,
-                    background: AE.color.accentTint,
-                    color: AE.color.accent,
-                  }}
-                >
-                  <Lightbulb style={{ width: 20, height: 20 }} />
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
-                    Request a feature
-                  </span>
-                  <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
-                    Tell us what would make QuoteQuick better.
-                  </span>
-                </span>
-              </a>
-            </div>
-
-            <button
-              type="button"
-              onClick={closeHelp}
-              data-testid="editor-help-dismiss"
-              className="qq-editor-btn"
-              style={{ marginTop: 14 }}
-              autoFocus
-            >
-              Got it
-            </button>
-          </div>
-        </div>,
-        document.body,
-      )}
+      {/* 2026-06-12 — shared Help modal (HelpModal.tsx). Replaces the inline
+       *  mailto: card that was duplicated here and in WizardShell. The modal
+       *  portals itself to <body> and owns its Escape/backdrop dismissal;
+       *  its two actions are in-app: open the builder chat, or submit a
+       *  support message without leaving the editor. */}
+      {helpOpen && <HelpModal editorTheme={editorTheme} onClose={closeHelp} />}
     </div>
   );
 }
