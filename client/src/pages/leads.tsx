@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, Download, Users, ExternalLink, TrendingUp, Eye, BarChart3, Check } from 'lucide-react';
+import { Loader2, AlertTriangle, Download, Users, ExternalLink, TrendingUp, Eye, BarChart3, Check, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 
@@ -43,6 +43,132 @@ function SkeletonTable() {
   );
 }
 
+// ============ Lead-answer rendering ============
+// Lead `answers` is a jsonb record keyed by field id. Most values are
+// primitives; the structured field types (address_distance, rate_matrix,
+// photo_upload) store small objects. Every shape check below is defensive —
+// answers come from historical widget submissions and may be partial or
+// malformed, so each renderer falls back to a safe "--" instead of throwing.
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/** "port-newark" / "zone_2-far" → "Port Newark" / "Zone 2 Far" */
+function deslugify(id: string): string {
+  const cleaned = id.replace(/[-_]+/g, ' ').trim();
+  if (!cleaned) return id;
+  return cleaned.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+}
+
+// address_distance answer: { address, distanceMiles, durationMin, manual?, status }
+function isDistanceAnswer(v: Record<string, unknown>): boolean {
+  return ('distanceMiles' in v || 'durationMin' in v) && ('address' in v || 'status' in v);
+}
+
+// rate_matrix answer: { rowId, colId }
+function isMatrixAnswer(v: Record<string, unknown>): boolean {
+  return typeof v.rowId === 'string' && typeof v.colId === 'string';
+}
+
+// photo_upload answer: { photos: [{url, name}], failed? }
+function isPhotoAnswer(v: Record<string, unknown>): boolean {
+  return Array.isArray(v.photos);
+}
+
+function DistanceAnswerView({ value }: { value: Record<string, unknown> }) {
+  const address = typeof value.address === 'string' && value.address.trim() ? value.address.trim() : null;
+  const miles = typeof value.distanceMiles === 'number' && Number.isFinite(value.distanceMiles) ? value.distanceMiles : null;
+  const manual = value.manual === true;
+  if (!address && miles === null) return <span className="text-slate-400">--</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5 flex-wrap">
+      {address && <span className="text-slate-700">{address}</span>}
+      {miles !== null && (
+        <span className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600 whitespace-nowrap">
+          {miles.toLocaleString(undefined, { maximumFractionDigits: 1 })} mi
+        </span>
+      )}
+      {manual && <span className="text-xs text-slate-400 whitespace-nowrap">(entered manually)</span>}
+    </span>
+  );
+}
+
+function MatrixAnswerView({ value }: { value: Record<string, unknown> }) {
+  // Row/col labels live in the calculator config, which this endpoint does
+  // not return — render de-slugified ids instead (human-enough: ids derive
+  // from the labels the owner typed in the editor).
+  return (
+    <span className="text-slate-700">
+      {deslugify(value.rowId as string)} <span className="text-slate-400" aria-hidden="true">&rarr;</span> {deslugify(value.colId as string)}
+    </span>
+  );
+}
+
+function PhotoAnswerView({ value }: { value: Record<string, unknown> }) {
+  const photos = (value.photos as unknown[]).filter(
+    (p): p is { url: string; name?: unknown } => isRecord(p) && typeof p.url === 'string' && p.url.length > 0,
+  );
+  const failed = typeof value.failed === 'number' && value.failed > 0 ? value.failed : 0;
+  if (photos.length === 0 && failed === 0) return <span className="text-slate-400">--</span>;
+  return (
+    <span className="inline-flex items-center gap-2 flex-wrap">
+      {photos.map((p, i) => (
+        <a
+          key={i}
+          href={p.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={typeof p.name === 'string' && p.name ? p.name : undefined}
+          className="block rounded-lg overflow-hidden border border-slate-200 hover:border-slate-400 transition-colors flex-shrink-0"
+          style={{ width: 48, height: 48 }}
+          data-testid={`link-lead-photo-${i}`}
+        >
+          <img
+            src={p.url}
+            alt={typeof p.name === 'string' && p.name ? p.name : `Photo ${i + 1}`}
+            width={48}
+            height={48}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        </a>
+      ))}
+      {photos.length > 0 && (
+        <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
+          {photos.length} photo{photos.length === 1 ? '' : 's'}
+        </span>
+      )}
+      {failed > 0 && <span className="text-xs text-slate-400 whitespace-nowrap">+{failed} failed</span>}
+    </span>
+  );
+}
+
+function AnswerValue({ value }: { value: unknown }) {
+  if (value === null || value === undefined || value === '') return <span className="text-slate-400">--</span>;
+  if (typeof value === 'string' || typeof value === 'number') return <span className="text-slate-700">{String(value)}</span>;
+  if (typeof value === 'boolean') return <span className="text-slate-700">{value ? 'Yes' : 'No'}</span>;
+  if (Array.isArray(value)) {
+    const parts = value.filter((p): p is string | number => typeof p === 'string' || typeof p === 'number');
+    if (parts.length === 0) return <span className="text-slate-400">--</span>;
+    return <span className="text-slate-700">{parts.join(', ')}</span>;
+  }
+  if (isRecord(value)) {
+    if (isPhotoAnswer(value)) return <PhotoAnswerView value={value} />;
+    if (isDistanceAnswer(value)) return <DistanceAnswerView value={value} />;
+    if (isMatrixAnswer(value)) return <MatrixAnswerView value={value} />;
+    // Unknown structured answer — render compact JSON rather than crashing.
+    // Values arrive via res.json() so they are plain JSON (stringify-safe).
+    const json = JSON.stringify(value);
+    return (
+      <span className="text-slate-500 font-mono text-xs break-all">
+        {json.length > 120 ? `${json.slice(0, 117)}...` : json}
+      </span>
+    );
+  }
+  return <span className="text-slate-400">--</span>;
+}
+
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 animate-fade-in-up" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -61,6 +187,7 @@ export default function Leads() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
   const [csvExported, setCsvExported] = useState(false);
+  const [expandedLeads, setExpandedLeads] = useState<Record<string, boolean>>({});
 
   const { data, isLoading, error } = useQuery<any>({
     queryKey: ['/api/leads', { token }],
@@ -183,27 +310,65 @@ export default function Leads() {
                     {['Date', 'Name', 'Email', 'Phone', 'Company', 'Quote'].map(h => (
                       <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50">{h}</th>
                     ))}
+                    <th className="w-10 bg-slate-50/50"><span className="sr-only">Answers</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {leadsList.map((lead: any, idx: number) => (
-                    <tr
-                      key={lead.id}
-                      className={`transition-colors hover:bg-slate-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
-                      data-testid={`row-lead-${lead.id}`}
-                    >
-                      <td className="px-5 py-3.5 text-sm text-slate-400 whitespace-nowrap font-mono text-xs">
-                        {format(new Date(lead.created_date), 'MMM d, yyyy')}
-                      </td>
-                      <td className="px-5 py-3.5 text-sm font-semibold text-slate-800">{lead.name || '--'}</td>
-                      <td className="px-5 py-3.5 text-sm text-slate-600">{lead.email || '--'}</td>
-                      <td className="px-5 py-3.5 text-sm text-slate-500">{lead.phone || '--'}</td>
-                      <td className="px-5 py-3.5 text-sm text-slate-500">{lead.company || '--'}</td>
-                      <td className="px-5 py-3.5">
-                        <span className="text-sm font-bold text-slate-800">${(lead.quote_amount || 0).toLocaleString()}</span>
-                      </td>
-                    </tr>
-                  ))}
+                  {leadsList.map((lead: any, idx: number) => {
+                    const answerEntries: [string, unknown][] = isRecord(lead.answers) ? Object.entries(lead.answers) : [];
+                    const isExpanded = !!expandedLeads[lead.id];
+                    return (
+                      <Fragment key={lead.id}>
+                        <tr
+                          className={`transition-colors hover:bg-slate-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                          data-testid={`row-lead-${lead.id}`}
+                        >
+                          <td className="px-5 py-3.5 text-sm text-slate-400 whitespace-nowrap font-mono text-xs">
+                            {format(new Date(lead.created_date), 'MMM d, yyyy')}
+                          </td>
+                          <td className="px-5 py-3.5 text-sm font-semibold text-slate-800">{lead.name || '--'}</td>
+                          <td className="px-5 py-3.5 text-sm text-slate-600">{lead.email || '--'}</td>
+                          <td className="px-5 py-3.5 text-sm text-slate-500">{lead.phone || '--'}</td>
+                          <td className="px-5 py-3.5 text-sm text-slate-500">{lead.company || '--'}</td>
+                          <td className="px-5 py-3.5">
+                            <span className="text-sm font-bold text-slate-800">${(lead.quote_amount || 0).toLocaleString()}</span>
+                          </td>
+                          <td className="px-3 py-3.5 text-right">
+                            {answerEntries.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedLeads(prev => ({ ...prev, [lead.id]: !prev[lead.id] }))}
+                                aria-expanded={isExpanded}
+                                aria-label={isExpanded ? 'Hide answers' : 'Show answers'}
+                                title={isExpanded ? 'Hide answers' : 'Show answers'}
+                                className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                data-testid={`button-toggle-answers-${lead.id}`}
+                              >
+                                <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                        {isExpanded && answerEntries.length > 0 && (
+                          <tr className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
+                            <td colSpan={7} className="px-5 pb-4 pt-0">
+                              <div
+                                className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5 rounded-lg bg-slate-50 border border-slate-100 px-4 py-3"
+                                data-testid={`answers-lead-${lead.id}`}
+                              >
+                                {answerEntries.map(([key, val]) => (
+                                  <div key={key} className="min-w-0">
+                                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-0.5">{deslugify(key)}</div>
+                                    <div className="text-sm break-words"><AnswerValue value={val} /></div>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
