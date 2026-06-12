@@ -28,7 +28,7 @@ The "CURRENT EDITOR STATE (JSON)" block appended to this system prompt is the li
   - results      : { heading?, footnote? }
   - resultCalcId : string  (the calc id chosen as the headline)
   - style        : partial ShellStyle (real keys listed under RESTYLING below)
-  - settings     : { tradeId?, leadEmail?, pricing?, numberFormat?, ctaLabel?, language? }
+  - settings     : { tradeId?, leadEmail?, pricing?, numberFormat?, ctaLabel?, language?, origin? }
   - activeTemplateId?: string
   - logo?        : string | null  (data URL)
 
@@ -49,7 +49,12 @@ TOOLS — call by name, never invent new ones.
 - prefill_fields(values)                                      — { fieldId: number } map
 
 FORMULA LANGUAGE
-Calculations use [Field Label] tokens: e.g. "[Bedrooms] * 28 + [Bathrooms] * 22 + [Deep Clean]". Toggles contribute their on_value when on, selects contribute the option's value, numbers/sliders contribute their numeric value.
+Calculations use [Field Label] tokens: e.g. "[Bedrooms] * 28 + [Bathrooms] * 22 + [Deep Clean]". Toggles contribute their on_value when on, selects contribute the option's value, numbers/sliders contribute their numeric value. An address_distance field contributes the resolved distance in miles; a rate_matrix field contributes the selected lane's rate; photo_upload contributes nothing and NEVER appears in a formula.
+
+PRICING MODELS — distance / zones / photos
+- If the user prices by distance ("I charge $3/mile"), add ONE address_distance field labeled "Distance" and bake the rate into the formula as a constant ("[Distance] * 3"). If they state their business address, call set_settings with origin: { address: "..." } — NEVER invent an address; if none was given, add the field anyway and note the owner must set their Business location in Settings.
+- If they price by zone/lane pairs ("downtown $50, suburbs $80"), add a rate_matrix field and fill matrix from their stated zones/rates (row/col ids = slugified labels). Reference it in the formula as [<its label>].
+- If they need to see the job ("customers send photos of the junk pile"), add a photo_upload field — it never appears in formulas.
 
 IMAGE / SCREENSHOT INPUT
 When the user uploads a screenshot of a competitor's calculator, infer the structure (fields, calculations, header, layout) and emit ONE call to replace_template with a complete TemplateConfig. Do NOT also call add_field / set_header — replace_template handles all of it. Suggest a sensible result_calc and primary calculation.
@@ -111,7 +116,7 @@ export const QUOTEQUICK_AI_TOOLS = [
       properties: {
         type: {
           type: "string",
-          enum: ["number", "slider", "select", "radio", "multi_select", "toggle", "text", "image_choice", "heading"],
+          enum: ["number", "slider", "select", "radio", "multi_select", "toggle", "text", "image_choice", "heading", "address_distance", "rate_matrix", "photo_upload"],
           description: "Field type.",
         },
         label: { type: "string", description: "Display label (also used as the formula token)." },
@@ -132,6 +137,50 @@ export const QUOTEQUICK_AI_TOOLS = [
             },
             required: ["label", "value"],
           },
+        },
+        distanceUnit: {
+          type: "string",
+          enum: ["miles", "km"],
+          description: "address_distance only — display unit (default miles).",
+        },
+        roundTrip: {
+          type: "boolean",
+          description: "address_distance only — when true the contributed distance doubles (there-and-back pricing).",
+        },
+        matrix: {
+          type: "object",
+          description: "rate_matrix only — the rate table. row/col ids = slugified labels.",
+          properties: {
+            rowLabel: { type: "string", description: "Label over the row dropdown (e.g. \"Pickup zone\")." },
+            colLabel: { type: "string", description: "Label over the column dropdown (e.g. \"Drop-off zone\")." },
+            rows: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: { id: { type: "string" }, label: { type: "string" } },
+                required: ["id", "label"],
+              },
+            },
+            cols: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: { id: { type: "string" }, label: { type: "string" } },
+                required: ["id", "label"],
+              },
+            },
+            rates: {
+              type: "object",
+              description: "rates[rowId][colId] → lane rate in dollars. Omit a cell only when that pair is quoted individually.",
+            },
+          },
+          required: ["rowLabel", "colLabel", "rows", "cols", "rates"],
+        },
+        maxPhotos: {
+          type: "number",
+          minimum: 1,
+          maximum: 5,
+          description: "photo_upload only — max photos the customer can attach (default 3, clamped 1-5).",
         },
       },
       required: ["type", "label"],
@@ -260,11 +309,27 @@ export const QUOTEQUICK_AI_TOOLS = [
   },
   {
     name: "set_settings",
-    description: "Partial update to ShellSettings (trade / lead email / pricing / etc.).",
+    description: "Partial update to ShellSettings (trade / lead email / pricing / business origin address / etc.).",
     input_schema: {
       type: "object",
       properties: {
-        patch: { type: "object" },
+        patch: {
+          type: "object",
+          description: "Partial ShellSettings — set only the keys you want to change.",
+          properties: {
+            origin: {
+              type: "object",
+              description: "Business anchor address for address_distance fields. Only set when the user stated their address — NEVER invent one; the server geocodes it on save.",
+              properties: {
+                address: { type: "string", description: "The business address exactly as the user stated it." },
+              },
+              required: ["address"],
+            },
+          },
+          // Other valid ShellSettings keys (tradeId, leadEmail, pricing, …)
+          // still pass through — merged client-side.
+          additionalProperties: true,
+        },
       },
       required: ["patch"],
     },
