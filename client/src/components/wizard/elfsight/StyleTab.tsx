@@ -1047,15 +1047,15 @@ export default function StyleTab({
 
         {/* ── BD-2c — AI chat visibility subsection (Pro tier) ────────
          *
-         * Toggle between the new "stuck-customer rescue" default (bubble
-         * stays hidden until the user has progressed past step 2, idles for
-         * 30s on a single step, or explicitly clicks Help) and the legacy
-         * "always visible" behaviour. Research (BD-0): always-visible
-         * bubbles compete with the form — treating AI as a rescue surface
-         * lifts both form completion AND chat engagement.
+         * "Smart timing" (value 'rescue', default): bubble stays a "Need
+         * help?" pill until the user passes step 2, idles 30s, or clicks
+         * Help. "Always visible" (value 'always'): full chat button from
+         * page load. BD-0 research: always-on bubbles compete with the
+         * form; rescue lifts completion AND chat engagement.
          *
-         * Free-tier calculators always use 'rescue' (server-enforced via
-         * BRAND_STUDIO_STYLE_KEYS-style strip in calculatorRoutes).
+         * Enforcement is renderer-side: calculator.tsx forces free tier to
+         * 'rescue' and gates the bubble on an active AI Employee. (Wave 57
+         * cut the server BRAND_STUDIO_STYLE_KEYS strip to branding only.)
          */}
         <div
           data-testid="style-ai-chat-visibility"
@@ -1067,7 +1067,7 @@ export default function StyleTab({
               <InfoCue
                 testid="style-ai-chat-visibility-info"
                 region="chat-bubble"
-                text="Stuck-customer rescue (default) keeps the AI bubble hidden until the user has progressed past step 2, idles for 30s, or clicks Help. Always visible matches the legacy behaviour."
+                text="When should the AI chat assistant appear? Smart timing (recommended) keeps it out of the way as a small 'Need help?' pill and pops up only when a visitor seems stuck — idle for 30 seconds, deep into the form, or after tapping a help icon. Always visible puts the full chat button in the corner from page load. Smart timing gets more visitors to finish the form and use the chat."
               />
             </span>
           </label>
@@ -1076,7 +1076,7 @@ export default function StyleTab({
             testid="style-segmented-ai-chat-visibility"
             value={(style.aiChatVisibility as AiChatVisibility) ?? 'rescue'}
             options={[
-              { value: 'rescue', label: 'Stuck-customer rescue' },
+              { value: 'rescue', label: 'Smart timing' },
               { value: 'always', label: 'Always visible' },
             ]}
             onChange={(v) => {
@@ -1089,9 +1089,9 @@ export default function StyleTab({
               margin: '6px 0 0', lineHeight: 1.4,
             }}
           >
-            Recommended: Stuck-customer rescue. BD-0 research shows always-on
-            bubbles compete with the form — treating AI as a rescue surface
-            lifts both form completion AND chat engagement.
+            Shown on your published calculator when the AI assistant is
+            active. Free calculators always use Smart timing; paid plans can
+            choose Always visible.
           </p>
         </div>
         </div>
