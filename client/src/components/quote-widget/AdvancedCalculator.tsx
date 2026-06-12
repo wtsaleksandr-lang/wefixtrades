@@ -18,6 +18,7 @@ import {
   type AdvBgGradientDirection, type AdvResultEmphasis, type AdvResultBorder,
   type AdvStepTransition,
   type TemplateStep,
+  type TemplateRateMatrix,
   resolveTieredConfig,
   inlineElementStyleToCss,
   parseVideoEmbedSrc,
@@ -65,6 +66,17 @@ import TrustBlockUnderCTA from './TrustBlockUnderCTA';
 // Business-profile fields (license #) are folded into TrustBadgeRow.
 import TrustBadgeRow from './TrustBadgeRow';
 import WidgetSelect from './WidgetSelect';
+// PRICING-MODELS (U2) — the 3 computed-token field renderers. Each owns its
+// hooks (so FieldInput never calls hooks conditionally) and its answer-shape
+// type guard; the value plumbing below (defaultAnswer / rawFieldValue /
+// answerInvalid) consumes the guards.
+import DistanceField, {
+  isDistanceAnswer, MILES_TO_KM, type DistanceAnswer,
+} from './DistanceField';
+import MatrixField, {
+  isMatrixAnswer, resolveMatrixRate, type MatrixAnswer,
+} from './MatrixField';
+import PhotoUploadField, { isPhotoAnswer, type PhotoAnswer } from './PhotoUploadField';
 // BD-2c — image-card radio + ZIP peer-anchor + AI chat visibility gate.
 import ImageRadioStep from './ImageRadioStep';
 import PeerAnchorLine from './PeerAnchorLine';
@@ -299,6 +311,24 @@ interface AdvField {
   // See `TemplateField.contactRequire` in shared/templatePresets.ts. Echoed
   // onto AdvField so the renderer reads it straight off the persisted config.
   contactRequire?: Array<'name' | 'email' | 'message'>;
+  // PRICING-MODELS (U2) — config slots for the 3 computed-token types. See
+  // `TemplateField` in shared/templatePresets.ts (U0) for the authoring docs.
+  // Echoed onto AdvField so the renderer reads them off the persisted config.
+  /** address_distance — display/contribution unit ('miles' default | 'km'). */
+  distanceUnit?: 'miles' | 'km';
+  /** address_distance — double the contributed distance. */
+  roundTrip?: boolean;
+  /** address_distance — beyond this → "outside our service area" (lead still
+   *  captures; quote_amount nulls). Always in MILES. */
+  maxDistanceMiles?: number;
+  /** address_distance — manual "Distance in miles" fallback (default true). */
+  allowManualDistance?: boolean;
+  /** rate_matrix — the row × col rate table (rates resolve client-side). */
+  matrix?: TemplateRateMatrix;
+  /** photo_upload — max photos (default 3, clamped 1–5 at render time). */
+  maxPhotos?: number;
+  /** photo_upload — per-photo MB cap (default 8; server enforces too). */
+  maxPhotoMb?: number;
   /**
    * Wave 61 — per-element cosmetic style overrides. Authored via the
    * floating <InlineStyleToolbar /> in the wizard preview. The renderer
@@ -556,7 +586,12 @@ function gradientCss(
   }
 }
 
-type Answer = number | string | boolean | string[];
+// PRICING-MODELS (U2) — the 3 computed-token types persist OBJECT answers
+// (defined + type-guarded in their component files) that ride the lead's
+// `answers` jsonb untouched. Every other consumer (inferredZip, show_if
+// coercion, breakdown) already skips / string-coerces non-primitive values.
+type Answer = number | string | boolean | string[]
+  | DistanceAnswer | MatrixAnswer | PhotoAnswer;
 
 /** The default answer for a single field. */
 function defaultAnswer(f: AdvField): Answer {
@@ -564,6 +599,19 @@ function defaultAnswer(f: AdvField): Answer {
   if (f.type === 'toggle') return false;
   if (f.type === 'multi_select') return [];
   if (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice') return f.options?.[0]?.id ?? '';
+  // PRICING-MODELS (U2) — object answers start empty/unselected. A single-
+  // axis matrix (one row or one col) pins the trivial axis to its only id so
+  // the renderer can show just one dropdown and still resolve a cell.
+  if (f.type === 'address_distance') {
+    return { address: '', distanceMiles: null, status: 'idle' } satisfies DistanceAnswer;
+  }
+  if (f.type === 'rate_matrix') {
+    return {
+      rowId: f.matrix && f.matrix.rows.length === 1 ? f.matrix.rows[0].id : '',
+      colId: f.matrix && f.matrix.cols.length === 1 ? f.matrix.cols[0].id : '',
+    } satisfies MatrixAnswer;
+  }
+  if (f.type === 'photo_upload') return { photos: [] } satisfies PhotoAnswer;
   // COMPONENTS-1 — display-only fields (paragraph / divider / image) and
   // the heading field render JSX with no persisted customer value. An
   // empty string is the safest neutral so downstream consumers (formula
@@ -571,11 +619,55 @@ function defaultAnswer(f: AdvField): Answer {
   return '';
 }
 
-/** True when a stored answer is no longer valid for its field. */
-function answerInvalid(f: AdvField, value: Answer): boolean {
+/**
+ * True when a stored answer is STRUCTURALLY wrong for its field — the
+ * reset-worthy condition the `[fields]` sync effect acts on (replace with
+ * `defaultAnswer`). Covers: missing answers, select-family answers whose
+ * option id no longer exists, and (U2) object answers whose shape is
+ * malformed or whose matrix row/col ids went stale after a template swap.
+ */
+function answerMalformed(f: AdvField, value: Answer): boolean {
   if (value === undefined) return true;
   if (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice') {
     return !(f.options || []).some((o) => o.id === value);
+  }
+  // PRICING-MODELS (U2) — object-shape + stale-id checks. An IN-PROGRESS
+  // answer (row picked, col pending; address typed, lookup in flight) is NOT
+  // malformed — resetting it would clobber live customer input whenever the
+  // field list identity changes (every keystroke in the wizard editor).
+  if (f.type === 'address_distance') return !isDistanceAnswer(value);
+  if (f.type === 'rate_matrix') {
+    if (!isMatrixAnswer(value)) return true;
+    const m = f.matrix;
+    if (value.rowId && m && !m.rows.some((r) => r.id === value.rowId)) return true;
+    if (value.colId && m && !m.cols.some((col) => col.id === value.colId)) return true;
+    return false;
+  }
+  if (f.type === 'photo_upload') return !isPhotoAnswer(value);
+  return false;
+}
+
+/**
+ * True when a stored answer is no longer valid for its field. Superset of
+ * {@link answerMalformed}: for the U2 types it ALSO reports required-but-
+ * incomplete answers (distance needs a resolved or manual value, matrix
+ * needs both selections, photo needs ≥1 upload) so step/submit gating can
+ * consume one predicate. The reset effect deliberately uses
+ * `answerMalformed` instead — incomplete ≠ reset-worthy.
+ */
+export function answerInvalid(f: AdvField, value: Answer): boolean {
+  if (answerMalformed(f, value)) return true;
+  if (!f.required) return false;
+  if (f.type === 'address_distance') {
+    const a = value as DistanceAnswer;
+    return !(typeof a.distanceMiles === 'number' && isFinite(a.distanceMiles));
+  }
+  if (f.type === 'rate_matrix') {
+    const a = value as MatrixAnswer;
+    return !(a.rowId && a.colId);
+  }
+  if (f.type === 'photo_upload') {
+    return (value as PhotoAnswer).photos.length === 0;
   }
   return false;
 }
@@ -600,7 +692,30 @@ function rawFieldValue(f: AdvField, answers: Record<string, Answer>): FormulaCon
       // FIELD-PALETTE — video embed is content-only; never feeds the calc.
       || f.type === 'video'
       // WIZARD-GAPS — contact form is content-only; never feeds the calc.
-      || f.type === 'contact_form') return 0;
+      || f.type === 'contact_form'
+      // PRICING-MODELS (U2) — photos are answer-only (ride the lead's
+      // `answers` jsonb); they never feed the calc.
+      || f.type === 'photo_upload') return 0;
+  // PRICING-MODELS (U2) — address_distance contributes the resolved (or
+  // manual) distance in the field's DISPLAY unit so `[Distance]*3` means
+  // $3/mile or $3/km per the owner's setting; ×2 when roundTrip. Unresolved
+  // → 0 (neutral) so the total never NaNs mid-lookup.
+  if (f.type === 'address_distance') {
+    if (!isDistanceAnswer(v) || typeof v.distanceMiles !== 'number' || !isFinite(v.distanceMiles)) {
+      return 0;
+    }
+    const unitValue = f.distanceUnit === 'km' ? v.distanceMiles * MILES_TO_KM : v.distanceMiles;
+    return (f.roundTrip ? 2 : 1) * unitValue;
+  }
+  // PRICING-MODELS (U2) — rate_matrix contributes the client-resolved lane
+  // rate. Unselected OR missing cell → 0; the custom_quote missing-cell rule
+  // additionally nulls the lead's quote_amount (see quoteSuppressed below) —
+  // the formula itself always gets a finite number.
+  if (f.type === 'rate_matrix') {
+    if (!isMatrixAnswer(v)) return 0;
+    const rate = resolveMatrixRate(f.matrix, v);
+    return typeof rate === 'number' ? rate : 0;
+  }
   if (f.type === 'number' || f.type === 'slider') return Number(v) || 0;
   if (f.type === 'text') return String(v ?? '');
   if (f.type === 'toggle') return v ? (f.on_value ?? 1) : 0;
@@ -611,7 +726,9 @@ function rawFieldValue(f: AdvField, answers: Record<string, Answer>): FormulaCon
   return (f.options || []).filter((o) => ids.includes(o.id)).map((o) => o.value);
 }
 
-/** The value a hidden field contributes — neutral so formulas ignore it. */
+/** The value a hidden field contributes — neutral so formulas ignore it.
+ *  (U2: a `show_if`-hidden address_distance / rate_matrix lands in the
+ *  default 0 branch, so a hidden computed field contributes exactly 0.) */
 function emptyFieldValue(f: AdvField): FormulaContext[string] {
   return f.type === 'multi_select' ? [] : f.type === 'text' ? '' : 0;
 }
@@ -1718,13 +1835,15 @@ export default function AdvancedCalculator({
   // applied or fields edited in the builder. A field missing an answer (or
   // holding one no longer valid for its options, e.g. after switching
   // template) is reset to its default — otherwise sliders read "undefined"
-  // and totals stay at 0.
+  // and totals stay at 0. Uses `answerMalformed` (NOT `answerInvalid`):
+  // a required-but-incomplete U2 answer is live customer input, not a
+  // reset-worthy stale value.
   useEffect(() => {
     setAnswers((prev) => {
       let changed = false;
       const next: Record<string, Answer> = { ...prev };
       for (const f of fields) {
-        if (answerInvalid(f, next[f.name])) {
+        if (answerMalformed(f, next[f.name])) {
           next[f.name] = defaultAnswer(f);
           changed = true;
         }
@@ -1809,6 +1928,33 @@ export default function AdvancedCalculator({
   const selectedTierLabel = tieredConfig.enabled
     ? (tieredConfig.tiers[selectedTierIndex]?.label ?? tieredConfig.tiers[0]?.label ?? null)
     : null;
+
+  // PRICING-MODELS (U2) — the displayed total can be meaningless in two
+  // honest-quote situations:
+  //   1. address_distance resolved BEYOND `maxDistanceMiles` → "outside our
+  //      service area" (the field shows the note);
+  //   2. rate_matrix landed on a missing cell under the `custom_quote` rule
+  //      → "quoted individually".
+  // In both, the lead still captures (answers intact) but `quote_amount`
+  // goes NULL so the dashboard never shows a fabricated price. Applied to
+  // all three lead paths (inline CTA, LeadModal, ContactStep).
+  const quoteSuppressed = useMemo(() => fields.some((f) => {
+    if (!visibleIds.has(f.id)) return false;
+    if (f.type === 'address_distance') {
+      const a = answers[f.name];
+      return isDistanceAnswer(a)
+        && typeof a.distanceMiles === 'number' && isFinite(a.distanceMiles)
+        && typeof f.maxDistanceMiles === 'number' && f.maxDistanceMiles > 0
+        && a.distanceMiles > f.maxDistanceMiles;
+    }
+    if (f.type === 'rate_matrix') {
+      const a = answers[f.name];
+      return isMatrixAnswer(a)
+        && resolveMatrixRate(f.matrix, a) === null
+        && (f.matrix?.missingCell ?? 'custom_quote') === 'custom_quote';
+    }
+    return false;
+  }), [fields, visibleIds, answers]);
   const results = advanced.results || {};
   const showBreakdown = results.show_breakdown !== false;
   const resultHeading = (results.heading || '').trim() || resultCalc?.name || 'Total';
@@ -2903,6 +3049,9 @@ export default function AdvancedCalculator({
                        content component (POSTs to the same /api/leads as the CTA). */
                     calculatorId={analyticsCalcId}
                     onLeadSubmitted={trackSubmit}
+                    /* PRICING-MODELS (U2) — country hint for the
+                       address_distance Places autocomplete. */
+                    serviceArea={advanced.businessProfile?.serviceArea}
                   />
                 </div>
               ))}
@@ -2962,7 +3111,8 @@ export default function AdvancedCalculator({
                   ? `${selectedTierLabel} — ${formatted}`
                   : formatted;
               })()}
-              quoteAmount={typeof effectiveQuoteValue === 'number' ? effectiveQuoteValue : undefined}
+              quoteAmount={!quoteSuppressed && typeof effectiveQuoteValue === 'number'
+                ? effectiveQuoteValue : undefined}
               answers={answers as Record<string, unknown>}
               initialName={leadName}
               initialEmail={leadEmail}
@@ -3377,7 +3527,8 @@ export default function AdvancedCalculator({
                                 calculator_id: analyticsCalcId,
                                 name: leadName.trim(),
                                 email: leadEmail.trim(),
-                                quote_amount: typeof effectiveQuoteValue === 'number'
+                                quote_amount: !quoteSuppressed
+                                  && typeof effectiveQuoteValue === 'number'
                                   && Number.isFinite(effectiveQuoteValue)
                                   ? effectiveQuoteValue : null,
                                 answers: answers ?? null,
@@ -3605,7 +3756,8 @@ export default function AdvancedCalculator({
               name: lead.name,
               email: lead.email,
               phone: lead.phone || null,
-              quote_amount: typeof effectiveQuoteValue === 'number' && Number.isFinite(effectiveQuoteValue)
+              quote_amount: !quoteSuppressed
+                && typeof effectiveQuoteValue === 'number' && Number.isFinite(effectiveQuoteValue)
                 ? effectiveQuoteValue : null,
               answers: Object.keys(answers).length > 0 ? answers : null,
             }),
@@ -3925,7 +4077,7 @@ function ContactFormField({
   );
 }
 
-function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusPx, fieldStyle, fontFamily, labelLayout = 'float', calculatorId, onLeadSubmitted }: {
+function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusPx, fieldStyle, fontFamily, labelLayout = 'float', calculatorId, onLeadSubmitted, serviceArea }: {
   field: AdvField;
   value: Answer;
   accent: string;
@@ -3951,6 +4103,11 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   calculatorId?: number;
   /** WIZARD-GAPS — fired after a contact_form lead POST succeeds (→ trackSubmit). */
   onLeadSubmitted?: () => void;
+  /** PRICING-MODELS (U2) — business service-area hint plumbed from
+   *  `advanced.businessProfile.serviceArea`; the address_distance field's
+   *  Places autocomplete uses it for the country restriction (same as
+   *  ContactStep's address input). */
+  serviceArea?: string;
 }) {
   const f = field;
   const c = theme;
@@ -4291,6 +4448,83 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
         calculatorId={calculatorId}
         onLeadSubmitted={onLeadSubmitted}
       />
+    );
+  }
+
+  // PRICING-MODELS (U2) — the 3 computed-token field types. Each renders a
+  // dedicated component (their hooks live there, so FieldInput never calls
+  // hooks conditionally — same split as ContactFormField above). Value flow
+  // stays parent-owned: `answers[f.name]` in, `onChange(answer)` out.
+  if (f.type === 'address_distance') {
+    const dv: DistanceAnswer = isDistanceAnswer(value)
+      ? value : { address: '', distanceMiles: null, status: 'idle' };
+    const control = (
+      <DistanceField
+        label={f.label}
+        theme={c}
+        accent={accent}
+        fontFamily={fontFamily}
+        radiusPx={radiusPx}
+        value={dv}
+        onChange={onChange}
+        calculatorId={calculatorId}
+        fieldId={f.id}
+        distanceUnit={f.distanceUnit}
+        roundTrip={f.roundTrip === true}
+        maxDistanceMiles={f.maxDistanceMiles}
+        allowManualDistance={f.allowManualDistance !== false}
+        serviceArea={serviceArea}
+      />
+    );
+    // Title-in-field everywhere — the address input floats `f.label` itself.
+    // Stacked mode only appends the help line (no duplicate outer title).
+    if (stacked) return wrapStacked(control, '');
+    return control;
+  }
+
+  if (f.type === 'rate_matrix') {
+    const mv: MatrixAnswer = isMatrixAnswer(value) ? value : { rowId: '', colId: '' };
+    return (
+      <div>
+        <MatrixField
+          label={f.label}
+          labelStyle={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}
+          matrix={f.matrix}
+          value={mv}
+          onChange={onChange}
+          theme={c}
+          inputBase={inputBase}
+          radiusPx={radiusPx}
+          fontFamily={fontFamily}
+          labelColor={floatedLabelColor}
+          labelLayout={labelLayout}
+          fieldId={f.id}
+        />
+        {stackedHelp}
+      </div>
+    );
+  }
+
+  if (f.type === 'photo_upload') {
+    const pv: PhotoAnswer = isPhotoAnswer(value) ? value : { photos: [] };
+    return (
+      <div>
+        <PhotoUploadField
+          label={f.label}
+          labelStyle={stacked ? stackedLabelStyle : groupHeaderStyle(c, bodyIsDark, groupLabelColor)}
+          theme={c}
+          accent={accent}
+          fontFamily={fontFamily}
+          radiusPx={radiusPx}
+          value={pv}
+          onChange={onChange}
+          calculatorId={calculatorId}
+          fieldId={f.id}
+          maxPhotos={f.maxPhotos}
+          maxPhotoMb={f.maxPhotoMb}
+        />
+        {stackedHelp}
+      </div>
     );
   }
 
