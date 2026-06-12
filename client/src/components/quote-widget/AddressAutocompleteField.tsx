@@ -61,6 +61,12 @@ interface Props {
   testId?: string;
   /** Optional autocomplete attribute (defaults to "street-address"). */
   autoComplete?: string;
+  /**
+   * PRICING-MODELS (U2) — floated title-in-field label. Defaults to the
+   * legacy "Service address" so the ContactStep call site is unchanged;
+   * the `address_distance` field passes its owner-edited field title.
+   */
+  label?: string;
 }
 
 /* ─── Script loader (singleton) ────────────────────────────────────
@@ -139,6 +145,7 @@ export default function AddressAutocompleteField({
   theme, fontFamily, radiusPx = '10px',
   value, onChange, onSelect,
   serviceArea, testId, autoComplete = 'street-address',
+  label = 'Service address',
 }: Props) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -227,7 +234,7 @@ export default function AddressAutocompleteField({
         style={inputStyle}
         placeholder=" "
       />
-      <label htmlFor={inputId} style={labelStyle}>Service address</label>
+      <label htmlFor={inputId} style={labelStyle}>{label}</label>
     </div>
   );
 }
