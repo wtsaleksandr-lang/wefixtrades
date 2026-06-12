@@ -447,42 +447,75 @@ export default function WizardShell({ embed = false }: Props) {
   // Wrap setState so that every USER-INITIATED mutation pushes the previous
   // snapshot onto the undo stack and clears the redo stack (the classic
   // editor undo/redo semantics — new edit invalidates redo history).
+  // fix/wizard-same-tick-state-clobber (2026-06-12) — this wrapper previously
+  // computed `next` OUTSIDE React from `latestStateRef.current` (which is only
+  // refreshed on render) and committed it via setStateInner(next) as a PLAIN
+  // OBJECT. Two wrapper calls in the same synchronous tick therefore both
+  // computed from the SAME stale snapshot, and the second silently overwrote
+  // the first (live repro: the AI applier's setBusinessName(...) followed by
+  // replaceTemplate(...) in one tick lost the business name). Every commit now
+  // flows through the FUNCTIONAL form of setStateInner, so call 2 composes on
+  // call 1's queued result. History bookkeeping moved INSIDE the updater (the
+  // only place the true `prev` exists); the `committed` closure latch makes it
+  // run exactly once per wrapper call, so StrictMode's double-invocation of
+  // the updater can't double-push history. Note same-tick pairs land within
+  // COALESCE_MS, so they collapse into ONE undo entry (one Ctrl+Z restores the
+  // pre-pair state) — consistent with the typing-burst coalescing semantics.
   const setState = useCallback<typeof setStateInner>((updater) => {
     if (isReplayingRef.current) {
       // Replay path — don't touch the history stacks.
       setStateInner(updater);
       return;
     }
-    // Compute `prev` and `next` HERE (outside the state updater) from the
-    // committed `state` snapshot held in the latest-state ref. User edits are
-    // one-at-a-time, so `prev` is the value being replaced. The updater passed
-    // to setStateInner stays PURE — it never writes refs — and the history
-    // push + counter update run synchronously here, never during render.
-    const prev = latestStateRef.current;
-    const next = typeof updater === 'function'
-      ? (updater as (s: ShellState) => ShellState)(prev)
-      : updater;
-    if (next === prev) return;
-    setStateInner(next);
-    const stack = undoStackRef.current;
-    // Coalesce rapid consecutive edits (typing) into a single undo entry. If
-    // the previous edit landed < COALESCE_MS ago AND there's already a snapshot
-    // on the stack to undo back to, skip pushing a new entry — the pre-burst
-    // snapshot already on top stays the undo target. We STILL clear redo and
-    // refresh the counter (redo length may have changed). Otherwise push as
-    // normal (idle gap ≥ COALESCE_MS, or empty stack).
-    const now = Date.now();
-    const coalesce = now - lastPushTsRef.current < COALESCE_MS && stack.length > 0;
-    lastPushTsRef.current = now;
-    if (!coalesce) {
-      stack.push(prev);
-      if (stack.length > HISTORY_LIMIT) stack.shift();
-    }
-    redoStackRef.current = [];
-    setHistLen({ u: stack.length, r: 0 });
+    // Per-call idempotency latch. React may invoke the updater below more
+    // than once for this single dispatch (StrictMode double-invocation, or an
+    // eager evaluation followed by a render-pass replay). The state math is
+    // pure and safe to re-run; the history mutation must happen exactly once.
+    let committed = false;
+    setStateInner((prev) => {
+      const next = typeof updater === 'function'
+        ? (updater as (s: ShellState) => ShellState)(prev)
+        : updater;
+      if (next === prev) return prev;
+      // Keep the ref mirroring the freshest dispatched state so undo/redo
+      // (which read it synchronously, possibly in this same tick) never
+      // snapshot a stale value. Re-confirmed by the render-time sync above.
+      latestStateRef.current = next;
+      if (!committed) {
+        committed = true;
+        const stack = undoStackRef.current;
+        // Coalesce rapid consecutive edits (typing) into a single undo entry.
+        // If the previous edit landed < COALESCE_MS ago AND there's already a
+        // snapshot on the stack to undo back to, skip pushing a new entry —
+        // the pre-burst snapshot already on top stays the undo target. We
+        // STILL clear redo (redo length may have changed). Otherwise push as
+        // normal (idle gap ≥ COALESCE_MS, or empty stack).
+        const now = Date.now();
+        const coalesce = now - lastPushTsRef.current < COALESCE_MS && stack.length > 0;
+        lastPushTsRef.current = now;
+        if (!coalesce) {
+          stack.push(prev);
+          if (stack.length > HISTORY_LIMIT) stack.shift();
+        }
+        redoStackRef.current = [];
+      }
+      return next;
+    });
+    // Mirror the stack lengths into render state. Functional form: this
+    // update is queued in the same batch as the state update above, and React
+    // processes the `state` hook's queue (declared earlier) before this one,
+    // so the lengths read here are always post-mutation. Returning the same
+    // object when nothing changed lets React bail out of a redundant
+    // re-render when the wrapped update was a no-op (next === prev).
+    setHistLen((h) => {
+      const u = undoStackRef.current.length;
+      const r = redoStackRef.current.length;
+      return (h.u === u && h.r === r) ? h : { u, r };
+    });
     // BD-3d Feature 2 — broadcast every user-initiated patch so the AI
     // chat bubble can detect "5+ rapid edits without saving" (rapid-edit
-    // signal → proactive nudge).
+    // signal → proactive nudge). Fired once per wrapper call; a no-op update
+    // can now also fire it, which is acceptable for a heuristic nudge signal.
     if (typeof window !== 'undefined') {
       try { window.dispatchEvent(new CustomEvent('quotequick:wizard-patch')); } catch { /* ignore */ }
     }
@@ -500,6 +533,10 @@ export default function WizardShell({ embed = false }: Props) {
     if (redoStackRef.current.length > HISTORY_LIMIT) redoStackRef.current.shift();
     isReplayingRef.current = true;
     setStateInner(prev);
+    // Keep the ref on the freshest dispatched state (same invariant the
+    // setState wrapper maintains) so a same-tick follow-up undo/redo/edit
+    // never snapshots the pre-replay value.
+    latestStateRef.current = prev;
     setHistLen({ u: undoStackRef.current.length, r: redoStackRef.current.length });
     queueMicrotask(() => {
       isReplayingRef.current = false;
@@ -515,6 +552,8 @@ export default function WizardShell({ embed = false }: Props) {
     if (undoStackRef.current.length > HISTORY_LIMIT) undoStackRef.current.shift();
     isReplayingRef.current = true;
     setStateInner(next);
+    // Same invariant as in undo() above.
+    latestStateRef.current = next;
     setHistLen({ u: undoStackRef.current.length, r: redoStackRef.current.length });
     queueMicrotask(() => {
       isReplayingRef.current = false;
