@@ -66,6 +66,8 @@ jobs:
         run: npm run check:contentflow-intake
       - name: SEO engine foundation guard (published-only visibility, Article JSON-LD author entity, sitemap real-lastmod, flag + kill-switch gate, deliberate-failure fixture)
         run: npm run check:seo-engine
+      - name: SEO OriginalDataService guard (aggregation math, k-anonymity/anti-thin gate below MIN_SAMPLE, no-PII output shape, deliberate-failure fixture)
+        run: npm run check:seo-original-data
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations

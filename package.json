@@ -52,6 +52,7 @@
     "check:contentflow-video-routes": "tsx server/routes/portal/contentflowVideo.routes.test.ts",
     "check:contentflow-intake": "tsx server/services/contentflow/intakeSufficiency.test.ts",
     "check:seo-engine": "tsx shared/seoContentPage.test.ts",
+    "check:seo-original-data": "tsx server/services/seoContent/originalDataService.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",
