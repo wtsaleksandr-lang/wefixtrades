@@ -193,7 +193,6 @@ export async function sendIncompleteSignupEmail(
     subject,
     html,
     text,
-    category: "marketing",
   });
   return true;
 }
