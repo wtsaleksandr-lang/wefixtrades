@@ -91,16 +91,14 @@ const PANE_WIDTH_MIN = 320;
 const PANE_WIDTH_MAX = 640;
 const PANE_WIDTH_DEFAULT = 420;
 
-function readPrefersDark(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; }
-}
 function loadEditorTheme(): EditorTheme {
   try {
     const raw = localStorage.getItem(EDITOR_THEME_KEY);
     if (raw === 'light' || raw === 'dark') return raw;
   } catch {}
-  return readPrefersDark() ? 'dark' : 'light';
+  // No saved choice → default to light (bright). The toggle still persists a
+  // user's pick to EDITOR_THEME_KEY, so a switch to dark sticks across reloads.
+  return 'light';
 }
 
 function seedFields(layout: ShellState['layout']): TemplateField[] {
