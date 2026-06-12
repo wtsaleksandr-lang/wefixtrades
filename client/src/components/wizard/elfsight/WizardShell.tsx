@@ -936,6 +936,13 @@ export default function WizardShell({ embed = false }: Props) {
         // Undefined when the template ships no badges (renderer hides the
         // row in that case anyway).
         trustBadges: preset.trustBadges ? preset.trustBadges.map((b) => ({ ...b })) : undefined,
+        // AI-gen quality (gap 4) — carry the template's niche default icon
+        // into shell state so the preview + save path surface it as
+        // `advanced.defaultIcon` (renderer falls back to it when no logo
+        // is uploaded). Undefined when the template ships none — clears a
+        // stale icon from a previously-applied template, same as
+        // trustBadges above.
+        defaultIcon: preset.defaultIcon,
         // BG-7 Item 4 — seed step content from the template's explicit
         // `steps[]`. Undefined when the template lets the renderer
         // auto-derive — owners must define steps before adding
@@ -1347,6 +1354,7 @@ export default function WizardShell({ embed = false }: Props) {
         stepLayout: state.stepLayout,
         tiered: state.tiered,
         trustBadges: state.trustBadges,
+        defaultIcon: state.defaultIcon,
         steps: state.steps,
         category: state.activeTemplateId
           ? getTemplatePreset(state.activeTemplateId)?.category
@@ -2199,6 +2207,9 @@ export default function WizardShell({ embed = false }: Props) {
                   /* BG-7 Item 1 — owner-edited trust badges. Seeded from
                      the template on apply; live edits flow through. */
                   trustBadges={state.trustBadges}
+                  /* AI-gen quality (gap 4) — niche default icon; renders in
+                     the preview header when no logo is uploaded. */
+                  defaultIcon={state.defaultIcon}
                   /* BG-7 Item 4 — owner-edited step descriptions. */
                   steps={state.steps}
                   category={
@@ -2378,6 +2389,9 @@ export default function WizardShell({ embed = false }: Props) {
               setStyle={setStyle}
               setSettings={setSettings}
               setLogo={setLogo}
+              /* AI-gen quality (gap 1) — lets the replace_template applier
+                 honour the optional `business_name` param. */
+              setBusinessName={setBusinessName}
               applyTemplatePreset={applyTemplatePreset}
               /* AI "build / replace my calculator" is an explicit structural
                  action — force the full replace past the theme-switch guard. */

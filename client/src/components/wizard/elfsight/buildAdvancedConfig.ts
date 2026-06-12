@@ -57,6 +57,9 @@ export interface BuildAdvancedConfigInput {
   stepLayout?: 'stepper' | 'single';
   tiered?: TemplateTiered;
   trustBadges?: readonly TrustBadge[];
+  /** AI-gen quality (gap 4) — niche default icon (QUOTEQUICK_ICONS key);
+   *  rendered by AdvancedCalculator's header when no logo is uploaded. */
+  defaultIcon?: string;
   steps?: TemplateStep[];
   category?: string;
   /**
@@ -89,8 +92,8 @@ export function buildAdvancedConfig(
 ): AdvancedConfigShape {
   const {
     layout, businessName, fields, calculations, header, results,
-    resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps,
-    category, forSave,
+    resultCalcId, style, settings, stepLayout, tiered, trustBadges,
+    defaultIcon, steps, category, forSave,
   } = input;
 
   const advanced = buildBlankPreviewConfig(layout, businessName);
@@ -146,6 +149,9 @@ export function buildAdvancedConfig(
   }
   if (trustBadges) {
     merged = { ...merged, trustBadges };
+  }
+  if (defaultIcon) {
+    merged = { ...merged, defaultIcon };
   }
   if (steps && steps.length > 0) {
     merged = { ...merged, steps };

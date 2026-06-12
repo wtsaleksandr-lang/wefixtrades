@@ -114,6 +114,12 @@ interface Props {
    */
   trustBadges?: readonly import('@shared/templatePresets').TrustBadge[];
   /**
+   * AI-gen quality (gap 4) — niche default icon (QUOTEQUICK_ICONS key).
+   * Threads into the preview's `advanced.defaultIcon` so the header shows
+   * the icon live (uploaded logo always wins). Forwarded from WizardShell.
+   */
+  defaultIcon?: string;
+  /**
    * BG-7 Item 4 — owner-edited step content. Forwards into the preview
    * as `advanced.steps` so per-step descriptions render live as the
    * owner types them in the BuildTab StepContentPanel.
@@ -518,7 +524,7 @@ function WizardPinchZoom({
 export default function PreviewPane({
   businessName, onBusinessNameChange, onHeaderTitleChange, onCommitTitle,
   onHeaderSubtitleChange, onResultsTextChange, logo, layout, device, fields, calculations,
-  header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category,
+  header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, defaultIcon, steps, category,
   onRemoveField, onAddField, onUpdateField, onPreviewSpotEdit,
   hostedFrame = false,
   sessionId = 'draft',
@@ -1875,8 +1881,8 @@ export default function PreviewPane({
     // marker (preview behaviour is untouched).
     const merged = buildAdvancedConfig({
       layout, businessName, fields, calculations, header, results,
-      resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps,
-      category,
+      resultCalcId, style, settings, stepLayout, tiered, trustBadges,
+      defaultIcon, steps, category,
     });
     return {
       id: -1,
@@ -1892,7 +1898,7 @@ export default function PreviewPane({
         advanced: merged,
       },
     } as CalculatorData;
-  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category]);
+  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, defaultIcon, steps, category]);
 
   // Droppable wrapper for item (b) — drag from AddFieldMenu onto the preview
   // bezel. `data.kind: 'preview-append'` so WizardShell's onDragEnd appends.
